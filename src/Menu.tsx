@@ -37,11 +37,12 @@ export function MenuListItems() {
 }
 
 export interface HelpListItemsProps {
-    onClick: () => void
+    onClickAbout: () => void
+    onClickHelp: () => void
 }
 
 export function HelpListItems(props: HelpListItemsProps) {
-    const { onClick, ...other } = props
+    const { onClickAbout, onClickHelp, ...other } = props
 
     return (
         <React.Fragment>
@@ -51,11 +52,17 @@ export function HelpListItems(props: HelpListItemsProps) {
                 </ListItemIcon>
                 <ListItemText primary="Documentation" />
             </ListItem> */}
-            <ListItem button={true}>
+            <ListItem button={true} onClick={onClickAbout}>
                 <ListItemIcon>
                     <InfoIcon />
                 </ListItemIcon>
-                <ListItemText primary="About" onClick={onClick} />
+                <ListItemText primary="About" />
+            </ListItem>
+            <ListItem button={true} onClick={onClickHelp}>
+                <ListItemIcon>
+                    <LibraryBooksIcon />
+                </ListItemIcon>
+                <ListItemText primary="Help" />
             </ListItem>
         </React.Fragment>
     )

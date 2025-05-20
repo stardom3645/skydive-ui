@@ -1625,9 +1625,9 @@ export class Topology extends React.Component<Props, {}> {
             .attr("style", "")
         var element = text.node()
         if (element) {
-            text
-                .attr("dy", (d.bb.height - element.getComputedTextLength()) / 2)
-                .attr("style", "writing-mode: tb; glyph-orientation-vertical: 0")
+            const bbox = (element as SVGTextElement).getBBox()
+            const centerY = d.bb.height / 2 + bbox.height / 4  // 텍스트 높이 반영해 정확히 가운데
+            text.attr("y", centerY)
         }
         label.transition()
             .duration(animDuration)
@@ -1673,6 +1673,7 @@ export class Topology extends React.Component<Props, {}> {
 
     private renderLevels() {
         var self = this
+        const lang = localStorage.getItem("language") || "ko";
 
         if (this.invalidated) {
             this.updateLevelRects(this.levelNodes())
@@ -1687,8 +1688,8 @@ export class Topology extends React.Component<Props, {}> {
             .style("opacity", 0)
             .attr("transform", (d: LevelRect) => `translate(${-self.absTransformX},${d.bb.y})`)
         levelLabelEnter.append("rect")
-            .attr("width", 40)
-            .attr("height", (d: LevelRect) => d.bb.height)
+            .attr("width", lang === "en" ? 410 : 300)
+            .attr("height", (d: LevelRect) => d.bb.height);
         levelLabelEnter.append("text")
             .attr("font-size", 26)
             .attr("dx", 18)

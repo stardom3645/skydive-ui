@@ -28,6 +28,9 @@ import DeleteIcon from '@material-ui/icons/Delete'
 
 import { Column, Graph } from './StdDataNormalizer'
 import './StdDataViewer.css'
+import { translate } from "./Config"
+import Popover from '@material-ui/core/Popover';
+import HelpOutlineIcon from '@material-ui/icons/HelpOutline';
 
 interface Props {
     title?: string
@@ -41,6 +44,7 @@ interface Props {
     deletable?: boolean
     onDelete?: (data: Array<Map<string, any>>) => void
     customRenders?: Map<string, (value: any) => any>
+    helpTooltipText?: string
 }
 
 interface State {
@@ -104,11 +108,18 @@ export class DataViewer extends React.Component<Props, State> {
             download: false,
             customToolbar: () => {
                 return (
-                    <Tooltip title="Apply default filters" aria-label="Apply default filters">
-                        <IconButton onClick={this.resetFilter.bind(this)}>
-                            <FilterNoneIcon />
-                        </IconButton>
-                    </Tooltip>
+                    <React.Fragment>
+                        <Tooltip title="Apply default filters" aria-label="Apply default filters">
+                            <IconButton onClick={this.resetFilter.bind(this)}>
+                                <FilterNoneIcon />
+                            </IconButton>
+                        </Tooltip>
+                        <Tooltip title={this.props.helpTooltipText || "No help available"}>
+                            <IconButton>
+                                <HelpOutlineIcon />
+                            </IconButton>
+                        </Tooltip>
+                    </React.Fragment>
                 )
             },
             rowsSelected: this.state.rowsSelected,
@@ -225,24 +236,29 @@ export class DataViewer extends React.Component<Props, State> {
         }
         this.applyDefaultColumns = false
 
+        const translatedData = this.props.data.map((row: any[]) => {
+            return row.map((cell, index) => index === 0 ? translate(cell) : cell);
+        });
+
+        const translatedColumns = this.props.columns.map(c => ({
+            ...c,
+            label: translate(c.name)
+        }))
+
         return (
             <React.Fragment>
                 <MUIDataTable
                     title={this.props.title}
-                    data={this.props.data}
-                    columns={this.props.columns}
+                    data={translatedData}
+                    columns={translatedColumns}
                     options={options} />
-                {
-                    this.state.graph &&
+                { this.state.graph && 
                     <Chart
                         height={300}
                         chartType={this.state.graph.type}
                         loader={<div>Loading Chart</div>}
                         data={this.state.graph.data}
-                        options={{
-                            chart: {
-                            },
-                        }}
+                        options={{ chart: {} }}
                     />
                 }
             </React.Fragment>

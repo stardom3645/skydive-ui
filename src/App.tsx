@@ -81,12 +81,20 @@ import GremlinPanel from './DataPanels/Gremlin'
 import CapturePanel from './DataPanels/Capture'
 import FlowPanel from './DataPanels/Flow'
 import AboutDialog from './About'
+import HelpDialog from './Help'
 import TimetravelPanel from './TimetravelPanel'
+
+import ListItem from '@material-ui/core/ListItem'
+import LanguageToggle from './LanguageToggle'
 
 const packageJson = require('../package.json')
 
 import './App.css'
 import ConfigReducer, { Filter } from './Config'
+
+import { translate } from "./Config"
+
+export let currentLanguage: "en" | "ko" = "ko";
 
 // expose app ouside
 declare global {
@@ -145,8 +153,10 @@ interface State {
   addFilterOpened: boolean
   addFilterValue: AddFilterValue
   isAboutOpen: boolean
+  isHelpOpen: boolean
   appVersion: string
   timeContext: Date | null
+  language: "en" | "ko"
 }
 
 class App extends React.Component<Props, State> {
@@ -191,8 +201,10 @@ class App extends React.Component<Props, State> {
       addFilterOpened: false,
       addFilterValue: { label: "", gremlinFilter: "" },
       isAboutOpen: false,
+      isHelpOpen: false,
       appVersion: "",
-      timeContext: null
+      timeContext: null,
+      language: "ko"
     }
 
     this.synced = false
@@ -214,6 +226,14 @@ class App extends React.Component<Props, State> {
     this.filters = new Map<string, Filter>()
 
     this.customFilters = new Array<Filter>()
+  }
+
+  setLanguage(lang: "en" | "ko") {
+    this.setState({ language: lang });
+  }
+  toggleLanguage() {
+    const newLang = this.state.language === 'en' ? 'ko' : 'en';
+    this.setLanguage(newLang);
   }
 
   componentDidMount() {
@@ -1068,7 +1088,7 @@ class App extends React.Component<Props, State> {
           <Container className={classes.linkTagsPanel}>
             <Paper className={classes.linkTagsPanelPaper}>
               <Typography component="h6" color="primary" gutterBottom>
-                Link types
+                {translate("networkLinkLayer")}
               </Typography>
               <FormGroup>
                 {Array.from(this.state.linkTagStates.keys()).map((key) => (
@@ -1077,7 +1097,7 @@ class App extends React.Component<Props, State> {
                       checked={this.state.linkTagStates.get(key) === LinkTagState.Visible}
                       indeterminate={this.state.linkTagStates.get(key) === LinkTagState.EventBased} />
                   }
-                    label={key} />
+                    label={translate(key)} />
                 ))}
               </FormGroup>
             </Paper>
@@ -1210,6 +1230,17 @@ class App extends React.Component<Props, State> {
     this.setState(this.state)
   }
 
+  closeHelpDialog() {
+    this.state.isHelpOpen = false
+    this.setState(this.state)
+  }
+
+  openHelpDialog() {
+    this.state.isNavOpen = false
+    this.state.isHelpOpen = true
+    this.setState(this.state)
+  }
+
   onNavigate(date: Date) {
     this.state.isTimetravelOpen = false
     this.state.timeContext = date
@@ -1220,12 +1251,11 @@ class App extends React.Component<Props, State> {
 
   render() {
     const { classes } = this.props
-
     return (
-      <div className={classes.app}>
-        <CssBaseline />
-        {this.connection()}
-        <AppBar position="absolute" className={clsx(classes.appBar, this.state.isNavOpen && classes.appBarShift)}>
+        <div className={classes.app}>
+          <CssBaseline />
+          {this.connection()}
+          <AppBar position="absolute" className={clsx(classes.appBar, this.state.isNavOpen && classes.appBarShift)}>
           <Toolbar className={classes.toolbar}>
             <IconButton
               edge="start"
@@ -1242,7 +1272,7 @@ class App extends React.Component<Props, State> {
               <Typography className={classes.subTitle} variant="caption">{this.config.subTitle()}</Typography>
             }
             <div className={classes.search}>
-              <AutoCompleteInput placeholder="metadata value" suggestions={this.state.suggestions} onChange={this.onSearchChange.bind(this)} />
+              <AutoCompleteInput placeholder={translate("searchNodeByNameExample")}  suggestions={this.state.suggestions} onChange={this.onSearchChange.bind(this)} />
             </div>
             <div className={classes.grow} />
             {this.renderMenuButtons(classes)}
@@ -1261,11 +1291,18 @@ class App extends React.Component<Props, State> {
           </div>
           <Divider />
           <List><MenuListItems /></List>
-          {/* <Divider /> */}
-          <List><HelpListItems onClick={this.openAboutDialog.bind(this)} /></List>
+          <List>
+            <ListItem>
+              <LanguageToggle />
+            </ListItem>
+          </List>
+          <Divider />
+          <List><HelpListItems onClickAbout={this.openAboutDialog.bind(this)} onClickHelp={this.openHelpDialog.bind(this)} /></List>
         </Drawer>
         <AboutDialog open={this.state.isAboutOpen} onClose={this.closeAboutDialog.bind(this)}
           appName="ABLESTACK NETDIVE" appVersion="1.00" uiVersion="1.00"/>
+        <HelpDialog open={this.state.isHelpOpen} onClose={this.closeHelpDialog.bind(this)}
+        />
         <main className={classes.content}>
           <Container maxWidth="xl" className={classes.container}>
             <Topology className={classes.topology} ref={node => this.tc = node}

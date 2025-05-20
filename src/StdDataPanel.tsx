@@ -46,6 +46,7 @@ interface Props {
     deletable?: boolean
     onDelete?: (data: Array<Map<string, any>>) => void
     customRenders?: Map<string, (value: any) => any>
+    helpTooltipText?: string
 }
 
 interface State {
@@ -145,7 +146,7 @@ class DataPanel extends React.Component<Props, State> {
             details = <DataViewer columns={this.state.result.columns} data={this.state.result.rows} filterKeys={this.state.filterKeys}
                 graph={this.state.result.graph} details={this.state.result.details} onFilterReset={this.onFilterReset.bind(this)}
                 defaultColumns={this.props.defaultColumns} deletable={this.props.deletable} onDelete={this.props.onDelete}
-                customRenders={this.props.customRenders} />
+                customRenders={this.props.customRenders} helpTooltipText={this.props.helpTooltipText}/>
         }
 
                 return (

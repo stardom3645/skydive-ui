@@ -193,7 +193,7 @@ class SelectionPanel extends React.Component<Props, State> {
                   <DataPanel key={"dataviewer-" + el.id + "-" + suffix} title={title} revision={this.props.revision}
                     defaultExpanded={entry.expanded} data={data} exclude={exclude} sortKeys={sortKeys} filterKeys={filterKeys}
                     normalizer={entry.normalizer} graph={entry.graph} icon={entry.icon} iconClass={entry.iconClass}
-                    deletable={entry.deletable} customRenders={entry.customRenders} onDelete={entry.onDelete} />
+                    deletable={entry.deletable} customRenders={entry.customRenders} onDelete={entry.onDelete} helpTooltipText={entry.helpTooltipText}/>
                 )
               }
             })

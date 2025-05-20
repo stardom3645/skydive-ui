@@ -39,6 +39,8 @@ import { styles } from './CaptureFormStyles'
 import { AppState, session } from '../Store'
 import { connect } from 'react-redux'
 
+import { translate } from "../Config"
+
 interface Props {
     classes: any
     defaultName: string
@@ -50,6 +52,8 @@ interface State {
     name: string
     description: string
     bpf: string
+    captureType: string
+    layerKey: string 
 }
 
 class CaptureForm extends React.Component<Props, State> {
@@ -62,8 +66,18 @@ class CaptureForm extends React.Component<Props, State> {
         this.state = {
             name: "",
             description: "",
-            bpf: ""
+            bpf: "",
+            captureType: "",
+            layerKey: ""
         }
+    }
+
+    handleCaptureTypeChange = (event) => {
+        this.setState({ captureType: event.target.value });
+    }
+
+    handleLayerKeyChange = (event) => {
+        this.setState({ layerKey: event.target.value });
     }
 
     onClick() {
@@ -79,25 +93,25 @@ class CaptureForm extends React.Component<Props, State> {
         const { classes } = this.props
 
         return (
-            <Panel icon={<VideocamIcon />} title="Packet capture" content={
+            <Panel icon={<VideocamIcon />} title={translate("Packet capture")} content={
                 <React.Fragment>
                     <TextField
                         className={classes.textField}
-                        label="Name"
+                        label={translate("Name")}
                         margin="normal"
                         fullWidth
                         value={this.props.defaultName}
                     />
                     <TextField
                         className={classes.textField}
-                        label="Description"
+                        label={translate("Description")}
                         margin="normal"
                         multiline
                         fullWidth
                     />
                     <TextField
                         className={classes.textField}
-                        label="Filter (BPF)"
+                        label={translate("Filter (BPF)")}
                         margin="normal"
                         fullWidth
                     />
@@ -108,41 +122,45 @@ class CaptureForm extends React.Component<Props, State> {
                             id="panel1a-header"
                             className={classes.advancedSummary}
                         >
-                            <Typography className={classes.heading}>Advanced options</Typography>
+                            <Typography className={classes.heading}>{translate("Advanced options")}</Typography>
                         </AccordionSummary>
                         <AccordionDetails>
-                            <FormControl className={classes.control}>
+                            <FormControl className={classes.control} variant="outlined" fullWidth>
                                 <InputLabel id="capture-type-label"
-                                    className={classes.selectField}>Capture Type</InputLabel>
+                                    className={classes.selectField}>{translate("Capture Type")}</InputLabel>
                                 <Select
                                     id="capture-type"
-                                    value="Default"
+                                    value={this.state.captureType}
+                                    onChange={this.handleCaptureTypeChange}
                                     labelId="capture-type-label"
+                                    label={translate("Capture Type")}
                                 >
-                                    <MenuItem>Default</MenuItem>
-                                    <MenuItem>PCAP (Packet Capture library based probe)</MenuItem>
-                                    <MenuItem>AFPacket (MMap'd AF_PACKET socket reading)</MenuItem>
-                                    <MenuItem>sFlow  (Socket reading sFlow frames)</MenuItem>
-                                    <MenuItem>DPDK</MenuItem>
-                                    <MenuItem>OVS Mirror  (Leverages mirroring to capture - experimental)</MenuItem>
-                                    <MenuItem>eBPF (Flow capture within kernel - experimental)</MenuItem>
+                                    <MenuItem value="Default">Default</MenuItem>
+                                    <MenuItem value="PCAP">{translate("PCAP (Packet Capture library based probe)")}</MenuItem>
+                                    <MenuItem value="AFPacket">{translate("AFPacket (MMap'd AF_PACKET socket reading)")}</MenuItem>
+                                    <MenuItem value="sFlow">{translate("sFlow  (Socket reading sFlow frames)")}</MenuItem>
+                                    <MenuItem value="DPDK">{translate("DPDK")}</MenuItem>
+                                    <MenuItem value="OVS Mirror">{translate("OVS Mirror  (Leverages mirroring to capture - experimental)")}</MenuItem>
+                                    <MenuItem value="eBPF">{translate("eBPF (Flow capture within kernel - experimental)")}</MenuItem>
                                 </Select>
                             </FormControl>
-                            <FormControl className={classes.control}>
+                            <FormControl className={classes.control} variant="outlined" fullWidth>
                                 <InputLabel id="layer-key-label"
-                                    className={classes.selectField}>Layers used for Flow Key</InputLabel>
+                                    className={classes.selectField}>{translate("Layers used for Flow Key")}</InputLabel>
                                 <Select
                                     id="layer-key"
-                                    value="Default"
+                                    value={this.state.layerKey}
+                                    onChange={this.handleLayerKeyChange}
                                     labelId="layer-key-label"
+                                    label={translate("Layers used for Flow Key")}
                                 >
-                                    <MenuItem>L2 (uses Layer 2 and beyond)</MenuItem>
-                                    <MenuItem>L3 (uses layer 3 and beyond)</MenuItem>
+                                    <MenuItem value="L2">{translate("L2 (uses Layer 2 and beyond)")}</MenuItem>
+                                    <MenuItem value="L3">{translate("L3 (uses layer 3 and beyond)")}</MenuItem>
                                 </Select>
                             </FormControl>
                             <TextField
                                 className={classes.textField}
-                                label="Header size"
+                                label={translate("Header size")}
                                 margin="normal"
                                 fullWidth
                             />
@@ -154,7 +172,7 @@ class CaptureForm extends React.Component<Props, State> {
                                             color="primary"
                                         />
                                     }
-                                    label="Extra TCP metric"
+                                    label={translate("Extra TCP metric")}
                                 />
                                 <FormControlLabel
                                     control={
@@ -163,7 +181,7 @@ class CaptureForm extends React.Component<Props, State> {
                                             color="primary"
                                         />
                                     }
-                                    label="Defragment IPv4 packets"
+                                    label={translate("Defragment IPv4 packets")}
                                 />
                                 <FormControlLabel
                                     control={
@@ -172,12 +190,12 @@ class CaptureForm extends React.Component<Props, State> {
                                             color="primary"
                                         />
                                     }
-                                    label="Reassemble TCP packets"
+                                    label={translate("Reassemble TCP packets")}
                                 />
                             </FormControl>
                             <TextField
                                     className={classes.textField}
-                                    label="Raw packet limit"
+                                    label={translate("Raw packet limit")}
                                     margin="normal"
                                     fullWidth
                                     value="0"
@@ -185,7 +203,7 @@ class CaptureForm extends React.Component<Props, State> {
                         </AccordionDetails>
                     </Accordion>
                     <Button variant="contained" className={classes.button} color="primary" onClick={this.onClick.bind(this)}>
-                        Start
+                        {translate("Start")} 
                     </Button>
                 </React.Fragment>
             } />
