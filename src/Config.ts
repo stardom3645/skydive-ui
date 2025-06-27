@@ -159,7 +159,7 @@ export const i18nMap = {
 
         "Packet capture": "Packet capture",
         "Description": "Description",
-        "Filter (BPF)": "Filter (BPF)",
+        "Filter (BPF)": "Filter (BPF) ex: tcp port 22",
         "Advanced options": "Advanced options",
         "Capture Type": "Capture Type",
         "PCAP (Packet Capture library based probe)": "PCAP (Packet Capture library based probe)",
@@ -201,7 +201,32 @@ export const i18nMap = {
         "routing_tables_help": "Displays routing table entries showing network destinations, next hops, and interface mappings for Layer 3 forwarding.",
 
         "capture": "Capture",
-        "delete-captures": "Delete captures"
+        "delete-captures": "Delete captures",
+
+        "capture-extraTCPMetric-tooltip": "Includes TCP performance metrics such as RTT and retransmissions in the flow.",
+        "capture-IPDefrag-tooltip": "Reassembles fragmented IP packets (e.g., large ICMP or UDP packets exceeding the MTU) into their original form for accurate flow analysis.",
+        "capture-reassembleTCP-tooltip": "Reassembles multiple TCP segments to analyze higher-layer protocols such as HTTP or TLS.",
+        "capture-rawPacketLimit-tooltip": "Click to view raw packet storage conditions.",
+        "capture-rawPacketLimit-explained": "Limits how many raw packets are captured and saved. Accepts values between 1 and 10. Storing raw packets allows for deeper analysis but consumes more disk space.",
+        "capture-headerSize-tooltip": "Sets how much of the beginning part (header) of each packet to include in the capture, in bytes.",
+        "capture-headerSize-explained": "The header contains source/destination information and protocol metadata. This option sets how many bytes of the header to capture. Leave blank to use the default.",
+        "capture-type-pcap": "A basic and widely compatible capture method. Easy to set up.",
+        "capture-type-afpacket": "A Linux-specific method that's faster than PCAP, but slightly harder to configure.",
+        "capture-type-ebpf": "High-performance method using kernel-level capture with low overhead. Requires recent Linux.",
+        "capture-type-sflow": "Collects flow data sampled from switches/routers. Requires configuration on network devices.",
+        "capture-type-dpdk": "Ultra-high-speed packet processing for advanced systems. Complex setup.",
+        "capture-type-ovsmirror": "Mirrors traffic from OVS ports. Useful in virtualized environments.",
+        "capture-headerSize-validation-error": "Header size must be between 14 and 4096.",
+        "capture-rawPacketLimit-validation-error": "Valid values are 0 or between 1 and 10.",
+
+        "capture-create-failed": "Capture creation failed",
+        "capture-duplicate-error": "A capture with the same parameters already exists.",
+        "capture-unknown-error": "An unknown error has occurred.",
+        "capture-conflict-error": "A conflicting capture already exists with those parameters.",
+        "capture-network-error": "The request failed due to a network error.",
+        "capture-validation-error": "There is a problem with the input. Please check your values.",
+        "capture-create-success": "Capture has been created. Click the node again to view the Flow Table."
+
     },
     ko: {
         "k8s-Federations": "쿠버네티스 페더레이션",
@@ -309,7 +334,7 @@ export const i18nMap = {
 
         "Packet capture": "패킷 캡처",
         "Description": "설명",
-        "Filter (BPF)": "필터 (BPF)",
+        "Filter (BPF)": "필터 (BPF) 예: tcp port 22",
         "Advanced options": "고급 옵션",
         "Capture Type": "캡처 타입",
         "PCAP (Packet Capture library based probe)": "PCAP (패킷 캡처 라이브러리 기반 프로브)",
@@ -350,7 +375,32 @@ export const i18nMap = {
         "neighbors_help": "IPv4의 ARP(주소 결정 프로토콜) 또는 IPv6의 NDP(이웃 탐색 프로토콜)를 통해 발견된 인접 장비 목록을 보여줍니다. ARP는 IP 주소를 MAC 주소로 변환하고, NDP는 IPv6 환경에서 이와 유사한 기능을 수행합니다. 이 테이블은 MAC 주소, IP 주소, 인터페이스 인덱스를 제공하며, 네트워크 상의 활성 장비를 확인하거나 연결 불가, 주소 충돌과 같은 문제를 진단하는 데 도움을 줍니다.",
         "routing_tables_help": "장비의 라우팅 테이블 정보를 보여줍니다. 목적지 네트워크, 다음 홉, 인터페이스 정보를 통해 경로 설정이나 네트워크 분할 상태를 확인할 수 있습니다.",
         "capture": "캡처",
-        "delete-captures": "캡처 삭제"
+        "delete-captures": "캡처 삭제",
+
+        "capture-extraTCPMetric-tooltip": "RTT, 재전송 횟수 등의 TCP 성능 정보를 플로우에 포함합니다.",
+        "capture-IPDefrag-tooltip": "조각화된 IP 패킷(예: MTU보다 큰 ICMP나 UDP 등)을 하나의 원래 패킷으로 재조립해 정확한 흐름을 분석합니다.",
+        "capture-reassembleTCP-tooltip": "여러 TCP 세그먼트를 조립해 HTTP, TLS 등의 상위 프로토콜을 분석할 수 있게 합니다.",
+        "capture-rawPacketLimit-tooltip": "원시 패킷 저장 조건을 확인하려면 클릭하세요.",
+        "capture-rawPacketLimit-explained": "캡처할 원시 패킷 수를 제한합니다. 1 이상 10 이하로 설정할 수 있습니다. 설정한 수만큼 패킷의 원문 데이터를 저장하며, 디스크 용량에 유의하세요. 너무 적게 설정하면 상세 분석이 제한될 수 있습니다.",
+        "capture-headerSize-tooltip": "캡처할 패킷의 앞부분(헤더)을 얼마나 포함할지 바이트 단위로 설정합니다.",
+        "capture-headerSize-explained": "헤더는 패킷의 출발지/목적지 정보, 프로토콜 정보 등이 담긴 부분입니다. 이 옵션은 분석을 위해 얼마만큼 캡처할지 바이트 단위로 지정합니다. 비워두면 기본값이 적용됩니다.",
+        "capture-type-pcap": "기본적인 캡처 방식으로, 대부분 환경에서 동작하며 설정이 간단합니다.",
+        "capture-type-afpacket": "리눅스 전용 고속 캡처 방식으로, PCAP보다 성능이 조금 더 좋지만 설정이 까다로울 수 있습니다.",
+        "capture-type-ebpf": "커널 수준에서 동작하는 고성능 캡처 방식으로, 시스템 부하가 적고 최근 리눅스에 적합합니다.",
+        "capture-type-sflow": "스위치/라우터에서 전송하는 샘플링 기반 흐름 데이터를 수집합니다. 장비 설정이 필요합니다.",
+        "capture-type-dpdk": "매우 빠른 패킷 처리를 위한 전문 기술로, 고성능 시스템에서만 사용합니다. 설정이 복잡할 수 있습니다.",
+        "capture-type-ovsmirror": "OVS의 포트 트래픽을 복제하여 캡처합니다. 가상환경에서 유용합니다.",
+        "capture-headerSize-validation-error": "헤더 크기는 14 이상 4096 이하의 숫자여야 합니다.",
+        "capture-rawPacketLimit-validation-error": "유효한 값은 0 또는 1~10 사이의 숫자입니다.",
+
+        "capture-create-failed": "캡처 생성 실패",
+        "capture-duplicate-error": "캡처가 이미 존재합니다.",
+        "capture-unknown-error": "알 수 없는 오류가 발생했습니다.",
+        "capture-conflict-error": "해당 조건으로는 중복된 캡처가 존재합니다.",
+        "capture-network-error": "네트워크 오류로 요청이 실패했습니다.",
+        "capture-validation-error": "입력값에 문제가 있습니다. 값을 확인해 주세요.",
+        "capture-create-success": "캡처가 생성되었습니다. 해당 노드를 다시 클릭하면 '플로우 테이블'을 확인할 수 있습니다."
+
     }
 };
 
@@ -1064,7 +1114,7 @@ class DefaultConfig {
 
         return [
             {
-                class: "", text: "Capture", disabled: false, callback: () => {
+                class: "", text: translate("capture"), disabled: false, callback: () => {
                     var api = new window.API.CapturesApi(window.App.apiConf)
                     api.createCapture({ GremlinQuery: `G.V('${node.id}')` }).then(result => {
                         console.log(result)
@@ -1072,7 +1122,7 @@ class DefaultConfig {
                 }
             },
             {
-                class: "", text: "Delete captures", disabled: !captures, callback: () => {
+                class: "", text: translate("delete-captures"), disabled: !captures, callback: () => {
                     node.data.Captures.forEach(capture => {
                         var api = new window.API.CapturesApi(window.App.apiConf)
                         api.deleteCapture(capture.ID).then(result => {

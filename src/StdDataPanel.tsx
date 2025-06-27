@@ -59,6 +59,8 @@ interface State {
 
 class DataPanel extends React.Component<Props, State> {
 
+    private timeoutHandle?: ReturnType<typeof setTimeout>;
+
     state: State
 
     constructor(props) {
@@ -102,26 +104,55 @@ class DataPanel extends React.Component<Props, State> {
     }
 
     private refreshData() {
+        // 이전 타임아웃 제거
+        if (this.timeoutHandle) {
+            clearTimeout(this.timeoutHandle)
+            this.timeoutHandle = undefined
+        }
+        
         if (this.state.data) {
             this.setState({
-                result: DataPanel.normalizeData(this.state.data, this.props.normalizer, this.props.graph, this.props.exclude, this.props.sortKeys),
-                filterKeys: DataPanel.normalizeFilterKeys(this.state.data, this.props.filterKeys),
+            result: DataPanel.normalizeData(this.state.data, this.props.normalizer, this.props.graph, this.props.exclude, this.props.sortKeys),
+            filterKeys: DataPanel.normalizeFilterKeys(this.state.data, this.props.filterKeys),
             })
         } else if (this.props.fetch) {
-            this.props.fetch().then(data => {
-                if (data) {
-                    this.setState({
-                        result: DataPanel.normalizeData(data, this.props.normalizer, this.props.graph, this.props.exclude, this.props.sortKeys),
-                        filterKeys: DataPanel.normalizeFilterKeys(data, this.props.filterKeys),
-                        error: undefined
-                    })
-                } else {
-                    this.setState({ error: "No data available" })
+            // 타임아웃 설정
+            this.timeoutHandle = setTimeout(() => {
+            console.warn("[StdDataPanel] 15초 초과: 서버 응답 지연됨")
+            this.setState({
+                error: "서버 응답이 지연되고 있습니다."
+            })
+            this.timeoutHandle = undefined
+            }, 15000)
+        
+            this.props.fetch()
+            .then(data => {
+                if (this.timeoutHandle) {
+                clearTimeout(this.timeoutHandle)
+                this.timeoutHandle = undefined
                 }
-            }).catch(err => {
+        
+                if (data) {
+                this.setState({
+                    result: DataPanel.normalizeData(data, this.props.normalizer, this.props.graph, this.props.exclude, this.props.sortKeys),
+                    filterKeys: DataPanel.normalizeFilterKeys(data, this.props.filterKeys),
+                    error: undefined
+                })
+                } else {
+                console.warn("[StdDataPanel] fetch() 결과 없음")
+                this.setState({ error: "No data available" })
+                }
+            })
+            .catch(err => {
+                if (this.timeoutHandle) {
+                clearTimeout(this.timeoutHandle)
+                this.timeoutHandle = undefined
+                }
+        
+                console.error("[StdDataPanel] fetch() 오류:", err)
                 this.setState({ error: err.message })
             })
-        }
+        } 
     }
 
     private onExpandChange(event: object, expanded: boolean) {
@@ -142,27 +173,46 @@ class DataPanel extends React.Component<Props, State> {
         var details = <Typography>Loading...</Typography>
         if (this.state.error) {
             details = <Typography>{this.state.error}</Typography>
-        } else if (this.state.result && this.state.result.rows.length) {
-            details = <DataViewer columns={this.state.result.columns} data={this.state.result.rows} filterKeys={this.state.filterKeys}
-                graph={this.state.result.graph} details={this.state.result.details} onFilterReset={this.onFilterReset.bind(this)}
-                defaultColumns={this.props.defaultColumns} deletable={this.props.deletable} onDelete={this.props.onDelete}
-                customRenders={this.props.customRenders} helpTooltipText={this.props.helpTooltipText}/>
-        }
-
-                return (
-                    <Accordion defaultExpanded={this.props.defaultExpanded} onChange={this.onExpandChange.bind(this)} TransitionProps={{ unmountOnExit: true }}>
-                        <AccordionSummary
-                            expandIcon={<ExpandMoreIcon />}
-                            aria-controls="panel1a-content"
-                            id="panel1a-header">
-                            <Typography className={iconClass}>{this.props.icon}</Typography>
-                            <Typography>{this.props.title}</Typography>
-                        </AccordionSummary>
-                        <AccordionDetails>
-                            {details}
-                        </AccordionDetails>
-                    </Accordion>
-                )
+          } else if (this.state.result) {
+            if (this.state.result.rows.length === 0) {
+              details = <Typography>  데이터가 없습니다. 필터 조건을 변경하세요.</Typography>
+            } else {
+              details = (
+                <DataViewer
+                  columns={this.state.result.columns}
+                  data={this.state.result.rows}
+                  filterKeys={this.state.filterKeys}
+                  graph={this.state.result.graph}
+                  details={this.state.result.details}
+                  onFilterReset={this.onFilterReset.bind(this)}
+                  defaultColumns={this.props.defaultColumns}
+                  deletable={this.props.deletable}
+                  onDelete={this.props.onDelete}
+                  customRenders={this.props.customRenders}
+                  helpTooltipText={this.props.helpTooltipText}
+                />
+              )
+            }
+          }
+          return (
+            <Accordion
+              defaultExpanded={this.props.defaultExpanded}
+              onChange={this.onExpandChange.bind(this)}
+              TransitionProps={{ unmountOnExit: true }}
+            >
+              <AccordionSummary
+                expandIcon={<ExpandMoreIcon />}
+                aria-controls="panel1a-content"
+                id="panel1a-header"
+              >
+                <Typography className={iconClass}>{this.props.icon}</Typography>
+                <Typography>{this.props.title}</Typography>
+              </AccordionSummary>
+              <AccordionDetails>
+                {details}
+              </AccordionDetails>
+            </Accordion>
+          )
         }
     }
 

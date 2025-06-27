@@ -2184,7 +2184,9 @@ export const CapturesApiFetchParamCreator = function (configuration?: Configurat
                 LayerKeyMode: capture.LayerKeyMode,
                 HeaderSize: capture.HeaderSize,
                 RawPacketLimit: capture.RawPacketLimit,
-                ExtraTCPMetric: capture.ExtraTCPMetric
+                ExtraTCPMetric: capture.ExtraTCPMetric,
+                IPDefrag: capture.IPDefrag,
+                ReassembleTCP: capture.ReassembleTCP
             });
         
             return {
