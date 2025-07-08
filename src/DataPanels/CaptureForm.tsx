@@ -17,6 +17,7 @@ import Checkbox from '@material-ui/core/Checkbox'
 import Snackbar from '@material-ui/core/Snackbar'
 import MuiAlert from '@material-ui/lab/Alert'
 
+import { Node } from '../Topology'
 import { Configuration } from '../api/configuration'
 import Panel from './Panel'
 import { CapturesApi } from '../api'
@@ -37,6 +38,7 @@ interface Props {
   gremlin: string
   session: session
   onCaptureCreated?: () => void
+  node: Node
 }
 
 interface State {
@@ -84,7 +86,7 @@ class CaptureForm extends React.Component<Props, State> {
     if (this.state.captureType !== "pcap" && this.state.bpf.trim() !== "") {
       this.setState({
         snackbarOpen: true,
-        snackbarMessage: "BPF 필터는 PCAP 캡처 경우에만 지원됩니다.",
+        snackbarMessage: translate("bpf-pcap-only"),
         snackbarSeverity: "error"
       });
       return;
@@ -155,6 +157,11 @@ class CaptureForm extends React.Component<Props, State> {
 
   render() {
     const { classes } = this.props
+    const isOvsPort = this.props.node?.data?.Type === "ovsport"
+    const isOvsPhysicalPort =
+          isOvsPort &&
+          typeof this.props.node?.data?.Name === "string" &&
+          /^ovs-port-(en|eth)/.test(this.props.node.data.Name);
 
     return (
       <>
@@ -200,12 +207,51 @@ class CaptureForm extends React.Component<Props, State> {
                       onChange={this.handleChange("captureType")}
                       label={translate("Capture Type")}
                     >
-                      <MenuItem value="pcap">PCAP</MenuItem>
-                      <MenuItem value="afpacket">AFPacket</MenuItem>
-                      <MenuItem value="ebpf">eBPF</MenuItem>
-                      <MenuItem value="sflow">sFlow</MenuItem>
-                      <MenuItem value="dpdk">DPDK</MenuItem>
-                      <MenuItem value="ovsmirror">OVS Mirror</MenuItem>
+                      <MenuItem value="pcap">
+                        <Tooltip title={translate("tooltip-pcap")} placement="right" arrow>
+                          <span>PCAP</span>
+                        </Tooltip>
+                      </MenuItem>
+
+                      <MenuItem value="afpacket">
+                        <Tooltip title={translate("tooltip-afpacket")} placement="right" arrow>
+                          <span>AFPacket</span>
+                        </Tooltip>
+                      </MenuItem>
+
+                      <MenuItem value="ebpf">
+                        <Tooltip title={translate("tooltip-ebpf")} placement="right" arrow>
+                          <span>eBPF</span>
+                        </Tooltip>
+                      </MenuItem>
+
+                      <MenuItem value="sflow">
+                        <Tooltip title={translate("tooltip-sflow")} placement="right" arrow>
+                          <span>sFlow</span>
+                        </Tooltip>
+                      </MenuItem>
+
+                      <MenuItem value="dpdk">
+                        <Tooltip title={translate("tooltip-dpdk")} placement="right" arrow>
+                          <span>DPDK</span>
+                        </Tooltip>
+                      </MenuItem>
+                      
+                      {isOvsPhysicalPort ? (
+                        <MenuItem value="ovsmirror">OVS Mirror</MenuItem>
+                      ) : (
+                        <Tooltip
+                          title="OVS Mirror는 물리 NIC에 연결된 OVS 포트에서만 사용 가능합니다."
+                          placement="right"
+                          arrow
+                        >
+                          <span>
+                            <MenuItem value="ovsmirror" disabled>
+                              OVS Mirror
+                            </MenuItem>
+                          </span>
+                        </Tooltip>
+                      )}
                     </Select>
                   </FormControl>
                   <FormControl variant="outlined" fullWidth className={classes.control}>

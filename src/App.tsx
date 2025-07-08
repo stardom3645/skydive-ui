@@ -102,6 +102,7 @@ declare global {
     API: any,
     App: any,
     Tools: Tools
+    refreshTopology?: () => void;
   }
 }
 window.API = api
@@ -536,7 +537,7 @@ class App extends React.Component<Props, State> {
 
   _refreshTopology() {
     if (this.tc) {
-      this.tc.renderTree()
+      this.tc.renderTree();
     }
   }
 

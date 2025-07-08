@@ -27,6 +27,7 @@ import { DataViewer } from './StdDataViewer'
 import { DataNormalizer, Result, Graph } from './StdDataNormalizer'
 import { styles } from './StdDataPanelStyles'
 import './StdDataPanel.css'
+import { translate } from "./Config"
 
 interface Props {
     title: string
@@ -175,7 +176,7 @@ class DataPanel extends React.Component<Props, State> {
             details = <Typography>{this.state.error}</Typography>
           } else if (this.state.result) {
             if (this.state.result.rows.length === 0) {
-              details = <Typography>  데이터가 없습니다. 필터 조건을 변경하세요.</Typography>
+              details = <Typography>  {translate("no-data-check-filter-or-capture")}</Typography>
             } else {
               details = (
                 <DataViewer

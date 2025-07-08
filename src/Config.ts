@@ -117,6 +117,7 @@ export const i18nMap = {
         "moreInfoOutro": "on the ABLESTACK Online Docs.",
         "layer2": "Physical Network Layer (Layer 2)",
         "vlayer2": "Virtual Network Layer (Virtual Layer 2)",
+        "mirroring": "Mirroring (Mirroring)",
 
         "Key": "Key",
         "Value": "Value",
@@ -225,8 +226,15 @@ export const i18nMap = {
         "capture-conflict-error": "A conflicting capture already exists with those parameters.",
         "capture-network-error": "The request failed due to a network error.",
         "capture-validation-error": "There is a problem with the input. Please check your values.",
-        "capture-create-success": "Capture has been created. Click the node again to view the Flow Table."
-
+        "capture-create-success": "Capture has been created. Click the node again to view the Flow Table.",
+        "no-data-check-filter-or-capture": "No data available. Please check the capture type, configuration, or adjust the filter conditions.",
+        "bpf-pcap-only": "BPF filters are only supported for PCAP captures.",
+        "ovs-mirror-physical-nic-only": "OVS Mirror is only available on OVS ports connected to a physical NIC.",
+        "tooltip-pcap": "PCAP: The simplest capture driver with low performance, but works in most environments.",
+        "tooltip-afpacket": "AFPacket: High-speed packet capture based on the Linux kernel. Recommended for general NICs.",
+        "tooltip-ebpf": "eBPF: Requires a modern Linux kernel and enables high-performance capture and filtering.",
+        "tooltip-sflow": "sFlow: Receives flow data collected from switches/routers. External configuration required.",
+        "tooltip-dpdk": "DPDK: High-performance user-space packet processing. Requires dedicated drivers and hugepage setup."
     },
     ko: {
         "k8s-Federations": "쿠버네티스 페더레이션",
@@ -292,6 +300,7 @@ export const i18nMap = {
         "moreInfoOutro": "에서 확인할 수 있습니다.",
         "layer2": "물리 네트워크 계층 (Layer 2)",
         "vlayer2": "가상 네트워크 계층 (Virtual Layer 2)",
+        "mirroring": "미러링 (Mirroring)",
 
         "Key": "키",
         "Value": "값",
@@ -399,8 +408,15 @@ export const i18nMap = {
         "capture-conflict-error": "해당 조건으로는 중복된 캡처가 존재합니다.",
         "capture-network-error": "네트워크 오류로 요청이 실패했습니다.",
         "capture-validation-error": "입력값에 문제가 있습니다. 값을 확인해 주세요.",
-        "capture-create-success": "캡처가 생성되었습니다. 해당 노드를 다시 클릭하면 '플로우 테이블'을 확인할 수 있습니다."
-
+        "capture-create-success": "캡처가 생성되었습니다. 해당 노드를 다시 클릭하면 '플로우 테이블'을 확인할 수 있습니다.",
+        "no-data-check-filter-or-capture": "데이터가 없습니다. 필터 조건을 변경하거나 캡쳐 타입 및 구성을 확인하세요.",
+        "bpf-pcap-only": "BPF 필터는 PCAP 캡처 경우에만 지원됩니다.",
+        "ovs-mirror-physical-nic-only": "OVS Mirror는 물리 NIC에 연결된 OVS 포트에서만 사용 가능합니다.",
+        "tooltip-pcap": "가장 간단한 캡처 드라이버, 대부분 환경에서 동작.",
+        "tooltip-afpacket": "리눅스 커널 기반 고속 패킷 캡처. 일반적인 NIC에 권장.",
+        "tooltip-ebpf": "최신 리눅스 커널이 필요하며 고성능 캡처 및 필터링이 가능.",
+        "tooltip-sflow": "스위치/라우터에서 수집된 플로우 데이터를 수신합니다. 외부 설정 필요.",
+        "tooltip-dpdk": "고성능 사용자 공간 패킷 처리. 전용 드라이버 및 hugepage 설정 필요."
     }
 };
 
@@ -1122,12 +1138,38 @@ class DefaultConfig {
                 }
             },
             {
-                class: "", text: translate("delete-captures"), disabled: !captures, callback: () => {
-                    node.data.Captures.forEach(capture => {
-                        var api = new window.API.CapturesApi(window.App.apiConf)
-                        api.deleteCapture(capture.ID).then(result => {
-                            console.log(result)
+                class: "",
+                text: translate("delete-captures"),
+                disabled: !captures,
+                callback: () => {
+                    const api = new window.API.CapturesApi(window.App.apiConf);
+            
+                    const captureIDs = [...node.data.Captures.map(c => c.ID)];
+                    const isOvsPort = node.data.Type === "ovsport";
+            
+                    Promise.all(
+                        captureIDs.map(captureID => {
+                            return api.deleteCapture(captureID).then(result => {
+                                console.log("Deleted:", captureID);
+                                return captureID;
+                            });
                         })
+                    ).then(deletedIDs => {
+                        node.data = {
+                            ...node.data,
+                            Captures: node.data.Captures.filter(c => !deletedIDs.includes(c.ID))
+                        };
+
+                        if ((node as any).metadata) {
+                            delete (node as any).metadata.Captures;
+                            delete (node as any).metadata.CaptureState;
+                            (node as any).metadata = { ...(node as any).metadata };
+                        }
+            
+                        // OVS 포트 노드면 전체 리프레시
+                        if (isOvsPort) {
+                            window.refreshTopology?.();
+                        }
                     });
                 }
             },
@@ -1341,7 +1383,7 @@ class DefaultConfig {
                     data.forEach(values => {
                         var api = new window.API.CapturesApi(window.App.apiConf)
                         api.deleteCapture(values['ID']).then(result => {
-                            console.log(result)
+                            console.log( result)
                         })
                     })
                 }
