@@ -27,6 +27,7 @@ import { connect } from 'react-redux'
 import { translate } from "../Config"
 import HelpIconWithDialog from './HelpIconWithDialog'
 import Tooltip from '@material-ui/core/Tooltip'
+import * as ipaddr from "ipaddr.js"
 
 function Alert(props) {
   return <MuiAlert elevation={6} variant="filled" {...props} />
@@ -158,10 +159,15 @@ class CaptureForm extends React.Component<Props, State> {
   render() {
     const { classes } = this.props
     const isOvsPort = this.props.node?.data?.Type === "ovsport"
-    const isOvsPhysicalPort =
+    const isOvsMirrorEligible =
           isOvsPort &&
           typeof this.props.node?.data?.Name === "string" &&
-          /^ovs-port-(en|eth)/.test(this.props.node.data.Name);
+          !/^ovs-port-mir/.test(this.props.node.data.Name); // 미러 출력 포트 제외
+
+    const nodeIPs = this.props.node?.data?.IPV4 || []
+    const isSflowEligible = Array.isArray(nodeIPs) && nodeIPs.length > 0
+
+    const isDPDKPort = this.props.node?.data?.Type === "dpdkport";
 
     return (
       <>
@@ -225,23 +231,51 @@ class CaptureForm extends React.Component<Props, State> {
                         </Tooltip>
                       </MenuItem>
 
-                      <MenuItem value="sflow">
-                        <Tooltip title={translate("tooltip-sflow")} placement="right" arrow>
-                          <span>sFlow</span>
+                      {isSflowEligible ? (
+                        <MenuItem value="sflow">
+                          <Tooltip title={translate("tooltip-sflow")} placement="right" arrow>
+                            <span>sFlow</span>
+                          </Tooltip>
+                        </MenuItem>
+                      ) : (
+                        <Tooltip
+                          title={translate("sflow-unavailable-no")}
+                          placement="right"
+                          arrow
+                        >
+                          <span>
+                            <MenuItem value="sflow" disabled>
+                              sFlow
+                            </MenuItem>
+                          </span>
                         </Tooltip>
-                      </MenuItem>
+                      )}
 
-                      <MenuItem value="dpdk">
-                        <Tooltip title={translate("tooltip-dpdk")} placement="right" arrow>
-                          <span>DPDK</span>
+                      {isDPDKPort ? (
+                        <MenuItem value="dpdk">
+                          <Tooltip title={translate("tooltip-dpdk")} placement="right" arrow>
+                            <span>DPDK</span>
+                          </Tooltip>
+                        </MenuItem>
+                      ) : (
+                        <Tooltip
+                          title={translate("dpdk-unavailable")}
+                          placement="right"
+                          arrow
+                        >
+                          <span>
+                            <MenuItem value="dpdk" disabled>
+                              DPDK
+                            </MenuItem>
+                          </span>
                         </Tooltip>
-                      </MenuItem>
+                      )}
                       
-                      {isOvsPhysicalPort ? (
+                      {isOvsMirrorEligible ? (
                         <MenuItem value="ovsmirror">OVS Mirror</MenuItem>
                       ) : (
                         <Tooltip
-                          title="OVS Mirror는 물리 NIC에 연결된 OVS 포트에서만 사용 가능합니다."
+                          title={translate("ovs-mirror-only")}
                           placement="right"
                           arrow
                         >
