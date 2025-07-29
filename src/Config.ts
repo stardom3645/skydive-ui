@@ -419,7 +419,7 @@ export const i18nMap = {
         "tooltip-pcap": "가장 간단한 캡처 드라이버, 대부분 환경에서 동작.",
         "tooltip-afpacket": "리눅스 커널 기반 고속 패킷 캡처. 일반적인 NIC에 권장.",
         "tooltip-ebpf": "최신 리눅스 커널이 필요하며 고성능 캡처 및 필터링이 가능.",
-        "tooltip-sflow": "스위치/라우터에서 수집된 플로우 데이터를 수신합니다. 외부 설정 필요.",
+        "tooltip-sflow": "스위치/라우터에서 수집된 플로우 데이터를 수신합니다. 외부 설정(sFlow Exporter) 필요.",
         "tooltip-dpdk": "고성능 사용자 공간 패킷 처리. 전용 드라이버 및 hugepage 설정 필요."
     }
 };
@@ -861,9 +861,11 @@ class DefaultConfig {
     private newAttrs(node: Node): NodeAttrs {
         var name = node.data.Name
         var ifName = node.data.IfName
+        
         if (name.length > 24) {
             name = node.data.Name.substring(0, 24) + "."
         }
+        
         // You can edid it. To change name of node
         if (ifName != "" && ifName !== undefined && node.data.Type == "tuntap") {
             name = ifName + " / " + name
@@ -1131,14 +1133,23 @@ class DefaultConfig {
 
     nodeMenu(node: Node): Array<MenuItem> {
         var captures = node.data.Captures?.length
+        const alreadyCaptured = captures > 0;
+
+        // 캡처 비허용 타입 정의
+        const disallowedCaptureTypes = ["switch", "switchport", "host", "libvirt", "tuntap"];
+        const isDisallowed = disallowedCaptureTypes.includes(node.data.Type);
 
         return [
             {
-                class: "", text: translate("capture"), disabled: false, callback: () => {
-                    var api = new window.API.CapturesApi(window.App.apiConf)
+                class: "",
+                text: translate("capture"),
+                disabled: alreadyCaptured || isDisallowed,
+                callback: () => {
+                    if (isDisallowed) return;
+                    const api = new window.API.CapturesApi(window.App.apiConf);
                     api.createCapture({ GremlinQuery: `G.V('${node.id}')` }).then(result => {
-                        console.log(result)
-                    })
+                        console.log(result);
+                    });
                 }
             },
             {
@@ -1360,7 +1371,7 @@ class DefaultConfig {
                         default:
                             return []
                     }
-                }
+                },
             },
             {
                 field: "Sockets",

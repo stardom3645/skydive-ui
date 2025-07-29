@@ -91,6 +91,8 @@ const packageJson = require('../package.json')
 
 import './App.css'
 import ConfigReducer, { Filter } from './Config'
+import { useEffect, useState } from "react";
+import { fetchVmNameMap } from "./api";
 
 import { translate } from "./Config"
 
@@ -136,6 +138,7 @@ interface AddFilterValue {
 const addFilterValue = createFilterOptions<AddFilterValue>();
 
 interface State {
+  vmNameMap?: Record<string, string>
   isContextMenuOn: string
   contextMenuX: number
   contextMenuY: number
@@ -205,7 +208,8 @@ class App extends React.Component<Props, State> {
       isHelpOpen: false,
       appVersion: "",
       timeContext: null,
-      language: "ko"
+      language: "ko",
+      vmNameMap: {}
     }
 
     this.synced = false
@@ -252,6 +256,10 @@ class App extends React.Component<Props, State> {
     } else {
       this.loadStaticData(this.props.dataURL)
     }
+    // Libvirt VM 이름 매핑 정보 불러오기
+    fetchVmNameMap()
+      .then((data) => this.setState({ vmNameMap: data }))
+      .catch(console.error);
   }
 
   componentWillUnmount() {
@@ -1322,6 +1330,7 @@ class App extends React.Component<Props, State> {
               onNodeClicked={this.config.nodeClicked.bind(this.config)}
               onNodeDblClicked={this.config.nodeDblClicked.bind(this.config)}
               defaultLinkTagMode={this.config.defaultLinkTagMode.bind(this.config)}
+              vmNameMap={this.state.vmNameMap}
             />
           </Container>
           <Container className={classes.rightPanel}>
@@ -1358,3 +1367,4 @@ export const mapDispatchToProps = ({
 })
 
 export default withStyles(styles)(connect(mapStateToProps, mapDispatchToProps)(withSnackbar(withRouter(App))))
+

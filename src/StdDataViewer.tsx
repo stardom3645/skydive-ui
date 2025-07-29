@@ -100,6 +100,7 @@ export class DataViewer extends React.Component<Props, State> {
     }
 
     render() {
+        const fullDataMap = new Map<string, any>(this.props.data as [string, any][]);
         var options: any = {
             filterType: 'multiselect',
             selectableRows: 'none',
@@ -203,35 +204,54 @@ export class DataViewer extends React.Component<Props, State> {
         }
 
         // re-apply sort and filter if need
-        for (let column of this.props.columns) {
+        for (let i = 0; i < this.props.columns.length; i++) {
+            const column = this.props.columns[i];
+            const colName = column.name;
+          
+            // 기본 컬럼 표시 설정
             if (this.applyDefaultColumns && this.props.defaultColumns) {
-                if (!this.props.defaultColumns.includes(column.name)) {
-                    column.options.display = 'false'
-                }
+              if (!this.props.defaultColumns.includes(colName)) {
+                column.options.display = 'false';
+              }
             }
-
-            // use value from config first
-            if (column.name === "Key" && this.props.filterKeys) {
-                column.options.filterList = this.props.filterKeys
+          
+            // 필터 리스트 적용
+            if (colName === "Key" && this.props.filterKeys) {
+              column.options.filterList = this.props.filterKeys;
             }
-
-            let filterList = this.state.filterList.get(column.name)
+          
+            const filterList = this.state.filterList.get(colName);
             if (filterList) {
-                column.options.filterList = filterList
+              column.options.filterList = filterList;
             }
-
-            var cb = this.props.customRenders?.get(column.name)
-            if (cb) {
-                column.options.customBodyRenderLite = (dataIndex: number, rowIndex: number): any => {
-                    var name = this.props.columns[dataIndex].name
-                    var value = this.props.data[rowIndex][dataIndex]
-
-                    var cb = this.props.customRenders?.get(column.name)
-                    if (cb) {
-                        return cb(value)
+          
+            // "Name" 컬럼은 libvirt → vmNameMap 적용
+            if (colName === "Value") {
+                column.options.customBodyRenderLite = (_dataIndex: number, rowIndex: number): any => {
+                    const kvPair = this.props.data[rowIndex];
+                    const key = kvPair[0];
+                    const value = kvPair[1];
+                
+                    const type = fullDataMap.get("Type");
+                    const libvirtName = fullDataMap.get("Name");
+                    const mapped = (window as any).App?.state?.vmNameMap?.[libvirtName as string];
+                
+                    if (key === "Name" && type === "libvirt" && mapped) {
+                      return `${mapped} (${libvirtName})`;
                     }
-                    return value
-                }
+                
+                    return value;
+                  };
+              continue;
+            }
+          
+            // 그 외 컬럼은 customRender 적용
+            const cb = this.props.customRenders?.get(colName);
+            if (cb) {
+              column.options.customBodyRenderLite = (_dataIndex: number, rowIndex: number): any => {
+                const value = this.props.data[rowIndex][i];
+                return cb(value);
+              };
             }
         }
         this.applyDefaultColumns = false

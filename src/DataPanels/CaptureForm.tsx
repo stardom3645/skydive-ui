@@ -158,6 +158,10 @@ class CaptureForm extends React.Component<Props, State> {
 
   render() {
     const { classes } = this.props
+
+    const disallowedTypes = ["libvirt", "tuntap"];
+    const isCaptureDisabled = disallowedTypes.includes(this.props.node?.data?.Type);
+
     const isOvsPort = this.props.node?.data?.Type === "ovsport"
     const isOvsMirrorEligible =
           isOvsPort &&
@@ -225,11 +229,11 @@ class CaptureForm extends React.Component<Props, State> {
                         </Tooltip>
                       </MenuItem>
 
-                      <MenuItem value="ebpf">
+                      {/* <MenuItem value="ebpf">
                         <Tooltip title={translate("tooltip-ebpf")} placement="right" arrow>
                           <span>eBPF</span>
                         </Tooltip>
-                      </MenuItem>
+                      </MenuItem> */}
 
                       {isSflowEligible ? (
                         <MenuItem value="sflow">
@@ -398,6 +402,7 @@ class CaptureForm extends React.Component<Props, State> {
               className={classes.button}
               color="primary"
               onClick={this.onClick}
+              disabled={isCaptureDisabled}
             >
               {translate("Start")}
             </Button>

@@ -207,6 +207,7 @@ interface Props {
     onNodeClicked: (node: Node) => void
     onNodeDblClicked: (node: Node) => void
     defaultLinkTagMode?: (tag: string) => LinkTagState
+    vmNameMap?: Record<string, string>
 }
 
 /**
@@ -2190,7 +2191,11 @@ export class Topology extends React.Component<Props, {}> {
             .attr("y", 85)
             // NOTE(safchain) maybe this should be done for all the nodes
             // has the name can be updated
-            .text((d: D3Node) => this.props.nodeAttrs(d.data.wrapped).name)
+            .text((d: D3Node) => {
+                const libvirtName = this.props.nodeAttrs(d.data.wrapped).name
+                const vmNameMap = this.props.vmNameMap || {}
+                return vmNameMap[libvirtName] || libvirtName
+            })
             .attr("pointer-events", "none")
             .call(wrapText, 1.1, nodeWidth - 10)
 
