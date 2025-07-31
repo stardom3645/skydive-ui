@@ -100,7 +100,6 @@ export class DataViewer extends React.Component<Props, State> {
     }
 
     render() {
-        const fullDataMap = new Map<string, any>(this.props.data as [string, any][]);
         var options: any = {
             filterType: 'multiselect',
             selectableRows: 'none',
@@ -229,20 +228,42 @@ export class DataViewer extends React.Component<Props, State> {
             if (colName === "Value") {
                 column.options.customBodyRenderLite = (_dataIndex: number, rowIndex: number): any => {
                     const kvPair = this.props.data[rowIndex];
-                    const key = kvPair[0];
-                    const value = kvPair[1];
                 
-                    const type = fullDataMap.get("Type");
-                    const libvirtName = fullDataMap.get("Name");
-                    const mapped = (window as any).App?.state?.vmNameMap?.[libvirtName as string];
+                    if (!kvPair || !Array.isArray(kvPair)) return "";
                 
-                    if (key === "Name" && type === "libvirt" && mapped) {
-                      return `${mapped} (${libvirtName})`;
+                    // (1) IPv4 or IPv6 단독 주소 처리
+                    if (kvPair.length === 1 && typeof kvPair[0] === "string") {
+                        const value = kvPair[0];
+                        if (value.includes(".") && value.includes("/")) {
+                        return `IPv4: ${value}`;
+                        } else if (value.includes(":") && value.includes("/")) {
+                        return `IPv6: ${value}`;
+                        } else {
+                        return value; // fallback
+                        }
                     }
                 
-                    return value;
-                  };
-              continue;
+                    // (2) 일반 key-value 쌍
+                    if (kvPair.length >= 2) {
+                        const key = kvPair[0];
+                        const value = kvPair[1];
+              
+                    // libvirt 이름 매핑
+                    if (key === "Name") {
+                      const type = this.props.data.find(d => Array.isArray(d) && d[0] === "Type")?.[1];
+                      const libvirtName = value;
+                      const mapped = (window as any).App?.state?.vmNameMap?.[libvirtName];
+              
+                      if (type === "libvirt" && mapped) {
+                        return `${mapped} (${libvirtName})`;
+                      }
+                    }
+              
+                        return value ?? "";
+                    }
+                
+                    return "";
+                };
             }
           
             // 그 외 컬럼은 customRender 적용
