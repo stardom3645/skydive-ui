@@ -61,11 +61,37 @@ interface State {
 class CaptureForm extends React.Component<Props, State> {
   constructor(props) {
     super(props)
+
+    const { node } = props
+    const isOvsPort = node.data.Type === "ovsport"
+    const nodeIPs = node.data.IPV4 || []
+    const isSflowEligible   = Array.isArray(nodeIPs) && nodeIPs.length > 0
+    const isDPDKPort        = node.data.Type === "dpdkport"
+    const isOvsMirrorEligible =
+      isOvsPort &&
+      typeof node.data.Name === "string" &&
+      !/^ovs-port-mir/.test(node.data.Name)
+
+    const eligibleTypes: string[] = []
+    if (!isOvsPort) {
+      eligibleTypes.push("pcap", "afpacket")
+    }
+    if (isSflowEligible) {
+      eligibleTypes.push("sflow")
+    }
+    if (isDPDKPort) {
+      eligibleTypes.push("dpdk")
+    }
+    if (isOvsMirrorEligible) {
+      eligibleTypes.push("ovsmirror")
+    }
+    const defaultCaptureType = eligibleTypes[0] || ""
+    
     this.state = {
       name: props.defaultName || "",
       description: "",
       bpf: "",
-      captureType: "pcap",
+      captureType: defaultCaptureType,
       layerKey: "L3",
       headerSize: "",
       rawPacketLimit: "0",
@@ -159,7 +185,7 @@ class CaptureForm extends React.Component<Props, State> {
   render() {
     const { classes } = this.props
 
-    const disallowedTypes = ["libvirt", "tuntap"];
+    const disallowedTypes = ["switch", "switchport", "host", "libvirt", "tuntap", "system", "ovsbridge"];
     const isCaptureDisabled = disallowedTypes.includes(this.props.node?.data?.Type);
 
     const isOvsPort = this.props.node?.data?.Type === "ovsport"
@@ -168,10 +194,31 @@ class CaptureForm extends React.Component<Props, State> {
           typeof this.props.node?.data?.Name === "string" &&
           !/^ovs-port-mir/.test(this.props.node.data.Name); // 미러 출력 포트 제외
 
+    const isPcapEligible     = !isOvsPort;
+    const isAfpacketEligible = !isOvsPort;
+
     const nodeIPs = this.props.node?.data?.IPV4 || []
     const isSflowEligible = Array.isArray(nodeIPs) && nodeIPs.length > 0
 
     const isDPDKPort = this.props.node?.data?.Type === "dpdkport";
+
+    const eligibleTypes: string[] = []
+    if (!isOvsPort) {
+      eligibleTypes.push("pcap", "afpacket")
+    }
+    if (isSflowEligible) {
+      eligibleTypes.push("sflow")
+    }
+    if (isDPDKPort) {
+      eligibleTypes.push("dpdk")
+    }
+    if (isOvsMirrorEligible) {
+      eligibleTypes.push("ovsmirror")
+    }
+    const defaultCaptureType = eligibleTypes[0] || ""
+
+    // state.captureType 비어있으면 default 사용
+    const captureType = this.state.captureType || defaultCaptureType
 
     return (
       <>
@@ -213,21 +260,37 @@ class CaptureForm extends React.Component<Props, State> {
                     <Select
                       id="capture-type"
                       labelId="capture-type-label"
-                      value={this.state.captureType}
+                      value={captureType}
                       onChange={this.handleChange("captureType")}
                       label={translate("Capture Type")}
                     >
-                      <MenuItem value="pcap">
-                        <Tooltip title={translate("tooltip-pcap")} placement="right" arrow>
-                          <span>PCAP</span>
+                      {isPcapEligible ? (
+                        <MenuItem value="pcap">
+                          <Tooltip title={translate("tooltip-pcap")} placement="right" arrow>
+                            <span>PCAP</span>
+                          </Tooltip>
+                        </MenuItem>
+                      ) : (
+                        <Tooltip title={translate("tooltip-pcap-unavailable")} placement="right" arrow>
+                          <span>
+                            <MenuItem value="pcap" disabled>PCAP</MenuItem>
+                          </span>
                         </Tooltip>
-                      </MenuItem>
+                      )}
 
-                      <MenuItem value="afpacket">
-                        <Tooltip title={translate("tooltip-afpacket")} placement="right" arrow>
-                          <span>AFPacket</span>
+                      {isAfpacketEligible ? (
+                        <MenuItem value="afpacket">
+                          <Tooltip title={translate("tooltip-afpacket")} placement="right" arrow>
+                            <span>AFPacket</span>
+                          </Tooltip>
+                        </MenuItem>
+                      ) : (
+                        <Tooltip title={translate("tooltip-afpacket-unavailable")} placement="right" arrow>
+                          <span>
+                            <MenuItem value="afpacket" disabled>AFPacket</MenuItem>
+                          </span>
                         </Tooltip>
-                      </MenuItem>
+                      )}
 
                       {/* <MenuItem value="ebpf">
                         <Tooltip title={translate("tooltip-ebpf")} placement="right" arrow>

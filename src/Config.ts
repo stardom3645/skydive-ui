@@ -236,7 +236,9 @@ export const i18nMap = {
         "tooltip-afpacket": "AFPacket: High-speed packet capture based on the Linux kernel. Recommended for general NICs.",
         "tooltip-ebpf": "eBPF: Requires a modern Linux kernel and enables high-performance capture and filtering.",
         "tooltip-sflow": "sFlow: Receives flow data collected from switches/routers. External configuration required.",
-        "tooltip-dpdk": "DPDK: High-performance user-space packet processing. Requires dedicated drivers and hugepage setup."
+        "tooltip-dpdk": "DPDK: High-performance user-space packet processing. Requires dedicated drivers and hugepage setup.",
+        "tooltip-afpacket-unavailable": "This node does not support AFPacket capture.",
+        "tooltip-pcap-unavailable": "This node does not support PCAP capture."
     },
     ko: {
         "k8s-Federations": "쿠버네티스 페더레이션",
@@ -273,7 +275,7 @@ export const i18nMap = {
         "RxBytes": "수신 바이트 수",
         "TxPackets": "송신 패킷 수",
         "TxBytes": "송신 바이트 수",
-        "Start": "측정 시작 시간",
+        "Start": "캡처 시작",
         "Last": "최종 수집 시간",
 
         "infrastructure": "인프라스트럭처 레이어",
@@ -420,7 +422,9 @@ export const i18nMap = {
         "tooltip-afpacket": "리눅스 커널 기반 고속 패킷 캡처. 일반적인 NIC에 권장.",
         "tooltip-ebpf": "최신 리눅스 커널이 필요하며 고성능 캡처 및 필터링이 가능.",
         "tooltip-sflow": "스위치/라우터에서 수집된 플로우 데이터를 수신합니다. 외부 설정(sFlow Exporter) 필요.",
-        "tooltip-dpdk": "고성능 사용자 공간 패킷 처리. 전용 드라이버 및 hugepage 설정 필요."
+        "tooltip-dpdk": "고성능 사용자 공간 패킷 처리. 전용 드라이버 및 hugepage 설정 필요.",
+        "tooltip-afpacket-unavailable": "이 노드는 AFPacket 캡처를 사용할 수 없습니다.",
+        "tooltip-pcap-unavailable": "이 노드는 PCAP 캡처를 사용할 수 없습니다."
     }
 };
 
@@ -1136,7 +1140,7 @@ class DefaultConfig {
         const alreadyCaptured = captures > 0;
 
         // 캡처 비허용 타입 정의
-        const disallowedCaptureTypes = ["switch", "switchport", "host", "libvirt", "tuntap"];
+        const disallowedCaptureTypes = ["switch", "switchport", "host", "libvirt", "tuntap", "system", "ovsbridge"];
         const isDisallowed = disallowedCaptureTypes.includes(node.data.Type);
 
         return [
