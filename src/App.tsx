@@ -58,6 +58,9 @@ import DialogActions from '@material-ui/core/DialogActions'
 import Button from '@material-ui/core/Button'
 import Chip from '@material-ui/core/Chip'
 import WavesIcon from '@material-ui/icons/Waves'
+import Tooltip from '@material-ui/core/Tooltip'
+import UnfoldMoreIcon from '@material-ui/icons/UnfoldMore'
+import UnfoldLessIcon from '@material-ui/icons/UnfoldLess'
 
 import { styles } from './AppStyles'
 import { Topology, Node, NodeAttrs, LinkAttrs, LinkTagState, Link } from './Topology'
@@ -236,6 +239,7 @@ class App extends React.Component<Props, State> {
   setLanguage(lang: "en" | "ko") {
     this.setState({ language: lang });
   }
+
   toggleLanguage() {
     const newLang = this.state.language === 'en' ? 'ko' : 'en';
     this.setLanguage(newLang);
@@ -322,7 +326,6 @@ class App extends React.Component<Props, State> {
 
       let configFilters = Array.from(this.filters.values()).sort(fnc)
       this.state.filters = this.customFilters.concat(configFilters)
-
 
       this.debSetState(this.state)
     })
@@ -874,6 +877,24 @@ class App extends React.Component<Props, State> {
     this.sync()
   }
 
+  // 모든 노드를 확 펼치는 버튼에서 사용할 메서드입니다.
+  // Topology 컴포넌트에 구현된 expandAllNodes()를 호출합니다.
+  expandAllNodes() {
+    if (!this.tc) {
+      return
+    }
+
+    this.tc.expandAllNodes()
+  }
+
+  collapseAllNodes() {
+    if (!this.tc) {
+      return
+    }
+  
+    this.tc.collapseAllNodes()
+  }
+
   renderSelectionMenuItem(classes: any) {
     return this.props.selection.map((el: Node | Link, i: number) => {
       var className = classes.menuItemIconFree
@@ -1261,10 +1282,10 @@ class App extends React.Component<Props, State> {
   render() {
     const { classes } = this.props
     return (
-        <div className={classes.app}>
-          <CssBaseline />
-          {this.connection()}
-          <AppBar position="absolute" className={clsx(classes.appBar, this.state.isNavOpen && classes.appBarShift)}>
+      <div className={classes.app}>
+        <CssBaseline />
+        {this.connection()}
+        <AppBar position="absolute" className={clsx(classes.appBar, this.state.isNavOpen && classes.appBarShift)}>
           <Toolbar className={classes.toolbar}>
             <IconButton
               edge="start"
@@ -1283,6 +1304,25 @@ class App extends React.Component<Props, State> {
             <div className={classes.search}>
               <AutoCompleteInput placeholder={translate("searchNodeByNameExample")}  suggestions={this.state.suggestions} onChange={this.onSearchChange.bind(this)} />
             </div>
+            {/* 모든 노드 확장 버튼: 클릭 시 Topology 전체를 펼칩니다. */}
+            <Tooltip title={translate("expandAllNodes")}>
+            <IconButton
+              color="inherit"
+              onClick={this.expandAllNodes.bind(this)}
+              className={classes.topologyIconButton}
+            >
+                <UnfoldMoreIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title={translate("collapseAllNodes")}>
+            <IconButton
+              color="inherit"
+              onClick={this.collapseAllNodes.bind(this)}
+              className={classes.topologyIconButton}
+            >
+                <UnfoldLessIcon />
+              </IconButton>
+            </Tooltip>
             <div className={classes.grow} />
             {this.renderMenuButtons(classes)}
           </Toolbar>
@@ -1367,4 +1407,3 @@ export const mapDispatchToProps = ({
 })
 
 export default withStyles(styles)(connect(mapStateToProps, mapDispatchToProps)(withSnackbar(withRouter(App))))
-

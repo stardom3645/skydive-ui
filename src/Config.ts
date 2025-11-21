@@ -238,7 +238,9 @@ export const i18nMap = {
         "tooltip-sflow": "sFlow: Receives flow data collected from switches/routers. External configuration required.",
         "tooltip-dpdk": "DPDK: High-performance user-space packet processing. Requires dedicated drivers and hugepage setup.",
         "tooltip-afpacket-unavailable": "This node does not support AFPacket capture.",
-        "tooltip-pcap-unavailable": "This node does not support PCAP capture."
+        "tooltip-pcap-unavailable": "This node does not support PCAP capture.",
+        "expandAllNodes": "Expand All Nodes",
+        "collapseAllNodes": "Collapse All Nodes"
     },
     ko: {
         "k8s-Federations": "쿠버네티스 페더레이션",
@@ -424,7 +426,9 @@ export const i18nMap = {
         "tooltip-sflow": "스위치/라우터에서 수집된 플로우 데이터를 수신합니다. 외부 설정(sFlow Exporter) 필요.",
         "tooltip-dpdk": "고성능 사용자 공간 패킷 처리. 전용 드라이버 및 hugepage 설정 필요.",
         "tooltip-afpacket-unavailable": "이 노드는 AFPacket 캡처를 사용할 수 없습니다.",
-        "tooltip-pcap-unavailable": "이 노드는 PCAP 캡처를 사용할 수 없습니다."
+        "tooltip-pcap-unavailable": "이 노드는 PCAP 캡처를 사용할 수 없습니다.",
+        "expandAllNodes": "모든 노드 확장",
+        "collapseAllNodes": "모든 노드 축소"
     }
 };
 

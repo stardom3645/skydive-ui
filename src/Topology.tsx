@@ -487,6 +487,68 @@ export class Topology extends React.Component<Props, {}> {
         this.resetCacheAndRenderTree()
     }
 
+    expandAllNodes() {
+        // 1. 모든 실제 Node 트리를 전부 expanded 처리
+        const expand = (node: Node | null) => {
+            if (!node) {
+                return
+            }
+    
+            node.state.expanded = true
+            node.children.forEach(child => expand(child))
+        }
+    
+        // 1차: 실제 Node 트리를 전부 펼친 상태로 한 번 렌더링해서
+        //      모든 그룹(NodeWrapper)과 groupStates 엔트리를 생성합니다.
+        expand(this.root)
+        this.invalidated = true
+        this.resetCacheAndRenderTree()
+    
+        // 2차: 이제 groupStates 안에 새로 생성된 그룹 상태까지 모두 들어왔으므로
+        //      여기에서 "완전 펼침" 설정을 일괄 적용합니다.
+        this.groupStates.forEach(state => {
+            state.expanded = true
+            state.groupFullSize = true
+            state.groupOffset = 0
+        })
+    
+        // 3차: 그룹 상태 변경을 반영해서 다시 한 번 전체 토폴로지를 렌더링합니다.
+        this.invalidated = true
+        this.resetCacheAndRenderTree()
+    }
+
+    // 전체 토폴로지를 한 번에 접는 기능입니다.
+    // - root 아래의 모든 Node.expanded 를 false 로
+    // - 그룹 상태(groupStates)도 모두 접힌 상태로 초기화합니다.
+    collapseAllNodes() {
+        // 1) 실제 Node 트리 전체를 접기 (root 는 보존)
+        const collapse = (node: Node | null, isRoot: boolean) => {
+            if (!node) {
+                return
+            }
+
+            // root 자체는 그대로 두고, 그 아래부터 모두 접습니다.
+            if (!isRoot) {
+                node.state.expanded = false
+            }
+
+            node.children.forEach(child => collapse(child, false))
+        }
+
+        collapse(this.root, true)
+
+        // 2) 그룹 상태(NodeWrapper 에 대응되는 groupStates)도 모두 접기
+        this.groupStates.forEach(state => {
+            state.expanded = false
+            state.groupFullSize = false
+            state.groupOffset = 0
+        })
+
+        // 3) 전체 토폴로지 다시 그리기
+        this.invalidated = true
+        this.resetCacheAndRenderTree()
+    }
+
     activeNodeTag(tag: string) {
         for (const [key, state] of this.nodeTagStates.entries()) {
             this.nodeTagStates.set(key, false)
@@ -2017,18 +2079,47 @@ export class Topology extends React.Component<Props, {}> {
                 self.resetCacheAndRenderTree()
             })
 
-        const handleIcons = (g: any, d: NodeWrapper) => {
-            var size = this.props.groupSize || defaultGroupSize
-
-
-            handleOffset(g.select("g.brace-offset"), d, 25, d.wrapped.state.groupOffset, d.wrapped.state.groupFullSize)
-
-            handleIcon(g.select("g.brace-left-icon"), d, 80, d.wrapped.state.groupFullSize || d.wrapped.state.groupOffset === 0)
-            handleIcon(g.select("g.brace-right-icon"), d, 55, d.wrapped.state.groupFullSize || d.wrapped.state.groupOffset + size >= d.wrapped.children.length)
-            if (d.wrapped.children.length <= defaultMaxExpandSize) {
-                handleIcon(g.select("g.brace-full-icon"), d, 105, false)
+            const handleIcons = (g: any, d: NodeWrapper) => {
+                var size = this.props.groupSize || defaultGroupSize
+            
+                // 오프셋 숫자 뱃지
+                handleOffset(
+                    g.select("g.brace-offset"),
+                    d,
+                    25,
+                    d.wrapped.state.groupOffset,
+                    d.wrapped.state.groupFullSize
+                )
+            
+                // 좌/우 화살표 아이콘
+                handleIcon(
+                    g.select("g.brace-left-icon"),
+                    d,
+                    80,
+                    d.wrapped.state.groupFullSize || d.wrapped.state.groupOffset === 0
+                )
+                handleIcon(
+                    g.select("g.brace-right-icon"),
+                    d,
+                    55,
+                    d.wrapped.state.groupFullSize || d.wrapped.state.groupOffset + size >= d.wrapped.children.length
+                )
+            
+                // 전체 펼치기/접기 아이콘 (+ / -) 처리
+                if (d.wrapped.children.length <= defaultMaxExpandSize) {
+                    const fullIconGroup = g.select("g.brace-full-icon")
+            
+                    // 위치/투명도 등 기본 렌더링
+                    handleIcon(fullIconGroup, d, 105, false)
+            
+                    // 여기서 groupFullSize 값에 맞춰 + / - 아이콘 문자 동기화
+                    const fullIconText = fullIconGroup.select("text")
+                    if (!fullIconText.empty()) {
+                        // true 면 '-' (minus-square), false 면 '+' (plus-square)
+                        fullIconText.text(d.wrapped.state.groupFullSize ? "\uf146" : "\uf0fe")
+                    }
+                }
             }
-        }
 
         groupButtonEnter.each(function (d: NodeWrapper) { handleIcons(select(this), d) })
         groupButton.each(function (d: NodeWrapper) { handleIcons(select(this), d) })
@@ -2518,7 +2609,11 @@ export class Topology extends React.Component<Props, {}> {
 
     render() {
         return (
-            <div className={this.props.className} ref={node => this.svgDiv = node} style={{ position: 'relative' }}>
+            <div
+                className={this.props.className}
+                ref={node => this.svgDiv = node}
+                style={{ position: 'relative' }}
+            >
                 <ResizeObserver
                     onResize={(rect) => { this.onResize(rect) }} />
             </div>
