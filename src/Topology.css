@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap');
+
 svg {
     cursor: default;
 }
@@ -8,17 +10,21 @@ svg {
 
 .level-zone {
     stroke: #888;
+    stroke-width: 2px;
     stroke-dasharray: 5, 10;
     fill: #f6f6f6;
 }
 
 .level-label rect {
     fill: #e4e4e4;
+    stroke-width: 2;        /* 테두리 두께 */
 }
 
 .level-label text {
-    fill:#333;
-    font-weight: 500;
+    fill: #404040;          /* 흰색 글씨 */
+    font-family: 'Noto Sans KR';
+    font-weight: bold;      /* 두껍게 */
+    font-size: 36px;        /* 글자 크기 확대 */
 }
 
 .hiera-links {
@@ -233,4 +239,9 @@ svg {
 
 .context-menu-item text.disabled {
     fill: #888;
+}
+
+.MuiTableCell-root {
+    word-break: keep-all;
+    white-space: nowrap;
 }

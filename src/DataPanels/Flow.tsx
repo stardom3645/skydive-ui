@@ -28,6 +28,8 @@ import Tools from '../Tools'
 import { Node, Link } from '../Topology'
 import { styles } from './FlowStyles'
 
+import { translate } from "../Config"
+
 interface Props {
     classes: any
     el: Node | Link
@@ -119,9 +121,9 @@ class FlowPanel extends React.Component<Props, State> {
 
         return (
             <div className={classes.panel}>
-                <DataPanel title="Flow table" revision={0}
+                <DataPanel title={translate("Flow table")} revision={0}
                     defaultExpanded={false} fetch={this.fetchData.bind(this)} defaultColumns={defaultColumns}
-                    icon={"\uf773"} normalizer={this.normalizer.bind(this)} />
+                    icon={"\uf773"} normalizer={this.normalizer.bind(this)} helpTooltipText={translate("flow_table_help")}/>
             </div>
         )
     }

@@ -28,6 +28,9 @@ import DeleteIcon from '@material-ui/icons/Delete'
 
 import { Column, Graph } from './StdDataNormalizer'
 import './StdDataViewer.css'
+import { translate } from "./Config"
+import Popover from '@material-ui/core/Popover';
+import HelpOutlineIcon from '@material-ui/icons/HelpOutline';
 
 interface Props {
     title?: string
@@ -41,6 +44,7 @@ interface Props {
     deletable?: boolean
     onDelete?: (data: Array<Map<string, any>>) => void
     customRenders?: Map<string, (value: any) => any>
+    helpTooltipText?: string
 }
 
 interface State {
@@ -104,11 +108,18 @@ export class DataViewer extends React.Component<Props, State> {
             download: false,
             customToolbar: () => {
                 return (
-                    <Tooltip title="Apply default filters" aria-label="Apply default filters">
-                        <IconButton onClick={this.resetFilter.bind(this)}>
-                            <FilterNoneIcon />
-                        </IconButton>
-                    </Tooltip>
+                    <React.Fragment>
+                        <Tooltip title="Apply default filters" aria-label="Apply default filters">
+                            <IconButton onClick={this.resetFilter.bind(this)}>
+                                <FilterNoneIcon />
+                            </IconButton>
+                        </Tooltip>
+                        <Tooltip title={this.props.helpTooltipText || "No help available"}>
+                            <IconButton>
+                                <HelpOutlineIcon />
+                            </IconButton>
+                        </Tooltip>
+                    </React.Fragment>
                 )
             },
             rowsSelected: this.state.rowsSelected,
@@ -192,57 +203,103 @@ export class DataViewer extends React.Component<Props, State> {
         }
 
         // re-apply sort and filter if need
-        for (let column of this.props.columns) {
+        for (let i = 0; i < this.props.columns.length; i++) {
+            const column = this.props.columns[i];
+            const colName = column.name;
+          
+            // 기본 컬럼 표시 설정
             if (this.applyDefaultColumns && this.props.defaultColumns) {
-                if (!this.props.defaultColumns.includes(column.name)) {
-                    column.options.display = 'false'
-                }
+              if (!this.props.defaultColumns.includes(colName)) {
+                column.options.display = 'false';
+              }
             }
-
-            // use value from config first
-            if (column.name === "Key" && this.props.filterKeys) {
-                column.options.filterList = this.props.filterKeys
+          
+            // 필터 리스트 적용
+            if (colName === "Key" && this.props.filterKeys) {
+              column.options.filterList = this.props.filterKeys;
             }
-
-            let filterList = this.state.filterList.get(column.name)
+          
+            const filterList = this.state.filterList.get(colName);
             if (filterList) {
-                column.options.filterList = filterList
+              column.options.filterList = filterList;
             }
-
-            var cb = this.props.customRenders?.get(column.name)
-            if (cb) {
-                column.options.customBodyRenderLite = (dataIndex: number, rowIndex: number): any => {
-                    var name = this.props.columns[dataIndex].name
-                    var value = this.props.data[rowIndex][dataIndex]
-
-                    var cb = this.props.customRenders?.get(column.name)
-                    if (cb) {
-                        return cb(value)
+          
+            // "Name" 컬럼은 libvirt → vmNameMap 적용
+            if (colName === "Value") {
+                column.options.customBodyRenderLite = (_dataIndex: number, rowIndex: number): any => {
+                    const kvPair = this.props.data[rowIndex];
+                
+                    if (!kvPair || !Array.isArray(kvPair)) return "";
+                
+                    // (1) IPv4 or IPv6 단독 주소 처리
+                    if (kvPair.length === 1 && typeof kvPair[0] === "string") {
+                        const value = kvPair[0];
+                        if (value.includes(".") && value.includes("/")) {
+                        return `IPv4: ${value}`;
+                        } else if (value.includes(":") && value.includes("/")) {
+                        return `IPv6: ${value}`;
+                        } else {
+                        return value; // fallback
+                        }
                     }
-                    return value
-                }
+                
+                    // (2) 일반 key-value 쌍
+                    if (kvPair.length >= 2) {
+                        const key = kvPair[0];
+                        const value = kvPair[1];
+              
+                    // libvirt 이름 매핑
+                    if (key === "Name") {
+                      const type = this.props.data.find(d => Array.isArray(d) && d[0] === "Type")?.[1];
+                      const libvirtName = value;
+                      const mapped = (window as any).App?.state?.vmNameMap?.[libvirtName];
+              
+                      if (type === "libvirt" && mapped) {
+                        return `${mapped} (${libvirtName})`;
+                      }
+                    }
+              
+                        return value ?? "";
+                    }
+                
+                    return "";
+                };
+            }
+          
+            // 그 외 컬럼은 customRender 적용
+            const cb = this.props.customRenders?.get(colName);
+            if (cb) {
+              column.options.customBodyRenderLite = (_dataIndex: number, rowIndex: number): any => {
+                const value = this.props.data[rowIndex][i];
+                return cb(value);
+              };
             }
         }
         this.applyDefaultColumns = false
+
+        const translatedData = this.props.data.map((row: any[]) => {
+            return row.map((cell, index) => index === 0 ? translate(cell) : cell);
+        });
+
+        const translatedColumns = this.props.columns.map(c => ({
+            ...c,
+            label: translate(c.name)
+        }))
 
         return (
             <React.Fragment>
                 <MUIDataTable
                     title={this.props.title}
-                    data={this.props.data}
-                    columns={this.props.columns}
+                    data={translatedData}
+                    columns={translatedColumns}
                     options={options} />
-                {
-                    this.state.graph &&
+                { this.state.graph && 
                     <Chart
                         height={300}
                         chartType={this.state.graph.type}
                         loader={<div>Loading Chart</div>}
                         data={this.state.graph.data}
-                        options={{
-                            chart: {
-                            },
-                        }}
+                        options={{ chart: {} }}
                     />
                 }
             </React.Fragment>

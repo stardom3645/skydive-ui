@@ -45,20 +45,20 @@ export default function AboutDialog(props: AboutProps) {
                 <div style={{ minWidth: 400 }}>
                     {appVersion &&
                         <DialogContentText>
-                            {appName} version : 2.0.0
+                            {appName} version : 4.2.2
                         </DialogContentText>
                     }
                     {/* <DialogContentText>
                         UI version : {uiVersion}
                     </DialogContentText> */}
                     <DialogContentText>
-                    Copyright (c) 2021, ABLECLOUD.Co.Ltd
+                    Copyright (c) 2025, ABLECLOUD.Co.Ltd
                     </DialogContentText>
                 </div>
             </DialogContent>
             <DialogActions>
                 <Button onClick={onClose} color="primary" autoFocus>
-                    Close
+                    닫기
                 </Button>
             </DialogActions>
         </Dialog>
