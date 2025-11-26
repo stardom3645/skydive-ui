@@ -15,7 +15,7 @@
  *
  */
 
-import { Node, Link, NodeAttrs, LinkAttrs } from './Topology'
+import { Node, Link, NodeAttrs, LinkAttrs, LinkTagState } from './Topology'
 import Tools from './Tools'
 
 const SHOW_DEBUG = false
@@ -1628,6 +1628,6 @@ class DefaultConfig {
     }
 
     defaultLinkTagMode(): number {
-        return 2
+        return LinkTagState.Visible
     }
 }
