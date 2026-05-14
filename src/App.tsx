@@ -149,6 +149,10 @@ interface State {
   timeContext: Date | null
 }
 
+interface VMConsoleResponse {
+  url?: string
+}
+
 class App extends React.Component<Props, State> {
 
   tc: Topology | null
@@ -903,6 +907,8 @@ class App extends React.Component<Props, State> {
   }
 
   actionButtons(el: Node | Link) {
+    const showVMConsoleButton = el.type === 'node' && this.isVMNode(el)
+
     return (
       <React.Fragment>
         <GremlinButton el={el} onClick={() => {
@@ -913,8 +919,79 @@ class App extends React.Component<Props, State> {
           this.state.isCapturePanelOpen = !this.state.isCapturePanelOpen
           this.setState(this.state)
         }} />
+        {showVMConsoleButton &&
+          <Button variant="contained" color="primary" onClick={() => this.openVMConsole(el as Node)}>
+            콘솔 열기
+          </Button>
+        }
       </React.Fragment>
     )
+  }
+
+  private getNodeMetadataValue(node: Node, key: string): string {
+    const value = node.data ? node.data[key] : undefined
+    if (value === undefined || value === null) {
+      return ""
+    }
+    return String(value).toLowerCase()
+  }
+
+  private isVMNode(node: Node): boolean {
+    const candidates = [
+      this.getNodeMetadataValue(node, "Type"),
+      this.getNodeMetadataValue(node, "type"),
+      this.getNodeMetadataValue(node, "Manager"),
+      this.getNodeMetadataValue(node, "manager"),
+      this.getNodeMetadataValue(node, "HostType"),
+      this.getNodeMetadataValue(node, "hostType"),
+      this.getNodeMetadataValue(node, "Name"),
+      this.getNodeMetadataValue(node, "name"),
+      this.getNodeMetadataValue(node, "UUID"),
+      this.getNodeMetadataValue(node, "uuid"),
+    ]
+
+    const vmKeywords = ["vm", "virtualmachine", "virtual-machine", "instance"]
+    return candidates.some(value => vmKeywords.some(keyword => value.indexOf(keyword) >= 0))
+  }
+
+  private openVMConsole(node: Node) {
+    this.fetchVMConsoleURL(node).then((result) => {
+      if (!result.url) {
+        this.notify("콘솔 URL을 가져오지 못했습니다.", "error")
+        console.log("No console url in response", result)
+        return
+      }
+
+      window.open(result.url, "_blank", "noopener,noreferrer")
+    }).catch((err) => {
+      this.notify("콘솔 열기에 실패했습니다.", "error")
+      console.log("Failed to open VM console", err)
+    })
+  }
+
+  private fetchVMConsoleURL(node: Node): Promise<VMConsoleResponse> {
+    const endpoint = `${this.props.session.endpoint}/api/mold/vmconsole`
+    const params = new URLSearchParams()
+    params.set("nodeId", node.id)
+    const vmID = node.data ? (node.data.UUID || node.data.uuid) : undefined
+    if (vmID) {
+      params.set("vmId", String(vmID))
+    }
+
+    const headers: HeadersInit = {
+      "Content-Type": "application/json",
+      "X-Auth-Token": this.props.session.token,
+    }
+
+    return fetch(`${endpoint}?${params.toString()}`, {
+      method: "GET",
+      headers: headers,
+    }).then((resp) => {
+      if (!resp.ok) {
+        throw new Error(`vm console api failed: ${resp.status}`)
+      }
+      return resp.json()
+    })
   }
 
   dataPanels(el: Node | Link) {
