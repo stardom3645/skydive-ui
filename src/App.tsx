@@ -80,6 +80,7 @@ import { StatusApi, APIInfoApi } from './api'
 import Tools from './Tools'
 import GremlinButton from './ActionButtons/Gremlin'
 import CaptureButton from './ActionButtons/Capture'
+import VMConsoleButton from './ActionButtons/VMConsole'
 import GremlinPanel from './DataPanels/Gremlin'
 import CapturePanel from './DataPanels/Capture'
 import FlowPanel from './DataPanels/Flow'
@@ -164,6 +165,7 @@ interface State {
   appVersion: string
   timeContext: Date | null
   language: "en" | "ko"
+  isVMConsoleOpening: boolean
 }
 
 interface VMConsoleResponse {
@@ -216,7 +218,8 @@ class App extends React.Component<Props, State> {
       appVersion: "",
       timeContext: null,
       language: "ko",
-      vmNameMap: {}
+      vmNameMap: {},
+      isVMConsoleOpening: false
     }
 
     this.synced = false
@@ -970,9 +973,11 @@ class App extends React.Component<Props, State> {
           this.setState(this.state)
         }} />
         {showVMConsoleButton &&
-          <Button variant="contained" color="primary" onClick={() => this.openVMConsole(el as Node)}>
-            콘솔 열기
-          </Button>
+          <VMConsoleButton
+            el={el as Node}
+            onClick={() => this.openVMConsole(el as Node)}
+            disabled={this.state.isVMConsoleOpening}
+          />
         }
       </React.Fragment>
     )
@@ -1005,17 +1010,27 @@ class App extends React.Component<Props, State> {
   }
 
   private openVMConsole(node: Node) {
+    if (this.state.isVMConsoleOpening) {
+      return
+    }
+
+    this.state.isVMConsoleOpening = true
+    this.setState(this.state)
+
     this.fetchVMConsoleURL(node).then((result) => {
       if (!result.url) {
         this.notify("콘솔 URL을 가져오지 못했습니다.", "error")
-        console.log("No console url in response", result)
+        console.debug("No console url in response", result)
         return
       }
 
       window.open(result.url, "_blank", "noopener,noreferrer")
     }).catch((err) => {
       this.notify("콘솔 열기에 실패했습니다.", "error")
-      console.log("Failed to open VM console", err)
+      console.debug("Failed to open VM console", err)
+    }).finally(() => {
+      this.state.isVMConsoleOpening = false
+      this.setState(this.state)
     })
   }
 
