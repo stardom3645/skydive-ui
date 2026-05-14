@@ -1,20 +1,3 @@
-/*
- * Copyright (C) 2019 Sylvain Afchain
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
-
 import * as React from 'react'
 import TextField from '@material-ui/core/TextField'
 import Button from '@material-ui/core/Button'
@@ -29,175 +12,488 @@ import Select from '@material-ui/core/Select'
 import MenuItem from '@material-ui/core/MenuItem'
 import FormControl from '@material-ui/core/FormControl'
 import Typography from '@material-ui/core/Typography'
-import FormControlLabel from '@material-ui/core/FormControlLabel';
+import FormControlLabel from '@material-ui/core/FormControlLabel'
 import Checkbox from '@material-ui/core/Checkbox'
+import Snackbar from '@material-ui/core/Snackbar'
+import MuiAlert from '@material-ui/lab/Alert'
 
+import { Node } from '../Topology'
 import { Configuration } from '../api/configuration'
 import Panel from './Panel'
 import { CapturesApi } from '../api'
 import { styles } from './CaptureFormStyles'
 import { AppState, session } from '../Store'
 import { connect } from 'react-redux'
+import { translate } from "../Config"
+import HelpIconWithDialog from './HelpIconWithDialog'
+import Tooltip from '@material-ui/core/Tooltip'
+import * as ipaddr from "ipaddr.js"
+
+function Alert(props) {
+  return <MuiAlert elevation={6} variant="filled" {...props} />
+}
 
 interface Props {
-    classes: any
-    defaultName: string
-    gremlin: string
-    session: session
+  classes: any
+  defaultName: string
+  gremlin: string
+  session: session
+  onCaptureCreated?: () => void
+  node: Node
 }
 
 interface State {
-    name: string
-    description: string
-    bpf: string
+  name: string
+  description: string
+  bpf: string
+  captureType: string
+  layerKey: string
+  headerSize: string
+  rawPacketLimit: string
+  extraTCPMetric: boolean
+  defragIPv4: boolean
+  reassembleTCP: boolean
+  snackbarOpen: boolean
+  snackbarMessage: string
+  snackbarSeverity: "success" | "error"
 }
 
 class CaptureForm extends React.Component<Props, State> {
+  constructor(props) {
+    super(props)
 
-    state: State
+    const { node } = props
+    const isOvsPort = node.data.Type === "ovsport"
+    const nodeIPs = node.data.IPV4 || []
+    const isSflowEligible   = Array.isArray(nodeIPs) && nodeIPs.length > 0
+    const isDPDKPort        = node.data.Type === "dpdkport"
+    const isOvsMirrorEligible =
+      isOvsPort &&
+      typeof node.data.Name === "string" &&
+      !/^ovs-port-mir/.test(node.data.Name)
 
-    constructor(props) {
-        super(props)
+    const eligibleTypes: string[] = []
+    if (!isOvsPort) {
+      eligibleTypes.push("pcap", "afpacket")
+    }
+    if (isSflowEligible) {
+      eligibleTypes.push("sflow")
+    }
+    if (isDPDKPort) {
+      eligibleTypes.push("dpdk")
+    }
+    if (isOvsMirrorEligible) {
+      eligibleTypes.push("ovsmirror")
+    }
+    const defaultCaptureType = eligibleTypes[0] || ""
+    
+    this.state = {
+      name: props.defaultName || "",
+      description: "",
+      bpf: "",
+      captureType: defaultCaptureType,
+      layerKey: "L3",
+      headerSize: "",
+      rawPacketLimit: "0",
+      extraTCPMetric: false,
+      defragIPv4: false,
+      reassembleTCP: false,
+      snackbarOpen: false,
+      snackbarMessage: "",
+      snackbarSeverity: "error"
+    }
+  }
 
-        this.state = {
-            name: "",
-            description: "",
-            bpf: ""
-        }
+  handleChange = (field: keyof State) => (event) => {
+    const value = event.target.type === 'checkbox' ? event.target.checked : event.target.value
+    this.setState({ [field]: value } as Pick<State, keyof State>)
+  }
+
+  onClick = async () => {
+    if (this.state.captureType !== "pcap" && this.state.bpf.trim() !== "") {
+      this.setState({
+        snackbarOpen: true,
+        snackbarMessage: translate("bpf-pcap-only"),
+        snackbarSeverity: "error"
+      });
+      return;
     }
 
-    onClick() {
-        var conf = new Configuration({ basePath: this.props.session.endpoint + "/api", accessToken: this.props.session.token })
-        var api = new CapturesApi(conf)
+    try {
+      const conf = new Configuration({
+        basePath: this.props.session.endpoint + "/api",
+        accessToken: this.props.session.token
+      })
+      const api = new CapturesApi(conf)
 
-        api.createCapture({ GremlinQuery: this.props.gremlin }).then(result => {
-            console.log(result)
+      const payload = {
+        GremlinQuery: this.props.gremlin,
+        Name: this.state.name,
+        Description: this.state.description,
+        BPFFilter: this.state.bpf,
+        Type: this.state.captureType,
+        LayerKeyMode: this.state.layerKey,
+        HeaderSize: this.state.headerSize ? parseInt(this.state.headerSize) : undefined,
+        RawPacketLimit: this.state.rawPacketLimit ? parseInt(this.state.rawPacketLimit) : 0,
+        ExtraTCPMetric: this.state.extraTCPMetric,
+        IPDefrag: this.state.defragIPv4,
+        ReassembleTCP: this.state.reassembleTCP
+      }
+
+      const result = await api.createCapture(payload as any)
+      console.log("Capture created:", result)
+
+      // 캡처 성공 시 부모 콜백 호출
+      this.setState({
+        snackbarOpen: true,
+        snackbarMessage: translate("capture-create-success"),
+        snackbarSeverity: "success"
+      })
+      
+      if (this.props.onCaptureCreated) {
+        this.props.onCaptureCreated()
+      }
+
+    } catch (err) {
+        console.error("에러 발생:", err)
+        let message = translate("capture-create-failed")
+
+        if (err instanceof Response) {
+          if (err.status === 409) {
+            message += ": " + translate("capture-duplicate-error")
+          } else if (err.status === 400) {
+            message += ": " + translate("capture-validation-error")
+          } else {
+            message += ": " + translate("capture-unknown-error")
+          }
+        } else if (err.message?.includes("Network Error")) {
+          message += ": " + translate("capture-network-error")
+        } else if (err.message) {
+          message += ": " + err.message
+        } else {
+          message += ": " + translate("capture-unknown-error")
+        }
+
+        this.setState({
+          snackbarOpen: true,
+          snackbarMessage: message,
+          snackbarSeverity: "error"
         })
     }
+  }
 
-    render() {
-        const { classes } = this.props
+  render() {
+    const { classes } = this.props
 
-        return (
-            <Panel icon={<VideocamIcon />} title="Packet capture" content={
-                <React.Fragment>
-                    <TextField
-                        className={classes.textField}
-                        label="Name"
-                        margin="normal"
-                        fullWidth
-                        value={this.props.defaultName}
-                    />
-                    <TextField
-                        className={classes.textField}
-                        label="Description"
-                        margin="normal"
-                        multiline
-                        fullWidth
-                    />
-                    <TextField
-                        className={classes.textField}
-                        label="Filter (BPF)"
-                        margin="normal"
-                        fullWidth
-                    />
-                    <Accordion className={classes.advanced}>
-                        <AccordionSummary
-                            expandIcon={<ExpandMoreIcon />}
-                            aria-controls="panel1a-content"
-                            id="panel1a-header"
-                            className={classes.advancedSummary}
-                        >
-                            <Typography className={classes.heading}>Advanced options</Typography>
-                        </AccordionSummary>
-                        <AccordionDetails>
-                            <FormControl className={classes.control}>
-                                <InputLabel id="capture-type-label"
-                                    className={classes.selectField}>Capture Type</InputLabel>
-                                <Select
-                                    id="capture-type"
-                                    value="Default"
-                                    labelId="capture-type-label"
-                                >
-                                    <MenuItem>Default</MenuItem>
-                                    <MenuItem>PCAP (Packet Capture library based probe)</MenuItem>
-                                    <MenuItem>AFPacket (MMap'd AF_PACKET socket reading)</MenuItem>
-                                    <MenuItem>sFlow  (Socket reading sFlow frames)</MenuItem>
-                                    <MenuItem>DPDK</MenuItem>
-                                    <MenuItem>OVS Mirror  (Leverages mirroring to capture - experimental)</MenuItem>
-                                    <MenuItem>eBPF (Flow capture within kernel - experimental)</MenuItem>
-                                </Select>
-                            </FormControl>
-                            <FormControl className={classes.control}>
-                                <InputLabel id="layer-key-label"
-                                    className={classes.selectField}>Layers used for Flow Key</InputLabel>
-                                <Select
-                                    id="layer-key"
-                                    value="Default"
-                                    labelId="layer-key-label"
-                                >
-                                    <MenuItem>L2 (uses Layer 2 and beyond)</MenuItem>
-                                    <MenuItem>L3 (uses layer 3 and beyond)</MenuItem>
-                                </Select>
-                            </FormControl>
-                            <TextField
-                                className={classes.textField}
-                                label="Header size"
-                                margin="normal"
-                                fullWidth
-                            />
-                            <FormControl className={classes.control}>
-                                <FormControlLabel
-                                    control={
-                                        <Checkbox
-                                            value=""
-                                            color="primary"
-                                        />
-                                    }
-                                    label="Extra TCP metric"
-                                />
-                                <FormControlLabel
-                                    control={
-                                        <Checkbox
-                                            value=""
-                                            color="primary"
-                                        />
-                                    }
-                                    label="Defragment IPv4 packets"
-                                />
-                                <FormControlLabel
-                                    control={
-                                        <Checkbox
-                                            value=""
-                                            color="primary"
-                                        />
-                                    }
-                                    label="Reassemble TCP packets"
-                                />
-                            </FormControl>
-                            <TextField
-                                    className={classes.textField}
-                                    label="Raw packet limit"
-                                    margin="normal"
-                                    fullWidth
-                                    value="0"
-                                />
-                        </AccordionDetails>
-                    </Accordion>
-                    <Button variant="contained" className={classes.button} color="primary" onClick={this.onClick.bind(this)}>
-                        Start
-                    </Button>
-                </React.Fragment>
-            } />
-        )
+    const disallowedTypes = ["switch", "switchport", "host", "libvirt", "tuntap", "system", "ovsbridge"];
+    const isCaptureDisabled = disallowedTypes.includes(this.props.node?.data?.Type);
+
+    const isOvsPort = this.props.node?.data?.Type === "ovsport"
+    const isOvsMirrorEligible =
+          isOvsPort &&
+          typeof this.props.node?.data?.Name === "string" &&
+          !/^ovs-port-mir/.test(this.props.node.data.Name); // 미러 출력 포트 제외
+
+    const isPcapEligible     = !isOvsPort;
+    const isAfpacketEligible = !isOvsPort;
+
+    const nodeIPs = this.props.node?.data?.IPV4 || []
+    const isSflowEligible = Array.isArray(nodeIPs) && nodeIPs.length > 0
+
+    const isDPDKPort = this.props.node?.data?.Type === "dpdkport";
+
+    const eligibleTypes: string[] = []
+    if (!isOvsPort) {
+      eligibleTypes.push("pcap", "afpacket")
     }
+    if (isSflowEligible) {
+      eligibleTypes.push("sflow")
+    }
+    if (isDPDKPort) {
+      eligibleTypes.push("dpdk")
+    }
+    if (isOvsMirrorEligible) {
+      eligibleTypes.push("ovsmirror")
+    }
+    const defaultCaptureType = eligibleTypes[0] || ""
+
+    // state.captureType 비어있으면 default 사용
+    const captureType = this.state.captureType || defaultCaptureType
+
+    return (
+      <>
+        <Panel icon={<VideocamIcon />} title={translate("Packet capture")} content={
+          <>
+            <TextField
+              label={translate("Name")}
+              className={classes.textField}
+              fullWidth
+              margin="normal"
+              value={this.state.name}
+              onChange={this.handleChange("name")}
+            />
+            <TextField
+              label={translate("Description")}
+              className={classes.textField}
+              fullWidth
+              multiline
+              margin="normal"
+              value={this.state.description}
+              onChange={this.handleChange("description")}
+            />
+            <TextField
+              label={translate("Filter (BPF)")}
+              className={classes.textField}
+              fullWidth
+              margin="normal"
+              value={this.state.bpf}
+              onChange={this.handleChange("bpf")}
+            />
+            <Accordion className={classes.advanced}>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />} className={classes.advancedSummary}>
+                <Typography className={classes.heading}>{translate("Advanced options")}</Typography>
+              </AccordionSummary>
+              <AccordionDetails>
+                <div style={{ width: "100%" }}>
+                  <FormControl variant="outlined" fullWidth className={classes.control}>
+                    <InputLabel id="capture-type-label">{translate("Capture Type")}</InputLabel>
+                    <Select
+                      id="capture-type"
+                      labelId="capture-type-label"
+                      value={captureType}
+                      onChange={this.handleChange("captureType")}
+                      label={translate("Capture Type")}
+                    >
+                      {isPcapEligible ? (
+                        <MenuItem value="pcap">
+                          <Tooltip title={translate("tooltip-pcap")} placement="right" arrow>
+                            <span>PCAP</span>
+                          </Tooltip>
+                        </MenuItem>
+                      ) : (
+                        <Tooltip title={translate("tooltip-pcap-unavailable")} placement="right" arrow>
+                          <span>
+                            <MenuItem value="pcap" disabled>PCAP</MenuItem>
+                          </span>
+                        </Tooltip>
+                      )}
+
+                      {isAfpacketEligible ? (
+                        <MenuItem value="afpacket">
+                          <Tooltip title={translate("tooltip-afpacket")} placement="right" arrow>
+                            <span>AFPacket</span>
+                          </Tooltip>
+                        </MenuItem>
+                      ) : (
+                        <Tooltip title={translate("tooltip-afpacket-unavailable")} placement="right" arrow>
+                          <span>
+                            <MenuItem value="afpacket" disabled>AFPacket</MenuItem>
+                          </span>
+                        </Tooltip>
+                      )}
+
+                      {/* <MenuItem value="ebpf">
+                        <Tooltip title={translate("tooltip-ebpf")} placement="right" arrow>
+                          <span>eBPF</span>
+                        </Tooltip>
+                      </MenuItem> */}
+
+                      {isSflowEligible ? (
+                        <MenuItem value="sflow">
+                          <Tooltip title={translate("tooltip-sflow")} placement="right" arrow>
+                            <span>sFlow</span>
+                          </Tooltip>
+                        </MenuItem>
+                      ) : (
+                        <Tooltip
+                          title={translate("sflow-unavailable-no")}
+                          placement="right"
+                          arrow
+                        >
+                          <span>
+                            <MenuItem value="sflow" disabled>
+                              sFlow
+                            </MenuItem>
+                          </span>
+                        </Tooltip>
+                      )}
+
+                      {isDPDKPort ? (
+                        <MenuItem value="dpdk">
+                          <Tooltip title={translate("tooltip-dpdk")} placement="right" arrow>
+                            <span>DPDK</span>
+                          </Tooltip>
+                        </MenuItem>
+                      ) : (
+                        <Tooltip
+                          title={translate("dpdk-unavailable")}
+                          placement="right"
+                          arrow
+                        >
+                          <span>
+                            <MenuItem value="dpdk" disabled>
+                              DPDK
+                            </MenuItem>
+                          </span>
+                        </Tooltip>
+                      )}
+                      
+                      {isOvsMirrorEligible ? (
+                        <MenuItem value="ovsmirror">OVS Mirror</MenuItem>
+                      ) : (
+                        <Tooltip
+                          title={translate("ovs-mirror-only")}
+                          placement="right"
+                          arrow
+                        >
+                          <span>
+                            <MenuItem value="ovsmirror" disabled>
+                              OVS Mirror
+                            </MenuItem>
+                          </span>
+                        </Tooltip>
+                      )}
+                    </Select>
+                  </FormControl>
+                  <FormControl variant="outlined" fullWidth className={classes.control}>
+                    <InputLabel id="layer-key-label">{translate("Layers used for Flow Key")}</InputLabel>
+                    <Select
+                      id="layer-key"
+                      labelId="layer-key-label"
+                      value={this.state.layerKey}
+                      onChange={this.handleChange("layerKey")}
+                      label={translate("Layers used for Flow Key")}
+                    >
+                      <MenuItem value="L2">L2</MenuItem>
+                      <MenuItem value="L3">L3</MenuItem>
+                    </Select>
+                  </FormControl>
+                  <TextField
+                    label={translate("Header size")}
+                    type="number"
+                    value={this.state.headerSize}
+                    onChange={this.handleChange("headerSize")}
+                    error={
+                      !!this.state.headerSize &&
+                      (parseInt(this.state.headerSize) < 14 || parseInt(this.state.headerSize) > 4096)
+                    }
+                    helperText={
+                      !!this.state.headerSize &&
+                      (parseInt(this.state.headerSize) < 14 || parseInt(this.state.headerSize) > 4096)
+                        ? translate("capture-headerSize-validation-error")
+                        : ""
+                    }
+                    fullWidth
+                    margin="normal"
+                  />
+                  <FormControl component="fieldset" className={classes.control}>
+                    <Tooltip title={translate("capture-extraTCPMetric-tooltip")} arrow>
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={this.state.extraTCPMetric}
+                            onChange={this.handleChange("extraTCPMetric")}
+                            color="primary"
+                          />
+                        }
+                        label={translate("Extra TCP metric")}
+                      />
+                    </Tooltip>
+                    <Tooltip title={translate("capture-IPDefrag-tooltip")} arrow>
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={this.state.defragIPv4}
+                            onChange={this.handleChange("defragIPv4")}
+                            color="primary"
+                          />
+                        }
+                        label={translate("Defragment IPv4 packets")}
+                      />
+                    </Tooltip>
+                    <Tooltip title={translate("capture-reassembleTCP-tooltip")} arrow>
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={this.state.reassembleTCP}
+                            onChange={this.handleChange("reassembleTCP")}
+                            color="primary"
+                          />
+                        }
+                        label={translate("Reassemble TCP packets")}
+                      />
+                    </Tooltip>
+                  </FormControl>
+                  <FormControl>
+                    <TextField
+                      label={
+                        <span style={{ display: "flex", alignItems: "center" }}>
+                          {translate("Raw packet limit")}
+                          <HelpIconWithDialog topic="raw-packet-limit" />
+                        </span>
+                      }
+                      type="number"
+                      value={this.state.rawPacketLimit}
+                      onChange={this.handleChange("rawPacketLimit")}
+                      error={
+                        !!this.state.rawPacketLimit &&
+                        !(
+                          parseInt(this.state.rawPacketLimit) === 0 ||
+                          (parseInt(this.state.rawPacketLimit) > 0 &&
+                           parseInt(this.state.rawPacketLimit) <= 10)
+                        )
+                      }
+                      helperText={
+                        !!this.state.rawPacketLimit &&
+                        !(
+                          parseInt(this.state.rawPacketLimit) === 0 ||
+                          (parseInt(this.state.rawPacketLimit) > 0 &&
+                           parseInt(this.state.rawPacketLimit) <= 10)
+                        )
+                          ? translate("capture-rawPacketLimit-validation-error")
+                          : ""
+                      }
+                      fullWidth
+                      margin="normal"
+                    />
+                    </FormControl>
+                </div>
+              </AccordionDetails>
+            </Accordion>
+            <Button
+              variant="contained"
+              className={classes.button}
+              color="primary"
+              onClick={this.onClick}
+              disabled={isCaptureDisabled}
+            >
+              {translate("Start")}
+            </Button>
+          </>
+        } />
+
+        <Snackbar
+          open={this.state.snackbarOpen}
+          autoHideDuration={4000}
+          onClose={() => this.setState({ snackbarOpen: false })}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        >
+          <Alert
+            onClose={() => this.setState({ snackbarOpen: false })}
+            severity={this.state.snackbarSeverity}
+          >
+            {this.state.snackbarMessage}
+          </Alert>
+        </Snackbar>
+      </>
+    )
+  }
 }
 
 export const mapStateToProps = (state: AppState) => ({
-    session: state.session
+  session: state.session
 })
 
-export const mapDispatchToProps = ({
-})
+export const mapDispatchToProps = ({ })
 
 export default withStyles(styles)(connect(mapStateToProps, mapDispatchToProps)(CaptureForm))

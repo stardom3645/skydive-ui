@@ -51,7 +51,7 @@ export class CapturePanel extends React.Component<Props> {
 
         return (
             <Collapse in={this.props.expanded} timeout="auto" unmountOnExit className={classes.panel}>
-                <CaptureForm defaultName={this.dataAttrs(this.props.el).name} gremlin={`G.V().Has('TID', '${this.props.el.data.TID}')`} />
+                <CaptureForm defaultName={this.dataAttrs(this.props.el).name} gremlin={`G.V().Has('TID', '${this.props.el.data.TID}')`} node={this.props.el.type === 'node' ? this.props.el as Node : undefined} />
             </Collapse>
         )
     }

@@ -58,6 +58,9 @@ import DialogActions from '@material-ui/core/DialogActions'
 import Button from '@material-ui/core/Button'
 import Chip from '@material-ui/core/Chip'
 import WavesIcon from '@material-ui/icons/Waves'
+import Tooltip from '@material-ui/core/Tooltip'
+import UnfoldMoreIcon from '@material-ui/icons/UnfoldMore'
+import UnfoldLessIcon from '@material-ui/icons/UnfoldLess'
 
 import { styles } from './AppStyles'
 import { Topology, Node, NodeAttrs, LinkAttrs, LinkTagState, Link } from './Topology'
@@ -81,12 +84,22 @@ import GremlinPanel from './DataPanels/Gremlin'
 import CapturePanel from './DataPanels/Capture'
 import FlowPanel from './DataPanels/Flow'
 import AboutDialog from './About'
+import HelpDialog from './Help'
 import TimetravelPanel from './TimetravelPanel'
+
+import ListItem from '@material-ui/core/ListItem'
+import LanguageToggle from './LanguageToggle'
 
 const packageJson = require('../package.json')
 
 import './App.css'
 import ConfigReducer, { Filter } from './Config'
+import { useEffect, useState } from "react";
+import { fetchVmNameMap } from "./api";
+
+import { translate } from "./Config"
+
+export let currentLanguage: "en" | "ko" = "ko";
 
 // expose app ouside
 declare global {
@@ -94,6 +107,7 @@ declare global {
     API: any,
     App: any,
     Tools: Tools
+    refreshTopology?: () => void;
   }
 }
 window.API = api
@@ -127,6 +141,7 @@ interface AddFilterValue {
 const addFilterValue = createFilterOptions<AddFilterValue>();
 
 interface State {
+  vmNameMap?: Record<string, string>
   isContextMenuOn: string
   contextMenuX: number
   contextMenuY: number
@@ -145,8 +160,10 @@ interface State {
   addFilterOpened: boolean
   addFilterValue: AddFilterValue
   isAboutOpen: boolean
+  isHelpOpen: boolean
   appVersion: string
   timeContext: Date | null
+  language: "en" | "ko"
 }
 
 interface VMConsoleResponse {
@@ -195,8 +212,11 @@ class App extends React.Component<Props, State> {
       addFilterOpened: false,
       addFilterValue: { label: "", gremlinFilter: "" },
       isAboutOpen: false,
+      isHelpOpen: false,
       appVersion: "",
-      timeContext: null
+      timeContext: null,
+      language: "ko",
+      vmNameMap: {}
     }
 
     this.synced = false
@@ -220,6 +240,15 @@ class App extends React.Component<Props, State> {
     this.customFilters = new Array<Filter>()
   }
 
+  setLanguage(lang: "en" | "ko") {
+    this.setState({ language: lang });
+  }
+
+  toggleLanguage() {
+    const newLang = this.state.language === 'en' ? 'ko' : 'en';
+    this.setLanguage(newLang);
+  }
+
   componentDidMount() {
     // make the application available globally
     window.App = this
@@ -235,6 +264,10 @@ class App extends React.Component<Props, State> {
     } else {
       this.loadStaticData(this.props.dataURL)
     }
+    // Libvirt VM 이름 매핑 정보 불러오기
+    fetchVmNameMap()
+      .then((data) => this.setState({ vmNameMap: data }))
+      .catch(console.error);
   }
 
   componentWillUnmount() {
@@ -297,7 +330,6 @@ class App extends React.Component<Props, State> {
 
       let configFilters = Array.from(this.filters.values()).sort(fnc)
       this.state.filters = this.customFilters.concat(configFilters)
-
 
       this.debSetState(this.state)
     })
@@ -520,7 +552,7 @@ class App extends React.Component<Props, State> {
 
   _refreshTopology() {
     if (this.tc) {
-      this.tc.renderTree()
+      this.tc.renderTree();
     }
   }
 
@@ -849,6 +881,24 @@ class App extends React.Component<Props, State> {
     this.sync()
   }
 
+  // 모든 노드를 확 펼치는 버튼에서 사용할 메서드입니다.
+  // Topology 컴포넌트에 구현된 expandAllNodes()를 호출합니다.
+  expandAllNodes() {
+    if (!this.tc) {
+      return
+    }
+
+    this.tc.expandAllNodes()
+  }
+
+  collapseAllNodes() {
+    if (!this.tc) {
+      return
+    }
+  
+    this.tc.collapseAllNodes()
+  }
+
   renderSelectionMenuItem(classes: any) {
     return this.props.selection.map((el: Node | Link, i: number) => {
       var className = classes.menuItemIconFree
@@ -1145,7 +1195,7 @@ class App extends React.Component<Props, State> {
           <Container className={classes.linkTagsPanel}>
             <Paper className={classes.linkTagsPanelPaper}>
               <Typography component="h6" color="primary" gutterBottom>
-                Link types
+                {translate("networkLinkLayer")}
               </Typography>
               <FormGroup>
                 {Array.from(this.state.linkTagStates.keys()).map((key) => (
@@ -1154,7 +1204,7 @@ class App extends React.Component<Props, State> {
                       checked={this.state.linkTagStates.get(key) === LinkTagState.Visible}
                       indeterminate={this.state.linkTagStates.get(key) === LinkTagState.EventBased} />
                   }
-                    label={key} />
+                    label={translate(key)} />
                 ))}
               </FormGroup>
             </Paper>
@@ -1287,6 +1337,17 @@ class App extends React.Component<Props, State> {
     this.setState(this.state)
   }
 
+  closeHelpDialog() {
+    this.state.isHelpOpen = false
+    this.setState(this.state)
+  }
+
+  openHelpDialog() {
+    this.state.isNavOpen = false
+    this.state.isHelpOpen = true
+    this.setState(this.state)
+  }
+
   onNavigate(date: Date) {
     this.state.isTimetravelOpen = false
     this.state.timeContext = date
@@ -1297,7 +1358,6 @@ class App extends React.Component<Props, State> {
 
   render() {
     const { classes } = this.props
-
     return (
       <div className={classes.app}>
         <CssBaseline />
@@ -1319,8 +1379,27 @@ class App extends React.Component<Props, State> {
               <Typography className={classes.subTitle} variant="caption">{this.config.subTitle()}</Typography>
             }
             <div className={classes.search}>
-              <AutoCompleteInput placeholder="metadata value" suggestions={this.state.suggestions} onChange={this.onSearchChange.bind(this)} />
+              <AutoCompleteInput placeholder={translate("searchNodeByNameExample")}  suggestions={this.state.suggestions} onChange={this.onSearchChange.bind(this)} />
             </div>
+            {/* 모든 노드 확장 버튼: 클릭 시 Topology 전체를 펼칩니다. */}
+            <Tooltip title={translate("expandAllNodes")}>
+            <IconButton
+              color="inherit"
+              onClick={this.expandAllNodes.bind(this)}
+              className={classes.topologyIconButton}
+            >
+                <UnfoldMoreIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title={translate("collapseAllNodes")}>
+            <IconButton
+              color="inherit"
+              onClick={this.collapseAllNodes.bind(this)}
+              className={classes.topologyIconButton}
+            >
+                <UnfoldLessIcon />
+              </IconButton>
+            </Tooltip>
             <div className={classes.grow} />
             {this.renderMenuButtons(classes)}
           </Toolbar>
@@ -1338,11 +1417,18 @@ class App extends React.Component<Props, State> {
           </div>
           <Divider />
           <List><MenuListItems /></List>
-          {/* <Divider /> */}
-          <List><HelpListItems onClick={this.openAboutDialog.bind(this)} /></List>
+          <List>
+            <ListItem>
+              <LanguageToggle />
+            </ListItem>
+          </List>
+          <Divider />
+          <List><HelpListItems onClickAbout={this.openAboutDialog.bind(this)} onClickHelp={this.openHelpDialog.bind(this)} /></List>
         </Drawer>
         <AboutDialog open={this.state.isAboutOpen} onClose={this.closeAboutDialog.bind(this)}
           appName="ABLESTACK NETDIVE" appVersion="1.00" uiVersion="1.00"/>
+        <HelpDialog open={this.state.isHelpOpen} onClose={this.closeHelpDialog.bind(this)}
+        />
         <main className={classes.content}>
           <Container maxWidth="xl" className={classes.container}>
             <Topology className={classes.topology} ref={node => this.tc = node}
@@ -1361,6 +1447,7 @@ class App extends React.Component<Props, State> {
               onNodeClicked={this.config.nodeClicked.bind(this.config)}
               onNodeDblClicked={this.config.nodeDblClicked.bind(this.config)}
               defaultLinkTagMode={this.config.defaultLinkTagMode.bind(this.config)}
+              vmNameMap={this.state.vmNameMap}
             />
           </Container>
           <Container className={classes.rightPanel}>

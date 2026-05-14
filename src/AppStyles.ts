@@ -240,5 +240,20 @@ export const styles = (theme: Theme) => createStyles({
     maxWidth: 18,
     maxHeight: 18,
     verticalAlign: 'middle'
+  },
+  topologyIconButton: {
+    border: '2px solid rgba(255, 255, 255, 0.6)',
+    borderRadius: 8,
+    marginLeft: theme.spacing(1),
+    padding: theme.spacing(0.5),
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    transition: 'background-color 0.15s ease-out, border-color 0.15s ease-out',
+    '&:hover': {
+      backgroundColor: 'rgba(255, 255, 255, 0.18)',
+      borderColor: 'rgba(255, 255, 255, 0.9)'
+    },
+    '& svg': {
+      fontSize: '1.1rem'
+    }
   }
 })

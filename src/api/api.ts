@@ -2146,37 +2146,49 @@ export const CapturesApiFetchParamCreator = function (configuration?: Configurat
         createCapture(capture: Capture, options: any = {}): FetchArgs {
             // verify required parameter 'capture' is not null or undefined
             if (capture === null || capture === undefined) {
-                throw new RequiredError('capture','Required parameter capture was null or undefined when calling createCapture.');
+                throw new RequiredError('capture', 'Required parameter capture was null or undefined when calling createCapture.');
             }
+        
             const localVarPath = `/capture`;
             const localVarUrlObj = url.parse(localVarPath, true);
             const localVarRequestOptions = Object.assign({ method: 'POST' }, options);
             const localVarHeaderParameter = {} as any;
             const localVarQueryParameter = {} as any;
-
-            // authentication authToken required
+        
+            // authentication: authToken
             if (configuration && configuration.accessToken) {
-                const localVaraccessTokenValue = typeof configuration.accessToken === 'function'
-					? configuration.accessToken("X-Auth-Token")
-					: configuration.accessToken;
-                localVarHeaderParameter["X-Auth-Token"] = localVaraccessTokenValue;
+                const token = typeof configuration.accessToken === 'function'
+                    ? configuration.accessToken("X-Auth-Token")
+                    : configuration.accessToken;
+                localVarHeaderParameter["X-Auth-Token"] = token;
             }
-
-            // authentication basicAuth required
-            // http basic authentication required
+        
+            // authentication: basicAuth
             if (configuration && (configuration.username || configuration.password)) {
                 localVarHeaderParameter["Authorization"] = "Basic " + btoa(configuration.username + ":" + configuration.password);
             }
-
+        
             localVarHeaderParameter['Content-Type'] = 'application/json';
-
+        
             localVarUrlObj.query = Object.assign({}, localVarUrlObj.query, localVarQueryParameter, options.query);
-            // fix override query string Detail: https://stackoverflow.com/a/7517673/1077943
             delete localVarUrlObj.search;
             localVarRequestOptions.headers = Object.assign({}, localVarHeaderParameter, options.headers);
-            const needsSerialization = (<any>"Capture" !== "string") || localVarRequestOptions.headers['Content-Type'] === 'application/json';
-            localVarRequestOptions.body =  needsSerialization ? JSON.stringify(capture || {}) : (capture || "");
-
+        
+            // 명시적 필드 구성으로 누락 방지
+            localVarRequestOptions.body = JSON.stringify({
+                GremlinQuery: capture.GremlinQuery,
+                Name: capture.Name,
+                Description: capture.Description,
+                BPFFilter: capture.BPFFilter,
+                Type: capture.Type,
+                LayerKeyMode: capture.LayerKeyMode,
+                HeaderSize: capture.HeaderSize,
+                RawPacketLimit: capture.RawPacketLimit,
+                ExtraTCPMetric: capture.ExtraTCPMetric,
+                IPDefrag: capture.IPDefrag,
+                ReassembleTCP: capture.ReassembleTCP
+            });
+        
             return {
                 url: url.format(localVarUrlObj),
                 options: localVarRequestOptions,
@@ -4663,6 +4675,12 @@ export const WorkflowsApiFactory = function (configuration?: Configuration, fetc
         },
     };
 };
+
+export async function fetchVmNameMap(): Promise<Record<string, string>> {
+    const response = await fetch("/api/vm-name-map");
+    if (!response.ok) throw new Error("Failed to load VM name map");
+    return await response.json();
+}
 
 /**
  * WorkflowsApi - object-oriented interface
