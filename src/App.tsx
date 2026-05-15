@@ -963,6 +963,7 @@ class App extends React.Component<Props, State> {
     const showVMConsoleButton = el.type === 'node' && this.isVMNode(el)
     const vmNode = showVMConsoleButton ? (el as Node) : undefined
     const vmID = vmNode ? this.getMoldVMID(vmNode) : undefined
+    const instanceName = vmNode ? this.getMoldInstanceName(vmNode) : undefined
 
     return (
       <React.Fragment>
@@ -978,7 +979,7 @@ class App extends React.Component<Props, State> {
           <VMConsoleButton
             el={vmNode as Node}
             onClick={() => this.openVMConsole(el as Node)}
-            disabled={this.state.isVMConsoleOpening || !vmID}
+            disabled={this.state.isVMConsoleOpening || (!vmID && !instanceName)}
           />
         }
       </React.Fragment>
@@ -1064,9 +1065,10 @@ class App extends React.Component<Props, State> {
 
   private openVMConsole(node: Node) {
     const vmID = this.getMoldVMID(node)
-    if (!vmID) {
+    const instanceName = this.getMoldInstanceName(node)
+    if (!vmID && !instanceName) {
       this.notify("VM ID를 찾을 수 없습니다.", "error")
-      console.debug("VM UUID not found from node metadata", node.data)
+      console.debug("VM UUID/instanceName not found from node metadata", node.data)
       return
     }
 
@@ -1077,7 +1079,6 @@ class App extends React.Component<Props, State> {
     this.state.isVMConsoleOpening = true
     this.setState(this.state)
 
-    const instanceName = this.getMoldInstanceName(node)
     this.fetchVMConsoleURL(node, vmID, instanceName).then((result) => {
       if (!result.url) {
         this.notify("콘솔 URL을 가져오지 못했습니다.", "error")
@@ -1095,10 +1096,12 @@ class App extends React.Component<Props, State> {
     })
   }
 
-  private fetchVMConsoleURL(node: Node, vmID: string, instanceName?: string): Promise<VMConsoleResponse> {
+  private fetchVMConsoleURL(node: Node, vmID?: string, instanceName?: string): Promise<VMConsoleResponse> {
     const endpoint = `${this.props.session.endpoint}/api/mold/vmconsole`
     const params = new URLSearchParams()
-    params.set("vmId", vmID)
+    if (vmID) {
+      params.set("vmId", vmID)
+    }
     params.set("nodeId", node.id)
     if (instanceName) {
       params.set("instanceName", instanceName)
