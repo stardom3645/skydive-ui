@@ -1055,7 +1055,7 @@ class App extends React.Component<Props, State> {
     ]
 
     for (const candidate of candidates) {
-      if (candidate && /^i-\d+-\d+-VM$/i.test(candidate)) {
+      if (candidate && /^[irsv]-\d+(?:-\d+)?-VM$/i.test(candidate)) {
         return candidate
       }
     }
