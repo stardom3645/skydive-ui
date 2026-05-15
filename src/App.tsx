@@ -961,6 +961,8 @@ class App extends React.Component<Props, State> {
 
   actionButtons(el: Node | Link) {
     const showVMConsoleButton = el.type === 'node' && this.isVMNode(el)
+    const vmNode = showVMConsoleButton ? (el as Node) : undefined
+    const vmID = vmNode ? this.getMoldVMID(vmNode) : undefined
 
     return (
       <React.Fragment>
@@ -974,9 +976,9 @@ class App extends React.Component<Props, State> {
         }} />
         {showVMConsoleButton &&
           <VMConsoleButton
-            el={el as Node}
+            el={vmNode as Node}
             onClick={() => this.openVMConsole(el as Node)}
-            disabled={this.state.isVMConsoleOpening}
+            disabled={this.state.isVMConsoleOpening || !vmID}
           />
         }
       </React.Fragment>
@@ -989,6 +991,40 @@ class App extends React.Component<Props, State> {
       return ""
     }
     return String(value).toLowerCase()
+  }
+
+  private getNodeMetadataRawValue(node: Node, key: string): string | undefined {
+    const value = node.data ? node.data[key] : undefined
+    if (value === undefined || value === null) {
+      return undefined
+    }
+    return String(value)
+  }
+
+  private isUUID(value: string): boolean {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+  }
+
+  private getMoldVMID(node: Node): string | undefined {
+    const candidates = [
+      this.getNodeMetadataRawValue(node, "UUID"),
+      this.getNodeMetadataRawValue(node, "uuid"),
+      this.getNodeMetadataRawValue(node, "VmUUID"),
+      this.getNodeMetadataRawValue(node, "vmUUID"),
+      this.getNodeMetadataRawValue(node, "vmUuid"),
+      this.getNodeMetadataRawValue(node, "virtualMachineId"),
+      this.getNodeMetadataRawValue(node, "VirtualMachineId"),
+      this.getNodeMetadataRawValue(node, "vmId"),
+      this.getNodeMetadataRawValue(node, "VmId"),
+      this.getNodeMetadataRawValue(node, "id"),
+    ]
+
+    for (const candidate of candidates) {
+      if (candidate && this.isUUID(candidate)) {
+        return candidate
+      }
+    }
+    return undefined
   }
 
   private isVMNode(node: Node): boolean {
@@ -1010,6 +1046,13 @@ class App extends React.Component<Props, State> {
   }
 
   private openVMConsole(node: Node) {
+    const vmID = this.getMoldVMID(node)
+    if (!vmID) {
+      this.notify("VM ID를 찾을 수 없습니다.", "error")
+      console.debug("VM UUID not found from node metadata", node.data)
+      return
+    }
+
     if (this.state.isVMConsoleOpening) {
       return
     }
@@ -1017,7 +1060,7 @@ class App extends React.Component<Props, State> {
     this.state.isVMConsoleOpening = true
     this.setState(this.state)
 
-    this.fetchVMConsoleURL(node).then((result) => {
+    this.fetchVMConsoleURL(node, vmID).then((result) => {
       if (!result.url) {
         this.notify("콘솔 URL을 가져오지 못했습니다.", "error")
         console.debug("No console url in response", result)
@@ -1034,14 +1077,11 @@ class App extends React.Component<Props, State> {
     })
   }
 
-  private fetchVMConsoleURL(node: Node): Promise<VMConsoleResponse> {
+  private fetchVMConsoleURL(node: Node, vmID: string): Promise<VMConsoleResponse> {
     const endpoint = `${this.props.session.endpoint}/api/mold/vmconsole`
     const params = new URLSearchParams()
+    params.set("vmId", vmID)
     params.set("nodeId", node.id)
-    const vmID = node.data ? (node.data.UUID || node.data.uuid) : undefined
-    if (vmID) {
-      params.set("vmId", String(vmID))
-    }
 
     const headers: HeadersInit = {
       "Content-Type": "application/json",
