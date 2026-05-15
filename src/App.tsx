@@ -181,6 +181,7 @@ class App extends React.Component<Props, State> {
   refreshTopology: any
   bumpRevision: typeof bumpRevision
   checkAuthID: number
+  vmNameMapRefreshID: number
   apiConf: Configuration
   wsContext: WSContext
   connected: boolean
@@ -267,16 +268,32 @@ class App extends React.Component<Props, State> {
     } else {
       this.loadStaticData(this.props.dataURL)
     }
-    // Libvirt VM 이름 매핑 정보 불러오기
-    fetchVmNameMap()
-      .then((data) => this.setState({ vmNameMap: data }))
-      .catch(console.error);
+    // Libvirt VM 이름 매핑 정보 불러오기 (초기 + 주기 갱신)
+    this.refreshVmNameMap()
+    this.vmNameMapRefreshID = window.setInterval(() => {
+      this.refreshVmNameMap()
+    }, 10000)
   }
 
   componentWillUnmount() {
     if (this.checkAuthID) {
       window.clearInterval(this.checkAuthID)
     }
+    if (this.vmNameMapRefreshID) {
+      window.clearInterval(this.vmNameMapRefreshID)
+    }
+  }
+
+  private refreshVmNameMap() {
+    fetchVmNameMap().then((data) => {
+      const prev = this.state.vmNameMap || {}
+      const same = JSON.stringify(prev) === JSON.stringify(data)
+      if (!same) {
+        this.setState({ vmNameMap: data })
+      }
+    }).catch((err) => {
+      console.debug("Failed to refresh vmNameMap", err)
+    })
   }
 
   loadStaticData(url: string) {
