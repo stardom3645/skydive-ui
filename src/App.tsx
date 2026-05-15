@@ -1027,6 +1027,23 @@ class App extends React.Component<Props, State> {
     return undefined
   }
 
+  private getMoldInstanceName(node: Node): string | undefined {
+    const candidates = [
+      this.getNodeMetadataRawValue(node, "instance_name"),
+      this.getNodeMetadataRawValue(node, "InstanceName"),
+      this.getNodeMetadataRawValue(node, "instanceName"),
+      this.getNodeMetadataRawValue(node, "Name"),
+      this.getNodeMetadataRawValue(node, "name"),
+    ]
+
+    for (const candidate of candidates) {
+      if (candidate && /^i-\d+-\d+-VM$/i.test(candidate)) {
+        return candidate
+      }
+    }
+    return undefined
+  }
+
   private isVMNode(node: Node): boolean {
     const candidates = [
       this.getNodeMetadataValue(node, "Type"),
@@ -1060,7 +1077,8 @@ class App extends React.Component<Props, State> {
     this.state.isVMConsoleOpening = true
     this.setState(this.state)
 
-    this.fetchVMConsoleURL(node, vmID).then((result) => {
+    const instanceName = this.getMoldInstanceName(node)
+    this.fetchVMConsoleURL(node, vmID, instanceName).then((result) => {
       if (!result.url) {
         this.notify("콘솔 URL을 가져오지 못했습니다.", "error")
         console.debug("No console url in response", result)
@@ -1077,11 +1095,14 @@ class App extends React.Component<Props, State> {
     })
   }
 
-  private fetchVMConsoleURL(node: Node, vmID: string): Promise<VMConsoleResponse> {
+  private fetchVMConsoleURL(node: Node, vmID: string, instanceName?: string): Promise<VMConsoleResponse> {
     const endpoint = `${this.props.session.endpoint}/api/mold/vmconsole`
     const params = new URLSearchParams()
     params.set("vmId", vmID)
     params.set("nodeId", node.id)
+    if (instanceName) {
+      params.set("instanceName", instanceName)
+    }
 
     const headers: HeadersInit = {
       "Content-Type": "application/json",
