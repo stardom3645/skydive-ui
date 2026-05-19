@@ -264,7 +264,7 @@ class App extends React.Component<Props, State> {
     if (!this.props.dataURL) {
       this.checkAuthID = window.setInterval(() => {
         this.checkAuth()
-      }, 2000)
+      }, 15000)
     } else {
       this.loadStaticData(this.props.dataURL)
     }

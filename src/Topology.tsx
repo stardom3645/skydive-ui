@@ -247,6 +247,7 @@ export class Topology extends React.Component<Props, {}> {
     private nodeGroup: Map<string, NodeWrapper>
     private weights: Array<number>
     private visibleLinksCache: Array<Link> | undefined
+    private lastVmNameMapRef: Record<string, string> | undefined
 
     root: Node
     nodes: Map<string, Node>
@@ -2290,11 +2291,14 @@ export class Topology extends React.Component<Props, {}> {
             .attr("pointer-events", "none")
             .call(wrapText, 1.1, nodeWidth - 10)
 
-        // Update names for existing nodes too, not only newly entered ones.
-        node.selectAll<SVGRectElement, D3Node>("rect.node-name-wrap").remove()
-        node.select("text.node-name")
-            .text((d: D3Node) => getNodeDisplayName(d))
-            .call(wrapText, 1.1, nodeWidth - 10)
+        // Update names only when vmNameMap changed to reduce long-running render overhead.
+        if (this.lastVmNameMapRef !== this.props.vmNameMap) {
+            node.selectAll<SVGRectElement, D3Node>("rect.node-name-wrap").remove()
+            node.select("text.node-name")
+                .text((d: D3Node) => getNodeDisplayName(d))
+                .call(wrapText, 1.1, nodeWidth - 10)
+            this.lastVmNameMapRef = this.props.vmNameMap
+        }
 
         const renderNodeBadge = function (d: D3Node) {
             var badge = select(this).selectAll("g.node-badge")
