@@ -108,7 +108,10 @@ svg {
 }
 
 .hiera-link {
-    stroke-dasharray: 5, 10;
+    stroke: #8ea0bc;
+    stroke-width: 2.6;
+    stroke-dasharray: 7, 7;
+    opacity: 0.95;
 }
 
 .node-circle {
