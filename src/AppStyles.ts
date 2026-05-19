@@ -39,11 +39,10 @@ export const styles = (theme: Theme) => createStyles({
     ...theme.mixins.toolbar,
   },
   appBar: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: '#ffffff',
     color: '#0f172a',
-    borderBottom: '1px solid #e2e8f0',
-    boxShadow: '0 6px 18px rgba(15, 23, 42, 0.06)',
-    backdropFilter: 'blur(8px)',
+    borderBottom: '1px solid #eef2f7',
+    boxShadow: '0 2px 10px rgba(15, 23, 42, 0.04)',
     zIndex: theme.zIndex.drawer + 1,
     transition: theme.transitions.create(['width', 'margin'], {
       easing: theme.transitions.easing.sharp,
@@ -59,7 +58,7 @@ export const styles = (theme: Theme) => createStyles({
     }),
   },
   menuButton: {
-    marginRight: 20,
+    marginRight: 12,
     color: '#334155'
   },
   menuButtonHidden: {
@@ -74,9 +73,9 @@ export const styles = (theme: Theme) => createStyles({
     position: 'relative',
     whiteSpace: 'nowrap',
     width: drawerWidth,
-    background: 'linear-gradient(180deg, #ffffff 0%, #f8fbff 100%)',
-    borderRight: '1px solid #e2e8f0',
-    boxShadow: '4px 0 18px rgba(15, 23, 42, 0.06)',
+    background: '#ffffff',
+    borderRight: '1px solid #eef2f7',
+    boxShadow: 'none',
     transition: theme.transitions.create('width', {
       easing: theme.transitions.easing.sharp,
       duration: theme.transitions.duration.enteringScreen,
@@ -97,7 +96,7 @@ export const styles = (theme: Theme) => createStyles({
     flexGrow: 1,
     height: '100vh',
     overflow: 'auto',
-    background: 'linear-gradient(180deg, #f8fbff 0%, #f3f7fc 100%)',
+    background: '#f8fbff',
   },
   container: {
     paddingTop: theme.spacing(0),
@@ -194,20 +193,20 @@ export const styles = (theme: Theme) => createStyles({
     boxShadow: '0 10px 24px rgba(15, 23, 42, 0.08)'
   },
   search: {
-    padding: theme.spacing(0.5),
+    padding: theme.spacing(0.55, 1),
     position: 'relative',
-    borderRadius: 12,
+    borderRadius: 8,
     backgroundColor: '#f8fafc',
-    border: '1px solid #dbe5f2',
-    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.85)',
+    border: '1px solid #d8e2ef',
+    boxShadow: 'none',
     '&:hover': {
       backgroundColor: '#f1f5f9',
     },
-    marginRight: theme.spacing(2),
+    marginRight: theme.spacing(2.5),
     marginLeft: 0,
     width: '100%',
     [theme.breakpoints.up('sm')]: {
-      marginLeft: theme.spacing(3),
+      marginLeft: theme.spacing(2.5),
       width: 'auto',
     },
     lineHeight: 1,
@@ -256,7 +255,7 @@ export const styles = (theme: Theme) => createStyles({
   topologyIconButton: {
     border: '1px solid #dbe5f2',
     color: '#1d4ed8',
-    borderRadius: 10,
+    borderRadius: 8,
     marginLeft: theme.spacing(1),
     padding: theme.spacing(0.65),
     backgroundColor: '#f8fbff',
@@ -270,8 +269,8 @@ export const styles = (theme: Theme) => createStyles({
     }
   },
   toolbar: {
-    paddingRight: 24,
-    minHeight: 64,
+    paddingRight: 20,
+    minHeight: 56,
   },
   title: {
     display: 'none',

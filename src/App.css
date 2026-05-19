@@ -7,9 +7,20 @@
   border-bottom: 1px solid var(--ab-border);
 }
 
-.logo img {
-  width:120px;
-  height:auto;
+.brandLogo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #0f1f4b;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.brandLogo img {
+  width: 28px;
+  height: 20px;
+  object-fit: contain;
 }
 
 .header i {

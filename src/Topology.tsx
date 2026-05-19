@@ -1690,12 +1690,34 @@ export class Topology extends React.Component<Props, {}> {
         var element = text.node()
         if (element) {
             const bbox = (element as SVGTextElement).getBBox()
-            const centerY = d.bb.height / 2 + bbox.height / 4  // 텍스트 높이 반영해 정확히 가운데
-            text.attr("y", centerY)
+            const centerY = d.bb.height / 2 + bbox.height / 4
+            label.selectAll("text").attr("y", centerY)
         }
         label.transition()
             .duration(animDuration)
             .style("opacity", 1)
+    }
+
+    private levelLabelIcon(title: string): string {
+        if (/host|호스트/i.test(title) && !/bridge|브릿지/i.test(title)) {
+            return "\uf108"
+        }
+        if (/nic/i.test(title)) {
+            return "\uf1e6"
+        }
+        if (/bridge|브릿지/i.test(title)) {
+            return "\uf6ff"
+        }
+        if (/vlan/i.test(title)) {
+            return "\uf0e8"
+        }
+        if (/router|라우터/i.test(title)) {
+            return "\uf1e0"
+        }
+        if (/vm|가상머신/i.test(title)) {
+            return "\uf233"
+        }
+        return "\uf1b2"
     }
 
     private hideAllLevelLabels() {
@@ -1752,11 +1774,16 @@ export class Topology extends React.Component<Props, {}> {
             .style("opacity", 0)
             .attr("transform", (d: LevelRect) => `translate(${-self.absTransformX},${d.bb.y})`)
         levelLabelEnter.append("rect")
-            .attr("width", lang === "en" ? 410 : 300)
+            .attr("width", lang === "en" ? 180 : 156)
             .attr("height", (d: LevelRect) => d.bb.height);
         levelLabelEnter.append("text")
+            .attr("class", "level-label-icon")
+            .attr("dx", 24)
+            .text((d: LevelRect) => self.levelLabelIcon(self.weightTitles.get(d.weight) || 'Level ' + d.weight))
+        levelLabelEnter.append("text")
+            .attr("class", "level-label-title")
             .attr("font-size", 26)
-            .attr("dx", 18)
+            .attr("dx", 54)
             .text((d: LevelRect) => self.weightTitles.get(d.weight) || 'Level ' + d.weight)
         levelLabel.exit().remove()
 

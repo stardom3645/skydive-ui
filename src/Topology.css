@@ -2,6 +2,7 @@
 
 svg {
     cursor: default;
+    background: #fbfdff;
 }
 
 .levels {
@@ -9,57 +10,70 @@ svg {
 }
 
 .level-zone {
-    stroke: #d5e3f4;
-    stroke-width: 1.5px;
-    stroke-dasharray: 4, 8;
-    fill: #f8fbff;
+    stroke: #e8ecf1;
+    stroke-width: 1px;
+    stroke-dasharray: 2, 8;
+    fill: #fcfdff;
 }
 
 .level-label rect {
-    fill: #e9f2ff;
-    stroke: #c7dbf7;
-    stroke-width: 1.5;
+    fill: #f4f6f9;
+    stroke: #e3e8ef;
+    stroke-width: 1;
 }
 
 .level-label text {
-    fill: #1e3a8a;
+    fill: #4b5568;
     font-family: 'Noto Sans KR';
     font-weight: 700;
-    font-size: 32px;
+    font-size: 13px;
+}
+
+.level-label .level-label-icon {
+    fill: #737e91;
+    font-family: 'Font Awesome 5 Free' !important;
+    font-size: 14px;
+    font-weight: 900;
+}
+
+.level-label .level-label-title {
+    fill: #4a5670;
+    font-size: 12px;
+    font-weight: 700;
 }
 
 .hiera-links {
     fill: none;
-    stroke: #94a3b8;
-    stroke-width: 2;
+    stroke: #c4ccd9;
+    stroke-width: 1.2;
 }
 
 .link-overlays {
     fill: none;
-    stroke: #bfdbfe;
-    stroke-width: 18;
+    stroke: #d7dfeb;
+    stroke-width: 16;
     marker-start: url(#link-overlay-marker);
     marker-end: url(#link-overlay-marker);
 }
 
 .link-overlay-selected {
-    stroke: #2563eb;
+    stroke: #7288b8;
     marker-start: url(#link-overlay-selected-marker);
     marker-end: url(#link-overlay-selected-marker);
 }
 
 .link-overlay-marker {
-    fill: #bfdbfe;
+    fill: #d7dfeb;
 }
 
 .link-overlay-selected-marker {
-    fill: #2563eb;
+    fill: #7288b8;
 }
 
 .links {
     fill: none;
-    stroke: #60a5fa;
-    stroke-width: 2.5;
+    stroke: #9aa8c0;
+    stroke-width: 1.5;
     marker-start: url(#link-marker);
     marker-end: url(#link-marker);
 }
@@ -75,7 +89,7 @@ svg {
 }
 
 .link-marker {
-    fill: #2563eb;
+    fill: #8e9bb2;
 }
 
 .link-wraps {
@@ -97,13 +111,14 @@ svg {
 }
 
 .node-circle {
-    fill: rgba(219, 234, 254, 0.35);
-    stroke-width: 2.5;
-    stroke: #60a5fa;
+    fill: #ffffff;
+    stroke-width: 1.8;
+    stroke: #c9d3e2;
+    filter: drop-shadow(0 5px 12px rgba(15, 23, 42, 0.12));
 }
 
 .node-overlay {
-    fill: #bfdbfe;
+    fill: #d8e0ed;
 }
 
 .node-pinned {
@@ -112,12 +127,12 @@ svg {
 
 .node-disc {
     stroke: none;
-    fill: #2563eb;
+    fill: #5f6f8f;
 }
 
 .node-selected .node-circle {
-    fill: rgba(147, 197, 253, 0.5);
-    stroke: #2563eb;
+    fill: #f0f3f8;
+    stroke: #7a8daa;
 }
 
 .node-hexagon {
@@ -127,10 +142,10 @@ svg {
 }
 
 .node-icon {
-    font-size: 24px;
+    font-size: 20px;
     text-anchor: middle;
     font-family: 'Font Awesome 5 Free' !important;
-    fill: #1e40af;
+    fill: #f8fafc;
     font-weight: 900;
 }
 
@@ -154,7 +169,7 @@ svg {
 }
 
 .node-name {
-    font-size: 20px;
+    font-size: 10px;
     text-anchor: middle;
     font-weight: 500;
     font-family: 'Noto Sans KR', sans-serif;
@@ -163,8 +178,8 @@ svg {
 
 .node-name-wrap {
     fill: #ffffff;
-    stroke: #dbe5f2;
-    opacity: 0.95;
+    stroke: #dce7f4;
+    opacity: 1;
     filter: drop-shadow(0 2px 6px rgba(15, 23, 42, 0.08));
 }
 
@@ -189,14 +204,14 @@ svg {
 }
 
 .group .group-brace-bg {
-    fill: #eff6ff;
-    stroke: #dbe5f2;
+    fill: #f4f7fb;
+    stroke: #e2e8f0;
     stroke-width: 2px;
 }
 
 .group .group-brace-owner-bg {
-    fill: #dbeafe;
-    stroke: #bfdbfe;
+    fill: #e5eaf2;
+    stroke: #d6dde8;
     stroke-width: 2px;
 }
 

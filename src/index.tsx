@@ -28,8 +28,7 @@ import './index.css'
 import { AppState, store } from './Store'
 import Login from './Login'
 import App from './App'
-//import Logo from '../assets/Logo.png'
-import Logo from '../assets/ablestack-logo.png'
+import Logo from '../assets/ablestack.png'
 
 const queryString = require('query-string')
 
@@ -66,7 +65,7 @@ class SkydiveApp extends React.Component<Props> {
 
   render() {
     const parsed = queryString.parse(this.props.location.search)
-    return <App configURL={parsed.config} dataURL={parsed.data} logo={<img src={Logo} alt="logo" />} />
+    return <App configURL={parsed.config} dataURL={parsed.data} logo={<span className="brandLogo"><img src={Logo} alt="ABLESTACK" /><span>ABLESTACK</span></span>} />
   }
 }
 
