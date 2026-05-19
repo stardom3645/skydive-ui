@@ -16,7 +16,7 @@ interface Props {
 export class VMConsoleButton extends React.Component<Props> {
   render() {
     return (
-      <Tooltip title="콘솔 열기" aria-label="콘솔 열기">
+      <Tooltip title="콘솔 열기" aria-label="Open console">
         <span>
           <IconButton
             aria-label="Open VM console"
