@@ -1,5 +1,6 @@
 * {
   margin: 0;
+  box-sizing: border-box;
 }
 
 html, body, #root {
@@ -9,5 +10,21 @@ html, body, #root {
 body {
   margin: 0;
   padding: 0;
-  font-family: sans-serif;
+  font-family: "Noto Sans KR", "Segoe UI", "Apple SD Gothic Neo", Arial, sans-serif;
+  background: linear-gradient(180deg, #f8fbff 0%, #f3f7fc 100%);
+  color: #0f172a;
+}
+
+:root {
+  --ab-bg: #f3f7fc;
+  --ab-surface: #ffffff;
+  --ab-surface-soft: #f8fbff;
+  --ab-border: #e2e8f0;
+  --ab-text: #0f172a;
+  --ab-muted: #64748b;
+  --ab-primary: #2563eb;
+  --ab-primary-soft: #dbeafe;
+  --ab-success: #10b981;
+  --ab-shadow-sm: 0 4px 10px rgba(15, 23, 42, 0.05);
+  --ab-shadow-md: 0 10px 24px rgba(15, 23, 42, 0.08);
 }

@@ -16,7 +16,6 @@
  */
 
 import { createStyles, Theme } from '@material-ui/core'
-import { fade } from '@material-ui/core/styles'
 
 const drawerWidth = 300
 
@@ -32,9 +31,6 @@ export const styles = (theme: Theme) => createStyles({
     color: '#121212',
     backgroundColor: '#757575'
   },
-  toolbar: {
-    paddingRight: 24, // keep right padding when drawer closed
-  },
   toolbarIcon: {
     display: 'flex',
     alignItems: 'center',
@@ -43,7 +39,11 @@ export const styles = (theme: Theme) => createStyles({
     ...theme.mixins.toolbar,
   },
   appBar: {
-    backgroundColor: theme.palette.common.black,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    color: '#0f172a',
+    borderBottom: '1px solid #e2e8f0',
+    boxShadow: '0 6px 18px rgba(15, 23, 42, 0.06)',
+    backdropFilter: 'blur(8px)',
     zIndex: theme.zIndex.drawer + 1,
     transition: theme.transitions.create(['width', 'margin'], {
       easing: theme.transitions.easing.sharp,
@@ -60,24 +60,23 @@ export const styles = (theme: Theme) => createStyles({
   },
   menuButton: {
     marginRight: 20,
+    color: '#334155'
   },
   menuButtonHidden: {
     display: 'none',
   },
-  title: {
-    display: 'none',
-    [theme.breakpoints.up('sm')]: {
-      display: 'block',
-    },
-  },
   subTitle: {
-    fontStyle: 'italic',
-    color: '#ddd'
+    fontStyle: 'normal',
+    fontWeight: 500,
+    color: '#64748b'
   },
   drawerPaper: {
     position: 'relative',
     whiteSpace: 'nowrap',
     width: drawerWidth,
+    background: 'linear-gradient(180deg, #ffffff 0%, #f8fbff 100%)',
+    borderRight: '1px solid #e2e8f0',
+    boxShadow: '4px 0 18px rgba(15, 23, 42, 0.06)',
     transition: theme.transitions.create('width', {
       easing: theme.transitions.easing.sharp,
       duration: theme.transitions.duration.enteringScreen,
@@ -98,6 +97,7 @@ export const styles = (theme: Theme) => createStyles({
     flexGrow: 1,
     height: '100vh',
     overflow: 'auto',
+    background: 'linear-gradient(180deg, #f8fbff 0%, #f3f7fc 100%)',
   },
   container: {
     paddingTop: theme.spacing(0),
@@ -131,6 +131,12 @@ export const styles = (theme: Theme) => createStyles({
       width: 500
     },
     height: `100%`,
+    marginTop: 8,
+    marginRight: 12,
+    borderRadius: 14,
+    border: '1px solid #dbe5f2',
+    boxShadow: '0 14px 28px rgba(15, 23, 42, 0.08)',
+    backgroundColor: '#ffffff',
     transition: theme.transitions.create('width', {
       easing: theme.transitions.easing.sharp,
       duration: theme.transitions.duration.enteringScreen,
@@ -182,15 +188,20 @@ export const styles = (theme: Theme) => createStyles({
     flexDirection: 'column',
     minWidth: '100px',
     padding: theme.spacing(2),
-    border: '1px solid #ddd'
+    border: '1px solid #dbe5f2',
+    borderRadius: 12,
+    backgroundColor: '#ffffff',
+    boxShadow: '0 10px 24px rgba(15, 23, 42, 0.08)'
   },
   search: {
-    padding: theme.spacing(0.2),
+    padding: theme.spacing(0.5),
     position: 'relative',
-    borderRadius: theme.shape.borderRadius,
-    backgroundColor: fade(theme.palette.common.white, 0.15),
+    borderRadius: 12,
+    backgroundColor: '#f8fafc',
+    border: '1px solid #dbe5f2',
+    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.85)',
     '&:hover': {
-      backgroundColor: fade(theme.palette.common.white, 0.25),
+      backgroundColor: '#f1f5f9',
     },
     marginRight: theme.spacing(2),
     marginLeft: 0,
@@ -200,7 +211,8 @@ export const styles = (theme: Theme) => createStyles({
       width: 'auto',
     },
     lineHeight: 1,
-    fontSize: '2rem'
+    fontSize: '2rem',
+    minWidth: 320
   },
   filtersPanel: {
     position: 'absolute',
@@ -242,18 +254,32 @@ export const styles = (theme: Theme) => createStyles({
     verticalAlign: 'middle'
   },
   topologyIconButton: {
-    border: '2px solid rgba(255, 255, 255, 0.6)',
-    borderRadius: 8,
+    border: '1px solid #dbe5f2',
+    color: '#1d4ed8',
+    borderRadius: 10,
     marginLeft: theme.spacing(1),
-    padding: theme.spacing(0.5),
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    transition: 'background-color 0.15s ease-out, border-color 0.15s ease-out',
+    padding: theme.spacing(0.65),
+    backgroundColor: '#f8fbff',
+    transition: 'all 0.15s ease-out',
     '&:hover': {
-      backgroundColor: 'rgba(255, 255, 255, 0.18)',
-      borderColor: 'rgba(255, 255, 255, 0.9)'
+      backgroundColor: '#eaf2ff',
+      borderColor: '#93c5fd'
     },
     '& svg': {
       fontSize: '1.1rem'
     }
+  },
+  toolbar: {
+    paddingRight: 24,
+    minHeight: 64,
+  },
+  title: {
+    display: 'none',
+    color: '#0f172a',
+    fontWeight: 700,
+    letterSpacing: 0.2,
+    [theme.breakpoints.up('sm')]: {
+      display: 'block',
+    },
   }
 })

@@ -21,11 +21,13 @@ export const styles = (theme: Theme) => createStyles({
     header: {
         display: 'flex',
         minHeight: 64,
-        backgroundColor: '#a2a2a2 !important',
+        backgroundColor: '#f8fbff !important',
         padding: '0 24px 0 24px',
-        borderTopLeftRadius: 4,
-        borderTopRightRadius: 4,
-        color: 'white'
+        borderTopLeftRadius: 10,
+        borderTopRightRadius: 10,
+        color: '#0f172a',
+        border: '1px solid #dbe5f2',
+        borderBottom: 'none'
     },
     headerContent: {
         alignItems: 'center',
@@ -43,6 +45,9 @@ export const styles = (theme: Theme) => createStyles({
         flexWrap: 'wrap',
         padding: theme.spacing(2),
         marginLeft: 1,
-        marginRight: 1
+        marginRight: 1,
+        borderRadius: '0 0 10px 10px',
+        border: '1px solid #dbe5f2',
+        boxShadow: '0 8px 20px rgba(15, 23, 42, 0.06)'
     }
 })

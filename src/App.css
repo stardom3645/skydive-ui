@@ -1,9 +1,10 @@
 .header {
   position: absolute;
   padding: 10px;
-  background-color: #000000c7;
+  background-color: rgba(255, 255, 255, 0.9);
   width: 100%;
   text-align: left;
+  border-bottom: 1px solid var(--ab-border);
 }
 
 .logo img {
@@ -12,15 +13,11 @@
 }
 
 .header i {
-  color: #eee;
+  color: var(--ab-muted);
   font-size: 28px;
   font-weight: normal;
   margin-right: 10px;
   vertical-align: text-bottom;
-}
-
-.MuiIconButton-root:hover {
-  background-color: #555 !important;
 }
 
 .MuiListItemIcon-root {

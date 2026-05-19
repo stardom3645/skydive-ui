@@ -8,7 +8,32 @@
 }
 
 .MuiAccordionSummary-root {
-    background-color: #e8e8e8 !important;
+    background-color: #f8fbff !important;
+    border-bottom: 1px solid #e8eef6;
+    min-height: 52px !important;
+}
+
+.MuiAccordionSummary-content {
+    color: #0f172a;
+    font-weight: 600;
+}
+
+.MuiPaper-root.MuiAccordion-root {
+    border: 1px solid #dbe5f2;
+    border-radius: 10px !important;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06) !important;
+    overflow: hidden;
+    margin-bottom: 12px;
+}
+
+.MuiTableCell-root {
+    color: #334155 !important;
+    border-bottom: 1px solid #edf2f7 !important;
+    font-size: 13px;
+}
+
+.MuiTablePagination-toolbar {
+    color: #475569;
 }
 
 .not-expandable button {

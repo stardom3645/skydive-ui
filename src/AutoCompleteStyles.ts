@@ -29,23 +29,30 @@ export const styles = makeStyles((theme: Theme) =>
     },
     paper: {
       position: 'absolute',
-      zIndex: 1,
+      zIndex: 3,
       marginTop: theme.spacing(1),
       left: 0,
       right: 0,
+      borderRadius: 10,
+      border: '1px solid #dbe5f2',
+      boxShadow: '0 12px 24px rgba(15, 23, 42, 0.08)'
     },
     chip: {
       margin: theme.spacing(0.5, 0.25),
     },
     inputRoot: {
       flexWrap: 'wrap',
-      color: 'inherit',
+      color: '#334155',
+      minHeight: 34,
+      paddingLeft: theme.spacing(1)
     },
     inputInput: {
       transition: theme.transitions.create('width'),
       width: '100%',
+      fontSize: 14,
+      color: '#0f172a',
       [theme.breakpoints.up('md')]: {
-        width: 200,
+        width: 220,
       },
     }
   })

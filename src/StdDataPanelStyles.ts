@@ -21,15 +21,17 @@ export const styles = (theme: Theme) => createStyles({
   panelIconFree: {
     fontFamily: `"Font Awesome 5 Free" !important`,
     fontWeight: 900,
-    fontSize: 20,
+    fontSize: 18,
     marginBottom: `0 !important`,
-    paddingRight: 8
+    paddingRight: 8,
+    color: '#2563eb'
   },
   panelIconBrands: {
     fontFamily: `"Font Awesome 5 Brands" !important`,
     fontWeight: 900,
-    fontSize: 20,
+    fontSize: 18,
     marginBottom: `0 !important`,
-    paddingRight: 8
+    paddingRight: 8,
+    color: '#2563eb'
   }
 })

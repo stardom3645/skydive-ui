@@ -19,36 +19,30 @@ import { createStyles, Theme } from '@material-ui/core'
 
 export const styles = (theme: Theme) => createStyles({
   rightPanelPaperContent: {
-    padding: theme.spacing(2),
+    padding: theme.spacing(2.5),
     width: `100%`,
     height: `100%`,
-    maxHeight: 'calc(100% - 90px)'
+    maxHeight: 'calc(100% - 90px)',
+    backgroundColor: '#ffffff'
   },
   jsonTree: {
     backgroundColor: 'unset'
   },
   tabs: {
-    height: `100%`
-  },
-  tabIconFree: {
-    fontFamily: `"Font Awesome 5 Free" !important`,
-    fontWeight: 900,
-    fontSize: 24,
-    marginBottom: `0 !important`
-  },
-  tabIconBrands: {
-    fontFamily: `"Font Awesome 5 Brands" !important`,
-    fontWeight: 900,
-    fontSize: 24,
-    marginBottom: `0 !important`
+    height: `100%`,
+    backgroundColor: '#ffffff'
   },
   tabTitle: {
-    fontSize: 18
+    fontSize: 15,
+    fontWeight: 600,
+    color: '#1e293b'
   },
   tabActions: {
     display: 'flex',
     flexDirection: 'row-reverse',
-    marginBottom: theme.spacing(1)
+    marginBottom: theme.spacing(1.5),
+    borderBottom: '1px solid #edf2f7',
+    paddingBottom: theme.spacing(1)
   },
   gremlinExpr: {
     fontSize: '16px',
@@ -61,5 +55,19 @@ export const styles = (theme: Theme) => createStyles({
     maxWidth: 32,
     maxHeight: 32,
     verticalAlign: 'middle'
+  },
+  tabIconFree: {
+    fontFamily: `"Font Awesome 5 Free" !important`,
+    fontWeight: 900,
+    fontSize: 20,
+    marginBottom: `0 !important`,
+    color: '#2563eb'
+  },
+  tabIconBrands: {
+    fontFamily: `"Font Awesome 5 Brands" !important`,
+    fontWeight: 900,
+    fontSize: 20,
+    marginBottom: `0 !important`,
+    color: '#2563eb'
   }
 })
