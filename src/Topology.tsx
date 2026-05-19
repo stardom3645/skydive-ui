@@ -2275,19 +2275,25 @@ export class Topology extends React.Component<Props, {}> {
             })
         }
 
+        const getNodeDisplayName = (d: D3Node) => {
+            const libvirtName = this.props.nodeAttrs(d.data.wrapped).name
+            const vmNameMap = this.props.vmNameMap || {}
+            return vmNameMap[libvirtName] || libvirtName
+        }
+
         nodeEnter.append("g")
             .append("text")
             .attr("class", "node-name")
             .attr("dy", ".35em")
             .attr("y", 85)
-            // NOTE(safchain) maybe this should be done for all the nodes
-            // has the name can be updated
-            .text((d: D3Node) => {
-                const libvirtName = this.props.nodeAttrs(d.data.wrapped).name
-                const vmNameMap = this.props.vmNameMap || {}
-                return vmNameMap[libvirtName] || libvirtName
-            })
+            .text((d: D3Node) => getNodeDisplayName(d))
             .attr("pointer-events", "none")
+            .call(wrapText, 1.1, nodeWidth - 10)
+
+        // Update names for existing nodes too, not only newly entered ones.
+        node.selectAll<SVGRectElement, D3Node>("rect.node-name-wrap").remove()
+        node.select("text.node-name")
+            .text((d: D3Node) => getNodeDisplayName(d))
             .call(wrapText, 1.1, nodeWidth - 10)
 
         const renderNodeBadge = function (d: D3Node) {
