@@ -290,6 +290,7 @@ class App extends React.Component<Props, State> {
       const same = JSON.stringify(prev) === JSON.stringify(data)
       if (!same) {
         this.setState({ vmNameMap: data })
+        this.refreshTopology()
       }
     }).catch((err) => {
       console.debug("Failed to refresh vmNameMap", err)
