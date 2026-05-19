@@ -538,26 +538,29 @@ export default class ConfigReducer {
     }
 
     appendURL(id: string, url: string): Promise<Config | undefined> {
-        var promise = new Promise<Config>((resolve, reject) => {
+        const promise = new Promise<Config | undefined>((resolve, reject) => {
             if (!url) {
-                resolve()
+                resolve(undefined)
                 return
             }
 
-            fetch(url).then(resp => {
-                resp.text().then(data => {
+            fetch(url)
+                .then((resp) => {
+                    return resp.text()
+                })
+                .then((data) => {
                     try {
-                        var config = eval(data)
-                        this.append(id, config)
+                        const config = eval(data) as Config
 
+                        this.append(id, config)
                         resolve(config)
                     } catch (e) {
                         reject(e)
                     }
                 })
-            }).catch((reason) => {
-                throw Error(reason)
-            })
+                .catch((reason) => {
+                    reject(reason)
+                })
         })
 
         return promise
@@ -869,11 +872,11 @@ class DefaultConfig {
     private newAttrs(node: Node): NodeAttrs {
         var name = node.data.Name
         var ifName = node.data.IfName
-        
+
         if (name.length > 24) {
             name = node.data.Name.substring(0, 24) + "."
         }
-        
+
         // You can edid it. To change name of node
         if (ifName != "" && ifName !== undefined && node.data.Type == "tuntap") {
             name = ifName + " / " + name
@@ -1072,7 +1075,7 @@ class DefaultConfig {
             case "vlan":
                 attrs.icon = "\uf6ff"
                 attrs.weight = WEIGHT_VLAN
-                break    
+                break
             default:
                 attrs.icon = "\uf796"
                 attrs.weight = WEIGHT_NONE
@@ -1166,10 +1169,10 @@ class DefaultConfig {
                 disabled: !captures,
                 callback: () => {
                     const api = new window.API.CapturesApi(window.App.apiConf);
-            
+
                     const captureIDs = [...node.data.Captures.map(c => c.ID)];
                     const isOvsPort = node.data.Type === "ovsport";
-            
+
                     Promise.all(
                         captureIDs.map(captureID => {
                             return api.deleteCapture(captureID).then(result => {
@@ -1188,7 +1191,7 @@ class DefaultConfig {
                             delete (node as any).metadata.CaptureState;
                             (node as any).metadata = { ...(node as any).metadata };
                         }
-            
+
                         // OVS 포트 노드면 전체 리프레시
                         if (isOvsPort) {
                             window.refreshTopology?.();
@@ -1302,7 +1305,7 @@ class DefaultConfig {
         }else if (node.data.Type === "bridge"){
             nodeType = "host-bridge"
         }
-        
+
         return nodeType + "(s)"
     }
 
@@ -1373,9 +1376,9 @@ class DefaultConfig {
                         case "host":
                             return []
                         case "switch":
-                            return ['Name','Type', 'LLDP','Probe']    
+                            return ['Name','Type', 'LLDP','Probe']
                         case "switchport":
-                            return ['Name','Type', 'LLDP','RemoteSysName']   
+                            return ['Name','Type', 'LLDP','RemoteSysName']
                         default:
                             return []
                     }
