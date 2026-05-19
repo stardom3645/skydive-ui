@@ -10,10 +10,11 @@ svg {
 }
 
 .level-zone {
-    stroke: #e8ecf1;
-    stroke-width: 1px;
-    stroke-dasharray: 2, 8;
+    stroke: #c8d1de;
+    stroke-width: 1.4px;
+    stroke-dasharray: 4, 8;
     fill: #fcfdff;
+    opacity: 1;
 }
 
 .level-label rect {
@@ -26,19 +27,19 @@ svg {
     fill: #4b5568;
     font-family: 'Noto Sans KR';
     font-weight: 700;
-    font-size: 13px;
+    font-size: 16px;
 }
 
 .level-label .level-label-icon {
     fill: #737e91;
     font-family: 'Font Awesome 5 Free' !important;
-    font-size: 14px;
+    font-size: 18px;
     font-weight: 900;
 }
 
 .level-label .level-label-title {
     fill: #4a5670;
-    font-size: 12px;
+    font-size: 16px;
     font-weight: 700;
 }
 
@@ -100,7 +101,7 @@ svg {
 }
 
 .link-label {
-    font-size: 16px;
+    font-size: 18px;
     font-weight: normal;
     font-family: 'Noto Sans KR', sans-serif;
     fill: #334155;
@@ -132,7 +133,13 @@ svg {
 
 .node-selected .node-circle {
     fill: #f0f3f8;
-    stroke: #7a8daa;
+    stroke: #3f6fc2;
+    stroke-width: 3.6;
+    filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0)) drop-shadow(0 0 10px rgba(63, 111, 194, 0.65));
+}
+
+.node-selected .node-disc {
+    fill: #3f6fc2;
 }
 
 .node-hexagon {
@@ -169,7 +176,7 @@ svg {
 }
 
 .node-name {
-    font-size: 10px;
+    font-size: 14px;
     text-anchor: middle;
     font-weight: 500;
     font-family: 'Noto Sans KR', sans-serif;
@@ -181,6 +188,11 @@ svg {
     stroke: #dce7f4;
     opacity: 1;
     filter: drop-shadow(0 2px 6px rgba(15, 23, 42, 0.08));
+}
+
+.node-selected .node-name-wrap {
+    stroke: #7ea3e6;
+    stroke-width: 1.8;
 }
 
 .node-exco-circle {
