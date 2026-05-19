@@ -27,19 +27,19 @@ svg {
     fill: #4b5568;
     font-family: 'Noto Sans KR';
     font-weight: 700;
-    font-size: 22px;
+    font-size: 28px;
 }
 
 .level-label .level-label-icon {
     fill: #737e91;
     font-family: 'Font Awesome 5 Free' !important;
-    font-size: 24px;
+    font-size: 30px;
     font-weight: 900;
 }
 
 .level-label .level-label-title {
     fill: #4a5670;
-    font-size: 22px;
+    font-size: 28px;
     font-weight: 700;
 }
 
@@ -101,7 +101,7 @@ svg {
 }
 
 .link-label {
-    font-size: 24px;
+    font-size: 30px;
     font-weight: normal;
     font-family: 'Noto Sans KR', sans-serif;
     fill: #334155;
@@ -133,13 +133,13 @@ svg {
 
 .node-selected .node-circle {
     fill: #f0f3f8;
-    stroke: #2e61bf;
-    stroke-width: 5.2;
-    filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0)) drop-shadow(0 0 14px rgba(46, 97, 191, 0.8)) drop-shadow(0 0 24px rgba(46, 97, 191, 0.45));
+    stroke: #445f8f;
+    stroke-width: 4.2;
+    filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0)) drop-shadow(0 0 6px rgba(68, 95, 143, 0.35));
 }
 
 .node-selected .node-disc {
-    fill: #2e61bf;
+    fill: #526f9f;
 }
 
 .node-hexagon {
@@ -149,7 +149,7 @@ svg {
 }
 
 .node-icon {
-    font-size: 20px;
+    font-size: 25px;
     text-anchor: middle;
     font-family: 'Font Awesome 5 Free' !important;
     fill: #f8fafc;
@@ -157,7 +157,7 @@ svg {
 }
 
 .node-badge text {
-    font-size: 18px;
+    font-size: 23px;
     text-anchor: middle;
     font-family: 'Font Awesome 5 Free';
     font-weight: 900;
@@ -168,7 +168,7 @@ svg {
 }
 
 .node-pinned text {
-    font-size: 30px;
+    font-size: 38px;
     text-anchor: middle;
     font-family: 'Font Awesome 5 Free' !important;
     fill: #1e40af;
@@ -176,7 +176,7 @@ svg {
 }
 
 .node-name {
-    font-size: 19px;
+    font-size: 24px;
     text-anchor: middle;
     font-weight: 500;
     font-family: 'Noto Sans KR', sans-serif;
@@ -191,9 +191,9 @@ svg {
 }
 
 .node-selected .node-name-wrap {
-    stroke: #2e61bf;
-    stroke-width: 3;
-    filter: drop-shadow(0 0 8px rgba(46, 97, 191, 0.55));
+    stroke: #445f8f;
+    stroke-width: 2.2;
+    filter: drop-shadow(0 0 4px rgba(68, 95, 143, 0.25));
 }
 
 .node-exco-circle {
@@ -217,22 +217,23 @@ svg {
 }
 
 .group .group-brace-bg {
-    fill: #f4f7fb;
-    stroke: #e2e8f0;
+    fill: rgba(247, 250, 255, 0.24);
+    stroke: #bbc7d8;
     stroke-width: 2px;
+    stroke-dasharray: 7, 6;
 }
 
 .group .group-brace-owner-bg {
-    fill: #e5eaf2;
-    stroke: #d6dde8;
-    stroke-width: 2px;
+    fill: rgba(224, 232, 243, 0.2);
+    stroke: #c3cfdf;
+    stroke-width: 1.5px;
 }
 
 .group-button .brace-icon text {
     font-family: 'Font Awesome 5 Free' !important;
     fill: #1e3a8a;
     font-weight: 900;
-    font-size: 24px;
+    font-size: 30px;
 }
 
 .group-button .brace-icon rect {
@@ -242,7 +243,7 @@ svg {
 
 .group-button .brace-offset text {
     fill: #ffffff;
-    font-size: 16px;
+    font-size: 20px;
     font-weight: bold;
 }
 

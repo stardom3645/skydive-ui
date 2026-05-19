@@ -1218,7 +1218,8 @@ export class Topology extends React.Component<Props, {}> {
         var self = this
 
         selectAll("path.link-overlay").each(function (d: Link) {
-            select(this).style("opacity", self.isLinkVisible(d) ? 1 : 0)
+            const overlayVisible = d.state.selected || self.isLinkNodeSelected(d) || self.isLinkNodeMouseOver(d)
+            select(this).style("opacity", overlayVisible ? 1 : 0)
         })
 
         selectAll("path.link").each(function (d: Link) {
@@ -1774,16 +1775,16 @@ export class Topology extends React.Component<Props, {}> {
             .style("opacity", 0)
             .attr("transform", (d: LevelRect) => `translate(${-self.absTransformX},${d.bb.y})`)
         levelLabelEnter.append("rect")
-            .attr("width", lang === "en" ? 300 : 260)
+            .attr("width", lang === "en" ? 380 : 340)
             .attr("height", (d: LevelRect) => d.bb.height);
         levelLabelEnter.append("text")
             .attr("class", "level-label-icon")
-            .attr("dx", 30)
+            .attr("dx", 36)
             .text((d: LevelRect) => self.levelLabelIcon(self.weightTitles.get(d.weight) || 'Level ' + d.weight))
         levelLabelEnter.append("text")
             .attr("class", "level-label-title")
             .attr("font-size", 26)
-            .attr("dx", 72)
+            .attr("dx", 92)
             .text((d: LevelRect) => self.weightTitles.get(d.weight) || 'Level ' + d.weight)
         levelLabel.exit().remove()
 
