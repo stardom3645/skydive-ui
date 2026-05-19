@@ -27,19 +27,19 @@ svg {
     fill: #4b5568;
     font-family: 'Noto Sans KR';
     font-weight: 700;
-    font-size: 16px;
+    font-size: 22px;
 }
 
 .level-label .level-label-icon {
     fill: #737e91;
     font-family: 'Font Awesome 5 Free' !important;
-    font-size: 18px;
+    font-size: 24px;
     font-weight: 900;
 }
 
 .level-label .level-label-title {
     fill: #4a5670;
-    font-size: 16px;
+    font-size: 22px;
     font-weight: 700;
 }
 
@@ -101,7 +101,7 @@ svg {
 }
 
 .link-label {
-    font-size: 18px;
+    font-size: 24px;
     font-weight: normal;
     font-family: 'Noto Sans KR', sans-serif;
     fill: #334155;
@@ -133,13 +133,13 @@ svg {
 
 .node-selected .node-circle {
     fill: #f0f3f8;
-    stroke: #3f6fc2;
-    stroke-width: 3.6;
-    filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0)) drop-shadow(0 0 10px rgba(63, 111, 194, 0.65));
+    stroke: #2e61bf;
+    stroke-width: 5.2;
+    filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0)) drop-shadow(0 0 14px rgba(46, 97, 191, 0.8)) drop-shadow(0 0 24px rgba(46, 97, 191, 0.45));
 }
 
 .node-selected .node-disc {
-    fill: #3f6fc2;
+    fill: #2e61bf;
 }
 
 .node-hexagon {
@@ -176,7 +176,7 @@ svg {
 }
 
 .node-name {
-    font-size: 14px;
+    font-size: 19px;
     text-anchor: middle;
     font-weight: 500;
     font-family: 'Noto Sans KR', sans-serif;
@@ -191,8 +191,9 @@ svg {
 }
 
 .node-selected .node-name-wrap {
-    stroke: #7ea3e6;
-    stroke-width: 1.8;
+    stroke: #2e61bf;
+    stroke-width: 3;
+    filter: drop-shadow(0 0 8px rgba(46, 97, 191, 0.55));
 }
 
 .node-exco-circle {
@@ -252,7 +253,7 @@ svg {
 
 .group-button .brace-icon:disabled {
     fill: #bbb;
-}  
+}
 
 .context-menu {
     font-size: 16px;
