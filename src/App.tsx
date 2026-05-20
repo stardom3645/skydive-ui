@@ -192,6 +192,9 @@ class App extends React.Component<Props, State> {
   nextTag?: string
   filterInput: string
   customFilters: Array<Filter>
+  private wsOnOpen: () => void
+  private wsOnMessage: (msg: string) => void
+  private wsOnClose: () => void
 
   constructor(props) {
     super(props)
@@ -242,6 +245,10 @@ class App extends React.Component<Props, State> {
     this.filters = new Map<string, Filter>()
 
     this.customFilters = new Array<Filter>()
+
+    this.wsOnOpen = this.onWebSocketOpen.bind(this)
+    this.wsOnMessage = this.onWebSocketMessage.bind(this)
+    this.wsOnClose = this.onWebSocketClose.bind(this)
   }
 
   setLanguage(lang: "en" | "ko") {
@@ -969,8 +976,8 @@ class App extends React.Component<Props, State> {
       <React.Fragment>
         {
           this.props.dataURL === undefined &&
-          <Websocket ref={node => this.websocket = node} url={this.subscriberURL()} onOpen={this.onWebSocketOpen.bind(this)}
-            onMessage={this.onWebSocketMessage.bind(this)} onClose={this.onWebSocketClose.bind(this)}
+          <Websocket ref={node => this.websocket = node} url={this.subscriberURL()} onOpen={this.wsOnOpen}
+            onMessage={this.wsOnMessage} onClose={this.wsOnClose}
             reconnectIntervalInMilliSeconds={2500} />
         }
       </React.Fragment>
