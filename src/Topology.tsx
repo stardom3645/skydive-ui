@@ -1695,6 +1695,7 @@ export class Topology extends React.Component<Props, {}> {
             const bbox = (element as SVGTextElement).getBBox()
             const centerY = d.bb.height / 2 + bbox.height / 4
             label.select("text.level-label-icon").attr("y", centerY - 32)
+            label.select("text.level-label-badge").attr("y", centerY - 52)
             label.select("text.level-label-title").attr("y", centerY + 44)
         }
         label.transition()
@@ -1724,25 +1725,44 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     private levelLabelIcon(title: string): string {
-        if (/host|호스트/i.test(title) && !/bridge|브릿지/i.test(title)) {
+        if (/system vm|시스템 가상머신/i.test(title)) {
             return "\uf108"
+        }
+        if (/user vm|사용자 가상머신/i.test(title)) {
+            return "\uf108"
+        }
+        if (/switch port|스위치 포트/i.test(title)) {
+            return "\uf796"
+        }
+        if (/switch|스위치/i.test(title)) {
+            return "\uf6ff"
+        }
+        if (/host bridge|호스트 브릿지/i.test(title)) {
+            return "\uf542"
+        }
+        if (/virtual bridge|가상 브릿지/i.test(title)) {
+            return "\uf0e8"
+        }
+        if (/host|호스트/i.test(title)) {
+            return "\uf233"
         }
         if (/nic/i.test(title)) {
             return "\uf1e6"
-        }
-        if (/bridge|브릿지/i.test(title)) {
-            return "\uf6ff"
         }
         if (/vlan/i.test(title)) {
             return "\uf0e8"
         }
         if (/router|라우터/i.test(title)) {
-            return "\uf1e0"
+            return "\uf4d7"
         }
         if (/vm|가상머신/i.test(title)) {
-            return "\uf233"
+            return "\uf108"
         }
         return "\uf1b2"
+    }
+
+    private levelLabelBadgeIcon(title: string): string {
+        return /system vm|시스템 가상머신/i.test(title) ? "\uf013" : ""
     }
 
     private hideAllLevelLabels() {
@@ -1806,6 +1826,11 @@ export class Topology extends React.Component<Props, {}> {
             .attr("text-anchor", "middle")
             .attr("x", lang === "en" ? 120 : 110)
             .text((d: LevelRect) => self.levelLabelIcon(self.weightTitles.get(d.weight) || 'Level ' + d.weight))
+        levelLabelEnter.append("text")
+            .attr("class", "level-label-badge")
+            .attr("text-anchor", "middle")
+            .attr("x", lang === "en" ? 148 : 138)
+            .text((d: LevelRect) => self.levelLabelBadgeIcon(self.weightTitles.get(d.weight) || 'Level ' + d.weight))
         levelLabelEnter.append("text")
             .attr("class", "level-label-title")
             .attr("text-anchor", "middle")
