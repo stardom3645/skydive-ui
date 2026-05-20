@@ -1715,7 +1715,9 @@ export class Topology extends React.Component<Props, {}> {
         if (!this.gLevelLabels) {
             return
         }
-        this.updateLevelLabelActiveClass()
+        const selectedWeight = this.selectedLevelWeight()
+        this.gLevelLabels.selectAll('g.level-label')
+            .classed("level-label-active", (d: LevelRect) => selectedWeight !== null && d.weight === selectedWeight)
     }
 
     private levelLabelIcon(title: string): string {
@@ -1808,9 +1810,7 @@ export class Topology extends React.Component<Props, {}> {
             .text((d: LevelRect) => self.weightTitles.get(d.weight) || 'Level ' + d.weight)
         levelLabel.exit().remove()
 
-        const selectedWeight = this.selectedLevelWeight()
-        this.gLevelLabels.selectAll('g.level-label')
-            .classed("level-label-active", (d: LevelRect) => selectedWeight !== null && d.weight === selectedWeight)
+        this.updateLevelLabelActiveClass()
 
         var level = this.gLevels.selectAll('g.level')
             .data(this.levelRects, (d: LevelRect) => "level-" + d.weight)

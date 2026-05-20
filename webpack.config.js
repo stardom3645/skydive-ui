@@ -11,7 +11,8 @@ const htmlPlugin = new HtmlWebPackPlugin({
 module.exports = {
     entry: './src/index.tsx',
     output: {
-        filename: './dist/bundle.js'
+        path: path.resolve(__dirname, 'dist'),
+        filename: 'bundle.js'
     },
     resolve: {
         extensions: [".ts", ".tsx", ".js", ".jsx"]
