@@ -71,7 +71,11 @@ class SkydiveApp extends React.Component<Props> {
 
 ReactDOM.render(
   <Provider store={store}>
-    <SnackbarProvider>
+    <SnackbarProvider
+      iconVariant={{
+        error: <span className="snackbarErrorSquare">x</span>
+      }}
+    >
       <BrowserRouter history={history} basename={baseURL}>
         <Switch>
           <PrivateRoute path="/" component={withRouter(SkydiveApp)} exact />

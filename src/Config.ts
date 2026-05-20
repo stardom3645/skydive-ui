@@ -1631,6 +1631,6 @@ class DefaultConfig {
     }
 
     defaultLinkTagMode(): number {
-        return LinkTagState.Visible
+        return LinkTagState.EventBased
     }
 }

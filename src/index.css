@@ -28,3 +28,17 @@ body {
   --ab-shadow-sm: 0 4px 10px rgba(15, 23, 42, 0.05);
   --ab-shadow-md: 0 10px 24px rgba(15, 23, 42, 0.08);
 }
+
+.snackbarErrorSquare {
+  width: 18px;
+  height: 18px;
+  border-radius: 2px;
+  background: #ffffff;
+  color: #d32f2f;
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  text-align: center;
+  text-transform: lowercase;
+  display: inline-block;
+}
