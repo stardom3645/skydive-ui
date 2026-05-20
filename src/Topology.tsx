@@ -2295,10 +2295,10 @@ export class Topology extends React.Component<Props, {}> {
 
                 select(this.parentNode).insert("rect", "text")
                     .attr("class", "node-name-wrap")
-                    .attr("x", bb.x - 5)
-                    .attr("y", bb.y - 5)
-                    .attr("width", bb.width + 10)
-                    .attr("height", bb.height + 10)
+                    .attr("x", bb.x - 12)
+                    .attr("y", bb.y - 8)
+                    .attr("width", bb.width + 24)
+                    .attr("height", bb.height + 16)
                     .attr("rx", 10)
                     .attr("ry", 10)
             })
@@ -2317,14 +2317,14 @@ export class Topology extends React.Component<Props, {}> {
             .attr("y", 85)
             .text((d: D3Node) => getNodeDisplayName(d))
             .attr("pointer-events", "none")
-            .call(wrapText, 1.1, nodeWidth - 10)
+            .call(wrapText, 1.15, nodeWidth + 38)
 
         // Update names only when vmNameMap changed to reduce long-running render overhead.
         if (this.lastVmNameMapRef !== this.props.vmNameMap) {
             node.selectAll<SVGRectElement, D3Node>("rect.node-name-wrap").remove()
             node.select("text.node-name")
                 .text((d: D3Node) => getNodeDisplayName(d))
-                .call(wrapText, 1.1, nodeWidth - 10)
+                .call(wrapText, 1.15, nodeWidth + 38)
             this.lastVmNameMapRef = this.props.vmNameMap
         }
 
