@@ -1124,6 +1124,31 @@ class DefaultConfig {
             attrs.badges = [{ text: "\uf03d" }]
         }
 
+        // Keep node icons aligned 1:1 with left infrastructure layer icons.
+        switch (attrs.weight) {
+            case WEIGHT_PHY_HOST:
+                attrs.icon = "\uf233"
+                break
+            case WEIGHT_PHY_NIC:
+                attrs.icon = "\uf538"
+                break
+            case WEIGHT_BRIDGES:
+                attrs.icon = "\uf542"
+                break
+            case WEIGHT_VLAN:
+                attrs.icon = "\uf0e8"
+                break
+            case WEIGHT_VIRT_BRIDGES:
+                attrs.icon = "\uf247"
+                break
+            case WEIGHT_SYSTEM_VMS:
+                attrs.icon = "\uf085"
+                break
+            case WEIGHT_VIRT_VMS:
+                attrs.icon = "\uf108"
+                break
+        }
+
         if (SHOW_DEBUG) {
             attrs.name = attrs.weight.toString() + "|" + attrs.name
         }

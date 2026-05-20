@@ -1753,7 +1753,7 @@ export class Topology extends React.Component<Props, {}> {
 
     private levelLabelIcon(title: string): string {
         if (/system vm|시스템 가상머신/i.test(title)) {
-            return "\uf109"
+            return "\uf085"
         }
         if (/user vm|사용자 가상머신/i.test(title)) {
             return "\uf108"
@@ -1765,19 +1765,19 @@ export class Topology extends React.Component<Props, {}> {
             return "\uf6ff"
         }
         if (/host bridge|호스트 브릿지/i.test(title)) {
-            return "\uf6ff"
+            return "\uf542"
         }
         if (/virtual bridge|가상 브릿지/i.test(title)) {
-            return "\uf6ff"
+            return "\uf247"
         }
         if (/host|호스트/i.test(title)) {
-            return "\uf109"
+            return "\uf233"
         }
         if (/nic/i.test(title)) {
-            return "\uf796"
+            return "\uf538"
         }
         if (/vlan/i.test(title)) {
-            return "\uf6ff"
+            return "\uf0e8"
         }
         if (/router|라우터/i.test(title)) {
             return "\uf4d7"
