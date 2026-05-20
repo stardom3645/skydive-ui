@@ -41,4 +41,5 @@ body {
   text-align: center;
   text-transform: lowercase;
   display: inline-block;
+  margin-right: 10px;
 }
