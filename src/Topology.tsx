@@ -234,6 +234,7 @@ export class Topology extends React.Component<Props, {}> {
     private zoom: zoom
     private liner: line
     private nodeClickedID: number
+    private showLevelLabelsTimeoutID: number
     private d3nodes: Map<string, D3Node>
     private absTransformX: number
     private absTransformY: number
@@ -270,22 +271,45 @@ export class Topology extends React.Component<Props, {}> {
         this.initTree()
 
         this.isCtrlPressed = false
+        this.nodeClickedID = 0
+        this.showLevelLabelsTimeoutID = 0
     }
-
     componentDidMount() {
         select("body")
-            .on("keydown", () => {
+            .on("keydown.topology", () => {
                 if (event.keyCode === 17) {
                     this.isCtrlPressed = true
                 }
             })
-            .on("keyup", () => {
+            .on("keyup.topology", () => {
                 if (event.keyCode === 17) {
                     this.isCtrlPressed = false
                 }
             })
 
         this.createSVG()
+    }
+
+    componentWillUnmount() {
+        select("body")
+            .on("keydown.topology", null)
+            .on("keyup.topology", null)
+
+        if (this.nodeClickedID) {
+            window.clearTimeout(this.nodeClickedID)
+            this.nodeClickedID = 0
+        }
+        if (this.showLevelLabelsTimeoutID) {
+            window.clearTimeout(this.showLevelLabelsTimeoutID)
+            this.showLevelLabelsTimeoutID = 0
+        }
+
+        if (this.svg) {
+            this.svg.on(".zoom", null)
+        }
+        if (this.svgDiv) {
+            select(this.svgDiv).select("svg").remove()
+        }
     }
 
     private onResize(rect: any) {
@@ -387,7 +411,10 @@ export class Topology extends React.Component<Props, {}> {
                 this.absTransformY = event.transform.y * 1 / event.transform.k
             })
             .on("end", () => {
-                window.setTimeout(this.showAllLevelLabels.bind(this), 200)
+                if (this.showLevelLabelsTimeoutID) {
+                    window.clearTimeout(this.showLevelLabelsTimeoutID)
+                }
+                this.showLevelLabelsTimeoutID = window.setTimeout(this.showAllLevelLabels.bind(this), 200)
             })
 
         this.svg.call(this.zoom)
@@ -1695,7 +1722,7 @@ export class Topology extends React.Component<Props, {}> {
             const bbox = (element as SVGTextElement).getBBox()
             const centerY = d.bb.height / 2 + bbox.height / 4
             label.select("text.level-label-icon").attr("y", centerY - 32)
-            label.select("text.level-label-badge").attr("y", centerY - 52)
+            label.select("text.level-label-badge").attr("y", centerY - 32)
             label.select("text.level-label-title").attr("y", centerY + 44)
         }
         label.transition()
@@ -1741,13 +1768,13 @@ export class Topology extends React.Component<Props, {}> {
             return "\uf542"
         }
         if (/virtual bridge|가상 브릿지/i.test(title)) {
-            return "\uf0e8"
+            return "\uf247"
         }
         if (/host|호스트/i.test(title)) {
             return "\uf233"
         }
         if (/nic/i.test(title)) {
-            return "\uf1e6"
+            return "\uf2db"
         }
         if (/vlan/i.test(title)) {
             return "\uf0e8"
@@ -1829,7 +1856,7 @@ export class Topology extends React.Component<Props, {}> {
         levelLabelEnter.append("text")
             .attr("class", "level-label-badge")
             .attr("text-anchor", "middle")
-            .attr("x", lang === "en" ? 148 : 138)
+            .attr("x", lang === "en" ? 120 : 110)
             .text((d: LevelRect) => self.levelLabelBadgeIcon(self.weightTitles.get(d.weight) || 'Level ' + d.weight))
         levelLabelEnter.append("text")
             .attr("class", "level-label-title")
