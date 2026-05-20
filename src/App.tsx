@@ -168,6 +168,7 @@ interface State {
   isVMConsoleOpening: boolean
   isTutorialOpen: boolean
   tutorialStep: number
+  tutorialPulse: number
 }
 
 interface VMConsoleResponse {
@@ -184,6 +185,7 @@ class App extends React.Component<Props, State> {
   bumpRevision: typeof bumpRevision
   checkAuthID: number
   vmNameMapRefreshID: number
+  tutorialRefreshID: number
   apiConf: Configuration
   wsContext: WSContext
   connected: boolean
@@ -227,7 +229,8 @@ class App extends React.Component<Props, State> {
       vmNameMap: {},
       isVMConsoleOpening: false,
       isTutorialOpen: false,
-      tutorialStep: 0
+      tutorialStep: 0,
+      tutorialPulse: 0
     }
 
     this.synced = false
@@ -253,6 +256,7 @@ class App extends React.Component<Props, State> {
     this.wsOnOpen = this.onWebSocketOpen.bind(this)
     this.wsOnMessage = this.onWebSocketMessage.bind(this)
     this.wsOnClose = this.onWebSocketClose.bind(this)
+    this.tutorialRefreshID = 0
   }
 
   setLanguage(lang: "en" | "ko") {
@@ -293,6 +297,9 @@ class App extends React.Component<Props, State> {
     }
     if (this.vmNameMapRefreshID) {
       window.clearInterval(this.vmNameMapRefreshID)
+    }
+    if (this.tutorialRefreshID) {
+      window.clearInterval(this.tutorialRefreshID)
     }
     window.removeEventListener("keydown", this.onGlobalKeyDown)
   }
@@ -808,11 +815,24 @@ class App extends React.Component<Props, State> {
     this.state.isNavOpen = false
     this.state.isTutorialOpen = true
     this.state.tutorialStep = 0
+    this.state.tutorialPulse = 0
+    if (this.tutorialRefreshID) {
+      window.clearInterval(this.tutorialRefreshID)
+    }
+    this.tutorialRefreshID = window.setInterval(() => {
+      if (this.state.isTutorialOpen) {
+        this.setState({ tutorialPulse: this.state.tutorialPulse + 1 })
+      }
+    }, 120)
     this.setState(this.state)
   }
 
   private closeTutorial() {
     this.state.isTutorialOpen = false
+    if (this.tutorialRefreshID) {
+      window.clearInterval(this.tutorialRefreshID)
+      this.tutorialRefreshID = 0
+    }
     this.setState(this.state)
   }
 
