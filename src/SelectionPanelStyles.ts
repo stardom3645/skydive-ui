@@ -30,7 +30,10 @@ export const styles = (theme: Theme) => createStyles({
   },
   tabs: {
     height: `100%`,
-    backgroundColor: '#ffffff'
+    backgroundColor: '#ffffff',
+    '& .MuiTabs-indicator': {
+      backgroundColor: '#1A73E8'
+    }
   },
   tabTitle: {
     fontSize: 15,
@@ -41,7 +44,7 @@ export const styles = (theme: Theme) => createStyles({
     display: 'flex',
     flexDirection: 'row-reverse',
     marginBottom: theme.spacing(1.5),
-    borderBottom: '1px solid #edf2f7',
+    borderBottom: '1px solid #1A73E8',
     paddingBottom: theme.spacing(1)
   },
   gremlinExpr: {

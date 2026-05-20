@@ -53,15 +53,19 @@ svg {
     text-decoration: none;
 }
 
+.level-label:hover rect {
+    fill: #F3F8FF;
+}
+
 .level-label.level-label-active rect {
-    fill: #eaf2ff;
-    stroke: #c7dafc;
+    fill: #E8F2FF;
+    stroke: #CFE2FF;
 }
 
 .level-label.level-label-active .level-label-icon,
 .level-label.level-label-active .level-label-badge,
 .level-label.level-label-active .level-label-title {
-    fill: #2f6df6;
+    fill: #1A73E8;
 }
 
 .hiera-links {

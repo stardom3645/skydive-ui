@@ -39,3 +39,26 @@
 .not-expandable button {
     visibility: hidden;
 }
+
+/* Normalize MUIDataTable filter chips */
+.MuiTableFilterList-root .MuiChip-root {
+    background-color: #eef3f8 !important;
+    border: 1px solid #d7e1ec;
+    color: #334155 !important;
+    height: 28px;
+}
+
+.MuiTableFilterList-root .MuiChip-label {
+    font-size: 13px;
+    padding-left: 10px;
+    padding-right: 4px;
+}
+
+.MuiTableFilterList-root .MuiChip-deleteIcon {
+    color: #7b8a9e !important;
+    background: transparent !important;
+    margin-left: 2px;
+    margin-right: 6px;
+    border-radius: 0;
+    padding: 0;
+}
