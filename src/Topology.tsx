@@ -1703,6 +1703,9 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     private selectedLevelWeight(): number | null {
+        if (!this.d3nodes) {
+            return null
+        }
         for (const d3node of Array.from(this.d3nodes.values())) {
             if (d3node.data.wrapped.state.selected) {
                 return d3node.data.wrapped.getWeight()
@@ -1712,7 +1715,7 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     private updateLevelLabelActiveClass() {
-        if (!this.gLevelLabels) {
+        if (!this.gLevelLabels || !this.d3nodes) {
             return
         }
         const selectedWeight = this.selectedLevelWeight()
