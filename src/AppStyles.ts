@@ -172,7 +172,7 @@ export const styles = (theme: Theme) => createStyles({
   },
   linkTagsPanel: {
     position: 'absolute',
-    left: 20,
+    left: 120,
     bottom: 20,
     maxWidth: 'unset',
     width: 'unset',

@@ -1774,7 +1774,7 @@ export class Topology extends React.Component<Props, {}> {
             return "\uf233"
         }
         if (/nic/i.test(title)) {
-            return "\uf2db"
+            return "\uf538"
         }
         if (/vlan/i.test(title)) {
             return "\uf0e8"
