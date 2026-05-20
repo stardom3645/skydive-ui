@@ -61,6 +61,7 @@ import WavesIcon from '@material-ui/icons/Waves'
 import Tooltip from '@material-ui/core/Tooltip'
 import UnfoldMoreIcon from '@material-ui/icons/UnfoldMore'
 import UnfoldLessIcon from '@material-ui/icons/UnfoldLess'
+import SchoolIcon from '@material-ui/icons/School'
 
 import { styles } from './AppStyles'
 import { Topology, Node, NodeAttrs, LinkAttrs, LinkTagState, Link } from './Topology'
@@ -95,7 +96,6 @@ const packageJson = require('../package.json')
 
 import './App.css'
 import ConfigReducer, { Filter } from './Config'
-import { useEffect, useState } from "react";
 import { fetchVmNameMap } from "./api";
 
 import { translate } from "./Config"
@@ -166,6 +166,8 @@ interface State {
   timeContext: Date | null
   language: "en" | "ko"
   isVMConsoleOpening: boolean
+  isTutorialOpen: boolean
+  tutorialStep: number
 }
 
 interface VMConsoleResponse {
@@ -223,7 +225,9 @@ class App extends React.Component<Props, State> {
       timeContext: null,
       language: "ko",
       vmNameMap: {},
-      isVMConsoleOpening: false
+      isVMConsoleOpening: false,
+      isTutorialOpen: false,
+      tutorialStep: 0
     }
 
     this.synced = false
@@ -280,6 +284,7 @@ class App extends React.Component<Props, State> {
     this.vmNameMapRefreshID = window.setInterval(() => {
       this.refreshVmNameMap()
     }, 10000)
+    window.addEventListener("keydown", this.onGlobalKeyDown)
   }
 
   componentWillUnmount() {
@@ -288,6 +293,13 @@ class App extends React.Component<Props, State> {
     }
     if (this.vmNameMapRefreshID) {
       window.clearInterval(this.vmNameMapRefreshID)
+    }
+    window.removeEventListener("keydown", this.onGlobalKeyDown)
+  }
+
+  private onGlobalKeyDown = (event: KeyboardEvent) => {
+    if (event.key === "Escape" && this.state.isTutorialOpen) {
+      this.closeTutorial()
     }
   }
 
@@ -768,6 +780,119 @@ class App extends React.Component<Props, State> {
   closeDrawer() {
     this.state.isNavOpen = false
     this.setState(this.state)
+  }
+
+  private tutorialSteps() {
+    return [
+      { title: "좌측 계층 메뉴", desc: "호스트, NIC, 브리지, VLAN, VM 계층 구조를 확인합니다.", selectors: [".level-label"] },
+      { title: "중앙 토폴로지 영역", desc: "네트워크 연결 관계를 시각적으로 보여줍니다.", selectors: ["#tutorial-topology"] },
+      { title: "노드", desc: "장비, 네트워크 객체, 가상머신을 의미합니다.", selectors: [".node", "#tutorial-topology"] },
+      { title: "링크", desc: "노드 간 연결과 트래픽 흐름을 나타냅니다.", selectors: [".link", "#tutorial-topology"] },
+      { title: "우측 상세 패널", desc: "선택한 노드의 상세 정보와 기능을 제공합니다.", selectors: ["#tutorial-right-panel"] },
+      { title: "상단 검색창", desc: "노드, VM, 호스트를 검색합니다.", selectors: ["#tutorial-search"] },
+      { title: "표시 옵션", desc: "네트워크 링크 계층 표시 옵션을 제어합니다.", selectors: ["#tutorial-link-tags", "#tutorial-topology"] }
+    ]
+  }
+
+  private findTutorialTarget(selectors: string[]): HTMLElement | null {
+    for (const selector of selectors) {
+      const el = document.querySelector(selector) as HTMLElement | null
+      if (el) {
+        return el
+      }
+    }
+    return null
+  }
+
+  private openTutorial() {
+    this.state.isNavOpen = false
+    this.state.isTutorialOpen = true
+    this.state.tutorialStep = 0
+    this.setState(this.state)
+  }
+
+  private closeTutorial() {
+    this.state.isTutorialOpen = false
+    this.setState(this.state)
+  }
+
+  private nextTutorialStep() {
+    const max = this.tutorialSteps().length - 1
+    this.state.tutorialStep = Math.min(max, this.state.tutorialStep + 1)
+    this.setState(this.state)
+  }
+
+  private prevTutorialStep() {
+    this.state.tutorialStep = Math.max(0, this.state.tutorialStep - 1)
+    this.setState(this.state)
+  }
+
+  private renderTutorialOverlay() {
+    if (!this.state.isTutorialOpen) {
+      return null
+    }
+
+    const steps = this.tutorialSteps()
+    const step = steps[this.state.tutorialStep]
+    const target = this.findTutorialTarget(step.selectors)
+    const rect = target ? target.getBoundingClientRect() : null
+    const highlight = rect ? {
+      top: Math.max(10, rect.top - 8),
+      left: Math.max(10, rect.left - 8),
+      width: Math.max(80, rect.width + 16),
+      height: Math.max(56, rect.height + 16),
+    } : { top: 120, left: 120, width: 420, height: 220 }
+
+    const isLast = this.state.tutorialStep === steps.length - 1
+    const cardTop = Math.min(window.innerHeight - 220, highlight.top + highlight.height + 16)
+    const cardLeft = Math.min(window.innerWidth - 380, Math.max(20, highlight.left))
+
+    return (
+      <div style={{ position: "fixed", inset: 0, zIndex: 2500 }}>
+        <div
+          style={{
+            position: "absolute",
+            top: highlight.top,
+            left: highlight.left,
+            width: highlight.width,
+            height: highlight.height,
+            borderRadius: 10,
+            border: "2px solid #7fb1ff",
+            boxShadow: "0 0 0 9999px rgba(15, 23, 42, 0.55)",
+            pointerEvents: "none",
+            transition: "all 0.2s ease"
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            top: cardTop,
+            left: cardLeft,
+            width: 360,
+            background: "#ffffff",
+            border: "1px solid #dbe5f2",
+            borderRadius: 8,
+            boxShadow: "0 14px 32px rgba(15,23,42,0.2)",
+            padding: 14
+          }}
+        >
+          <div style={{ fontSize: 15, fontWeight: 700, color: "#1e3a8a", marginBottom: 8 }}>
+            {this.state.tutorialStep + 1}. {step.title}
+          </div>
+          <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.5, marginBottom: 12 }}>
+            {step.desc}
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <Button size="small" onClick={this.closeTutorial.bind(this)}>종료</Button>
+            <div>
+              <Button size="small" onClick={this.prevTutorialStep.bind(this)} disabled={this.state.tutorialStep === 0}>이전</Button>
+              {!isLast && <Button size="small" color="primary" onClick={this.nextTutorialStep.bind(this)}>다음</Button>}
+              {isLast && <Button size="small" color="primary" onClick={this.closeTutorial.bind(this)}>종료</Button>}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   onLinkTagStateChange(event) {
@@ -1482,7 +1607,7 @@ class App extends React.Component<Props, State> {
             {this.config.subTitle &&
               <Typography className={classes.subTitle} variant="caption">{this.config.subTitle()}</Typography>
             }
-            <div className={classes.search}>
+            <div className={classes.search} id="tutorial-search">
               <AutoCompleteInput placeholder={translate("searchNodeByNameExample")}  suggestions={this.state.suggestions} onChange={this.onSearchChange.bind(this)} />
             </div>
             {/* 모든 노드 확장 버튼: 클릭 시 Topology 전체를 펼칩니다. */}
@@ -1522,6 +1647,14 @@ class App extends React.Component<Props, State> {
           <Divider />
           <List><MenuListItems /></List>
           <List>
+            <ListItem button={true} onClick={this.openTutorial.bind(this)}>
+              <ListItemIcon>
+                <SchoolIcon />
+              </ListItemIcon>
+              <Typography>튜토리얼 보기</Typography>
+            </ListItem>
+          </List>
+          <List>
             <ListItem>
               <LanguageToggle />
             </ListItem>
@@ -1534,7 +1667,7 @@ class App extends React.Component<Props, State> {
         <HelpDialog open={this.state.isHelpOpen} onClose={this.closeHelpDialog.bind(this)}
         />
         <main className={classes.content}>
-          <Container maxWidth="xl" className={classes.container}>
+          <Container maxWidth="xl" className={classes.container} id="tutorial-topology">
             <Topology className={classes.topology} ref={node => this.tc = node}
               nodeAttrs={this.nodeAttrs.bind(this)}
               linkAttrs={this.linkAttrs.bind(this)}
@@ -1554,7 +1687,7 @@ class App extends React.Component<Props, State> {
               vmNameMap={this.state.vmNameMap}
             />
           </Container>
-          <Container className={classes.rightPanel}>
+          <Container className={classes.rightPanel} id="tutorial-right-panel">
             <Paper className={clsx(classes.rightPanelPaper, (!this.state.isSelectionOpen && !this.state.isTimetravelOpen) && classes.rightPanelPaperClose)}
               square={true}>
               {!this.state.isTimetravelOpen &&
@@ -1568,8 +1701,9 @@ class App extends React.Component<Props, State> {
           </Container>
           {this.renderNodeTagButtons(classes)}
           {this.renderFilters(classes)}
-          {this.renderLinkTagButtons(classes)}
+          <div id="tutorial-link-tags">{this.renderLinkTagButtons(classes)}</div>
         </main>
+        {this.renderTutorialOverlay()}
       </div>
     )
   }
