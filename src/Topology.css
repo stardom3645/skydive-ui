@@ -21,26 +21,39 @@ svg {
     fill: #f4f6f9;
     stroke: #e3e8ef;
     stroke-width: 1;
+    rx: 14;
+    ry: 14;
 }
 
 .level-label text {
     fill: #4b5568;
     font-family: 'Noto Sans KR';
     font-weight: 700;
-    font-size: 28px;
+    font-size: 24px;
 }
 
 .level-label .level-label-icon {
     fill: #737e91;
     font-family: 'Font Awesome 5 Free' !important;
-    font-size: 34px;
+    font-size: 68px;
     font-weight: 900;
 }
 
 .level-label .level-label-title {
     fill: #4a5670;
-    font-size: 28px;
+    font-size: 24px;
     font-weight: 700;
+    text-decoration: none;
+}
+
+.level-label.level-label-active rect {
+    fill: #eaf2ff;
+    stroke: #c7dafc;
+}
+
+.level-label.level-label-active .level-label-icon,
+.level-label.level-label-active .level-label-title {
+    fill: #2f6df6;
 }
 
 .hiera-links {

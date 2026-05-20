@@ -1692,11 +1692,21 @@ export class Topology extends React.Component<Props, {}> {
         if (element) {
             const bbox = (element as SVGTextElement).getBBox()
             const centerY = d.bb.height / 2 + bbox.height / 4
-            label.selectAll("text").attr("y", centerY)
+            label.select("text.level-label-icon").attr("y", centerY - 32)
+            label.select("text.level-label-title").attr("y", centerY + 44)
         }
         label.transition()
             .duration(animDuration)
             .style("opacity", 1)
+    }
+
+    private selectedLevelWeight(): number | null {
+        for (const d3node of Array.from(this.d3nodes.values())) {
+            if (d3node.data.wrapped.state.selected) {
+                return d3node.data.wrapped.getWeight()
+            }
+        }
+        return null
     }
 
     private levelLabelIcon(title: string): string {
@@ -1775,18 +1785,23 @@ export class Topology extends React.Component<Props, {}> {
             .style("opacity", 0)
             .attr("transform", (d: LevelRect) => `translate(${-self.absTransformX},${d.bb.y})`)
         levelLabelEnter.append("rect")
-            .attr("width", lang === "en" ? 380 : 340)
+            .attr("width", lang === "en" ? 240 : 220)
             .attr("height", (d: LevelRect) => d.bb.height);
         levelLabelEnter.append("text")
             .attr("class", "level-label-icon")
-            .attr("dx", 36)
+            .attr("text-anchor", "middle")
+            .attr("x", lang === "en" ? 120 : 110)
             .text((d: LevelRect) => self.levelLabelIcon(self.weightTitles.get(d.weight) || 'Level ' + d.weight))
         levelLabelEnter.append("text")
             .attr("class", "level-label-title")
-            .attr("font-size", 26)
-            .attr("dx", 92)
+            .attr("text-anchor", "middle")
+            .attr("x", lang === "en" ? 120 : 110)
             .text((d: LevelRect) => self.weightTitles.get(d.weight) || 'Level ' + d.weight)
         levelLabel.exit().remove()
+
+        const selectedWeight = this.selectedLevelWeight()
+        this.gLevelLabels.selectAll('g.level-label')
+            .classed("level-label-active", (d: LevelRect) => selectedWeight !== null && d.weight === selectedWeight)
 
         var level = this.gLevels.selectAll('g.level')
             .data(this.levelRects, (d: LevelRect) => "level-" + d.weight)
