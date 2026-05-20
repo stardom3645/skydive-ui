@@ -1151,6 +1151,9 @@ class DefaultConfig {
             case WEIGHT_SYSTEM_VMS:
                 attrs.icon = "\uf085"
                 break
+            case WEIGHT_VIRT_ROUTERS:
+                attrs.icon = "\uf4d7"
+                break
             case WEIGHT_VIRT_VMS:
                 attrs.icon = "\uf108"
                 break

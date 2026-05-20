@@ -171,6 +171,10 @@ interface VMConsoleResponse {
   url?: string
 }
 
+interface VMConsoleAPIError extends Error {
+  status?: number
+}
+
 class App extends React.Component<Props, State> {
 
   tc: Topology | null
@@ -1111,13 +1115,30 @@ class App extends React.Component<Props, State> {
       }
 
       window.open(result.url, "_blank", "noopener,noreferrer")
-    }).catch((err) => {
-      this.notify("콘솔 열기에 실패했습니다.", "error")
+    }).catch((err: VMConsoleAPIError) => {
+      this.notify(this.getVMConsoleErrorMessage(err.status), "error")
       console.debug("Failed to open VM console", err)
     }).finally(() => {
       this.state.isVMConsoleOpening = false
       this.setState(this.state)
     })
+  }
+
+  private getVMConsoleErrorMessage(status?: number): string {
+    switch (status) {
+      case 401:
+        return "Mold API 인증에 실패했습니다."
+      case 403:
+        return "콘솔 접근 권한이 없습니다."
+      case 404:
+        return "대상 VM을 찾을 수 없습니다."
+      case 503:
+        return "콘솔 기능이 비활성화 상태입니다. (API Key/Secret 확인 필요)"
+      case 502:
+        return "Mold 콘솔 API 호출에 실패했습니다."
+      default:
+        return "콘솔 열기에 실패했습니다."
+    }
   }
 
   private fetchVMConsoleURL(node: Node, vmID?: string, instanceName?: string): Promise<VMConsoleResponse> {
@@ -1141,7 +1162,9 @@ class App extends React.Component<Props, State> {
       headers: headers,
     }).then((resp) => {
       if (!resp.ok) {
-        throw new Error(`vm console api failed: ${resp.status}`)
+        const error: VMConsoleAPIError = new Error(`vm console api failed: ${resp.status}`)
+        error.status = resp.status
+        throw error
       }
       return resp.json()
     })
