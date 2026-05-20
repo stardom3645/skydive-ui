@@ -1013,6 +1013,7 @@ class DefaultConfig {
                 attrs.weight = WEIGHT_PHY_HOST
                 break
             case "switch":
+                attrs.icon = "\uf6ff"
                 attrs.weight = WEIGHT_SWITCH
                 break
             case "bridge":
@@ -1126,6 +1127,12 @@ class DefaultConfig {
 
         // Keep node icons aligned 1:1 with left infrastructure layer icons.
         switch (attrs.weight) {
+            case WEIGHT_SWITCH:
+                attrs.icon = "\uf6ff"
+                break
+            case WEIGHT_SWITCH_PORTS:
+                attrs.icon = "\uf796"
+                break
             case WEIGHT_PHY_HOST:
                 attrs.icon = "\uf233"
                 break
@@ -1146,6 +1153,9 @@ class DefaultConfig {
                 break
             case WEIGHT_VIRT_VMS:
                 attrs.icon = "\uf108"
+                break
+            case WEIGHT_VIRT_PORTS:
+                attrs.icon = "\uf796"
                 break
         }
 
