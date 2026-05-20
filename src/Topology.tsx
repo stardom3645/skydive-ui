@@ -1753,7 +1753,7 @@ export class Topology extends React.Component<Props, {}> {
 
     private levelLabelIcon(title: string): string {
         if (/system vm|시스템 가상머신/i.test(title)) {
-            return "\f085"
+            return "\uf085"
         }
         if (/user vm|사용자 가상머신/i.test(title)) {
             return "\uf108"
