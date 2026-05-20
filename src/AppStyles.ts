@@ -17,7 +17,7 @@
 
 import { createStyles, Theme } from '@material-ui/core'
 
-const drawerWidth = 300
+const drawerWidth = 216
 
 export const styles = (theme: Theme) => createStyles({
   app: {
@@ -154,11 +154,10 @@ export const styles = (theme: Theme) => createStyles({
   },
   nodeTagsPanel: {
     position: 'absolute',
-    left: drawerWidth + 16,
-    top: 70,
+    left: 15,
+    top: 80,
     maxWidth: 'unset',
     width: 'unset',
-    zIndex: 900,
     paddingTop: theme.spacing(0),
     paddingBottom: theme.spacing(0),
     paddingLeft: theme.spacing(0),
@@ -173,11 +172,10 @@ export const styles = (theme: Theme) => createStyles({
   },
   linkTagsPanel: {
     position: 'absolute',
-    left: drawerWidth + 16,
-    bottom: 14,
+    left: 20,
+    bottom: 20,
     maxWidth: 'unset',
     width: 'unset',
-    zIndex: 900,
     paddingTop: theme.spacing(0),
     paddingBottom: theme.spacing(0),
     paddingLeft: theme.spacing(0),

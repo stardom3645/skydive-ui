@@ -11,7 +11,8 @@ const htmlPlugin = new HtmlWebPackPlugin({
 module.exports = {
     entry: './src/index.tsx',
     output: {
-        filename: './dist/bundle.js'
+        filename: 'dist/bundle.js',
+        publicPath: '/ui_v2/'
     },
     resolve: {
         extensions: [".ts", ".tsx", ".js", ".jsx"]
