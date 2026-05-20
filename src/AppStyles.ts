@@ -154,7 +154,7 @@ export const styles = (theme: Theme) => createStyles({
   },
   nodeTagsPanel: {
     position: 'absolute',
-    left: 15,
+    left: 115,
     top: 80,
     maxWidth: 'unset',
     width: 'unset',
@@ -215,7 +215,7 @@ export const styles = (theme: Theme) => createStyles({
   },
   filtersPanel: {
     position: 'absolute',
-    right: 20,
+    right: 120,
     top: 80,
     maxWidth: 'unset',
     width: 'unset',
