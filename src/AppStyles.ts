@@ -273,6 +273,7 @@ export const styles = (theme: Theme) => createStyles({
     minHeight: 56,
   },
   title: {
+    paddingTop: 15,
     display: 'none',
     color: '#0f172a',
     fontWeight: 700,
