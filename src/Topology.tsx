@@ -431,7 +431,7 @@ export class Topology extends React.Component<Props, {}> {
         this.gGroups = this.g.append("g")
             .attr("class", "groups")
 
-        // hiera links group 
+        // hiera links group
         this.gHieraLinks = this.g.append("g")
             .attr("class", "hiera-links")
 
@@ -521,17 +521,17 @@ export class Topology extends React.Component<Props, {}> {
             if (!node) {
                 return
             }
-    
+
             node.state.expanded = true
             node.children.forEach(child => expand(child))
         }
-    
+
         // 1차: 실제 Node 트리를 전부 펼친 상태로 한 번 렌더링해서
         //      모든 그룹(NodeWrapper)과 groupStates 엔트리를 생성합니다.
         expand(this.root)
         this.invalidated = true
         this.resetCacheAndRenderTree()
-    
+
         // 2차: 이제 groupStates 안에 새로 생성된 그룹 상태까지 모두 들어왔으므로
         //      여기에서 "완전 펼침" 설정을 일괄 적용합니다.
         this.groupStates.forEach(state => {
@@ -539,7 +539,7 @@ export class Topology extends React.Component<Props, {}> {
             state.groupFullSize = true
             state.groupOffset = 0
         })
-    
+
         // 3차: 그룹 상태 변경을 반영해서 다시 한 번 전체 토폴로지를 렌더링합니다.
         this.invalidated = true
         this.resetCacheAndRenderTree()
@@ -813,7 +813,7 @@ export class Topology extends React.Component<Props, {}> {
         // iterate one mode time children in order to
         // if a group doesn't reach the groupSize, then remove the group
         // and let the node as it is. If the group reach the groupSize
-        // set the children according to the offset and the groupSize or 
+        // set the children according to the offset and the groupSize or
         // the expand parameter.
         var children = new Array<NodeWrapper>()
         node.children.forEach(child => {
@@ -1753,7 +1753,7 @@ export class Topology extends React.Component<Props, {}> {
 
     private levelLabelIcon(title: string): string {
         if (/system vm|시스템 가상머신/i.test(title)) {
-            return "\uf108"
+            return "\f085"
         }
         if (/user vm|사용자 가상머신/i.test(title)) {
             return "\uf108"
@@ -2189,7 +2189,7 @@ export class Topology extends React.Component<Props, {}> {
 
             const handleIcons = (g: any, d: NodeWrapper) => {
                 var size = this.props.groupSize || defaultGroupSize
-            
+
                 // 오프셋 숫자 뱃지
                 handleOffset(
                     g.select("g.brace-offset"),
@@ -2198,7 +2198,7 @@ export class Topology extends React.Component<Props, {}> {
                     d.wrapped.state.groupOffset,
                     d.wrapped.state.groupFullSize
                 )
-            
+
                 // 좌/우 화살표 아이콘
                 handleIcon(
                     g.select("g.brace-left-icon"),
@@ -2212,14 +2212,14 @@ export class Topology extends React.Component<Props, {}> {
                     55,
                     d.wrapped.state.groupFullSize || d.wrapped.state.groupOffset + size >= d.wrapped.children.length
                 )
-            
+
                 // 전체 펼치기/접기 아이콘 (+ / -) 처리
                 if (d.wrapped.children.length <= defaultMaxExpandSize) {
                     const fullIconGroup = g.select("g.brace-full-icon")
-            
+
                     // 위치/투명도 등 기본 렌더링
                     handleIcon(fullIconGroup, d, 105, false)
-            
+
                     // 여기서 groupFullSize 값에 맞춰 + / - 아이콘 문자 동기화
                     const fullIconText = fullIconGroup.select("text")
                     if (!fullIconText.empty()) {
