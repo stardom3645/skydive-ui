@@ -1212,6 +1212,7 @@ export class Topology extends React.Component<Props, {}> {
         })
 
         this.hideLinks()
+        this.updateLevelLabelActiveClass()
     }
 
     private hideLinks() {
@@ -1255,6 +1256,7 @@ export class Topology extends React.Component<Props, {}> {
         if (d) {
             this.highlightNeighborLinks(d, active)
         }
+        this.updateLevelLabelActiveClass()
     }
 
     toggleNode(id: string) {
@@ -1707,6 +1709,13 @@ export class Topology extends React.Component<Props, {}> {
             }
         }
         return null
+    }
+
+    private updateLevelLabelActiveClass() {
+        if (!this.gLevelLabels) {
+            return
+        }
+        this.updateLevelLabelActiveClass()
     }
 
     private levelLabelIcon(title: string): string {
