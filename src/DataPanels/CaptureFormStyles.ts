@@ -20,7 +20,10 @@ import { createStyles, Theme } from '@material-ui/core/styles'
 export const styles = (theme: Theme) => createStyles({
     textField: {
         marginLeft: theme.spacing(1),
-        marginRight: theme.spacing(1)
+        marginRight: theme.spacing(1),
+        width: `calc(100% - ${theme.spacing(2)}px)`,
+        maxWidth: `calc(100% - ${theme.spacing(2)}px)`,
+        boxSizing: 'border-box'
     },
     button: {
         margin: theme.spacing(1),
@@ -28,11 +31,22 @@ export const styles = (theme: Theme) => createStyles({
     control: {
         display: "block !important",
         "& .MuiInputBase-root": {
-            display: "block !important"
+            display: "block !important",
+            width: "100%",
+            maxWidth: "100%",
+            boxSizing: "border-box"
+        },
+        "& .MuiSelect-root, & .MuiInputBase-input, & textarea, & input": {
+            width: "100%",
+            maxWidth: "100%",
+            boxSizing: "border-box"
         },
         marginTop: 36,
         marginLeft: theme.spacing(1),
-        marginRight: theme.spacing(1)
+        marginRight: theme.spacing(1),
+        width: `calc(100% - ${theme.spacing(2)}px)`,
+        maxWidth: `calc(100% - ${theme.spacing(2)}px)`,
+        boxSizing: 'border-box'
     },
     advanced: {
         boxShadow: "unset !important",

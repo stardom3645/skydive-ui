@@ -222,7 +222,7 @@ class SelectionPanel extends React.Component<Props, State> {
           indicatorColor="primary">
           {this.renderTabs(classes)}
         </Tabs>
-        <div className={classes.rightPanelPaperContent} style={{ overflow: "auto" }}>
+        <div className={classes.rightPanelPaperContent}>
           {this.renderTabPanels(classes)}
         </div>
       </div>

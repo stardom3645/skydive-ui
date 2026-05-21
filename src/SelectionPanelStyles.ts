@@ -19,11 +19,23 @@ import { createStyles, Theme } from '@material-ui/core'
 
 export const styles = (theme: Theme) => createStyles({
   rightPanelPaperContent: {
-    padding: theme.spacing(2.5),
+    paddingTop: theme.spacing(2.5),
+    paddingBottom: theme.spacing(2.5),
+    paddingLeft: theme.spacing(2.5),
+    paddingRight: theme.spacing(3.25),
     width: `100%`,
     height: `100%`,
     maxHeight: 'calc(100% - 90px)',
-    backgroundColor: '#ffffff'
+    backgroundColor: '#ffffff',
+    overflowY: 'auto',
+    overflowX: 'hidden',
+    scrollbarGutter: 'stable',
+    boxSizing: 'border-box',
+    '& .MuiFormControl-root, & .MuiInputBase-root, & .MuiOutlinedInput-root, & textarea, & input, & select': {
+      width: '100%',
+      maxWidth: '100%',
+      boxSizing: 'border-box'
+    }
   },
   jsonTree: {
     backgroundColor: 'unset'
@@ -36,7 +48,7 @@ export const styles = (theme: Theme) => createStyles({
     }
   },
   tabTitle: {
-    fontSize: 15,
+    fontSize: 18,
     fontWeight: 600,
     color: '#1e293b'
   },
@@ -62,15 +74,15 @@ export const styles = (theme: Theme) => createStyles({
   tabIconFree: {
     fontFamily: `"Font Awesome 5 Free" !important`,
     fontWeight: 900,
-    fontSize: 20,
+    fontSize: 35,
     marginBottom: `0 !important`,
-    color: '#2563eb'
+    color: '#1a73e8'
   },
   tabIconBrands: {
     fontFamily: `"Font Awesome 5 Brands" !important`,
     fontWeight: 900,
-    fontSize: 20,
+    fontSize: 35,
     marginBottom: `0 !important`,
-    color: '#2563eb'
+    color: '#1a73e8'
   }
 })
