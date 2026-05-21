@@ -39,7 +39,8 @@ export const styles = (theme: Theme) => createStyles({
         "& .MuiSelect-root, & .MuiInputBase-input, & textarea, & input": {
             width: "100%",
             maxWidth: "100%",
-            boxSizing: "border-box"
+            boxSizing: "border-box",
+            paddingLeft: "5px"
         },
         marginTop: 36,
         marginLeft: 0,
