@@ -192,6 +192,28 @@ export const styles = (theme: Theme) => createStyles({
     backgroundColor: '#ffffff',
     boxShadow: '0 10px 24px rgba(15, 23, 42, 0.08)'
   },
+  linkTagsHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: theme.spacing(0.5)
+  },
+  linkTagsCollapseButton: {
+    color: '#64748b',
+    padding: 4
+  },
+  linkTagsCollapsedTab: {
+    cursor: 'pointer',
+    border: '1px solid #dbe5f2',
+    borderRadius: 10,
+    backgroundColor: '#ffffff',
+    boxShadow: '0 8px 18px rgba(15, 23, 42, 0.08)',
+    padding: theme.spacing(0.9, 1.4)
+  },
+  linkTagsCollapsedText: {
+    fontSize: 13,
+    fontWeight: 600
+  },
   search: {
     padding: theme.spacing(0.55, 1),
     position: 'relative',

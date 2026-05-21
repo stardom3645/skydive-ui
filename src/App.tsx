@@ -165,6 +165,7 @@ interface State {
   timeContext: Date | null
   language: "en" | "ko"
   isVMConsoleOpening: boolean
+  isLinkTagsCollapsed: boolean
 }
 
 interface VMConsoleResponse {
@@ -226,7 +227,8 @@ class App extends React.Component<Props, State> {
       timeContext: null,
       language: "ko",
       vmNameMap: {},
-      isVMConsoleOpening: false
+      isVMConsoleOpening: false,
+      isLinkTagsCollapsed: false
     }
 
     this.synced = false
@@ -278,6 +280,12 @@ class App extends React.Component<Props, State> {
     } else {
       this.loadStaticData(this.props.dataURL)
     }
+    const savedLinkTagPanel = localStorage.getItem("netdive-link-tags-collapsed")
+    if (savedLinkTagPanel === "1") {
+      this.state.isLinkTagsCollapsed = true
+      this.setState(this.state)
+    }
+
     // Libvirt VM 이름 매핑 정보 불러오기 (초기 + 주기 갱신)
     this.refreshVmNameMap()
     this.vmNameMapRefreshID = window.setInterval(() => {
@@ -1319,21 +1327,48 @@ class App extends React.Component<Props, State> {
       <React.Fragment>
         {this.state.linkTagStates.size !== 0 &&
           <Container className={classes.linkTagsPanel}>
-            <Paper className={classes.linkTagsPanelPaper}>
-              <Typography component="h6" color="primary" gutterBottom>
-                {translate("networkLinkLayer")}
-              </Typography>
-              <FormGroup>
-                {Array.from(this.state.linkTagStates.keys()).map((key) => (
-                  <FormControlLabel key={key} control={
-                    <Checkbox value={key} color="primary" onChange={this.onLinkTagStateChange.bind(this)}
-                      checked={this.state.linkTagStates.get(key) === LinkTagState.Visible}
-                      indeterminate={this.state.linkTagStates.get(key) === LinkTagState.EventBased} />
-                  }
-                    label={translate(key)} />
-                ))}
-              </FormGroup>
-            </Paper>
+            {!this.state.isLinkTagsCollapsed &&
+              <Paper className={classes.linkTagsPanelPaper}>
+                <div className={classes.linkTagsHeader}>
+                  <Typography component="h6" color="primary">
+                    {translate("networkLinkLayer")}
+                  </Typography>
+                  <IconButton
+                    size="small"
+                    className={classes.linkTagsCollapseButton}
+                    onClick={() => {
+                      this.state.isLinkTagsCollapsed = true
+                      this.setState(this.state)
+                      localStorage.setItem("netdive-link-tags-collapsed", "1")
+                    }}>
+                    <UnfoldLessIcon fontSize="small" />
+                  </IconButton>
+                </div>
+                <FormGroup>
+                  {Array.from(this.state.linkTagStates.keys()).map((key) => (
+                    <FormControlLabel key={key} control={
+                      <Checkbox value={key} color="primary" onChange={this.onLinkTagStateChange.bind(this)}
+                        checked={this.state.linkTagStates.get(key) === LinkTagState.Visible}
+                        indeterminate={this.state.linkTagStates.get(key) === LinkTagState.EventBased} />
+                    }
+                      label={translate(key)} />
+                  ))}
+                </FormGroup>
+              </Paper>
+            }
+            {this.state.isLinkTagsCollapsed &&
+              <Paper
+                className={classes.linkTagsCollapsedTab}
+                onClick={() => {
+                  this.state.isLinkTagsCollapsed = false
+                  this.setState(this.state)
+                  localStorage.setItem("netdive-link-tags-collapsed", "0")
+                }}>
+                <Typography component="span" color="primary" className={classes.linkTagsCollapsedText}>
+                  계층 필터
+                </Typography>
+              </Paper>
+            }
           </Container>
         }
       </React.Fragment>
