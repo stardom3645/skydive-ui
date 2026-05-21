@@ -43,10 +43,15 @@ export const styles = (theme: Theme) => createStyles({
     paper: {
         display: 'block',
         flexWrap: 'wrap',
+        paddingTop: theme.spacing(1.5),
+        paddingBottom: theme.spacing(2),
+        paddingLeft: theme.spacing(2),
+        paddingRight: theme.spacing(2.5),
         marginLeft: 1,
         marginRight: 1,
         borderRadius: '0 0 10px 10px',
         border: '1px solid #dbe5f2',
-        boxShadow: '0 8px 20px rgba(15, 23, 42, 0.06)'
+        boxShadow: '0 8px 20px rgba(15, 23, 42, 0.06)',
+        boxSizing: 'border-box'
     }
 })
