@@ -63,3 +63,36 @@
     border-radius: 0;
     padding: 0;
 }
+
+/* Keep pagination compact and prevent overflow artifacts in right detail panel */
+.MuiTablePagination-root {
+    overflow: hidden;
+}
+
+.MuiTablePagination-toolbar {
+    min-height: 44px !important;
+    padding-left: 8px !important;
+    padding-right: 12px !important;
+}
+
+.MuiTablePagination-caption {
+    white-space: nowrap;
+}
+
+.MuiTablePagination-selectRoot {
+    min-width: 56px !important;
+    margin-right: 10px !important;
+}
+
+.MuiTablePagination-select {
+    padding-right: 20px !important;
+}
+
+.MuiTablePagination-actions {
+    margin-left: 6px;
+    flex-shrink: 0;
+}
+
+.MuiTable-responsiveScroll {
+    overflow-x: hidden !important;
+}

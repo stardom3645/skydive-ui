@@ -31,12 +31,7 @@ export const styles = (theme: Theme) => createStyles({
     overflowX: 'hidden',
     scrollbarGutter: 'stable',
     boxSizing: 'border-box',
-    '& .MuiFormControl-root, & .MuiInputBase-root, & .MuiOutlinedInput-root, & textarea, & input, & select': {
-      width: '100%',
-      maxWidth: '100%',
-      boxSizing: 'border-box'
-    },
-    '& .MuiInputBase-input.MuiInput-input, & .MuiSelect-select': {
+    '& .MuiInputBase-input.MuiInput-input:not(.MuiTablePagination-select), & .MuiSelect-select:not(.MuiTablePagination-select)': {
       height: 'auto',
       minHeight: 32,
       lineHeight: 1.5,
