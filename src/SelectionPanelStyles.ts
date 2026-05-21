@@ -35,6 +35,13 @@ export const styles = (theme: Theme) => createStyles({
       width: '100%',
       maxWidth: '100%',
       boxSizing: 'border-box'
+    },
+    '& .MuiInputBase-input.MuiInput-input, & .MuiSelect-select': {
+      height: 'auto',
+      minHeight: 32,
+      lineHeight: 1.5,
+      padding: '8px 0 8px',
+      boxSizing: 'border-box'
     }
   },
   jsonTree: {

@@ -43,7 +43,6 @@ export const styles = (theme: Theme) => createStyles({
     paper: {
         display: 'block',
         flexWrap: 'wrap',
-        padding: theme.spacing(2),
         marginLeft: 1,
         marginRight: 1,
         borderRadius: '0 0 10px 10px',
