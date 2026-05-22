@@ -34,6 +34,7 @@ const WEIGHT_SWITCH = 5015
 const WEIGHT_SWITCH_PORTS = 5018
 const WEIGHT_PHY_HOST = 5020
 const WEIGHT_PHY_NIC = 5030
+const WEIGHT_PHY_BOND = 5032
 const WEIGHT_BRIDGES = 5035
 const WEIGHT_VLAN = 5040
 const WEIGHT_PHY_NET = 5050
@@ -78,6 +79,7 @@ export const i18nMap = {
         "phy-switch-ports": "Physical Switch Ports",
         "phy-hosts": "Physical Hosts",
         "phy-nics": "Physical NICs",
+        "phy-bond": "Bond Interfaces",
         "host-bridges": "Host Bridges",
         "phy-net": "Physical Network",
         "phy-ports": "Physical Ports",
@@ -267,6 +269,7 @@ export const i18nMap = {
         "phy-switch-ports": "스위치 포트",
         "phy-hosts": "호스트",
         "phy-nics": "NIC",
+        "phy-bond": "본딩 인터페이스",
         "host-bridges": "호스트 브릿지",
         "phy-net": "네트워크",
         "phy-ports": "포트",
@@ -1034,6 +1037,10 @@ class DefaultConfig {
                 attrs.icon = "\uf796"
                 attrs.weight = WEIGHT_PHY_NIC
                 break
+            case "bond":
+                attrs.icon = "\uf0c1"
+                attrs.weight = WEIGHT_PHY_BOND
+                break
             case "internal":
             case "interface":
             case "tun":
@@ -1102,6 +1109,10 @@ class DefaultConfig {
             attrs.weight = WEIGHT_PHY_NIC
         }
 
+        if (typeof node.data.Driver === "string" && node.data.Driver.toLowerCase() === "bonding") {
+            attrs.weight = WEIGHT_PHY_BOND
+        }
+
         var regexpVirtRouter: RegExp = /^r-/
         var regexpSystemVm: RegExp = /(^s-)|(^v-)/
         if (regexpVirtRouter.test(node.data.Name)) {
@@ -1138,6 +1149,9 @@ class DefaultConfig {
                 break
             case WEIGHT_PHY_NIC:
                 attrs.icon = "\uf538"
+                break
+            case WEIGHT_PHY_BOND:
+                attrs.icon = "\uf0c1"
                 break
             case WEIGHT_BRIDGES:
                 attrs.icon = "\uf542"
@@ -1375,6 +1389,7 @@ class DefaultConfig {
         wt.set(WEIGHT_SWITCH_PORTS, translate("phy-switch-ports"))
         wt.set(WEIGHT_PHY_HOST, translate("phy-hosts"))
         wt.set(WEIGHT_PHY_NIC, translate("phy-nics"))
+        wt.set(WEIGHT_PHY_BOND, translate("phy-bond"))
         wt.set(WEIGHT_BRIDGES, translate("host-bridges"))
         wt.set(WEIGHT_PHY_NET, translate("phy-net"))
         wt.set(WEIGHT_PHY_PORTS, translate("phy-ports"))
