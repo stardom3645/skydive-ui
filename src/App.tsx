@@ -76,7 +76,7 @@ import { withRouter } from 'react-router-dom'
 import SelectionPanel from './SelectionPanel'
 import { Configuration } from './api/configuration'
 import * as api from './api/api'
-import { StatusApi, APIInfoApi } from './api'
+import { StatusApi, APIInfoApi, ConfigApi } from './api'
 import Tools from './Tools'
 import GremlinButton from './ActionButtons/Gremlin'
 import CaptureButton from './ActionButtons/Capture'
@@ -166,6 +166,7 @@ interface State {
   language: "en" | "ko"
   isVMConsoleOpening: boolean
   isLinkTagsCollapsed: boolean
+  isVMConsoleEnabled: boolean
 }
 
 interface VMConsoleResponse {
@@ -228,7 +229,8 @@ class App extends React.Component<Props, State> {
       language: "ko",
       vmNameMap: {},
       isVMConsoleOpening: false,
-      isLinkTagsCollapsed: false
+      isLinkTagsCollapsed: false,
+      isVMConsoleEnabled: true
     }
 
     this.synced = false
@@ -288,6 +290,7 @@ class App extends React.Component<Props, State> {
 
     // Libvirt VM 이름 매핑 정보 불러오기 (초기 + 주기 갱신)
     this.refreshVmNameMap()
+    this.refreshVMConsoleEnabled()
     this.vmNameMapRefreshID = window.setInterval(() => {
       this.refreshVmNameMap()
     }, 10000)
@@ -312,6 +315,34 @@ class App extends React.Component<Props, State> {
       }
     }).catch((err) => {
       console.debug("Failed to refresh vmNameMap", err)
+    })
+  }
+
+  private refreshVMConsoleEnabled() {
+    const conf = new Configuration({ basePath: this.props.session.endpoint + "/api", accessToken: this.props.session.token })
+    const configAPI = new ConfigApi(conf)
+    configAPI.getConfig("mold.console.enabled").then((data: any) => {
+      let enabled = true
+      if (typeof data === "boolean") {
+        enabled = data
+      } else if (typeof data === "string") {
+        enabled = data.toLowerCase() === "true"
+      } else if (typeof data === "number") {
+        enabled = data !== 0
+      } else if (data && typeof data === "object") {
+        const value = (data as any).value ?? (data as any).Value
+        if (typeof value === "boolean") {
+          enabled = value
+        } else if (typeof value === "string") {
+          enabled = value.toLowerCase() === "true"
+        } else if (typeof value === "number") {
+          enabled = value !== 0
+        }
+      }
+      this.setState({ isVMConsoleEnabled: enabled })
+    }).catch((err) => {
+      // keep default(true) for backward compatibility when key is unavailable
+      console.debug("Failed to read mold.console.enabled config", err)
     })
   }
 
@@ -996,7 +1027,7 @@ class App extends React.Component<Props, State> {
   }
 
   actionButtons(el: Node | Link) {
-    const showVMConsoleButton = el.type === 'node' && this.isVMNode(el)
+    const showVMConsoleButton = this.state.isVMConsoleEnabled && el.type === 'node' && this.isVMNode(el)
     const vmNode = showVMConsoleButton ? (el as Node) : undefined
     const vmID = vmNode ? this.getMoldVMID(vmNode) : undefined
     const instanceName = vmNode ? this.getMoldInstanceName(vmNode) : undefined
