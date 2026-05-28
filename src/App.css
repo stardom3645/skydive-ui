@@ -12,10 +12,19 @@
   align-items: center;
 }
 
-.brandLogo img {
-  width: 205px;
-  height: 42px;
+.brandLogoImg {
+  width: auto;
+  height: 34px;
   object-fit: contain;
+  transform-origin: left center;
+}
+
+.brandLogoImgLight {
+  transform: scale(1);
+}
+
+.brandLogoImgDark {
+  transform: scale(1.12);
 }
 
 .header i {

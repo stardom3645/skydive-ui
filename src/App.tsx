@@ -1680,7 +1680,11 @@ class App extends React.Component<Props, State> {
             </IconButton>
             <Typography component="h1" variant="h6" color="inherit" noWrap className={classes.title}>
               <span className="brandLogo">
-                <img src={isDark ? LogoDark : LogoLight} alt="ABLESTACK" />
+                <img
+                  src={isDark ? LogoDark : LogoLight}
+                  alt="ABLESTACK"
+                  className={isDark ? "brandLogoImg brandLogoImgDark" : "brandLogoImg brandLogoImgLight"}
+                />
               </span>
             </Typography>
             {this.config.subTitle &&
