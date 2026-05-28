@@ -22,6 +22,32 @@ const drawerWidth = 216
 export const styles = (theme: Theme) => createStyles({
   app: {
     display: 'flex',
+    '--netdive-menu-bg': '#f4f7fb',
+    '--netdive-menu-card': '#ffffff',
+    '--netdive-menu-card-soft': '#f8fbff',
+    '--netdive-menu-border': '#dbe5f2',
+    '--netdive-menu-border-soft': '#edf2f7',
+    '--netdive-menu-text': '#1e293b',
+    '--netdive-menu-muted': '#64748b',
+    '--netdive-menu-icon': '#52617a',
+    '--netdive-menu-hover': '#f3f8ff',
+    '--netdive-menu-active': '#e8f2ff',
+    '--netdive-menu-active-text': '#1A73E8',
+    '--netdive-menu-shadow': '0 16px 34px rgba(15, 23, 42, 0.08)',
+  },
+  appDark: {
+    '--netdive-menu-bg': '#121823',
+    '--netdive-menu-card': '#182130',
+    '--netdive-menu-card-soft': '#202b3c',
+    '--netdive-menu-border': '#2b3a50',
+    '--netdive-menu-border-soft': '#253246',
+    '--netdive-menu-text': '#e5edf8',
+    '--netdive-menu-muted': '#95a3b8',
+    '--netdive-menu-icon': '#a7b4c8',
+    '--netdive-menu-hover': '#22314a',
+    '--netdive-menu-active': '#18345a',
+    '--netdive-menu-active-text': '#73a7ff',
+    '--netdive-menu-shadow': '0 18px 42px rgba(0, 0, 0, 0.28)',
   },
   grow: {
     flexGrow: 1
@@ -37,6 +63,13 @@ export const styles = (theme: Theme) => createStyles({
     justifyContent: 'flex-end',
     padding: '0 8px',
     ...theme.mixins.toolbar,
+  },
+  drawerCloseButton: {
+    color: 'var(--netdive-menu-muted)',
+    '&:hover': {
+      backgroundColor: 'var(--netdive-menu-hover)',
+      color: 'var(--netdive-menu-active-text)'
+    }
   },
   appBar: {
     backgroundColor: '#ffffff',
@@ -73,9 +106,11 @@ export const styles = (theme: Theme) => createStyles({
     position: 'relative',
     whiteSpace: 'nowrap',
     width: drawerWidth,
-    background: '#ffffff',
-    borderRight: '1px solid #eef2f7',
+    background: 'var(--netdive-menu-bg)',
+    borderRight: '1px solid var(--netdive-menu-border-soft)',
     boxShadow: 'none',
+    padding: theme.spacing(1.5),
+    boxSizing: 'border-box',
     transition: theme.transitions.create('width', {
       easing: theme.transitions.easing.sharp,
       duration: theme.transitions.duration.enteringScreen,
@@ -83,6 +118,7 @@ export const styles = (theme: Theme) => createStyles({
   },
   drawerPaperClose: {
     overflowX: 'hidden',
+    padding: 0,
     transition: theme.transitions.create('width', {
       easing: theme.transitions.easing.sharp,
       duration: theme.transitions.duration.leavingScreen,
@@ -91,6 +127,142 @@ export const styles = (theme: Theme) => createStyles({
     [theme.breakpoints.up('sm')]: {
       width: theme.spacing(0),
     },
+  },
+  drawerCard: {
+    height: 'calc(100vh - 24px)',
+    display: 'flex',
+    flexDirection: 'column',
+    backgroundColor: 'var(--netdive-menu-card)',
+    border: '1px solid var(--netdive-menu-border)',
+    borderRadius: 14,
+    boxShadow: 'var(--netdive-menu-shadow)',
+    overflow: 'hidden',
+    color: 'var(--netdive-menu-text)'
+  },
+  drawerMenu: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: theme.spacing(1.5),
+    padding: theme.spacing(1.25),
+    overflowY: 'auto',
+    overflowX: 'hidden'
+  },
+  drawerMenuSection: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: theme.spacing(0.75),
+    padding: theme.spacing(0.75),
+    borderRadius: 12,
+    backgroundColor: 'var(--netdive-menu-card-soft)',
+    border: '1px solid var(--netdive-menu-border-soft)'
+  },
+  drawerMenuSectionTitle: {
+    padding: theme.spacing(0.25, 0.75),
+    color: 'var(--netdive-menu-muted)',
+    fontSize: 11,
+    fontWeight: 700,
+    letterSpacing: 0,
+    textTransform: 'uppercase'
+  },
+  drawerMenuItem: {
+    width: '100%',
+    minHeight: 42,
+    display: 'grid',
+    gridTemplateColumns: '32px 1fr 24px',
+    alignItems: 'center',
+    gap: theme.spacing(0.75),
+    border: '1px solid transparent',
+    borderRadius: 10,
+    padding: theme.spacing(0.75, 0.75),
+    backgroundColor: 'transparent',
+    color: 'var(--netdive-menu-text)',
+    cursor: 'pointer',
+    textAlign: 'left',
+    transition: 'background-color 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease',
+    '&:hover': {
+      backgroundColor: 'var(--netdive-menu-hover)',
+      borderColor: 'var(--netdive-menu-border)'
+    },
+    '&:focus-visible': {
+      outline: '2px solid var(--netdive-menu-active-text)',
+      outlineOffset: 2
+    }
+  },
+  drawerMenuStaticItem: {
+    width: '100%',
+    minHeight: 42,
+    display: 'grid',
+    gridTemplateColumns: '32px 1fr 24px',
+    alignItems: 'center',
+    gap: theme.spacing(0.75),
+    padding: theme.spacing(0.75, 0.75),
+    color: 'var(--netdive-menu-text)'
+  },
+  drawerMenuItemActive: {
+    backgroundColor: 'var(--netdive-menu-active)',
+    borderColor: 'var(--netdive-menu-border)',
+    color: 'var(--netdive-menu-active-text)',
+    '& $drawerMenuIcon, & $drawerMenuAux': {
+      color: 'var(--netdive-menu-active-text)'
+    }
+  },
+  drawerMenuIcon: {
+    width: 32,
+    height: 32,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: 'var(--netdive-menu-icon)',
+    borderRadius: 9,
+    backgroundColor: 'var(--netdive-menu-card)',
+    '& svg': {
+      fontSize: 20
+    }
+  },
+  drawerMenuLabel: {
+    minWidth: 0,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    fontSize: 14,
+    fontWeight: 700,
+    color: 'inherit'
+  },
+  drawerMenuAux: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: 'var(--netdive-menu-muted)',
+    '& svg': {
+      fontSize: 18
+    }
+  },
+  drawerLanguagePanel: {
+    padding: theme.spacing(0.5),
+    '& .MuiToggleButtonGroup-root': {
+      width: '100%',
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
+      borderRadius: 10,
+      overflow: 'hidden',
+      border: '1px solid var(--netdive-menu-border)'
+    },
+    '& .MuiToggleButton-root': {
+      minWidth: 0,
+      padding: theme.spacing(0.8, 0.5),
+      border: 'none',
+      borderRadius: 0,
+      color: 'var(--netdive-menu-muted)',
+      backgroundColor: 'var(--netdive-menu-card)',
+      fontSize: 12,
+      fontWeight: 700
+    },
+    '& .MuiToggleButton-root.Mui-selected': {
+      color: 'var(--netdive-menu-active-text)',
+      backgroundColor: 'var(--netdive-menu-active)'
+    },
+    '& .MuiToggleButton-root:hover': {
+      backgroundColor: 'var(--netdive-menu-hover)'
+    }
   },
   content: {
     flexGrow: 1,

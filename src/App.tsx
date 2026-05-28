@@ -28,12 +28,12 @@ import Toolbar from '@material-ui/core/Toolbar'
 import IconButton from '@material-ui/core/IconButton'
 import Typography from '@material-ui/core/Typography'
 import ChevronLeftIcon from '@material-ui/icons/ChevronLeft'
+import ChevronRightIcon from '@material-ui/icons/ChevronRight'
 import KeyboardArrowDown from '@material-ui/icons/KeyboardArrowDown'
 import RemoveShoppingCartIcon from '@material-ui/icons/RemoveShoppingCart'
 import AccessTimeIcon from '@material-ui/icons/AccessTime'
 import RestoreIcon from '@material-ui/icons/Restore'
 import Divider from '@material-ui/core/Divider'
-import List from '@material-ui/core/List'
 import Container from '@material-ui/core/Container'
 import Paper from '@material-ui/core/Paper'
 import Checkbox from '@material-ui/core/Checkbox'
@@ -61,10 +61,14 @@ import WavesIcon from '@material-ui/icons/Waves'
 import Tooltip from '@material-ui/core/Tooltip'
 import UnfoldMoreIcon from '@material-ui/icons/UnfoldMore'
 import UnfoldLessIcon from '@material-ui/icons/UnfoldLess'
+import InfoIcon from '@material-ui/icons/Info'
+import LibraryBooksIcon from '@material-ui/icons/LibraryBooks'
+import Brightness4Icon from '@material-ui/icons/Brightness4'
+import Brightness7Icon from '@material-ui/icons/Brightness7'
+import TranslateIcon from '@material-ui/icons/Translate'
 
 import { styles } from './AppStyles'
 import { Topology, Node, NodeAttrs, LinkAttrs, LinkTagState, Link } from './Topology'
-import { MenuListItems, HelpListItems } from './Menu'
 import AutoCompleteInput from './AutoComplete'
 import {
   AppState,
@@ -88,7 +92,6 @@ import AboutDialog from './About'
 import HelpDialog from './Help'
 import TimetravelPanel from './TimetravelPanel'
 
-import ListItem from '@material-ui/core/ListItem'
 import LanguageToggle from './LanguageToggle'
 
 const packageJson = require('../package.json')
@@ -140,6 +143,13 @@ interface AddFilterValue {
 
 const addFilterValue = createFilterOptions<AddFilterValue>();
 
+type NetdiveTheme = "light" | "dark"
+
+const getSavedNetdiveTheme = (): NetdiveTheme => {
+  const savedTheme = localStorage.getItem("netdive-theme")
+  return savedTheme === "dark" ? "dark" : "light"
+}
+
 interface State {
   vmNameMap?: Record<string, string>
   isContextMenuOn: string
@@ -167,6 +177,7 @@ interface State {
   isVMConsoleOpening: boolean
   isLinkTagsCollapsed: boolean
   isVMConsoleEnabled: boolean
+  netdiveTheme: NetdiveTheme
 }
 
 interface VMConsoleResponse {
@@ -230,7 +241,8 @@ class App extends React.Component<Props, State> {
       vmNameMap: {},
       isVMConsoleOpening: false,
       isLinkTagsCollapsed: false,
-      isVMConsoleEnabled: true
+      isVMConsoleEnabled: true,
+      netdiveTheme: getSavedNetdiveTheme()
     }
 
     this.synced = false
@@ -1540,6 +1552,61 @@ class App extends React.Component<Props, State> {
     this.setState(this.state)
   }
 
+  private setNetdiveTheme(theme: NetdiveTheme) {
+    this.state.netdiveTheme = theme
+    localStorage.setItem("netdive-theme", theme)
+    this.setState(this.state)
+  }
+
+  private toggleNetdiveTheme() {
+    this.setNetdiveTheme(this.state.netdiveTheme === "dark" ? "light" : "dark")
+  }
+
+  private renderDrawerMenuItem(classes: any, icon: React.ReactNode, label: string, onClick?: () => void, active?: boolean, aux?: React.ReactNode) {
+    return (
+      <button
+        type="button"
+        className={clsx(classes.drawerMenuItem, active && classes.drawerMenuItemActive)}
+        onClick={onClick}>
+        <span className={classes.drawerMenuIcon}>{icon}</span>
+        <span className={classes.drawerMenuLabel}>{label}</span>
+        <span className={classes.drawerMenuAux}>{aux || <ChevronRightIcon fontSize="small" />}</span>
+      </button>
+    )
+  }
+
+  private renderDrawerMenu(classes: any) {
+    const isDark = this.state.netdiveTheme === "dark"
+    return (
+      <div className={classes.drawerMenu}>
+        <div className={classes.drawerMenuSection}>
+          {this.renderDrawerMenuItem(
+            classes,
+            isDark ? <Brightness7Icon /> : <Brightness4Icon />,
+            isDark ? "라이트 모드" : "다크 모드",
+            this.toggleNetdiveTheme.bind(this),
+            isDark
+          )}
+        </div>
+        <div className={classes.drawerMenuSection}>
+          <div className={classes.drawerMenuStaticItem}>
+            <span className={classes.drawerMenuIcon}><TranslateIcon /></span>
+            <span className={classes.drawerMenuLabel}>Language</span>
+            <span className={classes.drawerMenuAux}>{localStorage.getItem("language") === "en" ? "EN" : "KO"}</span>
+          </div>
+          <div className={classes.drawerLanguagePanel}>
+            <LanguageToggle />
+          </div>
+        </div>
+        <div className={classes.drawerMenuSection}>
+          <div className={classes.drawerMenuSectionTitle}>Support</div>
+          {this.renderDrawerMenuItem(classes, <InfoIcon />, "About", this.openAboutDialog.bind(this))}
+          {this.renderDrawerMenuItem(classes, <LibraryBooksIcon />, "Help", this.openHelpDialog.bind(this))}
+        </div>
+      </div>
+    )
+  }
+
   onNavigate(date: Date) {
     this.state.isTimetravelOpen = false
     this.state.timeContext = date
@@ -1551,7 +1618,7 @@ class App extends React.Component<Props, State> {
   render() {
     const { classes } = this.props
     return (
-      <div className={classes.app}>
+      <div className={clsx(classes.app, this.state.netdiveTheme === "dark" && classes.appDark)}>
         <CssBaseline />
         {this.connection()}
         <AppBar position="absolute" className={clsx(classes.appBar, this.state.isNavOpen && classes.appBarShift)}>
@@ -1602,20 +1669,14 @@ class App extends React.Component<Props, State> {
             paper: clsx(classes.drawerPaper, !this.state.isNavOpen && classes.drawerPaperClose),
           }}
           open={this.state.isNavOpen}>
+          <div className={classes.drawerCard}>
           <div className={classes.toolbarIcon}>
-            <IconButton onClick={() => this.closeDrawer()}>
+            <IconButton onClick={() => this.closeDrawer()} className={classes.drawerCloseButton}>
               <ChevronLeftIcon />
             </IconButton>
           </div>
-          <Divider />
-          <List><MenuListItems /></List>
-          <List>
-            <ListItem>
-              <LanguageToggle />
-            </ListItem>
-          </List>
-          <Divider />
-          <List><HelpListItems onClickAbout={this.openAboutDialog.bind(this)} onClickHelp={this.openHelpDialog.bind(this)} /></List>
+          {this.renderDrawerMenu(classes)}
+          </div>
         </Drawer>
         <AboutDialog open={this.state.isAboutOpen} onClose={this.closeAboutDialog.bind(this)}
           appName="ABLESTACK NETDIVE" appVersion="1.00" uiVersion="1.00"/>
