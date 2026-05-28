@@ -64,7 +64,7 @@ export const styles = (theme: Theme) => createStyles({
         padding: 0,
         marginLeft: 8,
         marginRight: 8,
-        color: "#061775",
+        color: "var(--netdive-detail-text)",
         backgroundColor: "unset !important",
         borderColor: "unset",
         '& .MuiAccordionSummary-content': {

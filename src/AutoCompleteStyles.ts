@@ -34,7 +34,9 @@ export const styles = makeStyles((theme: Theme) =>
       left: 0,
       right: 0,
       borderRadius: 10,
-      border: '1px solid #dbe5f2',
+      border: '1px solid var(--netdive-search-border)',
+      backgroundColor: 'var(--netdive-detail-bg)',
+      color: 'var(--netdive-detail-text)',
       boxShadow: '0 12px 24px rgba(15, 23, 42, 0.08)'
     },
     chip: {
@@ -42,7 +44,7 @@ export const styles = makeStyles((theme: Theme) =>
     },
     inputRoot: {
       flexWrap: 'wrap',
-      color: '#334155',
+      color: 'var(--netdive-search-muted)',
       minHeight: 34,
       paddingLeft: theme.spacing(1)
     },
@@ -50,7 +52,7 @@ export const styles = makeStyles((theme: Theme) =>
       transition: theme.transitions.create('width'),
       width: '100%',
       fontSize: 14,
-      color: '#0f172a',
+      color: 'var(--netdive-search-text)',
       [theme.breakpoints.up('md')]: {
         width: 220,
       },

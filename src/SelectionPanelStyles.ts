@@ -37,6 +37,18 @@ export const styles = (theme: Theme) => createStyles({
       lineHeight: 1.5,
       padding: '8px 0 8px',
       boxSizing: 'border-box'
+    },
+    '& .MuiInputBase-input, & .MuiSelect-select, & .MuiInputLabel-root, & .MuiFormLabel-root, & .MuiTypography-root, & .MuiSvgIcon-root': {
+      color: 'var(--netdive-detail-text)'
+    },
+    '& .MuiInput-underline:before': {
+      borderBottomColor: 'var(--netdive-detail-border-soft)'
+    },
+    '& .MuiInput-underline:hover:not(.Mui-disabled):before': {
+      borderBottomColor: 'var(--netdive-detail-border)'
+    },
+    '& .MuiInput-underline:after': {
+      borderBottomColor: 'var(--netdive-detail-accent)'
     }
   },
   jsonTree: {

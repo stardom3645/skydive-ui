@@ -39,6 +39,16 @@ export const styles = (theme: Theme) => createStyles({
     '--netdive-appbar-text': '#0f172a',
     '--netdive-appbar-muted': '#64748b',
     '--netdive-appbar-border': '#eef2f7',
+    '--netdive-search-bg': '#f8fafc',
+    '--netdive-search-hover': '#f1f5f9',
+    '--netdive-search-border': '#d8e2ef',
+    '--netdive-search-text': '#0f172a',
+    '--netdive-search-muted': '#64748b',
+    '--netdive-action-btn-bg': '#f8fbff',
+    '--netdive-action-btn-hover': '#eaf2ff',
+    '--netdive-action-btn-border': '#dbe5f2',
+    '--netdive-action-btn-border-hover': '#93c5fd',
+    '--netdive-action-btn-text': '#1d4ed8',
     '--netdive-detail-bg': '#ffffff',
     '--netdive-detail-soft': '#f8fbff',
     '--netdive-detail-border': '#dbe5f2',
@@ -100,6 +110,16 @@ export const styles = (theme: Theme) => createStyles({
     '--netdive-appbar-text': '#e5edf8',
     '--netdive-appbar-muted': '#9cafc6',
     '--netdive-appbar-border': '#223146',
+    '--netdive-search-bg': '#1a2739',
+    '--netdive-search-hover': '#23344a',
+    '--netdive-search-border': '#31445d',
+    '--netdive-search-text': '#e5edf8',
+    '--netdive-search-muted': '#9cafc6',
+    '--netdive-action-btn-bg': '#1a2a40',
+    '--netdive-action-btn-hover': '#213753',
+    '--netdive-action-btn-border': '#365073',
+    '--netdive-action-btn-border-hover': '#4b78ab',
+    '--netdive-action-btn-text': '#9cc0f7',
     '--netdive-detail-bg': '#182130',
     '--netdive-detail-soft': '#1f2a3c',
     '--netdive-detail-border': '#2b3a50',
@@ -259,7 +279,7 @@ export const styles = (theme: Theme) => createStyles({
     width: '100%',
     minHeight: 54,
     display: 'grid',
-    gridTemplateColumns: '32px 1fr 24px',
+    gridTemplateColumns: '32px 1fr',
     alignItems: 'center',
     gap: theme.spacing(0.75),
     border: '1px solid transparent',
@@ -283,7 +303,7 @@ export const styles = (theme: Theme) => createStyles({
     width: '100%',
     minHeight: 54,
     display: 'grid',
-    gridTemplateColumns: '32px 1fr 24px',
+    gridTemplateColumns: '32px 1fr',
     alignItems: 'center',
     gap: theme.spacing(0.75),
     padding: theme.spacing(0.75, 0.75),
@@ -318,15 +338,7 @@ export const styles = (theme: Theme) => createStyles({
     fontWeight: 700,
     color: 'inherit'
   },
-  drawerMenuAux: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    color: 'var(--netdive-menu-muted)',
-    '& svg': {
-      fontSize: 18
-    }
-  },
+  drawerMenuAux: {},
   drawerLanguagePanel: {
     padding: theme.spacing(0.5, 0),
     '& .MuiToggleButtonGroup-root': {
@@ -428,6 +440,9 @@ export const styles = (theme: Theme) => createStyles({
     paddingLeft: theme.spacing(0),
     paddingRight: theme.spacing(0),
   },
+  nodeTagsPanelShift: {
+    left: drawerWidth + 14,
+  },
   nodeTagsFab: {
     margin: theme.spacing(1),
     boxShadow: 'unset',
@@ -446,16 +461,20 @@ export const styles = (theme: Theme) => createStyles({
     paddingLeft: theme.spacing(0),
     paddingRight: theme.spacing(0),
   },
+  linkTagsPanelShift: {
+    left: drawerWidth + 20,
+  },
   linkTagsPanelPaper: {
     position: 'relative',
     display: 'flex',
     flexDirection: 'column',
     minWidth: '100px',
     padding: theme.spacing(2),
-    border: '1px solid #dbe5f2',
+    border: '1px solid var(--netdive-detail-border)',
     borderRadius: 12,
-    backgroundColor: '#ffffff',
-    boxShadow: '0 10px 24px rgba(15, 23, 42, 0.08)'
+    backgroundColor: 'var(--netdive-detail-bg)',
+    boxShadow: 'var(--netdive-detail-shadow)',
+    color: 'var(--netdive-detail-text)',
   },
   linkTagsHeader: {
     display: 'flex',
@@ -464,15 +483,15 @@ export const styles = (theme: Theme) => createStyles({
     marginBottom: theme.spacing(0.5)
   },
   linkTagsCollapseButton: {
-    color: '#64748b',
+    color: 'var(--netdive-detail-muted)',
     padding: 4
   },
   linkTagsCollapsedTab: {
     cursor: 'pointer',
-    border: '1px solid #dbe5f2',
+    border: '1px solid var(--netdive-detail-border)',
     borderRadius: 10,
-    backgroundColor: '#ffffff',
-    boxShadow: '0 8px 18px rgba(15, 23, 42, 0.08)',
+    backgroundColor: 'var(--netdive-detail-bg)',
+    boxShadow: 'var(--netdive-detail-shadow)',
     padding: theme.spacing(0.9, 1.4)
   },
   linkTagsCollapsedText: {
@@ -483,11 +502,11 @@ export const styles = (theme: Theme) => createStyles({
     padding: theme.spacing(0.55, 1),
     position: 'relative',
     borderRadius: 8,
-    backgroundColor: '#f8fafc',
-    border: '1px solid #d8e2ef',
+    backgroundColor: 'var(--netdive-search-bg)',
+    border: '1px solid var(--netdive-search-border)',
     boxShadow: 'none',
     '&:hover': {
-      backgroundColor: '#f1f5f9',
+      backgroundColor: 'var(--netdive-search-hover)',
     },
     marginRight: theme.spacing(2.5),
     marginLeft: 0,
@@ -540,16 +559,16 @@ export const styles = (theme: Theme) => createStyles({
     verticalAlign: 'middle'
   },
   topologyIconButton: {
-    border: '1px solid #dbe5f2',
-    color: '#1d4ed8',
+    border: '1px solid var(--netdive-action-btn-border)',
+    color: 'var(--netdive-action-btn-text)',
     borderRadius: 8,
     marginLeft: theme.spacing(1),
     padding: theme.spacing(0.65),
-    backgroundColor: '#f8fbff',
+    backgroundColor: 'var(--netdive-action-btn-bg)',
     transition: 'all 0.15s ease-out',
     '&:hover': {
-      backgroundColor: '#eaf2ff',
-      borderColor: '#93c5fd'
+      backgroundColor: 'var(--netdive-action-btn-hover)',
+      borderColor: 'var(--netdive-action-btn-border-hover)'
     },
     '& svg': {
       fontSize: '1.1rem'
@@ -562,7 +581,7 @@ export const styles = (theme: Theme) => createStyles({
   title: {
     paddingTop: 15,
     display: 'none',
-    color: '#0f172a',
+    color: 'var(--netdive-appbar-text)',
     fontWeight: 700,
     letterSpacing: 0.2,
     [theme.breakpoints.up('sm')]: {

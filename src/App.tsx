@@ -27,7 +27,6 @@ import AppBar from '@material-ui/core/AppBar'
 import Toolbar from '@material-ui/core/Toolbar'
 import IconButton from '@material-ui/core/IconButton'
 import Typography from '@material-ui/core/Typography'
-import ChevronRightIcon from '@material-ui/icons/ChevronRight'
 import KeyboardArrowDown from '@material-ui/icons/KeyboardArrowDown'
 import RemoveShoppingCartIcon from '@material-ui/icons/RemoveShoppingCart'
 import AccessTimeIcon from '@material-ui/icons/AccessTime'
@@ -63,10 +62,10 @@ import UnfoldLessIcon from '@material-ui/icons/UnfoldLess'
 import InfoIcon from '@material-ui/icons/Info'
 import LibraryBooksIcon from '@material-ui/icons/LibraryBooks'
 import Brightness4Icon from '@material-ui/icons/Brightness4'
-import Brightness7Icon from '@material-ui/icons/Brightness7'
 import TranslateIcon from '@material-ui/icons/Translate'
-import ArrowBackIcon from '@material-ui/icons/ArrowBack'
 import CloseIcon from '@material-ui/icons/Close'
+import LogoLight from '../assets/logo-ablestack.png'
+import LogoDark from '../assets/ablestack-logo.png'
 
 import { styles } from './AppStyles'
 import { Topology, Node, NodeAttrs, LinkAttrs, LinkTagState, Link } from './Topology'
@@ -1367,10 +1366,11 @@ class App extends React.Component<Props, State> {
   }
 
   renderLinkTagButtons(classes: any) {
+    const isDrawerOpen = this.state.isNavOpen
     return (
       <React.Fragment>
         {this.state.linkTagStates.size !== 0 &&
-          <Container className={classes.linkTagsPanel}>
+          <Container className={clsx(classes.linkTagsPanel, isDrawerOpen && classes.linkTagsPanelShift)}>
             {!this.state.isLinkTagsCollapsed &&
               <Paper className={classes.linkTagsPanelPaper}>
                 <div className={classes.linkTagsHeader}>
@@ -1420,8 +1420,9 @@ class App extends React.Component<Props, State> {
   }
 
   renderNodeTagButtons(classes: any) {
+    const isDrawerOpen = this.state.isNavOpen
     return (
-      <Container className={classes.nodeTagsPanel}>
+      <Container className={clsx(classes.nodeTagsPanel, isDrawerOpen && classes.nodeTagsPanelShift)}>
         {Array.from(this.state.nodeTagStates.keys()).sort((a, b) => {
           if (a === this.config.defaultNodeTag()) {
             return -1
@@ -1563,7 +1564,7 @@ class App extends React.Component<Props, State> {
     this.setNetdiveTheme(this.state.netdiveTheme === "dark" ? "light" : "dark")
   }
 
-  private renderDrawerMenuItem(classes: any, icon: React.ReactNode, label: string, onClick?: () => void, active?: boolean, aux?: React.ReactNode) {
+  private renderDrawerMenuItem(classes: any, icon: React.ReactNode, label: string, onClick?: () => void, active?: boolean) {
     return (
       <button
         type="button"
@@ -1571,7 +1572,6 @@ class App extends React.Component<Props, State> {
         onClick={onClick}>
         <span className={classes.drawerMenuIcon}>{icon}</span>
         <span className={classes.drawerMenuLabel}>{label}</span>
-        <span className={classes.drawerMenuAux}>{aux || <ChevronRightIcon fontSize="small" />}</span>
       </button>
     )
   }
@@ -1580,7 +1580,6 @@ class App extends React.Component<Props, State> {
     const isDark = this.state.netdiveTheme === "dark"
     return (
       <div className={classes.drawerMenu}>
-        {this.renderDrawerMenuItem(classes, <ArrowBackIcon />, "뒤로가기", () => this.props.history.goBack())}
         {this.renderDrawerMenuItem(classes, <CloseIcon />, "닫기", () => this.closeDrawer())}
         <div className={classes.drawerMenuSectionTitle}>Language</div>
         <div className={classes.drawerLanguagePanel}>
@@ -1599,8 +1598,7 @@ class App extends React.Component<Props, State> {
           <Brightness4Icon />,
           "다크 모드",
           this.toggleNetdiveTheme.bind(this),
-          isDark,
-          <Brightness7Icon fontSize="small" />
+          isDark
         )}
       </div>
     )
@@ -1616,8 +1614,9 @@ class App extends React.Component<Props, State> {
 
   render() {
     const { classes } = this.props
+    const isDark = this.state.netdiveTheme === "dark"
     return (
-      <div className={clsx(classes.app, this.state.netdiveTheme === "dark" && classes.appDark)}>
+      <div className={clsx(classes.app, isDark && classes.appDark)}>
         <CssBaseline />
         {this.connection()}
         <AppBar position="absolute" className={clsx(classes.appBar, this.state.isNavOpen && classes.appBarShift)}>
@@ -1631,7 +1630,9 @@ class App extends React.Component<Props, State> {
               <MenuIcon />
             </IconButton>
             <Typography component="h1" variant="h6" color="inherit" noWrap className={classes.title}>
-              {this.props.logo}
+              <span className="brandLogo">
+                <img src={isDark ? LogoDark : LogoLight} alt="ABLESTACK" />
+              </span>
             </Typography>
             {this.config.subTitle &&
               <Typography className={classes.subTitle} variant="caption">{this.config.subTitle()}</Typography>

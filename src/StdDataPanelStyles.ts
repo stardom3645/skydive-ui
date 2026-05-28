@@ -24,7 +24,7 @@ export const styles = (theme: Theme) => createStyles({
     fontSize: 18,
     marginBottom: `0 !important`,
     paddingRight: 8,
-    color: '#2563eb'
+    color: 'var(--netdive-detail-accent)'
   },
   panelIconBrands: {
     fontFamily: `"Font Awesome 5 Brands" !important`,
@@ -32,6 +32,6 @@ export const styles = (theme: Theme) => createStyles({
     fontSize: 18,
     marginBottom: `0 !important`,
     paddingRight: 8,
-    color: '#2563eb'
+    color: 'var(--netdive-detail-accent)'
   }
 })
