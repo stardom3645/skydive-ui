@@ -35,6 +35,7 @@ import Divider from '@material-ui/core/Divider'
 import Container from '@material-ui/core/Container'
 import Paper from '@material-ui/core/Paper'
 import Checkbox from '@material-ui/core/Checkbox'
+import Switch from '@material-ui/core/Switch'
 import FormGroup from '@material-ui/core/FormGroup'
 import FormControlLabel from '@material-ui/core/FormControlLabel'
 import { withSnackbar, WithSnackbarProps } from 'notistack'
@@ -177,6 +178,7 @@ interface State {
   isLinkTagsCollapsed: boolean
   isVMConsoleEnabled: boolean
   netdiveTheme: NetdiveTheme
+  isSettingsOpen: boolean
 }
 
 interface VMConsoleResponse {
@@ -241,7 +243,8 @@ class App extends React.Component<Props, State> {
       isVMConsoleOpening: false,
       isLinkTagsCollapsed: false,
       isVMConsoleEnabled: true,
-      netdiveTheme: getSavedNetdiveTheme()
+      netdiveTheme: getSavedNetdiveTheme(),
+      isSettingsOpen: true
     }
 
     this.synced = false
@@ -1580,21 +1583,37 @@ class App extends React.Component<Props, State> {
     return (
       <div className={classes.drawerMenu}>
         {this.renderDrawerMenuItem(classes, <CloseIcon />, "닫기", () => this.closeDrawer())}
-        <div className={classes.drawerMenuSectionTitle}>Language</div>
-        <div className={classes.drawerLanguagePanel}>
-          <LanguageToggle />
-        </div>
         <Divider className={classes.drawerDivider} />
         <div className={classes.drawerMenuSectionTitle}>Menu</div>
         {this.renderDrawerMenuItem(classes, <InfoIcon />, "About", this.openAboutDialog.bind(this))}
         {this.renderDrawerMenuItem(classes, <LibraryBooksIcon />, "Help", this.openHelpDialog.bind(this))}
-        {this.renderDrawerMenuItem(
-          classes,
-          <Brightness4Icon />,
-          "화면 테마",
-          this.toggleNetdiveTheme.bind(this),
-          isDark
-        )}
+        <div className={classes.drawerMenuBottomSpacer} />
+        <div className={classes.drawerMenuSectionTitle}>Setting</div>
+        <button
+          type="button"
+          className={classes.drawerSettingHeader}
+          onClick={() => this.setState({ isSettingsOpen: !this.state.isSettingsOpen })}>
+          <span className={classes.drawerMenuLabel}>설정</span>
+          <span className={clsx(classes.drawerSettingChevron, this.state.isSettingsOpen && classes.drawerSettingChevronOpen)}>
+            <KeyboardArrowDown fontSize="small" />
+          </span>
+        </button>
+        {this.state.isSettingsOpen &&
+          <div className={classes.drawerSettingsBody}>
+            <div className={classes.drawerLanguagePanel}>
+              <LanguageToggle />
+            </div>
+            <div className={classes.drawerThemeRow}>
+              <span className={classes.drawerThemeLabel}>화면 테마</span>
+              <Switch
+                checked={isDark}
+                onChange={this.toggleNetdiveTheme.bind(this)}
+                color="primary"
+                size="small"
+              />
+            </div>
+          </div>
+        }
       </div>
     )
   }

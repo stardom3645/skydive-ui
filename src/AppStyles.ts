@@ -367,6 +367,50 @@ export const styles = (theme: Theme) => createStyles({
       backgroundColor: 'var(--netdive-menu-hover)'
     }
   },
+  drawerMenuBottomSpacer: {
+    marginTop: 'auto'
+  },
+  drawerSettingHeader: {
+    width: '100%',
+    minHeight: 44,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: theme.spacing(0.4, 0.75),
+    border: '1px solid var(--netdive-menu-border-soft)',
+    borderRadius: 10,
+    backgroundColor: 'var(--netdive-menu-card-soft)',
+    color: 'var(--netdive-menu-text)',
+    cursor: 'pointer'
+  },
+  drawerSettingChevron: {
+    display: 'inline-flex',
+    color: 'var(--netdive-menu-muted)',
+    transition: 'transform 150ms ease'
+  },
+  drawerSettingChevronOpen: {
+    transform: 'rotate(180deg)'
+  },
+  drawerSettingsBody: {
+    marginTop: theme.spacing(0.75),
+    padding: theme.spacing(0.75),
+    borderRadius: 10,
+    border: '1px solid var(--netdive-menu-border-soft)',
+    backgroundColor: 'var(--netdive-menu-card-soft)'
+  },
+  drawerThemeRow: {
+    marginTop: theme.spacing(0.75),
+    minHeight: 44,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: theme.spacing(0, 0.25)
+  },
+  drawerThemeLabel: {
+    fontSize: 13,
+    fontWeight: 700,
+    color: 'var(--netdive-menu-text)'
+  },
   content: {
     flexGrow: 1,
     height: '100vh',
