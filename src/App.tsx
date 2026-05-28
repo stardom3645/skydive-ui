@@ -325,7 +325,13 @@ class App extends React.Component<Props, State> {
       const prev = this.state.vmNameMap || {}
       const same = JSON.stringify(prev) === JSON.stringify(data)
       if (!same) {
-        this.setState({ vmNameMap: data })
+        const suggestions = [...this.state.suggestions]
+        Object.values(data).forEach((displayName) => {
+          if (displayName && !suggestions.includes(displayName)) {
+            suggestions.push(displayName)
+          }
+        })
+        this.setState({ vmNameMap: data, suggestions })
         this.refreshTopology()
       }
     }).catch((err) => {
@@ -855,8 +861,28 @@ class App extends React.Component<Props, State> {
       return
     }
 
+    const vmNameMap = this.state.vmNameMap || {}
+    const reverseVmNameMap = new Map<string, string>()
+    Object.keys(vmNameMap).forEach((libvirtName) => {
+      const displayName = vmNameMap[libvirtName]
+      if (displayName) {
+        reverseVmNameMap.set(displayName, libvirtName)
+      }
+    })
+
+    const expandedSearchTerms = new Array<string>()
+    selected.forEach((term) => {
+      if (!expandedSearchTerms.includes(term)) {
+        expandedSearchTerms.push(term)
+      }
+      const mappedLibvirtName = reverseVmNameMap.get(term)
+      if (mappedLibvirtName && !expandedSearchTerms.includes(mappedLibvirtName)) {
+        expandedSearchTerms.push(mappedLibvirtName)
+      }
+    })
+
     this.tc.unpinNodes()
-    this.tc.searchNodes(selected).forEach(node => {
+    this.tc.searchNodes(expandedSearchTerms).forEach(node => {
       if (this.tc) {
         this.tc.pinNode(node, true)
       }
