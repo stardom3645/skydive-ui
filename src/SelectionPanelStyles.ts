@@ -46,7 +46,7 @@ export const styles = (theme: Theme) => createStyles({
     height: `100%`,
     backgroundColor: '#ffffff',
     '& .MuiTabs-indicator': {
-      backgroundColor: '#1A73E8'
+      backgroundColor: '#2bbbe6'
     }
   },
   tabTitle: {
@@ -58,7 +58,7 @@ export const styles = (theme: Theme) => createStyles({
     display: 'flex',
     flexDirection: 'row-reverse',
     marginBottom: theme.spacing(1.5),
-    borderBottom: '1px solid #1A73E8',
+    borderBottom: '1px solid #2bbbe6',
     paddingBottom: theme.spacing(1)
   },
   gremlinExpr: {
@@ -78,13 +78,13 @@ export const styles = (theme: Theme) => createStyles({
     fontWeight: 900,
     fontSize: 35,
     marginBottom: `0 !important`,
-    color: '#1a73e8'
+    color: '#2bbbe6'
   },
   tabIconBrands: {
     fontFamily: `"Font Awesome 5 Brands" !important`,
     fontWeight: 900,
     fontSize: 35,
     marginBottom: `0 !important`,
-    color: '#1a73e8'
+    color: '#2bbbe6'
   }
 })
