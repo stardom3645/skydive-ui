@@ -27,7 +27,6 @@ import AppBar from '@material-ui/core/AppBar'
 import Toolbar from '@material-ui/core/Toolbar'
 import IconButton from '@material-ui/core/IconButton'
 import Typography from '@material-ui/core/Typography'
-import ChevronLeftIcon from '@material-ui/icons/ChevronLeft'
 import ChevronRightIcon from '@material-ui/icons/ChevronRight'
 import KeyboardArrowDown from '@material-ui/icons/KeyboardArrowDown'
 import RemoveShoppingCartIcon from '@material-ui/icons/RemoveShoppingCart'
@@ -1579,30 +1578,34 @@ class App extends React.Component<Props, State> {
     const isDark = this.state.netdiveTheme === "dark"
     return (
       <div className={classes.drawerMenu}>
-        <div className={classes.drawerMenuSection}>
-          {this.renderDrawerMenuItem(
-            classes,
-            isDark ? <Brightness7Icon /> : <Brightness4Icon />,
-            isDark ? "라이트 모드" : "다크 모드",
-            this.toggleNetdiveTheme.bind(this),
-            isDark
-          )}
+        <div className={classes.drawerTopActions}>
+          <button type="button" className={classes.drawerTopActionButton} onClick={() => this.props.history.goBack()}>
+            뒤로가기
+          </button>
+          <button type="button" className={classes.drawerTopActionButton} onClick={() => this.closeDrawer()}>
+            닫기
+          </button>
         </div>
-        <div className={classes.drawerMenuSection}>
+        <div className={classes.drawerMenuSectionTitle}>Language</div>
+        <div className={classes.drawerLanguagePanel}>
           <div className={classes.drawerMenuStaticItem}>
             <span className={classes.drawerMenuIcon}><TranslateIcon /></span>
-            <span className={classes.drawerMenuLabel}>Language</span>
-            <span className={classes.drawerMenuAux}>{localStorage.getItem("language") === "en" ? "EN" : "KO"}</span>
+            <span className={classes.drawerMenuLabel}>한국어 | ENGLISH</span>
           </div>
-          <div className={classes.drawerLanguagePanel}>
-            <LanguageToggle />
-          </div>
+          <LanguageToggle />
         </div>
-        <div className={classes.drawerMenuSection}>
-          <div className={classes.drawerMenuSectionTitle}>Support</div>
-          {this.renderDrawerMenuItem(classes, <InfoIcon />, "About", this.openAboutDialog.bind(this))}
-          {this.renderDrawerMenuItem(classes, <LibraryBooksIcon />, "Help", this.openHelpDialog.bind(this))}
-        </div>
+        <Divider className={classes.drawerDivider} />
+        <div className={classes.drawerMenuSectionTitle}>Menu</div>
+        {this.renderDrawerMenuItem(classes, <InfoIcon />, "About", this.openAboutDialog.bind(this))}
+        {this.renderDrawerMenuItem(classes, <LibraryBooksIcon />, "Help", this.openHelpDialog.bind(this))}
+        {this.renderDrawerMenuItem(
+          classes,
+          <Brightness4Icon />,
+          "다크 모드",
+          this.toggleNetdiveTheme.bind(this),
+          isDark,
+          <Brightness7Icon fontSize="small" />
+        )}
       </div>
     )
   }
@@ -1670,11 +1673,6 @@ class App extends React.Component<Props, State> {
           }}
           open={this.state.isNavOpen}>
           <div className={classes.drawerCard}>
-          <div className={classes.toolbarIcon}>
-            <IconButton onClick={() => this.closeDrawer()} className={classes.drawerCloseButton}>
-              <ChevronLeftIcon />
-            </IconButton>
-          </div>
           {this.renderDrawerMenu(classes)}
           </div>
         </Drawer>
