@@ -153,6 +153,7 @@ const getSavedNetdiveTheme = (): NetdiveTheme => {
 
 interface State {
   vmNameMap?: Record<string, string>
+  vmNetworkMap?: Record<string, Array<{ networkName: string, macAddress: string, ipAddress: string }>>
   isContextMenuOn: string
   contextMenuX: number
   contextMenuY: number
@@ -241,6 +242,7 @@ class App extends React.Component<Props, State> {
       timeContext: null,
       language: "ko",
       vmNameMap: {},
+      vmNetworkMap: {},
       isVMConsoleOpening: false,
       isLinkTagsCollapsed: false,
       isVMConsoleEnabled: true,
@@ -305,9 +307,11 @@ class App extends React.Component<Props, State> {
 
     // Libvirt VM 이름 매핑 정보 불러오기 (초기 + 주기 갱신)
     this.refreshVmNameMap()
+    this.refreshVmNetworkMap()
     this.refreshVMConsoleEnabled()
     this.vmNameMapRefreshID = window.setInterval(() => {
       this.refreshVmNameMap()
+      this.refreshVmNetworkMap()
     }, 10000)
   }
 
@@ -336,6 +340,24 @@ class App extends React.Component<Props, State> {
       }
     }).catch((err) => {
       console.debug("Failed to refresh vmNameMap", err)
+    })
+  }
+
+
+  private refreshVmNetworkMap() {
+    fetch("/api/vm-network-map").then((resp) => {
+      if (!resp.ok) {
+        throw new Error(`vm-network-map api failed: ${resp.status}`)
+      }
+      return resp.json()
+    }).then((data) => {
+      const prev = this.state.vmNetworkMap || {}
+      const same = JSON.stringify(prev) === JSON.stringify(data)
+      if (!same) {
+        this.setState({ vmNetworkMap: data })
+      }
+    }).catch((err) => {
+      console.debug("Failed to refresh vmNetworkMap", err)
     })
   }
 

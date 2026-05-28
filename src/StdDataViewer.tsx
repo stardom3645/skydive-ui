@@ -255,9 +255,22 @@ export class DataViewer extends React.Component<Props, State> {
                       const type = this.props.data.find(d => Array.isArray(d) && d[0] === "Type")?.[1];
                       const libvirtName = value;
                       const mapped = (window as any).App?.state?.vmNameMap?.[libvirtName];
-              
+                      const vmNetworkMap = (window as any).App?.state?.vmNetworkMap || {};
+                      const nicList = vmNetworkMap[libvirtName] || [];
+
                       if (type === "libvirt" && mapped) {
-                        return `${mapped} (${libvirtName})`;
+                        if (!nicList.length) {
+                          return `${mapped} (${libvirtName})`;
+                        }
+                        const networks = Array.from(new Set(nicList.map((n: any) => n.networkName).filter((n: string) => !!n)));
+                        const ips = Array.from(new Set(nicList.map((n: any) => n.ipAddress).filter((ip: string) => !!ip)));
+                        const macs = Array.from(new Set(nicList.map((n: any) => n.macAddress).filter((m: string) => !!m)));
+                        const summary = [
+                          networks.length ? `network: ${networks.join(',')}` : "",
+                          ips.length ? `ip: ${ips.join(',')}` : "",
+                          macs.length ? `mac: ${macs.join(',')}` : "",
+                        ].filter(Boolean).join(' | ');
+                        return summary ? `${mapped} (${libvirtName}) [${summary}]` : `${mapped} (${libvirtName})`;
                       }
                     }
               
