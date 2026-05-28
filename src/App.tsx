@@ -62,7 +62,6 @@ import UnfoldLessIcon from '@material-ui/icons/UnfoldLess'
 import InfoIcon from '@material-ui/icons/Info'
 import LibraryBooksIcon from '@material-ui/icons/LibraryBooks'
 import Brightness4Icon from '@material-ui/icons/Brightness4'
-import TranslateIcon from '@material-ui/icons/Translate'
 import CloseIcon from '@material-ui/icons/Close'
 import LogoLight from '../assets/logo-ablestack.png'
 import LogoDark from '../assets/ablestack-logo.png'
@@ -1583,10 +1582,6 @@ class App extends React.Component<Props, State> {
         {this.renderDrawerMenuItem(classes, <CloseIcon />, "닫기", () => this.closeDrawer())}
         <div className={classes.drawerMenuSectionTitle}>Language</div>
         <div className={classes.drawerLanguagePanel}>
-          <div className={classes.drawerMenuStaticItem}>
-            <span className={classes.drawerMenuIcon}><TranslateIcon /></span>
-            <span className={classes.drawerMenuLabel}>한국어 | ENGLISH</span>
-          </div>
           <LanguageToggle />
         </div>
         <Divider className={classes.drawerDivider} />
@@ -1596,7 +1591,7 @@ class App extends React.Component<Props, State> {
         {this.renderDrawerMenuItem(
           classes,
           <Brightness4Icon />,
-          "다크 모드",
+          "화면 테마",
           this.toggleNetdiveTheme.bind(this),
           isDark
         )}

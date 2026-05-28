@@ -144,8 +144,10 @@ export class DataViewer extends React.Component<Props, State> {
                     <TableRow>
                         <TableCell />
                         <TableCell colSpan={colSpan}>
-                            <JSONTree data={this.props.details.get(rowMeta.dataIndex)} theme="bright"
-                                invertTheme={true} sortObjectKeys={true} hideRoot={true} />
+                            <div className="netdive-json-tree">
+                                <JSONTree data={this.props.details.get(rowMeta.dataIndex)} theme="bright"
+                                    invertTheme={true} sortObjectKeys={true} hideRoot={true} />
+                            </div>
                         </TableCell>
                     </TableRow>
                 )

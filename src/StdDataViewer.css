@@ -96,3 +96,52 @@
 .MuiTable-responsiveScroll {
     overflow-x: hidden !important;
 }
+
+/* Detail panel dark-mode coverage for MUIDataTable internals */
+.MUIDataTableToolbar-root,
+.MUIDataTableToolbar-titleText,
+.MUIDataTableToolbar-icon,
+.MUIDataTableToolbar-actions,
+.MUIDataTableToolbar-selectRoot,
+.MUIDataTableToolbar-left {
+    color: var(--netdive-detail-text) !important;
+}
+
+.MUIDataTableHeadCell-root,
+.MUIDataTableHeadCell-data,
+.MUIDataTableBodyCell-root,
+.MUIDataTableBodyCell-stackedHeader,
+.MUIDataTableBodyCell-stackedCommon {
+    color: var(--netdive-detail-text) !important;
+    background-color: var(--netdive-detail-bg) !important;
+}
+
+.MUIDataTableBodyRow-root,
+.MUIDataTableBodyRow-responsiveStacked {
+    background-color: var(--netdive-detail-bg) !important;
+}
+
+.MUIDataTableSelectCell-root,
+.MUIDataTableSelectCell-checkboxRoot,
+.MUIDataTableSelectCell-checked,
+.MUIDataTableSelectCell-expandDisabled {
+    color: var(--netdive-detail-muted) !important;
+}
+
+.MUIDataTable-root,
+.MUIDataTable-paper,
+.MUIDataTable-responsiveBase {
+    background-color: var(--netdive-detail-bg) !important;
+    color: var(--netdive-detail-text) !important;
+}
+
+.netdive-json-tree {
+    background-color: var(--netdive-detail-soft);
+    border: 1px solid var(--netdive-detail-border-soft);
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+
+.netdive-json-tree * {
+    color: var(--netdive-detail-text) !important;
+}
