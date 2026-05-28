@@ -9,95 +9,95 @@ svg {
 }
 
 .level-zone {
-    stroke: #c8d1de;
+    stroke: var(--topology-level-zone-stroke);
     stroke-width: 1.4px;
     stroke-dasharray: 4, 8;
-    fill: #fcfdff;
+    fill: var(--topology-level-zone-fill);
     opacity: 1;
 }
 
 .level-label rect {
-    fill: #f4f6f9;
-    stroke: #e3e8ef;
+    fill: var(--topology-level-label-fill);
+    stroke: var(--topology-level-label-stroke);
     stroke-width: 1;
     rx: 14;
     ry: 14;
 }
 
 .level-label text {
-    fill: #4b5568;
+    fill: var(--topology-level-label-text);
     font-family: 'Noto Sans KR';
     font-weight: 700;
     font-size: 24px;
 }
 
 .level-label .level-label-icon {
-    fill: #737e91;
+    fill: var(--topology-level-label-icon);
     font-family: 'Font Awesome 5 Free' !important;
     font-size: 68px;
     font-weight: 900;
 }
 
 .level-label .level-label-badge {
-    fill: #737e91;
+    fill: var(--topology-level-label-icon);
     font-family: 'Font Awesome 5 Free' !important;
     font-size: 20px;
     font-weight: 900;
 }
 
 .level-label .level-label-title {
-    fill: #4a5670;
+    fill: var(--topology-level-label-title);
     font-size: 24px;
     font-weight: 700;
     text-decoration: none;
 }
 
 .level-label:hover rect {
-    fill: #F3F8FF;
+    fill: var(--topology-level-label-hover);
 }
 
 .level-label.level-label-active rect {
-    fill: #E8F2FF;
-    stroke: #CFE2FF;
+    fill: var(--topology-level-label-active-fill);
+    stroke: var(--topology-level-label-active-stroke);
 }
 
 .level-label.level-label-active .level-label-icon,
 .level-label.level-label-active .level-label-badge,
 .level-label.level-label-active .level-label-title {
-    fill: #2bbbe6;
+    fill: var(--topology-level-label-active-text);
 }
 
 .hiera-links {
     fill: none;
-    stroke: #c4ccd9;
+    stroke: var(--topology-hiera-links);
     stroke-width: 1.2;
 }
 
 .link-overlays {
     fill: none;
-    stroke: #d7dfeb;
+    stroke: var(--topology-link-overlays);
     stroke-width: 16;
     marker-start: url(#link-overlay-marker);
     marker-end: url(#link-overlay-marker);
 }
 
 .link-overlay-selected {
-    stroke: #7288b8;
+    stroke: var(--topology-link-overlay-selected);
     marker-start: url(#link-overlay-selected-marker);
     marker-end: url(#link-overlay-selected-marker);
 }
 
 .link-overlay-marker {
-    fill: #d7dfeb;
+    fill: var(--topology-link-overlays);
 }
 
 .link-overlay-selected-marker {
-    fill: #7288b8;
+    fill: var(--topology-link-overlay-selected);
 }
 
 .links {
     fill: none;
-    stroke: #9aa8c0;
+    stroke: var(--topology-links);
     stroke-width: 1.5;
     marker-start: url(#link-marker);
     marker-end: url(#link-marker);
@@ -114,7 +114,7 @@ svg {
 }
 
 .link-marker {
-    fill: #8e9bb2;
+    fill: var(--topology-link-marker);
 }
 
 .link-wraps {
@@ -128,25 +128,25 @@ svg {
     font-size: 30px;
     font-weight: normal;
     font-family: 'Noto Sans KR', sans-serif;
-    fill: #334155;
+    fill: var(--topology-link-label);
 }
 
 .hiera-link {
-    stroke: #8ea0bc;
+    stroke: var(--topology-hiera-link);
     stroke-width: 2.6;
     stroke-dasharray: 7, 7;
     opacity: 0.95;
 }
 
 .node-circle {
-    fill: #ffffff;
+    fill: var(--topology-node-circle-fill);
     stroke-width: 1.8;
-    stroke: #c9d3e2;
+    stroke: var(--topology-node-circle-stroke);
     filter: drop-shadow(0 5px 12px rgba(15, 23, 42, 0.12));
 }
 
 .node-overlay {
-    fill: #d8e0ed;
+    fill: var(--topology-node-overlay);
 }
 
 .node-pinned {
@@ -155,18 +155,18 @@ svg {
 
 .node-disc {
     stroke: none;
-    fill: #5f6f8f;
+    fill: var(--topology-node-disc);
 }
 
 .node-selected .node-circle {
-    fill: #f0f3f8;
-    stroke: #445f8f;
+    fill: var(--topology-node-selected-fill);
+    stroke: var(--topology-node-selected-stroke);
     stroke-width: 4.2;
     filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0)) drop-shadow(0 0 6px rgba(68, 95, 143, 0.35));
 }
 
 .node-selected .node-disc {
-    fill: #526f9f;
+    fill: var(--topology-node-selected-disc);
 }
 
 .node-hexagon {
@@ -179,7 +179,7 @@ svg {
     font-size: 25px;
     text-anchor: middle;
     font-family: 'Font Awesome 5 Free' !important;
-    fill: #f8fafc;
+    fill: var(--topology-node-icon);
     font-weight: 900;
 }
 
@@ -207,12 +207,12 @@ svg {
     text-anchor: middle;
     font-weight: 500;
     font-family: 'Noto Sans KR', sans-serif;
-    fill: #0f172a;
+    fill: var(--topology-node-name);
 }
 
 .node-name-wrap {
-    fill: #ffffff;
-    stroke: #c6d2e4;
+    fill: var(--topology-node-name-wrap-fill);
+    stroke: var(--topology-node-name-wrap-stroke);
     stroke-width: 1.4;
     opacity: 1;
     filter: drop-shadow(0 2px 6px rgba(15, 23, 42, 0.08));
@@ -244,16 +244,16 @@ svg {
 }
 
 .group .group-brace-bg {
-    fill: rgba(226, 236, 250, 0.42);
-    stroke: #8ea7c7;
+    fill: var(--topology-group-rect-fill);
+    stroke: var(--topology-group-rect-stroke);
     stroke-width: 2.6px;
     stroke-dasharray: 10, 6;
     opacity: 0.95;
 }
 
 .group .group-brace-owner-bg {
-    fill: rgba(201, 218, 238, 0.46);
-    stroke: #7b96ba;
+    fill: var(--topology-group-rect-selected-fill);
+    stroke: var(--topology-group-rect-selected-stroke);
     stroke-width: 2px;
     opacity: 0.92;
 }

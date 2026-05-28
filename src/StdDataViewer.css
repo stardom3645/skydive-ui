@@ -8,19 +8,19 @@
 }
 
 .MuiAccordionSummary-root {
-    background-color: #f8fbff !important;
-    border-bottom: 1px solid #e8eef6;
+    background-color: var(--netdive-detail-soft) !important;
+    border-bottom: 1px solid var(--netdive-detail-border-soft);
     min-height: 52px !important;
 }
 
 .MuiAccordionSummary-content {
-    color: #0f172a;
+    color: var(--netdive-detail-text);
     font-weight: 600;
 }
 
 .MuiPaper-root.MuiAccordion-root {
     padding: 10px;
-    border: 1px solid #dbe5f2;
+    border: 1px solid var(--netdive-detail-border);
     border-radius: 10px !important;
     box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06) !important;
     overflow: hidden;
@@ -28,13 +28,13 @@
 }
 
 .MuiTableCell-root {
-    color: #334155 !important;
-    border-bottom: 1px solid #edf2f7 !important;
+    color: var(--netdive-detail-text) !important;
+    border-bottom: 1px solid var(--netdive-detail-border-soft) !important;
     font-size: 13px;
 }
 
 .MuiTablePagination-toolbar {
-    color: #475569;
+    color: var(--netdive-detail-muted);
 }
 
 .not-expandable button {
@@ -43,9 +43,9 @@
 
 /* Normalize MUIDataTable filter chips */
 .MuiTableFilterList-root .MuiChip-root {
-    background-color: #eef3f8 !important;
-    border: 1px solid #d7e1ec;
-    color: #334155 !important;
+    background-color: var(--netdive-detail-soft) !important;
+    border: 1px solid var(--netdive-detail-border-soft);
+    color: var(--netdive-detail-text) !important;
     height: 28px;
 }
 
@@ -56,7 +56,7 @@
 }
 
 .MuiTableFilterList-root .MuiChip-deleteIcon {
-    color: #7b8a9e !important;
+    color: var(--netdive-detail-muted) !important;
     background: transparent !important;
     margin-left: 2px;
     margin-right: 6px;

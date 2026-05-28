@@ -2436,7 +2436,7 @@ export class Topology extends React.Component<Props, {}> {
                 .attr("dy", -41)
                 .text((d: BadgeAttrs) => d.text)
                 .attr("pointer-events", "none")
-                .attr("fill", (d: BadgeAttrs) => d.stroke ? d.stroke : "#fff")
+                .attr("fill", (d: BadgeAttrs) => d.stroke ? d.stroke : "var(--topology-node-name-wrap-fill)")
         }
 
         nodeEnter

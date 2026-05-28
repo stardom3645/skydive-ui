@@ -21,12 +21,12 @@ export const styles = (theme: Theme) => createStyles({
     header: {
         display: 'flex',
         minHeight: 64,
-        backgroundColor: '#f8fbff !important',
+        backgroundColor: 'var(--netdive-detail-soft) !important',
         padding: '0 24px 0 24px',
         borderTopLeftRadius: 10,
         borderTopRightRadius: 10,
-        color: '#0f172a',
-        border: '1px solid #dbe5f2',
+        color: 'var(--netdive-detail-text)',
+        border: '1px solid var(--netdive-detail-border)',
         borderBottom: 'none'
     },
     headerContent: {
@@ -50,7 +50,7 @@ export const styles = (theme: Theme) => createStyles({
         marginLeft: 1,
         marginRight: 1,
         borderRadius: '0 0 10px 10px',
-        border: '1px solid #dbe5f2',
+        border: '1px solid var(--netdive-detail-border)',
         boxShadow: '0 8px 20px rgba(15, 23, 42, 0.06)',
         boxSizing: 'border-box'
     }

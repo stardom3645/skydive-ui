@@ -65,6 +65,8 @@ import LibraryBooksIcon from '@material-ui/icons/LibraryBooks'
 import Brightness4Icon from '@material-ui/icons/Brightness4'
 import Brightness7Icon from '@material-ui/icons/Brightness7'
 import TranslateIcon from '@material-ui/icons/Translate'
+import ArrowBackIcon from '@material-ui/icons/ArrowBack'
+import CloseIcon from '@material-ui/icons/Close'
 
 import { styles } from './AppStyles'
 import { Topology, Node, NodeAttrs, LinkAttrs, LinkTagState, Link } from './Topology'
@@ -1578,14 +1580,8 @@ class App extends React.Component<Props, State> {
     const isDark = this.state.netdiveTheme === "dark"
     return (
       <div className={classes.drawerMenu}>
-        <div className={classes.drawerTopActions}>
-          <button type="button" className={classes.drawerTopActionButton} onClick={() => this.props.history.goBack()}>
-            뒤로가기
-          </button>
-          <button type="button" className={classes.drawerTopActionButton} onClick={() => this.closeDrawer()}>
-            닫기
-          </button>
-        </div>
+        {this.renderDrawerMenuItem(classes, <ArrowBackIcon />, "뒤로가기", () => this.props.history.goBack())}
+        {this.renderDrawerMenuItem(classes, <CloseIcon />, "닫기", () => this.closeDrawer())}
         <div className={classes.drawerMenuSectionTitle}>Language</div>
         <div className={classes.drawerLanguagePanel}>
           <div className={classes.drawerMenuStaticItem}>

@@ -26,7 +26,7 @@ export const styles = (theme: Theme) => createStyles({
     width: `100%`,
     height: `100%`,
     maxHeight: 'calc(100% - 90px)',
-    backgroundColor: '#ffffff',
+    backgroundColor: 'var(--netdive-detail-bg)',
     overflowY: 'auto',
     overflowX: 'hidden',
     scrollbarGutter: 'stable',
@@ -44,21 +44,21 @@ export const styles = (theme: Theme) => createStyles({
   },
   tabs: {
     height: `100%`,
-    backgroundColor: '#ffffff',
+    backgroundColor: 'var(--netdive-detail-bg)',
     '& .MuiTabs-indicator': {
-      backgroundColor: '#2bbbe6'
+      backgroundColor: 'var(--netdive-detail-accent)'
     }
   },
   tabTitle: {
     fontSize: 18,
     fontWeight: 600,
-    color: '#1e293b'
+    color: 'var(--netdive-detail-text)'
   },
   tabActions: {
     display: 'flex',
     flexDirection: 'row-reverse',
     marginBottom: theme.spacing(1.5),
-    borderBottom: '1px solid #2bbbe6',
+    borderBottom: '1px solid var(--netdive-detail-accent)',
     paddingBottom: theme.spacing(1)
   },
   gremlinExpr: {
@@ -78,13 +78,13 @@ export const styles = (theme: Theme) => createStyles({
     fontWeight: 900,
     fontSize: 35,
     marginBottom: `0 !important`,
-    color: '#2bbbe6'
+    color: 'var(--netdive-detail-accent)'
   },
   tabIconBrands: {
     fontFamily: `"Font Awesome 5 Brands" !important`,
     fontWeight: 900,
     fontSize: 35,
     marginBottom: `0 !important`,
-    color: '#2bbbe6'
+    color: 'var(--netdive-detail-accent)'
   }
 })
