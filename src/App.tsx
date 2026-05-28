@@ -1585,7 +1585,7 @@ class App extends React.Component<Props, State> {
   private renderDrawerMenu(classes: any) {
     return (
       <div className={classes.drawerMenu}>
-        {this.renderDrawerMenuItem(classes, <CloseIcon />, "닫기", () => this.closeDrawer())}
+        {this.renderDrawerMenuItem(classes, <CloseIcon />, translate("close"), () => this.closeDrawer())}
         <Divider className={classes.drawerDivider} />
         <div className={classes.drawerMenuSectionTitle}>Menu</div>
         {this.renderDrawerMenuItem(classes, <InfoIcon />, "About", this.openAboutDialog.bind(this))}
@@ -1596,7 +1596,7 @@ class App extends React.Component<Props, State> {
           type="button"
           className={classes.drawerSettingHeader}
           onClick={() => this.setState({ isSettingsOpen: !this.state.isSettingsOpen })}>
-          <span className={classes.drawerMenuLabel}>설정</span>
+          <span className={classes.drawerMenuLabel}>{translate("setting")}</span>
           <span className={clsx(classes.drawerSettingChevron, this.state.isSettingsOpen && classes.drawerSettingChevronOpen)}>
             <KeyboardArrowDown fontSize="small" />
           </span>

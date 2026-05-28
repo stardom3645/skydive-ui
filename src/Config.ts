@@ -110,6 +110,8 @@ export const i18nMap = {
 
         "networkLinkLayer": "Network Link Layer",
         "searchNodeByNameExample": "Search by node name (e.g., ccvm)",
+        "close": "Close",
+        "setting": "Setting",
 
         "help": "Help",
         "netTopologyPageDescription": "- This page visualizes the network topology.",
@@ -300,6 +302,8 @@ export const i18nMap = {
 
         "networkLinkLayer": "네트워크 링크 계층",
         "searchNodeByNameExample": "노드 이름(예: ccvm)으로 검색",
+        "close": "닫기",
+        "setting": "설정",
 
         "help": "도움말",
         "netTopologyPageDescription": "- 이 페이지는 네트워크 토폴로지를 시각화합니다.",
