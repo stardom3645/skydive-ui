@@ -35,9 +35,10 @@ import Divider from '@material-ui/core/Divider'
 import Container from '@material-ui/core/Container'
 import Paper from '@material-ui/core/Paper'
 import Checkbox from '@material-ui/core/Checkbox'
-import Switch from '@material-ui/core/Switch'
 import FormGroup from '@material-ui/core/FormGroup'
 import FormControlLabel from '@material-ui/core/FormControlLabel'
+import ToggleButton from '@material-ui/lab/ToggleButton'
+import ToggleButtonGroup from '@material-ui/lab/ToggleButtonGroup'
 import { withSnackbar, WithSnackbarProps } from 'notistack'
 import { connect } from 'react-redux'
 import AccountCircle from '@material-ui/icons/AccountCircle'
@@ -1562,8 +1563,11 @@ class App extends React.Component<Props, State> {
     this.setState(this.state)
   }
 
-  private toggleNetdiveTheme() {
-    this.setNetdiveTheme(this.state.netdiveTheme === "dark" ? "light" : "dark")
+  private onThemeToggleChange(event: React.MouseEvent<HTMLElement>, newTheme: NetdiveTheme | null) {
+    if (!newTheme) {
+      return
+    }
+    this.setNetdiveTheme(newTheme)
   }
 
   private renderDrawerMenuItem(classes: any, icon: React.ReactNode, label: string, onClick?: () => void, active?: boolean) {
@@ -1579,7 +1583,6 @@ class App extends React.Component<Props, State> {
   }
 
   private renderDrawerMenu(classes: any) {
-    const isDark = this.state.netdiveTheme === "dark"
     return (
       <div className={classes.drawerMenu}>
         {this.renderDrawerMenuItem(classes, <CloseIcon />, "닫기", () => this.closeDrawer())}
@@ -1603,14 +1606,20 @@ class App extends React.Component<Props, State> {
             <div className={classes.drawerLanguagePanel}>
               <LanguageToggle />
             </div>
-            <div className={classes.drawerThemeRow}>
-              <span className={classes.drawerThemeLabel}>화면 테마</span>
-              <Switch
-                checked={isDark}
-                onChange={this.toggleNetdiveTheme.bind(this)}
-                color="primary"
-                size="small"
-              />
+            <div className={classes.drawerThemePanel}>
+              <div className={classes.drawerMenuSectionTitle}>화면 테마</div>
+              <ToggleButtonGroup
+                value={this.state.netdiveTheme}
+                exclusive
+                onChange={this.onThemeToggleChange.bind(this)}
+                aria-label="Theme selection">
+                <ToggleButton value="light" aria-label="Light">
+                  Light
+                </ToggleButton>
+                <ToggleButton value="dark" aria-label="Dark">
+                  Dark
+                </ToggleButton>
+              </ToggleButtonGroup>
             </div>
           </div>
         }

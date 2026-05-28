@@ -105,6 +105,11 @@
     color: var(--netdive-detail-text) !important;
 }
 
+.MuiCollapse-container .MuiPaper-root {
+    background-color: var(--netdive-detail-bg) !important;
+    color: var(--netdive-detail-text) !important;
+}
+
 .MUIDataTableToolbar-root,
 .MUIDataTableToolbar-titleText,
 .MUIDataTableToolbar-icon,
@@ -122,6 +127,18 @@
 .MUIDataTableBodyCell-stackedCommon {
     color: var(--netdive-detail-text) !important;
     background-color: var(--netdive-detail-bg) !important;
+    opacity: 1 !important;
+}
+
+.MuiCollapse-container .MuiTableCell-root,
+.MuiCollapse-container .MuiTableCell-head,
+.MuiCollapse-container .MuiTableCell-body,
+.MuiCollapse-container .MuiTableCell-footer,
+.MuiCollapse-container .MuiTableCell-paddingCheckbox,
+.MuiCollapse-container th.MuiTableCell-root,
+.MuiCollapse-container td.MuiTableCell-root {
+    background-color: var(--netdive-detail-bg) !important;
+    color: var(--netdive-detail-text) !important;
     opacity: 1 !important;
 }
 

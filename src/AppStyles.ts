@@ -367,6 +367,34 @@ export const styles = (theme: Theme) => createStyles({
       backgroundColor: 'var(--netdive-menu-hover)'
     }
   },
+  drawerThemePanel: {
+    marginTop: theme.spacing(0.75),
+    '& .MuiToggleButtonGroup-root': {
+      width: '100%',
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
+      borderRadius: 10,
+      overflow: 'hidden',
+      border: '1px solid var(--netdive-menu-border)'
+    },
+    '& .MuiToggleButton-root': {
+      minWidth: 0,
+      padding: theme.spacing(0.8, 0.5),
+      border: 'none',
+      borderRadius: 0,
+      color: 'var(--netdive-menu-muted)',
+      backgroundColor: 'var(--netdive-menu-card)',
+      fontSize: 12,
+      fontWeight: 700
+    },
+    '& .MuiToggleButton-root.Mui-selected': {
+      color: 'var(--netdive-menu-active-text)',
+      backgroundColor: 'var(--netdive-menu-active)'
+    },
+    '& .MuiToggleButton-root:hover': {
+      backgroundColor: 'var(--netdive-menu-hover)'
+    }
+  },
   drawerMenuBottomSpacer: {
     marginTop: 'auto'
   },
@@ -397,19 +425,6 @@ export const styles = (theme: Theme) => createStyles({
     borderRadius: 10,
     border: '1px solid var(--netdive-menu-border-soft)',
     backgroundColor: 'var(--netdive-menu-card-soft)'
-  },
-  drawerThemeRow: {
-    marginTop: theme.spacing(0.75),
-    minHeight: 44,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: theme.spacing(0, 0.25)
-  },
-  drawerThemeLabel: {
-    fontSize: 13,
-    fontWeight: 700,
-    color: 'var(--netdive-menu-text)'
   },
   content: {
     flexGrow: 1,
