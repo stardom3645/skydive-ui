@@ -1271,6 +1271,10 @@ export class Topology extends React.Component<Props, {}> {
         n.state.selected = active
 
         select("#node-" + id).classed("node-selected", active)
+        if (active) {
+            // Keep selected node (including its name label) above overlapping nodes.
+            select("#node-" + id).raise()
+        }
 
         if (this.props.onNodeSelected) {
             let n = this.nodes.get(id)
