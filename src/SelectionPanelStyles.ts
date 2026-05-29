@@ -59,12 +59,30 @@ export const styles = (theme: Theme) => createStyles({
     backgroundColor: 'var(--netdive-detail-bg)',
     '& .MuiTabs-indicator': {
       backgroundColor: 'var(--netdive-detail-accent)'
+    },
+    '& .MuiTab-wrapper': {
+      width: '100%'
+    }
+  },
+  tabRoot: {
+    minWidth: 136,
+    maxWidth: 220,
+    paddingLeft: theme.spacing(1.5),
+    paddingRight: theme.spacing(1.5),
+    '&.MuiTab-labelIcon': {
+      minHeight: 72
     }
   },
   tabTitle: {
+    display: 'inline-block',
+    maxWidth: 186,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
     fontSize: 18,
     fontWeight: 600,
-    color: 'var(--netdive-detail-text)'
+    color: 'var(--netdive-detail-text)',
+    cursor: 'help'
   },
   tabActions: {
     display: 'flex',

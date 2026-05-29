@@ -1126,7 +1126,13 @@ class DefaultConfig {
         }
 
         var virt = ["tap", "veth", "tun", "openvswitch"]
-        if (node.data.Driver && virt.indexOf(node.data.Driver) > 0) {
+        if (
+            node.data.Driver &&
+            virt.indexOf(node.data.Driver) >= 0 &&
+            node.data.Type !== "ovsbridge" &&
+            node.data.Type !== "openvswitch" &&
+            node.data.Type !== "ovsport"
+        ) {
             attrs.weight = WEIGHT_VIRT_NET
         }
 

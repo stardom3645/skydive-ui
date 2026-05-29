@@ -113,8 +113,14 @@ class SelectionPanel extends React.Component<Props, State> {
       }
 
       return (
-        <Tab className="tab" icon={<span className={className}>{iconRender()}</span>}
-          key={"tab-" + i} label={<span className={classes.tabTitle}>{title}</span>} {...a11yProps(i)} />
+        <Tab className={classes.tabRoot} icon={<span className={className}>{iconRender()}</span>}
+          key={"tab-" + i}
+          label={
+            <Tooltip title={title} placement="bottom" arrow>
+              <span className={classes.tabTitle} title={title}>{title}</span>
+            </Tooltip>
+          }
+          {...a11yProps(i)} />
       )
     })
   }

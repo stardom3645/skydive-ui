@@ -255,22 +255,36 @@ export class DataViewer extends React.Component<Props, State> {
                       const type = this.props.data.find(d => Array.isArray(d) && d[0] === "Type")?.[1];
                       const libvirtName = value;
                       const mapped = (window as any).App?.state?.vmNameMap?.[libvirtName];
-                      const vmNetworkMap = (window as any).App?.state?.vmNetworkMap || {};
-                      const nicList = vmNetworkMap[libvirtName] || [];
-
                       if (type === "libvirt" && mapped) {
-                        if (!nicList.length) {
-                          return `${mapped} (${libvirtName})`;
+                        return `${mapped} (${libvirtName})`;
+                      }
+                    }
+
+                    if (key === "IPV4" || key === "MAC" || key === "Network") {
+                      const type = this.props.data.find(d => Array.isArray(d) && d[0] === "Type")?.[1];
+                      const libvirtName = this.props.data.find(d => Array.isArray(d) && d[0] === "Name")?.[1];
+                      const vmNetworkMap = (window as any).App?.state?.vmNetworkMap || {};
+                      const nicList = libvirtName ? (vmNetworkMap[libvirtName] || []) : [];
+
+                      if (type === "libvirt" && nicList.length) {
+                        if (key === "IPV4") {
+                          const ips = Array.from(new Set(nicList.map((n: any) => n.ipAddress).filter((ip: string) => !!ip)));
+                          if (ips.length) {
+                            return ips.join(",");
+                          }
                         }
-                        const networks = Array.from(new Set(nicList.map((n: any) => n.networkName).filter((n: string) => !!n)));
-                        const ips = Array.from(new Set(nicList.map((n: any) => n.ipAddress).filter((ip: string) => !!ip)));
-                        const macs = Array.from(new Set(nicList.map((n: any) => n.macAddress).filter((m: string) => !!m)));
-                        const summary = [
-                          networks.length ? `network: ${networks.join(',')}` : "",
-                          ips.length ? `ip: ${ips.join(',')}` : "",
-                          macs.length ? `mac: ${macs.join(',')}` : "",
-                        ].filter(Boolean).join(' | ');
-                        return summary ? `${mapped} (${libvirtName}) [${summary}]` : `${mapped} (${libvirtName})`;
+                        if (key === "MAC") {
+                          const macs = Array.from(new Set(nicList.map((n: any) => n.macAddress).filter((m: string) => !!m)));
+                          if (macs.length) {
+                            return macs.join(",");
+                          }
+                        }
+                        if (key === "Network") {
+                          const networks = Array.from(new Set(nicList.map((n: any) => n.networkName).filter((n: string) => !!n)));
+                          if (networks.length) {
+                            return networks.join(",");
+                          }
+                        }
                       }
                     }
               
