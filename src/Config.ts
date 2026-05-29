@@ -1297,7 +1297,12 @@ class DefaultConfig {
     }
 
     nodeTabTitle(node: Node): string {
-        return node.data.Name.substring(0, 8)
+        const name = node?.data?.Name
+        if (!name || typeof name !== "string") {
+            return ""
+        }
+        // Keep full node name in the right tab title; visual clipping is handled by CSS + tooltip.
+        return name
     }
 
     groupSize(): number {

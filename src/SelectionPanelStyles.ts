@@ -69,13 +69,18 @@ export const styles = (theme: Theme) => createStyles({
     maxWidth: 220,
     paddingLeft: theme.spacing(1.5),
     paddingRight: theme.spacing(1.5),
+    overflow: 'hidden',
     '&.MuiTab-labelIcon': {
       minHeight: 72
+    },
+    '& .MuiTab-wrapper': {
+      width: '100%',
+      minWidth: 0
     }
   },
   tabTitle: {
     display: 'inline-block',
-    maxWidth: 186,
+    maxWidth: '100%',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
