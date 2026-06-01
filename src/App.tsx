@@ -1771,6 +1771,7 @@ class App extends React.Component<Props, State> {
               onNodeDblClicked={this.config.nodeDblClicked.bind(this.config)}
               defaultLinkTagMode={this.config.defaultLinkTagMode.bind(this.config)}
               vmNameMap={this.state.vmNameMap}
+              vmNetworkMap={this.state.vmNetworkMap}
             />
           </Container>
           <Container className={classes.rightPanel}>

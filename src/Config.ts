@@ -1556,7 +1556,7 @@ class DefaultConfig {
                         [translate("RxPackets")]: data.RxPackets ? data.RxPackets.toLocaleString() : 0,
                         [translate("RxBytes")]: data.RxBytes ? Tools.prettyBytes(data.RxBytes) : 0,
                         [translate("TxPackets")]: data.TxPackets ? data.TxPackets.toLocaleString() : 0,
-                        [translate("TxBytes")]: data.TxPackets ? Tools.prettyBytes(data.TxBytes) : 0,
+                        [translate("TxBytes")]: data.TxBytes ? Tools.prettyBytes(data.TxBytes) : 0,
                         [translate("Last")]: data.Last ? new Date(data.Last).toLocaleString() : 0
                     }
                 }

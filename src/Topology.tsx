@@ -208,6 +208,7 @@ interface Props {
     onNodeDblClicked: (node: Node) => void
     defaultLinkTagMode?: (tag: string) => LinkTagState
     vmNameMap?: Record<string, string>
+    vmNetworkMap?: Record<string, Array<{ networkName: string, macAddress: string, ipAddress: string }>>
 }
 
 /**
@@ -249,6 +250,7 @@ export class Topology extends React.Component<Props, {}> {
     private weights: Array<number>
     private visibleLinksCache: Array<Link> | undefined
     private lastVmNameMapRef: Record<string, string> | undefined
+    private lastVmNetworkMapRef: Record<string, Array<{ networkName: string, macAddress: string, ipAddress: string }>> | undefined
 
     root: Node
     nodes: Map<string, Node>
@@ -2346,35 +2348,55 @@ export class Topology extends React.Component<Props, {}> {
                 var text = select(this)
                 var y = text.attr("y")
                 var dy = parseFloat(text.attr("dy"))
-                var words = text.text().match(/.{1,10}/g).reverse()
-                var line = new Array<string>()
+                const rawText = text.text() || ""
+                const explicitLines = rawText.split("\n").filter((v: string) => v.length > 0)
 
-                var tspan = text.text(null).append("tspan").attr("x", 0).attr("y", y).attr("dy", dy + "em")
+                text.text(null)
 
-                var lineNumber = 0
-                var word = words.pop()
-                while (word) {
-                    line.push(word)
-                    tspan.text(line.join(""))
-
-                    let element = tspan.node()
-                    if (!element) {
-                        continue
+                // Respect explicit multi-line labels first (e.g. IP + network name).
+                if (explicitLines.length > 1) {
+                    explicitLines.forEach((lineText, idx) => {
+                        text.append("tspan")
+                            .attr("x", 0)
+                            .attr("y", y)
+                            .attr("dy", (dy + idx * lineHeight) + "em")
+                            .text(lineText)
+                    })
+                } else {
+                    var words = rawText.match(/.{1,10}/g)
+                    if (!words) {
+                        words = [rawText]
                     }
-                    if (element.getComputedTextLength() > width) {
-                        line.pop()
+                    words = words.reverse()
+                    var line = new Array<string>()
 
-                        if (line.length) {
-                            tspan.text(line.join(""))
-                            line = [word]
-                            tspan = text.append("tspan")
-                                .attr("x", 0)
-                                .attr("y", y)
-                                .attr("dy", ++lineNumber * lineHeight + dy + "em")
-                                .text(word)
+                    var tspan = text.append("tspan").attr("x", 0).attr("y", y).attr("dy", dy + "em")
+
+                    var lineNumber = 0
+                    var word = words.pop()
+                    while (word) {
+                        line.push(word)
+                        tspan.text(line.join(""))
+
+                        let element = tspan.node()
+                        if (!element) {
+                            continue
                         }
+                        if (element.getComputedTextLength() > width) {
+                            line.pop()
+
+                            if (line.length) {
+                                tspan.text(line.join(""))
+                                line = [word]
+                                tspan = text.append("tspan")
+                                    .attr("x", 0)
+                                    .attr("y", y)
+                                    .attr("dy", ++lineNumber * lineHeight + dy + "em")
+                                    .text(word)
+                            }
+                        }
+                        word = words.pop()
                     }
-                    word = words.pop()
                 }
 
                 var bb = this.getBBox()
@@ -2391,9 +2413,42 @@ export class Topology extends React.Component<Props, {}> {
         }
 
         const getNodeDisplayName = (d: D3Node) => {
-            const libvirtName = this.props.nodeAttrs(d.data.wrapped).name
+            const attrsName = this.props.nodeAttrs(d.data.wrapped).name
+            const nodeData = d.data.wrapped.data || {}
             const vmNameMap = this.props.vmNameMap || {}
-            return vmNameMap[libvirtName] || libvirtName
+            const vmNetworkMap = this.props.vmNetworkMap || {}
+
+            // For VM child NIC nodes, prefer operator-facing label:
+            // IP > Mold network name > existing interface name.
+            if (nodeData.Type === "tuntap") {
+                let parent = d.data.wrapped.parent
+                while (parent && parent.data?.Type !== "libvirt") {
+                    parent = parent.parent
+                }
+                const libvirtName = parent?.data?.Name
+                const nicList = libvirtName ? (vmNetworkMap[libvirtName] || []) : []
+
+                const nodeMac = typeof nodeData.MAC === "string" ? nodeData.MAC.toLowerCase() : ""
+                const matchedNic = nicList.find((nic) =>
+                    typeof nic.macAddress === "string" &&
+                    nic.macAddress.toLowerCase() === nodeMac
+                ) || nicList[0]
+
+                const ip = matchedNic?.ipAddress?.trim()
+                const networkName = matchedNic?.networkName?.trim()
+                if (ip && networkName) {
+                    return `${ip}\n${networkName}`
+                }
+                if (ip) {
+                    return ip
+                }
+                if (networkName) {
+                    return networkName
+                }
+                return attrsName
+            }
+
+            return vmNameMap[attrsName] || attrsName
         }
 
         nodeEnter.append("g")
@@ -2406,12 +2461,13 @@ export class Topology extends React.Component<Props, {}> {
             .call(wrapText, 1.15, nodeWidth + 38)
 
         // Update names only when vmNameMap changed to reduce long-running render overhead.
-        if (this.lastVmNameMapRef !== this.props.vmNameMap) {
+        if (this.lastVmNameMapRef !== this.props.vmNameMap || this.lastVmNetworkMapRef !== this.props.vmNetworkMap) {
             node.selectAll<SVGRectElement, D3Node>("rect.node-name-wrap").remove()
             node.select("text.node-name")
                 .text((d: D3Node) => getNodeDisplayName(d))
                 .call(wrapText, 1.15, nodeWidth + 38)
             this.lastVmNameMapRef = this.props.vmNameMap
+            this.lastVmNetworkMapRef = this.props.vmNetworkMap
         }
 
         const renderNodeBadge = function (d: D3Node) {
