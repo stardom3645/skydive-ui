@@ -33,8 +33,8 @@ const defaultMaxExpandSize = 100
 
 const nodeWidth = 170
 const nodeHeight = 280
-const userVmChildNetworkGapBoost = 120
-const userVmHorizontalGapBoost = 70
+const userVmChildNetworkGapBoost = 60
+const userVmHorizontalGapBoost = 40
 
 export enum LinkTagState {
     Hidden = 1,
@@ -1368,6 +1368,11 @@ export class Topology extends React.Component<Props, {}> {
         }
 
         select("#link-overlay-" + id).classed("link-overlay-selected", active)
+        if (active) {
+            // Keep selected traffic label above overlapped node labels/icons.
+            this.gLinkLabels.raise()
+            select("#link-label-" + id).raise().style("opacity", 1)
+        }
 
         if (this.props.onLinkSelected) {
             this.props.onLinkSelected(l, active)
