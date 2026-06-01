@@ -33,6 +33,7 @@ const defaultMaxExpandSize = 100
 
 const nodeWidth = 170
 const nodeHeight = 280
+const userVmChildNetworkGapBoost = 90
 
 export enum LinkTagState {
     Hidden = 1,
@@ -1077,6 +1078,23 @@ export class Topology extends React.Component<Props, {}> {
         this.visibleLinksCache = links
 
         return links
+    }
+
+    private isUserVmChildNetworkNode(node: D3Node): boolean {
+        const nodeType = node?.data?.wrapped?.data?.Type
+        if (nodeType !== "tuntap") {
+            return false
+        }
+
+        let parent = node.data.wrapped.parent
+        while (parent) {
+            if (parent.data?.Type === "libvirt") {
+                return true
+            }
+            parent = parent.parent
+        }
+
+        return false
     }
 
     private sceneSizeX() {
@@ -2436,7 +2454,25 @@ export class Topology extends React.Component<Props, {}> {
 
                 const ip = matchedNic?.ipAddress?.trim()
                 const rawNetworkName = matchedNic?.networkName?.trim()
-                const isUntaggedNetwork = !!rawNetworkName && /^(vlan:\/\/)?untagged$/i.test(rawNetworkName)
+                const toText = (value: any): string => {
+                    if (value === undefined || value === null) {
+                        return ""
+                    }
+                    return String(value).trim()
+                }
+                const rawNodeNetwork = toText(nodeData.Network)
+                const rawNodeVlan = toText(nodeData.VLAN || nodeData.Vlan || nodeData.VLANID || nodeData.VlanID)
+                const rawNodeVni = toText(nodeData.VNI || nodeData.Vni)
+                const rawNodeBroadcast = toText(nodeData.Broadcast || nodeData.BROADCAST)
+                const hasUntaggedHint = [rawNodeNetwork, rawNodeVlan, rawNodeVni, rawNodeBroadcast]
+                    .some((v) => /(^|:\/\/)untagged$/i.test(v) || /untagged/i.test(v))
+                const isUntaggedNetwork =
+                    /^(vlan:\/\/)?untagged$/i.test(rawNetworkName || "") ||
+                    /^(vlan:\/\/)?untagged$/i.test(rawNodeNetwork) ||
+                    /^(vlan:\/\/)?untagged$/i.test(rawNodeVlan) ||
+                    /^(vlan:\/\/)?untagged$/i.test(rawNodeVni) ||
+                    /^(vlan:\/\/)?untagged$/i.test(rawNodeBroadcast) ||
+                    (/^l2$/i.test(rawNetworkName || "") && hasUntaggedHint)
                 const networkName = isUntaggedNetwork ? "L2 Untagged" : rawNetworkName
                 const detectVlanId = (): string | undefined => {
                     const candidates = [
@@ -2816,6 +2852,14 @@ export class Topology extends React.Component<Props, {}> {
 
         var root = hierarchy(normRoot)
         this.tree(root)
+
+        // Keep global topology geometry unchanged and only increase vertical
+        // spacing between user VM nodes and their child network nodes.
+        root.each((node: any) => {
+            if (this.isUserVmChildNetworkNode(node as D3Node)) {
+                node.y += userVmChildNetworkGapBoost
+            }
+        })
 
         // update d3nodes cache
         this.d3nodes = new Map<string, D3Node>()
