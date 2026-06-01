@@ -345,7 +345,8 @@ class App extends React.Component<Props, State> {
 
 
   private refreshVmNetworkMap() {
-    fetch("/api/vm-network-map").then((resp) => {
+    const ts = Date.now()
+    fetch(`/api/vm-network-map?_=${ts}`, { cache: "no-store" }).then((resp) => {
       if (!resp.ok) {
         throw new Error(`vm-network-map api failed: ${resp.status}`)
       }
