@@ -355,6 +355,7 @@ class App extends React.Component<Props, State> {
       const same = JSON.stringify(prev) === JSON.stringify(data)
       if (!same) {
         this.setState({ vmNetworkMap: data })
+        this.refreshTopology()
       }
     }).catch((err) => {
       console.debug("Failed to refresh vmNetworkMap", err)

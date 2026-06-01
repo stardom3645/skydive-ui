@@ -2436,14 +2436,54 @@ export class Topology extends React.Component<Props, {}> {
 
                 const ip = matchedNic?.ipAddress?.trim()
                 const networkName = matchedNic?.networkName?.trim()
+                const detectVlanId = (): string | undefined => {
+                    const candidates = [
+                        nodeData.VLAN,
+                        nodeData.Vlan,
+                        nodeData.VLANID,
+                        nodeData.VlanID,
+                        nodeData.Tag,
+                        nodeData.ID,
+                        matchedNic?.networkName
+                    ]
+                    for (const raw of candidates) {
+                        if (raw === undefined || raw === null) {
+                            continue
+                        }
+                        const text = String(raw).trim()
+                        if (!text) {
+                            continue
+                        }
+                        if (/^\d+$/.test(text)) {
+                            return text
+                        }
+                        const byKeyword = text.match(/vlan[-_ ]?(\d+)/i)
+                        if (byKeyword && byKeyword[1]) {
+                            return byKeyword[1]
+                        }
+                        const byDot = text.match(/\.(\d{1,4})$/)
+                        if (byDot && byDot[1]) {
+                            return byDot[1]
+                        }
+                    }
+                    return undefined
+                }
+                const vlanId = detectVlanId()
+
                 if (ip && networkName) {
                     return `${ip}\n${networkName}`
                 }
                 if (ip) {
                     return ip
                 }
+                if (networkName && vlanId) {
+                    return `${networkName}\nVLAN ${vlanId}`
+                }
                 if (networkName) {
                     return networkName
+                }
+                if (vlanId) {
+                    return `VLAN ${vlanId}`
                 }
                 return attrsName
             }
