@@ -31,7 +31,7 @@ const animDuration = 500
 const defaultGroupSize = 6
 const defaultMaxExpandSize = 100
 
-const nodeWidth = 150
+const nodeWidth = 170
 const nodeHeight = 280
 
 export enum LinkTagState {
@@ -2435,7 +2435,9 @@ export class Topology extends React.Component<Props, {}> {
                 ) || nicList[0]
 
                 const ip = matchedNic?.ipAddress?.trim()
-                const networkName = matchedNic?.networkName?.trim()
+                const rawNetworkName = matchedNic?.networkName?.trim()
+                const isUntaggedNetwork = !!rawNetworkName && /^(vlan:\/\/)?untagged$/i.test(rawNetworkName)
+                const networkName = isUntaggedNetwork ? "L2 Untagged" : rawNetworkName
                 const detectVlanId = (): string | undefined => {
                     const candidates = [
                         nodeData.VLAN,
@@ -2484,6 +2486,9 @@ export class Topology extends React.Component<Props, {}> {
                 }
                 if (vlanId) {
                     return `VLAN ${vlanId}`
+                }
+                if (isUntaggedNetwork) {
+                    return "L2 Untagged"
                 }
                 return attrsName
             }
