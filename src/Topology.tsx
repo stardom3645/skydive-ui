@@ -33,7 +33,7 @@ const defaultMaxExpandSize = 100
 
 const nodeWidth = 170
 const nodeHeight = 280
-const userVmChildNetworkGapBoost = 90
+const userVmChildNetworkGapBoost = 120
 
 export enum LinkTagState {
     Hidden = 1,
