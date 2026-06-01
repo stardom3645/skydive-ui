@@ -34,6 +34,7 @@ const defaultMaxExpandSize = 100
 const nodeWidth = 170
 const nodeHeight = 280
 const userVmChildNetworkGapBoost = 120
+const userVmHorizontalGapBoost = 70
 
 export enum LinkTagState {
     Hidden = 1,
@@ -148,7 +149,8 @@ class NodeWrapper {
         if (type === WrapperType.Hidden) {
             this.size = [50, nodeHeight]
         } else {
-            this.size = [nodeWidth, nodeHeight]
+            const isUserVmNode = node?.data?.Type === "libvirt"
+            this.size = [isUserVmNode ? nodeWidth + userVmHorizontalGapBoost : nodeWidth, nodeHeight]
         }
     }
 }
