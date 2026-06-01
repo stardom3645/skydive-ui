@@ -2442,11 +2442,34 @@ export class Topology extends React.Component<Props, {}> {
                     }
                 }
 
-                const nodeMac = typeof nodeData.MAC === "string" ? nodeData.MAC.toLowerCase() : ""
-                const matchedNic = nicList.find((nic) =>
-                    typeof nic.macAddress === "string" &&
-                    nic.macAddress.toLowerCase() === nodeMac
-                ) || nicList[0]
+                const normalizeMac = (value: any): string => {
+                    if (typeof value !== "string") {
+                        return ""
+                    }
+                    return value.toLowerCase().replace(/[^0-9a-f]/g, "")
+                }
+                const nodeMac = normalizeMac(nodeData.MAC)
+                const nodeIfName = typeof nodeData.Name === "string" ? nodeData.Name.trim().toLowerCase() : ""
+                const matchedNic = nicList.find((nic: any) => {
+                    const nicMac = normalizeMac(nic.macAddress)
+                    if (nodeMac && nicMac && nodeMac === nicMac) {
+                        return true
+                    }
+                    if (!nodeIfName) {
+                        return false
+                    }
+                    const nicIfCandidates = [
+                        nic.interfaceName,
+                        nic.ifName,
+                        nic.tapName,
+                        nic.deviceName,
+                        nic.device,
+                        nic.name
+                    ]
+                    return nicIfCandidates.some((raw) =>
+                        typeof raw === "string" && raw.trim().toLowerCase() === nodeIfName
+                    )
+                })
 
                 const ip = matchedNic?.ipAddress?.trim()
                 const rawNetworkName = matchedNic?.networkName?.trim()
