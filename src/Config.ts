@@ -85,6 +85,15 @@ export const i18nMap = {
         "phy-ports": "Physical Ports",
 
         "Not classified": "Not Classified",
+        "device(s)": "Devices",
+        "libvirt(s)": "User VMs",
+        "switchport(s)": "Switch Ports",
+        "virt-router(s)": "Virtual Routers",
+        "system-vm(s)": "System VMs",
+        "virt-bridge(s)": "Virtual Bridges",
+        "host-bridge(s)": "Host Bridges",
+        "bridge(s)": "Bridges",
+        "bond(s)": "Bond Interfaces",
 
         RxPackets: "Received Packets",
         RxBytes: "Received Bytes",
@@ -277,6 +286,15 @@ export const i18nMap = {
         "phy-ports": "포트",
 
         "Not classified": "분류되지 않음",
+        "device(s)": "장치",
+        "libvirt(s)": "사용자 가상머신",
+        "switchport(s)": "스위치 포트",
+        "virt-router(s)": "가상 라우터",
+        "system-vm(s)": "시스템 가상머신",
+        "virt-bridge(s)": "가상 브릿지",
+        "host-bridge(s)": "호스트 브릿지",
+        "bridge(s)": "브릿지",
+        "bond(s)": "본딩 인터페이스",
 
         "RxPackets": "수신 패킷 수",
         "RxBytes": "수신 바이트 수",
@@ -1373,7 +1391,8 @@ class DefaultConfig {
             nodeType = "host-bridge"
         }
 
-        return nodeType + "(s)"
+        const groupKey = nodeType + "(s)"
+        return translate(groupKey)
     }
 
     weightTitles(): Map<number, string> {
