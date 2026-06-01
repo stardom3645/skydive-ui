@@ -33,7 +33,6 @@ const defaultMaxExpandSize = 100
 
 const nodeWidth = 170
 const nodeHeight = 280
-const userVmChildNetworkGapBoost = 60
 const userVmHorizontalGapBoost = 40
 
 export enum LinkTagState {
@@ -1082,23 +1081,6 @@ export class Topology extends React.Component<Props, {}> {
         return links
     }
 
-    private isUserVmChildNetworkNode(node: D3Node): boolean {
-        const nodeType = node?.data?.wrapped?.data?.Type
-        if (nodeType !== "tuntap") {
-            return false
-        }
-
-        let parent = node.data.wrapped.parent
-        while (parent) {
-            if (parent.data?.Type === "libvirt") {
-                return true
-            }
-            parent = parent.parent
-        }
-
-        return false
-    }
-
     private sceneSizeX() {
         var bb = Array<number>()
         var first = true
@@ -1368,11 +1350,6 @@ export class Topology extends React.Component<Props, {}> {
         }
 
         select("#link-overlay-" + id).classed("link-overlay-selected", active)
-        if (active) {
-            // Keep selected traffic label above overlapped node labels/icons.
-            this.gLinkLabels.raise()
-            select("#link-label-" + id).raise().style("opacity", 1)
-        }
 
         if (this.props.onLinkSelected) {
             this.props.onLinkSelected(l, active)
@@ -2859,14 +2836,6 @@ export class Topology extends React.Component<Props, {}> {
 
         var root = hierarchy(normRoot)
         this.tree(root)
-
-        // Keep global topology geometry unchanged and only increase vertical
-        // spacing between user VM nodes and their child network nodes.
-        root.each((node: any) => {
-            if (this.isUserVmChildNetworkNode(node as D3Node)) {
-                node.y += userVmChildNetworkGapBoost
-            }
-        })
 
         // update d3nodes cache
         this.d3nodes = new Map<string, D3Node>()
