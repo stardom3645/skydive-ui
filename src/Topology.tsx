@@ -1267,7 +1267,11 @@ export class Topology extends React.Component<Props, {}> {
         if (group.type !== WrapperType.Group) {
             return false
         }
-        return group.parent?.wrapped?.data?.Type === "libvirt"
+        if (!Array.isArray(group.wrapped.children) || group.wrapped.children.length === 0) {
+            return false
+        }
+        // VM 하위 네트워크 그룹은 실제 자식 노드가 tuntap 으로 구성됩니다.
+        return group.wrapped.children.some((child) => child?.data?.Type === "tuntap")
     }
 
     private areAllVmNetworkGroupsFullSize(): boolean {
@@ -2281,7 +2285,14 @@ export class Topology extends React.Component<Props, {}> {
 
                 const vmAllIconGroup = g.select("g.brace-vm-all-icon")
                 if (this.isVmNetworkGroup(d) && d.wrapped.children.length <= defaultMaxExpandSize) {
-                    handleIcon(vmAllIconGroup, d, 130, false)
+                    // VM 전체 펼침/접힘 버튼은 그룹 확장 여부와 무관하게 항상 노출합니다.
+                    const d3node = this.d3nodes.get(d.id)
+                    if (d3node) {
+                        const y = d3node.y - nodeWidth / 2
+                        vmAllIconGroup
+                            .style("opacity", 1)
+                            .attr("transform", `translate(${d3node.x + nodeWidth / 2},${y + 130})`)
+                    }
                     const vmAllIconText = vmAllIconGroup.select("text")
                     if (!vmAllIconText.empty()) {
                         vmAllIconText.text(this.areAllVmNetworkGroupsFullSize() ? "\uf146" : "\uf0fe")
