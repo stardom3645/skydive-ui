@@ -2428,7 +2428,19 @@ export class Topology extends React.Component<Props, {}> {
                     parent = parent.parent
                 }
                 const libvirtName = parent?.data?.Name
-                const nicList = libvirtName ? (vmNetworkMap[libvirtName] || []) : []
+                const parentDisplayName = parent ? this.props.nodeAttrs(parent).name : undefined
+                const vmNameMapped = libvirtName ? vmNameMap[libvirtName] : undefined
+                const vmKeys = [libvirtName, vmNameMapped, parentDisplayName]
+                    .map((v) => (typeof v === "string" ? v.trim() : ""))
+                    .filter((v, idx, arr) => !!v && arr.indexOf(v) === idx)
+                let nicList: Array<{ networkName: string, macAddress: string, ipAddress: string }> = []
+                for (const key of vmKeys) {
+                    const found = vmNetworkMap[key]
+                    if (Array.isArray(found) && found.length > 0) {
+                        nicList = found
+                        break
+                    }
+                }
 
                 const nodeMac = typeof nodeData.MAC === "string" ? nodeData.MAC.toLowerCase() : ""
                 const matchedNic = nicList.find((nic) =>

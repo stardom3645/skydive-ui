@@ -85,9 +85,10 @@ export const i18nMap = {
         "phy-ports": "Physical Ports",
 
         "Not classified": "Not Classified",
-        "device(s)": "Devices",
-        "libvirt(s)": "User VMs",
-        "switchport(s)": "Switch Ports",
+        "device(s)-nic": "NIC Group",
+        "device(s)-network": "Network Device Group",
+        "libvirt(s)": "VM Group",
+        "switchport(s)": "Switch Port Group",
         "virt-router(s)": "Virtual Routers",
         "system-vm(s)": "System VMs",
         "virt-bridge(s)": "Virtual Bridges",
@@ -286,9 +287,10 @@ export const i18nMap = {
         "phy-ports": "포트",
 
         "Not classified": "분류되지 않음",
-        "device(s)": "장치",
-        "libvirt(s)": "사용자 가상머신",
-        "switchport(s)": "스위치 포트",
+        "device(s)-nic": "NIC 그룹",
+        "device(s)-network": "네트워크 장치 그룹",
+        "libvirt(s)": "VM 그룹",
+        "switchport(s)": "스위치 포트 그룹",
         "virt-router(s)": "가상 라우터",
         "system-vm(s)": "시스템 가상머신",
         "virt-bridge(s)": "가상 브릿지",
@@ -1392,6 +1394,9 @@ class DefaultConfig {
         }
 
         const groupKey = nodeType + "(s)"
+        if (groupKey === "device(s)") {
+            return translate(node.getWeight() === WEIGHT_PHY_NIC ? "device(s)-nic" : "device(s)-network")
+        }
         return translate(groupKey)
     }
 
