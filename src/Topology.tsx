@@ -2430,7 +2430,16 @@ export class Topology extends React.Component<Props, {}> {
                 const libvirtName = parent?.data?.Name
                 const parentDisplayName = parent ? this.props.nodeAttrs(parent).name : undefined
                 const vmNameMapped = libvirtName ? vmNameMap[libvirtName] : undefined
-                const vmKeys = [libvirtName, vmNameMapped, parentDisplayName]
+                const vmKeys = [
+                    libvirtName,
+                    vmNameMapped,
+                    parentDisplayName,
+                    parent?.data?.UUID,
+                    parent?.data?.ID,
+                    parent?.data?.ExtID,
+                    parent?.data?.VirtualMachineID,
+                    parent?.data?.instanceName
+                ]
                     .map((v) => (typeof v === "string" ? v.trim() : ""))
                     .filter((v, idx, arr) => !!v && arr.indexOf(v) === idx)
                 let nicList: Array<{ networkName: string, macAddress: string, ipAddress: string }> = []
@@ -2448,10 +2457,22 @@ export class Topology extends React.Component<Props, {}> {
                     }
                     return value.toLowerCase().replace(/[^0-9a-f]/g, "")
                 }
+                const pickText = (obj: any, keys: string[]): string => {
+                    for (const key of keys) {
+                        const value = obj?.[key]
+                        if (value !== undefined && value !== null) {
+                            const text = String(value).trim()
+                            if (text) {
+                                return text
+                            }
+                        }
+                    }
+                    return ""
+                }
                 const nodeMac = normalizeMac(nodeData.MAC)
                 const nodeIfName = typeof nodeData.Name === "string" ? nodeData.Name.trim().toLowerCase() : ""
                 const matchedNic = nicList.find((nic: any) => {
-                    const nicMac = normalizeMac(nic.macAddress)
+                    const nicMac = normalizeMac(pickText(nic, ["macAddress", "mac", "mac_address", "macAddr"]))
                     if (nodeMac && nicMac && nodeMac === nicMac) {
                         return true
                     }
@@ -2462,17 +2483,22 @@ export class Topology extends React.Component<Props, {}> {
                         nic.interfaceName,
                         nic.ifName,
                         nic.tapName,
+                        nic.tap_name,
                         nic.deviceName,
+                        nic.device_name,
                         nic.device,
-                        nic.name
+                        nic.name,
+                        nic.iface,
+                        nic.interface
                     ]
                     return nicIfCandidates.some((raw) =>
                         typeof raw === "string" && raw.trim().toLowerCase() === nodeIfName
                     )
                 })
 
-                const ip = matchedNic?.ipAddress?.trim()
-                const rawNetworkName = matchedNic?.networkName?.trim()
+                const fallbackNic = matchedNic || (nicList.length === 1 ? nicList[0] : undefined)
+                const ip = pickText(fallbackNic, ["ipAddress", "ip", "ip_address", "fixedIp", "fixed_ip"])
+                const rawNetworkName = pickText(fallbackNic, ["networkName", "network", "network_name", "name"])
                 const toText = (value: any): string => {
                     if (value === undefined || value === null) {
                         return ""
@@ -2501,7 +2527,7 @@ export class Topology extends React.Component<Props, {}> {
                         nodeData.VlanID,
                         nodeData.Tag,
                         nodeData.ID,
-                        matchedNic?.networkName
+                        rawNetworkName
                     ]
                     for (const raw of candidates) {
                         if (raw === undefined || raw === null) {
