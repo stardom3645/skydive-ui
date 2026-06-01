@@ -2457,6 +2457,12 @@ export class Topology extends React.Component<Props, {}> {
                     }
                     return value.toLowerCase().replace(/[^0-9a-f]/g, "")
                 }
+                const normalizeIP = (value: any): string => {
+                    if (typeof value !== "string") {
+                        return ""
+                    }
+                    return value.trim().split("/")[0]
+                }
                 const normalizeIfToken = (value: any): string => {
                     if (typeof value !== "string") {
                         return ""
@@ -2484,6 +2490,15 @@ export class Topology extends React.Component<Props, {}> {
                     return ""
                 }
                 const nodeMac = normalizeMac(nodeData.MAC)
+                const nodeIPs = [
+                    ...(Array.isArray(nodeData.IPV4) ? nodeData.IPV4 : [nodeData.IPV4]),
+                    ...(Array.isArray(nodeData.IPV6) ? nodeData.IPV6 : [nodeData.IPV6]),
+                    ...(Array.isArray(nodeData.IfAddr) ? nodeData.IfAddr : [nodeData.IfAddr]),
+                    ...(Array.isArray(nodeData.Addresses) ? nodeData.Addresses : [nodeData.Addresses]),
+                ]
+                    .map((v) => normalizeIP(typeof v === "string" ? v : String(v || "")))
+                    .filter((v) => !!v)
+                const nodeIPSet = new Set(nodeIPs)
                 const nodeIfTokens = [
                     ...collectIfTokens(nodeData.Name),
                     ...collectIfTokens(nodeData.IfName),
@@ -2492,6 +2507,10 @@ export class Topology extends React.Component<Props, {}> {
                 ]
                 const nodeIfTokenSet = new Set(nodeIfTokens)
                 const matchedNic = nicList.find((nic: any) => {
+                    const nicIP = normalizeIP(pickText(nic, ["ipAddress", "ip", "ip_address", "fixedIp", "fixed_ip"]))
+                    if (nicIP && nodeIPSet.has(nicIP)) {
+                        return true
+                    }
                     const nicMac = normalizeMac(pickText(nic, ["macAddress", "mac", "mac_address", "macAddr"]))
                     if (nodeMac && nicMac && nodeMac === nicMac) {
                         return true
@@ -2511,7 +2530,13 @@ export class Topology extends React.Component<Props, {}> {
                         nic.iface,
                         nic.interface
                     ]
-                    const nicTokens = nicIfCandidates.flatMap((raw) => collectIfTokens(raw))
+                    const nicTokens = nicIfCandidates.reduce((acc: string[], raw: any) => {
+                        const tokens = collectIfTokens(raw)
+                        if (tokens.length) {
+                            acc.push(...tokens)
+                        }
+                        return acc
+                    }, [] as string[])
                     if (nicTokens.length === 0) {
                         return false
                     }
