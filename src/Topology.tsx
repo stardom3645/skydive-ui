@@ -2457,6 +2457,20 @@ export class Topology extends React.Component<Props, {}> {
                     }
                     return value.toLowerCase().replace(/[^0-9a-f]/g, "")
                 }
+                const normalizeIfToken = (value: any): string => {
+                    if (typeof value !== "string") {
+                        return ""
+                    }
+                    return value.trim().toLowerCase()
+                }
+                const collectIfTokens = (value: any): string[] => {
+                    const raw = normalizeIfToken(value)
+                    if (!raw) {
+                        return []
+                    }
+                    // e.g. "ens3 / vnet13" -> ["ens3", "vnet13"]
+                    return raw.split(/[\/,\s]+/).map((v) => v.trim()).filter(Boolean)
+                }
                 const pickText = (obj: any, keys: string[]): string => {
                     for (const key of keys) {
                         const value = obj?.[key]
@@ -2470,13 +2484,19 @@ export class Topology extends React.Component<Props, {}> {
                     return ""
                 }
                 const nodeMac = normalizeMac(nodeData.MAC)
-                const nodeIfName = typeof nodeData.Name === "string" ? nodeData.Name.trim().toLowerCase() : ""
+                const nodeIfTokens = [
+                    ...collectIfTokens(nodeData.Name),
+                    ...collectIfTokens(nodeData.IfName),
+                    ...collectIfTokens(nodeData.PeerIfName),
+                    ...collectIfTokens(nodeData.Interface),
+                ]
+                const nodeIfTokenSet = new Set(nodeIfTokens)
                 const matchedNic = nicList.find((nic: any) => {
                     const nicMac = normalizeMac(pickText(nic, ["macAddress", "mac", "mac_address", "macAddr"]))
                     if (nodeMac && nicMac && nodeMac === nicMac) {
                         return true
                     }
-                    if (!nodeIfName) {
+                    if (nodeIfTokenSet.size === 0) {
                         return false
                     }
                     const nicIfCandidates = [
@@ -2491,9 +2511,11 @@ export class Topology extends React.Component<Props, {}> {
                         nic.iface,
                         nic.interface
                     ]
-                    return nicIfCandidates.some((raw) =>
-                        typeof raw === "string" && raw.trim().toLowerCase() === nodeIfName
-                    )
+                    const nicTokens = nicIfCandidates.flatMap((raw) => collectIfTokens(raw))
+                    if (nicTokens.length === 0) {
+                        return false
+                    }
+                    return nicTokens.some((token) => nodeIfTokenSet.has(token))
                 })
 
                 const fallbackNic = matchedNic || (nicList.length === 1 ? nicList[0] : undefined)
