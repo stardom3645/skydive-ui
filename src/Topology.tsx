@@ -1263,6 +1263,21 @@ export class Topology extends React.Component<Props, {}> {
         })
     }
 
+    private isVmNetworkGroup(group: NodeWrapper): boolean {
+        if (group.type !== WrapperType.Group) {
+            return false
+        }
+        return group.parent?.wrapped?.data?.Type === "libvirt"
+    }
+
+    private areAllVmNetworkGroupsFullSize(): boolean {
+        const vmGroups = Array.from(this.groups.values()).filter((g) => this.isVmNetworkGroup(g))
+        if (vmGroups.length === 0) {
+            return false
+        }
+        return vmGroups.every((g) => !!g.wrapped.state.groupFullSize)
+    }
+
     selectNode(id: string, active: boolean = true) {
         if (!this.isCtrlPressed && active) {
             this.unselectAllNodes()
@@ -2198,6 +2213,31 @@ export class Topology extends React.Component<Props, {}> {
                 self.resetCacheAndRenderTree()
             })
 
+        var vmAllIcon = groupButtonEnter.append("g")
+            .attr("class", "brace-icon brace-vm-all-icon")
+            .style("opacity", 0)
+        vmAllIcon.append("rect")
+            .attr("rx", 5)
+            .attr("ry", 5)
+        vmAllIcon.append("text")
+            .text("\uf0fe")
+            .on("click", function (d: NodeWrapper) {
+                if (!self.isVmNetworkGroup(d)) {
+                    return
+                }
+                const next = !self.areAllVmNetworkGroupsFullSize()
+                Array.from(self.groups.values()).forEach((group) => {
+                    if (!self.isVmNetworkGroup(group)) {
+                        return
+                    }
+                    group.wrapped.state.groupFullSize = next
+                    group.wrapped.state.expanded = true
+                    group.wrapped.state.groupOffset = 0
+                })
+
+                self.resetCacheAndRenderTree()
+            })
+
             const handleIcons = (g: any, d: NodeWrapper) => {
                 var size = this.props.groupSize || defaultGroupSize
 
@@ -2237,6 +2277,17 @@ export class Topology extends React.Component<Props, {}> {
                         // true 면 '-' (minus-square), false 면 '+' (plus-square)
                         fullIconText.text(d.wrapped.state.groupFullSize ? "\uf146" : "\uf0fe")
                     }
+                }
+
+                const vmAllIconGroup = g.select("g.brace-vm-all-icon")
+                if (this.isVmNetworkGroup(d) && d.wrapped.children.length <= defaultMaxExpandSize) {
+                    handleIcon(vmAllIconGroup, d, 130, false)
+                    const vmAllIconText = vmAllIconGroup.select("text")
+                    if (!vmAllIconText.empty()) {
+                        vmAllIconText.text(this.areAllVmNetworkGroupsFullSize() ? "\uf146" : "\uf0fe")
+                    }
+                } else {
+                    vmAllIconGroup.style("opacity", 0)
                 }
             }
 
