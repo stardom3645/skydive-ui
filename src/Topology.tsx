@@ -2554,9 +2554,16 @@ export class Topology extends React.Component<Props, {}> {
                     return String(value).trim()
                 }
                 const rawNodeNetwork = toText(nodeData.Network)
+                const rawNodeIPv4 = Array.isArray(nodeData.IPV4)
+                    ? toText(nodeData.IPV4[0])
+                    : toText(nodeData.IPV4)
+                const rawNodeIfAddr = Array.isArray(nodeData.IfAddr)
+                    ? toText(nodeData.IfAddr[0])
+                    : toText(nodeData.IfAddr)
                 const rawNodeVlan = toText(nodeData.VLAN || nodeData.Vlan || nodeData.VLANID || nodeData.VlanID)
                 const rawNodeVni = toText(nodeData.VNI || nodeData.Vni)
                 const rawNodeBroadcast = toText(nodeData.Broadcast || nodeData.BROADCAST)
+                const fallbackNodeIP = normalizeIP(rawNodeIPv4 || rawNodeIfAddr)
                 const hasUntaggedHint = [rawNodeNetwork, rawNodeVlan, rawNodeVni, rawNodeBroadcast]
                     .some((v) => /(^|:\/\/)untagged$/i.test(v) || /untagged/i.test(v))
                 const isUntaggedNetwork =
@@ -2566,7 +2573,9 @@ export class Topology extends React.Component<Props, {}> {
                     /^(vlan:\/\/)?untagged$/i.test(rawNodeVni) ||
                     /^(vlan:\/\/)?untagged$/i.test(rawNodeBroadcast) ||
                     (/^l2$/i.test(rawNetworkName || "") && hasUntaggedHint)
-                const networkName = isUntaggedNetwork ? "L2 Untagged" : rawNetworkName
+                const networkName = isUntaggedNetwork
+                    ? "L2 Untagged"
+                    : (rawNetworkName || rawNodeNetwork)
                 const detectVlanId = (): string | undefined => {
                     const candidates = [
                         nodeData.VLAN,
@@ -2601,11 +2610,13 @@ export class Topology extends React.Component<Props, {}> {
                 }
                 const vlanId = detectVlanId()
 
-                if (ip && networkName) {
-                    return `${ip}\n${networkName}`
+                const displayIP = ip || fallbackNodeIP
+
+                if (displayIP && networkName) {
+                    return `${displayIP}\n${networkName}`
                 }
-                if (ip) {
-                    return ip
+                if (displayIP) {
+                    return displayIP
                 }
                 if (networkName && vlanId) {
                     return `${networkName}\nVLAN ${vlanId}`

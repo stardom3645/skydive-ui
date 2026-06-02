@@ -282,7 +282,12 @@ export class DataViewer extends React.Component<Props, State> {
                         if (key === "Network") {
                           const networks = Array.from(new Set(nicList.map((n: any) => n.networkName).filter((n: string) => !!n)));
                           if (networks.length) {
-                            return networks.join(",");
+                            const mappedNetworks = networks.join(",");
+                            const rawNetworkValue = typeof value === "string" ? value.trim() : "";
+                            if (rawNetworkValue && rawNetworkValue !== mappedNetworks) {
+                              return `${mappedNetworks} (${rawNetworkValue})`;
+                            }
+                            return mappedNetworks;
                           }
                         }
                       }
