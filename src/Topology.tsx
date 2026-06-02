@@ -2497,7 +2497,14 @@ export class Topology extends React.Component<Props, {}> {
                     }
                     return ""
                 }
-                const nodeMac = normalizeMac(nodeData.MAC)
+                const nodeMacCandidates = [
+                    nodeData.MAC,
+                    nodeData.PeerIntfMAC,
+                    nodeData?.Libvirt?.MAC,
+                    nodeData?.Libvirt?.Mac,
+                ]
+                    .map((v) => normalizeMac(v))
+                    .filter((v, idx, arr) => !!v && arr.indexOf(v) === idx)
                 const nodeIPs = [
                     ...(Array.isArray(nodeData.IPV4) ? nodeData.IPV4 : [nodeData.IPV4]),
                     ...(Array.isArray(nodeData.IPV6) ? nodeData.IPV6 : [nodeData.IPV6]),
@@ -2520,7 +2527,7 @@ export class Topology extends React.Component<Props, {}> {
                         return true
                     }
                     const nicMac = normalizeMac(pickText(nic, ["macAddress", "mac", "mac_address", "macAddr"]))
-                    if (nodeMac && nicMac && nodeMac === nicMac) {
+                    if (nicMac && nodeMacCandidates.some((m) => m === nicMac)) {
                         return true
                     }
                     if (nodeIfTokenSet.size === 0) {
