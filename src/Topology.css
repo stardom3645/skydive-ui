@@ -150,6 +150,13 @@ svg {
     transition: opacity 120ms ease;
 }
 
+.link-label-tooltip-pinned {
+    z-index: 30;
+    background: var(--netdive-detail-bg, #ffffff);
+    border: 2px solid var(--netdive-detail-accent, #1A73E8);
+    box-shadow: 0 14px 34px rgba(15, 23, 42, 0.26);
+}
+
 .hiera-link {
     stroke: var(--topology-hiera-link);
     stroke-width: 2.6;

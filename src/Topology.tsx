@@ -236,6 +236,7 @@ export class Topology extends React.Component<Props, {}> {
     private gNodes: Selection<SVGGraphicsElement, {}, null, undefined>
     private gContextMenu: Selection<SVGGraphicsElement, {}, null, undefined>
     private linkTooltip: Selection<HTMLDivElement, {}, null, undefined>
+    private selectedLinkTooltipID: string | null
     private zoom: zoom
     private liner: line
     private nodeClickedID: number
@@ -279,6 +280,7 @@ export class Topology extends React.Component<Props, {}> {
         this.isCtrlPressed = false
         this.nodeClickedID = 0
         this.showLevelLabelsTimeoutID = 0
+        this.selectedLinkTooltipID = null
     }
     componentDidMount() {
         select("body")
@@ -341,6 +343,8 @@ export class Topology extends React.Component<Props, {}> {
             .attr("height", height)
             .on("click", () => {
                 this.hideNodeContextMenu()
+                this.hideLinkTooltip(true)
+                this.hideHoverLinkLabel()
                 this.props.onClick()
             })
 
@@ -1849,16 +1853,18 @@ export class Topology extends React.Component<Props, {}> {
 
         this.hideNodeContextMenu()
         this.selectLink(d.id, true)
+        this.showHoverLinkLabel(d)
+        this.showLinkTooltip(d, true)
     }
 
-    private showLinkTooltip(d: Link) {
+    private showLinkTooltip(d: Link, pinned: boolean = false) {
         if (!this.svgDiv || !this.linkTooltip) {
             return
         }
 
         const label = this.props.linkAttrs(d).label
         if (!label) {
-            this.hideLinkTooltip()
+            this.hideLinkTooltip(pinned)
             return
         }
         const sourceName = this.props.nodeAttrs(d.source).name || d.source.data?.Name || "source"
@@ -1872,9 +1878,12 @@ export class Topology extends React.Component<Props, {}> {
 
         this.linkTooltip
             .text(tooltipText)
+            .classed("link-label-tooltip-pinned", pinned)
             .style("left", `${x + 12}px`)
             .style("top", `${y + 12}px`)
             .style("opacity", 1)
+
+        this.selectedLinkTooltipID = pinned ? d.id : this.selectedLinkTooltipID
     }
 
     private showHoverLinkLabel(d: Link) {
@@ -1906,10 +1915,14 @@ export class Topology extends React.Component<Props, {}> {
         this.gLinkLabelHover.selectAll("text.link-label-hover").remove()
     }
 
-    private hideLinkTooltip() {
+    private hideLinkTooltip(force: boolean = false) {
         if (!this.linkTooltip) {
             return
         }
+        if (this.selectedLinkTooltipID && !force) {
+            return
+        }
+        this.selectedLinkTooltipID = null
         this.linkTooltip.style("opacity", 0)
     }
 
@@ -3024,11 +3037,13 @@ export class Topology extends React.Component<Props, {}> {
                     select("#link-overlay-" + d.id)
                         .style("opacity", 1)
                     this.showHoverLinkLabel(d)
-                    this.showLinkTooltip(d)
+                    if (!this.selectedLinkTooltipID) {
+                        this.showLinkTooltip(d)
+                    }
                 }
             })
             .on("mousemove", (d: Link) => {
-                if (isVisible(d)) {
+                if (isVisible(d) && !this.selectedLinkTooltipID) {
                     this.showLinkTooltip(d)
                 }
             })
