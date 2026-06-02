@@ -117,7 +117,7 @@ class SelectionPanel extends React.Component<Props, State> {
           key={"tab-" + i}
           label={
             <Tooltip title={title} placement="bottom" arrow>
-              <span className={classes.tabTitle} title={title}>{title}</span>
+              <span className={`${classes.tabTitle} ${title.includes("\n") ? classes.tabTitleMulti : ""}`} title={title}>{title}</span>
             </Tooltip>
           }
           {...a11yProps(i)} />

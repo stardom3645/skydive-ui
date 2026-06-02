@@ -1316,12 +1316,161 @@ class DefaultConfig {
         return translate("infrastructure")
     }
 
+    private normalizeNodeIP(value: any): string {
+        if (typeof value !== "string") {
+            return ""
+        }
+        return value.trim().split("/")[0]
+    }
+
+    private pickNodeText(obj: any, keys: string[]): string {
+        for (const key of keys) {
+            const value = obj?.[key]
+            if (value !== undefined && value !== null) {
+                const text = String(value).trim()
+                if (text) {
+                    return text
+                }
+            }
+        }
+        return ""
+    }
+
+    private normalizeNodeMac(value: any): string {
+        if (typeof value !== "string") {
+            return ""
+        }
+        return value.toLowerCase().replace(/[^0-9a-f]/g, "")
+    }
+
+    private collectNodeIfTokens(value: any): string[] {
+        if (typeof value !== "string") {
+            return []
+        }
+        return value.trim().toLowerCase().split(/[\/,\s]+/).map((v) => v.trim()).filter(Boolean)
+    }
+
+    private vmChildNetworkTabTitle(node: Node): string | undefined {
+        const nodeData = node.data || {}
+        const nodeType = typeof nodeData.Type === "string" ? nodeData.Type.toLowerCase() : ""
+        const nodeDriver = typeof nodeData.Driver === "string" ? nodeData.Driver.toLowerCase() : ""
+        if (nodeType !== "tuntap" && nodeType !== "tun" && nodeDriver !== "tun" && nodeDriver !== "tuntap") {
+            return undefined
+        }
+
+        let parent = node.parent
+        while (parent && parent.data?.Type !== "libvirt") {
+            parent = parent.parent
+        }
+
+        const appState = (window as any).App?.state || {}
+        const vmNameMap = appState.vmNameMap || {}
+        const vmNetworkMap = appState.vmNetworkMap || {}
+        const libvirtName = parent?.data?.Name
+        const vmKeys = [
+            libvirtName,
+            typeof libvirtName === "string" ? vmNameMap[libvirtName] : undefined,
+            parent?.data?.UUID,
+            parent?.data?.ID,
+            parent?.data?.ExtID,
+            parent?.data?.VirtualMachineID,
+            parent?.data?.instanceName
+        ]
+            .map((v) => (typeof v === "string" ? v.trim() : ""))
+            .filter((v, idx, arr) => !!v && arr.indexOf(v) === idx)
+
+        let nicList: Array<any> = []
+        for (const key of vmKeys) {
+            const found = vmNetworkMap[key]
+            if (Array.isArray(found) && found.length > 0) {
+                nicList = found
+                break
+            }
+        }
+
+        const nodeMacCandidates = [
+            nodeData.MAC,
+            nodeData.PeerIntfMAC,
+            nodeData?.Libvirt?.MAC,
+            nodeData?.Libvirt?.Mac,
+        ].map((v) => this.normalizeNodeMac(v)).filter((v, idx, arr) => !!v && arr.indexOf(v) === idx)
+        const nodeIPs = [
+            ...(Array.isArray(nodeData.IPV4) ? nodeData.IPV4 : [nodeData.IPV4]),
+            ...(Array.isArray(nodeData.IPV6) ? nodeData.IPV6 : [nodeData.IPV6]),
+            ...(Array.isArray(nodeData.IfAddr) ? nodeData.IfAddr : [nodeData.IfAddr]),
+            ...(Array.isArray(nodeData.Addresses) ? nodeData.Addresses : [nodeData.Addresses]),
+        ].map((v) => this.normalizeNodeIP(typeof v === "string" ? v : String(v || ""))).filter((v) => !!v)
+        const nodeIPSet = new Set(nodeIPs)
+        const nodeIfTokenSet = new Set([
+            ...this.collectNodeIfTokens(nodeData.Name),
+            ...this.collectNodeIfTokens(nodeData.IfName),
+            ...this.collectNodeIfTokens(nodeData.PeerIfName),
+            ...this.collectNodeIfTokens(nodeData.Interface),
+        ])
+
+        const matchedNic = nicList.find((nic: any) => {
+            const nicIP = this.normalizeNodeIP(this.pickNodeText(nic, ["ipAddress", "ip", "ip_address", "fixedIp", "fixed_ip"]))
+            if (nicIP && nodeIPSet.has(nicIP)) {
+                return true
+            }
+            const nicMac = this.normalizeNodeMac(this.pickNodeText(nic, ["macAddress", "mac", "mac_address", "macAddr"]))
+            if (nicMac && nodeMacCandidates.some((m) => m === nicMac)) {
+                return true
+            }
+            const nicTokens = [
+                nic.interfaceName,
+                nic.ifName,
+                nic.tapName,
+                nic.tap_name,
+                nic.deviceName,
+                nic.device_name,
+                nic.device,
+                nic.name,
+                nic.iface,
+                nic.interface
+            ].reduce((acc: string[], raw: any) => {
+                acc.push(...this.collectNodeIfTokens(raw))
+                return acc
+            }, [] as string[])
+            return nicTokens.some((token) => nodeIfTokenSet.has(token))
+        })
+
+        const fallbackNic = matchedNic || (nicList.length === 1 ? nicList[0] : undefined)
+        const mappedIP = this.pickNodeText(fallbackNic, ["ipAddress", "ip", "ip_address", "fixedIp", "fixed_ip"])
+        const mappedNetwork = this.pickNodeText(fallbackNic, ["networkName", "network", "network_name", "name"])
+        const nodeIP = this.normalizeNodeIP(
+            Array.isArray(nodeData.IPV4) ? String(nodeData.IPV4[0] || "") :
+                Array.isArray(nodeData.IfAddr) ? String(nodeData.IfAddr[0] || "") :
+                    String(nodeData.IPV4 || nodeData.IfAddr || "")
+        )
+        const nodeNetwork = this.pickNodeText(nodeData, ["Network"])
+        const displayIP = mappedIP || nodeIP
+        const displayNetwork = mappedNetwork || nodeNetwork
+
+        if (displayIP && displayNetwork) {
+            return `${displayIP}\n${displayNetwork}`
+        }
+        if (displayIP) {
+            return displayIP
+        }
+        if (displayNetwork) {
+            return displayNetwork
+        }
+        return undefined
+    }
+
     nodeTabTitle(node: Node): string {
         const name = node?.data?.Name
         if (!name || typeof name !== "string") {
             return ""
         }
-        // Keep full node name in the right tab title; visual clipping is handled by CSS + tooltip.
+        if (node.data?.Type === "libvirt") {
+            return (window as any).App?.state?.vmNameMap?.[name] || name
+        }
+        const vmChildNetworkTitle = this.vmChildNetworkTabTitle(node)
+        if (vmChildNetworkTitle) {
+            return vmChildNetworkTitle
+        }
         return name
     }
 

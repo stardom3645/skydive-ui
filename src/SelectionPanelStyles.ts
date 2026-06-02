@@ -89,6 +89,12 @@ export const styles = (theme: Theme) => createStyles({
     color: 'var(--netdive-detail-text)',
     cursor: 'help'
   },
+  tabTitleMulti: {
+    whiteSpace: 'pre-line',
+    textAlign: 'center',
+    lineHeight: 1.2,
+    textOverflow: 'clip'
+  },
   tabActions: {
     display: 'flex',
     flexDirection: 'row-reverse',
