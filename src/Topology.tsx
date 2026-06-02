@@ -234,6 +234,7 @@ export class Topology extends React.Component<Props, {}> {
     private gGroupButtons: Selection<SVGGraphicsElement, {}, null, undefined>
     private gNodes: Selection<SVGGraphicsElement, {}, null, undefined>
     private gContextMenu: Selection<SVGGraphicsElement, {}, null, undefined>
+    private linkTooltip: Selection<HTMLDivElement, {}, null, undefined>
     private zoom: zoom
     private liner: line
     private nodeClickedID: number
@@ -313,6 +314,7 @@ export class Topology extends React.Component<Props, {}> {
         }
         if (this.svgDiv) {
             select(this.svgDiv).select("svg").remove()
+            select(this.svgDiv).select(".link-label-tooltip").remove()
         }
     }
 
@@ -340,6 +342,10 @@ export class Topology extends React.Component<Props, {}> {
                 this.hideNodeContextMenu()
                 this.props.onClick()
             })
+
+        this.linkTooltip = select(this.svgDiv).append("div")
+            .attr("class", "link-label-tooltip")
+            .style("opacity", 0)
 
         var defs = this.svg.append("defs")
 
@@ -1840,6 +1846,36 @@ export class Topology extends React.Component<Props, {}> {
         this.selectLink(d.id, true)
     }
 
+    private showLinkTooltip(d: Link) {
+        if (!this.svgDiv || !this.linkTooltip) {
+            return
+        }
+
+        const label = this.props.linkAttrs(d).label
+        if (!label) {
+            this.hideLinkTooltip()
+            return
+        }
+
+        const rect = this.svgDiv.getBoundingClientRect()
+        const mouseEvent = event as MouseEvent
+        const x = mouseEvent.clientX - rect.left
+        const y = mouseEvent.clientY - rect.top
+
+        this.linkTooltip
+            .text(label)
+            .style("left", `${x + 12}px`)
+            .style("top", `${y + 12}px`)
+            .style("opacity", 1)
+    }
+
+    private hideLinkTooltip() {
+        if (!this.linkTooltip) {
+            return
+        }
+        this.linkTooltip.style("opacity", 0)
+    }
+
     private renderLevels() {
         var self = this
         const lang = localStorage.getItem("language") || "ko";
@@ -2065,6 +2101,7 @@ export class Topology extends React.Component<Props, {}> {
                 return
             }
 
+            var x = d3node.x + d.size[0] / 2
             var y = d3node.y - nodeWidth / 2
 
             var text = gIcon.select("text")
@@ -2086,7 +2123,7 @@ export class Topology extends React.Component<Props, {}> {
 
             gIcon
                 .style("opacity", opacity)
-                .attr("transform", (d: D3Node) => d3node ? `translate(${d3node.x + nodeWidth / 2},${y + dy})` : ``)
+                .attr("transform", (d: D3Node) => d3node ? `translate(${x},${y + dy})` : ``)
         }
 
         const handleOffset = (gIcon: any, d: NodeWrapper, dy: number, offset: number, disabled: boolean) => {
@@ -2095,6 +2132,7 @@ export class Topology extends React.Component<Props, {}> {
                 return
             }
 
+            var x = d3node.x + d.size[0] / 2
             var y = d3node.y - nodeWidth / 2
 
             var text = gIcon.select("text")
@@ -2119,7 +2157,7 @@ export class Topology extends React.Component<Props, {}> {
             gIcon = gIcon.transition()
                 .duration(animDuration)
                 .style("opacity", opacity)
-                .attr("transform", (d: D3Node) => d3node ? `translate(${d3node.x + nodeWidth / 2},${y + dy})` : ``)
+                .attr("transform", (d: D3Node) => d3node ? `translate(${x},${y + dy})` : ``)
         }
 
         var groupButton = this.gGroupButtons.selectAll('g.group-button')
@@ -2948,6 +2986,12 @@ export class Topology extends React.Component<Props, {}> {
                 if (isVisible(d)) {
                     select("#link-overlay-" + d.id)
                         .style("opacity", 1)
+                    this.showLinkTooltip(d)
+                }
+            })
+            .on("mousemove", (d: Link) => {
+                if (isVisible(d)) {
+                    this.showLinkTooltip(d)
                 }
             })
             .on("mouseout", (d: Link) => {
@@ -2955,6 +2999,7 @@ export class Topology extends React.Component<Props, {}> {
                     select("#link-overlay-" + d.id)
                         .style("opacity", (d: Link) => d.state.selected ? 1 : 0)
                 }
+                this.hideLinkTooltip()
             })
         linkWrap.exit().remove()
 

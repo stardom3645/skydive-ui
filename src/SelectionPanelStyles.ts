@@ -95,6 +95,9 @@ export const styles = (theme: Theme) => createStyles({
     lineHeight: 1.2,
     textOverflow: 'clip'
   },
+  tabTitleTooltip: {
+    fontSize: 12
+  },
   tabActions: {
     display: 'flex',
     flexDirection: 'row-reverse',

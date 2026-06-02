@@ -131,6 +131,25 @@ svg {
     fill: var(--topology-link-label);
 }
 
+.link-label-tooltip {
+    position: absolute;
+    z-index: 20;
+    pointer-events: none;
+    padding: 7px 10px;
+    border-radius: 8px;
+    background: var(--netdive-detail-bg, #ffffff);
+    border: 1px solid var(--netdive-detail-border, #cbd7e6);
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
+    color: var(--netdive-detail-text, #0f172a);
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.25;
+    white-space: nowrap;
+    transform: translate3d(0, 0, 0);
+    transition: opacity 120ms ease;
+}
+
 .hiera-link {
     stroke: var(--topology-hiera-link);
     stroke-width: 2.6;
