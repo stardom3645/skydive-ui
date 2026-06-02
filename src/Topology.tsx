@@ -229,6 +229,7 @@ export class Topology extends React.Component<Props, {}> {
     private gLinkOverlays: Selection<SVGGraphicsElement, {}, null, undefined>
     private gLinks: Selection<SVGGraphicsElement, {}, null, undefined>
     private gLinkLabels: Selection<SVGGraphicsElement, {}, null, undefined>
+    private gLinkLabelHover: Selection<SVGGraphicsElement, {}, null, undefined>
     private gLinkWraps: Selection<SVGGraphicsElement, {}, null, undefined>
     private gGroups: Selection<SVGGraphicsElement, {}, null, undefined>
     private gGroupButtons: Selection<SVGGraphicsElement, {}, null, undefined>
@@ -456,6 +457,10 @@ export class Topology extends React.Component<Props, {}> {
         // link labels
         this.gLinkLabels = this.g.append("g")
             .attr("class", "link-labels")
+
+        // hovered link labels, drawn above nodes only while inspecting traffic
+        this.gLinkLabelHover = this.g.append("g")
+            .attr("class", "link-labels link-labels-hover")
 
         // link wrapper group, used to catch mouse event
         this.gLinkWraps = this.g.append("g")
@@ -1856,6 +1861,9 @@ export class Topology extends React.Component<Props, {}> {
             this.hideLinkTooltip()
             return
         }
+        const sourceName = this.props.nodeAttrs(d.source).name || d.source.data?.Name || "source"
+        const targetName = this.props.nodeAttrs(d.target).name || d.target.data?.Name || "target"
+        const tooltipText = `${sourceName} ↔ ${targetName}\n${label}\nsource 기준 Rx+Tx 합계`
 
         const rect = this.svgDiv.getBoundingClientRect()
         const mouseEvent = event as MouseEvent
@@ -1863,10 +1871,39 @@ export class Topology extends React.Component<Props, {}> {
         const y = mouseEvent.clientY - rect.top
 
         this.linkTooltip
-            .text(label)
+            .text(tooltipText)
             .style("left", `${x + 12}px`)
             .style("top", `${y + 12}px`)
             .style("opacity", 1)
+    }
+
+    private showHoverLinkLabel(d: Link) {
+        const label = this.props.linkAttrs(d).label
+        if (!label) {
+            this.hideHoverLinkLabel()
+            return
+        }
+
+        this.gLinkLabelHover.selectAll("text.link-label-hover").remove()
+        const hoverLabel = this.gLinkLabelHover.append("text")
+            .attr("class", "link-label link-label-hover")
+            .attr("dy", -8)
+
+        hoverLabel.append("textPath")
+            .attr("xlink:href", "#link-" + d.id)
+            .attr("text-anchor", "middle")
+            .attr("startOffset", "50%")
+            .text(label)
+
+        this.gLinkLabelHover.raise()
+        this.gLinkWraps.raise()
+    }
+
+    private hideHoverLinkLabel() {
+        if (!this.gLinkLabelHover) {
+            return
+        }
+        this.gLinkLabelHover.selectAll("text.link-label-hover").remove()
     }
 
     private hideLinkTooltip() {
@@ -2986,6 +3023,7 @@ export class Topology extends React.Component<Props, {}> {
                 if (isVisible(d)) {
                     select("#link-overlay-" + d.id)
                         .style("opacity", 1)
+                    this.showHoverLinkLabel(d)
                     this.showLinkTooltip(d)
                 }
             })
@@ -2999,6 +3037,7 @@ export class Topology extends React.Component<Props, {}> {
                     select("#link-overlay-" + d.id)
                         .style("opacity", (d: Link) => d.state.selected ? 1 : 0)
                 }
+                this.hideHoverLinkLabel()
                 this.hideLinkTooltip()
             })
         linkWrap.exit().remove()
