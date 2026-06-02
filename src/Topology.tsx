@@ -2423,7 +2423,14 @@ export class Topology extends React.Component<Props, {}> {
 
             // For VM child NIC nodes, prefer operator-facing label:
             // IP > Mold network name > existing interface name.
-            if (nodeData.Type === "tuntap") {
+            const nodeType = typeof nodeData.Type === "string" ? nodeData.Type.toLowerCase() : ""
+            const nodeDriver = typeof nodeData.Driver === "string" ? nodeData.Driver.toLowerCase() : ""
+            if (
+                nodeType === "tuntap" ||
+                nodeType === "tun" ||
+                nodeDriver === "tun" ||
+                nodeDriver === "tuntap"
+            ) {
                 let parent = d.data.wrapped.parent
                 while (parent && parent.data?.Type !== "libvirt") {
                     parent = parent.parent
