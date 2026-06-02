@@ -3027,6 +3027,8 @@ export class Topology extends React.Component<Props, {}> {
         this.renderNodes(root)
         this.renderGroups()
         this.renderLinks()
+        // Keep invisible link hit areas above nodes so traffic labels remain inspectable.
+        this.gLinkWraps.raise()
 
         this.invalidated = false
     }

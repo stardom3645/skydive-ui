@@ -96,7 +96,7 @@ export const styles = (theme: Theme) => createStyles({
     textOverflow: 'clip'
   },
   tabTitleTooltip: {
-    fontSize: 12
+    fontSize: 14
   },
   tabActions: {
     display: 'flex',
