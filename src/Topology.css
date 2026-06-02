@@ -262,7 +262,7 @@ svg {
     font-family: 'Font Awesome 5 Free' !important;
     fill: #1e3a8a;
     font-weight: 900;
-    font-size: 30px;
+    font-size: 24px;
 }
 
 .group-button .brace-icon rect {
@@ -272,7 +272,7 @@ svg {
 
 .group-button .brace-offset text {
     fill: #ffffff;
-    font-size: 20px;
+    font-size: 16px;
     font-weight: bold;
 }
 

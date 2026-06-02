@@ -2105,8 +2105,8 @@ export class Topology extends React.Component<Props, {}> {
 
             var bb = text.node().getBBox()
             gIcon.select("rect")
-                .attr("x", 0)
-                .attr("y", -15)
+                .attr("x", bb.x - 6)
+                .attr("y", bb.y - 1)
                 .attr("width", bb.width + 12)
                 .attr("height", 21)
 
