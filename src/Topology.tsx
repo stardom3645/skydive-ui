@@ -2099,15 +2099,14 @@ export class Topology extends React.Component<Props, {}> {
 
             var text = gIcon.select("text")
             text.text(offset)
-
-            var bb = text.node().getBBox()
             text
                 .attr("dx", 6)
                 .attr("dy", 1)
 
+            var bb = text.node().getBBox()
             gIcon.select("rect")
-                .attr("x", bb.x - 6)
-                .attr("y", bb.y - 1)
+                .attr("x", 0)
+                .attr("y", -15)
                 .attr("width", bb.width + 12)
                 .attr("height", 21)
 
