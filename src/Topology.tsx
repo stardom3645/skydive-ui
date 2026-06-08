@@ -1258,8 +1258,8 @@ export class Topology extends React.Component<Props, {}> {
             select(this).style("opacity", self.isLinkVisible(d) ? 1 : 0)
         })
 
-        selectAll("text.link-label").each(function (d: Link) {
-            select(this).style("opacity", self.isLinkVisible(d) ? 1 : 0)
+        selectAll("g.link-label").each(function (d: Link) {
+            select(this).style("opacity", self.linkLabelOpacity(d))
         })
     }
 
@@ -1291,6 +1291,7 @@ export class Topology extends React.Component<Props, {}> {
         if (d) {
             this.highlightNeighborLinks(d, active)
         }
+        this.hideLinks()
         this.updateLevelLabelActiveClass()
     }
 
@@ -1627,6 +1628,20 @@ export class Topology extends React.Component<Props, {}> {
         return link.source.state.mouseover || link.target.state.mouseover
     }
 
+    private hasSelectedLinkNode(): boolean {
+        return this.visibleLinks().some((link: Link) => this.isLinkNodeSelected(link))
+    }
+
+    private linkLabelOpacity(link: Link): number {
+        if (!this.isLinkVisible(link)) {
+            return 0
+        }
+        if (this.isLinkNodeSelected(link)) {
+            return 1
+        }
+        return this.hasSelectedLinkNode() ? 0.28 : 1
+    }
+
     private highlightNeighborLinks(d: D3Node, active: boolean) {
         var opacity = active ? 1 : 0
 
@@ -1641,7 +1656,7 @@ export class Topology extends React.Component<Props, {}> {
                     .attr("class", (d: Link) => isVisible(d) ? this.linkClass(d) : 'link')
                     .style("opacity", isVisible)
                 select("#link-label-" + link.id)
-                    .style("opacity", isVisible)
+                    .style("opacity", this.linkLabelOpacity(link))
                 select("#link-overlay-" + link.id)
                     .style("opacity", link.state.selected || opacity)
             }
@@ -2915,26 +2930,102 @@ export class Topology extends React.Component<Props, {}> {
             .style("opacity", (d: Link) => isVisible(d) ? 1 : 0)
             .attr("d", linker)
 
-        var linkLabel = this.gLinkLabels.selectAll('text.link-label')
+        const linkLabelClass = (d: Link) => new Array<string>().concat("link-label",
+            this.isLinkNodeSelected(d) ? "link-label-priority" : "").join(" ")
+
+        const linkLabelPosition = (d: Link) => {
+            const dSource = this.d3nodes.get(d.source.id)
+            const dTarget = this.d3nodes.get(d.target.id)
+
+            if (!dSource || !dTarget) {
+                return { x: 0, y: 0 }
+            }
+
+            const x1 = dSource.x
+            const y1 = dSource.y
+            const x2 = dTarget.x
+            const y2 = dTarget.y
+            const dx = x2 - x1
+            const dy = y2 - y1
+            const len = Math.sqrt(dx * dx + dy * dy) || 1
+            const mx = (x1 + x2) / 2
+            const my = (y1 + y2) / 2
+
+            let ox = 0
+            let oy = 0
+
+            if (Math.abs(dx) < nodeWidth * 0.35) {
+                ox = 36
+            } else if (Math.abs(dy) < nodeHeight * 0.2) {
+                oy = -34
+            } else {
+                ox = (-dy / len) * 34
+                oy = (dx / len) * 34
+            }
+
+            let x = mx + ox
+            let y = my + oy
+
+            for (const node of this.d3nodes.values()) {
+                if (node.data.type === WrapperType.Hidden) {
+                    continue
+                }
+
+                const labelY = node.y + 74
+                const labelWidth = nodeWidth + 48
+                if (Math.abs(x - node.x) < labelWidth / 2 && Math.abs(y - labelY) < 34) {
+                    x += ox || 34
+                    y += oy || -28
+                    break
+                }
+            }
+
+            return { x, y }
+        }
+
+        var linkLabel = this.gLinkLabels.selectAll('g.link-label')
             .interrupt()
             .data(visibleLinks.filter((d: Link) => this.props.linkAttrs(d).label), (d: Link) => d.id)
 
         var linkLabelEnter = linkLabel.enter()
-            .append('text')
-            .attr("class", "link-label")
+            .append('g')
+            .attr("class", linkLabelClass)
             .attr("id", (d: Link) => "link-label-" + d.id)
-            .attr("dy", -8)
-            .style("opacity", (d: Link) => isVisible(d) ? 1 : 0)
-        linkLabelEnter.append('textPath')
-            .attr("xlink:href", (d: Link) => "#link-" + d.id)
+            .style("opacity", (d: Link) => this.linkLabelOpacity(d))
+        linkLabelEnter.append('rect')
+            .attr("class", "link-label-bg")
+            .attr("rx", 7)
+            .attr("ry", 7)
+        linkLabelEnter.append('text')
+            .attr("class", "link-label-text")
             .attr("text-anchor", "middle")
-            .attr("startOffset", "50%")
+            .attr("dy", "0.35em")
             .text((d: Link) => this.props.linkAttrs(d).label)
         linkLabel.exit().remove()
 
         linkLabel = linkLabel.merge(linkLabelEnter)
-        linkLabel.style("opacity", (d: Link) => isVisible(d) ? 1 : 0)
-        linkLabel.select('textPath').text((d: Link) => this.props.linkAttrs(d).label)
+        linkLabel
+            .attr("class", linkLabelClass)
+            .style("opacity", (d: Link) => this.linkLabelOpacity(d))
+            .attr("transform", (d: Link) => {
+                const position = linkLabelPosition(d)
+                return `translate(${position.x},${position.y})`
+            })
+        linkLabel.select('text').text((d: Link) => this.props.linkAttrs(d).label)
+        linkLabel.each(function () {
+            const label = select(this)
+            const text = label.select("text").node() as SVGTextElement | null
+            if (!text) {
+                return
+            }
+
+            const bb = text.getBBox()
+            label.select("rect")
+                .attr("x", bb.x - 10)
+                .attr("y", bb.y - 6)
+                .attr("width", bb.width + 20)
+                .attr("height", bb.height + 12)
+        })
 
         var linkWrap = this.gLinkWraps.selectAll('path.link-wrap')
             .interrupt()

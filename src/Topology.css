@@ -125,10 +125,47 @@ svg {
 }
 
 .link-label {
-    font-size: 30px;
-    font-weight: normal;
     font-family: 'Noto Sans KR', sans-serif;
+    pointer-events: none;
+}
+
+.link-label-bg {
+    fill: rgba(255, 255, 255, 0.82);
+    stroke: rgba(148, 163, 184, 0.45);
+    stroke-width: 1px;
+    filter: drop-shadow(0 3px 8px rgba(15, 23, 42, 0.14));
+}
+
+.link-label-text {
+    font-size: 30px;
+    font-weight: 700;
     fill: var(--topology-link-label);
+    paint-order: stroke;
+    stroke: rgba(255, 255, 255, 0.72);
+    stroke-width: 3px;
+    stroke-linejoin: round;
+}
+
+.link-label-priority .link-label-bg {
+    fill: rgba(232, 242, 255, 0.94);
+    stroke: rgba(26, 115, 232, 0.45);
+}
+
+.netdive-theme-dark .link-label-bg,
+[data-netdive-theme="dark"] .link-label-bg {
+    fill: rgba(15, 23, 42, 0.82);
+    stroke: rgba(148, 163, 184, 0.35);
+}
+
+.netdive-theme-dark .link-label-text,
+[data-netdive-theme="dark"] .link-label-text {
+    stroke: rgba(15, 23, 42, 0.72);
+}
+
+.netdive-theme-dark .link-label-priority .link-label-bg,
+[data-netdive-theme="dark"] .link-label-priority .link-label-bg {
+    fill: rgba(26, 115, 232, 0.22);
+    stroke: rgba(96, 165, 250, 0.55);
 }
 
 .hiera-link {
