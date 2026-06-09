@@ -227,6 +227,7 @@ class App extends React.Component<Props, State> {
   private wsOnOpen: () => void
   private wsOnMessage: (msg: string) => void
   private wsOnClose: () => void
+  private kubernetesRequestSeq: number
 
   constructor(props) {
     super(props)
@@ -290,6 +291,7 @@ class App extends React.Component<Props, State> {
     this.wsOnOpen = this.onWebSocketOpen.bind(this)
     this.wsOnMessage = this.onWebSocketMessage.bind(this)
     this.wsOnClose = this.onWebSocketClose.bind(this)
+    this.kubernetesRequestSeq = 0
   }
 
   setLanguage(lang: "en" | "ko") {
@@ -409,23 +411,42 @@ class App extends React.Component<Props, State> {
     })
   }
 
-  private refreshKubernetesClusters() {
-    this.setState({ kubernetesLoading: true })
-    fetch("/api/mold/kubernetes-clusters", { cache: "no-store" }).then((resp) => {
+  private fetchKubernetesAPI(path: string, options: RequestInit = {}, timeoutMs = 15000): Promise<any> {
+    const controller = new AbortController()
+    const timeoutID = window.setTimeout(() => controller.abort(), timeoutMs)
+    const requestOptions = {
+      ...options,
+      signal: controller.signal
+    }
+    return fetch(path, requestOptions).then((resp) => {
       if (!resp.ok) {
-        throw new Error(`kubernetes clusters api failed: ${resp.status}`)
+        throw new Error(`kubernetes api failed: ${resp.status}`)
       }
       return resp.json()
-    }).then((data) => {
+    }).finally(() => {
+      window.clearTimeout(timeoutID)
+    })
+  }
+
+  private refreshKubernetesClusters() {
+    const requestSeq = ++this.kubernetesRequestSeq
+    this.setState({ kubernetesLoading: true, kubernetesMessage: "" })
+    this.fetchKubernetesAPI("/api/mold/kubernetes-clusters", { cache: "no-store" }).then((data) => {
+      if (requestSeq !== this.kubernetesRequestSeq) {
+        return
+      }
       this.setState({
         kubernetesClusters: data.clusters || [],
         kubernetesSelectedId: data.selectedId || "",
         kubernetesLoading: false
       })
     }).catch((err) => {
+      if (requestSeq !== this.kubernetesRequestSeq) {
+        return
+      }
       this.setState({
         kubernetesLoading: false,
-        kubernetesMessage: translate("kubernetesLoadFailed")
+        kubernetesMessage: err && err.name === "AbortError" ? translate("kubernetesRequestTimeout") : translate("kubernetesLoadFailed")
       })
       console.debug("Failed to refresh kubernetes clusters", err)
     })
@@ -435,21 +456,25 @@ class App extends React.Component<Props, State> {
     if (!clusterID || this.state.kubernetesLoading) {
       return
     }
+    const requestSeq = ++this.kubernetesRequestSeq
     this.setState({ kubernetesLoading: true, kubernetesMessage: "" })
-    fetch("/api/mold/kubernetes-clusters/select", {
+    this.fetchKubernetesAPI("/api/mold/kubernetes-clusters/select", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: clusterID })
-    }).then((resp) => {
-      if (!resp.ok) {
-        throw new Error(`kubernetes select api failed: ${resp.status}`)
-      }
-      return resp.json()
     }).then(() => {
+      if (requestSeq !== this.kubernetesRequestSeq) {
+        return
+      }
       this.setState({ kubernetesMessage: translate("kubernetesSavedRestartRequired") })
       this.refreshKubernetesClusters()
     }).catch((err) => {
-      this.setState({ kubernetesLoading: false, kubernetesMessage: translate("kubernetesSaveFailed") })
+      if (requestSeq === this.kubernetesRequestSeq) {
+        this.setState({
+          kubernetesLoading: false,
+          kubernetesMessage: err && err.name === "AbortError" ? translate("kubernetesRequestTimeout") : translate("kubernetesSaveFailed")
+        })
+      }
       console.debug("Failed to select kubernetes cluster", err)
     })
   }
@@ -458,17 +483,21 @@ class App extends React.Component<Props, State> {
     if (this.state.kubernetesLoading) {
       return
     }
+    const requestSeq = ++this.kubernetesRequestSeq
     this.setState({ kubernetesLoading: true, kubernetesMessage: "" })
-    fetch("/api/mold/kubernetes-clusters/disable", { method: "POST" }).then((resp) => {
-      if (!resp.ok) {
-        throw new Error(`kubernetes disable api failed: ${resp.status}`)
+    this.fetchKubernetesAPI("/api/mold/kubernetes-clusters/disable", { method: "POST" }).then(() => {
+      if (requestSeq !== this.kubernetesRequestSeq) {
+        return
       }
-      return resp.json()
-    }).then(() => {
       this.setState({ kubernetesMessage: translate("kubernetesDisabledRestartRequired") })
       this.refreshKubernetesClusters()
     }).catch((err) => {
-      this.setState({ kubernetesLoading: false, kubernetesMessage: translate("kubernetesSaveFailed") })
+      if (requestSeq === this.kubernetesRequestSeq) {
+        this.setState({
+          kubernetesLoading: false,
+          kubernetesMessage: err && err.name === "AbortError" ? translate("kubernetesRequestTimeout") : translate("kubernetesSaveFailed")
+        })
+      }
       console.debug("Failed to disable kubernetes collection", err)
     })
   }
@@ -477,19 +506,23 @@ class App extends React.Component<Props, State> {
     if (this.state.kubernetesLoading) {
       return
     }
+    const requestSeq = ++this.kubernetesRequestSeq
     this.setState({ kubernetesLoading: true, kubernetesMessage: "" })
-    fetch("/api/mold/kubernetes-clusters/test", { method: "POST" }).then((resp) => {
-      if (!resp.ok) {
-        throw new Error(`kubernetes test api failed: ${resp.status}`)
+    this.fetchKubernetesAPI("/api/mold/kubernetes-clusters/test", { method: "POST" }).then((data) => {
+      if (requestSeq !== this.kubernetesRequestSeq) {
+        return
       }
-      return resp.json()
-    }).then((data) => {
       this.setState({
         kubernetesLoading: false,
         kubernetesMessage: data.ok ? translate("kubernetesTestSuccess") : translate("kubernetesTestFailed")
       })
     }).catch((err) => {
-      this.setState({ kubernetesLoading: false, kubernetesMessage: translate("kubernetesTestFailed") })
+      if (requestSeq === this.kubernetesRequestSeq) {
+        this.setState({
+          kubernetesLoading: false,
+          kubernetesMessage: err && err.name === "AbortError" ? translate("kubernetesRequestTimeout") : translate("kubernetesTestFailed")
+        })
+      }
       console.debug("Failed to test kubernetes connection", err)
     })
   }
