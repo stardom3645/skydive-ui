@@ -1797,6 +1797,7 @@ class DefaultConfig {
             const type = typeof data.Type === "string" ? data.Type.toLowerCase() : ""
             const driver = typeof data.Driver === "string" ? data.Driver.toLowerCase() : ""
             const bus = typeof data.BusInfo === "string" ? data.BusInfo.toLowerCase() : ""
+            const ovs = data.Ovs || {}
 
             if (
                 type === "tuntap" ||
@@ -1806,15 +1807,21 @@ class DefaultConfig {
                 driver === "tun" ||
                 bus === "tap"
             ) {
-                return data.LastUpdateMetric
+                return {
+                    metric: data.LastUpdateMetric || ovs.LastUpdateMetric,
+                    hasMetric: !!(data.LastUpdateMetric || data.Metric || ovs.LastUpdateMetric || ovs.Metric)
+                }
             }
 
-            return undefined
+            return { metric: undefined, hasMetric: false }
         }
 
-        var metric = trafficNodeMetric(link.source) || trafficNodeMetric(link.target) || link.source.data.LastUpdateMetric
+        const sourceMetric = trafficNodeMetric(link.source)
+        const targetMetric = trafficNodeMetric(link.target)
+        var metric = sourceMetric.metric || targetMetric.metric || link.source.data.LastUpdateMetric
+        const hasTrafficMetric = sourceMetric.hasMetric || targetMetric.hasMetric || !!link.source.data.LastUpdateMetric
         var bandwidth = 0
-        if (metric) {
+        if (metric && metric.Last > metric.Start) {
             bandwidth = (metric.RxBytes + metric.TxBytes) * 8
             bandwidth /= (metric.Last - metric.Start) / 1000
         }
@@ -1825,7 +1832,7 @@ class DefaultConfig {
             directed: false,
             href: '',
             iconClass: '',
-            label: bandwidth ? Tools.prettyBandwidth(bandwidth) : ""
+            label: hasTrafficMetric ? Tools.prettyBandwidth(bandwidth) : ""
         }
 
         if (bandwidth > 0) {

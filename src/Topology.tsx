@@ -2991,7 +2991,7 @@ export class Topology extends React.Component<Props, {}> {
                     }
 
                     const overlapsNodeIcon = intersects(x, y, labelWidth, labelHeight, node.x, node.y, 118, 118)
-                    const overlapsNodeName = intersects(x, y, labelWidth, labelHeight, node.x, node.y + 74, nodeWidth + 72, 58)
+                    const overlapsNodeName = intersects(x, y, labelWidth, labelHeight, node.x, node.y + 88, nodeWidth + 96, 96)
                     if (overlapsNodeIcon || overlapsNodeName) {
                         overlapped = true
                         break
