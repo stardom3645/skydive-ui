@@ -2965,19 +2965,45 @@ export class Topology extends React.Component<Props, {}> {
 
             let x = mx + ox
             let y = my + oy
+            const pushX = ox || 34
+            const pushY = oy || -28
+            const label = this.props.linkAttrs(d).label || ""
+            const labelWidth = Math.max(76, label.length * 18 + 22)
+            const labelHeight = 42
+            const intersects = (
+                ax: number,
+                ay: number,
+                aw: number,
+                ah: number,
+                bx: number,
+                by: number,
+                bw: number,
+                bh: number
+            ) => Math.abs(ax - bx) * 2 < aw + bw && Math.abs(ay - by) * 2 < ah + bh
 
-            for (const node of this.d3nodes.values()) {
-                if (node.data.type === WrapperType.Hidden) {
-                    continue
+            // Keep traffic labels out of node icons, badges and node-name labels.
+            for (let i = 0; i < 4; i++) {
+                let overlapped = false
+
+                for (const node of this.d3nodes.values()) {
+                    if (node.data.type === WrapperType.Hidden) {
+                        continue
+                    }
+
+                    const overlapsNodeIcon = intersects(x, y, labelWidth, labelHeight, node.x, node.y, 118, 118)
+                    const overlapsNodeName = intersects(x, y, labelWidth, labelHeight, node.x, node.y + 74, nodeWidth + 72, 58)
+                    if (overlapsNodeIcon || overlapsNodeName) {
+                        overlapped = true
+                        break
+                    }
                 }
 
-                const labelY = node.y + 74
-                const labelWidth = nodeWidth + 48
-                if (Math.abs(x - node.x) < labelWidth / 2 && Math.abs(y - labelY) < 34) {
-                    x += ox || 34
-                    y += oy || -28
+                if (!overlapped) {
                     break
                 }
+
+                x += pushX
+                y += pushY
             }
 
             return { x, y }
