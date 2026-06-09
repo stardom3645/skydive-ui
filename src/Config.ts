@@ -1792,7 +1792,27 @@ class DefaultConfig {
     }
 
     linkAttrs(link: Link): LinkAttrs {
-        var metric = link.source.data.LastUpdateMetric
+        const trafficNodeMetric = (node: Node) => {
+            const data = node.data || {}
+            const type = typeof data.Type === "string" ? data.Type.toLowerCase() : ""
+            const driver = typeof data.Driver === "string" ? data.Driver.toLowerCase() : ""
+            const bus = typeof data.BusInfo === "string" ? data.BusInfo.toLowerCase() : ""
+
+            if (
+                type === "tuntap" ||
+                type === "tun" ||
+                type === "device" ||
+                type === "switchport" ||
+                driver === "tun" ||
+                bus === "tap"
+            ) {
+                return data.LastUpdateMetric
+            }
+
+            return undefined
+        }
+
+        var metric = trafficNodeMetric(link.source) || trafficNodeMetric(link.target) || link.source.data.LastUpdateMetric
         var bandwidth = 0
         if (metric) {
             bandwidth = (metric.RxBytes + metric.TxBytes) * 8
