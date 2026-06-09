@@ -2963,10 +2963,6 @@ export class Topology extends React.Component<Props, {}> {
                 oy = (dx / len) * 34
             }
 
-            let x = mx + ox
-            let y = my + oy
-            const pushX = ox || 34
-            const pushY = oy || -28
             const label = this.props.linkAttrs(d).label || ""
             const labelWidth = Math.max(76, label.length * 18 + 22)
             const labelHeight = 42
@@ -2981,10 +2977,8 @@ export class Topology extends React.Component<Props, {}> {
                 bh: number
             ) => Math.abs(ax - bx) * 2 < aw + bw && Math.abs(ay - by) * 2 < ah + bh
 
-            // Keep traffic labels out of node icons, badges and node-name labels.
-            for (let i = 0; i < 4; i++) {
-                let overlapped = false
-
+            const countOverlaps = (x: number, y: number) => {
+                let count = 0
                 for (const node of this.d3nodes.values()) {
                     if (node.data.type === WrapperType.Hidden) {
                         continue
@@ -2993,20 +2987,45 @@ export class Topology extends React.Component<Props, {}> {
                     const overlapsNodeIcon = intersects(x, y, labelWidth, labelHeight, node.x, node.y, 118, 118)
                     const overlapsNodeName = intersects(x, y, labelWidth, labelHeight, node.x, node.y + 88, nodeWidth + 96, 96)
                     if (overlapsNodeIcon || overlapsNodeName) {
-                        overlapped = true
+                        count++
+                    }
+                }
+                return count
+            }
+
+            const isMostlyVertical = Math.abs(dx) < nodeWidth * 0.35
+            const candidates = isMostlyVertical ? [
+                { x: mx - 92, y: my },
+                { x: mx + 92, y: my },
+                { x: mx - 128, y: my },
+                { x: mx + 128, y: my },
+                { x: mx - 92, y: my - 34 },
+                { x: mx + 92, y: my - 34 },
+                { x: mx - 92, y: my + 34 },
+                { x: mx + 92, y: my + 34 }
+            ] : [
+                { x: mx + ox, y: my + oy },
+                { x: mx - ox, y: my - oy },
+                { x: mx + ox * 1.6, y: my + oy * 1.6 },
+                { x: mx - ox * 1.6, y: my - oy * 1.6 },
+                { x: mx, y: my - 54 },
+                { x: mx, y: my + 54 }
+            ]
+
+            let best = candidates[0]
+            let bestOverlapCount = countOverlaps(best.x, best.y)
+            for (const candidate of candidates.slice(1)) {
+                const overlapCount = countOverlaps(candidate.x, candidate.y)
+                if (overlapCount < bestOverlapCount) {
+                    best = candidate
+                    bestOverlapCount = overlapCount
+                    if (bestOverlapCount === 0) {
                         break
                     }
                 }
-
-                if (!overlapped) {
-                    break
-                }
-
-                x += pushX
-                y += pushY
             }
 
-            return { x, y }
+            return best
         }
 
         var linkLabel = this.gLinkLabels.selectAll('g.link-label')
