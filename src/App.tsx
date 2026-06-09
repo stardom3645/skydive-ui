@@ -202,6 +202,7 @@ interface MoldKubernetesCluster {
   state: string
   apiServer: string
   collectionEnabled: boolean
+  collectionRunning: boolean
 }
 
 class App extends React.Component<Props, State> {
@@ -462,11 +463,11 @@ class App extends React.Component<Props, State> {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: clusterID })
-    }).then(() => {
+    }).then((data) => {
       if (requestSeq !== this.kubernetesRequestSeq) {
         return
       }
-      this.setState({ kubernetesMessage: translate("kubernetesSavedRestartRequired") })
+      this.setState({ kubernetesMessage: data.probeRunning ? translate("kubernetesProbeStarted") : translate("kubernetesProbeStartFailed") })
       this.refreshKubernetesClusters()
     }).catch((err) => {
       if (requestSeq === this.kubernetesRequestSeq) {
@@ -489,7 +490,7 @@ class App extends React.Component<Props, State> {
       if (requestSeq !== this.kubernetesRequestSeq) {
         return
       }
-      this.setState({ kubernetesMessage: translate("kubernetesDisabledRestartRequired") })
+      this.setState({ kubernetesMessage: translate("kubernetesCollectionDisabled") })
       this.refreshKubernetesClusters()
     }).catch((err) => {
       if (requestSeq === this.kubernetesRequestSeq) {
@@ -1788,6 +1789,11 @@ class App extends React.Component<Props, State> {
           }
           {this.state.kubernetesClusters.map((cluster) => {
             const selected = this.state.kubernetesSelectedId === cluster.id
+            const collectionLabel = cluster.collectionRunning
+              ? translate("collectionRunning")
+              : cluster.collectionEnabled
+                ? translate("collectionPending")
+                : translate("collectionOffShort")
             return (
               <button
                 key={cluster.id}
@@ -1800,9 +1806,9 @@ class App extends React.Component<Props, State> {
                   <span className={classes.drawerKubernetesMeta}>{cluster.apiServer || "-"}</span>
                 </span>
                 <span className={classes.drawerKubernetesBadges}>
-                  <span className={classes.drawerKubernetesState}>{cluster.state || "-"}</span>
-                  <span className={clsx(classes.drawerKubernetesCollect, selected && classes.drawerKubernetesCollectOn)}>
-                    {selected ? translate("collectionOn") : translate("collectionOffShort")}
+                  <span className={classes.drawerKubernetesState}>{translate("moldStatus")}: {cluster.state || "-"}</span>
+                  <span className={clsx(classes.drawerKubernetesCollect, cluster.collectionEnabled && classes.drawerKubernetesCollectOn)}>
+                    {translate("netdiveCollection")}: {collectionLabel}
                   </span>
                 </span>
               </button>
