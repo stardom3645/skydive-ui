@@ -55,7 +55,9 @@ export const styles = (theme: Theme) => createStyles({
     '--netdive-detail-border': '#dbe5f2',
     '--netdive-detail-border-soft': '#e8eef6',
     '--netdive-detail-text': '#0f172a',
+    '--netdive-detail-title': '#0f172a',
     '--netdive-detail-muted': '#475569',
+    '--netdive-detail-section-bg': '#f8fbff',
     '--netdive-detail-accent': '#2bbbe6',
     '--netdive-detail-shadow': '0 10px 24px rgba(15, 23, 42, 0.08)',
     '--topology-bg': '#f8fbff',
@@ -126,7 +128,9 @@ export const styles = (theme: Theme) => createStyles({
     '--netdive-detail-border': '#2b3a50',
     '--netdive-detail-border-soft': '#33445e',
     '--netdive-detail-text': '#e5edf8',
+    '--netdive-detail-title': '#f1f6ff',
     '--netdive-detail-muted': '#9cafc6',
+    '--netdive-detail-section-bg': '#1f2a3c',
     '--netdive-detail-accent': '#5bc0ff',
     '--netdive-detail-shadow': '0 20px 38px rgba(0, 0, 0, 0.35)',
     '--topology-bg': '#101826',
@@ -570,6 +574,324 @@ export const styles = (theme: Theme) => createStyles({
     color: 'var(--netdive-menu-muted)',
     fontSize: 11,
     lineHeight: 1.4
+  },
+  drawerIntegrationItem: {
+    width: '100%',
+    minHeight: 56,
+    display: 'grid',
+    gridTemplateColumns: '32px 1fr',
+    alignItems: 'center',
+    gap: theme.spacing(0.75),
+    border: '1px solid transparent',
+    borderRadius: 12,
+    padding: theme.spacing(0.75),
+    backgroundColor: 'transparent',
+    color: 'var(--netdive-menu-text)',
+    cursor: 'pointer',
+    textAlign: 'left',
+    transition: 'background-color 180ms ease, border-color 180ms ease, color 180ms ease',
+    '&:hover': {
+      backgroundColor: 'var(--netdive-menu-hover)',
+      borderColor: 'var(--netdive-menu-border)'
+    }
+  },
+  drawerIntegrationMain: {
+    minWidth: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 3
+  },
+  drawerIntegrationSummary: {
+    minWidth: 0,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    color: 'var(--netdive-menu-muted)',
+    fontSize: 11,
+    fontWeight: 700
+  },
+  drawerVersion: {
+    padding: theme.spacing(0.75),
+    color: 'var(--netdive-menu-muted)',
+    fontSize: 11,
+    fontWeight: 700
+  },
+  kubernetesManagerPanel: {
+    position: 'absolute',
+    top: 76,
+    left: drawerWidth + 18,
+    right: 28,
+    maxWidth: 1180,
+    maxHeight: 'calc(100vh - 104px)',
+    zIndex: 1250,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: theme.spacing(1.5),
+    padding: theme.spacing(2),
+    borderRadius: 18,
+    border: '1px solid var(--netdive-detail-border)',
+    backgroundColor: 'var(--netdive-detail-bg)',
+    color: 'var(--netdive-detail-text)',
+    boxShadow: 'var(--netdive-detail-shadow)',
+    overflow: 'auto'
+  },
+  kubernetesManagerHeader: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: theme.spacing(2)
+  },
+  kubernetesManagerTitle: {
+    fontSize: 20,
+    fontWeight: 900,
+    color: 'var(--netdive-detail-title)'
+  },
+  kubernetesManagerDescription: {
+    marginTop: 4,
+    color: 'var(--netdive-detail-muted)',
+    fontSize: 13,
+    lineHeight: 1.45
+  },
+  kubernetesSummaryGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+    gap: theme.spacing(1),
+    [theme.breakpoints.down('md')]: {
+      gridTemplateColumns: 'repeat(2, minmax(0, 1fr))'
+    }
+  },
+  kubernetesSummaryCard: {
+    minHeight: 86,
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+    padding: theme.spacing(1.4),
+    borderRadius: 14,
+    border: '1px solid var(--netdive-detail-border)',
+    backgroundColor: 'var(--netdive-detail-section-bg)',
+    '& span': {
+      color: 'var(--netdive-detail-muted)',
+      fontSize: 12,
+      fontWeight: 800
+    },
+    '& strong': {
+      color: 'var(--netdive-detail-title)',
+      fontSize: 28,
+      lineHeight: 1
+    }
+  },
+  kubernetesTableHeader: {
+    display: 'flex',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: theme.spacing(2)
+  },
+  kubernetesSectionTitle: {
+    color: 'var(--netdive-detail-title)',
+    fontSize: 15,
+    fontWeight: 900
+  },
+  kubernetesSectionHint: {
+    marginTop: 4,
+    color: 'var(--netdive-detail-muted)',
+    fontSize: 12
+  },
+  kubernetesTableActions: {
+    display: 'inline-flex',
+    gap: theme.spacing(0.75),
+    '& .MuiButton-root': {
+      border: '1px solid var(--netdive-detail-border)',
+      color: 'var(--netdive-menu-active-text)',
+      fontWeight: 800
+    }
+  },
+  kubernetesTableWrap: {
+    border: '1px solid var(--netdive-detail-border)',
+    borderRadius: 14,
+    overflow: 'auto',
+    backgroundColor: 'var(--netdive-detail-bg)'
+  },
+  kubernetesTable: {
+    minWidth: 1080
+  },
+  kubernetesTableHead: {
+    display: 'grid',
+    gridTemplateColumns: '1.25fr 1fr 0.8fr 1.7fr 1.1fr 1.15fr 1fr 1.45fr',
+    gap: theme.spacing(1),
+    padding: theme.spacing(1.1, 1.25),
+    borderBottom: '1px solid var(--netdive-detail-border)',
+    backgroundColor: 'var(--netdive-detail-section-bg)',
+    color: 'var(--netdive-detail-muted)',
+    fontSize: 11,
+    fontWeight: 900
+  },
+  kubernetesTableRow: {
+    minHeight: 70,
+    display: 'grid',
+    gridTemplateColumns: '1.25fr 1fr 0.8fr 1.7fr 1.1fr 1.15fr 1fr 1.45fr',
+    alignItems: 'center',
+    gap: theme.spacing(1),
+    padding: theme.spacing(1, 1.25),
+    borderBottom: '1px solid var(--netdive-detail-border)',
+    '&:last-child': {
+      borderBottom: 'none'
+    }
+  },
+  kubernetesEmptyRow: {
+    padding: theme.spacing(2),
+    color: 'var(--netdive-detail-muted)',
+    fontSize: 13
+  },
+  kubernetesNameCell: {
+    minWidth: 0,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    fontWeight: 900,
+    color: 'var(--netdive-detail-title)'
+  },
+  kubernetesMutedCell: {
+    minWidth: 0,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    color: 'var(--netdive-detail-muted)',
+    fontSize: 12
+  },
+  kubernetesPill: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    minHeight: 24,
+    padding: theme.spacing(0.25, 0.8),
+    borderRadius: 999,
+    backgroundColor: 'var(--netdive-menu-active)',
+    color: 'var(--netdive-menu-active-text)',
+    fontSize: 11,
+    fontWeight: 900
+  },
+  kubernetesApiCell: {
+    minWidth: 0,
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: theme.spacing(0.35),
+    color: 'var(--netdive-detail-text)',
+    fontSize: 12,
+    '& .MuiIconButton-root': {
+      padding: 3,
+      color: 'var(--netdive-detail-muted)'
+    }
+  },
+  kubernetesSwitchCell: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: theme.spacing(0.5),
+    color: 'var(--netdive-detail-text)',
+    fontSize: 12,
+    fontWeight: 800
+  },
+  kubernetesActionCell: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: theme.spacing(0.5),
+    '& .MuiButton-root': {
+      minWidth: 0,
+      padding: theme.spacing(0.35, 0.65),
+      color: 'var(--netdive-menu-active-text)',
+      fontSize: 11,
+      fontWeight: 800
+    }
+  },
+  kubernetesProbeInfoGrid: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: theme.spacing(1),
+    [theme.breakpoints.down('sm')]: {
+      gridTemplateColumns: '1fr'
+    }
+  },
+  kubernetesProbeInfoCard: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: theme.spacing(0.5),
+    padding: theme.spacing(1.2),
+    borderRadius: 14,
+    border: '1px solid var(--netdive-detail-border)',
+    backgroundColor: 'var(--netdive-detail-section-bg)',
+    '& strong': {
+      color: 'var(--netdive-detail-title)',
+      fontSize: 13
+    },
+    '& span': {
+      color: 'var(--netdive-detail-muted)',
+      fontSize: 12,
+      lineHeight: 1.45
+    }
+  },
+  kubernetesDialogText: {
+    color: 'var(--netdive-detail-text)',
+    fontSize: 14,
+    lineHeight: 1.5
+  },
+  kubernetesDialogTarget: {
+    marginTop: theme.spacing(1),
+    padding: theme.spacing(1),
+    borderRadius: 12,
+    border: '1px solid var(--netdive-detail-border)',
+    backgroundColor: 'var(--netdive-detail-section-bg)',
+    color: 'var(--netdive-detail-title)',
+    fontWeight: 900
+  },
+  kubernetesStatusSteps: {
+    marginTop: theme.spacing(1.25),
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: theme.spacing(0.75),
+    '& span': {
+      padding: theme.spacing(0.75),
+      borderRadius: 10,
+      color: 'var(--netdive-detail-muted)',
+      backgroundColor: 'var(--netdive-detail-section-bg)',
+      fontSize: 12,
+      fontWeight: 800
+    }
+  },
+  kubernetesCheckList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: theme.spacing(0.75)
+  },
+  kubernetesCheckItem: {
+    display: 'grid',
+    gridTemplateColumns: '28px 1fr',
+    gap: theme.spacing(1),
+    padding: theme.spacing(1),
+    borderRadius: 12,
+    border: '1px solid var(--netdive-detail-border)',
+    backgroundColor: 'var(--netdive-detail-section-bg)',
+    '& strong': {
+      display: 'block',
+      color: 'var(--netdive-detail-title)',
+      fontSize: 13
+    },
+    '& small': {
+      display: 'block',
+      marginTop: 3,
+      color: 'var(--netdive-detail-muted)',
+      fontSize: 12,
+      lineHeight: 1.4
+    }
+  },
+  kubernetesCheckOk: {
+    color: '#16a34a',
+    '& svg': {
+      fontSize: 20
+    }
+  },
+  kubernetesCheckFail: {
+    color: '#dc2626',
+    '& svg': {
+      fontSize: 20
+    }
   },
   content: {
     flexGrow: 1,

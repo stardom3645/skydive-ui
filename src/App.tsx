@@ -56,6 +56,7 @@ import DialogTitle from '@material-ui/core/DialogTitle'
 import DialogContent from '@material-ui/core/DialogContent'
 import DialogActions from '@material-ui/core/DialogActions'
 import Button from '@material-ui/core/Button'
+import Switch from '@material-ui/core/Switch'
 import Chip from '@material-ui/core/Chip'
 import WavesIcon from '@material-ui/icons/Waves'
 import Tooltip from '@material-ui/core/Tooltip'
@@ -66,6 +67,11 @@ import LibraryBooksIcon from '@material-ui/icons/LibraryBooks'
 import Brightness4Icon from '@material-ui/icons/Brightness4'
 import CloseIcon from '@material-ui/icons/Close'
 import CloudQueueIcon from '@material-ui/icons/CloudQueue'
+import DnsIcon from '@material-ui/icons/Dns'
+import AssessmentIcon from '@material-ui/icons/Assessment'
+import FileCopyIcon from '@material-ui/icons/FileCopy'
+import CheckCircleIcon from '@material-ui/icons/CheckCircle'
+import ErrorOutlineIcon from '@material-ui/icons/ErrorOutline'
 import LogoLight from '../assets/logo-ablestack.png'
 import LogoDark from '../assets/ablestack-logo.png'
 
@@ -186,6 +192,16 @@ interface State {
   kubernetesSelectedId: string
   kubernetesLoading: boolean
   kubernetesMessage: string
+  isKubernetesManagerOpen: boolean
+  kubernetesConfirmClusterId: string
+  kubernetesStopClusterId: string
+  kubernetesTestDialogOpen: boolean
+  kubernetesTestClusterId: string
+  kubernetesTestLoading: boolean
+  kubernetesTestResults: KubernetesCheckResult[]
+  kubernetesLastTests: Record<string, KubernetesLastTest>
+  kubernetesCopiedClusterId: string
+  moldIntegrationConnected: boolean
 }
 
 interface VMConsoleResponse {
@@ -203,6 +219,20 @@ interface MoldKubernetesCluster {
   apiServer: string
   collectionEnabled: boolean
   collectionRunning: boolean
+}
+
+interface KubernetesCheckResult {
+  key: string
+  label: string
+  ok: boolean
+  reason?: string
+  message?: string
+}
+
+interface KubernetesLastTest {
+  ok: boolean
+  checkedAt: string
+  message?: string
 }
 
 class App extends React.Component<Props, State> {
@@ -266,7 +296,17 @@ class App extends React.Component<Props, State> {
       kubernetesClusters: [],
       kubernetesSelectedId: "",
       kubernetesLoading: false,
-      kubernetesMessage: ""
+      kubernetesMessage: "",
+      isKubernetesManagerOpen: false,
+      kubernetesConfirmClusterId: "",
+      kubernetesStopClusterId: "",
+      kubernetesTestDialogOpen: false,
+      kubernetesTestClusterId: "",
+      kubernetesTestLoading: false,
+      kubernetesTestResults: [],
+      kubernetesLastTests: {},
+      kubernetesCopiedClusterId: "",
+      moldIntegrationConnected: false
     }
 
     this.synced = false
@@ -439,7 +479,8 @@ class App extends React.Component<Props, State> {
       this.setState({
         kubernetesClusters: data.clusters || [],
         kubernetesSelectedId: data.selectedId || "",
-        kubernetesLoading: false
+        kubernetesLoading: false,
+        moldIntegrationConnected: true
       })
     }).catch((err) => {
       if (requestSeq !== this.kubernetesRequestSeq) {
@@ -447,6 +488,7 @@ class App extends React.Component<Props, State> {
       }
       this.setState({
         kubernetesLoading: false,
+        moldIntegrationConnected: false,
         kubernetesMessage: err && err.name === "AbortError" ? translate("kubernetesRequestTimeout") : translate("kubernetesLoadFailed")
       })
       console.debug("Failed to refresh kubernetes clusters", err)
@@ -503,30 +545,174 @@ class App extends React.Component<Props, State> {
     })
   }
 
-  private testKubernetesConnection() {
-    if (this.state.kubernetesLoading) {
-      return
+  private testKubernetesConnection(clusterID?: string, openDialog = true): Promise<any> {
+    const targetID = clusterID || this.state.kubernetesSelectedId
+    if (!targetID || (openDialog && this.state.kubernetesTestLoading)) {
+      return Promise.resolve(null)
     }
     const requestSeq = ++this.kubernetesRequestSeq
-    this.setState({ kubernetesLoading: true, kubernetesMessage: "" })
-    this.fetchKubernetesAPI("/api/mold/kubernetes-clusters/test", { method: "POST" }).then((data) => {
-      if (requestSeq !== this.kubernetesRequestSeq) {
-        return
+    if (openDialog) {
+      this.setState({
+        kubernetesTestDialogOpen: true,
+        kubernetesTestClusterId: targetID,
+        kubernetesTestLoading: true,
+        kubernetesTestResults: []
+      })
+    }
+    return this.fetchKubernetesAPI("/api/mold/kubernetes-clusters/test", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: targetID })
+    }, 30000).then((data) => {
+      if (requestSeq !== this.kubernetesRequestSeq && openDialog) {
+        return data
+      }
+      const lastTests = {
+        ...this.state.kubernetesLastTests,
+        [targetID]: { ok: !!data.ok, checkedAt: new Date().toLocaleString(), message: data.message || "" }
       }
       this.setState({
-        kubernetesLoading: false,
+        kubernetesTestLoading: false,
+        kubernetesTestResults: data.checks || [],
+        kubernetesLastTests: lastTests,
         kubernetesMessage: data.ok ? translate("kubernetesTestSuccess") : translate("kubernetesTestFailed")
       })
+      return data
     }).catch((err) => {
-      if (requestSeq === this.kubernetesRequestSeq) {
+      const lastTests = {
+        ...this.state.kubernetesLastTests,
+        [targetID]: { ok: false, checkedAt: new Date().toLocaleString(), message: translate("kubernetesTestFailed") }
+      }
+      if (requestSeq === this.kubernetesRequestSeq || !openDialog) {
         this.setState({
-          kubernetesLoading: false,
+          kubernetesTestLoading: false,
+          kubernetesLastTests: lastTests,
           kubernetesMessage: err && err.name === "AbortError" ? translate("kubernetesRequestTimeout") : translate("kubernetesTestFailed")
         })
       }
       console.debug("Failed to test kubernetes connection", err)
+      return null
     })
   }
+
+  private testAllKubernetesConnections() {
+    if (this.state.kubernetesLoading || this.state.kubernetesTestLoading) {
+      return
+    }
+    this.setState({ kubernetesTestLoading: true, kubernetesMessage: "" })
+    Promise.all(this.state.kubernetesClusters.map((cluster) => this.testKubernetesConnection(cluster.id, false))).finally(() => {
+      this.setState({ kubernetesTestLoading: false })
+    })
+  }
+
+  private selectedKubernetesCluster(clusterID: string): MoldKubernetesCluster | undefined {
+    return this.state.kubernetesClusters.find((cluster) => cluster.id === clusterID)
+  }
+
+  private kubernetesSummary() {
+    const total = this.state.kubernetesClusters.length
+    const running = this.state.kubernetesClusters.filter((cluster) => cluster.collectionRunning).length
+    const enabled = this.state.kubernetesClusters.filter((cluster) => cluster.collectionEnabled).length
+    const errors = this.state.kubernetesClusters.filter((cluster) => {
+      const last = this.state.kubernetesLastTests[cluster.id]
+      return !!last && !last.ok
+    }).length
+    return { total, running, stopped: Math.max(total - enabled, 0), errors }
+  }
+
+  private kubernetesSummaryText() {
+    const summary = this.kubernetesSummary()
+    return `${summary.running} ${translate("collectionRunningShort")} · ${summary.stopped} ${translate("collectionStoppedShort")}`
+  }
+
+  private localizeMoldState(state: string) {
+    switch ((state || "").toLowerCase()) {
+      case "running":
+        return translate("moldStateRunning")
+      case "stopped":
+        return translate("moldStateStopped")
+      case "error":
+        return translate("moldStateError")
+      default:
+        return state || "-"
+    }
+  }
+
+  private collectionStateLabel(cluster: MoldKubernetesCluster) {
+    const last = this.state.kubernetesLastTests[cluster.id]
+    if (last && !last.ok) {
+      return translate("collectionError")
+    }
+    if (cluster.collectionRunning) {
+      return translate("collectionRunning")
+    }
+    if (cluster.collectionEnabled) {
+      return translate("collectionPending")
+    }
+    return translate("collectionStopped")
+  }
+
+  private middleEllipsis(value: string, max = 30) {
+    if (!value || value.length <= max) {
+      return value || "-"
+    }
+    const head = Math.ceil((max - 3) * 0.62)
+    const tail = Math.max(max - 3 - head, 4)
+    return `${value.slice(0, head)}...${value.slice(value.length - tail)}`
+  }
+
+  private copyKubernetesAPIServer(cluster: MoldKubernetesCluster) {
+    if (!cluster.apiServer) {
+      return
+    }
+    const done = () => {
+      this.setState({ kubernetesCopiedClusterId: cluster.id })
+      window.setTimeout(() => {
+        if (this.state.kubernetesCopiedClusterId === cluster.id) {
+          this.setState({ kubernetesCopiedClusterId: "" })
+        }
+      }, 1400)
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(cluster.apiServer).then(done).catch(done)
+    } else {
+      done()
+    }
+  }
+
+  private confirmKubernetesEnable() {
+    const clusterID = this.state.kubernetesConfirmClusterId
+    if (!clusterID) {
+      return
+    }
+    this.setState({ kubernetesConfirmClusterId: "" })
+    this.selectKubernetesCluster(clusterID)
+  }
+
+  private confirmKubernetesDisable() {
+    if (!this.state.kubernetesStopClusterId) {
+      return
+    }
+    this.setState({ kubernetesStopClusterId: "" })
+    this.disableKubernetesCollection()
+  }
+
+  private onKubernetesCollectionToggle(cluster: MoldKubernetesCluster, checked: boolean) {
+    if (checked) {
+      this.setState({ kubernetesConfirmClusterId: cluster.id })
+      return
+    }
+    if (cluster.collectionEnabled) {
+      this.setState({ kubernetesStopClusterId: cluster.id })
+    }
+  }
+
+  private kubernetesCheckLabel(check: KubernetesCheckResult) {
+    const key = `kubernetesCheck-${check.key}`
+    const translated = translate(key)
+    return translated === key ? check.label : translated
+  }
+
 
   loadStaticData(url: string) {
     fetch(url).then(resp => {
@@ -1769,64 +1955,182 @@ class App extends React.Component<Props, State> {
     )
   }
 
-  private renderKubernetesSettings(classes: any) {
+  private renderDrawerIntegrationItem(classes: any, icon: React.ReactNode, label: string, summary: string, onClick?: () => void, active?: boolean) {
     return (
-      <div className={classes.drawerKubernetesPanel}>
-        <div className={classes.drawerKubernetesHeader}>
-          <span className={classes.drawerKubernetesTitle}><CloudQueueIcon />{translate("kubernetesCollection")}</span>
-          <Button size="small" onClick={this.refreshKubernetesClusters.bind(this)} disabled={this.state.kubernetesLoading}>
-            {translate("refresh")}
-          </Button>
+      <button
+        type="button"
+        className={clsx(classes.drawerIntegrationItem, active && classes.drawerMenuItemActive)}
+        onClick={onClick}>
+        <span className={classes.drawerMenuIcon}>{icon}</span>
+        <span className={classes.drawerIntegrationMain}>
+          <span className={classes.drawerMenuLabel}>{label}</span>
+          <span className={classes.drawerIntegrationSummary}>{summary}</span>
+        </span>
+      </button>
+    )
+  }
+
+  private renderKubernetesManagerPanel(classes: any) {
+    if (!this.state.isKubernetesManagerOpen) {
+      return null
+    }
+    const summary = this.kubernetesSummary()
+    return (
+      <Paper className={classes.kubernetesManagerPanel}>
+        <div className={classes.kubernetesManagerHeader}>
+          <div>
+            <div className={classes.kubernetesManagerTitle}>{translate("kubernetesManagerTitle")}</div>
+            <div className={classes.kubernetesManagerDescription}>{translate("kubernetesManagerDescription")}</div>
+          </div>
+          <IconButton size="small" onClick={() => this.setState({ isKubernetesManagerOpen: false })}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
         </div>
-        <div className={classes.drawerKubernetesDescription}>
-          {translate("kubernetesCollectionDescription")}
+        <div className={classes.kubernetesSummaryGrid}>
+          <div className={classes.kubernetesSummaryCard}><span>{translate("kubernetesTotalClusters")}</span><strong>{summary.total}</strong></div>
+          <div className={classes.kubernetesSummaryCard}><span>{translate("collectionRunning")}</span><strong>{summary.running}</strong></div>
+          <div className={classes.kubernetesSummaryCard}><span>{translate("collectionStopped")}</span><strong>{summary.stopped}</strong></div>
+          <div className={classes.kubernetesSummaryCard}><span>{translate("collectionError")}</span><strong>{summary.errors}</strong></div>
         </div>
-        <div className={classes.drawerKubernetesList}>
-          {this.state.kubernetesClusters.length === 0 &&
-            <div className={classes.drawerKubernetesEmpty}>
-              {this.state.kubernetesLoading ? translate("loading") : translate("kubernetesNoClusters")}
+        <div className={classes.kubernetesTableHeader}>
+          <div>
+            <div className={classes.kubernetesSectionTitle}>{translate("kubernetesClusterList")}</div>
+            <div className={classes.kubernetesSectionHint}>{this.state.kubernetesMessage || translate("kubernetesNoSecretNotice")}</div>
+          </div>
+          <div className={classes.kubernetesTableActions}>
+            <Button size="small" onClick={this.refreshKubernetesClusters.bind(this)} disabled={this.state.kubernetesLoading}>{translate("refresh")}</Button>
+            <Button size="small" onClick={this.testAllKubernetesConnections.bind(this)} disabled={this.state.kubernetesLoading || this.state.kubernetesTestLoading || this.state.kubernetesClusters.length === 0}>{translate("kubernetesTestAll")}</Button>
+          </div>
+        </div>
+        <div className={classes.kubernetesTableWrap}>
+          <div className={classes.kubernetesTable}>
+            <div className={classes.kubernetesTableHead}>
+              <span>{translate("kubernetesClusterName")}</span>
+              <span>{translate("kubernetesMoldClusterId")}</span>
+              <span>{translate("moldStatus")}</span>
+              <span>{translate("kubernetesApiServer")}</span>
+              <span>{translate("netdiveCollection")}</span>
+              <span>{translate("kubernetesLastConnectionTest")}</span>
+              <span>{translate("kubernetesLastCollectionStatus")}</span>
+              <span>{translate("kubernetesActions")}</span>
             </div>
-          }
-          {this.state.kubernetesClusters.map((cluster) => {
-            const selected = this.state.kubernetesSelectedId === cluster.id
-            const collectionLabel = cluster.collectionRunning
-              ? translate("collectionRunning")
-              : cluster.collectionEnabled
-                ? translate("collectionPending")
-                : translate("collectionOffShort")
-            return (
-              <button
-                key={cluster.id}
-                type="button"
-                className={clsx(classes.drawerKubernetesItem, selected && classes.drawerKubernetesItemActive)}
-                onClick={() => this.selectKubernetesCluster(cluster.id)}
-                disabled={this.state.kubernetesLoading}>
-                <span className={classes.drawerKubernetesItemMain}>
-                  <span className={classes.drawerKubernetesName}>{cluster.name || cluster.id}</span>
-                  <span className={classes.drawerKubernetesMeta}>{cluster.apiServer || "-"}</span>
-                </span>
-                <span className={classes.drawerKubernetesBadges}>
-                  <span className={classes.drawerKubernetesState}>{translate("moldStatus")}: {cluster.state || "-"}</span>
-                  <span className={clsx(classes.drawerKubernetesCollect, cluster.collectionEnabled && classes.drawerKubernetesCollectOn)}>
-                    {translate("netdiveCollection")}: {collectionLabel}
+            {this.state.kubernetesClusters.length === 0 &&
+              <div className={classes.kubernetesEmptyRow}>{this.state.kubernetesLoading ? translate("loading") : translate("kubernetesNoClusters")}</div>
+            }
+            {this.state.kubernetesClusters.map((cluster) => {
+              const last = this.state.kubernetesLastTests[cluster.id]
+              const selected = this.state.kubernetesSelectedId === cluster.id
+              return (
+                <div className={classes.kubernetesTableRow} key={cluster.id}>
+                  <span className={classes.kubernetesNameCell}>{cluster.name || cluster.id}</span>
+                  <span className={classes.kubernetesMutedCell}>{cluster.id}</span>
+                  <span><span className={classes.kubernetesPill}>{this.localizeMoldState(cluster.state)}</span></span>
+                  <span className={classes.kubernetesApiCell}>
+                    <Tooltip title={cluster.apiServer || "-"}>
+                      <span>{this.middleEllipsis(cluster.apiServer, 32)}</span>
+                    </Tooltip>
+                    {cluster.apiServer &&
+                      <Tooltip title={this.state.kubernetesCopiedClusterId === cluster.id ? translate("copied") : translate("copy")}>
+                        <IconButton size="small" onClick={() => this.copyKubernetesAPIServer(cluster)}>
+                          <FileCopyIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    }
                   </span>
-                </span>
-              </button>
-            )
-          })}
+                  <span className={classes.kubernetesSwitchCell}>
+                    <Switch
+                      color="primary"
+                      size="small"
+                      checked={cluster.collectionEnabled}
+                      disabled={this.state.kubernetesLoading || (cluster.collectionEnabled && !selected)}
+                      onChange={(event) => this.onKubernetesCollectionToggle(cluster, event.target.checked)} />
+                    <span>{this.collectionStateLabel(cluster)}</span>
+                  </span>
+                  <span className={classes.kubernetesMutedCell}>{last ? `${last.ok ? translate("success") : translate("failed")} · ${last.checkedAt}` : "-"}</span>
+                  <span className={classes.kubernetesMutedCell}>{this.collectionStateLabel(cluster)}</span>
+                  <span className={classes.kubernetesActionCell}>
+                    <Button size="small" onClick={() => this.testKubernetesConnection(cluster.id, true)} disabled={this.state.kubernetesTestLoading}>{translate("connectionTest")}</Button>
+                    <Button size="small" onClick={() => this.setState({ kubernetesTestDialogOpen: true, kubernetesTestClusterId: cluster.id, kubernetesTestResults: [] })}>{translate("details")}</Button>
+                    {last && !last.ok && <Button size="small" onClick={() => this.testKubernetesConnection(cluster.id, true)}>{translate("retry")}</Button>}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
         </div>
-        <div className={classes.drawerKubernetesActions}>
-          <Button size="small" onClick={this.testKubernetesConnection.bind(this)} disabled={this.state.kubernetesLoading || !this.state.kubernetesSelectedId}>
-            {translate("connectionTest")}
-          </Button>
-          <Button size="small" onClick={this.disableKubernetesCollection.bind(this)} disabled={this.state.kubernetesLoading || !this.state.kubernetesSelectedId}>
-            {translate("collectionOff")}
-          </Button>
+        <div className={classes.kubernetesProbeInfoGrid}>
+          <div className={classes.kubernetesProbeInfoCard}>
+            <strong>{translate("kubernetesDefaultEnabledProbes")}</strong>
+            <span>cluster, namespace, node, pod, service, deployment, daemonset, statefulset, ingress, networkpolicy</span>
+          </div>
+          <div className={classes.kubernetesProbeInfoCard}>
+            <strong>{translate("kubernetesDefaultDisabledProbes")}</strong>
+            <span>secret, configmap</span>
+          </div>
         </div>
-        {this.state.kubernetesMessage &&
-          <div className={classes.drawerKubernetesMessage}>{this.state.kubernetesMessage}</div>
-        }
-      </div>
+      </Paper>
+    )
+  }
+
+  private renderKubernetesDialogs(classes: any) {
+    const confirmCluster = this.selectedKubernetesCluster(this.state.kubernetesConfirmClusterId)
+    const stopCluster = this.selectedKubernetesCluster(this.state.kubernetesStopClusterId)
+    const testCluster = this.selectedKubernetesCluster(this.state.kubernetesTestClusterId)
+    return (
+      <React.Fragment>
+        <Dialog open={!!this.state.kubernetesConfirmClusterId} onClose={() => this.setState({ kubernetesConfirmClusterId: "" })} maxWidth="xs" fullWidth>
+          <DialogTitle>{translate("kubernetesEnableConfirmTitle")}</DialogTitle>
+          <DialogContent>
+            <div className={classes.kubernetesDialogText}>{translate("kubernetesEnableConfirmDescription")}</div>
+            {confirmCluster && <div className={classes.kubernetesDialogTarget}>{confirmCluster.name || confirmCluster.id}</div>}
+            <div className={classes.kubernetesStatusSteps}>
+              <span>{translate("kubernetesStepKubeconfig")}</span>
+              <span>{translate("kubernetesStepConnection")}</span>
+              <span>{translate("collectionRunning")}</span>
+              <span>{translate("collectionError")}</span>
+            </div>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => this.setState({ kubernetesConfirmClusterId: "" })}>{translate("cancel")}</Button>
+            <Button color="primary" variant="contained" onClick={this.confirmKubernetesEnable.bind(this)}>{translate("activate")}</Button>
+          </DialogActions>
+        </Dialog>
+        <Dialog open={!!this.state.kubernetesStopClusterId} onClose={() => this.setState({ kubernetesStopClusterId: "" })} maxWidth="xs" fullWidth>
+          <DialogTitle>{translate("kubernetesDisableConfirmTitle")}</DialogTitle>
+          <DialogContent>
+            <div className={classes.kubernetesDialogText}>{translate("kubernetesDisableConfirmDescription")}</div>
+            {stopCluster && <div className={classes.kubernetesDialogTarget}>{stopCluster.name || stopCluster.id}</div>}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => this.setState({ kubernetesStopClusterId: "" })}>{translate("cancel")}</Button>
+            <Button color="primary" onClick={this.confirmKubernetesDisable.bind(this)}>{translate("deactivate")}</Button>
+          </DialogActions>
+        </Dialog>
+        <Dialog open={this.state.kubernetesTestDialogOpen} onClose={() => this.setState({ kubernetesTestDialogOpen: false })} maxWidth="sm" fullWidth>
+          <DialogTitle>{translate("connectionTest")}</DialogTitle>
+          <DialogContent>
+            {testCluster && <div className={classes.kubernetesDialogTarget}>{testCluster.name || testCluster.id}</div>}
+            <div className={classes.kubernetesCheckList}>
+              {this.state.kubernetesTestLoading && <div className={classes.kubernetesEmptyRow}>{translate("loading")}</div>}
+              {!this.state.kubernetesTestLoading && this.state.kubernetesTestResults.length === 0 && <div className={classes.kubernetesEmptyRow}>{translate("kubernetesNoTestResult")}</div>}
+              {this.state.kubernetesTestResults.map((check) => (
+                <div key={check.key} className={classes.kubernetesCheckItem}>
+                  <span className={check.ok ? classes.kubernetesCheckOk : classes.kubernetesCheckFail}>{check.ok ? <CheckCircleIcon /> : <ErrorOutlineIcon />}</span>
+                  <span>
+                    <strong>{this.kubernetesCheckLabel(check)}</strong>
+                    <small>{check.ok ? (check.message || translate("success")) : (check.message || translate("failed"))}</small>
+                    {!check.ok && check.reason && <small>{check.reason}</small>}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </DialogContent>
+          <DialogActions>
+            {testCluster && <Button onClick={() => this.testKubernetesConnection(testCluster.id, true)} disabled={this.state.kubernetesTestLoading}>{translate("retry")}</Button>}
+            <Button onClick={() => this.setState({ kubernetesTestDialogOpen: false })}>{translate("close")}</Button>
+          </DialogActions>
+        </Dialog>
+      </React.Fragment>
     )
   }
 
@@ -1838,43 +2142,35 @@ class App extends React.Component<Props, State> {
         <div className={classes.drawerMenuSectionTitle}>Menu</div>
         {this.renderDrawerMenuItem(classes, <InfoIcon />, "About", this.openAboutDialog.bind(this))}
         {this.renderDrawerMenuItem(classes, <LibraryBooksIcon />, "Help", this.openHelpDialog.bind(this))}
-        <div className={classes.drawerMenuBottomSpacer} />
-        <div className={classes.drawerMenuSectionTitle}>Setting</div>
-        <button
-          type="button"
-          className={classes.drawerSettingHeader}
-          onClick={() => this.setState({ isSettingsOpen: !this.state.isSettingsOpen })}>
-          <span className={classes.drawerMenuLabel}>{translate("setting")}</span>
-          <span className={clsx(classes.drawerSettingChevron, this.state.isSettingsOpen && classes.drawerSettingChevronOpen)}>
-            <KeyboardArrowDown fontSize="small" />
-          </span>
-        </button>
-        {this.state.isSettingsOpen &&
-          <div className={classes.drawerSettingsBody}>
-            <div className={classes.drawerLanguagePanel}>
-              <LanguageToggle />
-            </div>
-            <div className={classes.drawerThemePanel}>
-              <div className={classes.drawerMenuSectionTitle}>화면 테마</div>
-              <ToggleButtonGroup
-                value={this.state.netdiveTheme}
-                exclusive
-                onChange={this.onThemeToggleChange.bind(this)}
-                aria-label="Theme selection">
-                <ToggleButton value="light" aria-label="Light">
-                  Light
-                </ToggleButton>
-                <ToggleButton value="dark" aria-label="Dark">
-                  Dark
-                </ToggleButton>
-              </ToggleButtonGroup>
-            </div>
-            {this.renderKubernetesSettings(classes)}
+        <div className={classes.drawerMenuSectionTitle}>Preferences</div>
+        <div className={classes.drawerSettingsBody}>
+          <div className={classes.drawerLanguagePanel}>
+            <LanguageToggle />
           </div>
-        }
+          <div className={classes.drawerThemePanel}>
+            <div className={classes.drawerMenuSectionTitle}>{translate("themeSetting")}</div>
+            <ToggleButtonGroup
+              value={this.state.netdiveTheme}
+              exclusive
+              onChange={this.onThemeToggleChange.bind(this)}
+              aria-label="Theme selection">
+              <ToggleButton value="light" aria-label="Light">Light</ToggleButton>
+              <ToggleButton value="dark" aria-label="Dark">Dark</ToggleButton>
+            </ToggleButtonGroup>
+          </div>
+        </div>
+        <div className={classes.drawerMenuSectionTitle}>Integrations</div>
+        {this.renderDrawerIntegrationItem(classes, <CloudQueueIcon />, "Kubernetes", this.kubernetesSummaryText(), () => this.setState({ isKubernetesManagerOpen: true }), this.state.isKubernetesManagerOpen)}
+        {this.renderDrawerIntegrationItem(classes, <DnsIcon />, "Mold", this.state.moldIntegrationConnected ? translate("connected") : translate("disconnected"))}
+        {this.renderDrawerIntegrationItem(classes, <AssessmentIcon />, "Wall", translate("disconnected"))}
+        <div className={classes.drawerMenuSectionTitle}>System</div>
+        {this.renderDrawerMenuItem(classes, <ErrorOutlineIcon />, translate("diagnostics"))}
+        <div className={classes.drawerMenuBottomSpacer} />
+        <div className={classes.drawerVersion}>Netdive v{packageJson.version}</div>
       </div>
     )
   }
+
 
   onNavigate(date: Date) {
     this.state.isTimetravelOpen = false
@@ -1949,6 +2245,8 @@ class App extends React.Component<Props, State> {
           {this.renderDrawerMenu(classes)}
           </div>
         </Drawer>
+        {this.renderKubernetesManagerPanel(classes)}
+        {this.renderKubernetesDialogs(classes)}
         <AboutDialog open={this.state.isAboutOpen} onClose={this.closeAboutDialog.bind(this)}
           appName="ABLESTACK NETDIVE" appVersion="1.00" uiVersion="1.00"/>
         <HelpDialog open={this.state.isHelpOpen} onClose={this.closeHelpDialog.bind(this)}
