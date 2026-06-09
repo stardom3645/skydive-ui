@@ -65,6 +65,7 @@ import InfoIcon from '@material-ui/icons/Info'
 import LibraryBooksIcon from '@material-ui/icons/LibraryBooks'
 import Brightness4Icon from '@material-ui/icons/Brightness4'
 import CloseIcon from '@material-ui/icons/Close'
+import CloudQueueIcon from '@material-ui/icons/CloudQueue'
 import LogoLight from '../assets/logo-ablestack.png'
 import LogoDark from '../assets/ablestack-logo.png'
 
@@ -181,6 +182,10 @@ interface State {
   isVMConsoleEnabled: boolean
   netdiveTheme: NetdiveTheme
   isSettingsOpen: boolean
+  kubernetesClusters: MoldKubernetesCluster[]
+  kubernetesSelectedId: string
+  kubernetesLoading: boolean
+  kubernetesMessage: string
 }
 
 interface VMConsoleResponse {
@@ -189,6 +194,14 @@ interface VMConsoleResponse {
 
 interface VMConsoleAPIError extends Error {
   status?: number
+}
+
+interface MoldKubernetesCluster {
+  id: string
+  name: string
+  state: string
+  apiServer: string
+  collectionEnabled: boolean
 }
 
 class App extends React.Component<Props, State> {
@@ -247,7 +260,11 @@ class App extends React.Component<Props, State> {
       isLinkTagsCollapsed: false,
       isVMConsoleEnabled: true,
       netdiveTheme: getSavedNetdiveTheme(),
-      isSettingsOpen: true
+      isSettingsOpen: true,
+      kubernetesClusters: [],
+      kubernetesSelectedId: "",
+      kubernetesLoading: false,
+      kubernetesMessage: ""
     }
 
     this.synced = false
@@ -309,6 +326,7 @@ class App extends React.Component<Props, State> {
     this.refreshVmNameMap()
     this.refreshVmNetworkMap()
     this.refreshVMConsoleEnabled()
+    this.refreshKubernetesClusters()
     this.vmNameMapRefreshID = window.setInterval(() => {
       this.refreshVmNameMap()
       this.refreshVmNetworkMap()
@@ -388,6 +406,91 @@ class App extends React.Component<Props, State> {
     }).catch((err) => {
       // keep default(true) for backward compatibility when key is unavailable
       console.debug("Failed to read mold.console.enabled config", err)
+    })
+  }
+
+  private refreshKubernetesClusters() {
+    this.setState({ kubernetesLoading: true })
+    fetch("/api/mold/kubernetes-clusters", { cache: "no-store" }).then((resp) => {
+      if (!resp.ok) {
+        throw new Error(`kubernetes clusters api failed: ${resp.status}`)
+      }
+      return resp.json()
+    }).then((data) => {
+      this.setState({
+        kubernetesClusters: data.clusters || [],
+        kubernetesSelectedId: data.selectedId || "",
+        kubernetesLoading: false
+      })
+    }).catch((err) => {
+      this.setState({
+        kubernetesLoading: false,
+        kubernetesMessage: translate("kubernetesLoadFailed")
+      })
+      console.debug("Failed to refresh kubernetes clusters", err)
+    })
+  }
+
+  private selectKubernetesCluster(clusterID: string) {
+    if (!clusterID || this.state.kubernetesLoading) {
+      return
+    }
+    this.setState({ kubernetesLoading: true, kubernetesMessage: "" })
+    fetch("/api/mold/kubernetes-clusters/select", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: clusterID })
+    }).then((resp) => {
+      if (!resp.ok) {
+        throw new Error(`kubernetes select api failed: ${resp.status}`)
+      }
+      return resp.json()
+    }).then(() => {
+      this.setState({ kubernetesMessage: translate("kubernetesSavedRestartRequired") })
+      this.refreshKubernetesClusters()
+    }).catch((err) => {
+      this.setState({ kubernetesLoading: false, kubernetesMessage: translate("kubernetesSaveFailed") })
+      console.debug("Failed to select kubernetes cluster", err)
+    })
+  }
+
+  private disableKubernetesCollection() {
+    if (this.state.kubernetesLoading) {
+      return
+    }
+    this.setState({ kubernetesLoading: true, kubernetesMessage: "" })
+    fetch("/api/mold/kubernetes-clusters/disable", { method: "POST" }).then((resp) => {
+      if (!resp.ok) {
+        throw new Error(`kubernetes disable api failed: ${resp.status}`)
+      }
+      return resp.json()
+    }).then(() => {
+      this.setState({ kubernetesMessage: translate("kubernetesDisabledRestartRequired") })
+      this.refreshKubernetesClusters()
+    }).catch((err) => {
+      this.setState({ kubernetesLoading: false, kubernetesMessage: translate("kubernetesSaveFailed") })
+      console.debug("Failed to disable kubernetes collection", err)
+    })
+  }
+
+  private testKubernetesConnection() {
+    if (this.state.kubernetesLoading) {
+      return
+    }
+    this.setState({ kubernetesLoading: true, kubernetesMessage: "" })
+    fetch("/api/mold/kubernetes-clusters/test", { method: "POST" }).then((resp) => {
+      if (!resp.ok) {
+        throw new Error(`kubernetes test api failed: ${resp.status}`)
+      }
+      return resp.json()
+    }).then((data) => {
+      this.setState({
+        kubernetesLoading: false,
+        kubernetesMessage: data.ok ? translate("kubernetesTestSuccess") : translate("kubernetesTestFailed")
+      })
+    }).catch((err) => {
+      this.setState({ kubernetesLoading: false, kubernetesMessage: translate("kubernetesTestFailed") })
+      console.debug("Failed to test kubernetes connection", err)
     })
   }
 
@@ -1632,6 +1735,62 @@ class App extends React.Component<Props, State> {
     )
   }
 
+  private renderKubernetesSettings(classes: any) {
+    return (
+      <div className={classes.drawerKubernetesPanel}>
+        <div className={classes.drawerKubernetesHeader}>
+          <span className={classes.drawerKubernetesTitle}><CloudQueueIcon />{translate("kubernetesCollection")}</span>
+          <Button size="small" onClick={this.refreshKubernetesClusters.bind(this)} disabled={this.state.kubernetesLoading}>
+            {translate("refresh")}
+          </Button>
+        </div>
+        <div className={classes.drawerKubernetesDescription}>
+          {translate("kubernetesCollectionDescription")}
+        </div>
+        <div className={classes.drawerKubernetesList}>
+          {this.state.kubernetesClusters.length === 0 &&
+            <div className={classes.drawerKubernetesEmpty}>
+              {this.state.kubernetesLoading ? translate("loading") : translate("kubernetesNoClusters")}
+            </div>
+          }
+          {this.state.kubernetesClusters.map((cluster) => {
+            const selected = this.state.kubernetesSelectedId === cluster.id
+            return (
+              <button
+                key={cluster.id}
+                type="button"
+                className={clsx(classes.drawerKubernetesItem, selected && classes.drawerKubernetesItemActive)}
+                onClick={() => this.selectKubernetesCluster(cluster.id)}
+                disabled={this.state.kubernetesLoading}>
+                <span className={classes.drawerKubernetesItemMain}>
+                  <span className={classes.drawerKubernetesName}>{cluster.name || cluster.id}</span>
+                  <span className={classes.drawerKubernetesMeta}>{cluster.apiServer || "-"}</span>
+                </span>
+                <span className={classes.drawerKubernetesBadges}>
+                  <span className={classes.drawerKubernetesState}>{cluster.state || "-"}</span>
+                  <span className={clsx(classes.drawerKubernetesCollect, selected && classes.drawerKubernetesCollectOn)}>
+                    {selected ? translate("collectionOn") : translate("collectionOffShort")}
+                  </span>
+                </span>
+              </button>
+            )
+          })}
+        </div>
+        <div className={classes.drawerKubernetesActions}>
+          <Button size="small" onClick={this.testKubernetesConnection.bind(this)} disabled={this.state.kubernetesLoading || !this.state.kubernetesSelectedId}>
+            {translate("connectionTest")}
+          </Button>
+          <Button size="small" onClick={this.disableKubernetesCollection.bind(this)} disabled={this.state.kubernetesLoading || !this.state.kubernetesSelectedId}>
+            {translate("collectionOff")}
+          </Button>
+        </div>
+        {this.state.kubernetesMessage &&
+          <div className={classes.drawerKubernetesMessage}>{this.state.kubernetesMessage}</div>
+        }
+      </div>
+    )
+  }
+
   private renderDrawerMenu(classes: any) {
     return (
       <div className={classes.drawerMenu}>
@@ -1671,6 +1830,7 @@ class App extends React.Component<Props, State> {
                 </ToggleButton>
               </ToggleButtonGroup>
             </div>
+            {this.renderKubernetesSettings(classes)}
           </div>
         }
       </div>

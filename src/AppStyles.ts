@@ -426,6 +426,150 @@ export const styles = (theme: Theme) => createStyles({
     border: '1px solid var(--netdive-menu-border-soft)',
     backgroundColor: 'var(--netdive-menu-card-soft)'
   },
+  drawerKubernetesPanel: {
+    marginTop: theme.spacing(1),
+    paddingTop: theme.spacing(1),
+    borderTop: '1px solid var(--netdive-menu-border-soft)',
+    color: 'var(--netdive-menu-text)'
+  },
+  drawerKubernetesHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing(0.75),
+    '& .MuiButton-root': {
+      minWidth: 0,
+      color: 'var(--netdive-menu-active-text)',
+      fontSize: 11,
+      fontWeight: 700
+    }
+  },
+  drawerKubernetesTitle: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: theme.spacing(0.6),
+    minWidth: 0,
+    fontSize: 12,
+    fontWeight: 800,
+    color: 'var(--netdive-menu-text)',
+    '& svg': {
+      fontSize: 18,
+      color: 'var(--netdive-menu-icon)'
+    }
+  },
+  drawerKubernetesDescription: {
+    marginTop: theme.spacing(0.5),
+    color: 'var(--netdive-menu-muted)',
+    fontSize: 11,
+    lineHeight: 1.45
+  },
+  drawerKubernetesList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: theme.spacing(0.5),
+    marginTop: theme.spacing(0.75)
+  },
+  drawerKubernetesEmpty: {
+    padding: theme.spacing(1),
+    borderRadius: 10,
+    color: 'var(--netdive-menu-muted)',
+    backgroundColor: 'var(--netdive-menu-card)',
+    fontSize: 12
+  },
+  drawerKubernetesItem: {
+    width: '100%',
+    display: 'grid',
+    gridTemplateColumns: '1fr auto',
+    alignItems: 'center',
+    gap: theme.spacing(0.75),
+    padding: theme.spacing(0.75),
+    border: '1px solid var(--netdive-menu-border-soft)',
+    borderRadius: 10,
+    backgroundColor: 'transparent',
+    color: 'var(--netdive-menu-text)',
+    cursor: 'pointer',
+    textAlign: 'left',
+    transition: 'background-color 160ms ease, border-color 160ms ease',
+    '&:hover': {
+      backgroundColor: 'var(--netdive-menu-hover)',
+      borderColor: 'var(--netdive-menu-border)'
+    },
+    '&:disabled': {
+      cursor: 'default',
+      opacity: 0.65
+    }
+  },
+  drawerKubernetesItemActive: {
+    backgroundColor: 'var(--netdive-menu-active)',
+    borderColor: 'var(--netdive-menu-active-text)'
+  },
+  drawerKubernetesItemMain: {
+    minWidth: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 2
+  },
+  drawerKubernetesName: {
+    minWidth: 0,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    fontSize: 12,
+    fontWeight: 800
+  },
+  drawerKubernetesMeta: {
+    minWidth: 0,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    fontSize: 10,
+    color: 'var(--netdive-menu-muted)'
+  },
+  drawerKubernetesState: {
+    padding: theme.spacing(0.2, 0.55),
+    borderRadius: 999,
+    backgroundColor: 'var(--netdive-menu-card)',
+    color: 'var(--netdive-menu-muted)',
+    fontSize: 10,
+    fontWeight: 800
+  },
+  drawerKubernetesBadges: {
+    display: 'inline-flex',
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    gap: 4
+  },
+  drawerKubernetesCollect: {
+    padding: theme.spacing(0.2, 0.55),
+    borderRadius: 999,
+    backgroundColor: 'var(--netdive-menu-card)',
+    color: 'var(--netdive-menu-muted)',
+    fontSize: 10,
+    fontWeight: 800
+  },
+  drawerKubernetesCollectOn: {
+    backgroundColor: 'var(--netdive-menu-active)',
+    color: 'var(--netdive-menu-active-text)'
+  },
+  drawerKubernetesActions: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    gap: theme.spacing(0.75),
+    marginTop: theme.spacing(0.75),
+    '& .MuiButton-root': {
+      flex: 1,
+      color: 'var(--netdive-menu-active-text)',
+      border: '1px solid var(--netdive-menu-border-soft)',
+      fontSize: 11,
+      fontWeight: 800
+    }
+  },
+  drawerKubernetesMessage: {
+    marginTop: theme.spacing(0.75),
+    color: 'var(--netdive-menu-muted)',
+    fontSize: 11,
+    lineHeight: 1.4
+  },
   content: {
     flexGrow: 1,
     height: '100vh',
