@@ -1808,23 +1808,22 @@ class DefaultConfig {
                 bus === "tap"
             ) {
                 return {
-                    metric: data.LastUpdateMetric || ovs.LastUpdateMetric,
-                    hasMetric: !!(data.LastUpdateMetric || data.Metric || ovs.LastUpdateMetric || ovs.Metric)
+                    metric: data.LastUpdateMetric || ovs.LastUpdateMetric
                 }
             }
 
-            return { metric: undefined, hasMetric: false }
+            return { metric: undefined }
         }
 
         const sourceMetric = trafficNodeMetric(link.source)
         const targetMetric = trafficNodeMetric(link.target)
         var metric = sourceMetric.metric || targetMetric.metric || link.source.data.LastUpdateMetric
-        const hasTrafficMetric = sourceMetric.hasMetric || targetMetric.hasMetric || !!link.source.data.LastUpdateMetric
         var bandwidth = 0
         if (metric && metric.Last > metric.Start) {
             bandwidth = (metric.RxBytes + metric.TxBytes) * 8
             bandwidth /= (metric.Last - metric.Start) / 1000
         }
+        const hasVisibleBandwidth = Number.isFinite(bandwidth) && bandwidth >= 1
 
         var attrs = {
             classes: [link.data.RelationType],
@@ -1832,10 +1831,10 @@ class DefaultConfig {
             directed: false,
             href: '',
             iconClass: '',
-            label: hasTrafficMetric ? Tools.prettyBandwidth(bandwidth) : ""
+            label: hasVisibleBandwidth ? Tools.prettyBandwidth(bandwidth) : ""
         }
 
-        if (bandwidth > 0) {
+        if (hasVisibleBandwidth) {
             attrs.classes.push('traffic')
         }
 
