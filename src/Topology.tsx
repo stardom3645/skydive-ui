@@ -33,7 +33,8 @@ const defaultMaxExpandSize = 100
 
 const nodeWidth = 170
 const nodeHeight = 280
-const userVmHorizontalGapBoost = 40
+const userVmHorizontalGapBoost = 170
+const userVmVerticalGapBoost = 60
 
 export enum LinkTagState {
     Hidden = 1,
@@ -149,7 +150,10 @@ class NodeWrapper {
             this.size = [50, nodeHeight]
         } else {
             const isUserVmNode = node?.data?.Type === "libvirt"
-            this.size = [isUserVmNode ? nodeWidth + userVmHorizontalGapBoost : nodeWidth, nodeHeight]
+            this.size = [
+                isUserVmNode ? nodeWidth + userVmHorizontalGapBoost : nodeWidth,
+                isUserVmNode ? nodeHeight + userVmVerticalGapBoost : nodeHeight
+            ]
         }
     }
 }
@@ -2994,17 +2998,15 @@ export class Topology extends React.Component<Props, {}> {
             }
 
             const isMostlyVertical = Math.abs(dx) < nodeWidth * 0.35
-            const lowerNode = y1 > y2 ? dSource : dTarget
-            const verticalSide = lowerNode.x >= mx ? -1 : 1
             const candidates = isMostlyVertical ? [
-                { x: lowerNode.x + verticalSide * 118, y: lowerNode.y - 34 },
-                { x: lowerNode.x - verticalSide * 118, y: lowerNode.y - 34 },
-                { x: lowerNode.x + verticalSide * 150, y: lowerNode.y - 58 },
-                { x: lowerNode.x - verticalSide * 150, y: lowerNode.y - 58 },
-                { x: lowerNode.x + verticalSide * 118, y: lowerNode.y + 54 },
-                { x: lowerNode.x - verticalSide * 118, y: lowerNode.y + 54 },
-                { x: mx - 150, y: my + 72 },
-                { x: mx + 150, y: my + 72 }
+                { x: mx - 64, y: my },
+                { x: mx + 64, y: my },
+                { x: mx - 96, y: my },
+                { x: mx + 96, y: my },
+                { x: mx - 64, y: my + 42 },
+                { x: mx + 64, y: my + 42 },
+                { x: mx - 64, y: my - 42 },
+                { x: mx + 64, y: my - 42 }
             ] : [
                 { x: mx + ox, y: my + oy },
                 { x: mx - ox, y: my - oy },
