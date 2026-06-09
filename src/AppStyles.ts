@@ -18,6 +18,7 @@
 import { createStyles, Theme } from '@material-ui/core'
 
 const drawerWidth = 216
+const topologyLevelMenuWidth = 188
 
 export const styles = (theme: Theme) => createStyles({
   app: {
@@ -634,7 +635,7 @@ export const styles = (theme: Theme) => createStyles({
   },
   nodeTagsPanel: {
     position: 'absolute',
-    left: 115,
+    left: topologyLevelMenuWidth + 16,
     top: 80,
     maxWidth: 'unset',
     width: 'unset',

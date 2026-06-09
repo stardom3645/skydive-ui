@@ -1751,11 +1751,41 @@ export class Topology extends React.Component<Props, {}> {
             const centerY = d.bb.height / 2 + bbox.height / 4
             label.select("text.level-label-icon").attr("y", centerY - 32)
             label.select("text.level-label-badge").attr("y", centerY - 32)
-            label.select("text.level-label-title").attr("y", centerY + 44)
+            const titleLines = label.select("text.level-label-title").selectAll("tspan").size()
+            label.select("text.level-label-title").attr("y", centerY + (titleLines > 1 ? 32 : 44))
         }
         label.transition()
             .duration(animDuration)
             .style("opacity", 1)
+    }
+
+    private levelLabelTitleLines(title: string): Array<string> {
+        switch (title) {
+            case "쿠버네티스 네임스페이스":
+                return ["쿠버네티스", "네임스페이스"]
+            case "Kubernetes Namespaces":
+                return ["Kubernetes", "Namespaces"]
+            default:
+                return [title]
+        }
+    }
+
+    private updateLevelLabelTitleText(selection: any) {
+        const self = this
+        selection.each(function (d: LevelRect) {
+            const text = select(this)
+            const title = self.weightTitles.get(d.weight) || 'Level ' + d.weight
+            const lines = self.levelLabelTitleLines(title)
+            const x = text.attr("x")
+
+            text.text(null)
+            lines.forEach((line, index) => {
+                text.append("tspan")
+                    .attr("x", x)
+                    .attr("dy", index === 0 ? 0 : "1.15em")
+                    .text(line)
+            })
+        })
     }
 
     private selectedLevelWeight(): number | null {
@@ -1893,7 +1923,8 @@ export class Topology extends React.Component<Props, {}> {
             .attr("class", "level-label-title")
             .attr("text-anchor", "middle")
             .attr("x", lang === "en" ? 120 : 110)
-            .text((d: LevelRect) => self.weightTitles.get(d.weight) || 'Level ' + d.weight)
+        this.updateLevelLabelTitleText(levelLabelEnter.select("text.level-label-title"))
+        this.updateLevelLabelTitleText(levelLabel.select("text.level-label-title"))
         levelLabel.exit().remove()
 
         this.updateLevelLabelActiveClass()

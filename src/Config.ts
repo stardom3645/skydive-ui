@@ -1337,24 +1337,9 @@ class DefaultConfig {
 
     nodeTags(data: any): Array<string> {
         if (data.Manager && data.Manager === "k8s") {
-            switch (data.Type) {
-                case "namespace":
-                case "pod":
-                case "container":
-                    return ["kubernetes", "compute", "network"]
-                default:
-                    return ["kubernetes"]
-            }
+            return ["kubernetes"]
         } else {
-            switch (data.Type) {
-                case "container":
-                    return [translate("infrastructure"), "compute", "network"]
-                case "netns":
-                case "veth":
-                    return [translate("infrastructure"), "network"]
-                default:
-                    return [translate("infrastructure")]
-            }
+            return [translate("infrastructure")]
         }
     }
 
