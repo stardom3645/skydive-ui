@@ -35,6 +35,7 @@ const nodeWidth = 170
 const nodeHeight = 280
 const userVmHorizontalGapBoost = 170
 const userVmVerticalGapBoost = 60
+const userVmNameWidthBoost = 130
 
 export enum LinkTagState {
     Hidden = 1,
@@ -2367,6 +2368,8 @@ export class Topology extends React.Component<Props, {}> {
         var wrapText = (text: Selection<SVGTextElement, any, null, undefined>, lineHeight: number, width: number) => {
             text.each(function () {
                 var text = select(this)
+                const d = text.datum() as D3Node
+                const labelWidth = d?.data?.wrapped?.data?.Type === "libvirt" ? width + userVmNameWidthBoost : width
                 var y = text.attr("y")
                 var dy = parseFloat(text.attr("dy"))
                 const rawText = text.text() || ""
@@ -2403,7 +2406,7 @@ export class Topology extends React.Component<Props, {}> {
                         if (!element) {
                             continue
                         }
-                        if (element.getComputedTextLength() > width) {
+                        if (element.getComputedTextLength() > labelWidth) {
                             line.pop()
 
                             if (line.length) {
