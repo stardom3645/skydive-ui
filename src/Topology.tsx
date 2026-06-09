@@ -2994,15 +2994,17 @@ export class Topology extends React.Component<Props, {}> {
             }
 
             const isMostlyVertical = Math.abs(dx) < nodeWidth * 0.35
+            const lowerNode = y1 > y2 ? dSource : dTarget
+            const verticalSide = lowerNode.x >= mx ? -1 : 1
             const candidates = isMostlyVertical ? [
-                { x: mx - 92, y: my },
-                { x: mx + 92, y: my },
-                { x: mx - 128, y: my },
-                { x: mx + 128, y: my },
-                { x: mx - 92, y: my - 34 },
-                { x: mx + 92, y: my - 34 },
-                { x: mx - 92, y: my + 34 },
-                { x: mx + 92, y: my + 34 }
+                { x: lowerNode.x + verticalSide * 118, y: lowerNode.y - 34 },
+                { x: lowerNode.x - verticalSide * 118, y: lowerNode.y - 34 },
+                { x: lowerNode.x + verticalSide * 150, y: lowerNode.y - 58 },
+                { x: lowerNode.x - verticalSide * 150, y: lowerNode.y - 58 },
+                { x: lowerNode.x + verticalSide * 118, y: lowerNode.y + 54 },
+                { x: lowerNode.x - verticalSide * 118, y: lowerNode.y + 54 },
+                { x: mx - 150, y: my + 72 },
+                { x: mx + 150, y: my + 72 }
             ] : [
                 { x: mx + ox, y: my + oy },
                 { x: mx - ox, y: my - oy },

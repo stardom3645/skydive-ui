@@ -137,7 +137,7 @@ svg {
 }
 
 .link-label-text {
-    font-size: 30px;
+    font-size: 24px;
     font-weight: 700;
     fill: var(--topology-link-label);
     paint-order: stroke;
