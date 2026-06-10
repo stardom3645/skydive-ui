@@ -780,6 +780,33 @@ export const styles = (theme: Theme) => createStyles({
     fontSize: 15,
     fontWeight: 900
   },
+  kubernetesSectionTitleRow: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: theme.spacing(0.75),
+    flexWrap: 'wrap'
+  },
+  kubernetesPolicyButton: {
+    minHeight: 28,
+    padding: theme.spacing(0.25, 0.8),
+    border: '1px solid rgba(26, 115, 232, 0.28)',
+    borderRadius: 999,
+    backgroundColor: 'rgba(232, 242, 255, 0.42)',
+    color: 'var(--netdive-menu-active-text)',
+    fontSize: 11,
+    fontWeight: 800,
+    lineHeight: 1.2,
+    '& .MuiButton-startIcon': {
+      marginRight: 4
+    },
+    '& svg': {
+      fontSize: 15
+    },
+    '&:hover': {
+      borderColor: 'rgba(26, 115, 232, 0.42)',
+      backgroundColor: 'rgba(232, 242, 255, 0.7)'
+    }
+  },
   kubernetesSectionHint: {
     marginTop: 4,
     color: 'var(--netdive-detail-muted)',
@@ -894,6 +921,7 @@ export const styles = (theme: Theme) => createStyles({
     display: 'grid',
     gridTemplateColumns: '1fr 1fr',
     gap: theme.spacing(1),
+    marginTop: theme.spacing(1.2),
     [theme.breakpoints.down('sm')]: {
       gridTemplateColumns: '1fr'
     }

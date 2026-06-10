@@ -191,6 +191,7 @@ interface State {
   kubernetesLoading: boolean
   kubernetesMessage: string
   isKubernetesManagerOpen: boolean
+  kubernetesPolicyDialogOpen: boolean
   kubernetesConfirmClusterId: string
   kubernetesStopClusterId: string
   kubernetesTestDialogOpen: boolean
@@ -314,6 +315,7 @@ class App extends React.Component<Props, State> {
       kubernetesLoading: false,
       kubernetesMessage: "",
       isKubernetesManagerOpen: false,
+      kubernetesPolicyDialogOpen: false,
       kubernetesConfirmClusterId: "",
       kubernetesStopClusterId: "",
       kubernetesTestDialogOpen: false,
@@ -2463,7 +2465,16 @@ class App extends React.Component<Props, State> {
         </div>
         <div className={classes.kubernetesTableHeader}>
           <div>
-            <div className={classes.kubernetesSectionTitle}>{translate("kubernetesClusterList")}</div>
+            <div className={classes.kubernetesSectionTitleRow}>
+              <div className={classes.kubernetesSectionTitle}>{translate("kubernetesClusterList")}</div>
+              <Button
+                size="small"
+                className={classes.kubernetesPolicyButton}
+                startIcon={<InfoIcon fontSize="small" />}
+                onClick={() => this.setState({ kubernetesPolicyDialogOpen: true })}>
+                {translate("kubernetesCollectionPolicy")}
+              </Button>
+            </div>
             {this.state.kubernetesMessage && <div className={classes.kubernetesSectionHint}>{this.state.kubernetesMessage}</div>}
           </div>
           <div className={classes.kubernetesTableActions}>
@@ -2533,16 +2544,6 @@ class App extends React.Component<Props, State> {
             })}
           </div>
         </div>
-        <div className={classes.kubernetesProbeInfoGrid}>
-          <div className={classes.kubernetesProbeInfoCard}>
-            <strong>{translate("kubernetesDefaultEnabledProbes")}</strong>
-            <span>cluster, namespace, node, pod, service, deployment, daemonset, statefulset, ingress, networkpolicy</span>
-          </div>
-          <div className={classes.kubernetesProbeInfoCard}>
-            <strong>{translate("kubernetesDefaultDisabledProbes")}</strong>
-            <span>secret, configmap</span>
-          </div>
-        </div>
       </Paper>
     )
   }
@@ -2605,6 +2606,25 @@ class App extends React.Component<Props, State> {
           <DialogActions>
             {testCluster && <Button onClick={() => this.testKubernetesConnection(testCluster.id, true)} disabled={this.state.kubernetesTestLoading}>{translate("retry")}</Button>}
             <Button onClick={() => this.setState({ kubernetesTestDialogOpen: false })}>{translate("close")}</Button>
+          </DialogActions>
+        </Dialog>
+        <Dialog open={this.state.kubernetesPolicyDialogOpen} onClose={() => this.setState({ kubernetesPolicyDialogOpen: false })} maxWidth="sm" fullWidth>
+          <DialogTitle>{translate("kubernetesCollectionPolicy")}</DialogTitle>
+          <DialogContent>
+            <div className={classes.kubernetesDialogText}>{translate("kubernetesCollectionPolicyDescription")}</div>
+            <div className={classes.kubernetesProbeInfoGrid}>
+              <div className={classes.kubernetesProbeInfoCard}>
+                <strong>{translate("kubernetesDefaultEnabledProbes")}</strong>
+                <span>cluster, namespace, node, pod, service, deployment, daemonset, statefulset, ingress, networkpolicy</span>
+              </div>
+              <div className={classes.kubernetesProbeInfoCard}>
+                <strong>{translate("kubernetesDefaultDisabledProbes")}</strong>
+                <span>secret, configmap</span>
+              </div>
+            </div>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => this.setState({ kubernetesPolicyDialogOpen: false })}>{translate("close")}</Button>
           </DialogActions>
         </Dialog>
       </React.Fragment>
