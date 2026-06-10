@@ -805,7 +805,7 @@ export const styles = (theme: Theme) => createStyles({
   },
   kubernetesTableHead: {
     display: 'grid',
-    gridTemplateColumns: '1.25fr 1fr 0.8fr 1.7fr 1.1fr 1.15fr 1fr 1.45fr',
+    gridTemplateColumns: '1.55fr 0.9fr 0.8fr 1.7fr 1.1fr 1.15fr 1fr 1.25fr',
     gap: theme.spacing(1),
     padding: theme.spacing(1.1, 1.25),
     borderBottom: '1px solid var(--netdive-detail-border)',
@@ -817,7 +817,7 @@ export const styles = (theme: Theme) => createStyles({
   kubernetesTableRow: {
     minHeight: 70,
     display: 'grid',
-    gridTemplateColumns: '1.25fr 1fr 0.8fr 1.7fr 1.1fr 1.15fr 1fr 1.45fr',
+    gridTemplateColumns: '1.55fr 0.9fr 0.8fr 1.7fr 1.1fr 1.15fr 1fr 1.25fr',
     alignItems: 'center',
     gap: theme.spacing(1),
     padding: theme.spacing(1, 1.25),
@@ -978,6 +978,12 @@ export const styles = (theme: Theme) => createStyles({
   },
   kubernetesCheckFail: {
     color: '#dc2626',
+    '& svg': {
+      fontSize: 20
+    }
+  },
+  kubernetesCheckPending: {
+    color: 'var(--netdive-menu-active-text)',
     '& svg': {
       fontSize: 20
     }

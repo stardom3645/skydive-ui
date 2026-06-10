@@ -225,6 +225,7 @@ interface KubernetesCheckResult {
   ok: boolean
   reason?: string
   message?: string
+  pending?: boolean
 }
 
 interface KubernetesLastTest {
@@ -268,6 +269,7 @@ class App extends React.Component<Props, State> {
   private wsOnClose: () => void
   private kubernetesRequestSeq: number
   private kubernetesTestRequestSeq: number
+  private kubernetesTestProgressTimers: number[]
 
   constructor(props) {
     super(props)
@@ -345,6 +347,7 @@ class App extends React.Component<Props, State> {
     this.wsOnClose = this.onWebSocketClose.bind(this)
     this.kubernetesRequestSeq = 0
     this.kubernetesTestRequestSeq = 0
+    this.kubernetesTestProgressTimers = []
   }
 
   setLanguage(lang: "en" | "ko") {
@@ -395,6 +398,7 @@ class App extends React.Component<Props, State> {
     if (this.vmNameMapRefreshID) {
       window.clearInterval(this.vmNameMapRefreshID)
     }
+    this.clearKubernetesTestProgress()
   }
 
   private refreshVmNameMap() {
@@ -512,7 +516,16 @@ class App extends React.Component<Props, State> {
       return
     }
     const requestSeq = ++this.kubernetesRequestSeq
-    this.setState({ kubernetesLoading: true, kubernetesMessage: "" })
+    this.setState({
+      kubernetesLoading: true,
+      kubernetesMessage: "",
+      kubernetesSelectedId: clusterID,
+      kubernetesClusters: this.state.kubernetesClusters.map((cluster) => ({
+        ...cluster,
+        collectionEnabled: cluster.id === clusterID,
+        collectionRunning: cluster.id === clusterID ? cluster.collectionRunning : false
+      }))
+    })
     this.fetchKubernetesAPI("/api/mold/kubernetes-clusters/select", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -537,7 +550,16 @@ class App extends React.Component<Props, State> {
 
   private disableKubernetesCollection() {
     const requestSeq = ++this.kubernetesRequestSeq
-    this.setState({ kubernetesLoading: true, kubernetesMessage: "" })
+    this.setState({
+      kubernetesLoading: true,
+      kubernetesMessage: "",
+      kubernetesSelectedId: "",
+      kubernetesClusters: this.state.kubernetesClusters.map((cluster) => ({
+        ...cluster,
+        collectionEnabled: false,
+        collectionRunning: false
+      }))
+    })
     this.fetchKubernetesAPI("/api/mold/kubernetes-clusters/disable", { method: "POST" }).then(() => {
       if (requestSeq !== this.kubernetesRequestSeq) {
         return
@@ -563,11 +585,12 @@ class App extends React.Component<Props, State> {
     }
     const requestSeq = ++this.kubernetesTestRequestSeq
     if (openDialog) {
+      this.startKubernetesTestProgress(targetID)
       this.setState({
         kubernetesTestDialogOpen: true,
         kubernetesTestClusterId: targetID,
         kubernetesTestLoading: true,
-        kubernetesTestResults: []
+        kubernetesTestResults: [this.kubernetesPendingCheck("kubeconfig")]
       })
     }
     return this.fetchKubernetesAPI("/api/mold/kubernetes-clusters/test", {
@@ -582,6 +605,7 @@ class App extends React.Component<Props, State> {
         ...this.state.kubernetesLastTests,
         [targetID]: { ok: !!data.ok, checkedAt: new Date().toLocaleString(), message: data.message || "" }
       }
+      this.clearKubernetesTestProgress()
       this.setState({
         kubernetesTestLoading: false,
         kubernetesTestResults: data.checks || [],
@@ -590,6 +614,7 @@ class App extends React.Component<Props, State> {
       })
       return data
     }).catch((err) => {
+      this.clearKubernetesTestProgress()
       const lastTests = {
         ...this.state.kubernetesLastTests,
         [targetID]: { ok: false, checkedAt: new Date().toLocaleString(), message: translate("kubernetesTestFailed") }
@@ -597,12 +622,65 @@ class App extends React.Component<Props, State> {
       if (requestSeq === this.kubernetesTestRequestSeq || !openDialog) {
         this.setState({
           kubernetesTestLoading: false,
+          kubernetesTestResults: [],
           kubernetesLastTests: lastTests,
           kubernetesMessage: err && err.name === "AbortError" ? translate("kubernetesRequestTimeout") : translate("kubernetesTestFailed")
         })
       }
       console.debug("Failed to test kubernetes connection", err)
       return null
+    })
+  }
+
+  private kubernetesDefaultCheckKeys() {
+    return [
+      "kubeconfig",
+      "apiserver",
+      "client",
+      "version",
+      "namespaces",
+      "nodes",
+      "pods",
+      "services",
+      "networkpolicies"
+    ]
+  }
+
+  private kubernetesPendingCheck(key: string): KubernetesCheckResult {
+    return {
+      key,
+      label: translate(`kubernetesCheck-${key}`),
+      ok: false,
+      pending: true,
+      message: translate("testing")
+    }
+  }
+
+  private clearKubernetesTestProgress() {
+    this.kubernetesTestProgressTimers.forEach((timerID) => window.clearTimeout(timerID))
+    this.kubernetesTestProgressTimers = []
+  }
+
+  private startKubernetesTestProgress(targetID: string) {
+    this.clearKubernetesTestProgress()
+    const keys = this.kubernetesDefaultCheckKeys()
+    keys.slice(1).forEach((key, index) => {
+      const timerID = window.setTimeout(() => {
+        if (!this.state.kubernetesTestLoading || this.state.kubernetesTestClusterId !== targetID) {
+          return
+        }
+        const existing = this.state.kubernetesTestResults.map((check) => check.key)
+        if (existing.indexOf(key) >= 0) {
+          return
+        }
+        this.setState({
+          kubernetesTestResults: [
+            ...this.state.kubernetesTestResults,
+            this.kubernetesPendingCheck(key)
+          ]
+        })
+      }, 220 * (index + 1))
+      this.kubernetesTestProgressTimers.push(timerID)
     })
   }
 
@@ -622,8 +700,8 @@ class App extends React.Component<Props, State> {
 
   private kubernetesSummary() {
     const total = this.state.kubernetesClusters.length
-    const running = this.state.kubernetesClusters.filter((cluster) => cluster.collectionRunning).length
-    const enabled = this.state.kubernetesClusters.filter((cluster) => cluster.collectionEnabled).length
+    const running = this.state.kubernetesClusters.filter((cluster) => this.isKubernetesCollectionEnabled(cluster) && cluster.collectionRunning).length
+    const enabled = this.state.kubernetesClusters.filter((cluster) => this.isKubernetesCollectionEnabled(cluster)).length
     const errors = this.state.kubernetesClusters.filter((cluster) => {
       const last = this.state.kubernetesLastTests[cluster.id]
       return !!last && !last.ok
@@ -633,6 +711,10 @@ class App extends React.Component<Props, State> {
 
   private kubernetesSummaryText() {
     return `${translate("clusterCountPrefix")} ${this.state.kubernetesClusters.length}${translate("clusterCountSuffix")}`
+  }
+
+  private isKubernetesCollectionEnabled(cluster: MoldKubernetesCluster) {
+    return this.state.kubernetesSelectedId ? this.state.kubernetesSelectedId === cluster.id : cluster.collectionEnabled
   }
 
   private localizeMoldState(state: string) {
@@ -649,14 +731,15 @@ class App extends React.Component<Props, State> {
   }
 
   private collectionStateLabel(cluster: MoldKubernetesCluster) {
+    const enabled = this.isKubernetesCollectionEnabled(cluster)
     const last = this.state.kubernetesLastTests[cluster.id]
-    if (last && !last.ok) {
+    if (enabled && last && !last.ok) {
       return translate("collectionError")
     }
-    if (cluster.collectionRunning) {
+    if (enabled && cluster.collectionRunning) {
       return translate("collectionRunning")
     }
-    if (cluster.collectionEnabled) {
+    if (enabled) {
       return translate("collectionPending")
     }
     return translate("collectionStopped")
@@ -669,6 +752,13 @@ class App extends React.Component<Props, State> {
     const head = Math.ceil((max - 3) * 0.62)
     const tail = Math.max(max - 3 - head, 4)
     return `${value.slice(0, head)}...${value.slice(value.length - tail)}`
+  }
+
+  private compactIdentifier(value: string) {
+    if (!value || value.length <= 15) {
+      return value || "-"
+    }
+    return `${value.slice(0, 6)}...${value.slice(value.length - 6)}`
   }
 
   private copyKubernetesAPIServer(cluster: MoldKubernetesCluster) {
@@ -712,7 +802,7 @@ class App extends React.Component<Props, State> {
       this.setState({ kubernetesConfirmClusterId: cluster.id })
       return
     }
-    if (cluster.collectionEnabled) {
+    if (this.isKubernetesCollectionEnabled(cluster)) {
       this.setState({ kubernetesStopClusterId: cluster.id })
     }
   }
@@ -2232,7 +2322,7 @@ class App extends React.Component<Props, State> {
         <div className={classes.kubernetesTableHeader}>
           <div>
             <div className={classes.kubernetesSectionTitle}>{translate("kubernetesClusterList")}</div>
-            <div className={classes.kubernetesSectionHint}>{this.state.kubernetesMessage || translate("kubernetesNoSecretNotice")}</div>
+            {this.state.kubernetesMessage && <div className={classes.kubernetesSectionHint}>{this.state.kubernetesMessage}</div>}
           </div>
           <div className={classes.kubernetesTableActions}>
             <Button size="small" onClick={this.refreshKubernetesClusters.bind(this)}>{translate("refresh")}</Button>
@@ -2256,11 +2346,16 @@ class App extends React.Component<Props, State> {
             }
             {this.state.kubernetesClusters.map((cluster) => {
               const last = this.state.kubernetesLastTests[cluster.id]
-              const selected = this.state.kubernetesSelectedId === cluster.id
+              const selected = this.state.kubernetesSelectedId ? this.state.kubernetesSelectedId === cluster.id : cluster.collectionEnabled
+              const collectionEnabled = this.isKubernetesCollectionEnabled(cluster)
               return (
                 <div className={classes.kubernetesTableRow} key={cluster.id}>
-                  <span className={classes.kubernetesNameCell}>{cluster.name || cluster.id}</span>
-                  <span className={classes.kubernetesMutedCell}>{cluster.id}</span>
+                  <Tooltip title={cluster.name || cluster.id}>
+                    <span className={classes.kubernetesNameCell}>{cluster.name || cluster.id}</span>
+                  </Tooltip>
+                  <Tooltip title={cluster.id || "-"}>
+                    <span className={classes.kubernetesMutedCell}>{this.compactIdentifier(cluster.id)}</span>
+                  </Tooltip>
                   <span><span className={classes.kubernetesPill}>{this.localizeMoldState(cluster.state)}</span></span>
                   <span className={classes.kubernetesApiCell}>
                     <Tooltip title={cluster.apiServer || "-"}>
@@ -2278,16 +2373,17 @@ class App extends React.Component<Props, State> {
                     <Switch
                       color="primary"
                       size="small"
-                      checked={cluster.collectionEnabled}
-                      disabled={cluster.collectionEnabled && !selected}
+                      checked={collectionEnabled}
+                      disabled={collectionEnabled && !selected}
                       onChange={(event) => this.onKubernetesCollectionToggle(cluster, event.target.checked)} />
                     <span>{this.collectionStateLabel(cluster)}</span>
                   </span>
-                  <span className={classes.kubernetesMutedCell}>{last ? `${last.ok ? translate("success") : translate("failed")} · ${last.checkedAt}` : "-"}</span>
+                  <Tooltip title={last ? `${last.ok ? translate("success") : translate("failed")} · ${last.checkedAt}` : "-"}>
+                    <span className={classes.kubernetesMutedCell}>{last ? `${last.ok ? translate("success") : translate("failed")} · ${last.checkedAt}` : "-"}</span>
+                  </Tooltip>
                   <span className={classes.kubernetesMutedCell}>{this.collectionStateLabel(cluster)}</span>
                   <span className={classes.kubernetesActionCell}>
                     <Button size="small" onClick={() => this.testKubernetesConnection(cluster.id, true)} disabled={this.state.kubernetesTestLoading}>{translate("connectionTest")}</Button>
-                    <Button size="small" onClick={() => this.setState({ kubernetesTestDialogOpen: true, kubernetesTestClusterId: cluster.id, kubernetesTestResults: [] })}>{translate("details")}</Button>
                     {last && !last.ok && <Button size="small" onClick={() => this.testKubernetesConnection(cluster.id, true)}>{translate("retry")}</Button>}
                   </span>
                 </div>
@@ -2348,11 +2444,10 @@ class App extends React.Component<Props, State> {
           <DialogContent>
             {testCluster && <div className={classes.kubernetesDialogTarget}>{testCluster.name || testCluster.id}</div>}
             <div className={classes.kubernetesCheckList}>
-              {this.state.kubernetesTestLoading && <div className={classes.kubernetesEmptyRow}>{translate("loading")}</div>}
               {!this.state.kubernetesTestLoading && this.state.kubernetesTestResults.length === 0 && <div className={classes.kubernetesEmptyRow}>{translate("kubernetesNoTestResult")}</div>}
               {this.state.kubernetesTestResults.map((check) => (
                 <div key={check.key} className={classes.kubernetesCheckItem}>
-                  <span className={check.ok ? classes.kubernetesCheckOk : classes.kubernetesCheckFail}>{check.ok ? <CheckCircleIcon /> : <ErrorOutlineIcon />}</span>
+                  <span className={check.pending ? classes.kubernetesCheckPending : check.ok ? classes.kubernetesCheckOk : classes.kubernetesCheckFail}>{check.pending ? <AccessTimeIcon /> : check.ok ? <CheckCircleIcon /> : <ErrorOutlineIcon />}</span>
                   <span>
                     <strong>{this.kubernetesCheckLabel(check)}</strong>
                     <small>{check.ok ? (check.message || translate("success")) : (check.message || translate("failed"))}</small>
