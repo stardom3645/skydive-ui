@@ -70,6 +70,8 @@ import CloudQueueIcon from '@material-ui/icons/CloudQueue'
 import FileCopyIcon from '@material-ui/icons/FileCopy'
 import CheckCircleIcon from '@material-ui/icons/CheckCircle'
 import ErrorOutlineIcon from '@material-ui/icons/ErrorOutline'
+import RefreshIcon from '@material-ui/icons/Refresh'
+import DeviceHubIcon from '@material-ui/icons/DeviceHub'
 import LogoLight from '../assets/logo-ablestack.png'
 import LogoDark from '../assets/ablestack-logo.png'
 
@@ -2484,7 +2486,7 @@ class App extends React.Component<Props, State> {
           <div className={classes.kubernetesSummaryCard}><span>{translate("collectionError")}</span><strong>{summary.errors}</strong></div>
         </div>
         <div className={classes.kubernetesTableHeader}>
-          <div>
+          <div className={classes.kubernetesSectionTitleArea}>
             <div className={classes.kubernetesSectionTitleRow}>
               <div className={classes.kubernetesSectionTitle}>{translate("kubernetesClusterList")}</div>
               <Button
@@ -2495,11 +2497,22 @@ class App extends React.Component<Props, State> {
                 {translate("kubernetesCollectionPolicy")}
               </Button>
             </div>
-            {this.state.kubernetesMessage && <div className={classes.kubernetesSectionHint}>{this.state.kubernetesMessage}</div>}
+            <div className={classes.kubernetesSectionHint}>{this.state.kubernetesMessage || translate("kubernetesClusterListDescription")}</div>
           </div>
           <div className={classes.kubernetesTableActions}>
-            <Button size="small" onClick={this.refreshKubernetesClusters.bind(this)}>{translate("refresh")}</Button>
-            <Button size="small" onClick={this.testAllKubernetesConnections.bind(this)} disabled={this.state.kubernetesTestLoading || this.state.kubernetesTestAllLoading || this.state.kubernetesClusters.length === 0}>
+            <Button
+              size="small"
+              className={classes.kubernetesRefreshButton}
+              startIcon={<RefreshIcon fontSize="small" />}
+              onClick={this.refreshKubernetesClusters.bind(this)}>
+              {translate("refresh")}
+            </Button>
+            <Button
+              size="small"
+              className={classes.kubernetesTestAllButton}
+              startIcon={<DeviceHubIcon fontSize="small" />}
+              onClick={this.testAllKubernetesConnections.bind(this)}
+              disabled={this.state.kubernetesTestLoading || this.state.kubernetesTestAllLoading || this.state.kubernetesClusters.length === 0}>
               {this.state.kubernetesTestAllLoading ? translate("kubernetesTestAllRunning") : translate("kubernetesTestAll")}
             </Button>
           </div>

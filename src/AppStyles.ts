@@ -773,7 +773,14 @@ export const styles = (theme: Theme) => createStyles({
     display: 'flex',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-    gap: theme.spacing(2)
+    gap: theme.spacing(2),
+    [theme.breakpoints.down('sm')]: {
+      alignItems: 'flex-start',
+      flexDirection: 'column'
+    }
+  },
+  kubernetesSectionTitleArea: {
+    minWidth: 0
   },
   kubernetesSectionTitle: {
     color: 'var(--netdive-detail-title)',
@@ -787,24 +794,27 @@ export const styles = (theme: Theme) => createStyles({
     flexWrap: 'wrap'
   },
   kubernetesPolicyButton: {
-    minHeight: 28,
-    padding: theme.spacing(0.25, 0.8),
-    border: '1px solid rgba(26, 115, 232, 0.28)',
-    borderRadius: 999,
-    backgroundColor: 'rgba(232, 242, 255, 0.42)',
-    color: 'var(--netdive-menu-active-text)',
-    fontSize: 11,
-    fontWeight: 800,
-    lineHeight: 1.2,
+    height: 30,
+    minHeight: 30,
+    padding: theme.spacing(0, 1.2),
+    border: '1px solid #bfdbfe',
+    borderRadius: 8,
+    backgroundColor: '#ffffff',
+    color: '#2563eb',
+    fontSize: 12,
+    fontWeight: 700,
+    lineHeight: 1,
+    whiteSpace: 'nowrap',
+    transition: 'background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease',
     '& .MuiButton-startIcon': {
-      marginRight: 4
+      marginRight: 6
     },
     '& svg': {
       fontSize: 15
     },
     '&:hover': {
-      borderColor: 'rgba(26, 115, 232, 0.42)',
-      backgroundColor: 'rgba(232, 242, 255, 0.7)'
+      borderColor: '#93c5fd',
+      backgroundColor: '#eff6ff'
     }
   },
   kubernetesSectionHint: {
@@ -814,11 +824,57 @@ export const styles = (theme: Theme) => createStyles({
   },
   kubernetesTableActions: {
     display: 'inline-flex',
-    gap: theme.spacing(0.75),
+    alignItems: 'center',
+    gap: 8,
+    flexShrink: 0,
     '& .MuiButton-root': {
-      border: '1px solid var(--netdive-detail-border)',
-      color: 'var(--netdive-menu-active-text)',
-      fontWeight: 800
+      height: 36,
+      borderRadius: 8,
+      fontSize: 13,
+      fontWeight: 700,
+      lineHeight: 1,
+      whiteSpace: 'nowrap',
+      textTransform: 'none',
+      transition: 'background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, color 160ms ease'
+    },
+    '& .MuiButton-startIcon': {
+      marginRight: 6
+    },
+    '& svg': {
+      fontSize: 16
+    },
+    [theme.breakpoints.down('sm')]: {
+      width: '100%',
+      justifyContent: 'flex-end',
+      flexWrap: 'wrap'
+    }
+  },
+  kubernetesRefreshButton: {
+    padding: theme.spacing(0, 1.4),
+    border: '1px solid #bfdbfe',
+    backgroundColor: '#ffffff',
+    color: '#2563eb',
+    '&:hover': {
+      borderColor: '#93c5fd',
+      backgroundColor: '#eff6ff'
+    }
+  },
+  kubernetesTestAllButton: {
+    padding: theme.spacing(0, 1.6),
+    border: '1px solid #2563eb',
+    backgroundColor: '#2563eb',
+    color: '#ffffff',
+    boxShadow: '0 8px 18px rgba(37, 99, 235, 0.18)',
+    '&:hover': {
+      borderColor: '#1d4ed8',
+      backgroundColor: '#1d4ed8',
+      boxShadow: '0 10px 22px rgba(37, 99, 235, 0.24)'
+    },
+    '&.Mui-disabled': {
+      borderColor: 'var(--netdive-detail-border)',
+      backgroundColor: 'var(--netdive-detail-section-bg)',
+      color: 'var(--netdive-detail-muted)',
+      boxShadow: 'none'
     }
   },
   kubernetesTableWrap: {
