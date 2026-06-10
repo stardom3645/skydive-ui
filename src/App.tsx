@@ -606,12 +606,18 @@ class App extends React.Component<Props, State> {
         [targetID]: { ok: !!data.ok, checkedAt: new Date().toLocaleString(), message: data.message || "" }
       }
       this.clearKubernetesTestProgress()
-      this.setState({
-        kubernetesTestLoading: false,
-        kubernetesTestResults: data.checks || [],
-        kubernetesLastTests: lastTests,
-        kubernetesMessage: data.ok ? translate("kubernetesTestSuccess") : translate("kubernetesTestFailed")
-      })
+      if (openDialog) {
+        this.revealKubernetesTestResults(targetID, requestSeq, data.checks || [], {
+          kubernetesLastTests: lastTests,
+          kubernetesMessage: data.ok ? translate("kubernetesTestSuccess") : translate("kubernetesTestFailed")
+        })
+      } else {
+        this.setState({
+          kubernetesTestLoading: false,
+          kubernetesLastTests: lastTests,
+          kubernetesMessage: data.ok ? translate("kubernetesTestSuccess") : translate("kubernetesTestFailed")
+        })
+      }
       return data
     }).catch((err) => {
       this.clearKubernetesTestProgress()
@@ -680,6 +686,48 @@ class App extends React.Component<Props, State> {
           ]
         })
       }, 220 * (index + 1))
+      this.kubernetesTestProgressTimers.push(timerID)
+    })
+  }
+
+  private revealKubernetesTestResults(targetID: string, requestSeq: number, checks: KubernetesCheckResult[], finalState: any) {
+    this.clearKubernetesTestProgress()
+    if (checks.length === 0) {
+      this.setState({
+        ...finalState,
+        kubernetesTestLoading: false,
+        kubernetesTestResults: []
+      })
+      return
+    }
+
+    if (checks.length === 1) {
+      this.setState({
+        ...finalState,
+        kubernetesTestLoading: false,
+        kubernetesTestResults: checks
+      })
+      return
+    }
+
+    this.setState({
+      kubernetesTestLoading: true,
+      kubernetesTestResults: checks.slice(0, 1)
+    })
+    checks.slice(1).forEach((check, index) => {
+      const resultIndex = index + 1
+      const timerID = window.setTimeout(() => {
+        if (requestSeq !== this.kubernetesTestRequestSeq || this.state.kubernetesTestClusterId !== targetID) {
+          return
+        }
+        const nextResults = checks.slice(0, resultIndex + 1)
+        const isLast = resultIndex === checks.length - 1
+        this.setState({
+          ...(isLast ? finalState : {}),
+          kubernetesTestLoading: !isLast,
+          kubernetesTestResults: nextResults
+        })
+      }, 180 * resultIndex)
       this.kubernetesTestProgressTimers.push(timerID)
     })
   }
@@ -2450,7 +2498,7 @@ class App extends React.Component<Props, State> {
                   <span className={check.pending ? classes.kubernetesCheckPending : check.ok ? classes.kubernetesCheckOk : classes.kubernetesCheckFail}>{check.pending ? <AccessTimeIcon /> : check.ok ? <CheckCircleIcon /> : <ErrorOutlineIcon />}</span>
                   <span>
                     <strong>{this.kubernetesCheckLabel(check)}</strong>
-                    <small>{check.ok ? (check.message || translate("success")) : (check.message || translate("failed"))}</small>
+                    <small>{check.pending ? (check.message || translate("testing")) : check.ok ? (check.message || translate("success")) : (check.message || translate("failed"))}</small>
                     {!check.ok && check.reason && <small>{check.reason}</small>}
                   </span>
                 </div>
