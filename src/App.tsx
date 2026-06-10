@@ -183,6 +183,7 @@ interface State {
   isLinkTagsCollapsed: boolean
   isVMConsoleEnabled: boolean
   netdiveTheme: NetdiveTheme
+  isInfrastructurePanelOpen: boolean
   isScreenConfigOpen: boolean
   isPreferencesPanelOpen: boolean
   kubernetesClusters: MoldKubernetesCluster[]
@@ -290,6 +291,7 @@ class App extends React.Component<Props, State> {
       isLinkTagsCollapsed: false,
       isVMConsoleEnabled: true,
       netdiveTheme: getSavedNetdiveTheme(),
+      isInfrastructurePanelOpen: false,
       isScreenConfigOpen: false,
       isPreferencesPanelOpen: false,
       kubernetesClusters: [],
@@ -1968,6 +1970,7 @@ class App extends React.Component<Props, State> {
 
   private openKubernetesManager() {
     this.setState({
+      isInfrastructurePanelOpen: false,
       isKubernetesManagerOpen: true,
       isScreenConfigOpen: false,
       isPreferencesPanelOpen: false
@@ -1976,6 +1979,7 @@ class App extends React.Component<Props, State> {
 
   private openInfrastructureTopology() {
     this.setState({
+      isInfrastructurePanelOpen: true,
       isKubernetesManagerOpen: false,
       isScreenConfigOpen: false,
       isPreferencesPanelOpen: false
@@ -1984,6 +1988,7 @@ class App extends React.Component<Props, State> {
 
   private openScreenConfigPanel() {
     this.setState({
+      isInfrastructurePanelOpen: false,
       isKubernetesManagerOpen: false,
       isScreenConfigOpen: true,
       isPreferencesPanelOpen: false
@@ -1992,10 +1997,43 @@ class App extends React.Component<Props, State> {
 
   private openPreferencesPanel() {
     this.setState({
+      isInfrastructurePanelOpen: false,
       isKubernetesManagerOpen: false,
       isScreenConfigOpen: false,
       isPreferencesPanelOpen: true
     })
+  }
+
+  private renderInfrastructurePanel(classes: any) {
+    if (!this.state.isInfrastructurePanelOpen) {
+      return null
+    }
+    const items = [
+      ["infrastructurePanelHosts", "infrastructurePanelHostsDescription"],
+      ["infrastructurePanelNetwork", "infrastructurePanelNetworkDescription"],
+      ["infrastructurePanelVirtual", "infrastructurePanelVirtualDescription"]
+    ]
+    return (
+      <Paper className={classes.sideSettingsPanel}>
+        <div className={classes.sideSettingsHeader}>
+          <div>
+            <div className={classes.sideSettingsTitle}>{translate("infrastructurePanelTitle")}</div>
+            <div className={classes.sideSettingsDescription}>{translate("infrastructurePanelDescription")}</div>
+          </div>
+          <IconButton size="small" onClick={() => this.setState({ isInfrastructurePanelOpen: false })}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </div>
+        <div className={classes.sideSettingsList}>
+          {items.map(([title, description]) => (
+            <div className={classes.sideSettingsRow} key={title}>
+              <span>{translate(title)}</span>
+              <small>{translate(description)}</small>
+            </div>
+          ))}
+        </div>
+      </Paper>
+    )
   }
 
   private renderScreenConfigPanel(classes: any) {
@@ -2239,7 +2277,7 @@ class App extends React.Component<Props, State> {
         {this.renderDrawerMenuItem(classes, <CloseIcon />, translate("close"), () => this.closeDrawer())}
         <Divider className={classes.drawerDivider} />
         <div className={classes.drawerMenuSectionTitle}>{translate("collectionSection")}</div>
-        {this.renderDrawerIntegrationItem(classes, <WavesIcon />, translate("infrastructureMenu"), translate("infrastructureMenuSummary"), () => this.openInfrastructureTopology(), !this.state.isKubernetesManagerOpen && !this.state.isScreenConfigOpen && !this.state.isPreferencesPanelOpen)}
+        {this.renderDrawerIntegrationItem(classes, <WavesIcon />, translate("infrastructureMenu"), translate("infrastructureMenuSummary"), () => this.openInfrastructureTopology(), this.state.isInfrastructurePanelOpen)}
         {this.renderDrawerIntegrationItem(classes, <CloudQueueIcon />, translate("kubernetesCollectionMenu"), this.kubernetesSummaryText(), () => this.openKubernetesManager(), this.state.isKubernetesManagerOpen)}
         <div className={classes.drawerMenuSectionTitle}>{translate("viewSettingsSection")}</div>
         {this.renderDrawerMenuItem(classes, <WavesIcon />, translate("screenConfig"), () => this.openScreenConfigPanel(), this.state.isScreenConfigOpen)}
@@ -2325,6 +2363,7 @@ class App extends React.Component<Props, State> {
           {this.renderDrawerMenu(classes)}
           </div>
         </Drawer>
+        {this.renderInfrastructurePanel(classes)}
         {this.renderKubernetesManagerPanel(classes)}
         {this.renderScreenConfigPanel(classes)}
         {this.renderPreferencesPanel(classes)}
