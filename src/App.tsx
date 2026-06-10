@@ -233,6 +233,16 @@ interface KubernetesLastTest {
   message?: string
 }
 
+interface InfrastructureSummary {
+  hosts: number
+  userVMs: number
+  systemVMs: number
+  routers: number
+  networkObjects: number
+  links: number
+  totalNodes: number
+}
+
 class App extends React.Component<Props, State> {
 
   tc: Topology | null
@@ -513,6 +523,7 @@ class App extends React.Component<Props, State> {
       }
       this.setState({ kubernetesMessage: data.probeRunning ? translate("kubernetesProbeStarted") : translate("kubernetesProbeStartFailed") })
       this.refreshKubernetesClusters()
+      window.setTimeout(() => this.sync(), 500)
     }).catch((err) => {
       if (requestSeq === this.kubernetesRequestSeq) {
         this.setState({
@@ -533,6 +544,7 @@ class App extends React.Component<Props, State> {
       }
       this.setState({ kubernetesMessage: translate("kubernetesCollectionDisabled") })
       this.refreshKubernetesClusters()
+      window.setTimeout(() => this.sync(), 500)
     }).catch((err) => {
       if (requestSeq === this.kubernetesRequestSeq) {
         this.setState({
@@ -1986,6 +1998,80 @@ class App extends React.Component<Props, State> {
     })
   }
 
+  private infrastructureSummary(): InfrastructureSummary {
+    const summary: InfrastructureSummary = {
+      hosts: 0,
+      userVMs: 0,
+      systemVMs: 0,
+      routers: 0,
+      networkObjects: 0,
+      links: 0,
+      totalNodes: 0
+    }
+
+    if (!this.tc) {
+      return summary
+    }
+
+    this.tc.nodes.forEach((node) => {
+      if (!node || node === this.tc?.root || node.data?.Manager === "k8s") {
+        return
+      }
+      const type = typeof node.data?.Type === "string" ? node.data.Type.toLowerCase() : ""
+      const name = typeof node.data?.Name === "string" ? node.data.Name : ""
+      summary.totalNodes += 1
+
+      if (type === "host") {
+        summary.hosts += 1
+      }
+
+      if (type === "libvirt") {
+        if (/^r-/.test(name)) {
+          summary.routers += 1
+        } else if (/^(s-|v-)/.test(name) || name === "ccvm" || name === "scvm") {
+          summary.systemVMs += 1
+        } else {
+          summary.userVMs += 1
+        }
+      }
+
+      if ([
+        "device",
+        "bond",
+        "bridge",
+        "vlan",
+        "switch",
+        "switchport",
+        "patch",
+        "port",
+        "ovsbridge",
+        "openvswitch",
+        "ovsport",
+        "tun",
+        "tap",
+        "tuntap",
+        "internal",
+        "interface",
+        "veth",
+        "vxlan",
+        "geneve",
+        "gre",
+        "gretap"
+      ].indexOf(type) >= 0) {
+        summary.networkObjects += 1
+      }
+    })
+
+    this.tc.links.forEach((link) => {
+      const relationType = link.data?.RelationType
+      if (relationType !== "ownership" && relationType !== "vownership") {
+        summary.links += 1
+      }
+    })
+
+    return summary
+  }
+
   private openScreenConfigPanel() {
     this.setState({
       isInfrastructurePanelOpen: false,
@@ -2008,29 +2094,43 @@ class App extends React.Component<Props, State> {
     if (!this.state.isInfrastructurePanelOpen) {
       return null
     }
-    const items = [
-      ["infrastructurePanelHosts", "infrastructurePanelHostsDescription"],
-      ["infrastructurePanelNetwork", "infrastructurePanelNetworkDescription"],
-      ["infrastructurePanelVirtual", "infrastructurePanelVirtualDescription"]
-    ]
+    const summary = this.infrastructureSummary()
     return (
-      <Paper className={classes.sideSettingsPanel}>
-        <div className={classes.sideSettingsHeader}>
+      <Paper className={classes.kubernetesManagerPanel}>
+        <div className={classes.kubernetesManagerHeader}>
           <div>
-            <div className={classes.sideSettingsTitle}>{translate("infrastructurePanelTitle")}</div>
-            <div className={classes.sideSettingsDescription}>{translate("infrastructurePanelDescription")}</div>
+            <div className={classes.kubernetesManagerTitle}>{translate("infrastructurePanelTitle")}</div>
+            <div className={classes.kubernetesManagerDescription}>{translate("infrastructurePanelDescription")}</div>
           </div>
           <IconButton size="small" onClick={() => this.setState({ isInfrastructurePanelOpen: false })}>
             <CloseIcon fontSize="small" />
           </IconButton>
         </div>
+        <div className={classes.kubernetesSummaryGrid}>
+          <div className={classes.kubernetesSummaryCard}><span>{translate("infrastructureHosts")}</span><strong>{summary.hosts}</strong></div>
+          <div className={classes.kubernetesSummaryCard}><span>{translate("infrastructureUserVMs")}</span><strong>{summary.userVMs}</strong></div>
+          <div className={classes.kubernetesSummaryCard}><span>{translate("infrastructureSystemVMs")}</span><strong>{summary.systemVMs}</strong></div>
+          <div className={classes.kubernetesSummaryCard}><span>{translate("infrastructureNetworkLinks")}</span><strong>{summary.links}</strong></div>
+        </div>
+        <div className={classes.kubernetesTableHeader}>
+          <div>
+            <div className={classes.kubernetesSectionTitle}>{translate("infrastructureOverview")}</div>
+            <div className={classes.kubernetesSectionHint}>{translate("infrastructureOverviewDescription")}</div>
+          </div>
+        </div>
         <div className={classes.sideSettingsList}>
-          {items.map(([title, description]) => (
-            <div className={classes.sideSettingsRow} key={title}>
-              <span>{translate(title)}</span>
-              <small>{translate(description)}</small>
-            </div>
-          ))}
+          <div className={classes.sideSettingsRow}>
+            <span>{translate("infrastructureNetworkObjects")}</span>
+            <small>{summary.networkObjects}</small>
+          </div>
+          <div className={classes.sideSettingsRow}>
+            <span>{translate("infrastructureRouters")}</span>
+            <small>{summary.routers}</small>
+          </div>
+          <div className={classes.sideSettingsRow}>
+            <span>{translate("infrastructureTotalNodes")}</span>
+            <small>{summary.totalNodes}</small>
+          </div>
         </div>
       </Paper>
     )
