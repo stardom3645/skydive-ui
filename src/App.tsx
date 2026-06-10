@@ -738,6 +738,7 @@ class App extends React.Component<Props, State> {
 
   private revealKubernetesTestResults(targetID: string, requestSeq: number, checks: KubernetesCheckResult[], finalState: any) {
     this.clearKubernetesTestProgress()
+    checks = this.normalizeKubernetesTestChecks(checks)
     const orderedChecks = this.kubernetesDefaultCheckKeys().map((key) => checks.find((check) => check.key === key)).filter((check): check is KubernetesCheckResult => !!check)
     const resultChecks = orderedChecks.length > 0 ? orderedChecks : checks
 
@@ -788,6 +789,25 @@ class App extends React.Component<Props, State> {
       }, 180 * resultIndex)
       this.kubernetesTestProgressTimers.push(timerID)
     })
+  }
+
+  private normalizeKubernetesTestChecks(checks: KubernetesCheckResult[]) {
+    const keys = checks.map((check) => check.key)
+    if (keys.indexOf("client") >= 0) {
+      return checks
+    }
+    const apiserverIndex = checks.findIndex((check) => check.key === "apiserver" && check.ok)
+    if (apiserverIndex < 0) {
+      return checks
+    }
+    const normalized = checks.slice()
+    normalized.splice(apiserverIndex + 1, 0, {
+      key: "client",
+      label: translate("kubernetesCheck-client"),
+      ok: true,
+      message: translate("kubernetesClientCreated")
+    })
+    return normalized
   }
 
   private testAllKubernetesConnections() {
