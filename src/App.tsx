@@ -197,6 +197,7 @@ interface State {
   kubernetesTestDialogOpen: boolean
   kubernetesTestClusterId: string
   kubernetesTestLoading: boolean
+  kubernetesTestAllLoading: boolean
   kubernetesTestResults: KubernetesCheckResult[]
   kubernetesLastTests: Record<string, KubernetesLastTest>
   kubernetesCopiedClusterId: string
@@ -321,6 +322,7 @@ class App extends React.Component<Props, State> {
       kubernetesTestDialogOpen: false,
       kubernetesTestClusterId: "",
       kubernetesTestLoading: false,
+      kubernetesTestAllLoading: false,
       kubernetesTestResults: [],
       kubernetesLastTests: {},
       kubernetesCopiedClusterId: "",
@@ -606,7 +608,7 @@ class App extends React.Component<Props, State> {
     })
   }
 
-  private testKubernetesConnection(clusterID?: string, openDialog = true): Promise<any> {
+  private testKubernetesConnection(clusterID?: string, openDialog = true, quiet = false): Promise<any> {
     const targetID = clusterID || this.state.kubernetesSelectedId
     if (!targetID || (openDialog && this.state.kubernetesTestLoading)) {
       return Promise.resolve(null)
@@ -640,11 +642,12 @@ class App extends React.Component<Props, State> {
           kubernetesMessage: data.ok ? translate("kubernetesTestSuccess") : translate("kubernetesTestFailed")
         })
       } else {
-        this.setState({
-          kubernetesTestLoading: false,
-          kubernetesLastTests: lastTests,
-          kubernetesMessage: data.ok ? translate("kubernetesTestSuccess") : translate("kubernetesTestFailed")
-        })
+        const nextState: any = { kubernetesLastTests: lastTests }
+        if (!quiet) {
+          nextState.kubernetesTestLoading = false
+          nextState.kubernetesMessage = data.ok ? translate("kubernetesTestSuccess") : translate("kubernetesTestFailed")
+        }
+        this.setState(nextState)
       }
       return data
     }).catch((err) => {
@@ -654,12 +657,15 @@ class App extends React.Component<Props, State> {
         [targetID]: { ok: false, checkedAt: new Date().toLocaleString(), message: translate("kubernetesTestFailed") }
       }
       if (requestSeq === this.kubernetesTestRequestSeq || !openDialog) {
-        this.setState({
-          kubernetesTestLoading: false,
+        const nextState: any = {
           kubernetesTestResults: [],
-          kubernetesLastTests: lastTests,
-          kubernetesMessage: err && err.name === "AbortError" ? translate("kubernetesRequestTimeout") : translate("kubernetesTestFailed")
-        })
+          kubernetesLastTests: lastTests
+        }
+        if (!quiet) {
+          nextState.kubernetesTestLoading = false
+          nextState.kubernetesMessage = err && err.name === "AbortError" ? translate("kubernetesRequestTimeout") : translate("kubernetesTestFailed")
+        }
+        this.setState(nextState)
       }
       console.debug("Failed to test kubernetes connection", err)
       return null
@@ -813,12 +819,22 @@ class App extends React.Component<Props, State> {
   }
 
   private testAllKubernetesConnections() {
-    if (this.state.kubernetesTestLoading) {
+    if (this.state.kubernetesTestLoading || this.state.kubernetesTestAllLoading || this.state.kubernetesClusters.length === 0) {
       return
     }
-    this.setState({ kubernetesTestLoading: true, kubernetesMessage: "" })
-    Promise.all(this.state.kubernetesClusters.map((cluster) => this.testKubernetesConnection(cluster.id, false))).finally(() => {
-      this.setState({ kubernetesTestLoading: false })
+    this.setState({ kubernetesTestAllLoading: true, kubernetesMessage: translate("kubernetesTestAllRunning") })
+    Promise.all(this.state.kubernetesClusters.map((cluster) => this.testKubernetesConnection(cluster.id, false, true))).then((results) => {
+      const total = results.length
+      const failed = results.filter((result) => !result || !result.ok).length
+      this.setState({
+        kubernetesTestAllLoading: false,
+        kubernetesMessage: failed === 0 ? translate("kubernetesTestAllSuccess") : `${failed} / ${total} ${translate("kubernetesTestAllFailedSuffix")}`
+      })
+    }).catch(() => {
+      this.setState({
+        kubernetesTestAllLoading: false,
+        kubernetesMessage: translate("kubernetesTestAllFailed")
+      })
     })
   }
 
@@ -2483,7 +2499,9 @@ class App extends React.Component<Props, State> {
           </div>
           <div className={classes.kubernetesTableActions}>
             <Button size="small" onClick={this.refreshKubernetesClusters.bind(this)}>{translate("refresh")}</Button>
-            <Button size="small" onClick={this.testAllKubernetesConnections.bind(this)} disabled={this.state.kubernetesTestLoading || this.state.kubernetesClusters.length === 0}>{translate("kubernetesTestAll")}</Button>
+            <Button size="small" onClick={this.testAllKubernetesConnections.bind(this)} disabled={this.state.kubernetesTestLoading || this.state.kubernetesTestAllLoading || this.state.kubernetesClusters.length === 0}>
+              {this.state.kubernetesTestAllLoading ? translate("kubernetesTestAllRunning") : translate("kubernetesTestAll")}
+            </Button>
           </div>
         </div>
         <div className={classes.kubernetesTableWrap}>
@@ -2540,8 +2558,8 @@ class App extends React.Component<Props, State> {
                   </Tooltip>
                   <span className={classes.kubernetesMutedCell}>{this.collectionStateLabel(cluster)}</span>
                   <span className={classes.kubernetesActionCell}>
-                    <Button size="small" onClick={() => this.testKubernetesConnection(cluster.id, true)} disabled={this.state.kubernetesTestLoading}>{translate("connectionTest")}</Button>
-                    {last && !last.ok && <Button size="small" onClick={() => this.testKubernetesConnection(cluster.id, true)}>{translate("retry")}</Button>}
+                    <Button size="small" onClick={() => this.testKubernetesConnection(cluster.id, true)} disabled={this.state.kubernetesTestLoading || this.state.kubernetesTestAllLoading}>{translate("connectionTest")}</Button>
+                    {last && !last.ok && <Button size="small" onClick={() => this.testKubernetesConnection(cluster.id, true)} disabled={this.state.kubernetesTestLoading || this.state.kubernetesTestAllLoading}>{translate("retry")}</Button>}
                   </span>
                 </div>
               )
