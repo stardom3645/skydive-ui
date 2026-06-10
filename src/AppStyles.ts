@@ -929,7 +929,7 @@ export const styles = (theme: Theme) => createStyles({
   kubernetesProbeInfoCard: {
     display: 'flex',
     flexDirection: 'column',
-    gap: theme.spacing(0.5),
+    gap: theme.spacing(0.65),
     padding: theme.spacing(1.2),
     borderRadius: 14,
     border: '1px solid var(--netdive-detail-border)',
@@ -938,11 +938,59 @@ export const styles = (theme: Theme) => createStyles({
       color: 'var(--netdive-detail-title)',
       fontSize: 13
     },
-    '& span': {
+    '& small': {
       color: 'var(--netdive-detail-muted)',
       fontSize: 12,
       lineHeight: 1.45
     }
+  },
+  kubernetesPolicyNotice: {
+    marginTop: theme.spacing(1),
+    display: 'grid',
+    gridTemplateColumns: '20px 1fr',
+    gap: theme.spacing(0.75),
+    alignItems: 'center',
+    padding: theme.spacing(0.9, 1),
+    borderRadius: 12,
+    border: '1px solid rgba(26, 115, 232, 0.18)',
+    backgroundColor: 'rgba(232, 242, 255, 0.52)',
+    color: 'var(--netdive-detail-text)',
+    fontSize: 12,
+    lineHeight: 1.45,
+    '& svg': {
+      color: 'var(--netdive-menu-active-text)',
+      fontSize: 18
+    }
+  },
+  kubernetesProbeBadgeList: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: theme.spacing(0.5),
+    marginTop: theme.spacing(0.25)
+  },
+  kubernetesProbeBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    minHeight: 24,
+    padding: theme.spacing(0.25, 0.75),
+    borderRadius: 999,
+    border: '1px solid rgba(26, 115, 232, 0.18)',
+    backgroundColor: 'rgba(232, 242, 255, 0.68)',
+    color: 'var(--netdive-menu-active-text)',
+    fontSize: 11,
+    fontWeight: 800
+  },
+  kubernetesProbeBadgeMuted: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    minHeight: 24,
+    padding: theme.spacing(0.25, 0.75),
+    borderRadius: 999,
+    border: '1px solid rgba(180, 83, 9, 0.18)',
+    backgroundColor: 'rgba(254, 243, 199, 0.58)',
+    color: '#92400e',
+    fontSize: 11,
+    fontWeight: 800
   },
   kubernetesDialogText: {
     color: 'var(--netdive-detail-text)',

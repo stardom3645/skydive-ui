@@ -2221,6 +2221,9 @@ class App extends React.Component<Props, State> {
       isScreenConfigOpen: false,
       isPreferencesPanelOpen: false
     })
+    if (!this.state.kubernetesLoading && this.state.kubernetesClusters.length === 0) {
+      this.refreshKubernetesClusters()
+    }
   }
 
   private openInfrastructureTopology() {
@@ -2552,6 +2555,8 @@ class App extends React.Component<Props, State> {
     const confirmCluster = this.selectedKubernetesCluster(this.state.kubernetesConfirmClusterId)
     const stopCluster = this.selectedKubernetesCluster(this.state.kubernetesStopClusterId)
     const testCluster = this.selectedKubernetesCluster(this.state.kubernetesTestClusterId)
+    const defaultEnabledKubernetesProbes = ["cluster", "namespace", "node", "pod", "service", "deployment", "daemonset", "statefulset", "ingress", "networkpolicy"]
+    const defaultDisabledKubernetesProbes = ["secret", "configmap"]
     return (
       <React.Fragment>
         <Dialog open={!!this.state.kubernetesConfirmClusterId} onClose={() => this.setState({ kubernetesConfirmClusterId: "" })} maxWidth="xs" fullWidth>
@@ -2612,14 +2617,24 @@ class App extends React.Component<Props, State> {
           <DialogTitle>{translate("kubernetesCollectionPolicy")}</DialogTitle>
           <DialogContent>
             <div className={classes.kubernetesDialogText}>{translate("kubernetesCollectionPolicyDescription")}</div>
+            <div className={classes.kubernetesPolicyNotice}>
+              <InfoIcon fontSize="small" />
+              <span>{translate("kubernetesCollectionPolicyNotice")}</span>
+            </div>
             <div className={classes.kubernetesProbeInfoGrid}>
               <div className={classes.kubernetesProbeInfoCard}>
                 <strong>{translate("kubernetesDefaultEnabledProbes")}</strong>
-                <span>cluster, namespace, node, pod, service, deployment, daemonset, statefulset, ingress, networkpolicy</span>
+                <small>{translate("kubernetesDefaultEnabledProbesDescription")}</small>
+                <div className={classes.kubernetesProbeBadgeList}>
+                  {defaultEnabledKubernetesProbes.map((probe) => <span key={probe} className={classes.kubernetesProbeBadge}>{probe}</span>)}
+                </div>
               </div>
               <div className={classes.kubernetesProbeInfoCard}>
                 <strong>{translate("kubernetesDefaultDisabledProbes")}</strong>
-                <span>secret, configmap</span>
+                <small>{translate("kubernetesDefaultDisabledProbesDescription")}</small>
+                <div className={classes.kubernetesProbeBadgeList}>
+                  {defaultDisabledKubernetesProbes.map((probe) => <span key={probe} className={classes.kubernetesProbeBadgeMuted}>{probe}</span>)}
+                </div>
               </div>
             </div>
           </DialogContent>
