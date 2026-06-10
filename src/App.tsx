@@ -256,6 +256,7 @@ class App extends React.Component<Props, State> {
   private wsOnMessage: (msg: string) => void
   private wsOnClose: () => void
   private kubernetesRequestSeq: number
+  private kubernetesTestRequestSeq: number
 
   constructor(props) {
     super(props)
@@ -331,6 +332,7 @@ class App extends React.Component<Props, State> {
     this.wsOnMessage = this.onWebSocketMessage.bind(this)
     this.wsOnClose = this.onWebSocketClose.bind(this)
     this.kubernetesRequestSeq = 0
+    this.kubernetesTestRequestSeq = 0
   }
 
   setLanguage(lang: "en" | "ko") {
@@ -494,7 +496,7 @@ class App extends React.Component<Props, State> {
   }
 
   private selectKubernetesCluster(clusterID: string) {
-    if (!clusterID || this.state.kubernetesLoading) {
+    if (!clusterID) {
       return
     }
     const requestSeq = ++this.kubernetesRequestSeq
@@ -521,9 +523,6 @@ class App extends React.Component<Props, State> {
   }
 
   private disableKubernetesCollection() {
-    if (this.state.kubernetesLoading) {
-      return
-    }
     const requestSeq = ++this.kubernetesRequestSeq
     this.setState({ kubernetesLoading: true, kubernetesMessage: "" })
     this.fetchKubernetesAPI("/api/mold/kubernetes-clusters/disable", { method: "POST" }).then(() => {
@@ -548,7 +547,7 @@ class App extends React.Component<Props, State> {
     if (!targetID || (openDialog && this.state.kubernetesTestLoading)) {
       return Promise.resolve(null)
     }
-    const requestSeq = ++this.kubernetesRequestSeq
+    const requestSeq = ++this.kubernetesTestRequestSeq
     if (openDialog) {
       this.setState({
         kubernetesTestDialogOpen: true,
@@ -562,7 +561,7 @@ class App extends React.Component<Props, State> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: targetID })
     }, 30000).then((data) => {
-      if (requestSeq !== this.kubernetesRequestSeq && openDialog) {
+      if (requestSeq !== this.kubernetesTestRequestSeq && openDialog) {
         return data
       }
       const lastTests = {
@@ -581,7 +580,7 @@ class App extends React.Component<Props, State> {
         ...this.state.kubernetesLastTests,
         [targetID]: { ok: false, checkedAt: new Date().toLocaleString(), message: translate("kubernetesTestFailed") }
       }
-      if (requestSeq === this.kubernetesRequestSeq || !openDialog) {
+      if (requestSeq === this.kubernetesTestRequestSeq || !openDialog) {
         this.setState({
           kubernetesTestLoading: false,
           kubernetesLastTests: lastTests,
@@ -594,7 +593,7 @@ class App extends React.Component<Props, State> {
   }
 
   private testAllKubernetesConnections() {
-    if (this.state.kubernetesLoading || this.state.kubernetesTestLoading) {
+    if (this.state.kubernetesTestLoading) {
       return
     }
     this.setState({ kubernetesTestLoading: true, kubernetesMessage: "" })
@@ -1975,6 +1974,14 @@ class App extends React.Component<Props, State> {
     })
   }
 
+  private openInfrastructureTopology() {
+    this.setState({
+      isKubernetesManagerOpen: false,
+      isScreenConfigOpen: false,
+      isPreferencesPanelOpen: false
+    })
+  }
+
   private openScreenConfigPanel() {
     this.setState({
       isKubernetesManagerOpen: false,
@@ -2090,8 +2097,8 @@ class App extends React.Component<Props, State> {
             <div className={classes.kubernetesSectionHint}>{this.state.kubernetesMessage || translate("kubernetesNoSecretNotice")}</div>
           </div>
           <div className={classes.kubernetesTableActions}>
-            <Button size="small" onClick={this.refreshKubernetesClusters.bind(this)} disabled={this.state.kubernetesLoading}>{translate("refresh")}</Button>
-            <Button size="small" onClick={this.testAllKubernetesConnections.bind(this)} disabled={this.state.kubernetesLoading || this.state.kubernetesTestLoading || this.state.kubernetesClusters.length === 0}>{translate("kubernetesTestAll")}</Button>
+            <Button size="small" onClick={this.refreshKubernetesClusters.bind(this)}>{translate("refresh")}</Button>
+            <Button size="small" onClick={this.testAllKubernetesConnections.bind(this)} disabled={this.state.kubernetesTestLoading || this.state.kubernetesClusters.length === 0}>{translate("kubernetesTestAll")}</Button>
           </div>
         </div>
         <div className={classes.kubernetesTableWrap}>
@@ -2134,7 +2141,7 @@ class App extends React.Component<Props, State> {
                       color="primary"
                       size="small"
                       checked={cluster.collectionEnabled}
-                      disabled={this.state.kubernetesLoading || (cluster.collectionEnabled && !selected)}
+                      disabled={cluster.collectionEnabled && !selected}
                       onChange={(event) => this.onKubernetesCollectionToggle(cluster, event.target.checked)} />
                     <span>{this.collectionStateLabel(cluster)}</span>
                   </span>
@@ -2232,6 +2239,7 @@ class App extends React.Component<Props, State> {
         {this.renderDrawerMenuItem(classes, <CloseIcon />, translate("close"), () => this.closeDrawer())}
         <Divider className={classes.drawerDivider} />
         <div className={classes.drawerMenuSectionTitle}>{translate("collectionSection")}</div>
+        {this.renderDrawerIntegrationItem(classes, <WavesIcon />, translate("infrastructureMenu"), translate("infrastructureMenuSummary"), () => this.openInfrastructureTopology(), !this.state.isKubernetesManagerOpen && !this.state.isScreenConfigOpen && !this.state.isPreferencesPanelOpen)}
         {this.renderDrawerIntegrationItem(classes, <CloudQueueIcon />, translate("kubernetesCollectionMenu"), this.kubernetesSummaryText(), () => this.openKubernetesManager(), this.state.isKubernetesManagerOpen)}
         <div className={classes.drawerMenuSectionTitle}>{translate("viewSettingsSection")}</div>
         {this.renderDrawerMenuItem(classes, <WavesIcon />, translate("screenConfig"), () => this.openScreenConfigPanel(), this.state.isScreenConfigOpen)}
