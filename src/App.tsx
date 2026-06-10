@@ -2220,10 +2220,11 @@ class App extends React.Component<Props, State> {
       isKubernetesManagerOpen: true,
       isScreenConfigOpen: false,
       isPreferencesPanelOpen: false
+    }, () => {
+      if (this.state.kubernetesClusters.length === 0) {
+        this.refreshKubernetesClusters()
+      }
     })
-    if (!this.state.kubernetesLoading && this.state.kubernetesClusters.length === 0) {
-      this.refreshKubernetesClusters()
-    }
   }
 
   private openInfrastructureTopology() {
