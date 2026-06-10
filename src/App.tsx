@@ -67,8 +67,6 @@ import LibraryBooksIcon from '@material-ui/icons/LibraryBooks'
 import Brightness4Icon from '@material-ui/icons/Brightness4'
 import CloseIcon from '@material-ui/icons/Close'
 import CloudQueueIcon from '@material-ui/icons/CloudQueue'
-import DnsIcon from '@material-ui/icons/Dns'
-import AssessmentIcon from '@material-ui/icons/Assessment'
 import FileCopyIcon from '@material-ui/icons/FileCopy'
 import CheckCircleIcon from '@material-ui/icons/CheckCircle'
 import ErrorOutlineIcon from '@material-ui/icons/ErrorOutline'
@@ -101,8 +99,6 @@ import HelpDialog from './Help'
 import TimetravelPanel from './TimetravelPanel'
 
 import LanguageToggle from './LanguageToggle'
-
-const packageJson = require('../package.json')
 
 import './App.css'
 import ConfigReducer, { Filter } from './Config'
@@ -187,7 +183,8 @@ interface State {
   isLinkTagsCollapsed: boolean
   isVMConsoleEnabled: boolean
   netdiveTheme: NetdiveTheme
-  isSettingsOpen: boolean
+  isScreenConfigOpen: boolean
+  isPreferencesPanelOpen: boolean
   kubernetesClusters: MoldKubernetesCluster[]
   kubernetesSelectedId: string
   kubernetesLoading: boolean
@@ -292,7 +289,8 @@ class App extends React.Component<Props, State> {
       isLinkTagsCollapsed: false,
       isVMConsoleEnabled: true,
       netdiveTheme: getSavedNetdiveTheme(),
-      isSettingsOpen: true,
+      isScreenConfigOpen: false,
+      isPreferencesPanelOpen: false,
       kubernetesClusters: [],
       kubernetesSelectedId: "",
       kubernetesLoading: false,
@@ -621,8 +619,7 @@ class App extends React.Component<Props, State> {
   }
 
   private kubernetesSummaryText() {
-    const summary = this.kubernetesSummary()
-    return `${summary.running} ${translate("collectionRunningShort")} · ${summary.stopped} ${translate("collectionStoppedShort")}`
+    return `${translate("clusterCountPrefix")} ${this.state.kubernetesClusters.length}${translate("clusterCountSuffix")}`
   }
 
   private localizeMoldState(state: string) {
@@ -1970,6 +1967,101 @@ class App extends React.Component<Props, State> {
     )
   }
 
+  private openKubernetesManager() {
+    this.setState({
+      isKubernetesManagerOpen: true,
+      isScreenConfigOpen: false,
+      isPreferencesPanelOpen: false
+    })
+  }
+
+  private openScreenConfigPanel() {
+    this.setState({
+      isKubernetesManagerOpen: false,
+      isScreenConfigOpen: true,
+      isPreferencesPanelOpen: false
+    })
+  }
+
+  private openPreferencesPanel() {
+    this.setState({
+      isKubernetesManagerOpen: false,
+      isScreenConfigOpen: false,
+      isPreferencesPanelOpen: true
+    })
+  }
+
+  private renderScreenConfigPanel(classes: any) {
+    if (!this.state.isScreenConfigOpen) {
+      return null
+    }
+    const options = [
+      "showInfrastructureLayer",
+      "showKubernetesLayer",
+      "showNetworkLinkLayer",
+      "showTrafficLabels",
+      "nodeLabelDisplayMode",
+      "showGroupNodes"
+    ]
+    return (
+      <Paper className={classes.sideSettingsPanel}>
+        <div className={classes.sideSettingsHeader}>
+          <div>
+            <div className={classes.sideSettingsTitle}>{translate("screenConfig")}</div>
+            <div className={classes.sideSettingsDescription}>{translate("screenConfigDescription")}</div>
+          </div>
+          <IconButton size="small" onClick={() => this.setState({ isScreenConfigOpen: false })}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </div>
+        <div className={classes.sideSettingsList}>
+          {options.map((key) => (
+            <div className={classes.sideSettingsRow} key={key}>
+              <span>{translate(key)}</span>
+              <small>{translate("screenConfigComingSoon")}</small>
+            </div>
+          ))}
+        </div>
+      </Paper>
+    )
+  }
+
+  private renderPreferencesPanel(classes: any) {
+    if (!this.state.isPreferencesPanelOpen) {
+      return null
+    }
+    return (
+      <Paper className={classes.sideSettingsPanel}>
+        <div className={classes.sideSettingsHeader}>
+          <div>
+            <div className={classes.sideSettingsTitle}>{translate("preferences")}</div>
+            <div className={classes.sideSettingsDescription}>{translate("preferencesDescription")}</div>
+          </div>
+          <IconButton size="small" onClick={() => this.setState({ isPreferencesPanelOpen: false })}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </div>
+        <div className={classes.sideSettingsList}>
+          <div className={classes.sideSettingsControlBlock}>
+            <div className={classes.sideSettingsControlTitle}>{translate("language")}</div>
+            <LanguageToggle />
+          </div>
+          <div className={classes.sideSettingsControlBlock}>
+            <div className={classes.sideSettingsControlTitle}>{translate("themeSetting")}</div>
+            <ToggleButtonGroup
+              value={this.state.netdiveTheme}
+              exclusive
+              onChange={this.onThemeToggleChange.bind(this)}
+              aria-label="Theme selection">
+              <ToggleButton value="light" aria-label="Light">Light</ToggleButton>
+              <ToggleButton value="dark" aria-label="Dark">Dark</ToggleButton>
+            </ToggleButtonGroup>
+          </div>
+        </div>
+      </Paper>
+    )
+  }
+
   private renderKubernetesManagerPanel(classes: any) {
     if (!this.state.isKubernetesManagerOpen) {
       return null
@@ -2139,34 +2231,14 @@ class App extends React.Component<Props, State> {
       <div className={classes.drawerMenu}>
         {this.renderDrawerMenuItem(classes, <CloseIcon />, translate("close"), () => this.closeDrawer())}
         <Divider className={classes.drawerDivider} />
-        <div className={classes.drawerMenuSectionTitle}>Menu</div>
-        {this.renderDrawerMenuItem(classes, <InfoIcon />, "About", this.openAboutDialog.bind(this))}
+        <div className={classes.drawerMenuSectionTitle}>{translate("collectionSection")}</div>
+        {this.renderDrawerIntegrationItem(classes, <CloudQueueIcon />, translate("kubernetesCollectionMenu"), this.kubernetesSummaryText(), () => this.openKubernetesManager(), this.state.isKubernetesManagerOpen)}
+        <div className={classes.drawerMenuSectionTitle}>{translate("viewSettingsSection")}</div>
+        {this.renderDrawerMenuItem(classes, <WavesIcon />, translate("screenConfig"), () => this.openScreenConfigPanel(), this.state.isScreenConfigOpen)}
+        {this.renderDrawerMenuItem(classes, <Brightness4Icon />, translate("preferences"), () => this.openPreferencesPanel(), this.state.isPreferencesPanelOpen)}
+        <div className={classes.drawerMenuSectionTitle}>{translate("helpSection")}</div>
         {this.renderDrawerMenuItem(classes, <LibraryBooksIcon />, "Help", this.openHelpDialog.bind(this))}
-        <div className={classes.drawerMenuSectionTitle}>Preferences</div>
-        <div className={classes.drawerSettingsBody}>
-          <div className={classes.drawerLanguagePanel}>
-            <LanguageToggle />
-          </div>
-          <div className={classes.drawerThemePanel}>
-            <div className={classes.drawerMenuSectionTitle}>{translate("themeSetting")}</div>
-            <ToggleButtonGroup
-              value={this.state.netdiveTheme}
-              exclusive
-              onChange={this.onThemeToggleChange.bind(this)}
-              aria-label="Theme selection">
-              <ToggleButton value="light" aria-label="Light">Light</ToggleButton>
-              <ToggleButton value="dark" aria-label="Dark">Dark</ToggleButton>
-            </ToggleButtonGroup>
-          </div>
-        </div>
-        <div className={classes.drawerMenuSectionTitle}>Integrations</div>
-        {this.renderDrawerIntegrationItem(classes, <CloudQueueIcon />, "Kubernetes", this.kubernetesSummaryText(), () => this.setState({ isKubernetesManagerOpen: true }), this.state.isKubernetesManagerOpen)}
-        {this.renderDrawerIntegrationItem(classes, <DnsIcon />, "Mold", this.state.moldIntegrationConnected ? translate("connected") : translate("disconnected"))}
-        {this.renderDrawerIntegrationItem(classes, <AssessmentIcon />, "Wall", translate("disconnected"))}
-        <div className={classes.drawerMenuSectionTitle}>System</div>
-        {this.renderDrawerMenuItem(classes, <ErrorOutlineIcon />, translate("diagnostics"))}
-        <div className={classes.drawerMenuBottomSpacer} />
-        <div className={classes.drawerVersion}>Netdive v{packageJson.version}</div>
+        {this.renderDrawerMenuItem(classes, <InfoIcon />, "About", this.openAboutDialog.bind(this))}
       </div>
     )
   }
@@ -2246,6 +2318,8 @@ class App extends React.Component<Props, State> {
           </div>
         </Drawer>
         {this.renderKubernetesManagerPanel(classes)}
+        {this.renderScreenConfigPanel(classes)}
+        {this.renderPreferencesPanel(classes)}
         {this.renderKubernetesDialogs(classes)}
         <AboutDialog open={this.state.isAboutOpen} onClose={this.closeAboutDialog.bind(this)}
           appName="ABLESTACK NETDIVE" appVersion="1.00" uiVersion="1.00"/>

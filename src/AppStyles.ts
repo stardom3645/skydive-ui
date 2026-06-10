@@ -610,11 +610,100 @@ export const styles = (theme: Theme) => createStyles({
     fontSize: 11,
     fontWeight: 700
   },
-  drawerVersion: {
-    padding: theme.spacing(0.75),
-    color: 'var(--netdive-menu-muted)',
-    fontSize: 11,
-    fontWeight: 700
+  sideSettingsPanel: {
+    position: 'absolute',
+    top: 76,
+    left: drawerWidth + 18,
+    width: 420,
+    maxHeight: 'calc(100vh - 104px)',
+    zIndex: 1250,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: theme.spacing(1.5),
+    padding: theme.spacing(2),
+    borderRadius: 18,
+    border: '1px solid var(--netdive-detail-border)',
+    backgroundColor: 'var(--netdive-detail-bg)',
+    color: 'var(--netdive-detail-text)',
+    boxShadow: 'var(--netdive-detail-shadow)',
+    overflow: 'auto'
+  },
+  sideSettingsHeader: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: theme.spacing(2)
+  },
+  sideSettingsTitle: {
+    color: 'var(--netdive-detail-title)',
+    fontSize: 18,
+    fontWeight: 900
+  },
+  sideSettingsDescription: {
+    marginTop: 4,
+    color: 'var(--netdive-detail-muted)',
+    fontSize: 13,
+    lineHeight: 1.45
+  },
+  sideSettingsList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: theme.spacing(0.75)
+  },
+  sideSettingsRow: {
+    minHeight: 56,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing(1),
+    padding: theme.spacing(1, 1.1),
+    borderRadius: 12,
+    border: '1px solid var(--netdive-detail-border)',
+    backgroundColor: 'var(--netdive-detail-section-bg)',
+    '& span': {
+      color: 'var(--netdive-detail-title)',
+      fontSize: 13,
+      fontWeight: 800
+    },
+    '& small': {
+      color: 'var(--netdive-detail-muted)',
+      fontSize: 11,
+      fontWeight: 700
+    }
+  },
+  sideSettingsControlBlock: {
+    padding: theme.spacing(1.2),
+    borderRadius: 12,
+    border: '1px solid var(--netdive-detail-border)',
+    backgroundColor: 'var(--netdive-detail-section-bg)',
+    '& .MuiToggleButtonGroup-root': {
+      width: '100%',
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
+      marginTop: theme.spacing(0.75),
+      borderRadius: 10,
+      overflow: 'hidden',
+      border: '1px solid var(--netdive-menu-border)'
+    },
+    '& .MuiToggleButton-root': {
+      minWidth: 0,
+      padding: theme.spacing(0.8, 0.5),
+      border: 'none',
+      borderRadius: 0,
+      color: 'var(--netdive-menu-muted)',
+      backgroundColor: 'var(--netdive-menu-card)',
+      fontSize: 12,
+      fontWeight: 700
+    },
+    '& .MuiToggleButton-root.Mui-selected': {
+      color: 'var(--netdive-menu-active-text)',
+      backgroundColor: 'var(--netdive-menu-active)'
+    }
+  },
+  sideSettingsControlTitle: {
+    color: 'var(--netdive-detail-title)',
+    fontSize: 13,
+    fontWeight: 900
   },
   kubernetesManagerPanel: {
     position: 'absolute',
