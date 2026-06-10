@@ -414,7 +414,7 @@ class App extends React.Component<Props, State> {
     if (!target || !target.closest) {
       return
     }
-    if (target.closest('[data-netdive-side-panel="true"], [data-netdive-drawer="true"], .MuiDialog-root')) {
+    if (target.closest('[data-netdive-side-panel="true"], [class*="kubernetesManagerPanel"], [class*="sideSettingsPanel"], [data-netdive-drawer="true"], .MuiDialog-root')) {
       return
     }
     this.setState({
@@ -2549,12 +2549,9 @@ class App extends React.Component<Props, State> {
         <Dialog open={this.state.kubernetesTestDialogOpen} onClose={() => this.setState({ kubernetesTestDialogOpen: false })} maxWidth="sm" fullWidth>
           <DialogTitle>{translate("connectionTest")}</DialogTitle>
           <DialogContent className={classes.kubernetesTestDialogContent}>
-            {testCluster &&
-              <div className={classes.kubernetesDialogTarget}>
-                <strong>{testCluster.name || testCluster.id}</strong>
-                <small>{translate("kubernetesTestDescription")}</small>
-              </div>
-            }
+            <div className={classes.kubernetesDialogTarget}>
+              <small>{translate("kubernetesTestDescription")}</small>
+            </div>
             <div className={classes.kubernetesTestSummary}>{this.kubernetesTestSummaryText()}</div>
             <div className={classes.kubernetesCheckList}>
               {!this.state.kubernetesTestLoading && this.state.kubernetesTestResults.length === 0 && <div className={classes.kubernetesEmptyRow}>{translate("kubernetesNoTestResult")}</div>}
