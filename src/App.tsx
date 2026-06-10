@@ -226,6 +226,7 @@ interface KubernetesCheckResult {
   reason?: string
   message?: string
   pending?: boolean
+  waiting?: boolean
 }
 
 interface KubernetesLastTest {
@@ -267,6 +268,7 @@ class App extends React.Component<Props, State> {
   private wsOnOpen: () => void
   private wsOnMessage: (msg: string) => void
   private wsOnClose: () => void
+  private documentMouseDown: (event: MouseEvent) => void
   private kubernetesRequestSeq: number
   private kubernetesTestRequestSeq: number
   private kubernetesTestProgressTimers: number[]
@@ -345,6 +347,7 @@ class App extends React.Component<Props, State> {
     this.wsOnOpen = this.onWebSocketOpen.bind(this)
     this.wsOnMessage = this.onWebSocketMessage.bind(this)
     this.wsOnClose = this.onWebSocketClose.bind(this)
+    this.documentMouseDown = this.onDocumentMouseDown.bind(this)
     this.kubernetesRequestSeq = 0
     this.kubernetesTestRequestSeq = 0
     this.kubernetesTestProgressTimers = []
@@ -362,6 +365,7 @@ class App extends React.Component<Props, State> {
   componentDidMount() {
     // make the application available globally
     window.App = this
+    document.addEventListener("mousedown", this.documentMouseDown)
 
     if (this.props.configURL) {
       this.config.appendURL("URL", this.props.configURL)
@@ -392,6 +396,7 @@ class App extends React.Component<Props, State> {
   }
 
   componentWillUnmount() {
+    document.removeEventListener("mousedown", this.documentMouseDown)
     if (this.checkAuthID) {
       window.clearInterval(this.checkAuthID)
     }
@@ -399,6 +404,25 @@ class App extends React.Component<Props, State> {
       window.clearInterval(this.vmNameMapRefreshID)
     }
     this.clearKubernetesTestProgress()
+  }
+
+  private onDocumentMouseDown(event: MouseEvent) {
+    if (!this.state.isInfrastructurePanelOpen && !this.state.isKubernetesManagerOpen && !this.state.isScreenConfigOpen && !this.state.isPreferencesPanelOpen) {
+      return
+    }
+    const target = event.target as Element | null
+    if (!target || !target.closest) {
+      return
+    }
+    if (target.closest('[data-netdive-side-panel="true"], [data-netdive-drawer="true"], .MuiDialog-root')) {
+      return
+    }
+    this.setState({
+      isInfrastructurePanelOpen: false,
+      isKubernetesManagerOpen: false,
+      isScreenConfigOpen: false,
+      isPreferencesPanelOpen: false
+    })
   }
 
   private refreshVmNameMap() {
@@ -590,7 +614,7 @@ class App extends React.Component<Props, State> {
         kubernetesTestDialogOpen: true,
         kubernetesTestClusterId: targetID,
         kubernetesTestLoading: true,
-        kubernetesTestResults: [this.kubernetesPendingCheck("kubeconfig")]
+        kubernetesTestResults: this.kubernetesWaitingChecks("kubeconfig")
       })
     }
     return this.fetchKubernetesAPI("/api/mold/kubernetes-clusters/test", {
@@ -662,6 +686,22 @@ class App extends React.Component<Props, State> {
     }
   }
 
+  private kubernetesWaitingCheck(key: string): KubernetesCheckResult {
+    return {
+      key,
+      label: translate(`kubernetesCheck-${key}`),
+      ok: false,
+      waiting: true,
+      message: translate("waiting")
+    }
+  }
+
+  private kubernetesWaitingChecks(activeKey?: string): KubernetesCheckResult[] {
+    return this.kubernetesDefaultCheckKeys().map((key) => (
+      key === activeKey ? this.kubernetesPendingCheck(key) : this.kubernetesWaitingCheck(key)
+    ))
+  }
+
   private clearKubernetesTestProgress() {
     this.kubernetesTestProgressTimers.forEach((timerID) => window.clearTimeout(timerID))
     this.kubernetesTestProgressTimers = []
@@ -675,15 +715,10 @@ class App extends React.Component<Props, State> {
         if (!this.state.kubernetesTestLoading || this.state.kubernetesTestClusterId !== targetID) {
           return
         }
-        const existing = this.state.kubernetesTestResults.map((check) => check.key)
-        if (existing.indexOf(key) >= 0) {
-          return
-        }
         this.setState({
-          kubernetesTestResults: [
-            ...this.state.kubernetesTestResults,
-            this.kubernetesPendingCheck(key)
-          ]
+          kubernetesTestResults: this.state.kubernetesTestResults.map((check) => (
+            check.key === key ? this.kubernetesPendingCheck(key) : check
+          ))
         })
       }, 220 * (index + 1))
       this.kubernetesTestProgressTimers.push(timerID)
@@ -692,40 +727,48 @@ class App extends React.Component<Props, State> {
 
   private revealKubernetesTestResults(targetID: string, requestSeq: number, checks: KubernetesCheckResult[], finalState: any) {
     this.clearKubernetesTestProgress()
-    if (checks.length === 0) {
+    const orderedChecks = this.kubernetesDefaultCheckKeys().map((key) => checks.find((check) => check.key === key)).filter((check): check is KubernetesCheckResult => !!check)
+    const resultChecks = orderedChecks.length > 0 ? orderedChecks : checks
+
+    if (resultChecks.length === 0) {
       this.setState({
         ...finalState,
         kubernetesTestLoading: false,
-        kubernetesTestResults: []
+        kubernetesTestResults: this.kubernetesWaitingChecks()
       })
       return
     }
 
-    if (checks.length === 1) {
+    if (resultChecks.length === 1) {
       this.setState({
         ...finalState,
         kubernetesTestLoading: false,
-        kubernetesTestResults: checks
+        kubernetesTestResults: this.kubernetesWaitingChecks().map((check) => (
+          check.key === resultChecks[0].key ? resultChecks[0] : check
+        ))
       })
       return
     }
 
     this.setState({
       kubernetesTestLoading: true,
-      kubernetesTestResults: checks.slice(0, 1)
+      kubernetesTestResults: this.kubernetesWaitingChecks(resultChecks[0].key).map((check) => (
+        check.key === resultChecks[0].key ? resultChecks[0] : check
+      ))
     })
-    checks.slice(1).forEach((check, index) => {
+    resultChecks.slice(1).forEach((check, index) => {
       const resultIndex = index + 1
       const timerID = window.setTimeout(() => {
         if (requestSeq !== this.kubernetesTestRequestSeq || this.state.kubernetesTestClusterId !== targetID) {
           return
         }
-        const nextResults = checks.slice(0, resultIndex + 1)
-        const isLast = resultIndex === checks.length - 1
+        const completed = resultChecks.slice(0, resultIndex + 1)
+        const completedByKey = new Map(completed.map((item) => [item.key, item]))
+        const isLast = resultIndex === resultChecks.length - 1
         this.setState({
           ...(isLast ? finalState : {}),
           kubernetesTestLoading: !isLast,
-          kubernetesTestResults: nextResults
+          kubernetesTestResults: this.kubernetesWaitingChecks(resultChecks[resultIndex + 1]?.key).map((item) => completedByKey.get(item.key) || item)
         })
       }, 180 * resultIndex)
       this.kubernetesTestProgressTimers.push(timerID)
@@ -859,6 +902,22 @@ class App extends React.Component<Props, State> {
     const key = `kubernetesCheck-${check.key}`
     const translated = translate(key)
     return translated === key ? check.label : translated
+  }
+
+  private kubernetesTestSummaryText() {
+    const checks = this.state.kubernetesTestResults
+    const completed = checks.filter((check) => !check.pending && !check.waiting).length
+    const failed = checks.filter((check) => !check.pending && !check.waiting && !check.ok).length
+    if (checks.length === 0) {
+      return translate("kubernetesNoTestResult")
+    }
+    if (!this.state.kubernetesTestLoading && failed === 0 && completed === checks.length) {
+      return translate("kubernetesAllTestsPassed")
+    }
+    if (!this.state.kubernetesTestLoading && failed > 0) {
+      return `${failed}${translate("kubernetesFailedCountSuffix")}`
+    }
+    return `${completed} / ${checks.length} ${translate("kubernetesCheckedCountSuffix")}`
   }
 
 
@@ -2234,7 +2293,7 @@ class App extends React.Component<Props, State> {
     }
     const summary = this.infrastructureSummary()
     return (
-      <Paper className={classes.kubernetesManagerPanel}>
+      <Paper className={classes.kubernetesManagerPanel} data-netdive-side-panel="true">
         <div className={classes.kubernetesManagerHeader}>
           <div>
             <div className={classes.kubernetesManagerTitle}>{translate("infrastructurePanelTitle")}</div>
@@ -2287,7 +2346,7 @@ class App extends React.Component<Props, State> {
       "showGroupNodes"
     ]
     return (
-      <Paper className={classes.sideSettingsPanel}>
+      <Paper className={classes.sideSettingsPanel} data-netdive-side-panel="true">
         <div className={classes.sideSettingsHeader}>
           <div>
             <div className={classes.sideSettingsTitle}>{translate("screenConfig")}</div>
@@ -2314,7 +2373,7 @@ class App extends React.Component<Props, State> {
       return null
     }
     return (
-      <Paper className={classes.sideSettingsPanel}>
+      <Paper className={classes.sideSettingsPanel} data-netdive-side-panel="true">
         <div className={classes.sideSettingsHeader}>
           <div>
             <div className={classes.sideSettingsTitle}>{translate("preferences")}</div>
@@ -2351,7 +2410,7 @@ class App extends React.Component<Props, State> {
     }
     const summary = this.kubernetesSummary()
     return (
-      <Paper className={classes.kubernetesManagerPanel}>
+      <Paper className={classes.kubernetesManagerPanel} data-netdive-side-panel="true">
         <div className={classes.kubernetesManagerHeader}>
           <div>
             <div className={classes.kubernetesManagerTitle}>{translate("kubernetesManagerTitle")}</div>
@@ -2489,17 +2548,23 @@ class App extends React.Component<Props, State> {
         </Dialog>
         <Dialog open={this.state.kubernetesTestDialogOpen} onClose={() => this.setState({ kubernetesTestDialogOpen: false })} maxWidth="sm" fullWidth>
           <DialogTitle>{translate("connectionTest")}</DialogTitle>
-          <DialogContent>
-            {testCluster && <div className={classes.kubernetesDialogTarget}>{testCluster.name || testCluster.id}</div>}
+          <DialogContent className={classes.kubernetesTestDialogContent}>
+            {testCluster &&
+              <div className={classes.kubernetesDialogTarget}>
+                <strong>{testCluster.name || testCluster.id}</strong>
+                <small>{translate("kubernetesTestDescription")}</small>
+              </div>
+            }
+            <div className={classes.kubernetesTestSummary}>{this.kubernetesTestSummaryText()}</div>
             <div className={classes.kubernetesCheckList}>
               {!this.state.kubernetesTestLoading && this.state.kubernetesTestResults.length === 0 && <div className={classes.kubernetesEmptyRow}>{translate("kubernetesNoTestResult")}</div>}
               {this.state.kubernetesTestResults.map((check) => (
                 <div key={check.key} className={classes.kubernetesCheckItem}>
-                  <span className={check.pending ? classes.kubernetesCheckPending : check.ok ? classes.kubernetesCheckOk : classes.kubernetesCheckFail}>{check.pending ? <AccessTimeIcon /> : check.ok ? <CheckCircleIcon /> : <ErrorOutlineIcon />}</span>
+                  <span className={check.waiting ? classes.kubernetesCheckWaiting : check.pending ? classes.kubernetesCheckPending : check.ok ? classes.kubernetesCheckOk : classes.kubernetesCheckFail}>{check.waiting ? <AccessTimeIcon /> : check.pending ? <AccessTimeIcon /> : check.ok ? <CheckCircleIcon /> : <ErrorOutlineIcon />}</span>
                   <span>
                     <strong>{this.kubernetesCheckLabel(check)}</strong>
-                    <small>{check.pending ? (check.message || translate("testing")) : check.ok ? (check.message || translate("success")) : (check.message || translate("failed"))}</small>
-                    {!check.ok && check.reason && <small>{check.reason}</small>}
+                    <small>{check.waiting ? (check.message || translate("waiting")) : check.pending ? (check.message || translate("testing")) : check.ok ? (check.message || translate("success")) : (check.message || translate("failed"))}</small>
+                    {!check.waiting && !check.pending && !check.ok && check.reason && <small>{check.reason}</small>}
                   </span>
                 </div>
               ))}
@@ -2602,7 +2667,7 @@ class App extends React.Component<Props, State> {
             paper: clsx(classes.drawerPaper, !this.state.isNavOpen && classes.drawerPaperClose),
           }}
           open={this.state.isNavOpen}>
-          <div className={classes.drawerCard}>
+          <div className={classes.drawerCard} data-netdive-drawer="true">
           {this.renderDrawerMenu(classes)}
           </div>
         </Drawer>

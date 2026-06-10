@@ -928,6 +928,36 @@ export const styles = (theme: Theme) => createStyles({
     border: '1px solid var(--netdive-detail-border)',
     backgroundColor: 'var(--netdive-detail-section-bg)',
     color: 'var(--netdive-detail-title)',
+    fontWeight: 900,
+    '& strong': {
+      display: 'block',
+      color: 'var(--netdive-detail-title)',
+      fontSize: 14
+    },
+    '& small': {
+      display: 'block',
+      marginTop: 4,
+      color: 'var(--netdive-detail-muted)',
+      fontSize: 12,
+      lineHeight: 1.4,
+      fontWeight: 700
+    }
+  },
+  kubernetesTestDialogContent: {
+    minHeight: 520,
+    maxHeight: 520,
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden'
+  },
+  kubernetesTestSummary: {
+    marginTop: theme.spacing(1),
+    padding: theme.spacing(0.9, 1),
+    borderRadius: 12,
+    border: '1px solid var(--netdive-detail-border)',
+    backgroundColor: 'var(--netdive-menu-active)',
+    color: 'var(--netdive-menu-active-text)',
+    fontSize: 13,
     fontWeight: 900
   },
   kubernetesStatusSteps: {
@@ -945,9 +975,14 @@ export const styles = (theme: Theme) => createStyles({
     }
   },
   kubernetesCheckList: {
+    flex: 1,
+    minHeight: 0,
+    marginTop: theme.spacing(1),
     display: 'flex',
     flexDirection: 'column',
-    gap: theme.spacing(0.75)
+    gap: theme.spacing(0.75),
+    overflowY: 'auto',
+    paddingRight: theme.spacing(0.5)
   },
   kubernetesCheckItem: {
     display: 'grid',
@@ -984,6 +1019,13 @@ export const styles = (theme: Theme) => createStyles({
   },
   kubernetesCheckPending: {
     color: 'var(--netdive-menu-active-text)',
+    '& svg': {
+      fontSize: 20
+    }
+  },
+  kubernetesCheckWaiting: {
+    color: 'var(--netdive-detail-muted)',
+    opacity: 0.65,
     '& svg': {
       fontSize: 20
     }
