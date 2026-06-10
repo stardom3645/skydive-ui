@@ -272,6 +272,7 @@ class App extends React.Component<Props, State> {
   private kubernetesRequestSeq: number
   private kubernetesTestRequestSeq: number
   private kubernetesTestProgressTimers: number[]
+  private kubernetesCheckListRef: React.RefObject<HTMLDivElement>
 
   constructor(props) {
     super(props)
@@ -351,6 +352,7 @@ class App extends React.Component<Props, State> {
     this.kubernetesRequestSeq = 0
     this.kubernetesTestRequestSeq = 0
     this.kubernetesTestProgressTimers = []
+    this.kubernetesCheckListRef = React.createRef()
   }
 
   setLanguage(lang: "en" | "ko") {
@@ -707,6 +709,15 @@ class App extends React.Component<Props, State> {
     this.kubernetesTestProgressTimers = []
   }
 
+  private scrollKubernetesCheckListToBottom() {
+    window.setTimeout(() => {
+      const list = this.kubernetesCheckListRef.current
+      if (list) {
+        list.scrollTop = list.scrollHeight
+      }
+    }, 0)
+  }
+
   private startKubernetesTestProgress(targetID: string) {
     this.clearKubernetesTestProgress()
     const keys = this.kubernetesDefaultCheckKeys()
@@ -719,7 +730,7 @@ class App extends React.Component<Props, State> {
           kubernetesTestResults: this.state.kubernetesTestResults.map((check) => (
             check.key === key ? this.kubernetesPendingCheck(key) : check
           ))
-        })
+        }, () => this.scrollKubernetesCheckListToBottom())
       }, 220 * (index + 1))
       this.kubernetesTestProgressTimers.push(timerID)
     })
@@ -755,7 +766,7 @@ class App extends React.Component<Props, State> {
       kubernetesTestResults: this.kubernetesWaitingChecks(resultChecks[0].key).map((check) => (
         check.key === resultChecks[0].key ? resultChecks[0] : check
       ))
-    })
+    }, () => this.scrollKubernetesCheckListToBottom())
     resultChecks.slice(1).forEach((check, index) => {
       const resultIndex = index + 1
       const timerID = window.setTimeout(() => {
@@ -769,6 +780,10 @@ class App extends React.Component<Props, State> {
           ...(isLast ? finalState : {}),
           kubernetesTestLoading: !isLast,
           kubernetesTestResults: this.kubernetesWaitingChecks(resultChecks[resultIndex + 1]?.key).map((item) => completedByKey.get(item.key) || item)
+        }, () => {
+          if (!isLast) {
+            this.scrollKubernetesCheckListToBottom()
+          }
         })
       }, 180 * resultIndex)
       this.kubernetesTestProgressTimers.push(timerID)
@@ -2553,7 +2568,7 @@ class App extends React.Component<Props, State> {
               <small>{translate("kubernetesTestDescription")}</small>
             </div>
             <div className={classes.kubernetesTestSummary}>{this.kubernetesTestSummaryText()}</div>
-            <div className={classes.kubernetesCheckList}>
+            <div className={classes.kubernetesCheckList} ref={this.kubernetesCheckListRef}>
               {!this.state.kubernetesTestLoading && this.state.kubernetesTestResults.length === 0 && <div className={classes.kubernetesEmptyRow}>{translate("kubernetesNoTestResult")}</div>}
               {this.state.kubernetesTestResults.map((check) => (
                 <div key={check.key} className={classes.kubernetesCheckItem}>
