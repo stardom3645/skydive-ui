@@ -244,6 +244,13 @@ interface KubernetesLastTest {
   message?: string
 }
 
+interface KubernetesTopologySummary {
+  clusters: number
+  nodes: number
+  namespaces: number
+  pods: number
+}
+
 interface InfrastructureSummary {
   hosts: number
   userVMs: number
@@ -870,19 +877,38 @@ class App extends React.Component<Props, State> {
     return this.state.kubernetesClusters.find((cluster) => cluster.id === clusterID)
   }
 
-  private kubernetesSummary() {
-    const total = this.state.kubernetesClusters.length
-    const running = this.state.kubernetesClusters.filter((cluster) => this.isKubernetesCollectionEnabled(cluster) && cluster.collectionRunning).length
-    const enabled = this.state.kubernetesClusters.filter((cluster) => this.isKubernetesCollectionEnabled(cluster)).length
-    const errors = this.state.kubernetesClusters.filter((cluster) => {
-      const last = this.state.kubernetesLastTests[cluster.id]
-      return !!last && !last.ok
-    }).length
-    return { total, running, stopped: Math.max(total - enabled, 0), errors }
-  }
-
-  private kubernetesSummaryText() {
-    return `${translate("clusterCountPrefix")} ${this.state.kubernetesClusters.length}${translate("clusterCountSuffix")}`
+  private kubernetesTopologySummary(): KubernetesTopologySummary {
+    const summary: KubernetesTopologySummary = {
+      clusters: 0,
+      nodes: 0,
+      namespaces: 0,
+      pods: 0
+    }
+    if (!this.tc) {
+      return summary
+    }
+    this.tc.nodes.forEach((node) => {
+      if (node.data.Manager !== "k8s") {
+        return
+      }
+      switch (node.data.Type) {
+        case "cluster":
+          summary.clusters += 1
+          break
+        case "node":
+          summary.nodes += 1
+          break
+        case "namespace":
+          summary.namespaces += 1
+          break
+        case "pod":
+          summary.pods += 1
+          break
+        default:
+          break
+      }
+    })
+    return summary
   }
 
   private isKubernetesCollectionEnabled(cluster: MoldKubernetesCluster) {
@@ -2505,6 +2531,10 @@ class App extends React.Component<Props, State> {
     )
   }
 
+  private topologyImageIcon(src: string, alt: string) {
+    return <img src={src} alt={alt} />
+  }
+
   private renderInfrastructureSummaryCard(classes: any, icon: React.ReactNode, label: string, value: number) {
     return (
       <div className={classes.infrastructureSummaryCard}>
@@ -2826,7 +2856,7 @@ class App extends React.Component<Props, State> {
     if (!this.state.isKubernetesManagerOpen) {
       return null
     }
-    const summary = this.kubernetesSummary()
+    const summary = this.kubernetesTopologySummary()
     return (
       <Paper className={classes.kubernetesManagerPanel} data-netdive-side-panel="true">
         <div className={classes.kubernetesManagerHeader}>
@@ -2839,15 +2869,15 @@ class App extends React.Component<Props, State> {
           </IconButton>
         </div>
         <div className={classes.kubernetesSummaryGrid}>
-          <div className={classes.kubernetesSummaryCard}><span>{translate("kubernetesTotalClusters")}</span><strong>{summary.total}</strong></div>
-          <div className={classes.kubernetesSummaryCard}><span>{translate("collectionRunning")}</span><strong>{summary.running}</strong></div>
-          <div className={classes.kubernetesSummaryCard}><span>{translate("collectionStopped")}</span><strong>{summary.stopped}</strong></div>
-          <div className={classes.kubernetesSummaryCard}><span>{translate("collectionError")}</span><strong>{summary.errors}</strong></div>
+          {this.renderInfrastructureSummaryCard(classes, this.topologyImageIcon("assets/icons/cluster.png", translate("kubernetesTopologyClusters")), translate("kubernetesTopologyClusters"), summary.clusters)}
+          {this.renderInfrastructureSummaryCard(classes, this.infrastructureIcon("\uf109", "host"), translate("kubernetesTopologyNodes"), summary.nodes)}
+          {this.renderInfrastructureSummaryCard(classes, this.infrastructureIcon("\uf24d", "network"), translate("kubernetesTopologyNamespaces"), summary.namespaces)}
+          {this.renderInfrastructureSummaryCard(classes, this.topologyImageIcon("assets/icons/pod.png", translate("kubernetesTopologyPods")), translate("kubernetesTopologyPods"), summary.pods)}
         </div>
         <div className={classes.kubernetesTableHeader}>
           <div className={classes.kubernetesSectionTitleArea}>
             <div className={classes.kubernetesSectionTitleRow}>
-              <div className={classes.kubernetesSectionTitle}>{translate("kubernetesClusterList")}</div>
+              <div className={classes.kubernetesSectionTitle}>{translate("kubernetesCollectionManagementSection")}</div>
               <Button
                 size="small"
                 className={classes.kubernetesPolicyButton}

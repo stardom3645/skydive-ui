@@ -855,31 +855,6 @@ export const styles = (theme: Theme) => createStyles({
       gridTemplateColumns: 'repeat(2, minmax(0, 1fr))'
     }
   },
-  kubernetesSummaryCard: {
-    minHeight: 86,
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'space-between',
-    padding: theme.spacing(1.4),
-    borderRadius: 14,
-    border: '1px solid var(--netdive-detail-border)',
-    backgroundColor: 'var(--netdive-detail-section-bg)',
-    '& span': {
-      color: 'var(--netdive-detail-muted)',
-      fontSize: 12,
-      fontWeight: 800
-    },
-    '& strong': {
-      color: 'var(--netdive-detail-title)',
-      fontSize: 28,
-      lineHeight: 1
-    },
-    '& small': {
-      color: 'var(--netdive-detail-muted)',
-      fontSize: 11,
-      fontWeight: 800
-    }
-  },
   infrastructureSummaryCard: {
     minHeight: 104,
     display: 'flex',
@@ -925,6 +900,11 @@ export const styles = (theme: Theme) => createStyles({
       fontStyle: 'normal',
       fontWeight: 900,
       textShadow: '0 0 0 var(--netdive-detail-section-bg)'
+    },
+    '& img': {
+      width: 38,
+      height: 38,
+      objectFit: 'contain'
     }
   },
   infrastructureOverviewGrid: {
