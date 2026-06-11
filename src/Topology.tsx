@@ -1629,16 +1629,19 @@ export class Topology extends React.Component<Props, {}> {
             return
         }
         const linked = new Set<string>()
+        const highlightedNodes = new Set<string>(targets)
 
         this.links.forEach((link) => {
             if (targets.has(link.source.id) || targets.has(link.target.id)) {
                 linked.add(link.id)
+                highlightedNodes.add(link.source.id)
+                highlightedNodes.add(link.target.id)
             }
         })
 
         this.gNodes.selectAll("g.node")
-            .classed("infra-focus-dim", (d: D3Node) => !targets.has(d.data.id))
-            .classed("infra-focus-hit", (d: D3Node) => targets.has(d.data.id))
+            .classed("infra-focus-dim", (d: D3Node) => !highlightedNodes.has(d.data.id))
+            .classed("infra-focus-hit", (d: D3Node) => highlightedNodes.has(d.data.id))
         this.gLinks.selectAll("path.link")
             .classed("infra-focus-dim", (d: Link) => !linked.has(d.id))
             .classed("infra-focus-hit", (d: Link) => linked.has(d.id))
@@ -1650,7 +1653,7 @@ export class Topology extends React.Component<Props, {}> {
             .classed("infra-focus-dim", (d: Link) => !linked.has(d.id))
             .classed("infra-focus-hit", (d: Link) => linked.has(d.id))
 
-        const bounds = this.focusBounds(nodeIDs)
+        const bounds = this.focusBounds(Array.from(highlightedNodes))
         if (bounds) {
             this.fitBounds(bounds)
         }
