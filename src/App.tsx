@@ -42,7 +42,6 @@ import ToggleButtonGroup from '@material-ui/lab/ToggleButtonGroup'
 import { withSnackbar, WithSnackbarProps } from 'notistack'
 import { connect } from 'react-redux'
 import AccountCircle from '@material-ui/icons/AccountCircle'
-import MenuIcon from '@material-ui/icons/Menu'
 import MenuItem from '@material-ui/core/MenuItem'
 import ListItemIcon from '@material-ui/core/ListItemIcon'
 import Menu from '@material-ui/core/Menu'
@@ -3304,8 +3303,6 @@ class App extends React.Component<Props, State> {
   private renderDrawerMenu(classes: any) {
     return (
       <div className={classes.drawerMenu}>
-        {this.renderDrawerMenuItem(classes, <CloseIcon />, translate("close"), () => this.closeDrawer())}
-        <Divider className={classes.drawerDivider} />
         <div className={classes.drawerMenuSectionTitle}>{translate("collectionSection")}</div>
         {this.renderDrawerIntegrationItem(classes, <WavesIcon />, translate("infrastructureMenu"), translate("infrastructureMenuSummary"), () => this.openInfrastructureTopology(), this.state.isInfrastructurePanelOpen)}
         {this.renderDrawerIntegrationItem(classes, <CloudQueueIcon />, translate("kubernetesCollectionMenu"), translate("kubernetesMenuSummary"), () => this.openKubernetesManager(), this.state.isKubernetesManagerOpen)}
@@ -3335,14 +3332,8 @@ class App extends React.Component<Props, State> {
       <div className={clsx(classes.app, isDark && classes.appDark)}>
         <CssBaseline />
         {this.connection()}
-        <AppBar position="absolute" className={clsx(classes.appBar, this.state.isNavOpen && classes.appBarShift)}>
+        <AppBar position="absolute" className={classes.appBar}>
           <Toolbar className={classes.toolbar}>
-            <Button
-              aria-label="open drawer"
-              onClick={this.openDrawer.bind(this)}
-              className={clsx(classes.menuButton, this.state.isNavOpen && classes.menuButtonHidden)}>
-              <MenuIcon fontSize="small" />
-            </Button>
             <Typography component="h1" variant="h6" color="inherit" noWrap className={classes.title}>
               <span className="brandLogo">
                 <img
@@ -3393,9 +3384,9 @@ class App extends React.Component<Props, State> {
         <Drawer
           variant="permanent"
           classes={{
-            paper: clsx(classes.drawerPaper, !this.state.isNavOpen && classes.drawerPaperClose),
+            paper: classes.drawerPaper,
           }}
-          open={this.state.isNavOpen}>
+          open={true}>
           <div className={classes.drawerCard} data-netdive-drawer="true">
           {this.renderDrawerMenu(classes)}
           </div>

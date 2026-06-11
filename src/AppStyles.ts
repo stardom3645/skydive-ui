@@ -17,7 +17,8 @@
 
 import { createStyles, Theme } from '@material-ui/core'
 
-const drawerWidth = 216
+const drawerWidth = 236
+const miniRailWidth = 64
 const topologyLevelMenuWidth = 188
 
 export const styles = (theme: Theme) => createStyles({
@@ -184,6 +185,8 @@ export const styles = (theme: Theme) => createStyles({
     ...theme.mixins.toolbar,
   },
   appBar: {
+    marginLeft: miniRailWidth,
+    width: `calc(100% - ${miniRailWidth}px)`,
     backgroundColor: 'var(--netdive-appbar-bg)',
     color: 'var(--netdive-appbar-text)',
     borderBottom: '1px solid var(--netdive-appbar-border)',
@@ -195,8 +198,8 @@ export const styles = (theme: Theme) => createStyles({
     }),
   },
   appBarShift: {
-    marginLeft: drawerWidth,
-    width: `calc(100% - ${drawerWidth}px)`,
+    marginLeft: miniRailWidth,
+    width: `calc(100% - ${miniRailWidth}px)`,
     transition: theme.transitions.create(['width', 'margin'], {
       easing: theme.transitions.easing.sharp,
       duration: theme.transitions.duration.enteringScreen,
@@ -231,30 +234,56 @@ export const styles = (theme: Theme) => createStyles({
     color: 'var(--netdive-appbar-muted)'
   },
   drawerPaper: {
-    position: 'relative',
+    position: 'fixed',
+    left: 0,
+    top: 0,
+    bottom: 0,
     whiteSpace: 'nowrap',
-    width: drawerWidth,
+    width: miniRailWidth,
     background: 'var(--netdive-menu-bg)',
     borderRight: '1px solid var(--netdive-menu-border-soft)',
     boxShadow: 'none',
-    padding: theme.spacing(1.5),
+    padding: theme.spacing(1),
     boxSizing: 'border-box',
-    transition: theme.transitions.create('width', {
+    zIndex: theme.zIndex.drawer + 2,
+    overflow: 'visible',
+    transition: theme.transitions.create(['width', 'padding'], {
       easing: theme.transitions.easing.sharp,
-      duration: theme.transitions.duration.enteringScreen,
+      duration: 180,
     }),
+    '&:hover': {
+      width: drawerWidth,
+      padding: theme.spacing(1.5)
+    },
+    '&:hover $drawerMenuSectionTitle': {
+      maxHeight: 22,
+      padding: theme.spacing(0.4, 0.75, 0.25),
+      opacity: 1,
+      transform: 'translateX(0)',
+      pointerEvents: 'auto'
+    },
+    '&:hover $drawerMenuLabel, &:hover $drawerIntegrationSummary': {
+      opacity: 1,
+      transform: 'translateX(0)',
+      pointerEvents: 'auto'
+    },
+    '&:hover $drawerMenuItem, &:hover $drawerIntegrationItem': {
+      gridTemplateColumns: '32px 1fr',
+      justifyContent: 'initial'
+    },
+    '&:hover $drawerMenu': {
+      padding: theme.spacing(1.25, 1.1),
+      alignItems: 'stretch'
+    }
   },
   drawerPaperClose: {
     overflowX: 'hidden',
-    padding: 0,
+    padding: theme.spacing(1),
     transition: theme.transitions.create('width', {
       easing: theme.transitions.easing.sharp,
-      duration: theme.transitions.duration.leavingScreen,
+      duration: 180,
     }),
-    width: theme.spacing(7),
-    [theme.breakpoints.up('sm')]: {
-      width: theme.spacing(0),
-    },
+    width: miniRailWidth,
   },
   drawerCard: {
     height: 'calc(100vh - 24px)',
@@ -265,15 +294,18 @@ export const styles = (theme: Theme) => createStyles({
     borderRadius: 18,
     boxShadow: 'var(--netdive-menu-shadow)',
     overflow: 'hidden',
-    color: 'var(--netdive-menu-text)'
+    color: 'var(--netdive-menu-text)',
+    transition: 'border-radius 180ms ease, box-shadow 180ms ease'
   },
   drawerMenu: {
     display: 'flex',
     flexDirection: 'column',
+    alignItems: 'center',
     gap: theme.spacing(0.75),
-    padding: theme.spacing(1.25, 1.1),
+    padding: theme.spacing(1.25, 0.45),
     overflowY: 'auto',
-    overflowX: 'hidden'
+    overflowX: 'hidden',
+    transition: 'padding 180ms ease'
   },
   drawerDivider: {
     margin: `${theme.spacing(0.65)}px 0 ${theme.spacing(0.15)}px`,
@@ -289,28 +321,35 @@ export const styles = (theme: Theme) => createStyles({
     border: '1px solid var(--netdive-menu-border-soft)'
   },
   drawerMenuSectionTitle: {
-    padding: theme.spacing(0.4, 0.75, 0.25),
+    maxHeight: 0,
+    padding: 0,
+    overflow: 'hidden',
     color: 'var(--netdive-menu-muted)',
     fontSize: 10,
     fontWeight: 600,
     letterSpacing: 0,
-    opacity: 0.85
+    opacity: 0,
+    transform: 'translateX(-6px)',
+    pointerEvents: 'none',
+    transition: 'max-height 180ms ease, padding 180ms ease, opacity 160ms ease, transform 160ms ease'
   },
   drawerMenuItem: {
     width: '100%',
-    minHeight: 54,
+    minHeight: 44,
     display: 'grid',
-    gridTemplateColumns: '32px 1fr',
+    gridTemplateColumns: '32px',
+    justifyContent: 'center',
     alignItems: 'center',
     gap: theme.spacing(0.75),
     border: '1px solid transparent',
-    borderRadius: 12,
-    padding: theme.spacing(0.75, 0.75),
+    borderRadius: 13,
+    padding: theme.spacing(0.65, 0.55),
     backgroundColor: 'transparent',
     color: 'var(--netdive-menu-text)',
     cursor: 'pointer',
     textAlign: 'left',
-    transition: 'background-color 180ms ease, border-color 180ms ease, color 180ms ease',
+    position: 'relative',
+    transition: 'background-color 180ms ease, border-color 180ms ease, color 180ms ease, grid-template-columns 180ms ease, padding 180ms ease',
     '&:hover': {
       backgroundColor: 'var(--netdive-menu-hover)',
       borderColor: 'var(--netdive-menu-border)'
@@ -331,9 +370,19 @@ export const styles = (theme: Theme) => createStyles({
     color: 'var(--netdive-menu-text)'
   },
   drawerMenuItemActive: {
-    backgroundColor: 'var(--netdive-menu-active)',
-    borderColor: 'var(--netdive-menu-border)',
+    backgroundColor: 'transparent',
+    borderColor: 'transparent',
     color: 'var(--netdive-menu-active-text)',
+    '&:before': {
+      content: '""',
+      position: 'absolute',
+      left: -6,
+      top: 10,
+      bottom: 10,
+      width: 3,
+      borderRadius: 999,
+      backgroundColor: 'var(--netdive-menu-active-text)'
+    },
     '& $drawerMenuIcon, & $drawerMenuAux': {
       color: 'var(--netdive-menu-active-text)'
     }
@@ -348,7 +397,7 @@ export const styles = (theme: Theme) => createStyles({
     borderRadius: 10,
     backgroundColor: 'transparent',
     '& svg': {
-      fontSize: 20
+      fontSize: 22
     }
   },
   drawerMenuLabel: {
@@ -357,7 +406,11 @@ export const styles = (theme: Theme) => createStyles({
     textOverflow: 'ellipsis',
     fontSize: 14,
     fontWeight: 700,
-    color: 'inherit'
+    color: 'inherit',
+    opacity: 0,
+    transform: 'translateX(-6px)',
+    pointerEvents: 'none',
+    transition: 'opacity 160ms ease, transform 160ms ease'
   },
   drawerMenuAux: {},
   drawerLanguagePanel: {
@@ -593,19 +646,21 @@ export const styles = (theme: Theme) => createStyles({
   },
   drawerIntegrationItem: {
     width: '100%',
-    minHeight: 56,
+    minHeight: 44,
     display: 'grid',
-    gridTemplateColumns: '32px 1fr',
+    gridTemplateColumns: '32px',
+    justifyContent: 'center',
     alignItems: 'center',
     gap: theme.spacing(0.75),
     border: '1px solid transparent',
-    borderRadius: 12,
-    padding: theme.spacing(0.75),
+    borderRadius: 13,
+    padding: theme.spacing(0.65, 0.55),
     backgroundColor: 'transparent',
     color: 'var(--netdive-menu-text)',
     cursor: 'pointer',
     textAlign: 'left',
-    transition: 'background-color 180ms ease, border-color 180ms ease, color 180ms ease',
+    position: 'relative',
+    transition: 'background-color 180ms ease, border-color 180ms ease, color 180ms ease, grid-template-columns 180ms ease, padding 180ms ease',
     '&:hover': {
       backgroundColor: 'var(--netdive-menu-hover)',
       borderColor: 'var(--netdive-menu-border)'
@@ -615,7 +670,8 @@ export const styles = (theme: Theme) => createStyles({
     minWidth: 0,
     display: 'flex',
     flexDirection: 'column',
-    gap: 3
+    gap: 3,
+    overflow: 'hidden'
   },
   drawerIntegrationSummary: {
     minWidth: 0,
@@ -624,7 +680,11 @@ export const styles = (theme: Theme) => createStyles({
     whiteSpace: 'nowrap',
     color: 'var(--netdive-menu-muted)',
     fontSize: 11,
-    fontWeight: 700
+    fontWeight: 700,
+    opacity: 0,
+    transform: 'translateX(-6px)',
+    pointerEvents: 'none',
+    transition: 'opacity 160ms ease, transform 160ms ease'
   },
   sideSettingsPanel: {
     position: 'absolute',
@@ -1529,6 +1589,7 @@ export const styles = (theme: Theme) => createStyles({
     height: '100vh',
     overflow: 'auto',
     background: 'var(--netdive-content-bg)',
+    marginLeft: miniRailWidth,
   },
   container: {
     paddingTop: theme.spacing(0),
