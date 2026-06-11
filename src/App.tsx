@@ -1542,7 +1542,7 @@ class App extends React.Component<Props, State> {
       }
     })
 
-    const matchedNodes = this.tc.searchNodes(expandedSearchTerms)
+    const matchedNodes = this.searchTopologyNodes(expandedSearchTerms)
     this.syncTopologyNodeTagForNodes(matchedNodes.map(node => node.id))
     this.tc.unpinNodes()
     matchedNodes.forEach(node => {
@@ -1550,6 +1550,34 @@ class App extends React.Component<Props, State> {
         this.tc.pinNode(node, true)
       }
     })
+  }
+
+  private searchTopologyNodes(values: string[]): Node[] {
+    if (!this.tc) {
+      return []
+    }
+    const terms = values
+      .filter((value) => typeof value === "string")
+      .map((value) => value.trim())
+      .filter((value, index, array) => !!value && array.indexOf(value) === index)
+    if (terms.length === 0) {
+      return []
+    }
+
+    const exactMatches: Node[] = []
+    this.tc.nodes.forEach((node) => {
+      const candidates = [
+        node.data?.Name,
+        this.config.nodeTabTitle(node),
+        this.config.nodeAttrs(node).name
+      ].filter((candidate) => typeof candidate === "string") as string[]
+
+      if (candidates.some((candidate) => terms.includes(candidate.trim()))) {
+        exactMatches.push(node)
+      }
+    })
+
+    return exactMatches.length > 0 ? exactMatches : this.tc.searchNodes(terms)
   }
 
   subscriberURL(): string {

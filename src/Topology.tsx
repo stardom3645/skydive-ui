@@ -1660,28 +1660,69 @@ export class Topology extends React.Component<Props, {}> {
             select("#node-pinned-" + id).style("opacity", 1)
         })
 
-        const bounds = this.focusBounds(Array.from(targets))
+        const bounds = this.infrastructureLayerBounds(Array.from(targets)) || this.focusBounds(Array.from(targets))
         if (bounds) {
             this.fitBounds(bounds)
         }
+    }
+
+    private infrastructureLayerBounds(nodeIDs: string[]): DOMRect | null {
+        const d3nodes = new Array<D3Node>()
+        const weights = new Set<number>()
+        nodeIDs.forEach((id) => {
+            const node = this.nodes.get(id)
+            const d3node = this.d3nodes.get(id)
+            if (node) {
+                weights.add(node.getWeight())
+            }
+            if (d3node) {
+                d3nodes.push(d3node)
+            }
+        })
+
+        const nodeBounds = this.nodesBB(d3nodes)
+        if (!nodeBounds || weights.size === 0) {
+            return null
+        }
+
+        const levelRects = this.levelRects.filter((level) => weights.has(level.weight))
+        if (levelRects.length === 0) {
+            return null
+        }
+
+        const y1 = Math.min(...levelRects.map((level) => level.bb.y))
+        const y2 = Math.max(...levelRects.map((level) => level.bb.y + level.bb.height))
+        return {
+            x: nodeBounds.x,
+            y: y1,
+            width: nodeBounds.width,
+            height: y2 - y1
+        } as DOMRect
     }
 
     private focusBounds(nodeIDs: string[]): DOMRect | null {
         let bounds: DOMRect | null = null
         nodeIDs.forEach((id) => {
             const element = select("#node-" + id).node() as SVGGraphicsElement | null
+            const d = this.d3nodes.get(id)
             if (!element) {
                 return
             }
             const bb = element.getBBox()
+            const nodeBounds = {
+                x: (d ? d.x : 0) + bb.x,
+                y: (d ? d.y : 0) + bb.y,
+                width: bb.width,
+                height: bb.height
+            } as DOMRect
             if (!bounds) {
-                bounds = bb
+                bounds = nodeBounds
                 return
             }
-            const x1 = Math.min(bounds.x, bb.x)
-            const y1 = Math.min(bounds.y, bb.y)
-            const x2 = Math.max(bounds.x + bounds.width, bb.x + bb.width)
-            const y2 = Math.max(bounds.y + bounds.height, bb.y + bb.height)
+            const x1 = Math.min(bounds.x, nodeBounds.x)
+            const y1 = Math.min(bounds.y, nodeBounds.y)
+            const x2 = Math.max(bounds.x + bounds.width, nodeBounds.x + nodeBounds.width)
+            const y2 = Math.max(bounds.y + bounds.height, nodeBounds.y + nodeBounds.height)
             bounds = { x: x1, y: y1, width: x2 - x1, height: y2 - y1 } as DOMRect
         })
         return bounds
