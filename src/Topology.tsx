@@ -599,6 +599,25 @@ export class Topology extends React.Component<Props, {}> {
         this.invalidate()
     }
 
+    activateNodeTagForNodes(nodeIDs: string[]): boolean {
+        for (const id of nodeIDs) {
+            const node = this.nodes.get(id)
+            if (!node) {
+                continue
+            }
+            const tag = node.tags.find((candidate) => this.nodeTagStates.has(candidate))
+            if (!tag) {
+                continue
+            }
+            if (this.nodeTagStates.get(tag)) {
+                return false
+            }
+            this.activeNodeTag(tag)
+            return true
+        }
+        return false
+    }
+
     private resetCacheAndRenderTree() {
         // invalidate link cache
         this.visibleLinksCache = undefined
@@ -1623,37 +1642,25 @@ export class Topology extends React.Component<Props, {}> {
 
     focusInfrastructureNodes(nodeIDs: string[]) {
         this.clearInfrastructureFocus()
+        this.unpinNodes()
         const targets = new Set(nodeIDs)
         if (targets.size === 0) {
             this.zoomFit()
             return
         }
-        const linked = new Set<string>()
-        const highlightedNodes = new Set<string>(targets)
 
-        this.links.forEach((link) => {
-            if (targets.has(link.source.id) || targets.has(link.target.id)) {
-                linked.add(link.id)
-                highlightedNodes.add(link.source.id)
-                highlightedNodes.add(link.target.id)
+        targets.forEach((id) => {
+            const node = this.nodes.get(id)
+            if (node) {
+                this.showNode(node)
             }
         })
 
-        this.gNodes.selectAll("g.node")
-            .classed("infra-focus-dim", (d: D3Node) => !highlightedNodes.has(d.data.id))
-            .classed("infra-focus-hit", (d: D3Node) => highlightedNodes.has(d.data.id))
-        this.gLinks.selectAll("path.link")
-            .classed("infra-focus-dim", (d: Link) => !linked.has(d.id))
-            .classed("infra-focus-hit", (d: Link) => linked.has(d.id))
-        this.gLinkOverlays.selectAll("path.link-overlay")
-            .classed("infra-focus-dim", (d: Link) => !linked.has(d.id))
-            .classed("infra-focus-hit", (d: Link) => linked.has(d.id))
-            .style("opacity", (d: Link) => linked.has(d.id) ? 1 : (d.state.selected ? 1 : 0))
-        this.gLinkLabels.selectAll("g.link-label")
-            .classed("infra-focus-dim", (d: Link) => !linked.has(d.id))
-            .classed("infra-focus-hit", (d: Link) => linked.has(d.id))
+        targets.forEach((id) => {
+            select("#node-pinned-" + id).style("opacity", 1)
+        })
 
-        const bounds = this.focusBounds(Array.from(highlightedNodes))
+        const bounds = this.focusBounds(Array.from(targets))
         if (bounds) {
             this.fitBounds(bounds)
         }

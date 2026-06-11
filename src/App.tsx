@@ -1516,8 +1516,10 @@ class App extends React.Component<Props, State> {
       }
     })
 
+    const matchedNodes = this.tc.searchNodes(expandedSearchTerms)
+    this.syncTopologyNodeTagForNodes(matchedNodes.map(node => node.id))
     this.tc.unpinNodes()
-    this.tc.searchNodes(expandedSearchTerms).forEach(node => {
+    matchedNodes.forEach(node => {
       if (this.tc) {
         this.tc.pinNode(node, true)
       }
@@ -1561,6 +1563,16 @@ class App extends React.Component<Props, State> {
     this.setState(this.state)
 
     this.tc.zoomFit()
+  }
+
+  private syncTopologyNodeTagForNodes(nodeIDs: string[]) {
+    if (!this.tc || nodeIDs.length === 0) {
+      return
+    }
+    if (this.tc.activateNodeTagForNodes(nodeIDs)) {
+      this.state.nodeTagStates = this.tc.nodeTagStates
+      this.setState(this.state)
+    }
   }
 
   onSelectionLocation(el: Node | Link) {
@@ -2466,11 +2478,14 @@ class App extends React.Component<Props, State> {
     }
     if (!key) {
       this.tc.clearInfrastructureFocus()
+      this.tc.unpinNodes()
       this.tc.zoomFit()
       this.setState({ infrastructureFocus: "" })
       return
     }
-    this.tc.focusInfrastructureNodes(this.infrastructureFocusNodeIDs(summary, key))
+    const nodeIDs = this.infrastructureFocusNodeIDs(summary, key)
+    this.syncTopologyNodeTagForNodes(nodeIDs)
+    this.tc.focusInfrastructureNodes(nodeIDs)
     this.setState({ infrastructureFocus: key })
   }
 
