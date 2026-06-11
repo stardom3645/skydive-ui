@@ -148,6 +148,7 @@ interface AddFilterValue {
 const addFilterValue = createFilterOptions<AddFilterValue>();
 
 type NetdiveTheme = "light" | "dark"
+type HelpSection = "menu" | "toolbar" | "topology"
 
 const getSavedNetdiveTheme = (): NetdiveTheme => {
   const savedTheme = localStorage.getItem("netdive-theme")
@@ -176,6 +177,7 @@ interface State {
   addFilterValue: AddFilterValue
   isAboutOpen: boolean
   isHelpOpen: boolean
+  helpActiveSection: HelpSection
   appVersion: string
   timeContext: Date | null
   language: "en" | "ko"
@@ -299,6 +301,7 @@ class App extends React.Component<Props, State> {
       addFilterValue: { label: "", gremlinFilter: "" },
       isAboutOpen: false,
       isHelpOpen: false,
+      helpActiveSection: "menu",
       appVersion: "",
       timeContext: null,
       language: "ko",
@@ -2176,7 +2179,6 @@ class App extends React.Component<Props, State> {
 
   openAboutDialog() {
     this.setState({
-      isNavOpen: false,
       isInfrastructurePanelOpen: false,
       isKubernetesManagerOpen: false,
       isScreenConfigOpen: false,
@@ -2192,7 +2194,6 @@ class App extends React.Component<Props, State> {
 
   openHelpDialog() {
     this.setState({
-      isNavOpen: false,
       isInfrastructurePanelOpen: false,
       isKubernetesManagerOpen: false,
       isScreenConfigOpen: false,
@@ -2485,6 +2486,8 @@ class App extends React.Component<Props, State> {
     if (!this.state.isHelpOpen) {
       return null
     }
+    const helpSections: Array<HelpSection> = ["menu", "toolbar", "topology"]
+    const activeSection = this.state.helpActiveSection
     return (
       <Paper className={classes.sideSettingsPanel} data-netdive-side-panel="true">
         <div className={classes.sideSettingsHeader}>
@@ -2497,33 +2500,66 @@ class App extends React.Component<Props, State> {
           </IconButton>
         </div>
         <div className={classes.sideSettingsList}>
-          <div className={classes.helpGuideCard}>
-            <div className={classes.helpGuideTitle}>{translate("helpInfraTitle")}</div>
-            <div className={classes.sideSettingsText}>{translate("helpInfraDescription")}</div>
-            <div className={classes.helpGuideList}>
-              <span>{translate("helpInfraPointLayers")}</span>
-              <span>{translate("helpInfraPointSearch")}</span>
-              <span>{translate("helpInfraPointDetail")}</span>
-            </div>
+          <div className={classes.helpPageTabs}>
+            {helpSections.map((section) => (
+              <button
+                key={section}
+                type="button"
+                className={clsx(classes.helpPageTab, activeSection === section && classes.helpPageTabActive)}
+                onClick={() => this.setState({ helpActiveSection: section })}>
+                {translate(`helpSection-${section}`)}
+              </button>
+            ))}
           </div>
-          <div className={classes.helpGuideCard}>
-            <div className={classes.helpGuideTitle}>{translate("helpKubernetesTitle")}</div>
-            <div className={classes.sideSettingsText}>{translate("helpKubernetesDescription")}</div>
-            <div className={classes.helpGuideList}>
-              <span>{translate("helpKubernetesPointCollection")}</span>
-              <span>{translate("helpKubernetesPointTopology")}</span>
-              <span>{translate("helpKubernetesPointPolicy")}</span>
+          {activeSection === "menu" &&
+            <div className={classes.helpGuideCard}>
+              <div className={classes.helpGuideTitle}>{translate("helpMenuTitle")}</div>
+              <div className={classes.sideSettingsText}>{translate("helpMenuDescription")}</div>
+              <div className={classes.helpGuideList}>
+                <span>{translate("helpMenuPointCollection")}</span>
+                <span>{translate("helpMenuPointKubernetes")}</span>
+                <span>{translate("helpMenuPointView")}</span>
+                <span>{translate("helpMenuPointPreferences")}</span>
+                <span>{translate("helpMenuPointHelp")}</span>
+              </div>
             </div>
-          </div>
-          <div className={classes.helpGuideCard}>
-            <div className={classes.helpGuideTitle}>{translate("helpViewTitle")}</div>
-            <div className={classes.sideSettingsText}>{translate("helpViewDescription")}</div>
-            <div className={classes.helpGuideList}>
-              <span>{translate("helpViewPointLayerFilter")}</span>
-              <span>{translate("helpViewPointTraffic")}</span>
-              <span>{translate("helpViewPointTheme")}</span>
+          }
+          {activeSection === "toolbar" &&
+            <div className={classes.helpGuideCard}>
+              <div className={classes.helpGuideTitle}>{translate("helpToolbarTitle")}</div>
+              <div className={classes.sideSettingsText}>{translate("helpToolbarDescription")}</div>
+              <div className={classes.helpGuideList}>
+                <span>{translate("helpToolbarPointLogo")}</span>
+                <span>{translate("helpToolbarPointSearch")}</span>
+                <span>{translate("helpToolbarPointExpand")}</span>
+                <span>{translate("helpToolbarPointStatus")}</span>
+                <span>{translate("helpToolbarPointDrawer")}</span>
+              </div>
             </div>
-          </div>
+          }
+          {activeSection === "topology" &&
+            <React.Fragment>
+              <div className={classes.helpGuideCard}>
+                <div className={classes.helpGuideTitle}>{translate("helpTopologyTitle")}</div>
+                <div className={classes.sideSettingsText}>{translate("helpTopologyDescription")}</div>
+                <div className={classes.helpGuideList}>
+                  <span>{translate("helpTopologyPointLayers")}</span>
+                  <span>{translate("helpTopologyPointNode")}</span>
+                  <span>{translate("helpTopologyPointLink")}</span>
+                  <span>{translate("helpTopologyPointDetail")}</span>
+                </div>
+              </div>
+              <div className={classes.helpGuideCard}>
+                <div className={classes.helpGuideTitle}>{translate("helpKubernetesTitle")}</div>
+                <div className={classes.sideSettingsText}>{translate("helpKubernetesDescription")}</div>
+                <div className={classes.helpGuideList}>
+                  <span>{translate("helpKubernetesPointCollection")}</span>
+                  <span>{translate("helpKubernetesPointTopology")}</span>
+                  <span>{translate("helpKubernetesPointPolicy")}</span>
+                </div>
+              </div>
+            </React.Fragment>
+          }
           <div className={classes.helpDocsCard}>
             <div>
               <div className={classes.helpGuideTitle}>{translate("helpDocsTitle")}</div>

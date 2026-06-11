@@ -718,6 +718,37 @@ export const styles = (theme: Theme) => createStyles({
       textDecoration: 'underline'
     }
   },
+  helpPageTabs: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+    gap: theme.spacing(0.5),
+    padding: theme.spacing(0.35),
+    borderRadius: 12,
+    border: '1px solid var(--netdive-detail-border)',
+    backgroundColor: 'var(--netdive-detail-section-bg)'
+  },
+  helpPageTab: {
+    minHeight: 34,
+    padding: theme.spacing(0.6, 0.8),
+    border: 'none',
+    borderRadius: 9,
+    backgroundColor: 'transparent',
+    color: 'var(--netdive-detail-muted)',
+    cursor: 'pointer',
+    fontSize: 12,
+    fontWeight: 900,
+    whiteSpace: 'nowrap',
+    transition: 'background-color 160ms ease, color 160ms ease, box-shadow 160ms ease',
+    '&:hover': {
+      backgroundColor: 'var(--netdive-menu-active)',
+      color: 'var(--netdive-menu-active-text)'
+    }
+  },
+  helpPageTabActive: {
+    backgroundColor: '#ffffff',
+    color: 'var(--netdive-menu-active-text)',
+    boxShadow: '0 6px 14px rgba(15, 23, 42, 0.08)'
+  },
   helpGuideCard: {
     display: 'flex',
     flexDirection: 'column',
