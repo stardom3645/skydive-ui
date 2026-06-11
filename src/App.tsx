@@ -249,6 +249,12 @@ interface KubernetesTopologySummary {
   nodes: number
   namespaces: number
   pods: number
+  services: number
+  clusterNodeIDs: string[]
+  nodeNodeIDs: string[]
+  namespaceNodeIDs: string[]
+  podNodeIDs: string[]
+  serviceNodeIDs: string[]
 }
 
 interface InfrastructureSummary {
@@ -893,7 +899,13 @@ class App extends React.Component<Props, State> {
       clusters: 0,
       nodes: 0,
       namespaces: 0,
-      pods: 0
+      pods: 0,
+      services: 0,
+      clusterNodeIDs: [],
+      nodeNodeIDs: [],
+      namespaceNodeIDs: [],
+      podNodeIDs: [],
+      serviceNodeIDs: []
     }
     if (!this.tc) {
       return summary
@@ -905,15 +917,23 @@ class App extends React.Component<Props, State> {
       switch (node.data.Type) {
         case "cluster":
           summary.clusters += 1
+          summary.clusterNodeIDs.push(node.id)
           break
         case "node":
           summary.nodes += 1
+          summary.nodeNodeIDs.push(node.id)
           break
         case "namespace":
           summary.namespaces += 1
+          summary.namespaceNodeIDs.push(node.id)
           break
         case "pod":
           summary.pods += 1
+          summary.podNodeIDs.push(node.id)
+          break
+        case "service":
+          summary.services += 1
+          summary.serviceNodeIDs.push(node.id)
           break
         default:
           break
@@ -2623,6 +2643,22 @@ class App extends React.Component<Props, State> {
     )
   }
 
+  private renderKubernetesTopologySummaryCard(classes: any, icon: React.ReactNode, label: string, value: number, nodeIDs: string[]) {
+    return (
+      <button
+        type="button"
+        className={clsx(classes.infrastructureSummaryCard, classes.kubernetesTopologySummaryCard)}
+        onClick={() => this.focusInfrastructureNodeIDs(nodeIDs)}
+        disabled={nodeIDs.length === 0}>
+        <span className={classes.infrastructureCardIcon}>{icon}</span>
+        <span>
+          <small>{label}</small>
+          <strong>{value}</strong>
+        </span>
+      </button>
+    )
+  }
+
   private renderInfrastructureOverviewCard(classes: any, key: InfrastructureFocusKey | "", icon: React.ReactNode, label: string, description: string, count: number | string, summary: InfrastructureSummary) {
     const selected = key !== "" && this.state.infrastructureFocus === key
     return (
@@ -2638,7 +2674,7 @@ class App extends React.Component<Props, State> {
           </span>
         </span>
         <em>
-          <strong>{count}</strong>
+          <strong className={typeof count === "string" ? classes.infrastructureOverviewCardValueText : undefined}>{count}</strong>
           <ChevronRightIcon fontSize="small" />
         </em>
       </button>
@@ -2966,11 +3002,12 @@ class App extends React.Component<Props, State> {
             <CloseIcon fontSize="small" />
           </IconButton>
         </div>
-        <div className={classes.kubernetesSummaryGrid}>
-          {this.renderInfrastructureSummaryCard(classes, this.topologyImageIcon("assets/icons/cluster.png", translate("kubernetesTopologyClusters")), translate("kubernetesTopologyClusters"), summary.clusters)}
-          {this.renderInfrastructureSummaryCard(classes, this.infrastructureIcon("\uf109", "host"), translate("kubernetesTopologyNodes"), summary.nodes)}
-          {this.renderInfrastructureSummaryCard(classes, this.infrastructureIcon("\uf24d", "network"), translate("kubernetesTopologyNamespaces"), summary.namespaces)}
-          {this.renderInfrastructureSummaryCard(classes, this.topologyImageIcon("assets/icons/pod.png", translate("kubernetesTopologyPods")), translate("kubernetesTopologyPods"), summary.pods)}
+        <div className={clsx(classes.kubernetesSummaryGrid, classes.kubernetesTopologySummaryGrid)}>
+          {this.renderKubernetesTopologySummaryCard(classes, this.topologyImageIcon("assets/icons/cluster.png", translate("kubernetesTopologyClusters")), translate("kubernetesTopologyClusters"), summary.clusters, summary.clusterNodeIDs)}
+          {this.renderKubernetesTopologySummaryCard(classes, this.infrastructureIcon("\uf109", "host"), translate("kubernetesTopologyNodes"), summary.nodes, summary.nodeNodeIDs)}
+          {this.renderKubernetesTopologySummaryCard(classes, this.infrastructureIcon("\uf24d", "network"), translate("kubernetesTopologyNamespaces"), summary.namespaces, summary.namespaceNodeIDs)}
+          {this.renderKubernetesTopologySummaryCard(classes, this.topologyImageIcon("assets/icons/pod.png", translate("kubernetesTopologyPods")), translate("kubernetesTopologyPods"), summary.pods, summary.podNodeIDs)}
+          {this.renderKubernetesTopologySummaryCard(classes, this.topologyImageIcon("assets/icons/service.png", translate("kubernetesTopologyServices")), translate("kubernetesTopologyServices"), summary.services, summary.serviceNodeIDs)}
         </div>
         <div className={classes.kubernetesTableHeader}>
           <div className={classes.kubernetesSectionTitleArea}>

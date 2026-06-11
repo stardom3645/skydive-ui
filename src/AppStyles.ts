@@ -855,6 +855,12 @@ export const styles = (theme: Theme) => createStyles({
       gridTemplateColumns: 'repeat(2, minmax(0, 1fr))'
     }
   },
+  kubernetesTopologySummaryGrid: {
+    gridTemplateColumns: 'repeat(5, minmax(0, 1fr))',
+    [theme.breakpoints.down('md')]: {
+      gridTemplateColumns: 'repeat(2, minmax(0, 1fr))'
+    }
+  },
   infrastructureSummaryCard: {
     minHeight: 104,
     display: 'flex',
@@ -877,6 +883,24 @@ export const styles = (theme: Theme) => createStyles({
       fontSize: 34,
       lineHeight: 1,
       fontWeight: 900
+    }
+  },
+  kubernetesTopologySummaryCard: {
+    cursor: 'pointer',
+    textAlign: 'left',
+    transition: 'background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease',
+    '&:hover': {
+      borderColor: 'rgba(26, 115, 232, 0.28)',
+      backgroundColor: 'var(--netdive-menu-active)'
+    },
+    '&:disabled': {
+      cursor: 'default',
+      opacity: 0.52,
+      backgroundColor: 'var(--netdive-detail-section-bg)'
+    },
+    '&:disabled:hover': {
+      borderColor: 'var(--netdive-detail-border)',
+      backgroundColor: 'var(--netdive-detail-section-bg)'
     }
   },
   infrastructureCardIcon: {
@@ -991,6 +1015,9 @@ export const styles = (theme: Theme) => createStyles({
     backgroundColor: 'var(--netdive-menu-active)',
     boxShadow: '0 8px 18px rgba(26, 115, 232, 0.1)'
   },
+  infrastructureOverviewCardValueText: {
+    fontSize: '20px !important'
+  },
   infrastructureViewToggle: {
     '& .MuiToggleButton-root': {
       minHeight: 32,
@@ -1062,23 +1089,23 @@ export const styles = (theme: Theme) => createStyles({
     flexWrap: 'wrap'
   },
   kubernetesPolicyButton: {
-    height: 30,
-    minHeight: 30,
-    padding: theme.spacing(0, 1.2),
+    height: 26,
+    minHeight: 26,
+    padding: theme.spacing(0, 0.9),
     border: '1px solid #bfdbfe',
     borderRadius: 8,
     backgroundColor: '#ffffff',
     color: '#2563eb',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: 700,
     lineHeight: 1,
     whiteSpace: 'nowrap',
     transition: 'background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease',
     '& .MuiButton-startIcon': {
-      marginRight: 6
+      marginRight: 4
     },
     '& svg': {
-      fontSize: 15
+      fontSize: 13
     },
     '&:hover': {
       borderColor: '#93c5fd',
@@ -1096,9 +1123,10 @@ export const styles = (theme: Theme) => createStyles({
     gap: 8,
     flexShrink: 0,
     '& .MuiButton-root': {
-      height: 36,
+      height: 30,
+      minHeight: 30,
       borderRadius: 8,
-      fontSize: 13,
+      fontSize: 12,
       fontWeight: 700,
       lineHeight: 1,
       whiteSpace: 'nowrap',
@@ -1106,10 +1134,10 @@ export const styles = (theme: Theme) => createStyles({
       transition: 'background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, color 160ms ease'
     },
     '& .MuiButton-startIcon': {
-      marginRight: 6
+      marginRight: 4
     },
     '& svg': {
-      fontSize: 16
+      fontSize: 14
     },
     [theme.breakpoints.down('sm')]: {
       width: '100%',
@@ -1118,7 +1146,7 @@ export const styles = (theme: Theme) => createStyles({
     }
   },
   kubernetesRefreshButton: {
-    padding: theme.spacing(0, 1.4),
+    padding: theme.spacing(0, 1.05),
     border: '1px solid #bfdbfe',
     backgroundColor: '#ffffff',
     color: '#2563eb',
@@ -1128,7 +1156,7 @@ export const styles = (theme: Theme) => createStyles({
     }
   },
   kubernetesTestAllButton: {
-    padding: theme.spacing(0, 1.6),
+    padding: theme.spacing(0, 1.2),
     border: '1px solid #2563eb',
     backgroundColor: '#2563eb',
     color: '#ffffff',
