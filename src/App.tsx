@@ -96,8 +96,6 @@ import VMConsoleButton from './ActionButtons/VMConsole'
 import GremlinPanel from './DataPanels/Gremlin'
 import CapturePanel from './DataPanels/Capture'
 import FlowPanel from './DataPanels/Flow'
-import AboutDialog from './About'
-import HelpDialog from './Help'
 import TimetravelPanel from './TimetravelPanel'
 
 import LanguageToggle from './LanguageToggle'
@@ -415,7 +413,7 @@ class App extends React.Component<Props, State> {
   }
 
   private onDocumentMouseDown(event: MouseEvent) {
-    if (!this.state.isInfrastructurePanelOpen && !this.state.isKubernetesManagerOpen && !this.state.isScreenConfigOpen && !this.state.isPreferencesPanelOpen) {
+    if (!this.state.isInfrastructurePanelOpen && !this.state.isKubernetesManagerOpen && !this.state.isScreenConfigOpen && !this.state.isPreferencesPanelOpen && !this.state.isHelpOpen && !this.state.isAboutOpen) {
       return
     }
     const target = event.target as Element | null
@@ -429,7 +427,9 @@ class App extends React.Component<Props, State> {
       isInfrastructurePanelOpen: false,
       isKubernetesManagerOpen: false,
       isScreenConfigOpen: false,
-      isPreferencesPanelOpen: false
+      isPreferencesPanelOpen: false,
+      isHelpOpen: false,
+      isAboutOpen: false
     })
   }
 
@@ -2171,25 +2171,35 @@ class App extends React.Component<Props, State> {
   }
 
   closeAboutDialog() {
-    this.state.isAboutOpen = false
-    this.setState(this.state)
+    this.setState({ isAboutOpen: false })
   }
 
   openAboutDialog() {
-    this.state.isNavOpen = false
-    this.state.isAboutOpen = true
-    this.setState(this.state)
+    this.setState({
+      isNavOpen: false,
+      isInfrastructurePanelOpen: false,
+      isKubernetesManagerOpen: false,
+      isScreenConfigOpen: false,
+      isPreferencesPanelOpen: false,
+      isHelpOpen: false,
+      isAboutOpen: true
+    })
   }
 
   closeHelpDialog() {
-    this.state.isHelpOpen = false
-    this.setState(this.state)
+    this.setState({ isHelpOpen: false })
   }
 
   openHelpDialog() {
-    this.state.isNavOpen = false
-    this.state.isHelpOpen = true
-    this.setState(this.state)
+    this.setState({
+      isNavOpen: false,
+      isInfrastructurePanelOpen: false,
+      isKubernetesManagerOpen: false,
+      isScreenConfigOpen: false,
+      isPreferencesPanelOpen: false,
+      isAboutOpen: false,
+      isHelpOpen: true
+    })
   }
 
   private setNetdiveTheme(theme: NetdiveTheme) {
@@ -2226,7 +2236,7 @@ class App extends React.Component<Props, State> {
         <span className={classes.drawerMenuIcon}>{icon}</span>
         <span className={classes.drawerIntegrationMain}>
           <span className={classes.drawerMenuLabel}>{label}</span>
-          <span className={classes.drawerIntegrationSummary}>{summary}</span>
+          {summary && <span className={classes.drawerIntegrationSummary}>{summary}</span>}
         </span>
       </button>
     )
@@ -2237,7 +2247,9 @@ class App extends React.Component<Props, State> {
       isInfrastructurePanelOpen: false,
       isKubernetesManagerOpen: true,
       isScreenConfigOpen: false,
-      isPreferencesPanelOpen: false
+      isPreferencesPanelOpen: false,
+      isHelpOpen: false,
+      isAboutOpen: false
     }, () => {
       if (this.state.kubernetesClusters.length === 0) {
         this.refreshKubernetesClusters()
@@ -2250,7 +2262,9 @@ class App extends React.Component<Props, State> {
       isInfrastructurePanelOpen: true,
       isKubernetesManagerOpen: false,
       isScreenConfigOpen: false,
-      isPreferencesPanelOpen: false
+      isPreferencesPanelOpen: false,
+      isHelpOpen: false,
+      isAboutOpen: false
     })
   }
 
@@ -2333,7 +2347,9 @@ class App extends React.Component<Props, State> {
       isInfrastructurePanelOpen: false,
       isKubernetesManagerOpen: false,
       isScreenConfigOpen: true,
-      isPreferencesPanelOpen: false
+      isPreferencesPanelOpen: false,
+      isHelpOpen: false,
+      isAboutOpen: false
     })
   }
 
@@ -2342,7 +2358,9 @@ class App extends React.Component<Props, State> {
       isInfrastructurePanelOpen: false,
       isKubernetesManagerOpen: false,
       isScreenConfigOpen: false,
-      isPreferencesPanelOpen: true
+      isPreferencesPanelOpen: true,
+      isHelpOpen: false,
+      isAboutOpen: false
     })
   }
 
@@ -2457,6 +2475,89 @@ class App extends React.Component<Props, State> {
               <ToggleButton value="light" aria-label="Light">Light</ToggleButton>
               <ToggleButton value="dark" aria-label="Dark">Dark</ToggleButton>
             </ToggleButtonGroup>
+          </div>
+        </div>
+      </Paper>
+    )
+  }
+
+  private renderHelpPanel(classes: any) {
+    if (!this.state.isHelpOpen) {
+      return null
+    }
+    return (
+      <Paper className={classes.sideSettingsPanel} data-netdive-side-panel="true">
+        <div className={classes.sideSettingsHeader}>
+          <div>
+            <div className={classes.sideSettingsTitle}>{translate("help")}</div>
+            <div className={classes.sideSettingsDescription}>{translate("helpPanelDescription")}</div>
+          </div>
+          <IconButton size="small" onClick={() => this.setState({ isHelpOpen: false })}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </div>
+        <div className={classes.sideSettingsList}>
+          <div className={classes.helpGuideCard}>
+            <div className={classes.helpGuideTitle}>{translate("helpInfraTitle")}</div>
+            <div className={classes.sideSettingsText}>{translate("helpInfraDescription")}</div>
+            <div className={classes.helpGuideList}>
+              <span>{translate("helpInfraPointLayers")}</span>
+              <span>{translate("helpInfraPointSearch")}</span>
+              <span>{translate("helpInfraPointDetail")}</span>
+            </div>
+          </div>
+          <div className={classes.helpGuideCard}>
+            <div className={classes.helpGuideTitle}>{translate("helpKubernetesTitle")}</div>
+            <div className={classes.sideSettingsText}>{translate("helpKubernetesDescription")}</div>
+            <div className={classes.helpGuideList}>
+              <span>{translate("helpKubernetesPointCollection")}</span>
+              <span>{translate("helpKubernetesPointTopology")}</span>
+              <span>{translate("helpKubernetesPointPolicy")}</span>
+            </div>
+          </div>
+          <div className={classes.helpGuideCard}>
+            <div className={classes.helpGuideTitle}>{translate("helpViewTitle")}</div>
+            <div className={classes.sideSettingsText}>{translate("helpViewDescription")}</div>
+            <div className={classes.helpGuideList}>
+              <span>{translate("helpViewPointLayerFilter")}</span>
+              <span>{translate("helpViewPointTraffic")}</span>
+              <span>{translate("helpViewPointTheme")}</span>
+            </div>
+          </div>
+          <div className={classes.helpDocsCard}>
+            <div>
+              <div className={classes.helpGuideTitle}>{translate("helpDocsTitle")}</div>
+              <div className={classes.sideSettingsText}>{translate("helpDocsDescription")}</div>
+            </div>
+            <a className={classes.helpDocsLink} href="https://docs.ablecloud.io/latest/administration/wall/netdive-guide/" target="_blank" rel="noopener noreferrer">ABLESTACK Online Docs</a>
+          </div>
+        </div>
+      </Paper>
+    )
+  }
+
+  private renderAboutPanel(classes: any) {
+    if (!this.state.isAboutOpen) {
+      return null
+    }
+    return (
+      <Paper className={classes.sideSettingsPanel} data-netdive-side-panel="true">
+        <div className={classes.sideSettingsHeader}>
+          <div>
+            <div className={classes.sideSettingsTitle}>ABLESTACK NETDIVE</div>
+            <div className={classes.sideSettingsDescription}>{translate("aboutPanelDescription")}</div>
+          </div>
+          <IconButton size="small" onClick={() => this.setState({ isAboutOpen: false })}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </div>
+        <div className={classes.sideSettingsList}>
+          <div className={classes.sideSettingsRow}>
+            <span>{translate("version")}</span>
+            <small>4.2.2</small>
+          </div>
+          <div className={classes.sideSettingsControlBlock}>
+            <div className={classes.sideSettingsText}>Copyright (c) 2025, ABLECLOUD.Co.Ltd</div>
           </div>
         </div>
       </Paper>
@@ -2685,13 +2786,13 @@ class App extends React.Component<Props, State> {
         <Divider className={classes.drawerDivider} />
         <div className={classes.drawerMenuSectionTitle}>{translate("collectionSection")}</div>
         {this.renderDrawerIntegrationItem(classes, <WavesIcon />, translate("infrastructureMenu"), translate("infrastructureMenuSummary"), () => this.openInfrastructureTopology(), this.state.isInfrastructurePanelOpen)}
-        {this.renderDrawerIntegrationItem(classes, <CloudQueueIcon />, translate("kubernetesCollectionMenu"), this.kubernetesSummaryText(), () => this.openKubernetesManager(), this.state.isKubernetesManagerOpen)}
+        {this.renderDrawerIntegrationItem(classes, <CloudQueueIcon />, translate("kubernetesCollectionMenu"), translate("kubernetesMenuSummary"), () => this.openKubernetesManager(), this.state.isKubernetesManagerOpen)}
         <div className={classes.drawerMenuSectionTitle}>{translate("viewSettingsSection")}</div>
         {this.renderDrawerMenuItem(classes, <WavesIcon />, translate("screenConfig"), () => this.openScreenConfigPanel(), this.state.isScreenConfigOpen)}
         {this.renderDrawerMenuItem(classes, <Brightness4Icon />, translate("preferences"), () => this.openPreferencesPanel(), this.state.isPreferencesPanelOpen)}
         <div className={classes.drawerMenuSectionTitle}>{translate("helpSection")}</div>
-        {this.renderDrawerMenuItem(classes, <LibraryBooksIcon />, "Help", this.openHelpDialog.bind(this))}
-        {this.renderDrawerMenuItem(classes, <InfoIcon />, "About", this.openAboutDialog.bind(this))}
+        {this.renderDrawerMenuItem(classes, <LibraryBooksIcon />, "Help", this.openHelpDialog.bind(this), this.state.isHelpOpen)}
+        {this.renderDrawerMenuItem(classes, <InfoIcon />, "About", this.openAboutDialog.bind(this), this.state.isAboutOpen)}
       </div>
     )
   }
@@ -2774,11 +2875,9 @@ class App extends React.Component<Props, State> {
         {this.renderKubernetesManagerPanel(classes)}
         {this.renderScreenConfigPanel(classes)}
         {this.renderPreferencesPanel(classes)}
+        {this.renderHelpPanel(classes)}
+        {this.renderAboutPanel(classes)}
         {this.renderKubernetesDialogs(classes)}
-        <AboutDialog open={this.state.isAboutOpen} onClose={this.closeAboutDialog.bind(this)}
-          appName="ABLESTACK NETDIVE" appVersion="1.00" uiVersion="1.00"/>
-        <HelpDialog open={this.state.isHelpOpen} onClose={this.closeHelpDialog.bind(this)}
-        />
         <main className={classes.content}>
           <Container maxWidth="xl" className={classes.container}>
             <Topology className={classes.topology} ref={node => this.tc = node}

@@ -705,6 +705,81 @@ export const styles = (theme: Theme) => createStyles({
     fontSize: 13,
     fontWeight: 900
   },
+  sideSettingsText: {
+    color: 'var(--netdive-detail-text)',
+    fontSize: 13,
+    lineHeight: 1.55
+  },
+  sideSettingsLink: {
+    color: 'var(--netdive-menu-active-text)',
+    fontWeight: 800,
+    textDecoration: 'none',
+    '&:hover': {
+      textDecoration: 'underline'
+    }
+  },
+  helpGuideCard: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: theme.spacing(0.75),
+    padding: theme.spacing(1.25),
+    borderRadius: 14,
+    border: '1px solid var(--netdive-detail-border)',
+    backgroundColor: 'var(--netdive-detail-section-bg)'
+  },
+  helpGuideTitle: {
+    color: 'var(--netdive-detail-title)',
+    fontSize: 13,
+    fontWeight: 900
+  },
+  helpGuideList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: theme.spacing(0.45),
+    '& span': {
+      position: 'relative',
+      paddingLeft: 14,
+      color: 'var(--netdive-detail-muted)',
+      fontSize: 12,
+      lineHeight: 1.45,
+      '&:before': {
+        content: '""',
+        position: 'absolute',
+        left: 0,
+        top: 7,
+        width: 5,
+        height: 5,
+        borderRadius: 999,
+        backgroundColor: 'var(--netdive-menu-active-text)',
+        opacity: 0.62
+      }
+    }
+  },
+  helpDocsCard: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing(1),
+    padding: theme.spacing(1.25),
+    borderRadius: 14,
+    border: '1px solid rgba(26, 115, 232, 0.2)',
+    backgroundColor: 'rgba(232, 242, 255, 0.46)'
+  },
+  helpDocsLink: {
+    flexShrink: 0,
+    padding: theme.spacing(0.7, 1),
+    borderRadius: 10,
+    border: '1px solid #bfdbfe',
+    backgroundColor: '#ffffff',
+    color: '#2563eb',
+    fontSize: 12,
+    fontWeight: 900,
+    textDecoration: 'none',
+    whiteSpace: 'nowrap',
+    '&:hover': {
+      backgroundColor: '#eff6ff'
+    }
+  },
   kubernetesManagerPanel: {
     position: 'absolute',
     top: 76,
