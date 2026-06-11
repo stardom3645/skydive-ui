@@ -72,14 +72,7 @@ import CheckCircleIcon from '@material-ui/icons/CheckCircle'
 import ErrorOutlineIcon from '@material-ui/icons/ErrorOutline'
 import RefreshIcon from '@material-ui/icons/Refresh'
 import DeviceHubIcon from '@material-ui/icons/DeviceHub'
-import StorageIcon from '@material-ui/icons/Storage'
-import DesktopWindowsIcon from '@material-ui/icons/DesktopWindows'
-import SettingsApplicationsIcon from '@material-ui/icons/SettingsApplications'
-import RouterIcon from '@material-ui/icons/Router'
-import LayersIcon from '@material-ui/icons/Layers'
-import PublicIcon from '@material-ui/icons/Public'
 import ChevronRightIcon from '@material-ui/icons/ChevronRight'
-import AccountTreeIcon from '@material-ui/icons/AccountTree'
 import LogoLight from '../assets/logo-ablestack.png'
 import LogoDark from '../assets/ablestack-logo.png'
 
@@ -2481,6 +2474,22 @@ class App extends React.Component<Props, State> {
     this.setState({ infrastructureFocus: key })
   }
 
+  private infrastructureIcon(glyph: string, tone: string, badge?: string) {
+    const colors: Record<string, string> = {
+      host: "#3b82f6",
+      "user-vm": "#41a878",
+      "system-vm": "#6d4bd8",
+      network: "#3f7ee8",
+      router: "#7c4bd3"
+    }
+    return (
+      <span className={clsx("fa", "fas", "fa-fw")} style={{ color: colors[tone] || "#3f7ee8" }}>
+        {glyph}
+        {badge && <i>{badge}</i>}
+      </span>
+    )
+  }
+
   private renderInfrastructureSummaryCard(classes: any, icon: React.ReactNode, label: string, value: number) {
     return (
       <div className={classes.infrastructureSummaryCard}>
@@ -2569,10 +2578,10 @@ class App extends React.Component<Props, State> {
           </IconButton>
         </div>
         <div className={classes.kubernetesSummaryGrid}>
-          {this.renderInfrastructureSummaryCard(classes, <StorageIcon />, translate("infrastructureHosts"), summary.hosts)}
-          {this.renderInfrastructureSummaryCard(classes, <DesktopWindowsIcon />, translate("infrastructureUserVMs"), summary.userVMs)}
-          {this.renderInfrastructureSummaryCard(classes, <SettingsApplicationsIcon />, translate("infrastructureSystemVMs"), summary.systemVMs)}
-          {this.renderInfrastructureSummaryCard(classes, <AccountTreeIcon />, translate("infrastructureNetworkLinks"), summary.links)}
+          {this.renderInfrastructureSummaryCard(classes, this.infrastructureIcon("\uf233", "host"), translate("infrastructureHosts"), summary.hosts)}
+          {this.renderInfrastructureSummaryCard(classes, this.infrastructureIcon("\uf108", "user-vm"), translate("infrastructureUserVMs"), summary.userVMs)}
+          {this.renderInfrastructureSummaryCard(classes, this.infrastructureIcon("\uf085", "system-vm"), translate("infrastructureSystemVMs"), summary.systemVMs)}
+          {this.renderInfrastructureSummaryCard(classes, this.infrastructureIcon("\uf0e8", "network"), translate("infrastructureNetworkLinks"), summary.links)}
         </div>
         <div className={classes.kubernetesTableHeader}>
           <div>
@@ -2591,12 +2600,12 @@ class App extends React.Component<Props, State> {
         </div>
         {this.state.infrastructureViewMode === "all" &&
           <div className={classes.infrastructureOverviewGrid}>
-            {this.renderInfrastructureOverviewCard(classes, "networkObjects", <DeviceHubIcon />, translate("infrastructureNetworkObjects"), translate("infrastructureNetworkObjectsDescription"), summary.networkObjects, summary)}
-            {this.renderInfrastructureOverviewCard(classes, "routers", <RouterIcon />, translate("infrastructureRouters"), translate("infrastructureRoutersDescription"), summary.routers, summary)}
-            {this.renderInfrastructureOverviewCard(classes, "userVMs", <DesktopWindowsIcon />, translate("infrastructureUserVMs"), translate("infrastructureUserVMsDescription"), summary.userVMs, summary)}
-            {this.renderInfrastructureOverviewCard(classes, "systemVMs", <SettingsApplicationsIcon />, translate("infrastructureSystemVMs"), translate("infrastructureSystemVMsDescription"), summary.systemVMs, summary)}
-            {this.renderInfrastructureOverviewCard(classes, "totalNodes", <LayersIcon />, translate("infrastructureTotalNodes"), translate("infrastructureTotalNodesDescription"), summary.totalNodes, summary)}
-            {this.renderInfrastructureOverviewCard(classes, "", <PublicIcon />, translate("infrastructureShowAll"), translate("infrastructureShowAllDescription"), translate("all"), summary)}
+            {this.renderInfrastructureOverviewCard(classes, "networkObjects", this.infrastructureIcon("\uf6ff", "network"), translate("infrastructureNetworkObjects"), translate("infrastructureNetworkObjectsDescription"), summary.networkObjects, summary)}
+            {this.renderInfrastructureOverviewCard(classes, "routers", this.infrastructureIcon("\uf4d7", "router"), translate("infrastructureRouters"), translate("infrastructureRoutersDescription"), summary.routers, summary)}
+            {this.renderInfrastructureOverviewCard(classes, "userVMs", this.infrastructureIcon("\uf108", "user-vm"), translate("infrastructureUserVMs"), translate("infrastructureUserVMsDescription"), summary.userVMs, summary)}
+            {this.renderInfrastructureOverviewCard(classes, "systemVMs", this.infrastructureIcon("\uf085", "system-vm"), translate("infrastructureSystemVMs"), translate("infrastructureSystemVMsDescription"), summary.systemVMs, summary)}
+            {this.renderInfrastructureOverviewCard(classes, "totalNodes", this.infrastructureIcon("\uf233", "host"), translate("infrastructureTotalNodes"), translate("infrastructureTotalNodesDescription"), summary.totalNodes, summary)}
+            {this.renderInfrastructureOverviewCard(classes, "", this.infrastructureIcon("\uf0ac", "network"), translate("infrastructureShowAll"), translate("infrastructureShowAllDescription"), translate("all"), summary)}
           </div>
         }
         {this.state.infrastructureViewMode === "hosts" &&

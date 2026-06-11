@@ -881,25 +881,25 @@ export const styles = (theme: Theme) => createStyles({
     }
   },
   infrastructureSummaryCard: {
-    minHeight: 92,
+    minHeight: 104,
     display: 'flex',
     alignItems: 'center',
-    gap: theme.spacing(1.1),
-    padding: theme.spacing(1.35),
+    gap: theme.spacing(1.5),
+    padding: theme.spacing(1.7),
     borderRadius: 14,
     border: '1px solid var(--netdive-detail-border)',
     backgroundColor: 'var(--netdive-detail-section-bg)',
     '& small': {
       display: 'block',
       color: 'var(--netdive-detail-muted)',
-      fontSize: 12,
-      fontWeight: 800
+      fontSize: 14,
+      fontWeight: 900
     },
     '& strong': {
       display: 'block',
-      marginTop: 5,
+      marginTop: 8,
       color: 'var(--netdive-detail-title)',
-      fontSize: 30,
+      fontSize: 34,
       lineHeight: 1,
       fontWeight: 900
     }
@@ -910,28 +910,39 @@ export const styles = (theme: Theme) => createStyles({
     alignItems: 'center',
     justifyContent: 'center',
     color: 'var(--netdive-menu-active-text)',
-    opacity: 0.82,
-    '& svg': {
-      fontSize: 32
+    fontFamily: '"Font Awesome 5 Free"',
+    fontSize: 36,
+    fontWeight: 900,
+    lineHeight: 1,
+    position: 'relative',
+    '& i': {
+      position: 'absolute',
+      right: -8,
+      bottom: -6,
+      color: 'inherit',
+      fontFamily: '"Font Awesome 5 Free"',
+      fontSize: 13,
+      fontStyle: 'normal',
+      fontWeight: 900,
+      textShadow: '0 0 0 var(--netdive-detail-section-bg)'
     }
   },
   infrastructureOverviewGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-    gap: theme.spacing(1),
+    gap: theme.spacing(1.25),
     [theme.breakpoints.down('sm')]: {
       gridTemplateColumns: '1fr'
     }
   },
   infrastructureOverviewCard: {
-    minHeight: 118,
+    minHeight: 112,
     width: '100%',
     display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'stretch',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    gap: theme.spacing(1),
-    padding: theme.spacing(1.2),
+    gap: theme.spacing(1.25),
+    padding: theme.spacing(1.45, 1.55),
     borderRadius: 14,
     border: '1px solid var(--netdive-detail-border)',
     backgroundColor: 'var(--netdive-detail-section-bg)',
@@ -944,19 +955,20 @@ export const styles = (theme: Theme) => createStyles({
     },
     '& strong': {
       color: 'var(--netdive-detail-title)',
-      fontSize: 13,
+      fontSize: 15,
       fontWeight: 900
     },
     '& small': {
       color: 'var(--netdive-detail-muted)',
-      fontSize: 11,
-      lineHeight: 1.35,
+      fontSize: 13,
+      lineHeight: 1.42,
       fontWeight: 700
     },
     '& em': {
+      flexShrink: 0,
       display: 'flex',
       alignItems: 'center',
-      justifyContent: 'space-between',
+      gap: theme.spacing(0.9),
       color: 'var(--netdive-detail-title)',
       fontStyle: 'normal',
       fontWeight: 900
@@ -972,16 +984,17 @@ export const styles = (theme: Theme) => createStyles({
   },
   infrastructureOverviewCardMain: {
     display: 'flex',
-    alignItems: 'flex-start',
-    gap: theme.spacing(0.9),
+    alignItems: 'center',
+    gap: theme.spacing(1.25),
+    minWidth: 0,
     '& > span:last-child': {
       minWidth: 0,
       display: 'flex',
       flexDirection: 'column',
       gap: 3
     },
-    '& $infrastructureCardIcon svg': {
-      fontSize: 28
+    '& $infrastructureCardIcon': {
+      fontSize: 30
     }
   },
   infrastructureOverviewCardActive: {
