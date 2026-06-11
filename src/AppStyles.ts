@@ -880,20 +880,59 @@ export const styles = (theme: Theme) => createStyles({
       fontWeight: 800
     }
   },
-  infrastructureOverviewList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: theme.spacing(0.75)
-  },
-  infrastructureOverviewRow: {
-    minHeight: 62,
-    width: '100%',
+  infrastructureSummaryCard: {
+    minHeight: 92,
     display: 'flex',
     alignItems: 'center',
+    gap: theme.spacing(1.1),
+    padding: theme.spacing(1.35),
+    borderRadius: 14,
+    border: '1px solid var(--netdive-detail-border)',
+    backgroundColor: 'var(--netdive-detail-section-bg)',
+    '& small': {
+      display: 'block',
+      color: 'var(--netdive-detail-muted)',
+      fontSize: 12,
+      fontWeight: 800
+    },
+    '& strong': {
+      display: 'block',
+      marginTop: 5,
+      color: 'var(--netdive-detail-title)',
+      fontSize: 30,
+      lineHeight: 1,
+      fontWeight: 900
+    }
+  },
+  infrastructureCardIcon: {
+    flexShrink: 0,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: 'var(--netdive-menu-active-text)',
+    opacity: 0.82,
+    '& svg': {
+      fontSize: 32
+    }
+  },
+  infrastructureOverviewGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+    gap: theme.spacing(1),
+    [theme.breakpoints.down('sm')]: {
+      gridTemplateColumns: '1fr'
+    }
+  },
+  infrastructureOverviewCard: {
+    minHeight: 118,
+    width: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'stretch',
     justifyContent: 'space-between',
-    gap: theme.spacing(1.2),
-    padding: theme.spacing(1, 1.15),
-    borderRadius: 12,
+    gap: theme.spacing(1),
+    padding: theme.spacing(1.2),
+    borderRadius: 14,
     border: '1px solid var(--netdive-detail-border)',
     backgroundColor: 'var(--netdive-detail-section-bg)',
     cursor: 'pointer',
@@ -903,43 +942,100 @@ export const styles = (theme: Theme) => createStyles({
       borderColor: 'rgba(26, 115, 232, 0.28)',
       backgroundColor: 'var(--netdive-menu-active)'
     },
-    '& span': {
-      minWidth: 0,
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 3
-    },
     '& strong': {
       color: 'var(--netdive-detail-title)',
       fontSize: 13,
       fontWeight: 900
     },
-    '& span small': {
+    '& small': {
       color: 'var(--netdive-detail-muted)',
       fontSize: 11,
       lineHeight: 1.35,
       fontWeight: 700
     },
     '& em': {
-      flexShrink: 0,
-      display: 'inline-flex',
+      display: 'flex',
       alignItems: 'center',
-      gap: theme.spacing(0.7),
+      justifyContent: 'space-between',
       color: 'var(--netdive-detail-title)',
       fontStyle: 'normal',
-      fontSize: 14,
       fontWeight: 900
     },
-    '& em small': {
+    '& em strong': {
+      fontSize: 24,
+      lineHeight: 1
+    },
+    '& em svg': {
       color: 'var(--netdive-menu-active-text)',
-      fontSize: 11,
-      fontWeight: 900
+      opacity: 0.72
     }
   },
-  infrastructureOverviewRowActive: {
+  infrastructureOverviewCardMain: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: theme.spacing(0.9),
+    '& > span:last-child': {
+      minWidth: 0,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 3
+    },
+    '& $infrastructureCardIcon svg': {
+      fontSize: 28
+    }
+  },
+  infrastructureOverviewCardActive: {
     borderColor: 'rgba(26, 115, 232, 0.38)',
     backgroundColor: 'var(--netdive-menu-active)',
     boxShadow: '0 8px 18px rgba(26, 115, 232, 0.1)'
+  },
+  infrastructureViewToggle: {
+    '& .MuiToggleButton-root': {
+      minHeight: 32,
+      padding: theme.spacing(0.45, 1),
+      border: '1px solid var(--netdive-detail-border)',
+      color: 'var(--netdive-detail-muted)',
+      fontSize: 12,
+      fontWeight: 800
+    },
+    '& .MuiToggleButton-root.Mui-selected': {
+      color: 'var(--netdive-menu-active-text)',
+      backgroundColor: 'var(--netdive-menu-active)'
+    }
+  },
+  infrastructureHostList: {
+    maxHeight: 320,
+    overflowY: 'auto',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: theme.spacing(0.75),
+    paddingRight: theme.spacing(0.5)
+  },
+  infrastructureHostCard: {
+    padding: theme.spacing(1.1),
+    borderRadius: 12,
+    border: '1px solid var(--netdive-detail-border)',
+    backgroundColor: 'var(--netdive-detail-section-bg)'
+  },
+  infrastructureHostName: {
+    color: 'var(--netdive-detail-title)',
+    fontSize: 13,
+    fontWeight: 900
+  },
+  infrastructureHostStats: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+    gap: theme.spacing(0.55),
+    marginTop: theme.spacing(0.85),
+    '& span': {
+      color: 'var(--netdive-detail-muted)',
+      fontSize: 11,
+      fontWeight: 800
+    },
+    '& strong': {
+      color: 'var(--netdive-detail-title)',
+      fontSize: 13
+    }
   },
   kubernetesTableHeader: {
     display: 'flex',

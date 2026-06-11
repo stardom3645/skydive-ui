@@ -72,6 +72,14 @@ import CheckCircleIcon from '@material-ui/icons/CheckCircle'
 import ErrorOutlineIcon from '@material-ui/icons/ErrorOutline'
 import RefreshIcon from '@material-ui/icons/Refresh'
 import DeviceHubIcon from '@material-ui/icons/DeviceHub'
+import StorageIcon from '@material-ui/icons/Storage'
+import DesktopWindowsIcon from '@material-ui/icons/DesktopWindows'
+import SettingsApplicationsIcon from '@material-ui/icons/SettingsApplications'
+import RouterIcon from '@material-ui/icons/Router'
+import LayersIcon from '@material-ui/icons/Layers'
+import PublicIcon from '@material-ui/icons/Public'
+import ChevronRightIcon from '@material-ui/icons/ChevronRight'
+import AccountTreeIcon from '@material-ui/icons/AccountTree'
 import LogoLight from '../assets/logo-ablestack.png'
 import LogoDark from '../assets/ablestack-logo.png'
 
@@ -150,6 +158,7 @@ const addFilterValue = createFilterOptions<AddFilterValue>();
 type NetdiveTheme = "light" | "dark"
 type HelpSection = "menu" | "toolbar" | "topology"
 type InfrastructureFocusKey = "networkObjects" | "routers" | "userVMs" | "systemVMs" | "totalNodes"
+type InfrastructureViewMode = "all" | "hosts"
 
 const getSavedNetdiveTheme = (): NetdiveTheme => {
   const savedTheme = localStorage.getItem("netdive-theme")
@@ -188,6 +197,7 @@ interface State {
   netdiveTheme: NetdiveTheme
   isInfrastructurePanelOpen: boolean
   infrastructureFocus: InfrastructureFocusKey | ""
+  infrastructureViewMode: InfrastructureViewMode
   isScreenConfigOpen: boolean
   isPreferencesPanelOpen: boolean
   kubernetesClusters: MoldKubernetesCluster[]
@@ -255,6 +265,16 @@ interface InfrastructureSummary {
   routerNodeIDs: string[]
   networkObjectNodeIDs: string[]
   infrastructureNodeIDs: string[]
+  hostsById: Record<string, InfrastructureHostSummary>
+}
+
+interface InfrastructureHostSummary {
+  id: string
+  name: string
+  userVMs: number
+  systemVMs: number
+  routers: number
+  networkObjects: number
 }
 
 class App extends React.Component<Props, State> {
@@ -321,6 +341,7 @@ class App extends React.Component<Props, State> {
       netdiveTheme: getSavedNetdiveTheme(),
       isInfrastructurePanelOpen: false,
       infrastructureFocus: "",
+      infrastructureViewMode: "all",
       isScreenConfigOpen: false,
       isPreferencesPanelOpen: false,
       kubernetesClusters: [],
@@ -2292,7 +2313,8 @@ class App extends React.Component<Props, State> {
       systemVMNodeIDs: [],
       routerNodeIDs: [],
       networkObjectNodeIDs: [],
-      infrastructureNodeIDs: []
+      infrastructureNodeIDs: [],
+      hostsById: {}
     }
 
     if (!this.tc) {
@@ -2311,6 +2333,14 @@ class App extends React.Component<Props, State> {
       if (type === "host") {
         summary.hosts += 1
         summary.hostNodeIDs.push(node.id)
+        summary.hostsById[node.id] = {
+          id: node.id,
+          name: name || node.id,
+          userVMs: 0,
+          systemVMs: 0,
+          routers: 0,
+          networkObjects: 0
+        }
       }
 
       if (type === "libvirt") {
@@ -2359,9 +2389,65 @@ class App extends React.Component<Props, State> {
       if (relationType !== "ownership" && relationType !== "vownership") {
         summary.links += 1
       }
+      const source = (link as any).source as Node | undefined
+      const target = (link as any).target as Node | undefined
+      if (!source || !target) {
+        return
+      }
+      const sourceHost = summary.hostsById[source.id]
+      const targetHost = summary.hostsById[target.id]
+      if (sourceHost) {
+        this.addInfrastructureHostChildSummary(sourceHost, target)
+      }
+      if (targetHost) {
+        this.addInfrastructureHostChildSummary(targetHost, source)
+      }
     })
 
     return summary
+  }
+
+  private addInfrastructureHostChildSummary(host: InfrastructureHostSummary, node: Node) {
+    if (!node || node.data?.Manager === "k8s") {
+      return
+    }
+    const type = typeof node.data?.Type === "string" ? node.data.Type.toLowerCase() : ""
+    const name = typeof node.data?.Name === "string" ? node.data.Name : ""
+    if (type === "libvirt") {
+      if (/^r-/.test(name)) {
+        host.routers += 1
+      } else if (/^(s-|v-)/.test(name) || name === "ccvm" || name === "scvm") {
+        host.systemVMs += 1
+      } else {
+        host.userVMs += 1
+      }
+      return
+    }
+    if ([
+      "device",
+      "bond",
+      "bridge",
+      "vlan",
+      "switch",
+      "switchport",
+      "patch",
+      "port",
+      "ovsbridge",
+      "openvswitch",
+      "ovsport",
+      "tun",
+      "tap",
+      "tuntap",
+      "internal",
+      "interface",
+      "veth",
+      "vxlan",
+      "geneve",
+      "gre",
+      "gretap"
+    ].indexOf(type) >= 0) {
+      host.networkObjects += 1
+    }
   }
 
   private infrastructureFocusNodeIDs(summary: InfrastructureSummary, key: InfrastructureFocusKey): string[] {
@@ -2395,32 +2481,51 @@ class App extends React.Component<Props, State> {
     this.setState({ infrastructureFocus: key })
   }
 
-  private renderInfrastructureSummaryCard(classes: any, label: string, value: number, helper: string) {
+  private renderInfrastructureSummaryCard(classes: any, icon: React.ReactNode, label: string, value: number) {
     return (
-      <div className={classes.kubernetesSummaryCard}>
-        <span>{label}</span>
-        <strong>{value}</strong>
-        <small>{helper}</small>
+      <div className={classes.infrastructureSummaryCard}>
+        <span className={classes.infrastructureCardIcon}>{icon}</span>
+        <span>
+          <small>{label}</small>
+          <strong>{value}</strong>
+        </span>
       </div>
     )
   }
 
-  private renderInfrastructureOverviewRow(classes: any, key: InfrastructureFocusKey | "", label: string, description: string, count: number, actionLabel: string, summary: InfrastructureSummary) {
+  private renderInfrastructureOverviewCard(classes: any, key: InfrastructureFocusKey | "", icon: React.ReactNode, label: string, description: string, count: number | string, summary: InfrastructureSummary) {
     const selected = key !== "" && this.state.infrastructureFocus === key
     return (
       <button
         type="button"
-        className={clsx(classes.infrastructureOverviewRow, selected && classes.infrastructureOverviewRowActive)}
+        className={clsx(classes.infrastructureOverviewCard, selected && classes.infrastructureOverviewCardActive)}
         onClick={() => this.focusInfrastructureOverview(key, summary)}>
-        <span>
-          <strong>{label}</strong>
-          <small>{description}</small>
+        <span className={classes.infrastructureOverviewCardMain}>
+          <span className={classes.infrastructureCardIcon}>{icon}</span>
+          <span>
+            <strong>{label}</strong>
+            <small>{description}</small>
+          </span>
         </span>
         <em>
-          {count}
-          <small>{actionLabel}</small>
+          <strong>{count}</strong>
+          <ChevronRightIcon fontSize="small" />
         </em>
       </button>
+    )
+  }
+
+  private renderInfrastructureHostSummary(classes: any, host: InfrastructureHostSummary) {
+    return (
+      <div className={classes.infrastructureHostCard} key={host.id}>
+        <div className={classes.infrastructureHostName}>{host.name}</div>
+        <div className={classes.infrastructureHostStats}>
+          <span>{translate("infrastructureUserVMs")} <strong>{host.userVMs}</strong></span>
+          <span>{translate("infrastructureSystemVMs")} <strong>{host.systemVMs}</strong></span>
+          <span>{translate("infrastructureRouters")} <strong>{host.routers}</strong></span>
+          <span>{translate("infrastructureNetworkObjects")} <strong>{host.networkObjects}</strong></span>
+        </div>
+      </div>
     )
   }
 
@@ -2451,6 +2556,7 @@ class App extends React.Component<Props, State> {
       return null
     }
     const summary = this.infrastructureSummary()
+    const hostSummaries = Object.values(summary.hostsById)
     return (
       <Paper className={classes.kubernetesManagerPanel} data-netdive-side-panel="true">
         <div className={classes.kubernetesManagerHeader}>
@@ -2463,25 +2569,42 @@ class App extends React.Component<Props, State> {
           </IconButton>
         </div>
         <div className={classes.kubernetesSummaryGrid}>
-          {this.renderInfrastructureSummaryCard(classes, translate("infrastructureHosts"), summary.hosts, `${translate("infrastructureCollected")} ${summary.hosts}`)}
-          {this.renderInfrastructureSummaryCard(classes, translate("infrastructureUserVMs"), summary.userVMs, `${translate("infrastructureCollected")} ${summary.userVMs}`)}
-          {this.renderInfrastructureSummaryCard(classes, translate("infrastructureSystemVMs"), summary.systemVMs, `${translate("infrastructureCollected")} ${summary.systemVMs}`)}
-          {this.renderInfrastructureSummaryCard(classes, translate("infrastructureNetworkLinks"), summary.links, `${translate("infrastructureDisplayed")} ${summary.links}`)}
+          {this.renderInfrastructureSummaryCard(classes, <StorageIcon />, translate("infrastructureHosts"), summary.hosts)}
+          {this.renderInfrastructureSummaryCard(classes, <DesktopWindowsIcon />, translate("infrastructureUserVMs"), summary.userVMs)}
+          {this.renderInfrastructureSummaryCard(classes, <SettingsApplicationsIcon />, translate("infrastructureSystemVMs"), summary.systemVMs)}
+          {this.renderInfrastructureSummaryCard(classes, <AccountTreeIcon />, translate("infrastructureNetworkLinks"), summary.links)}
         </div>
         <div className={classes.kubernetesTableHeader}>
           <div>
             <div className={classes.kubernetesSectionTitle}>{translate("infrastructureOverview")}</div>
             <div className={classes.kubernetesSectionHint}>{translate("infrastructureOverviewDescription")}</div>
           </div>
+          <ToggleButtonGroup
+            value={this.state.infrastructureViewMode}
+            exclusive
+            onChange={(event: React.MouseEvent<HTMLElement>, mode: InfrastructureViewMode | null) => mode && this.setState({ infrastructureViewMode: mode })}
+            className={classes.infrastructureViewToggle}
+            aria-label="Infrastructure view mode">
+            <ToggleButton value="all" aria-label="All">{translate("infrastructureViewAll")}</ToggleButton>
+            <ToggleButton value="hosts" aria-label="By host">{translate("infrastructureViewHosts")}</ToggleButton>
+          </ToggleButtonGroup>
         </div>
-        <div className={classes.infrastructureOverviewList}>
-          {this.renderInfrastructureOverviewRow(classes, "networkObjects", translate("infrastructureNetworkObjects"), translate("infrastructureNetworkObjectsDescription"), summary.networkObjects, translate("view"), summary)}
-          {this.renderInfrastructureOverviewRow(classes, "routers", translate("infrastructureRouters"), translate("infrastructureRoutersDescription"), summary.routers, translate("view"), summary)}
-          {this.renderInfrastructureOverviewRow(classes, "userVMs", translate("infrastructureUserVMs"), translate("infrastructureUserVMsDescription"), summary.userVMs, translate("view"), summary)}
-          {this.renderInfrastructureOverviewRow(classes, "systemVMs", translate("infrastructureSystemVMs"), translate("infrastructureSystemVMsDescription"), summary.systemVMs, translate("view"), summary)}
-          {this.renderInfrastructureOverviewRow(classes, "totalNodes", translate("infrastructureTotalNodes"), translate("infrastructureTotalNodesDescription"), summary.totalNodes, translate("viewAll"), summary)}
-          {this.renderInfrastructureOverviewRow(classes, "", translate("infrastructureShowAll"), translate("infrastructureShowAllDescription"), summary.totalNodes, translate("viewAll"), summary)}
-        </div>
+        {this.state.infrastructureViewMode === "all" &&
+          <div className={classes.infrastructureOverviewGrid}>
+            {this.renderInfrastructureOverviewCard(classes, "networkObjects", <DeviceHubIcon />, translate("infrastructureNetworkObjects"), translate("infrastructureNetworkObjectsDescription"), summary.networkObjects, summary)}
+            {this.renderInfrastructureOverviewCard(classes, "routers", <RouterIcon />, translate("infrastructureRouters"), translate("infrastructureRoutersDescription"), summary.routers, summary)}
+            {this.renderInfrastructureOverviewCard(classes, "userVMs", <DesktopWindowsIcon />, translate("infrastructureUserVMs"), translate("infrastructureUserVMsDescription"), summary.userVMs, summary)}
+            {this.renderInfrastructureOverviewCard(classes, "systemVMs", <SettingsApplicationsIcon />, translate("infrastructureSystemVMs"), translate("infrastructureSystemVMsDescription"), summary.systemVMs, summary)}
+            {this.renderInfrastructureOverviewCard(classes, "totalNodes", <LayersIcon />, translate("infrastructureTotalNodes"), translate("infrastructureTotalNodesDescription"), summary.totalNodes, summary)}
+            {this.renderInfrastructureOverviewCard(classes, "", <PublicIcon />, translate("infrastructureShowAll"), translate("infrastructureShowAllDescription"), translate("all"), summary)}
+          </div>
+        }
+        {this.state.infrastructureViewMode === "hosts" &&
+          <div className={classes.infrastructureHostList}>
+            {hostSummaries.length === 0 && <div className={classes.kubernetesEmptyRow}>{translate("infrastructureNoHosts")}</div>}
+            {hostSummaries.map((host) => this.renderInfrastructureHostSummary(classes, host))}
+          </div>
+        }
       </Paper>
     )
   }
