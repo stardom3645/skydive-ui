@@ -2254,7 +2254,7 @@ class App extends React.Component<Props, State> {
             onClick={(event: React.MouseEvent<HTMLElement>) => this.openMenu("layer-filter", event)}
             className={classes.layerFilterButton}>
             <DeviceHubIcon fontSize="small" />
-            <span>{activeLabel}</span>
+            <span className={classes.layerFilterButtonLabel}>{activeLabel}</span>
             <KeyboardArrowDown fontSize="small" />
           </Button>
         </Tooltip>
@@ -3342,7 +3342,6 @@ class App extends React.Component<Props, State> {
               onClick={this.openDrawer.bind(this)}
               className={clsx(classes.menuButton, this.state.isNavOpen && classes.menuButtonHidden)}>
               <MenuIcon fontSize="small" />
-              <span>{translate("menu")}</span>
             </Button>
             <Typography component="h1" variant="h6" color="inherit" noWrap className={classes.title}>
               <span className="brandLogo">

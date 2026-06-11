@@ -204,23 +204,22 @@ export const styles = (theme: Theme) => createStyles({
   },
   menuButton: {
     minWidth: 'auto',
+    width: 36,
     height: 36,
     marginRight: 12,
-    padding: theme.spacing(0, 1.25),
-    gap: theme.spacing(0.7),
-    borderRadius: 9,
+    padding: 0,
+    borderRadius: 10,
     border: '1px solid var(--netdive-action-btn-border)',
-    backgroundColor: 'var(--netdive-action-btn-bg)',
-    color: 'var(--netdive-action-btn-text)',
-    fontSize: 13,
-    fontWeight: 800,
+    backgroundColor: 'transparent',
+    color: 'var(--netdive-appbar-muted)',
     textTransform: 'none',
     '&:hover': {
-      backgroundColor: 'var(--netdive-action-btn-hover)',
+      color: 'var(--netdive-appbar-text)',
+      backgroundColor: 'var(--netdive-search-hover)',
       borderColor: 'var(--netdive-action-btn-border-hover)'
     },
     '& svg': {
-      fontSize: '1.1rem'
+      fontSize: '1.2rem'
     }
   },
   menuButtonHidden: {
@@ -1733,38 +1732,51 @@ export const styles = (theme: Theme) => createStyles({
     }
   },
   layerFilterButton: {
-    height: 36,
+    height: 34,
     marginLeft: theme.spacing(1),
-    padding: theme.spacing(0, 1.15),
-    gap: theme.spacing(0.65),
+    padding: theme.spacing(0, 1),
+    gap: theme.spacing(0.55),
     border: '1px solid var(--netdive-action-btn-border)',
-    borderRadius: 9,
-    backgroundColor: 'var(--netdive-action-btn-bg)',
-    color: 'var(--netdive-action-btn-text)',
-    fontSize: 13,
-    fontWeight: 800,
+    borderRadius: 10,
+    backgroundColor: 'transparent',
+    color: 'var(--netdive-appbar-muted)',
+    fontSize: 12,
+    fontWeight: 750,
     textTransform: 'none',
     whiteSpace: 'nowrap',
+    lineHeight: 1,
     '&:hover': {
-      backgroundColor: 'var(--netdive-action-btn-hover)',
+      color: 'var(--netdive-appbar-text)',
+      backgroundColor: 'var(--netdive-search-hover)',
       borderColor: 'var(--netdive-action-btn-border-hover)'
     },
     '& svg': {
       fontSize: '1.05rem'
     }
   },
+  layerFilterButtonLabel: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    lineHeight: 1,
+    maxWidth: 128,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis'
+  },
   layerFilterMenuPaper: {
     marginTop: 8,
     minWidth: 240,
-    borderRadius: 12,
+    borderRadius: 14,
     border: '1px solid var(--netdive-detail-border)',
     backgroundColor: 'var(--netdive-detail-bg)',
     color: 'var(--netdive-detail-text)',
-    boxShadow: 'var(--netdive-detail-shadow)'
+    boxShadow: 'var(--netdive-detail-shadow)',
+    padding: theme.spacing(0.45)
   },
   layerFilterMenuItem: {
     gap: theme.spacing(1),
-    padding: theme.spacing(1, 1.25),
+    padding: theme.spacing(0.9, 1),
+    borderRadius: 10,
+    border: '1px solid transparent',
     '& .MuiListItemIcon-root': {
       minWidth: 28,
       color: 'var(--netdive-detail-muted)'
@@ -1785,13 +1797,14 @@ export const styles = (theme: Theme) => createStyles({
       fontWeight: 700
     },
     '&.Mui-selected': {
-      backgroundColor: 'var(--netdive-menu-active)',
+      backgroundColor: 'var(--netdive-search-hover)',
+      borderColor: 'var(--netdive-action-btn-border)',
       '& .MuiListItemIcon-root, & strong': {
-        color: 'var(--netdive-menu-active-text)'
+        color: 'var(--netdive-detail-title)'
       }
     },
     '&.Mui-selected:hover, &:hover': {
-      backgroundColor: 'var(--netdive-menu-hover)'
+      backgroundColor: 'var(--netdive-search-hover)'
     }
   },
   toolbar: {
