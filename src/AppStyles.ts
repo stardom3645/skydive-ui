@@ -240,20 +240,20 @@ export const styles = (theme: Theme) => createStyles({
     bottom: 0,
     whiteSpace: 'nowrap',
     width: miniRailWidth,
-    background: 'var(--netdive-menu-bg)',
+    background: 'var(--netdive-menu-card)',
     borderRight: '1px solid var(--netdive-menu-border-soft)',
     boxShadow: 'none',
-    padding: theme.spacing(1),
+    padding: 0,
     boxSizing: 'border-box',
     zIndex: theme.zIndex.drawer + 2,
     overflow: 'visible',
-    transition: theme.transitions.create(['width', 'padding'], {
+    transition: theme.transitions.create(['width', 'box-shadow'], {
       easing: theme.transitions.easing.sharp,
       duration: 180,
     }),
     '&:hover': {
       width: drawerWidth,
-      padding: theme.spacing(1.5)
+      boxShadow: '10px 0 24px rgba(15, 23, 42, 0.10)'
     },
     '&:hover $drawerMenuSectionTitle': {
       maxHeight: 22,
@@ -262,7 +262,8 @@ export const styles = (theme: Theme) => createStyles({
       transform: 'translateX(0)',
       pointerEvents: 'auto'
     },
-    '&:hover $drawerMenuLabel, &:hover $drawerIntegrationSummary': {
+    '&:hover $drawerMenuLabel, &:hover $drawerIntegrationMain, &:hover $drawerIntegrationSummary': {
+      maxWidth: 170,
       opacity: 1,
       transform: 'translateX(0)',
       pointerEvents: 'auto'
@@ -272,7 +273,7 @@ export const styles = (theme: Theme) => createStyles({
       justifyContent: 'initial'
     },
     '&:hover $drawerMenu': {
-      padding: theme.spacing(1.25, 1.1),
+      padding: theme.spacing(1, 1),
       alignItems: 'stretch'
     }
   },
@@ -286,13 +287,13 @@ export const styles = (theme: Theme) => createStyles({
     width: miniRailWidth,
   },
   drawerCard: {
-    height: 'calc(100vh - 24px)',
+    height: '100vh',
     display: 'flex',
     flexDirection: 'column',
     backgroundColor: 'var(--netdive-menu-card)',
-    border: '1px solid var(--netdive-menu-border)',
-    borderRadius: 18,
-    boxShadow: 'var(--netdive-menu-shadow)',
+    border: 'none',
+    borderRadius: 0,
+    boxShadow: 'none',
     overflow: 'hidden',
     color: 'var(--netdive-menu-text)',
     transition: 'border-radius 180ms ease, box-shadow 180ms ease'
@@ -301,8 +302,8 @@ export const styles = (theme: Theme) => createStyles({
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    gap: theme.spacing(0.75),
-    padding: theme.spacing(1.25, 0.45),
+    gap: theme.spacing(0.35),
+    padding: theme.spacing(1, 0.5),
     overflowY: 'auto',
     overflowX: 'hidden',
     transition: 'padding 180ms ease'
@@ -335,15 +336,15 @@ export const styles = (theme: Theme) => createStyles({
   },
   drawerMenuItem: {
     width: '100%',
-    minHeight: 44,
+    minHeight: 46,
     display: 'grid',
     gridTemplateColumns: '32px',
     justifyContent: 'center',
     alignItems: 'center',
     gap: theme.spacing(0.75),
     border: '1px solid transparent',
-    borderRadius: 13,
-    padding: theme.spacing(0.65, 0.55),
+    borderRadius: 6,
+    padding: theme.spacing(0.65, 0.6),
     backgroundColor: 'transparent',
     color: 'var(--netdive-menu-text)',
     cursor: 'pointer',
@@ -370,19 +371,9 @@ export const styles = (theme: Theme) => createStyles({
     color: 'var(--netdive-menu-text)'
   },
   drawerMenuItemActive: {
-    backgroundColor: 'transparent',
+    backgroundColor: 'var(--netdive-menu-active)',
     borderColor: 'transparent',
     color: 'var(--netdive-menu-active-text)',
-    '&:before': {
-      content: '""',
-      position: 'absolute',
-      left: -6,
-      top: 10,
-      bottom: 10,
-      width: 3,
-      borderRadius: 999,
-      backgroundColor: 'var(--netdive-menu-active-text)'
-    },
     '& $drawerMenuIcon, & $drawerMenuAux': {
       color: 'var(--netdive-menu-active-text)'
     }
@@ -394,7 +385,7 @@ export const styles = (theme: Theme) => createStyles({
     alignItems: 'center',
     justifyContent: 'center',
     color: 'var(--netdive-menu-icon)',
-    borderRadius: 10,
+    borderRadius: 6,
     backgroundColor: 'transparent',
     '& svg': {
       fontSize: 22
@@ -407,10 +398,11 @@ export const styles = (theme: Theme) => createStyles({
     fontSize: 14,
     fontWeight: 700,
     color: 'inherit',
+    maxWidth: 0,
     opacity: 0,
     transform: 'translateX(-6px)',
     pointerEvents: 'none',
-    transition: 'opacity 160ms ease, transform 160ms ease'
+    transition: 'max-width 180ms ease, opacity 160ms ease, transform 160ms ease'
   },
   drawerMenuAux: {},
   drawerLanguagePanel: {
@@ -646,15 +638,15 @@ export const styles = (theme: Theme) => createStyles({
   },
   drawerIntegrationItem: {
     width: '100%',
-    minHeight: 44,
+    minHeight: 46,
     display: 'grid',
     gridTemplateColumns: '32px',
     justifyContent: 'center',
     alignItems: 'center',
     gap: theme.spacing(0.75),
     border: '1px solid transparent',
-    borderRadius: 13,
-    padding: theme.spacing(0.65, 0.55),
+    borderRadius: 6,
+    padding: theme.spacing(0.65, 0.6),
     backgroundColor: 'transparent',
     color: 'var(--netdive-menu-text)',
     cursor: 'pointer',
@@ -671,7 +663,12 @@ export const styles = (theme: Theme) => createStyles({
     display: 'flex',
     flexDirection: 'column',
     gap: 3,
-    overflow: 'hidden'
+    overflow: 'hidden',
+    maxWidth: 0,
+    opacity: 0,
+    transform: 'translateX(-6px)',
+    pointerEvents: 'none',
+    transition: 'max-width 180ms ease, opacity 160ms ease, transform 160ms ease'
   },
   drawerIntegrationSummary: {
     minWidth: 0,
@@ -681,15 +678,16 @@ export const styles = (theme: Theme) => createStyles({
     color: 'var(--netdive-menu-muted)',
     fontSize: 11,
     fontWeight: 700,
+    maxWidth: 0,
     opacity: 0,
     transform: 'translateX(-6px)',
     pointerEvents: 'none',
-    transition: 'opacity 160ms ease, transform 160ms ease'
+    transition: 'max-width 180ms ease, opacity 160ms ease, transform 160ms ease'
   },
   sideSettingsPanel: {
     position: 'absolute',
     top: 76,
-    left: drawerWidth + 18,
+    left: miniRailWidth + 18,
     width: 420,
     maxHeight: 'calc(100vh - 104px)',
     zIndex: 1250,
@@ -940,7 +938,7 @@ export const styles = (theme: Theme) => createStyles({
   kubernetesManagerPanel: {
     position: 'absolute',
     top: 76,
-    left: drawerWidth + 18,
+    left: miniRailWidth + 18,
     right: 28,
     maxWidth: 1180,
     maxHeight: 'calc(100vh - 104px)',
@@ -1659,7 +1657,7 @@ export const styles = (theme: Theme) => createStyles({
     paddingRight: theme.spacing(0),
   },
   nodeTagsPanelShift: {
-    left: drawerWidth + 14,
+    left: miniRailWidth + 14,
   },
   nodeTagsFab: {
     margin: theme.spacing(1),
@@ -1680,7 +1678,7 @@ export const styles = (theme: Theme) => createStyles({
     paddingRight: theme.spacing(0),
   },
   linkTagsPanelShift: {
-    left: drawerWidth + 20,
+    left: miniRailWidth + 20,
   },
   linkTagsPanelPaper: {
     position: 'relative',
