@@ -456,7 +456,14 @@ class App extends React.Component<Props, State> {
     if (target.closest('[data-netdive-side-panel="true"], [class*="kubernetesManagerPanel"], [class*="sideSettingsPanel"], [data-netdive-drawer="true"], .MuiDialog-root')) {
       return
     }
+    this.closeSidePanels()
+  }
+
+  private closeSidePanels(extraState: { isNavOpen?: boolean, isSelectionOpen?: boolean, isTimetravelOpen?: boolean } = {}) {
     this.setState({
+      isNavOpen: extraState.isNavOpen !== undefined ? extraState.isNavOpen : this.state.isNavOpen,
+      isSelectionOpen: extraState.isSelectionOpen !== undefined ? extraState.isSelectionOpen : this.state.isSelectionOpen,
+      isTimetravelOpen: extraState.isTimetravelOpen !== undefined ? extraState.isTimetravelOpen : this.state.isTimetravelOpen,
       isInfrastructurePanelOpen: false,
       isKubernetesManagerOpen: false,
       isScreenConfigOpen: false,
@@ -1490,8 +1497,7 @@ class App extends React.Component<Props, State> {
   }
 
   closeDrawer() {
-    this.state.isNavOpen = false
-    this.setState(this.state)
+    this.closeSidePanels({ isNavOpen: false })
   }
 
   onLinkTagStateChange(event) {
@@ -1643,9 +1649,10 @@ class App extends React.Component<Props, State> {
   }
 
   onTopologyClick() {
-    this.state.isSelectionOpen = false
-    this.state.isTimetravelOpen = false
-    this.setState(this.state)
+    this.closeSidePanels({
+      isSelectionOpen: false,
+      isTimetravelOpen: false
+    })
   }
 
   onSelectionClose(el: Node | Link) {
