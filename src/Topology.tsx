@@ -1601,6 +1601,110 @@ export class Topology extends React.Component<Props, {}> {
         this.moveTo(x, y)
     }
 
+    clearInfrastructureFocus() {
+        if (!this.gNodes || !this.gLinks || !this.gLinkOverlays || !this.gLinkLabels) {
+            return
+        }
+        this.gNodes.selectAll("g.node")
+            .classed("infra-focus-dim", false)
+            .classed("infra-focus-hit", false)
+        this.gLinks.selectAll("path.link")
+            .classed("infra-focus-dim", false)
+            .classed("infra-focus-hit", false)
+        this.gLinkOverlays.selectAll("path.link-overlay")
+            .classed("infra-focus-dim", false)
+            .classed("infra-focus-hit", false)
+            .style("opacity", (d: Link) => d.state.selected || this.isLinkNodeSelected(d) || this.isLinkNodeMouseOver(d) ? 1 : 0)
+        this.gLinkLabels.selectAll("g.link-label")
+            .classed("infra-focus-dim", false)
+            .classed("infra-focus-hit", false)
+            .style("opacity", (d: Link) => this.linkLabelOpacity(d))
+    }
+
+    focusInfrastructureNodes(nodeIDs: string[]) {
+        this.clearInfrastructureFocus()
+        const targets = new Set(nodeIDs)
+        if (targets.size === 0) {
+            this.zoomFit()
+            return
+        }
+        const linked = new Set<string>()
+
+        this.links.forEach((link) => {
+            if (targets.has(link.source.id) || targets.has(link.target.id)) {
+                linked.add(link.id)
+            }
+        })
+
+        this.gNodes.selectAll("g.node")
+            .classed("infra-focus-dim", (d: D3Node) => !targets.has(d.data.id))
+            .classed("infra-focus-hit", (d: D3Node) => targets.has(d.data.id))
+        this.gLinks.selectAll("path.link")
+            .classed("infra-focus-dim", (d: Link) => !linked.has(d.id))
+            .classed("infra-focus-hit", (d: Link) => linked.has(d.id))
+        this.gLinkOverlays.selectAll("path.link-overlay")
+            .classed("infra-focus-dim", (d: Link) => !linked.has(d.id))
+            .classed("infra-focus-hit", (d: Link) => linked.has(d.id))
+            .style("opacity", (d: Link) => linked.has(d.id) ? 1 : (d.state.selected ? 1 : 0))
+        this.gLinkLabels.selectAll("g.link-label")
+            .classed("infra-focus-dim", (d: Link) => !linked.has(d.id))
+            .classed("infra-focus-hit", (d: Link) => linked.has(d.id))
+
+        const bounds = this.focusBounds(nodeIDs)
+        if (bounds) {
+            this.fitBounds(bounds)
+        }
+    }
+
+    private focusBounds(nodeIDs: string[]): DOMRect | null {
+        let bounds: DOMRect | null = null
+        nodeIDs.forEach((id) => {
+            const element = select("#node-" + id).node() as SVGGraphicsElement | null
+            if (!element) {
+                return
+            }
+            const bb = element.getBBox()
+            if (!bounds) {
+                bounds = bb
+                return
+            }
+            const x1 = Math.min(bounds.x, bb.x)
+            const y1 = Math.min(bounds.y, bb.y)
+            const x2 = Math.max(bounds.x + bounds.width, bb.x + bb.width)
+            const y2 = Math.max(bounds.y + bounds.height, bb.y + bb.height)
+            bounds = { x: x1, y: y1, width: x2 - x1, height: y2 - y1 } as DOMRect
+        })
+        return bounds
+    }
+
+    private fitBounds(bounds: DOMRect) {
+        var viewSize = this.viewSize()
+        var padding = 160
+        var width = bounds.width + padding, height = bounds.height + padding
+        if (width === 0 || height === 0) {
+            return
+        }
+        var midX = bounds.x + bounds.width / 2, midY = bounds.y + bounds.height / 2
+        var scale = 0.72 / Math.max(width / viewSize.width, height / viewSize.height)
+        if (scale > 1) {
+            scale = 1
+        }
+        if (scale < 0.18) {
+            scale = 0.18
+        }
+
+        this.absTransformX = viewSize.width / 2 - midX * scale
+        this.absTransformY = viewSize.height / 2 - midY * scale
+
+        var t = zoomIdentity
+            .translate(this.absTransformX, this.absTransformY)
+            .scale(scale)
+        this.svg
+            .transition()
+            .duration(animDuration)
+            .call(this.zoom.transform, t)
+    }
+
     pinNode(node: Node, active) {
         if (active) {
             this.showNode(node)

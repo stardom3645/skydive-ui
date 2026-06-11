@@ -873,7 +873,73 @@ export const styles = (theme: Theme) => createStyles({
       color: 'var(--netdive-detail-title)',
       fontSize: 28,
       lineHeight: 1
+    },
+    '& small': {
+      color: 'var(--netdive-detail-muted)',
+      fontSize: 11,
+      fontWeight: 800
     }
+  },
+  infrastructureOverviewList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: theme.spacing(0.75)
+  },
+  infrastructureOverviewRow: {
+    minHeight: 62,
+    width: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing(1.2),
+    padding: theme.spacing(1, 1.15),
+    borderRadius: 12,
+    border: '1px solid var(--netdive-detail-border)',
+    backgroundColor: 'var(--netdive-detail-section-bg)',
+    cursor: 'pointer',
+    textAlign: 'left',
+    transition: 'background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease',
+    '&:hover': {
+      borderColor: 'rgba(26, 115, 232, 0.28)',
+      backgroundColor: 'var(--netdive-menu-active)'
+    },
+    '& span': {
+      minWidth: 0,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 3
+    },
+    '& strong': {
+      color: 'var(--netdive-detail-title)',
+      fontSize: 13,
+      fontWeight: 900
+    },
+    '& span small': {
+      color: 'var(--netdive-detail-muted)',
+      fontSize: 11,
+      lineHeight: 1.35,
+      fontWeight: 700
+    },
+    '& em': {
+      flexShrink: 0,
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: theme.spacing(0.7),
+      color: 'var(--netdive-detail-title)',
+      fontStyle: 'normal',
+      fontSize: 14,
+      fontWeight: 900
+    },
+    '& em small': {
+      color: 'var(--netdive-menu-active-text)',
+      fontSize: 11,
+      fontWeight: 900
+    }
+  },
+  infrastructureOverviewRowActive: {
+    borderColor: 'rgba(26, 115, 232, 0.38)',
+    backgroundColor: 'var(--netdive-menu-active)',
+    boxShadow: '0 8px 18px rgba(26, 115, 232, 0.1)'
   },
   kubernetesTableHeader: {
     display: 'flex',

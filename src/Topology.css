@@ -87,6 +87,10 @@ svg {
     marker-end: url(#link-overlay-selected-marker);
 }
 
+.link-overlay.infra-focus-hit {
+    stroke: var(--topology-link-overlay-selected);
+}
+
 .link-overlay-marker {
     fill: var(--topology-link-overlays);
 }
@@ -111,6 +115,30 @@ svg {
 .links .directed-inv {
     marker-start: url(#link-directed-marker);
     marker-end: unset;
+}
+
+.link.infra-focus-dim,
+.link-overlay.infra-focus-dim,
+.link-label.infra-focus-dim,
+.node.infra-focus-dim {
+    opacity: 0.18 !important;
+}
+
+.link.infra-focus-hit {
+    stroke-width: 2.4;
+    opacity: 1 !important;
+}
+
+.link-overlay.infra-focus-hit {
+    opacity: 1 !important;
+}
+
+.link-label.infra-focus-hit {
+    opacity: 1 !important;
+}
+
+.node.infra-focus-hit {
+    opacity: 1 !important;
 }
 
 .link-marker {

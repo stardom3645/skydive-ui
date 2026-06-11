@@ -149,6 +149,7 @@ const addFilterValue = createFilterOptions<AddFilterValue>();
 
 type NetdiveTheme = "light" | "dark"
 type HelpSection = "menu" | "toolbar" | "topology"
+type InfrastructureFocusKey = "networkObjects" | "routers" | "userVMs" | "systemVMs" | "totalNodes"
 
 const getSavedNetdiveTheme = (): NetdiveTheme => {
   const savedTheme = localStorage.getItem("netdive-theme")
@@ -186,6 +187,7 @@ interface State {
   isVMConsoleEnabled: boolean
   netdiveTheme: NetdiveTheme
   isInfrastructurePanelOpen: boolean
+  infrastructureFocus: InfrastructureFocusKey | ""
   isScreenConfigOpen: boolean
   isPreferencesPanelOpen: boolean
   kubernetesClusters: MoldKubernetesCluster[]
@@ -247,6 +249,12 @@ interface InfrastructureSummary {
   networkObjects: number
   links: number
   totalNodes: number
+  hostNodeIDs: string[]
+  userVMNodeIDs: string[]
+  systemVMNodeIDs: string[]
+  routerNodeIDs: string[]
+  networkObjectNodeIDs: string[]
+  infrastructureNodeIDs: string[]
 }
 
 class App extends React.Component<Props, State> {
@@ -312,6 +320,7 @@ class App extends React.Component<Props, State> {
       isVMConsoleEnabled: true,
       netdiveTheme: getSavedNetdiveTheme(),
       isInfrastructurePanelOpen: false,
+      infrastructureFocus: "",
       isScreenConfigOpen: false,
       isPreferencesPanelOpen: false,
       kubernetesClusters: [],
@@ -2277,7 +2286,13 @@ class App extends React.Component<Props, State> {
       routers: 0,
       networkObjects: 0,
       links: 0,
-      totalNodes: 0
+      totalNodes: 0,
+      hostNodeIDs: [],
+      userVMNodeIDs: [],
+      systemVMNodeIDs: [],
+      routerNodeIDs: [],
+      networkObjectNodeIDs: [],
+      infrastructureNodeIDs: []
     }
 
     if (!this.tc) {
@@ -2291,18 +2306,23 @@ class App extends React.Component<Props, State> {
       const type = typeof node.data?.Type === "string" ? node.data.Type.toLowerCase() : ""
       const name = typeof node.data?.Name === "string" ? node.data.Name : ""
       summary.totalNodes += 1
+      summary.infrastructureNodeIDs.push(node.id)
 
       if (type === "host") {
         summary.hosts += 1
+        summary.hostNodeIDs.push(node.id)
       }
 
       if (type === "libvirt") {
         if (/^r-/.test(name)) {
           summary.routers += 1
+          summary.routerNodeIDs.push(node.id)
         } else if (/^(s-|v-)/.test(name) || name === "ccvm" || name === "scvm") {
           summary.systemVMs += 1
+          summary.systemVMNodeIDs.push(node.id)
         } else {
           summary.userVMs += 1
+          summary.userVMNodeIDs.push(node.id)
         }
       }
 
@@ -2330,6 +2350,7 @@ class App extends React.Component<Props, State> {
         "gretap"
       ].indexOf(type) >= 0) {
         summary.networkObjects += 1
+        summary.networkObjectNodeIDs.push(node.id)
       }
     })
 
@@ -2341,6 +2362,66 @@ class App extends React.Component<Props, State> {
     })
 
     return summary
+  }
+
+  private infrastructureFocusNodeIDs(summary: InfrastructureSummary, key: InfrastructureFocusKey): string[] {
+    switch (key) {
+      case "networkObjects":
+        return summary.networkObjectNodeIDs
+      case "routers":
+        return summary.routerNodeIDs
+      case "userVMs":
+        return summary.userVMNodeIDs
+      case "systemVMs":
+        return summary.systemVMNodeIDs
+      case "totalNodes":
+        return summary.infrastructureNodeIDs
+      default:
+        return []
+    }
+  }
+
+  private focusInfrastructureOverview(key: InfrastructureFocusKey | "", summary: InfrastructureSummary) {
+    if (!this.tc) {
+      return
+    }
+    if (!key) {
+      this.tc.clearInfrastructureFocus()
+      this.tc.zoomFit()
+      this.setState({ infrastructureFocus: "" })
+      return
+    }
+    this.tc.focusInfrastructureNodes(this.infrastructureFocusNodeIDs(summary, key))
+    this.setState({ infrastructureFocus: key })
+  }
+
+  private renderInfrastructureSummaryCard(classes: any, label: string, value: number, helper: string) {
+    return (
+      <div className={classes.kubernetesSummaryCard}>
+        <span>{label}</span>
+        <strong>{value}</strong>
+        <small>{helper}</small>
+      </div>
+    )
+  }
+
+  private renderInfrastructureOverviewRow(classes: any, key: InfrastructureFocusKey | "", label: string, description: string, count: number, actionLabel: string, summary: InfrastructureSummary) {
+    const selected = key !== "" && this.state.infrastructureFocus === key
+    return (
+      <button
+        type="button"
+        className={clsx(classes.infrastructureOverviewRow, selected && classes.infrastructureOverviewRowActive)}
+        onClick={() => this.focusInfrastructureOverview(key, summary)}>
+        <span>
+          <strong>{label}</strong>
+          <small>{description}</small>
+        </span>
+        <em>
+          {count}
+          <small>{actionLabel}</small>
+        </em>
+      </button>
+    )
   }
 
   private openScreenConfigPanel() {
@@ -2382,10 +2463,10 @@ class App extends React.Component<Props, State> {
           </IconButton>
         </div>
         <div className={classes.kubernetesSummaryGrid}>
-          <div className={classes.kubernetesSummaryCard}><span>{translate("infrastructureHosts")}</span><strong>{summary.hosts}</strong></div>
-          <div className={classes.kubernetesSummaryCard}><span>{translate("infrastructureUserVMs")}</span><strong>{summary.userVMs}</strong></div>
-          <div className={classes.kubernetesSummaryCard}><span>{translate("infrastructureSystemVMs")}</span><strong>{summary.systemVMs}</strong></div>
-          <div className={classes.kubernetesSummaryCard}><span>{translate("infrastructureNetworkLinks")}</span><strong>{summary.links}</strong></div>
+          {this.renderInfrastructureSummaryCard(classes, translate("infrastructureHosts"), summary.hosts, `${translate("infrastructureCollected")} ${summary.hosts}`)}
+          {this.renderInfrastructureSummaryCard(classes, translate("infrastructureUserVMs"), summary.userVMs, `${translate("infrastructureCollected")} ${summary.userVMs}`)}
+          {this.renderInfrastructureSummaryCard(classes, translate("infrastructureSystemVMs"), summary.systemVMs, `${translate("infrastructureCollected")} ${summary.systemVMs}`)}
+          {this.renderInfrastructureSummaryCard(classes, translate("infrastructureNetworkLinks"), summary.links, `${translate("infrastructureDisplayed")} ${summary.links}`)}
         </div>
         <div className={classes.kubernetesTableHeader}>
           <div>
@@ -2393,19 +2474,13 @@ class App extends React.Component<Props, State> {
             <div className={classes.kubernetesSectionHint}>{translate("infrastructureOverviewDescription")}</div>
           </div>
         </div>
-        <div className={classes.sideSettingsList}>
-          <div className={classes.sideSettingsRow}>
-            <span>{translate("infrastructureNetworkObjects")}</span>
-            <small>{summary.networkObjects}</small>
-          </div>
-          <div className={classes.sideSettingsRow}>
-            <span>{translate("infrastructureRouters")}</span>
-            <small>{summary.routers}</small>
-          </div>
-          <div className={classes.sideSettingsRow}>
-            <span>{translate("infrastructureTotalNodes")}</span>
-            <small>{summary.totalNodes}</small>
-          </div>
+        <div className={classes.infrastructureOverviewList}>
+          {this.renderInfrastructureOverviewRow(classes, "networkObjects", translate("infrastructureNetworkObjects"), translate("infrastructureNetworkObjectsDescription"), summary.networkObjects, translate("view"), summary)}
+          {this.renderInfrastructureOverviewRow(classes, "routers", translate("infrastructureRouters"), translate("infrastructureRoutersDescription"), summary.routers, translate("view"), summary)}
+          {this.renderInfrastructureOverviewRow(classes, "userVMs", translate("infrastructureUserVMs"), translate("infrastructureUserVMsDescription"), summary.userVMs, translate("view"), summary)}
+          {this.renderInfrastructureOverviewRow(classes, "systemVMs", translate("infrastructureSystemVMs"), translate("infrastructureSystemVMsDescription"), summary.systemVMs, translate("view"), summary)}
+          {this.renderInfrastructureOverviewRow(classes, "totalNodes", translate("infrastructureTotalNodes"), translate("infrastructureTotalNodesDescription"), summary.totalNodes, translate("viewAll"), summary)}
+          {this.renderInfrastructureOverviewRow(classes, "", translate("infrastructureShowAll"), translate("infrastructureShowAllDescription"), summary.totalNodes, translate("viewAll"), summary)}
         </div>
       </Paper>
     )
