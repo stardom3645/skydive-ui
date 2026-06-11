@@ -1649,6 +1649,30 @@ class App extends React.Component<Props, State> {
     this.tc.zoomFit()
   }
 
+  private activeNodeTagName(): string {
+    for (const [tag, active] of this.state.nodeTagStates.entries()) {
+      if (active) {
+        return tag
+      }
+    }
+    return this.config.defaultNodeTag()
+  }
+
+  private isKubernetesLayerActive(): boolean {
+    return this.activeNodeTagName() === "kubernetes"
+  }
+
+  private searchPlaceholder(): string {
+    return this.isKubernetesLayerActive()
+      ? translate("searchKubernetesByNameExample")
+      : translate("searchNodeByNameExample")
+  }
+
+  private selectTopologyLayer(tag: string) {
+    this.closeMenu("layer-filter")
+    this.activeNodeTag(tag)
+  }
+
   private syncTopologyNodeTagForNodes(nodeIDs: string[]) {
     if (!this.tc || nodeIDs.length === 0) {
       return
@@ -2203,6 +2227,62 @@ class App extends React.Component<Props, State> {
     )
   }
 
+  renderLayerFilterMenu(classes: any) {
+    const infrastructureTag = this.config.defaultNodeTag()
+    const activeTag = this.activeNodeTagName()
+    const activeLabel = activeTag === "kubernetes" ? "Kubernetes" : translate("infrastructureMenu")
+    const items = [
+      {
+        tag: infrastructureTag,
+        label: translate("infrastructureMenu"),
+        summary: translate("infrastructureLayerSummary"),
+        icon: <WavesIcon fontSize="small" />
+      },
+      {
+        tag: "kubernetes",
+        label: "Kubernetes",
+        summary: translate("kubernetesLayerSummary"),
+        icon: <CloudQueueIcon fontSize="small" />
+      }
+    ]
+    return (
+      <React.Fragment>
+        <Tooltip title={translate("layerFilter")}>
+          <Button
+            aria-controls="menu-layer-filter"
+            aria-haspopup="true"
+            onClick={(event: React.MouseEvent<HTMLElement>) => this.openMenu("layer-filter", event)}
+            className={classes.layerFilterButton}>
+            <DeviceHubIcon fontSize="small" />
+            <span>{activeLabel}</span>
+            <KeyboardArrowDown fontSize="small" />
+          </Button>
+        </Tooltip>
+        <Menu
+          id="menu-layer-filter"
+          anchorEl={this.state.anchorEl.get("layer-filter")}
+          keepMounted
+          open={Boolean(this.state.anchorEl.get("layer-filter"))}
+          onClose={this.closeMenu.bind(this, "layer-filter")}
+          classes={{ paper: classes.layerFilterMenuPaper }}>
+          {items.map((item) => (
+            <MenuItem
+              key={item.tag}
+              selected={activeTag === item.tag}
+              onClick={() => this.selectTopologyLayer(item.tag)}
+              className={classes.layerFilterMenuItem}>
+              <ListItemIcon>{item.icon}</ListItemIcon>
+              <span>
+                <strong>{item.label}</strong>
+                <small>{item.summary}</small>
+              </span>
+            </MenuItem>
+          ))}
+        </Menu>
+      </React.Fragment>
+    )
+  }
+
   renderMenuButtons(classes: any) {
     return (
       <div>
@@ -2593,8 +2673,9 @@ class App extends React.Component<Props, State> {
     if (!key) {
       this.tc.clearInfrastructureFocus()
       this.tc.unpinNodes()
+      this.tc.activeNodeTag(this.config.defaultNodeTag())
       this.tc.zoomFit()
-      this.setState({ infrastructureFocus: "" })
+      this.setState({ infrastructureFocus: "", nodeTagStates: this.tc.nodeTagStates })
       return
     }
     const nodeIDs = this.infrastructureFocusNodeIDs(summary, key)
@@ -2974,12 +3055,30 @@ class App extends React.Component<Props, State> {
           </IconButton>
         </div>
         <div className={classes.sideSettingsList}>
-          <div className={classes.sideSettingsRow}>
-            <span>{translate("version")}</span>
-            <small>4.2.2</small>
-          </div>
-          <div className={classes.sideSettingsControlBlock}>
-            <div className={classes.sideSettingsText}>Copyright (c) 2025, ABLECLOUD.Co.Ltd</div>
+          <div className={classes.aboutProductCard}>
+            <div className={classes.aboutInfoRow}>
+              <span>{translate("version")}</span>
+              <strong>4.2.2</strong>
+            </div>
+            <div className={classes.aboutInfoRow}>
+              <span>{translate("productFamily")}</span>
+              <strong>ABLESTACK</strong>
+            </div>
+            <div className={classes.aboutInfoRow}>
+              <span>{translate("vendor")}</span>
+              <strong>ABLECLOUD.Co.Ltd</strong>
+            </div>
+            <div className={classes.aboutCopyright}>Copyright © 2025 ABLECLOUD.Co.Ltd</div>
+            <div className={classes.aboutActions}>
+              <Button
+                variant="outlined"
+                size="small"
+                href="https://docs.ablecloud.io/latest/administration/wall/netdive-guide/"
+                target="_blank"
+                rel="noopener noreferrer">
+                {translate("documentation")}
+              </Button>
+            </div>
           </div>
         </div>
       </Paper>
@@ -3238,14 +3337,13 @@ class App extends React.Component<Props, State> {
         {this.connection()}
         <AppBar position="absolute" className={clsx(classes.appBar, this.state.isNavOpen && classes.appBarShift)}>
           <Toolbar className={classes.toolbar}>
-            <IconButton
-              edge="start"
-              color="inherit"
+            <Button
               aria-label="open drawer"
               onClick={this.openDrawer.bind(this)}
               className={clsx(classes.menuButton, this.state.isNavOpen && classes.menuButtonHidden)}>
-              <MenuIcon />
-            </IconButton>
+              <MenuIcon fontSize="small" />
+              <span>{translate("menu")}</span>
+            </Button>
             <Typography component="h1" variant="h6" color="inherit" noWrap className={classes.title}>
               <span className="brandLogo">
                 <img
@@ -3259,7 +3357,7 @@ class App extends React.Component<Props, State> {
               <Typography className={classes.subTitle} variant="caption">{this.config.subTitle()}</Typography>
             }
             <div className={classes.search}>
-              <AutoCompleteInput placeholder={translate("searchNodeByNameExample")}  suggestions={this.state.suggestions} onChange={this.onSearchChange.bind(this)} />
+              <AutoCompleteInput placeholder={this.searchPlaceholder()} suggestions={this.state.suggestions} onChange={this.onSearchChange.bind(this)} />
             </div>
             {/* 모든 노드 확장 버튼: 클릭 시 Topology 전체를 펼칩니다. */}
             <Tooltip title={translate("expandAllNodes")}>
@@ -3278,6 +3376,15 @@ class App extends React.Component<Props, State> {
               className={classes.topologyIconButton}
             >
                 <UnfoldLessIcon />
+              </IconButton>
+            </Tooltip>
+            {this.renderLayerFilterMenu(classes)}
+            <Tooltip title={translate("refresh")}>
+              <IconButton
+                color="inherit"
+                onClick={this.sync.bind(this)}
+                className={classes.topologyIconButton}>
+                <RefreshIcon />
               </IconButton>
             </Tooltip>
             <div className={classes.grow} />
@@ -3318,6 +3425,7 @@ class App extends React.Component<Props, State> {
               onLinkTagChange={this.onLinkTagChange.bind(this)}
               onNodeClicked={this.config.nodeClicked.bind(this.config)}
               onNodeDblClicked={this.config.nodeDblClicked.bind(this.config)}
+              defaultNodeTag={this.config.defaultNodeTag.bind(this.config)}
               defaultLinkTagMode={this.config.defaultLinkTagMode.bind(this.config)}
               vmNameMap={this.state.vmNameMap}
               vmNetworkMap={this.state.vmNetworkMap}
@@ -3335,7 +3443,6 @@ class App extends React.Component<Props, State> {
               }
             </Paper>
           </Container>
-          {this.renderNodeTagButtons(classes)}
           {this.renderFilters(classes)}
           {this.renderLinkTagButtons(classes)}
         </main>

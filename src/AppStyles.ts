@@ -203,8 +203,25 @@ export const styles = (theme: Theme) => createStyles({
     }),
   },
   menuButton: {
+    minWidth: 'auto',
+    height: 36,
     marginRight: 12,
-    color: 'var(--netdive-appbar-text)'
+    padding: theme.spacing(0, 1.25),
+    gap: theme.spacing(0.7),
+    borderRadius: 9,
+    border: '1px solid var(--netdive-action-btn-border)',
+    backgroundColor: 'var(--netdive-action-btn-bg)',
+    color: 'var(--netdive-action-btn-text)',
+    fontSize: 13,
+    fontWeight: 800,
+    textTransform: 'none',
+    '&:hover': {
+      backgroundColor: 'var(--netdive-action-btn-hover)',
+      borderColor: 'var(--netdive-action-btn-border-hover)'
+    },
+    '& svg': {
+      fontSize: '1.1rem'
+    }
   },
   menuButtonHidden: {
     display: 'none',
@@ -716,6 +733,56 @@ export const styles = (theme: Theme) => createStyles({
     textDecoration: 'none',
     '&:hover': {
       textDecoration: 'underline'
+    }
+  },
+  aboutProductCard: {
+    padding: theme.spacing(1.3, 1.4),
+    borderRadius: 14,
+    border: '1px solid var(--netdive-detail-border)',
+    backgroundColor: 'var(--netdive-detail-section-bg)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: theme.spacing(0.2)
+  },
+  aboutInfoRow: {
+    display: 'grid',
+    gridTemplateColumns: '96px minmax(0, 1fr)',
+    alignItems: 'center',
+    gap: theme.spacing(1),
+    minHeight: 34,
+    '& span': {
+      color: 'var(--netdive-detail-muted)',
+      fontSize: 12,
+      fontWeight: 800
+    },
+    '& strong': {
+      color: 'var(--netdive-detail-title)',
+      fontSize: 13,
+      fontWeight: 900
+    }
+  },
+  aboutCopyright: {
+    marginTop: theme.spacing(0.8),
+    paddingTop: theme.spacing(1),
+    borderTop: '1px solid var(--netdive-detail-border)',
+    color: 'var(--netdive-detail-muted)',
+    fontSize: 12,
+    fontWeight: 700
+  },
+  aboutActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(0.75),
+    marginTop: theme.spacing(0.9),
+    '& .MuiButton-root': {
+      minHeight: 30,
+      padding: theme.spacing(0.45, 1),
+      borderRadius: 9,
+      color: 'var(--netdive-menu-active-text)',
+      borderColor: 'var(--netdive-menu-active-border)',
+      fontSize: 12,
+      fontWeight: 800,
+      textTransform: 'none'
     }
   },
   helpPageTabs: {
@@ -1663,6 +1730,68 @@ export const styles = (theme: Theme) => createStyles({
     },
     '& svg': {
       fontSize: '1.1rem'
+    }
+  },
+  layerFilterButton: {
+    height: 36,
+    marginLeft: theme.spacing(1),
+    padding: theme.spacing(0, 1.15),
+    gap: theme.spacing(0.65),
+    border: '1px solid var(--netdive-action-btn-border)',
+    borderRadius: 9,
+    backgroundColor: 'var(--netdive-action-btn-bg)',
+    color: 'var(--netdive-action-btn-text)',
+    fontSize: 13,
+    fontWeight: 800,
+    textTransform: 'none',
+    whiteSpace: 'nowrap',
+    '&:hover': {
+      backgroundColor: 'var(--netdive-action-btn-hover)',
+      borderColor: 'var(--netdive-action-btn-border-hover)'
+    },
+    '& svg': {
+      fontSize: '1.05rem'
+    }
+  },
+  layerFilterMenuPaper: {
+    marginTop: 8,
+    minWidth: 240,
+    borderRadius: 12,
+    border: '1px solid var(--netdive-detail-border)',
+    backgroundColor: 'var(--netdive-detail-bg)',
+    color: 'var(--netdive-detail-text)',
+    boxShadow: 'var(--netdive-detail-shadow)'
+  },
+  layerFilterMenuItem: {
+    gap: theme.spacing(1),
+    padding: theme.spacing(1, 1.25),
+    '& .MuiListItemIcon-root': {
+      minWidth: 28,
+      color: 'var(--netdive-detail-muted)'
+    },
+    '& span': {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 2
+    },
+    '& strong': {
+      color: 'var(--netdive-detail-title)',
+      fontSize: 13,
+      fontWeight: 900
+    },
+    '& small': {
+      color: 'var(--netdive-detail-muted)',
+      fontSize: 11,
+      fontWeight: 700
+    },
+    '&.Mui-selected': {
+      backgroundColor: 'var(--netdive-menu-active)',
+      '& .MuiListItemIcon-root, & strong': {
+        color: 'var(--netdive-menu-active-text)'
+      }
+    },
+    '&.Mui-selected:hover, &:hover': {
+      backgroundColor: 'var(--netdive-menu-hover)'
     }
   },
   toolbar: {

@@ -308,7 +308,8 @@ svg {
     fill: none;
 }
 
-.group .group-brace-bg {
+.group .group-brace-bg,
+.group .group-brace-bg-rect {
     fill: var(--topology-group-rect-fill);
     stroke: var(--topology-group-rect-stroke);
     stroke-width: 2.6px;
@@ -316,7 +317,8 @@ svg {
     opacity: 0.95;
 }
 
-.group .group-brace-owner-bg {
+.group .group-brace-owner-bg,
+.group .group-brace-owner-bg-rect {
     fill: var(--topology-group-rect-selected-fill);
     stroke: var(--topology-group-rect-selected-stroke);
     stroke-width: 2px;

@@ -213,6 +213,7 @@ interface Props {
     onLinkTagChange: (tags: Map<string, LinkTagState>) => void
     onNodeClicked: (node: Node) => void
     onNodeDblClicked: (node: Node) => void
+    defaultNodeTag?: () => string
     defaultLinkTagMode?: (tag: string) => LinkTagState
     vmNameMap?: Record<string, string>
     vmNetworkMap?: Record<string, Array<{ networkName: string, macAddress: string, ipAddress: string }>>
@@ -502,7 +503,7 @@ export class Topology extends React.Component<Props, {}> {
         this.nodes = new Map<string, Node>()
         this.nodeTagStates = new Map<string, boolean>()
         this.nodeTagCount = new Map<string, number>()
-        this.nodeTagActive = ""
+        this.nodeTagActive = this.props.defaultNodeTag ? this.props.defaultNodeTag() : ""
 
         this.links = new Map<string, Link>()
         this.linkTagStates = new Map<string, LinkTagState>()
@@ -2191,7 +2192,31 @@ export class Topology extends React.Component<Props, {}> {
 
             var left = straightBrace(x1, y1, x1, y2, margin)
             var right = straightBrace(x2, y2, x2, y1, -margin)
-            var box = "M " + x1 + " " + y1 + " L " + x2 + " " + y1 + " L " + x2 + " " + y2 + " L " + x1 + " " + y2 + " Z"
+
+            var bgRect = g.select("rect.group-brace-bg-rect")
+            if (animated) {
+                bgRect = bgRect.transition()
+                    .duration(animDuration)
+            }
+            bgRect
+                .attr("x", x1)
+                .attr("y", y1)
+                .attr("width", Math.max(x2 - x1, nodeWidth))
+                .attr("height", Math.max(y2 - y1, nodeHeight))
+
+            var ownerBgRect = g.select("rect.group-brace-owner-bg-rect")
+            if (animated) {
+                ownerBgRect = ownerBgRect.transition()
+                    .duration(animDuration)
+                    .style("opacity", d.wrapped.state.expanded ? 1 : 0)
+            } else {
+                ownerBgRect.style("opacity", d.wrapped.state.expanded ? 1 : 0)
+            }
+            ownerBgRect
+                .attr("x", x1)
+                .attr("y", y1)
+                .attr("width", Math.max(x2 - x1, nodeWidth))
+                .attr("height", Math.max(y2 - y1, nodeHeight))
 
             var brace = g.select("path.group-brace-left")
             if (animated) {
@@ -2214,7 +2239,7 @@ export class Topology extends React.Component<Props, {}> {
             }
 
             brace
-                .attr("d", box)
+                .attr("d", "")
 
             brace = g.select("path.group-brace-owner-bg")
 
@@ -2228,13 +2253,20 @@ export class Topology extends React.Component<Props, {}> {
 
             let d3node = this.d3nodes.get(d.id)
             if (d3node) {
-                brace.attr("d", box)
+                brace.attr("d", "")
             }
         }
 
         groupEnter.transition()
             .duration(animDuration)
             .style("opacity", 1)
+
+        groupEnter.append("rect")
+            .attr("class", "group-brace-bg-rect")
+
+        groupEnter.append("rect")
+            .attr("class", "group-brace-owner-bg-rect")
+            .style("opacity", 0)
 
         groupEnter.append("path")
             .attr("class", "group-brace-bg")
