@@ -2180,10 +2180,10 @@ export class Topology extends React.Component<Props, {}> {
                 return
             }
 
-            var x1 = bb.x + 15
-            var y1 = bb.y + 70
-            var x2 = bb.x + bb.width - 15
-            var y2 = bb.y + bb.height - 70
+            var x1 = bb.x - 10
+            var y1 = bb.y - 10
+            var x2 = bb.x + bb.width + 10
+            var y2 = bb.y + bb.height + 10
             var margin = 12
 
             //var left = curlyBrace(x1, y1, x1, y2, 15)
@@ -2191,6 +2191,7 @@ export class Topology extends React.Component<Props, {}> {
 
             var left = straightBrace(x1, y1, x1, y2, margin)
             var right = straightBrace(x2, y2, x2, y1, -margin)
+            var box = "M " + x1 + " " + y1 + " L " + x2 + " " + y1 + " L " + x2 + " " + y2 + " L " + x1 + " " + y2 + " Z"
 
             var brace = g.select("path.group-brace-left")
             if (animated) {
@@ -2213,13 +2214,7 @@ export class Topology extends React.Component<Props, {}> {
             }
 
             brace
-                .attr("d",
-                    "M " + (x1 - margin) + " " + y1 + " " +
-                    left +
-                    " L " + (x2 + margin) + " " + y2 + " " +
-                    right +
-                    " L " + (x1 - margin) + " " + y1 + " "
-                )
+                .attr("d", box)
 
             brace = g.select("path.group-brace-owner-bg")
 
@@ -2233,15 +2228,7 @@ export class Topology extends React.Component<Props, {}> {
 
             let d3node = this.d3nodes.get(d.id)
             if (d3node) {
-                let xEnd = d.wrapped.state.expanded ? d3node.x + nodeWidth / 2 : x2
-                let junction = d.wrapped.state.expanded ? " L " + xEnd + " " + y1 + " " : right
-                brace
-                    .attr("d",
-                        "M " + (x1 - margin) + " " + y1 + " " +
-                        left +
-                        " L " + xEnd + " " + y2 + " " +
-                        junction +
-                        " L " + (x1 - margin) + " " + y1 + " ")
+                brace.attr("d", box)
             }
         }
 
