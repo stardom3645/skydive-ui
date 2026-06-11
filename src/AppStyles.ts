@@ -933,6 +933,15 @@ export const styles = (theme: Theme) => createStyles({
       borderColor: 'rgba(26, 115, 232, 0.28)',
       backgroundColor: 'var(--netdive-menu-active)'
     },
+    '&:disabled': {
+      cursor: 'default',
+      opacity: 0.52,
+      backgroundColor: 'var(--netdive-detail-section-bg)'
+    },
+    '&:disabled:hover': {
+      borderColor: 'var(--netdive-detail-border)',
+      backgroundColor: 'var(--netdive-detail-section-bg)'
+    },
     '& strong': {
       color: 'var(--netdive-detail-title)',
       fontSize: 15,
@@ -1001,33 +1010,31 @@ export const styles = (theme: Theme) => createStyles({
     overflowY: 'auto',
     display: 'flex',
     flexDirection: 'column',
-    gap: theme.spacing(0.75),
+    gap: theme.spacing(1.1),
     paddingRight: theme.spacing(0.5)
   },
   infrastructureHostCard: {
-    padding: theme.spacing(1.1),
-    borderRadius: 12,
+    padding: theme.spacing(1.25),
+    borderRadius: 14,
     border: '1px solid var(--netdive-detail-border)',
     backgroundColor: 'var(--netdive-detail-section-bg)'
   },
   infrastructureHostName: {
     color: 'var(--netdive-detail-title)',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: 900
   },
-  infrastructureHostStats: {
+  infrastructureHostOverviewGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-    gap: theme.spacing(0.55),
-    marginTop: theme.spacing(0.85),
-    '& span': {
-      color: 'var(--netdive-detail-muted)',
-      fontSize: 11,
-      fontWeight: 800
+    gap: theme.spacing(1),
+    marginTop: theme.spacing(1),
+    [theme.breakpoints.down('sm')]: {
+      gridTemplateColumns: '1fr'
     },
-    '& strong': {
-      color: 'var(--netdive-detail-title)',
-      fontSize: 13
+    '& $infrastructureOverviewCard': {
+      minHeight: 96,
+      backgroundColor: 'var(--netdive-detail-bg)'
     }
   },
   kubernetesTableHeader: {

@@ -275,6 +275,10 @@ interface InfrastructureHostSummary {
   systemVMs: number
   routers: number
   networkObjects: number
+  userVMNodeIDs: string[]
+  systemVMNodeIDs: string[]
+  routerNodeIDs: string[]
+  networkObjectNodeIDs: string[]
 }
 
 class App extends React.Component<Props, State> {
@@ -2405,7 +2409,11 @@ class App extends React.Component<Props, State> {
           userVMs: 0,
           systemVMs: 0,
           routers: 0,
-          networkObjects: 0
+          networkObjects: 0,
+          userVMNodeIDs: [],
+          systemVMNodeIDs: [],
+          routerNodeIDs: [],
+          networkObjectNodeIDs: []
         }
       }
 
@@ -2450,27 +2458,44 @@ class App extends React.Component<Props, State> {
       }
     })
 
+    this.tc.nodes.forEach((node) => {
+      if (!node || node === this.tc?.root || node.data?.Manager === "k8s" || node.data?.Type === "host") {
+        return
+      }
+      const host = this.findInfrastructureHostSummary(summary, node)
+      if (host) {
+        this.addInfrastructureHostChildSummary(host, node)
+      }
+    })
+
     this.tc.links.forEach((link) => {
       const relationType = link.data?.RelationType
       if (relationType !== "ownership" && relationType !== "vownership") {
         summary.links += 1
       }
-      const source = (link as any).source as Node | undefined
-      const target = (link as any).target as Node | undefined
-      if (!source || !target) {
-        return
-      }
-      const sourceHost = summary.hostsById[source.id]
-      const targetHost = summary.hostsById[target.id]
-      if (sourceHost) {
-        this.addInfrastructureHostChildSummary(sourceHost, target)
-      }
-      if (targetHost) {
-        this.addInfrastructureHostChildSummary(targetHost, source)
-      }
     })
 
     return summary
+  }
+
+  private findInfrastructureHostSummary(summary: InfrastructureSummary, node: Node): InfrastructureHostSummary | undefined {
+    let parent = node.parent
+    while (parent) {
+      const host = summary.hostsById[parent.id]
+      if (host) {
+        return host
+      }
+      parent = parent.parent
+    }
+    return undefined
+  }
+
+  private addHostNodeID(ids: string[], nodeID: string): boolean {
+    if (ids.indexOf(nodeID) >= 0) {
+      return false
+    }
+    ids.push(nodeID)
+    return true
   }
 
   private addInfrastructureHostChildSummary(host: InfrastructureHostSummary, node: Node) {
@@ -2481,11 +2506,17 @@ class App extends React.Component<Props, State> {
     const name = typeof node.data?.Name === "string" ? node.data.Name : ""
     if (type === "libvirt") {
       if (/^r-/.test(name)) {
-        host.routers += 1
+        if (this.addHostNodeID(host.routerNodeIDs, node.id)) {
+          host.routers += 1
+        }
       } else if (/^(s-|v-)/.test(name) || name === "ccvm" || name === "scvm") {
-        host.systemVMs += 1
+        if (this.addHostNodeID(host.systemVMNodeIDs, node.id)) {
+          host.systemVMs += 1
+        }
       } else {
-        host.userVMs += 1
+        if (this.addHostNodeID(host.userVMNodeIDs, node.id)) {
+          host.userVMs += 1
+        }
       }
       return
     }
@@ -2512,7 +2543,9 @@ class App extends React.Component<Props, State> {
       "gre",
       "gretap"
     ].indexOf(type) >= 0) {
-      host.networkObjects += 1
+      if (this.addHostNodeID(host.networkObjectNodeIDs, node.id)) {
+        host.networkObjects += 1
+      }
     }
   }
 
@@ -2548,6 +2581,14 @@ class App extends React.Component<Props, State> {
     this.syncTopologyNodeTagForNodes(nodeIDs)
     this.tc.focusInfrastructureNodes(nodeIDs)
     this.setState({ infrastructureFocus: key })
+  }
+
+  private focusInfrastructureNodeIDs(nodeIDs: string[]) {
+    if (!this.tc) {
+      return
+    }
+    this.syncTopologyNodeTagForNodes(nodeIDs)
+    this.tc.focusInfrastructureNodes(nodeIDs)
   }
 
   private infrastructureIcon(glyph: string, tone: string, badge?: string) {
@@ -2604,15 +2645,37 @@ class App extends React.Component<Props, State> {
     )
   }
 
+  private renderInfrastructureHostOverviewCard(classes: any, icon: React.ReactNode, label: string, description: string, count: number, nodeIDs: string[]) {
+    return (
+      <button
+        type="button"
+        className={classes.infrastructureOverviewCard}
+        onClick={() => this.focusInfrastructureNodeIDs(nodeIDs)}
+        disabled={nodeIDs.length === 0}>
+        <span className={classes.infrastructureOverviewCardMain}>
+          <span className={classes.infrastructureCardIcon}>{icon}</span>
+          <span>
+            <strong>{label}</strong>
+            <small>{description}</small>
+          </span>
+        </span>
+        <em>
+          <strong>{count}</strong>
+          <ChevronRightIcon fontSize="small" />
+        </em>
+      </button>
+    )
+  }
+
   private renderInfrastructureHostSummary(classes: any, host: InfrastructureHostSummary) {
     return (
       <div className={classes.infrastructureHostCard} key={host.id}>
         <div className={classes.infrastructureHostName}>{host.name}</div>
-        <div className={classes.infrastructureHostStats}>
-          <span>{translate("infrastructureUserVMs")} <strong>{host.userVMs}</strong></span>
-          <span>{translate("infrastructureSystemVMs")} <strong>{host.systemVMs}</strong></span>
-          <span>{translate("infrastructureRouters")} <strong>{host.routers}</strong></span>
-          <span>{translate("infrastructureNetworkObjects")} <strong>{host.networkObjects}</strong></span>
+        <div className={classes.infrastructureHostOverviewGrid}>
+          {this.renderInfrastructureHostOverviewCard(classes, this.infrastructureIcon("\uf108", "user-vm"), translate("infrastructureUserVMs"), translate("infrastructureUserVMsDescription"), host.userVMs, host.userVMNodeIDs)}
+          {this.renderInfrastructureHostOverviewCard(classes, this.infrastructureIcon("\uf085", "system-vm"), translate("infrastructureSystemVMs"), translate("infrastructureSystemVMsDescription"), host.systemVMs, host.systemVMNodeIDs)}
+          {this.renderInfrastructureHostOverviewCard(classes, this.infrastructureIcon("\uf4d7", "router"), translate("infrastructureRouters"), translate("infrastructureRoutersDescription"), host.routers, host.routerNodeIDs)}
+          {this.renderInfrastructureHostOverviewCard(classes, this.infrastructureIcon("\uf6ff", "network"), translate("infrastructureNetworkObjects"), translate("infrastructureNetworkObjectsDescription"), host.networkObjects, host.networkObjectNodeIDs)}
         </div>
       </div>
     )
