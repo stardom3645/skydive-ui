@@ -2271,7 +2271,7 @@ class App extends React.Component<Props, State> {
               onClick={() => this.selectTopologyLayer(item.tag)}
               className={classes.layerFilterMenuItem}>
               <ListItemIcon>{item.icon}</ListItemIcon>
-              <span>
+              <span className={classes.layerFilterMenuText}>
                 <strong>{item.label}</strong>
                 <small>{item.summary}</small>
               </span>
@@ -3368,7 +3368,6 @@ class App extends React.Component<Props, State> {
                 <UnfoldLessIcon />
               </IconButton>
             </Tooltip>
-            {this.renderLayerFilterMenu(classes)}
             <Tooltip title={translate("refresh")}>
               <IconButton
                 color="inherit"
@@ -3377,6 +3376,7 @@ class App extends React.Component<Props, State> {
                 <RefreshIcon />
               </IconButton>
             </Tooltip>
+            {this.renderLayerFilterMenu(classes)}
             <div className={classes.grow} />
             {this.renderMenuButtons(classes)}
           </Toolbar>

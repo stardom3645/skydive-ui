@@ -273,7 +273,7 @@ export const styles = (theme: Theme) => createStyles({
       justifyContent: 'initial'
     },
     '&:hover $drawerMenu': {
-      padding: theme.spacing(1, 1),
+      padding: theme.spacing(1.8, 1, 1),
       alignItems: 'stretch'
     }
   },
@@ -302,8 +302,8 @@ export const styles = (theme: Theme) => createStyles({
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    gap: theme.spacing(0.35),
-    padding: theme.spacing(1, 0.5),
+    gap: theme.spacing(0.15),
+    padding: theme.spacing(1.8, 0.5, 1),
     overflowY: 'auto',
     overflowX: 'hidden',
     transition: 'padding 180ms ease'
@@ -336,7 +336,7 @@ export const styles = (theme: Theme) => createStyles({
   },
   drawerMenuItem: {
     width: '100%',
-    minHeight: 46,
+    minHeight: 40,
     display: 'grid',
     gridTemplateColumns: '32px',
     justifyContent: 'center',
@@ -344,7 +344,7 @@ export const styles = (theme: Theme) => createStyles({
     gap: theme.spacing(0.75),
     border: '1px solid transparent',
     borderRadius: 6,
-    padding: theme.spacing(0.65, 0.6),
+    padding: theme.spacing(0.4, 0.6),
     backgroundColor: 'transparent',
     color: 'var(--netdive-menu-text)',
     cursor: 'pointer',
@@ -638,7 +638,7 @@ export const styles = (theme: Theme) => createStyles({
   },
   drawerIntegrationItem: {
     width: '100%',
-    minHeight: 46,
+    minHeight: 40,
     display: 'grid',
     gridTemplateColumns: '32px',
     justifyContent: 'center',
@@ -646,7 +646,7 @@ export const styles = (theme: Theme) => createStyles({
     gap: theme.spacing(0.75),
     border: '1px solid transparent',
     borderRadius: 6,
-    padding: theme.spacing(0.65, 0.6),
+    padding: theme.spacing(0.4, 0.6),
     backgroundColor: 'transparent',
     color: 'var(--netdive-menu-text)',
     cursor: 'pointer',
@@ -1826,12 +1826,23 @@ export const styles = (theme: Theme) => createStyles({
     minWidth: 240,
     borderRadius: 14,
     border: '1px solid var(--netdive-detail-border)',
-    backgroundColor: 'var(--netdive-detail-bg)',
+    background: 'var(--netdive-detail-bg)',
+    backgroundColor: 'var(--netdive-detail-bg) !important',
     color: 'var(--netdive-detail-text)',
     boxShadow: 'var(--netdive-detail-shadow)',
-    padding: theme.spacing(0.45)
+    padding: theme.spacing(0.45),
+    overflow: 'hidden',
+    '& .MuiList-root': {
+      padding: 0,
+      background: 'var(--netdive-detail-bg)'
+    }
   },
   layerFilterMenuItem: {
+    width: '100%',
+    minHeight: 56,
+    display: 'grid',
+    gridTemplateColumns: '28px 1fr',
+    alignItems: 'center',
     gap: theme.spacing(1),
     padding: theme.spacing(0.9, 1),
     borderRadius: 10,
@@ -1839,11 +1850,6 @@ export const styles = (theme: Theme) => createStyles({
     '& .MuiListItemIcon-root': {
       minWidth: 28,
       color: 'var(--netdive-detail-muted)'
-    },
-    '& span': {
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 2
     },
     '& strong': {
       color: 'var(--netdive-detail-title)',
@@ -1865,6 +1871,13 @@ export const styles = (theme: Theme) => createStyles({
     '&.Mui-selected:hover, &:hover': {
       backgroundColor: 'var(--netdive-search-hover)'
     }
+  },
+  layerFilterMenuText: {
+    minWidth: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 2,
+    overflow: 'hidden'
   },
   toolbar: {
     paddingRight: 20,
