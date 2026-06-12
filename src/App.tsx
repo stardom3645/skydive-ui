@@ -3310,9 +3310,17 @@ class App extends React.Component<Props, State> {
   }
 
   private renderDrawerMenu(classes: any) {
+    const isDark = this.state.netdiveTheme === "dark"
     return (
       <div className={classes.drawerMenu}>
-        <div className={classes.drawerMenuHeader}>Netdive</div>
+        <div className={classes.drawerMenuHeader}>
+          <img
+            src={isDark ? LogoDark : LogoLight}
+            alt="ABLESTACK"
+            className={classes.drawerBrandLogo}
+          />
+          <span className={classes.drawerBrandProduct}>Netdive</span>
+        </div>
         <Divider className={classes.drawerDivider} />
         <div className={classes.drawerMenuSectionTitle}>{translate("collectionSection")}</div>
         {this.renderDrawerIntegrationItem(classes, <WavesIcon />, translate("infrastructureMenu"), translate("infrastructureMenuSummary"), () => this.openInfrastructureTopology(), this.state.isInfrastructurePanelOpen)}
@@ -3345,49 +3353,41 @@ class App extends React.Component<Props, State> {
         {this.connection()}
         <AppBar position="absolute" className={clsx(classes.appBar, classes.appBarShift)}>
           <Toolbar className={classes.toolbar}>
-            <Typography component="h1" variant="h6" color="inherit" noWrap className={classes.title}>
-              <span className="brandLogo">
-                <img
-                  src={isDark ? LogoDark : LogoLight}
-                  alt="ABLESTACK"
-                  className={isDark ? "brandLogoImg brandLogoImgDark" : "brandLogoImg brandLogoImgLight"}
-                />
-              </span>
-            </Typography>
             {this.config.subTitle &&
               <Typography className={classes.subTitle} variant="caption">{this.config.subTitle()}</Typography>
             }
             <div className={classes.search}>
               <AutoCompleteInput placeholder={this.searchPlaceholder()} suggestions={this.state.suggestions} onChange={this.onSearchChange.bind(this)} />
             </div>
-            {/* 모든 노드 확장 버튼: 클릭 시 Topology 전체를 펼칩니다. */}
-            <Tooltip title={translate("expandAllNodes")}>
-            <IconButton
-              color="inherit"
-              onClick={this.expandAllNodes.bind(this)}
-              className={classes.topologyIconButton}
-            >
-                <UnfoldMoreIcon />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title={translate("collapseAllNodes")}>
-            <IconButton
-              color="inherit"
-              onClick={this.collapseAllNodes.bind(this)}
-              className={classes.topologyIconButton}
-            >
-                <UnfoldLessIcon />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title={translate("refresh")}>
-              <IconButton
-                color="inherit"
-                onClick={this.sync.bind(this)}
-                className={classes.topologyIconButton}>
-                <RefreshIcon />
-              </IconButton>
-            </Tooltip>
             {this.renderLayerFilterMenu(classes)}
+            <div className={classes.toolbarActionGroup}>
+              <Tooltip title={translate("expandAllNodes")}>
+                <IconButton
+                  color="inherit"
+                  onClick={this.expandAllNodes.bind(this)}
+                  className={classes.topologyIconButton}
+                >
+                  <UnfoldMoreIcon />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title={translate("collapseAllNodes")}>
+                <IconButton
+                  color="inherit"
+                  onClick={this.collapseAllNodes.bind(this)}
+                  className={classes.topologyIconButton}
+                >
+                  <UnfoldLessIcon />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title={translate("refresh")}>
+                <IconButton
+                  color="inherit"
+                  onClick={this.sync.bind(this)}
+                  className={classes.topologyIconButton}>
+                  <RefreshIcon />
+                </IconButton>
+              </Tooltip>
+            </div>
             <div className={classes.grow} />
             {this.renderMenuButtons(classes)}
           </Toolbar>

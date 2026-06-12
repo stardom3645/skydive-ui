@@ -17,7 +17,7 @@
 
 import { createStyles, Theme } from '@material-ui/core'
 
-const drawerWidth = 216
+const drawerWidth = 220
 const topologyLevelMenuWidth = 188
 
 export const styles = (theme: Theme) => createStyles({
@@ -186,6 +186,8 @@ export const styles = (theme: Theme) => createStyles({
     ...theme.mixins.toolbar,
   },
   appBar: {
+    top: 0,
+    right: 0,
     backgroundColor: 'var(--netdive-appbar-bg)',
     color: 'var(--netdive-appbar-text)',
     borderBottom: '1px solid var(--netdive-appbar-border)',
@@ -236,10 +238,10 @@ export const styles = (theme: Theme) => createStyles({
     bottom: 0,
     whiteSpace: 'nowrap',
     width: drawerWidth,
-    background: 'var(--netdive-menu-bg)',
+    background: 'var(--netdive-menu-card)',
     borderRight: '1px solid var(--netdive-menu-border-soft)',
     boxShadow: 'none',
-    padding: theme.spacing(1.5),
+    padding: 0,
     boxSizing: 'border-box',
     zIndex: theme.zIndex.drawer,
     transition: theme.transitions.create('width', {
@@ -260,13 +262,13 @@ export const styles = (theme: Theme) => createStyles({
     },
   },
   drawerCard: {
-    height: 'calc(100vh - 24px)',
+    height: '100vh',
     display: 'flex',
     flexDirection: 'column',
     backgroundColor: 'var(--netdive-menu-card)',
-    border: '1px solid var(--netdive-menu-border)',
-    borderRadius: 18,
-    boxShadow: 'var(--netdive-menu-shadow)',
+    border: 'none',
+    borderRadius: 0,
+    boxShadow: 'none',
     overflow: 'hidden',
     color: 'var(--netdive-menu-text)'
   },
@@ -274,17 +276,32 @@ export const styles = (theme: Theme) => createStyles({
     display: 'flex',
     flexDirection: 'column',
     gap: theme.spacing(0.75),
-    padding: theme.spacing(1.6, 1.1, 1.25),
+    padding: theme.spacing(2, 1.25, 1.25),
     overflowY: 'auto',
     overflowX: 'hidden'
   },
   drawerMenuHeader: {
-    padding: theme.spacing(0.25, 0.75, 0.15),
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 4,
+    minHeight: 60,
+    padding: theme.spacing(0.2, 0.75, 1.1),
     color: 'var(--netdive-menu-text)',
-    fontSize: 12,
+    lineHeight: 1.2
+  },
+  drawerBrandLogo: {
+    width: 136,
+    height: 28,
+    objectFit: 'contain',
+    objectPosition: 'left center'
+  },
+  drawerBrandProduct: {
+    color: 'var(--netdive-menu-muted)',
+    fontSize: 11,
     fontWeight: 800,
-    letterSpacing: 0.2,
-    lineHeight: 1.4
+    letterSpacing: 0.4,
+    textTransform: 'uppercase'
   },
   drawerDivider: {
     margin: `${theme.spacing(0.65)}px 0 ${theme.spacing(0.15)}px`,
@@ -1550,8 +1567,9 @@ export const styles = (theme: Theme) => createStyles({
   container: {
     paddingTop: theme.spacing(0),
     paddingBottom: theme.spacing(0),
-    paddingLeft: theme.spacing(0),
+    paddingLeft: theme.spacing(2.5),
     paddingRight: theme.spacing(0),
+    boxSizing: 'border-box',
   },
   topology: {
     height: `calc(100vh - 64px)`,
@@ -1682,11 +1700,11 @@ export const styles = (theme: Theme) => createStyles({
     '&:hover': {
       backgroundColor: 'var(--netdive-search-hover)',
     },
-    marginRight: theme.spacing(2.5),
+    marginRight: theme.spacing(1.5),
     marginLeft: 0,
     width: '100%',
     [theme.breakpoints.up('sm')]: {
-      marginLeft: theme.spacing(2.5),
+      marginLeft: 0,
       width: 'auto',
     },
     lineHeight: 1,
@@ -1733,25 +1751,31 @@ export const styles = (theme: Theme) => createStyles({
     verticalAlign: 'middle'
   },
   topologyIconButton: {
-    border: '1px solid var(--netdive-action-btn-border)',
-    color: 'var(--netdive-action-btn-text)',
-    borderRadius: 8,
-    marginLeft: theme.spacing(1),
-    padding: theme.spacing(0.65),
-    backgroundColor: 'var(--netdive-action-btn-bg)',
-    transition: 'all 0.15s ease-out',
+    width: 44,
+    height: 44,
+    border: 0,
+    color: 'var(--netdive-appbar-muted)',
+    borderRadius: 0,
+    marginLeft: 0,
+    padding: 0,
+    backgroundColor: 'transparent',
+    transition: 'background-color 0.15s ease-out, color 0.15s ease-out',
     '&:hover': {
-      backgroundColor: 'var(--netdive-action-btn-hover)',
-      borderColor: 'var(--netdive-action-btn-border-hover)'
+      color: 'var(--netdive-action-btn-text)',
+      backgroundColor: 'var(--netdive-action-btn-hover)'
+    },
+    '&:focus-visible': {
+      outline: '2px solid var(--netdive-action-btn-border-hover)',
+      outlineOffset: -2
     },
     '& svg': {
-      fontSize: '1.1rem'
+      fontSize: 18
     }
   },
   layerFilterButton: {
     height: 48,
     minWidth: 240,
-    marginLeft: theme.spacing(1),
+    marginLeft: theme.spacing(1.5),
     padding: theme.spacing(0, 1.5),
     border: '1px solid #d7e2f0',
     borderRadius: 10,
@@ -1901,8 +1925,25 @@ export const styles = (theme: Theme) => createStyles({
     }
   },
   toolbar: {
-    paddingRight: 20,
-    minHeight: 56,
+    minHeight: 64,
+    paddingLeft: 24,
+    paddingRight: 24,
+    gap: theme.spacing(1),
+  },
+  toolbarActionGroup: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 0,
+    marginLeft: theme.spacing(1),
+    height: 48,
+    overflow: 'hidden',
+    border: '1px solid #d7e2f0',
+    borderRadius: 10,
+    backgroundColor: '#ffffff',
+    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.03)',
+    '& > *:not(:first-child)': {
+      borderLeft: '1px solid var(--netdive-action-btn-border)'
+    }
   },
   title: {
     paddingTop: 15,
