@@ -276,26 +276,30 @@ export const styles = (theme: Theme) => createStyles({
     display: 'flex',
     flexDirection: 'column',
     gap: theme.spacing(0.55),
-    padding: theme.spacing(1.55, 1.25, 1.25),
+    padding: theme.spacing(0, 1.25, 1.25),
     overflowY: 'auto',
     overflowX: 'hidden'
   },
   drawerMenuHeader: {
     display: 'flex',
-    alignItems: 'flex-start',
-    minHeight: 38,
-    padding: theme.spacing(0, 0.75, 0.65),
+    alignItems: 'center',
+    minHeight: 64,
+    padding: theme.spacing(0, 0.75),
     color: 'var(--netdive-menu-text)',
     lineHeight: 1.2
   },
   drawerBrandLogo: {
-    width: 136,
-    height: 28,
+    width: 178,
+    height: 46,
     objectFit: 'contain',
     objectPosition: 'left center'
   },
+  drawerBrandLogoDark: {
+    width: 174,
+    height: 34
+  },
   drawerDivider: {
-    margin: `${theme.spacing(0.2)}px 0 ${theme.spacing(0.3)}px`,
+    margin: `0 0 ${theme.spacing(0.45)}px`,
     backgroundColor: 'var(--netdive-menu-border-soft)'
   },
   drawerMenuSection: {

@@ -3316,7 +3316,7 @@ class App extends React.Component<Props, State> {
           <img
             src={isDark ? LogoDark : LogoLight}
             alt="ABLESTACK"
-            className={classes.drawerBrandLogo}
+            className={clsx(classes.drawerBrandLogo, isDark && classes.drawerBrandLogoDark)}
           />
         </div>
         <Divider className={classes.drawerDivider} />
