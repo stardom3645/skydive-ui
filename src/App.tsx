@@ -42,7 +42,6 @@ import ToggleButtonGroup from '@material-ui/lab/ToggleButtonGroup'
 import { withSnackbar, WithSnackbarProps } from 'notistack'
 import { connect } from 'react-redux'
 import AccountCircle from '@material-ui/icons/AccountCircle'
-import MenuIcon from '@material-ui/icons/Menu'
 import MenuItem from '@material-ui/core/MenuItem'
 import ListItemIcon from '@material-ui/core/ListItemIcon'
 import Menu from '@material-ui/core/Menu'
@@ -1474,6 +1473,8 @@ class App extends React.Component<Props, State> {
       return
     }
 
+    this.nextTag = this.activeNodeTagName()
+
     var obj = {}
     if (this.state.wsContext.GremlinFilter) {
       obj["GremlinFilter"]
@@ -2232,6 +2233,7 @@ class App extends React.Component<Props, State> {
     const infrastructureTag = this.config.defaultNodeTag()
     const activeTag = this.activeNodeTagName()
     const activeLabel = activeTag === "kubernetes" ? "Kubernetes" : translate("infrastructureMenu")
+    const activeIcon = activeTag === "kubernetes" ? <CloudQueueIcon fontSize="small" /> : <WavesIcon fontSize="small" />
     const items = [
       {
         tag: infrastructureTag,
@@ -2254,6 +2256,7 @@ class App extends React.Component<Props, State> {
             aria-haspopup="true"
             onClick={(event: React.MouseEvent<HTMLElement>) => this.openMenu("layer-filter", event)}
             className={classes.layerFilterButton}>
+            {activeIcon}
             <span className={classes.layerFilterButtonLabel}>{activeLabel}</span>
             <KeyboardArrowDown fontSize="small" />
           </Button>
@@ -3307,7 +3310,7 @@ class App extends React.Component<Props, State> {
   private renderDrawerMenu(classes: any) {
     return (
       <div className={classes.drawerMenu}>
-        {this.renderDrawerMenuItem(classes, <CloseIcon />, translate("close"), () => this.closeDrawer())}
+        <div className={classes.drawerMenuHeader}>Netdive</div>
         <Divider className={classes.drawerDivider} />
         <div className={classes.drawerMenuSectionTitle}>{translate("collectionSection")}</div>
         {this.renderDrawerIntegrationItem(classes, <WavesIcon />, translate("infrastructureMenu"), translate("infrastructureMenuSummary"), () => this.openInfrastructureTopology(), this.state.isInfrastructurePanelOpen)}
@@ -3338,16 +3341,8 @@ class App extends React.Component<Props, State> {
       <div className={clsx(classes.app, isDark && classes.appDark)}>
         <CssBaseline />
         {this.connection()}
-        <AppBar position="absolute" className={clsx(classes.appBar, this.state.isNavOpen && classes.appBarShift)}>
+        <AppBar position="absolute" className={clsx(classes.appBar, classes.appBarShift)}>
           <Toolbar className={classes.toolbar}>
-            <IconButton
-              edge="start"
-              color="inherit"
-              aria-label="open drawer"
-              onClick={this.openDrawer.bind(this)}
-              className={classes.menuButton}>
-              <MenuIcon />
-            </IconButton>
             <Typography component="h1" variant="h6" color="inherit" noWrap className={classes.title}>
               <span className="brandLogo">
                 <img
@@ -3398,9 +3393,9 @@ class App extends React.Component<Props, State> {
         <Drawer
           variant="permanent"
           classes={{
-            paper: clsx(classes.drawerPaper, !this.state.isNavOpen && classes.drawerPaperClose),
+            paper: classes.drawerPaper,
           }}
-          open={this.state.isNavOpen}>
+          open={true}>
           <div className={classes.drawerCard} data-netdive-drawer="true">
           {this.renderDrawerMenu(classes)}
           </div>

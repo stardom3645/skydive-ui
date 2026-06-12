@@ -268,9 +268,17 @@ export const styles = (theme: Theme) => createStyles({
     display: 'flex',
     flexDirection: 'column',
     gap: theme.spacing(0.75),
-    padding: theme.spacing(1.25, 1.1),
+    padding: theme.spacing(1.6, 1.1, 1.25),
     overflowY: 'auto',
     overflowX: 'hidden'
+  },
+  drawerMenuHeader: {
+    padding: theme.spacing(0.25, 0.75, 0.15),
+    color: 'var(--netdive-menu-text)',
+    fontSize: 12,
+    fontWeight: 800,
+    letterSpacing: 0.2,
+    lineHeight: 1.4
   },
   drawerDivider: {
     margin: `${theme.spacing(0.65)}px 0 ${theme.spacing(0.15)}px`,
