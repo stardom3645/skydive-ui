@@ -65,7 +65,6 @@ import InfoIcon from '@material-ui/icons/Info'
 import LibraryBooksIcon from '@material-ui/icons/LibraryBooks'
 import Brightness4Icon from '@material-ui/icons/Brightness4'
 import CloseIcon from '@material-ui/icons/Close'
-import CloudQueueIcon from '@material-ui/icons/CloudQueue'
 import FileCopyIcon from '@material-ui/icons/FileCopy'
 import CheckCircleIcon from '@material-ui/icons/CheckCircle'
 import ErrorOutlineIcon from '@material-ui/icons/ErrorOutline'
@@ -2232,7 +2231,7 @@ class App extends React.Component<Props, State> {
     const activeTag = this.activeNodeTagName()
     const activeLabel = activeTag === "kubernetes" ? "Kubernetes" : translate("infrastructureMenu")
     const activeSummary = activeTag === "kubernetes" ? translate("kubernetesLayerSummary") : translate("infrastructureLayerSummary")
-    const activeIcon = activeTag === "kubernetes" ? <CloudQueueIcon fontSize="small" /> : <WavesIcon fontSize="small" />
+    const activeIcon = activeTag === "kubernetes" ? <DeviceHubIcon fontSize="small" /> : <WavesIcon fontSize="small" />
     const items = [
       {
         tag: infrastructureTag,
@@ -2244,7 +2243,7 @@ class App extends React.Component<Props, State> {
         tag: "kubernetes",
         label: "Kubernetes",
         summary: translate("kubernetesLayerSummary"),
-        icon: <CloudQueueIcon fontSize="small" />
+        icon: <DeviceHubIcon fontSize="small" />
       }
     ]
     return (
@@ -3110,11 +3109,11 @@ class App extends React.Component<Props, State> {
           </IconButton>
         </div>
         <div className={clsx(classes.kubernetesSummaryGrid, classes.kubernetesTopologySummaryGrid)}>
-          {this.renderKubernetesTopologySummaryCard(classes, this.infrastructureIcon("\uf1b2", "network"), translate("kubernetesTopologyClusters"), summary.clusters, summary.clusterNodeIDs)}
-          {this.renderKubernetesTopologySummaryCard(classes, this.infrastructureIcon("\uf109", "host"), translate("kubernetesTopologyNodes"), summary.nodes, summary.nodeNodeIDs)}
-          {this.renderKubernetesTopologySummaryCard(classes, this.infrastructureIcon("\uf24d", "network"), translate("kubernetesTopologyNamespaces"), summary.namespaces, summary.namespaceNodeIDs)}
-          {this.renderKubernetesTopologySummaryCard(classes, this.topologyImageIcon("assets/icons/pod.png", translate("kubernetesTopologyPods")), translate("kubernetesTopologyPods"), summary.pods, summary.podNodeIDs)}
-          {this.renderKubernetesTopologySummaryCard(classes, this.infrastructureIcon("\uf542", "network"), translate("kubernetesTopologyServices"), summary.services, summary.serviceNodeIDs)}
+          {this.renderKubernetesTopologySummaryCard(classes, this.infrastructureIcon("\uf542", "network"), translate("kubernetesTopologyClusters"), summary.clusters, summary.clusterNodeIDs)}
+          {this.renderKubernetesTopologySummaryCard(classes, this.infrastructureIcon("\uf233", "host"), translate("kubernetesTopologyNodes"), summary.nodes, summary.nodeNodeIDs)}
+          {this.renderKubernetesTopologySummaryCard(classes, this.infrastructureIcon("\uf07b", "network"), translate("kubernetesTopologyNamespaces"), summary.namespaces, summary.namespaceNodeIDs)}
+          {this.renderKubernetesTopologySummaryCard(classes, this.infrastructureIcon("\uf1b3", "network"), translate("kubernetesTopologyPods"), summary.pods, summary.podNodeIDs)}
+          {this.renderKubernetesTopologySummaryCard(classes, this.infrastructureIcon("\uf0e8", "network"), translate("kubernetesTopologyServices"), summary.services, summary.serviceNodeIDs)}
         </div>
         <div className={classes.kubernetesTableHeader}>
           <div className={classes.kubernetesSectionTitleArea}>
@@ -3324,7 +3323,7 @@ class App extends React.Component<Props, State> {
         <Divider className={classes.drawerDivider} />
         <div className={classes.drawerMenuSectionTitle}>{translate("collectionSection")}</div>
         {this.renderDrawerIntegrationItem(classes, <WavesIcon />, translate("infrastructureMenu"), translate("infrastructureMenuSummary"), () => this.openInfrastructureTopology(), this.state.isInfrastructurePanelOpen)}
-        {this.renderDrawerIntegrationItem(classes, <CloudQueueIcon />, translate("kubernetesCollectionMenu"), translate("kubernetesMenuSummary"), () => this.openKubernetesManager(), this.state.isKubernetesManagerOpen)}
+        {this.renderDrawerIntegrationItem(classes, <DeviceHubIcon />, translate("kubernetesCollectionMenu"), translate("kubernetesMenuSummary"), () => this.openKubernetesManager(), this.state.isKubernetesManagerOpen)}
         <div className={classes.drawerMenuSectionTitle}>{translate("viewSettingsSection")}</div>
         {this.renderDrawerMenuItem(classes, <WavesIcon />, translate("screenConfig"), () => this.openScreenConfigPanel(), this.state.isScreenConfigOpen)}
         {this.renderDrawerMenuItem(classes, <Brightness4Icon />, translate("preferences"), () => this.openPreferencesPanel(), this.state.isPreferencesPanelOpen)}

@@ -1970,13 +1970,13 @@ export class Topology extends React.Component<Props, {}> {
             return "\uf0e8"
         }
         if (/kubernetes.*cluster|쿠버네티스.*클러스터/i.test(title)) {
-            return "\uf1b2"
+            return "\uf542"
         }
         if (/kubernetes.*node|쿠버네티스.*노드/i.test(title)) {
-            return "\uf109"
+            return "\uf233"
         }
         if (/kubernetes.*namespace|쿠버네티스.*네임스페이스/i.test(title)) {
-            return "\uf24d"
+            return "\uf07b"
         }
         if (/kubernetes.*pod|쿠버네티스.*파드/i.test(title)) {
             return "\uf1b3"
@@ -1985,10 +1985,10 @@ export class Topology extends React.Component<Props, {}> {
             return "\uf4b7"
         }
         if (/kubernetes.*service|쿠버네티스.*서비스/i.test(title)) {
-            return "\uf542"
+            return "\uf0e8"
         }
         if (/other kubernetes|기타 쿠버네티스/i.test(title)) {
-            return "\uf1b2"
+            return "\uf542"
         }
         if (/system vm|시스템 가상머신/i.test(title)) {
             return "\uf085"

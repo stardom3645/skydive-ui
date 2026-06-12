@@ -1302,7 +1302,7 @@ class DefaultConfig {
 
         switch (node.data.Type) {
             case "cluster":
-                attrs.href = "assets/icons/cluster.png"
+                attrs.icon = "\uf542"
                 attrs.weight = WEIGHT_K8S_CLUSTER
                 break
             /*
@@ -1368,27 +1368,35 @@ class DefaultConfig {
                 break
             */
             case "node":
-                attrs.icon = "\uf109"
+                attrs.icon = "\uf233"
                 attrs.weight = WEIGHT_K8S_NODE
                 break
             case "namespace":
-                attrs.icon = "\uf24d"
+                attrs.icon = "\uf07b"
                 attrs.weight = WEIGHT_K8S_NAMESPACE
                 break
+            case "ingress":
+                attrs.icon = "\uf0ac"
+                attrs.weight = WEIGHT_K8S_POD
+                break
+            case "networkpolicy":
+                attrs.icon = "\uf3ed"
+                attrs.weight = WEIGHT_K8S_POD
+                break
             case "pod":
-                attrs.href = "assets/icons/pod.png"
+                attrs.icon = "\uf1b3"
                 attrs.weight = WEIGHT_K8S_POD
                 break
             case "container":
-                attrs.href = "assets/icons/container.png"
+                attrs.icon = "\uf1b3"
                 attrs.weight = WEIGHT_K8S_CONTAINER
                 break
             case "service":
-                attrs.href = "assets/icons/service.png"
+                attrs.icon = "\uf0e8"
                 attrs.weight = WEIGHT_K8S_SERVICE
                 break
             default:
-                attrs.href = "assets/icons/k8s.png"
+                attrs.icon = "\uf542"
                 attrs.weight = WEIGHT_K8S_OTHER
         }
 
