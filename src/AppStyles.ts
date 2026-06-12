@@ -283,24 +283,24 @@ export const styles = (theme: Theme) => createStyles({
   drawerMenuHeader: {
     display: 'flex',
     alignItems: 'center',
-    minHeight: 64,
-    padding: theme.spacing(0, 0.75),
+    height: 64,
+    padding: '0 16px',
+    borderBottom: '1px solid var(--netdive-appbar-border)',
+    boxSizing: 'border-box',
     color: 'var(--netdive-menu-text)',
     lineHeight: 1.2
   },
   drawerBrandLogo: {
-    width: 178,
-    height: 46,
+    display: 'block',
+    width: 188,
+    maxWidth: 'calc(100% - 0px)',
+    height: 'auto',
     objectFit: 'contain',
     objectPosition: 'left center'
   },
   drawerBrandLogoDark: {
-    width: 174,
-    height: 34
-  },
-  drawerDivider: {
-    margin: `0 0 ${theme.spacing(0.45)}px`,
-    backgroundColor: 'var(--netdive-menu-border-soft)'
+    width: 186,
+    height: 'auto'
   },
   drawerMenuSection: {
     display: 'flex',

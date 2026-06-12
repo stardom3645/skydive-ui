@@ -3319,7 +3319,6 @@ class App extends React.Component<Props, State> {
             className={clsx(classes.drawerBrandLogo, isDark && classes.drawerBrandLogoDark)}
           />
         </div>
-        <Divider className={classes.drawerDivider} />
         <div className={classes.drawerMenuSectionTitle}>{translate("collectionSection")}</div>
         {this.renderDrawerIntegrationItem(classes, <WavesIcon />, translate("infrastructureMenu"), translate("infrastructureMenuSummary"), () => this.openInfrastructureTopology(), this.state.isInfrastructurePanelOpen)}
         {this.renderDrawerIntegrationItem(classes, <DeviceHubIcon />, translate("kubernetesCollectionMenu"), translate("kubernetesMenuSummary"), () => this.openKubernetesManager(), this.state.isKubernetesManagerOpen)}
