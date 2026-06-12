@@ -17,7 +17,7 @@
 
 import { createStyles, Theme } from '@material-ui/core'
 
-const miniRailWidth = 64
+const drawerWidth = 216
 const topologyLevelMenuWidth = 188
 
 export const styles = (theme: Theme) => createStyles({
@@ -184,8 +184,6 @@ export const styles = (theme: Theme) => createStyles({
     ...theme.mixins.toolbar,
   },
   appBar: {
-    marginLeft: miniRailWidth,
-    width: `calc(100% - ${miniRailWidth}px)`,
     backgroundColor: 'var(--netdive-appbar-bg)',
     color: 'var(--netdive-appbar-text)',
     borderBottom: '1px solid var(--netdive-appbar-border)',
@@ -197,8 +195,8 @@ export const styles = (theme: Theme) => createStyles({
     }),
   },
   appBarShift: {
-    marginLeft: miniRailWidth,
-    width: `calc(100% - ${miniRailWidth}px)`,
+    marginLeft: drawerWidth,
+    width: `calc(100% - ${drawerWidth}px)`,
     transition: theme.transitions.create(['width', 'margin'], {
       easing: theme.transitions.easing.sharp,
       duration: theme.transitions.duration.enteringScreen,
@@ -224,74 +222,55 @@ export const styles = (theme: Theme) => createStyles({
       fontSize: '1.2rem'
     }
   },
-  menuButtonHidden: {
-    display: 'none',
-  },
   subTitle: {
     fontStyle: 'normal',
     fontWeight: 500,
     color: 'var(--netdive-appbar-muted)'
   },
   drawerPaper: {
-    position: 'fixed',
-    left: 0,
-    top: 0,
-    bottom: 0,
+    position: 'relative',
     whiteSpace: 'nowrap',
-    width: miniRailWidth,
-    background: 'var(--netdive-menu-card)',
+    width: drawerWidth,
+    background: 'var(--netdive-menu-bg)',
     borderRight: '1px solid var(--netdive-menu-border-soft)',
     boxShadow: 'none',
-    padding: 0,
+    padding: theme.spacing(1.5),
     boxSizing: 'border-box',
-    zIndex: theme.zIndex.drawer + 2,
-    overflow: 'visible',
-    transition: theme.transitions.create(['width', 'box-shadow'], {
+    transition: theme.transitions.create('width', {
       easing: theme.transitions.easing.sharp,
-      duration: 180,
+      duration: theme.transitions.duration.enteringScreen,
     }),
-    '&:hover': {
-      width: miniRailWidth
-    },
-    '&:hover $drawerMenu': {
-      width: miniRailWidth,
-      padding: theme.spacing(1.8, 0.5, 1),
-      alignItems: 'center'
-    }
   },
   drawerPaperClose: {
     overflowX: 'hidden',
-    padding: theme.spacing(1),
+    padding: 0,
     transition: theme.transitions.create('width', {
       easing: theme.transitions.easing.sharp,
-      duration: 180,
+      duration: theme.transitions.duration.leavingScreen,
     }),
-    width: miniRailWidth,
+    width: theme.spacing(7),
+    [theme.breakpoints.up('sm')]: {
+      width: theme.spacing(0),
+    },
   },
   drawerCard: {
-    height: '100vh',
+    height: 'calc(100vh - 24px)',
     display: 'flex',
     flexDirection: 'column',
     backgroundColor: 'var(--netdive-menu-card)',
-    border: 'none',
-    borderRadius: 0,
-    boxShadow: 'none',
-    overflow: 'visible',
-    color: 'var(--netdive-menu-text)',
-    transition: 'border-radius 180ms ease, box-shadow 180ms ease'
+    border: '1px solid var(--netdive-menu-border)',
+    borderRadius: 18,
+    boxShadow: 'var(--netdive-menu-shadow)',
+    overflow: 'hidden',
+    color: 'var(--netdive-menu-text)'
   },
   drawerMenu: {
     display: 'flex',
     flexDirection: 'column',
-    alignItems: 'center',
-    width: miniRailWidth,
-    minHeight: '100vh',
-    gap: theme.spacing(0.15),
-    padding: theme.spacing(1.8, 0.5, 1),
-    overflowY: 'visible',
-    overflowX: 'visible',
-    backgroundColor: 'var(--netdive-menu-card)',
-    transition: 'width 180ms ease, padding 180ms ease, box-shadow 180ms ease, background 180ms ease'
+    gap: theme.spacing(0.75),
+    padding: theme.spacing(1.25, 1.1),
+    overflowY: 'auto',
+    overflowX: 'hidden'
   },
   drawerDivider: {
     margin: `${theme.spacing(0.65)}px 0 ${theme.spacing(0.15)}px`,
@@ -307,45 +286,31 @@ export const styles = (theme: Theme) => createStyles({
     border: '1px solid var(--netdive-menu-border-soft)'
   },
   drawerMenuSectionTitle: {
-    maxHeight: 0,
-    padding: 0,
-    overflow: 'hidden',
+    padding: theme.spacing(0.4, 0.75, 0.25),
     color: 'var(--netdive-menu-muted)',
     fontSize: 10,
     fontWeight: 600,
     letterSpacing: 0,
-    opacity: 0,
-    transform: 'translateX(-6px)',
-    pointerEvents: 'none',
-    transition: 'max-height 180ms ease, padding 180ms ease, opacity 160ms ease, transform 160ms ease'
+    opacity: 0.85
   },
   drawerMenuItem: {
     width: '100%',
-    minHeight: 40,
+    minHeight: 54,
     display: 'grid',
-    gridTemplateColumns: '32px',
-    justifyContent: 'center',
+    gridTemplateColumns: '32px 1fr',
     alignItems: 'center',
     gap: theme.spacing(0.75),
     border: '1px solid transparent',
-    borderRadius: 6,
-    padding: theme.spacing(0.4, 0.6),
+    borderRadius: 12,
+    padding: theme.spacing(0.75, 0.75),
     backgroundColor: 'transparent',
     color: 'var(--netdive-menu-text)',
     cursor: 'pointer',
     textAlign: 'left',
-    position: 'relative',
-    overflow: 'visible',
     transition: 'background-color 180ms ease, border-color 180ms ease, color 180ms ease',
     '&:hover': {
       backgroundColor: 'var(--netdive-menu-hover)',
       borderColor: 'var(--netdive-menu-border)'
-    },
-    '&:hover $drawerFlyout, &:focus-visible $drawerFlyout': {
-      opacity: 1,
-      transform: 'translate(0, -50%)',
-      pointerEvents: 'auto',
-      transitionDelay: '0ms'
     },
     '&:focus-visible': {
       outline: '2px solid var(--netdive-menu-active-text)',
@@ -364,11 +329,8 @@ export const styles = (theme: Theme) => createStyles({
   },
   drawerMenuItemActive: {
     backgroundColor: 'var(--netdive-menu-active)',
-    borderColor: 'transparent',
+    borderColor: 'var(--netdive-menu-border)',
     color: 'var(--netdive-menu-active-text)',
-    '& $drawerFlyout': {
-      backgroundColor: 'var(--netdive-menu-active)'
-    },
     '& $drawerMenuIcon, & $drawerMenuAux': {
       color: 'var(--netdive-menu-active-text)'
     }
@@ -380,10 +342,10 @@ export const styles = (theme: Theme) => createStyles({
     alignItems: 'center',
     justifyContent: 'center',
     color: 'var(--netdive-menu-icon)',
-    borderRadius: 6,
+    borderRadius: 10,
     backgroundColor: 'transparent',
     '& svg': {
-      fontSize: 22
+      fontSize: 20
     }
   },
   drawerMenuLabel: {
@@ -392,40 +354,7 @@ export const styles = (theme: Theme) => createStyles({
     textOverflow: 'ellipsis',
     fontSize: 14,
     fontWeight: 700,
-    color: 'inherit',
-    whiteSpace: 'nowrap'
-  },
-  drawerFlyout: {
-    position: 'absolute',
-    left: 'calc(100% + 8px)',
-    top: '50%',
-    minWidth: 190,
-    maxWidth: 230,
-    minHeight: 52,
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'center',
-    gap: 3,
-    padding: theme.spacing(0.9, 1.15),
-    borderRadius: 10,
-    border: '1px solid var(--netdive-detail-border)',
-    backgroundColor: 'var(--netdive-detail-bg)',
-    color: 'var(--netdive-detail-title)',
-    boxShadow: '0 12px 28px rgba(15, 23, 42, 0.16)',
-    opacity: 0,
-    transform: 'translate(-4px, -50%)',
-    pointerEvents: 'none',
-    zIndex: theme.zIndex.drawer + 5,
-    transition: 'opacity 140ms ease, transform 140ms ease',
-    transitionDelay: '140ms',
-    '&:before': {
-      content: '""',
-      position: 'absolute',
-      left: -9,
-      top: 0,
-      width: 9,
-      height: '100%'
-    }
+    color: 'inherit'
   },
   drawerMenuAux: {},
   drawerLanguagePanel: {
@@ -661,31 +590,22 @@ export const styles = (theme: Theme) => createStyles({
   },
   drawerIntegrationItem: {
     width: '100%',
-    minHeight: 40,
+    minHeight: 56,
     display: 'grid',
-    gridTemplateColumns: '32px',
-    justifyContent: 'center',
+    gridTemplateColumns: '32px 1fr',
     alignItems: 'center',
     gap: theme.spacing(0.75),
     border: '1px solid transparent',
-    borderRadius: 6,
-    padding: theme.spacing(0.4, 0.6),
+    borderRadius: 12,
+    padding: theme.spacing(0.75),
     backgroundColor: 'transparent',
     color: 'var(--netdive-menu-text)',
     cursor: 'pointer',
     textAlign: 'left',
-    position: 'relative',
-    overflow: 'visible',
     transition: 'background-color 180ms ease, border-color 180ms ease, color 180ms ease',
     '&:hover': {
       backgroundColor: 'var(--netdive-menu-hover)',
       borderColor: 'var(--netdive-menu-border)'
-    },
-    '&:hover $drawerFlyout, &:focus-visible $drawerFlyout': {
-      opacity: 1,
-      transform: 'translate(0, -50%)',
-      pointerEvents: 'auto',
-      transitionDelay: '0ms'
     }
   },
   drawerIntegrationMain: {
@@ -693,8 +613,7 @@ export const styles = (theme: Theme) => createStyles({
     display: 'flex',
     flexDirection: 'column',
     gap: 3,
-    overflow: 'hidden',
-    textAlign: 'left'
+    overflow: 'hidden'
   },
   drawerIntegrationSummary: {
     minWidth: 0,
@@ -703,13 +622,12 @@ export const styles = (theme: Theme) => createStyles({
     whiteSpace: 'nowrap',
     color: 'var(--netdive-menu-muted)',
     fontSize: 11,
-    fontWeight: 700,
-    textAlign: 'left'
+    fontWeight: 700
   },
   sideSettingsPanel: {
     position: 'absolute',
     top: 76,
-    left: miniRailWidth + 18,
+    left: drawerWidth + 18,
     width: 420,
     maxHeight: 'calc(100vh - 104px)',
     zIndex: 1250,
@@ -960,7 +878,7 @@ export const styles = (theme: Theme) => createStyles({
   kubernetesManagerPanel: {
     position: 'absolute',
     top: 76,
-    left: miniRailWidth + 18,
+    left: drawerWidth + 18,
     right: 28,
     maxWidth: 1180,
     maxHeight: 'calc(100vh - 104px)',
@@ -1609,7 +1527,6 @@ export const styles = (theme: Theme) => createStyles({
     height: '100vh',
     overflow: 'auto',
     background: 'var(--netdive-content-bg)',
-    marginLeft: miniRailWidth,
   },
   container: {
     paddingTop: theme.spacing(0),
@@ -1679,7 +1596,7 @@ export const styles = (theme: Theme) => createStyles({
     paddingRight: theme.spacing(0),
   },
   nodeTagsPanelShift: {
-    left: miniRailWidth + 14,
+    left: drawerWidth + 14,
   },
   nodeTagsFab: {
     margin: theme.spacing(1),
@@ -1700,7 +1617,7 @@ export const styles = (theme: Theme) => createStyles({
     paddingRight: theme.spacing(0),
   },
   linkTagsPanelShift: {
-    left: miniRailWidth + 20,
+    left: drawerWidth + 20,
   },
   linkTagsPanelPaper: {
     position: 'relative',
@@ -1813,26 +1730,29 @@ export const styles = (theme: Theme) => createStyles({
     }
   },
   layerFilterButton: {
-    height: 34,
+    height: 36,
     marginLeft: theme.spacing(1),
-    padding: theme.spacing(0, 1),
-    gap: theme.spacing(0.55),
-    border: '1px solid var(--netdive-action-btn-border)',
+    padding: theme.spacing(0, 1.15),
+    gap: theme.spacing(0.45),
+    border: '1px solid #d7e2f0',
     borderRadius: 10,
-    backgroundColor: 'transparent',
-    color: 'var(--netdive-appbar-muted)',
-    fontSize: 12,
-    fontWeight: 750,
+    backgroundColor: '#ffffff',
+    color: 'var(--netdive-detail-title)',
+    fontSize: 13,
+    fontWeight: 800,
     textTransform: 'none',
     whiteSpace: 'nowrap',
     lineHeight: 1,
+    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
     '&:hover': {
-      color: 'var(--netdive-appbar-text)',
-      backgroundColor: 'var(--netdive-search-hover)',
-      borderColor: 'var(--netdive-action-btn-border-hover)'
+      color: 'var(--netdive-detail-title)',
+      backgroundColor: '#ffffff',
+      borderColor: '#bfdbfe',
+      boxShadow: '0 3px 10px rgba(15, 23, 42, 0.08)'
     },
     '& svg': {
-      fontSize: '1.05rem'
+      color: 'var(--netdive-detail-muted)',
+      fontSize: '1rem'
     }
   },
   layerFilterButtonLabel: {
@@ -1844,29 +1764,30 @@ export const styles = (theme: Theme) => createStyles({
     textOverflow: 'ellipsis'
   },
   layerFilterMenuPaper: {
-    marginTop: 8,
-    minWidth: 240,
-    borderRadius: 14,
-    border: '1px solid var(--netdive-detail-border)',
-    background: 'var(--netdive-detail-bg)',
-    backgroundColor: 'var(--netdive-detail-bg) !important',
+    marginTop: 7,
+    minWidth: 250,
+    borderRadius: 12,
+    border: '1px solid #d7e2f0',
+    background: '#ffffff',
+    backgroundColor: '#ffffff !important',
     color: 'var(--netdive-detail-text)',
-    boxShadow: 'var(--netdive-detail-shadow)',
-    padding: theme.spacing(0.45),
+    boxShadow: '0 10px 30px rgba(15, 23, 42, 0.12)',
+    padding: theme.spacing(0.6),
     overflow: 'hidden',
+    zIndex: theme.zIndex.modal + 20,
     '& .MuiList-root': {
       padding: 0,
-      background: 'var(--netdive-detail-bg)'
+      background: '#ffffff'
     }
   },
   layerFilterMenuItem: {
     width: '100%',
-    minHeight: 56,
+    minHeight: 58,
     display: 'grid',
-    gridTemplateColumns: '28px 1fr',
+    gridTemplateColumns: '28px minmax(0, 1fr) 20px',
     alignItems: 'center',
     gap: theme.spacing(1),
-    padding: theme.spacing(0.9, 1),
+    padding: theme.spacing(0.85, 1),
     borderRadius: 10,
     border: '1px solid transparent',
     '& .MuiListItemIcon-root': {
@@ -1884,14 +1805,14 @@ export const styles = (theme: Theme) => createStyles({
       fontWeight: 700
     },
     '&.Mui-selected': {
-      backgroundColor: 'var(--netdive-search-hover)',
-      borderColor: 'var(--netdive-action-btn-border)',
-      '& .MuiListItemIcon-root, & strong': {
-        color: 'var(--netdive-detail-title)'
+      backgroundColor: '#eff6ff',
+      borderColor: '#dbeafe',
+      '& .MuiListItemIcon-root, & strong, & $layerFilterMenuCheck': {
+        color: 'var(--netdive-menu-active-text)'
       }
     },
     '&.Mui-selected:hover, &:hover': {
-      backgroundColor: 'var(--netdive-search-hover)'
+      backgroundColor: '#f3f8ff'
     }
   },
   layerFilterMenuText: {
@@ -1900,6 +1821,15 @@ export const styles = (theme: Theme) => createStyles({
     flexDirection: 'column',
     gap: 2,
     overflow: 'hidden'
+  },
+  layerFilterMenuCheck: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: 'var(--netdive-menu-active-text)',
+    '& svg': {
+      fontSize: 17
+    }
   },
   toolbar: {
     paddingRight: 20,

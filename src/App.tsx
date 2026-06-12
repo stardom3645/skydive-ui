@@ -42,6 +42,7 @@ import ToggleButtonGroup from '@material-ui/lab/ToggleButtonGroup'
 import { withSnackbar, WithSnackbarProps } from 'notistack'
 import { connect } from 'react-redux'
 import AccountCircle from '@material-ui/icons/AccountCircle'
+import MenuIcon from '@material-ui/icons/Menu'
 import MenuItem from '@material-ui/core/MenuItem'
 import ListItemIcon from '@material-ui/core/ListItemIcon'
 import Menu from '@material-ui/core/Menu'
@@ -72,6 +73,7 @@ import ErrorOutlineIcon from '@material-ui/icons/ErrorOutline'
 import RefreshIcon from '@material-ui/icons/Refresh'
 import DeviceHubIcon from '@material-ui/icons/DeviceHub'
 import ChevronRightIcon from '@material-ui/icons/ChevronRight'
+import CheckIcon from '@material-ui/icons/Check'
 import LogoLight from '../assets/logo-ablestack.png'
 import LogoDark from '../assets/ablestack-logo.png'
 
@@ -322,7 +324,7 @@ class App extends React.Component<Props, State> {
       isContextMenuOn: "none",
       contextMenuX: 0,
       contextMenuY: 0,
-      isNavOpen: false,
+      isNavOpen: true,
       nodeTagStates: new Map<string, boolean>(),
       linkTagStates: new Map<string, LinkTagState>(),
       filters: new Array<Filter>(),
@@ -1515,7 +1517,7 @@ class App extends React.Component<Props, State> {
   }
 
   openDrawer() {
-    this.state.isNavOpen = true
+    this.state.isNavOpen = !this.state.isNavOpen
     this.setState(this.state)
   }
 
@@ -2252,7 +2254,6 @@ class App extends React.Component<Props, State> {
             aria-haspopup="true"
             onClick={(event: React.MouseEvent<HTMLElement>) => this.openMenu("layer-filter", event)}
             className={classes.layerFilterButton}>
-            <DeviceHubIcon fontSize="small" />
             <span className={classes.layerFilterButtonLabel}>{activeLabel}</span>
             <KeyboardArrowDown fontSize="small" />
           </Button>
@@ -2274,6 +2275,9 @@ class App extends React.Component<Props, State> {
               <span className={classes.layerFilterMenuText}>
                 <strong>{item.label}</strong>
                 <small>{item.summary}</small>
+              </span>
+              <span className={classes.layerFilterMenuCheck}>
+                {activeTag === item.tag && <CheckIcon fontSize="small" />}
               </span>
             </MenuItem>
           ))}
@@ -2421,10 +2425,8 @@ class App extends React.Component<Props, State> {
         type="button"
         className={clsx(classes.drawerMenuItem, active && classes.drawerMenuItemActive)}
         onClick={onClick}>
-        <span className={clsx(classes.drawerMenuIcon, "anticon", "anticon-dashboard")}>{icon}</span>
-        <span className={classes.drawerFlyout}>
-          <span className={clsx(classes.drawerMenuLabel, "ant-menu-title-content")}>{label}</span>
-        </span>
+        <span className={classes.drawerMenuIcon}>{icon}</span>
+        <span className={classes.drawerMenuLabel}>{label}</span>
       </button>
     )
   }
@@ -2435,9 +2437,9 @@ class App extends React.Component<Props, State> {
         type="button"
         className={clsx(classes.drawerIntegrationItem, active && classes.drawerMenuItemActive)}
         onClick={onClick}>
-        <span className={clsx(classes.drawerMenuIcon, "anticon", "anticon-dashboard")}>{icon}</span>
-        <span className={clsx(classes.drawerIntegrationMain, classes.drawerFlyout)}>
-          <span className={clsx(classes.drawerMenuLabel, "ant-menu-title-content")}>{label}</span>
+        <span className={classes.drawerMenuIcon}>{icon}</span>
+        <span className={classes.drawerIntegrationMain}>
+          <span className={classes.drawerMenuLabel}>{label}</span>
           {summary && <span className={classes.drawerIntegrationSummary}>{summary}</span>}
         </span>
       </button>
@@ -3305,6 +3307,8 @@ class App extends React.Component<Props, State> {
   private renderDrawerMenu(classes: any) {
     return (
       <div className={classes.drawerMenu}>
+        {this.renderDrawerMenuItem(classes, <CloseIcon />, translate("close"), () => this.closeDrawer())}
+        <Divider className={classes.drawerDivider} />
         <div className={classes.drawerMenuSectionTitle}>{translate("collectionSection")}</div>
         {this.renderDrawerIntegrationItem(classes, <WavesIcon />, translate("infrastructureMenu"), translate("infrastructureMenuSummary"), () => this.openInfrastructureTopology(), this.state.isInfrastructurePanelOpen)}
         {this.renderDrawerIntegrationItem(classes, <CloudQueueIcon />, translate("kubernetesCollectionMenu"), translate("kubernetesMenuSummary"), () => this.openKubernetesManager(), this.state.isKubernetesManagerOpen)}
@@ -3334,8 +3338,16 @@ class App extends React.Component<Props, State> {
       <div className={clsx(classes.app, isDark && classes.appDark)}>
         <CssBaseline />
         {this.connection()}
-        <AppBar position="absolute" className={classes.appBar}>
+        <AppBar position="absolute" className={clsx(classes.appBar, this.state.isNavOpen && classes.appBarShift)}>
           <Toolbar className={classes.toolbar}>
+            <IconButton
+              edge="start"
+              color="inherit"
+              aria-label="open drawer"
+              onClick={this.openDrawer.bind(this)}
+              className={classes.menuButton}>
+              <MenuIcon />
+            </IconButton>
             <Typography component="h1" variant="h6" color="inherit" noWrap className={classes.title}>
               <span className="brandLogo">
                 <img
@@ -3386,9 +3398,9 @@ class App extends React.Component<Props, State> {
         <Drawer
           variant="permanent"
           classes={{
-            paper: classes.drawerPaper,
+            paper: clsx(classes.drawerPaper, !this.state.isNavOpen && classes.drawerPaperClose),
           }}
-          open={true}>
+          open={this.state.isNavOpen}>
           <div className={classes.drawerCard} data-netdive-drawer="true">
           {this.renderDrawerMenu(classes)}
           </div>
