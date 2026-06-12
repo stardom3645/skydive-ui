@@ -275,18 +275,16 @@ export const styles = (theme: Theme) => createStyles({
   drawerMenu: {
     display: 'flex',
     flexDirection: 'column',
-    gap: theme.spacing(0.75),
-    padding: theme.spacing(2, 1.25, 1.25),
+    gap: theme.spacing(0.55),
+    padding: theme.spacing(1.55, 1.25, 1.25),
     overflowY: 'auto',
     overflowX: 'hidden'
   },
   drawerMenuHeader: {
     display: 'flex',
-    flexDirection: 'column',
     alignItems: 'flex-start',
-    gap: 4,
-    minHeight: 60,
-    padding: theme.spacing(0.2, 0.75, 1.1),
+    minHeight: 38,
+    padding: theme.spacing(0, 0.75, 0.65),
     color: 'var(--netdive-menu-text)',
     lineHeight: 1.2
   },
@@ -296,15 +294,8 @@ export const styles = (theme: Theme) => createStyles({
     objectFit: 'contain',
     objectPosition: 'left center'
   },
-  drawerBrandProduct: {
-    color: 'var(--netdive-menu-muted)',
-    fontSize: 11,
-    fontWeight: 800,
-    letterSpacing: 0.4,
-    textTransform: 'uppercase'
-  },
   drawerDivider: {
-    margin: `${theme.spacing(0.65)}px 0 ${theme.spacing(0.15)}px`,
+    margin: `${theme.spacing(0.2)}px 0 ${theme.spacing(0.3)}px`,
     backgroundColor: 'var(--netdive-menu-border-soft)'
   },
   drawerMenuSection: {

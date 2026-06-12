@@ -3318,7 +3318,6 @@ class App extends React.Component<Props, State> {
             alt="ABLESTACK"
             className={classes.drawerBrandLogo}
           />
-          <span className={classes.drawerBrandProduct}>Netdive</span>
         </div>
         <Divider className={classes.drawerDivider} />
         <div className={classes.drawerMenuSectionTitle}>{translate("collectionSection")}</div>
