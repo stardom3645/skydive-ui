@@ -2153,11 +2153,10 @@ class App extends React.Component<Props, State> {
   }
 
   renderLinkTagButtons(classes: any) {
-    const isDrawerOpen = this.state.isNavOpen
     return (
       <React.Fragment>
         {this.state.linkTagStates.size !== 0 &&
-          <Container className={clsx(classes.linkTagsPanel, isDrawerOpen && classes.linkTagsPanelShift)}>
+          <Container className={classes.linkTagsPanel}>
             {!this.state.isLinkTagsCollapsed &&
               <Paper className={classes.linkTagsPanelPaper}>
                 <div className={classes.linkTagsHeader}>
@@ -2207,9 +2206,8 @@ class App extends React.Component<Props, State> {
   }
 
   renderNodeTagButtons(classes: any) {
-    const isDrawerOpen = this.state.isNavOpen
     return (
-      <Container className={clsx(classes.nodeTagsPanel, isDrawerOpen && classes.nodeTagsPanelShift)}>
+      <Container className={classes.nodeTagsPanel}>
         {Array.from(this.state.nodeTagStates.keys()).sort((a, b) => {
           if (a === this.config.defaultNodeTag()) {
             return -1

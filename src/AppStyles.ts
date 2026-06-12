@@ -23,6 +23,8 @@ const topologyLevelMenuWidth = 188
 export const styles = (theme: Theme) => createStyles({
   app: {
     display: 'flex',
+    minHeight: '100vh',
+    background: 'var(--netdive-content-bg)',
     '--netdive-menu-bg': '#eef2f8',
     '--netdive-menu-card': '#ffffff',
     '--netdive-menu-card-soft': '#f6f9ff',
@@ -228,7 +230,10 @@ export const styles = (theme: Theme) => createStyles({
     color: 'var(--netdive-appbar-muted)'
   },
   drawerPaper: {
-    position: 'relative',
+    position: 'fixed',
+    left: 0,
+    top: 0,
+    bottom: 0,
     whiteSpace: 'nowrap',
     width: drawerWidth,
     background: 'var(--netdive-menu-bg)',
@@ -236,6 +241,7 @@ export const styles = (theme: Theme) => createStyles({
     boxShadow: 'none',
     padding: theme.spacing(1.5),
     boxSizing: 'border-box',
+    zIndex: theme.zIndex.drawer,
     transition: theme.transitions.create('width', {
       easing: theme.transitions.easing.sharp,
       duration: theme.transitions.duration.enteringScreen,
@@ -1532,9 +1538,14 @@ export const styles = (theme: Theme) => createStyles({
   },
   content: {
     flexGrow: 1,
+    position: 'relative',
+    marginLeft: drawerWidth,
+    width: `calc(100% - ${drawerWidth}px)`,
     height: '100vh',
     overflow: 'auto',
     background: 'var(--netdive-content-bg)',
+    paddingTop: 64,
+    boxSizing: 'border-box'
   },
   container: {
     paddingTop: theme.spacing(0),
@@ -1543,7 +1554,7 @@ export const styles = (theme: Theme) => createStyles({
     paddingRight: theme.spacing(0),
   },
   topology: {
-    height: `calc(100vh - 10px)`,
+    height: `calc(100vh - 64px)`,
     background: 'var(--topology-bg)',
   },
   rightPanel: {
@@ -1739,10 +1750,9 @@ export const styles = (theme: Theme) => createStyles({
   },
   layerFilterButton: {
     height: 48,
-    minWidth: 170,
+    minWidth: 240,
     marginLeft: theme.spacing(1),
     padding: theme.spacing(0, 1.5),
-    gap: theme.spacing(1),
     border: '1px solid #d7e2f0',
     borderRadius: 10,
     backgroundColor: '#ffffff',
@@ -1762,6 +1772,13 @@ export const styles = (theme: Theme) => createStyles({
     '& svg': {
       color: 'var(--netdive-detail-muted)',
       fontSize: '1.05rem'
+    },
+    '& .MuiButton-label': {
+      width: '100%',
+      display: 'grid',
+      gridTemplateColumns: '20px minmax(0, 1fr) 16px',
+      alignItems: 'center',
+      columnGap: 10
     }
   },
   layerFilterButtonIcon: {
@@ -1769,7 +1786,9 @@ export const styles = (theme: Theme) => createStyles({
     alignItems: 'center',
     justifyContent: 'center',
     flex: '0 0 auto',
+    color: 'var(--netdive-action-btn-text)',
     '& svg': {
+      color: 'currentColor',
       fontSize: 18
     }
   },
