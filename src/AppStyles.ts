@@ -17,7 +17,6 @@
 
 import { createStyles, Theme } from '@material-ui/core'
 
-const drawerWidth = 236
 const miniRailWidth = 64
 const topologyLevelMenuWidth = 188
 
@@ -254,30 +253,10 @@ export const styles = (theme: Theme) => createStyles({
     '&:hover': {
       width: miniRailWidth
     },
-    '&:hover $drawerMenuSectionTitle': {
-      maxHeight: 22,
-      padding: theme.spacing(0.4, 0.75, 0.25),
-      opacity: 1,
-      transform: 'translateX(0)',
-      pointerEvents: 'auto'
-    },
-    '&:hover $drawerMenuLabel, &:hover $drawerIntegrationMain, &:hover $drawerIntegrationSummary': {
-      maxWidth: 170,
-      opacity: 1,
-      transform: 'translateX(0)',
-      pointerEvents: 'auto'
-    },
-    '&:hover $drawerMenuItem, &:hover $drawerIntegrationItem': {
-      gridTemplateColumns: '32px 1fr',
-      justifyContent: 'initial'
-    },
     '&:hover $drawerMenu': {
-      width: drawerWidth,
-      padding: theme.spacing(1.8, 1, 1),
-      alignItems: 'stretch',
-      background: `linear-gradient(to right, var(--netdive-menu-card) 0, var(--netdive-menu-card) ${miniRailWidth}px, var(--netdive-detail-bg) ${miniRailWidth}px)`,
-      borderRight: '1px solid var(--netdive-menu-border-soft)',
-      boxShadow: '10px 0 24px rgba(15, 23, 42, 0.10)'
+      width: miniRailWidth,
+      padding: theme.spacing(1.8, 0.5, 1),
+      alignItems: 'center'
     }
   },
   drawerPaperClose: {
@@ -309,8 +288,8 @@ export const styles = (theme: Theme) => createStyles({
     minHeight: '100vh',
     gap: theme.spacing(0.15),
     padding: theme.spacing(1.8, 0.5, 1),
-    overflowY: 'auto',
-    overflowX: 'hidden',
+    overflowY: 'visible',
+    overflowX: 'visible',
     backgroundColor: 'var(--netdive-menu-card)',
     transition: 'width 180ms ease, padding 180ms ease, box-shadow 180ms ease, background 180ms ease'
   },
@@ -356,10 +335,17 @@ export const styles = (theme: Theme) => createStyles({
     cursor: 'pointer',
     textAlign: 'left',
     position: 'relative',
-    transition: 'background-color 180ms ease, border-color 180ms ease, color 180ms ease, grid-template-columns 180ms ease, padding 180ms ease',
+    overflow: 'visible',
+    transition: 'background-color 180ms ease, border-color 180ms ease, color 180ms ease',
     '&:hover': {
       backgroundColor: 'var(--netdive-menu-hover)',
       borderColor: 'var(--netdive-menu-border)'
+    },
+    '&:hover $drawerFlyout, &:focus-visible $drawerFlyout': {
+      opacity: 1,
+      transform: 'translate(0, -50%)',
+      pointerEvents: 'auto',
+      transitionDelay: '0ms'
     },
     '&:focus-visible': {
       outline: '2px solid var(--netdive-menu-active-text)',
@@ -380,6 +366,9 @@ export const styles = (theme: Theme) => createStyles({
     backgroundColor: 'var(--netdive-menu-active)',
     borderColor: 'transparent',
     color: 'var(--netdive-menu-active-text)',
+    '& $drawerFlyout': {
+      backgroundColor: 'var(--netdive-menu-active)'
+    },
     '& $drawerMenuIcon, & $drawerMenuAux': {
       color: 'var(--netdive-menu-active-text)'
     }
@@ -404,11 +393,39 @@ export const styles = (theme: Theme) => createStyles({
     fontSize: 14,
     fontWeight: 700,
     color: 'inherit',
-    maxWidth: 0,
+    whiteSpace: 'nowrap'
+  },
+  drawerFlyout: {
+    position: 'absolute',
+    left: 'calc(100% + 8px)',
+    top: '50%',
+    minWidth: 190,
+    maxWidth: 230,
+    minHeight: 52,
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+    gap: 3,
+    padding: theme.spacing(0.9, 1.15),
+    borderRadius: 10,
+    border: '1px solid var(--netdive-detail-border)',
+    backgroundColor: 'var(--netdive-detail-bg)',
+    color: 'var(--netdive-detail-title)',
+    boxShadow: '0 12px 28px rgba(15, 23, 42, 0.16)',
     opacity: 0,
-    transform: 'translateX(-6px)',
+    transform: 'translate(-4px, -50%)',
     pointerEvents: 'none',
-    transition: 'max-width 180ms ease, opacity 160ms ease, transform 160ms ease'
+    zIndex: theme.zIndex.drawer + 5,
+    transition: 'opacity 140ms ease, transform 140ms ease',
+    transitionDelay: '140ms',
+    '&:before': {
+      content: '""',
+      position: 'absolute',
+      left: -9,
+      top: 0,
+      width: 9,
+      height: '100%'
+    }
   },
   drawerMenuAux: {},
   drawerLanguagePanel: {
@@ -658,10 +675,17 @@ export const styles = (theme: Theme) => createStyles({
     cursor: 'pointer',
     textAlign: 'left',
     position: 'relative',
-    transition: 'background-color 180ms ease, border-color 180ms ease, color 180ms ease, grid-template-columns 180ms ease, padding 180ms ease',
+    overflow: 'visible',
+    transition: 'background-color 180ms ease, border-color 180ms ease, color 180ms ease',
     '&:hover': {
       backgroundColor: 'var(--netdive-menu-hover)',
       borderColor: 'var(--netdive-menu-border)'
+    },
+    '&:hover $drawerFlyout, &:focus-visible $drawerFlyout': {
+      opacity: 1,
+      transform: 'translate(0, -50%)',
+      pointerEvents: 'auto',
+      transitionDelay: '0ms'
     }
   },
   drawerIntegrationMain: {
@@ -670,11 +694,7 @@ export const styles = (theme: Theme) => createStyles({
     flexDirection: 'column',
     gap: 3,
     overflow: 'hidden',
-    maxWidth: 0,
-    opacity: 0,
-    transform: 'translateX(-6px)',
-    pointerEvents: 'none',
-    transition: 'max-width 180ms ease, opacity 160ms ease, transform 160ms ease'
+    textAlign: 'left'
   },
   drawerIntegrationSummary: {
     minWidth: 0,
@@ -684,11 +704,7 @@ export const styles = (theme: Theme) => createStyles({
     color: 'var(--netdive-menu-muted)',
     fontSize: 11,
     fontWeight: 700,
-    maxWidth: 0,
-    opacity: 0,
-    transform: 'translateX(-6px)',
-    pointerEvents: 'none',
-    transition: 'max-width 180ms ease, opacity 160ms ease, transform 160ms ease'
+    textAlign: 'left'
   },
   sideSettingsPanel: {
     position: 'absolute',
