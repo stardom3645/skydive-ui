@@ -1966,6 +1966,30 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     private levelLabelIcon(title: string): string {
+        if (/kubernetes.*federation|쿠버네티스.*페더레이션/i.test(title)) {
+            return "\uf0e8"
+        }
+        if (/kubernetes.*cluster|쿠버네티스.*클러스터/i.test(title)) {
+            return "\uf1b2"
+        }
+        if (/kubernetes.*node|쿠버네티스.*노드/i.test(title)) {
+            return "\uf109"
+        }
+        if (/kubernetes.*namespace|쿠버네티스.*네임스페이스/i.test(title)) {
+            return "\uf24d"
+        }
+        if (/kubernetes.*pod|쿠버네티스.*파드/i.test(title)) {
+            return "\uf1b3"
+        }
+        if (/kubernetes.*container|쿠버네티스.*컨테이너/i.test(title)) {
+            return "\uf4b7"
+        }
+        if (/kubernetes.*service|쿠버네티스.*서비스/i.test(title)) {
+            return "\uf542"
+        }
+        if (/other kubernetes|기타 쿠버네티스/i.test(title)) {
+            return "\uf1b2"
+        }
         if (/system vm|시스템 가상머신/i.test(title)) {
             return "\uf085"
         }

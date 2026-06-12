@@ -2233,6 +2233,7 @@ class App extends React.Component<Props, State> {
     const infrastructureTag = this.config.defaultNodeTag()
     const activeTag = this.activeNodeTagName()
     const activeLabel = activeTag === "kubernetes" ? "Kubernetes" : translate("infrastructureMenu")
+    const activeSummary = activeTag === "kubernetes" ? translate("kubernetesLayerSummary") : translate("infrastructureLayerSummary")
     const activeIcon = activeTag === "kubernetes" ? <CloudQueueIcon fontSize="small" /> : <WavesIcon fontSize="small" />
     const items = [
       {
@@ -2256,9 +2257,12 @@ class App extends React.Component<Props, State> {
             aria-haspopup="true"
             onClick={(event: React.MouseEvent<HTMLElement>) => this.openMenu("layer-filter", event)}
             className={classes.layerFilterButton}>
-            {activeIcon}
-            <span className={classes.layerFilterButtonLabel}>{activeLabel}</span>
-            <KeyboardArrowDown fontSize="small" />
+            <span className={classes.layerFilterButtonIcon}>{activeIcon}</span>
+            <span className={classes.layerFilterButtonText}>
+              <span className={classes.layerFilterButtonLabel}>{activeLabel}</span>
+              <span className={classes.layerFilterButtonSummary}>{activeSummary}</span>
+            </span>
+            <span className={classes.layerFilterButtonChevron}><KeyboardArrowDown fontSize="small" /></span>
           </Button>
         </Tooltip>
         <Menu
@@ -3108,11 +3112,11 @@ class App extends React.Component<Props, State> {
           </IconButton>
         </div>
         <div className={clsx(classes.kubernetesSummaryGrid, classes.kubernetesTopologySummaryGrid)}>
-          {this.renderKubernetesTopologySummaryCard(classes, this.topologyImageIcon("assets/icons/cluster.png", translate("kubernetesTopologyClusters")), translate("kubernetesTopologyClusters"), summary.clusters, summary.clusterNodeIDs)}
+          {this.renderKubernetesTopologySummaryCard(classes, this.infrastructureIcon("\uf1b2", "network"), translate("kubernetesTopologyClusters"), summary.clusters, summary.clusterNodeIDs)}
           {this.renderKubernetesTopologySummaryCard(classes, this.infrastructureIcon("\uf109", "host"), translate("kubernetesTopologyNodes"), summary.nodes, summary.nodeNodeIDs)}
           {this.renderKubernetesTopologySummaryCard(classes, this.infrastructureIcon("\uf24d", "network"), translate("kubernetesTopologyNamespaces"), summary.namespaces, summary.namespaceNodeIDs)}
           {this.renderKubernetesTopologySummaryCard(classes, this.topologyImageIcon("assets/icons/pod.png", translate("kubernetesTopologyPods")), translate("kubernetesTopologyPods"), summary.pods, summary.podNodeIDs)}
-          {this.renderKubernetesTopologySummaryCard(classes, this.topologyImageIcon("assets/icons/service.png", translate("kubernetesTopologyServices")), translate("kubernetesTopologyServices"), summary.services, summary.serviceNodeIDs)}
+          {this.renderKubernetesTopologySummaryCard(classes, this.infrastructureIcon("\uf542", "network"), translate("kubernetesTopologyServices"), summary.services, summary.serviceNodeIDs)}
         </div>
         <div className={classes.kubernetesTableHeader}>
           <div className={classes.kubernetesSectionTitleArea}>

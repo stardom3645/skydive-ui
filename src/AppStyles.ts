@@ -1738,38 +1738,80 @@ export const styles = (theme: Theme) => createStyles({
     }
   },
   layerFilterButton: {
-    height: 36,
+    height: 48,
+    minWidth: 170,
     marginLeft: theme.spacing(1),
-    padding: theme.spacing(0, 1.15),
-    gap: theme.spacing(0.45),
+    padding: theme.spacing(0, 1.5),
+    gap: theme.spacing(1),
     border: '1px solid #d7e2f0',
     borderRadius: 10,
     backgroundColor: '#ffffff',
     color: 'var(--netdive-detail-title)',
     fontSize: 13,
-    fontWeight: 800,
+    fontWeight: 600,
     textTransform: 'none',
     whiteSpace: 'nowrap',
     lineHeight: 1,
-    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
+    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.03)',
     '&:hover': {
       color: 'var(--netdive-detail-title)',
-      backgroundColor: '#ffffff',
+      backgroundColor: '#f8fbff',
       borderColor: '#bfdbfe',
-      boxShadow: '0 3px 10px rgba(15, 23, 42, 0.08)'
+      boxShadow: '0 2px 8px rgba(15, 23, 42, 0.06)'
     },
     '& svg': {
       color: 'var(--netdive-detail-muted)',
-      fontSize: '1rem'
+      fontSize: '1.05rem'
     }
+  },
+  layerFilterButtonIcon: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: '0 0 auto',
+    '& svg': {
+      fontSize: 18
+    }
+  },
+  layerFilterButtonText: {
+    minWidth: 0,
+    flex: '1 1 auto',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 2,
+    overflow: 'hidden'
   },
   layerFilterButtonLabel: {
     display: 'inline-flex',
     alignItems: 'center',
     lineHeight: 1,
-    maxWidth: 128,
+    maxWidth: '100%',
     overflow: 'hidden',
-    textOverflow: 'ellipsis'
+    textOverflow: 'ellipsis',
+    color: 'var(--netdive-detail-title)',
+    fontSize: 13,
+    fontWeight: 600
+  },
+  layerFilterButtonSummary: {
+    display: 'block',
+    maxWidth: '100%',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    color: 'var(--netdive-detail-muted)',
+    fontSize: 11,
+    fontWeight: 600,
+    lineHeight: 1.1
+  },
+  layerFilterButtonChevron: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: '0 0 auto',
+    marginLeft: 'auto',
+    '& svg': {
+      fontSize: 16
+    }
   },
   layerFilterMenuPaper: {
     marginTop: 7,
