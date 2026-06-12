@@ -252,8 +252,7 @@ export const styles = (theme: Theme) => createStyles({
       duration: 180,
     }),
     '&:hover': {
-      width: drawerWidth,
-      boxShadow: '10px 0 24px rgba(15, 23, 42, 0.10)'
+      width: miniRailWidth
     },
     '&:hover $drawerMenuSectionTitle': {
       maxHeight: 22,
@@ -273,8 +272,12 @@ export const styles = (theme: Theme) => createStyles({
       justifyContent: 'initial'
     },
     '&:hover $drawerMenu': {
+      width: drawerWidth,
       padding: theme.spacing(1.8, 1, 1),
-      alignItems: 'stretch'
+      alignItems: 'stretch',
+      background: `linear-gradient(to right, var(--netdive-menu-card) 0, var(--netdive-menu-card) ${miniRailWidth}px, var(--netdive-detail-bg) ${miniRailWidth}px)`,
+      borderRight: '1px solid var(--netdive-menu-border-soft)',
+      boxShadow: '10px 0 24px rgba(15, 23, 42, 0.10)'
     }
   },
   drawerPaperClose: {
@@ -294,7 +297,7 @@ export const styles = (theme: Theme) => createStyles({
     border: 'none',
     borderRadius: 0,
     boxShadow: 'none',
-    overflow: 'hidden',
+    overflow: 'visible',
     color: 'var(--netdive-menu-text)',
     transition: 'border-radius 180ms ease, box-shadow 180ms ease'
   },
@@ -302,11 +305,14 @@ export const styles = (theme: Theme) => createStyles({
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
+    width: miniRailWidth,
+    minHeight: '100vh',
     gap: theme.spacing(0.15),
     padding: theme.spacing(1.8, 0.5, 1),
     overflowY: 'auto',
     overflowX: 'hidden',
-    transition: 'padding 180ms ease'
+    backgroundColor: 'var(--netdive-menu-card)',
+    transition: 'width 180ms ease, padding 180ms ease, box-shadow 180ms ease, background 180ms ease'
   },
   drawerDivider: {
     margin: `${theme.spacing(0.65)}px 0 ${theme.spacing(0.15)}px`,

@@ -2421,8 +2421,8 @@ class App extends React.Component<Props, State> {
         type="button"
         className={clsx(classes.drawerMenuItem, active && classes.drawerMenuItemActive)}
         onClick={onClick}>
-        <span className={classes.drawerMenuIcon}>{icon}</span>
-        <span className={classes.drawerMenuLabel}>{label}</span>
+        <span className={clsx(classes.drawerMenuIcon, "anticon", "anticon-dashboard")}>{icon}</span>
+        <span className={clsx(classes.drawerMenuLabel, "ant-menu-title-content")}>{label}</span>
       </button>
     )
   }
@@ -2433,9 +2433,9 @@ class App extends React.Component<Props, State> {
         type="button"
         className={clsx(classes.drawerIntegrationItem, active && classes.drawerMenuItemActive)}
         onClick={onClick}>
-        <span className={classes.drawerMenuIcon}>{icon}</span>
+        <span className={clsx(classes.drawerMenuIcon, "anticon", "anticon-dashboard")}>{icon}</span>
         <span className={classes.drawerIntegrationMain}>
-          <span className={classes.drawerMenuLabel}>{label}</span>
+          <span className={clsx(classes.drawerMenuLabel, "ant-menu-title-content")}>{label}</span>
           {summary && <span className={classes.drawerIntegrationSummary}>{summary}</span>}
         </span>
       </button>
