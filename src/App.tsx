@@ -1648,8 +1648,8 @@ class App extends React.Component<Props, State> {
       default:
         return {
           icon: "",
-          label: "선택 노드만 표시",
-          description: "선택한 노드의 링크 트래픽만 표시됩니다.",
+          label: "계층 숨김",
+          description: "해당 링크 계층의 링크와 트래픽 표시를 숨깁니다.",
           className: "hidden"
         }
     }
@@ -1691,8 +1691,8 @@ class App extends React.Component<Props, State> {
       {
         mode: "hidden" as const,
         state: LinkTagState.Hidden,
-        title: "선택 노드만 표시",
-        points: ["특정 노드 트래픽 집중 분석에 유용", "불필요한 정보 없이 집중 분석 가능"]
+        title: "계층 숨김",
+        points: ["현재 분석에 필요 없는 계층을 숨김", "토폴로지의 불필요한 링크 표시를 줄임"]
       }
     ]
 
@@ -1742,7 +1742,7 @@ class App extends React.Component<Props, State> {
     if (state === LinkTagState.EventBased) {
       return "관련 링크"
     }
-    return "선택 노드"
+    return "숨김"
   }
 
   private compactLinkLayerLabel(tag: string) {
@@ -1795,8 +1795,8 @@ class App extends React.Component<Props, State> {
       },
       {
         state: LinkTagState.Hidden,
-        label: "선택 노드",
-        tooltip: "선택한 노드의 링크 트래픽만 표시됩니다."
+        label: "숨김",
+        tooltip: "해당 링크 계층의 링크와 트래픽 표시를 숨깁니다."
       }
     ]
 
