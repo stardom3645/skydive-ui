@@ -182,6 +182,7 @@ interface State {
   language: "en" | "ko"
   isVMConsoleOpening: boolean
   isLinkTagsCollapsed: boolean
+  isLinkTagExamplesOpen: boolean
   isVMConsoleEnabled: boolean
   netdiveTheme: NetdiveTheme
   isInfrastructurePanelOpen: boolean
@@ -343,6 +344,7 @@ class App extends React.Component<Props, State> {
       vmNetworkMap: {},
       isVMConsoleOpening: false,
       isLinkTagsCollapsed: true,
+      isLinkTagExamplesOpen: false,
       isVMConsoleEnabled: true,
       netdiveTheme: getSavedNetdiveTheme(),
       isInfrastructurePanelOpen: false,
@@ -426,6 +428,9 @@ class App extends React.Component<Props, State> {
     const savedLinkTagPanel = localStorage.getItem("netdive-link-tags-collapsed")
     if (savedLinkTagPanel === "1") {
       this.state.isLinkTagsCollapsed = true
+      this.setState(this.state)
+    } else if (savedLinkTagPanel === "0") {
+      this.state.isLinkTagsCollapsed = false
       this.setState(this.state)
     }
 
@@ -1658,11 +1663,11 @@ class App extends React.Component<Props, State> {
       const meta = this.linkTagMeta(tag)
       const state = this.state.linkTagStates.get(tag)
       const stateLabel = state === LinkTagState.Visible
-        ? "전체"
+        ? "전체 링크"
         : state === LinkTagState.EventBased
-          ? "관련"
-          : "선택"
-      return `${meta.key} ${stateLabel}`
+          ? "관련 링크"
+          : "선택 노드"
+      return `${meta.key} · ${stateLabel}`
     }).join(" · ")
   }
 
@@ -1709,28 +1714,34 @@ class App extends React.Component<Props, State> {
 
     return (
       <div className={classes.linkTagsUsageExamples}>
-        <Typography component="strong" className={classes.linkTagsStateHelpTitle}>
-          사용 예시
-        </Typography>
-        <div className={classes.linkTagsUsageGrid}>
-          {examples.map((example) => {
-            const stateInfo = this.linkTagStateInfo(example.state)
-            return (
-              <div key={example.mode} className={classes.linkTagsUsageCard}>
-                <div className={classes.linkTagsUsageHeader}>
-                  <span className={clsx(classes.linkLayerStateIcon, classes[`linkLayerStateIcon${stateInfo.className}`])}>
-                    {stateInfo.icon}
-                  </span>
-                  <strong>{example.title}</strong>
+        <button
+          type="button"
+          className={classes.linkTagsUsageToggle}
+          onClick={() => this.setState({ isLinkTagExamplesOpen: !this.state.isLinkTagExamplesOpen })}>
+          <span>사용 예시 보기</span>
+          {this.state.isLinkTagExamplesOpen ? <UnfoldLessIcon fontSize="small" /> : <UnfoldMoreIcon fontSize="small" />}
+        </button>
+        {this.state.isLinkTagExamplesOpen &&
+          <div className={classes.linkTagsUsageGrid}>
+            {examples.map((example) => {
+              const stateInfo = this.linkTagStateInfo(example.state)
+              return (
+                <div key={example.mode} className={classes.linkTagsUsageCard}>
+                  <div className={classes.linkTagsUsageHeader}>
+                    <span className={clsx(classes.linkLayerStateIcon, classes[`linkLayerStateIcon${stateInfo.className}`])}>
+                      {stateInfo.icon}
+                    </span>
+                    <strong>{example.title}</strong>
+                  </div>
+                  {this.renderLinkUsageDiagram(classes, example.mode)}
+                  <ul>
+                    {example.points.map((point) => <li key={point}>{point}</li>)}
+                  </ul>
                 </div>
-                {this.renderLinkUsageDiagram(classes, example.mode)}
-                <ul>
-                  {example.points.map((point) => <li key={point}>{point}</li>)}
-                </ul>
-              </div>
-            )
-          })}
-        </div>
+              )
+            })}
+          </div>
+        }
       </div>
     )
   }
