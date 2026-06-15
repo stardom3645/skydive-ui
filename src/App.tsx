@@ -1725,29 +1725,67 @@ class App extends React.Component<Props, State> {
     )
   }
 
+  private primaryCompactLinkTag(tags: string[]) {
+    return tags.find((tag) => this.state.linkTagStates.get(tag) !== LinkTagState.Hidden) || tags[0] || ""
+  }
+
+  private compactLinkRangeLabel(tag: string) {
+    const state = this.state.linkTagStates.get(tag)
+    if (state === LinkTagState.Visible) {
+      return "전체 링크"
+    }
+    if (state === LinkTagState.EventBased) {
+      return "관련 링크"
+    }
+    return "선택 노드"
+  }
+
+  private selectCompactLinkTag(tag: string, tags: string[]) {
+    if (!this.tc) {
+      return
+    }
+    tags.forEach((candidate) => {
+      this.tc!.setLinkTagState(candidate, candidate === tag ? LinkTagState.EventBased : LinkTagState.Hidden)
+    })
+  }
+
   private renderCompactLinkTagControls(classes: any, tags: string[]) {
+    const primaryTag = this.primaryCompactLinkTag(tags)
+    const primaryRangeLabel = this.compactLinkRangeLabel(primaryTag)
+
     return (
-      <div className={classes.linkTagsCompactControls}>
-        {tags.slice(0, 4).map((tag) => {
-          const meta = this.linkTagMeta(tag)
-          const stateInfo = this.linkTagStateInfo(this.state.linkTagStates.get(tag))
-          return (
-            <button
-              type="button"
-              key={tag}
-              className={clsx(classes.linkTagsCompactControl, classes[`linkTagsCompactControl${stateInfo.className}`])}
-              title={`${meta.key}: ${stateInfo.label}`}
-              onClick={(event) => {
-                event.stopPropagation()
-                this.cycleLinkTagState(tag)
-              }}>
-              <span className={classes.linkTagsCompactControlKey}>{meta.key}</span>
-              <span className={clsx(classes.linkLayerStateIcon, classes[`linkLayerStateIcon${stateInfo.className}`])}>
-                {stateInfo.icon}
-              </span>
-            </button>
-          )
-        })}
+      <div className={classes.linkTagsCompactBody}>
+        <div className={classes.linkTagsCompactControls}>
+          {tags.slice(0, 4).map((tag) => {
+            const meta = this.linkTagMeta(tag)
+            const isActive = tag === primaryTag
+            return (
+              <button
+                type="button"
+                key={tag}
+                className={clsx(classes.linkTagsCompactControl, isActive && classes.linkTagsCompactControlActive)}
+                title={`${meta.key}: ${meta.name}`}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  this.selectCompactLinkTag(tag, tags)
+                }}>
+                {meta.key}
+              </button>
+            )
+          })}
+        </div>
+        <button
+          type="button"
+          className={classes.linkTagsCompactRange}
+          title="표시 범위 변경"
+          onClick={(event) => {
+            event.stopPropagation()
+            if (primaryTag) {
+              this.cycleLinkTagState(primaryTag)
+            }
+          }}>
+          {primaryRangeLabel}
+        </button>
       </div>
     )
   }
@@ -2454,7 +2492,12 @@ class App extends React.Component<Props, State> {
             }
             {this.state.isLinkTagsCollapsed &&
               <Paper
-                className={classes.linkTagsCollapsedTab}>
+                className={classes.linkTagsCollapsedTab}
+                onClick={() => {
+                  this.state.isLinkTagsCollapsed = false
+                  this.setState(this.state)
+                  localStorage.setItem("netdive-link-tags-collapsed", "0")
+                }}>
                 <div className={classes.linkTagsCollapsedMain}>
                   <Typography component="span" className={classes.linkTagsCollapsedTitle}>
                     {translate("networkLinkLayer")}
@@ -2464,7 +2507,8 @@ class App extends React.Component<Props, State> {
                 <IconButton
                   size="small"
                   className={classes.linkTagsCollapseButton}
-                  onClick={() => {
+                  onClick={(event) => {
+                    event.stopPropagation()
                     this.state.isLinkTagsCollapsed = false
                     this.setState(this.state)
                     localStorage.setItem("netdive-link-tags-collapsed", "0")
