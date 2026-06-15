@@ -1740,6 +1740,24 @@ class App extends React.Component<Props, State> {
     return "선택 노드"
   }
 
+  private compactLinkLayerLabel(tag: string) {
+    const meta = this.linkTagMeta(tag)
+    const normalized = tag.toLowerCase()
+    if (normalized === "layer2") {
+      return "L2 물리"
+    }
+    if (normalized === "vlayer2") {
+      return "vL2 가상"
+    }
+    return meta.key
+  }
+
+  private compactLinkLayerDescription() {
+    return this.isKubernetesLayerActive()
+      ? "Kubernetes 리소스 간 연결 표시 방식을 선택합니다."
+      : "표시할 연결 계층과 트래픽 범위를 선택합니다."
+  }
+
   private selectCompactLinkTag(tag: string, tags: string[]) {
     if (!this.tc) {
       return
@@ -1749,43 +1767,76 @@ class App extends React.Component<Props, State> {
     })
   }
 
+  private setCompactLinkRange(tag: string, state: LinkTagState) {
+    if (!this.tc || !tag) {
+      return
+    }
+    this.tc.setLinkTagState(tag, state)
+  }
+
   private renderCompactLinkTagControls(classes: any, tags: string[]) {
     const primaryTag = this.primaryCompactLinkTag(tags)
-    const primaryRangeLabel = this.compactLinkRangeLabel(primaryTag)
+    const activeState = this.state.linkTagStates.get(primaryTag) || LinkTagState.Hidden
+    const rangeOptions = [
+      {
+        state: LinkTagState.EventBased,
+        label: "관련 링크",
+        tooltip: "선택한 노드와 직접 연결되거나 관련된 링크와 트래픽/라인만 표시합니다."
+      },
+      {
+        state: LinkTagState.Visible,
+        label: "전체 링크",
+        tooltip: "모든 노드의 링크와 트래픽이 표시됩니다."
+      },
+      {
+        state: LinkTagState.Hidden,
+        label: "선택 노드",
+        tooltip: "선택한 노드의 링크 트래픽만 표시됩니다."
+      }
+    ]
 
     return (
       <div className={classes.linkTagsCompactBody}>
-        <div className={classes.linkTagsCompactControls}>
-          {tags.slice(0, 4).map((tag) => {
-            const meta = this.linkTagMeta(tag)
-            const isActive = tag === primaryTag
-            return (
-              <button
-                type="button"
-                key={tag}
-                className={clsx(classes.linkTagsCompactControl, isActive && classes.linkTagsCompactControlActive)}
-                title={`${meta.key}: ${meta.name}`}
-                onClick={(event) => {
-                  event.stopPropagation()
-                  this.selectCompactLinkTag(tag, tags)
-                }}>
-                {meta.key}
-              </button>
-            )
-          })}
+        <div className={classes.linkTagsCompactRow}>
+          <span className={classes.linkTagsCompactRowLabel}>계층</span>
+          <div className={classes.linkTagsCompactSegment}>
+            {tags.slice(0, 4).map((tag) => {
+              const meta = this.linkTagMeta(tag)
+              const isActive = tag === primaryTag
+              return (
+                <Tooltip key={tag} title={meta.description}>
+                  <button
+                    type="button"
+                    className={clsx(classes.linkTagsCompactControl, isActive && classes.linkTagsCompactControlActive)}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      this.selectCompactLinkTag(tag, tags)
+                    }}>
+                    {this.compactLinkLayerLabel(tag)}
+                  </button>
+                </Tooltip>
+              )
+            })}
+          </div>
         </div>
-        <button
-          type="button"
-          className={classes.linkTagsCompactRange}
-          title="표시 범위 변경"
-          onClick={(event) => {
-            event.stopPropagation()
-            if (primaryTag) {
-              this.cycleLinkTagState(primaryTag)
-            }
-          }}>
-          {primaryRangeLabel}
-        </button>
+        <div className={classes.linkTagsCompactRow}>
+          <span className={classes.linkTagsCompactRowLabel}>표시 범위</span>
+          <div className={classes.linkTagsCompactSegment}>
+            {rangeOptions.map((option) => (
+              <Tooltip key={option.label} title={option.tooltip}>
+                <button
+                  type="button"
+                  className={clsx(classes.linkTagsCompactControl, activeState === option.state && classes.linkTagsCompactControlActive)}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    this.setCompactLinkRange(primaryTag, option.state)
+                  }}>
+                  {option.label}
+                </button>
+              </Tooltip>
+            ))}
+          </div>
+        </div>
       </div>
     )
   }
@@ -2492,29 +2543,31 @@ class App extends React.Component<Props, State> {
             }
             {this.state.isLinkTagsCollapsed &&
               <Paper
-                className={classes.linkTagsCollapsedTab}
-                onClick={() => {
-                  this.state.isLinkTagsCollapsed = false
-                  this.setState(this.state)
-                  localStorage.setItem("netdive-link-tags-collapsed", "0")
-                }}>
+                className={classes.linkTagsCollapsedTab}>
                 <div className={classes.linkTagsCollapsedMain}>
-                  <Typography component="span" className={classes.linkTagsCollapsedTitle}>
-                    {translate("networkLinkLayer")}
-                  </Typography>
+                  <button
+                    type="button"
+                    className={classes.linkTagsCollapsedHeader}
+                    onClick={() => {
+                      this.state.isLinkTagsCollapsed = false
+                      this.setState(this.state)
+                      localStorage.setItem("netdive-link-tags-collapsed", "0")
+                    }}>
+                    <span className={classes.linkTagsCollapsedHeaderLeft}>
+                      <WavesIcon className={classes.linkTagsCollapsedHeaderIcon} />
+                      <span>
+                        <Typography component="span" className={classes.linkTagsCollapsedTitle}>
+                          {translate("networkLinkLayer")}
+                        </Typography>
+                        <Typography component="span" className={classes.linkTagsCollapsedDescription}>
+                          {this.compactLinkLayerDescription()}
+                        </Typography>
+                      </span>
+                    </span>
+                    <UnfoldMoreIcon fontSize="small" className={classes.linkTagsCollapsedIcon} />
+                  </button>
                   {this.renderCompactLinkTagControls(classes, visibleTags)}
                 </div>
-                <IconButton
-                  size="small"
-                  className={classes.linkTagsCollapseButton}
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    this.state.isLinkTagsCollapsed = false
-                    this.setState(this.state)
-                    localStorage.setItem("netdive-link-tags-collapsed", "0")
-                  }}>
-                  <UnfoldMoreIcon fontSize="small" />
-                </IconButton>
               </Paper>
             }
           </Container>
