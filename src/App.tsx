@@ -1975,7 +1975,29 @@ class App extends React.Component<Props, State> {
 
   private selectTopologyLayer(tag: string) {
     this.closeMenu("layer-filter")
+    if (tag !== this.activeNodeTagName()) {
+      this.clearSelectionForLayerChange()
+    }
     this.activeNodeTag(tag)
+  }
+
+  private clearSelectionForLayerChange() {
+    if (!this.tc) {
+      return
+    }
+
+    this.props.selection.slice().forEach((el) => {
+      if (el.type === 'node') {
+        this.tc!.selectNode(el.id, false)
+      } else {
+        this.tc!.selectLink(el.id, false)
+      }
+    })
+    this.tc.unpinNodes()
+    this.setState({
+      isSelectionOpen: false,
+      isTimetravelOpen: false
+    })
   }
 
   private syncTopologyNodeTagForNodes(nodeIDs: string[]) {
