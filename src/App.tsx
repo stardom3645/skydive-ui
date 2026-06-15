@@ -412,7 +412,7 @@ class App extends React.Component<Props, State> {
   componentDidMount() {
     // make the application available globally
     window.App = this
-    document.addEventListener("mousedown", this.documentMouseDown)
+    document.addEventListener("mousedown", this.documentMouseDown, true)
 
     if (this.props.configURL) {
       this.config.appendURL("URL", this.props.configURL)
@@ -446,7 +446,7 @@ class App extends React.Component<Props, State> {
   }
 
   componentWillUnmount() {
-    document.removeEventListener("mousedown", this.documentMouseDown)
+    document.removeEventListener("mousedown", this.documentMouseDown, true)
     if (this.checkAuthID) {
       window.clearInterval(this.checkAuthID)
     }
@@ -3707,7 +3707,6 @@ class App extends React.Component<Props, State> {
         {this.renderDrawerIntegrationItem(classes, <WavesIcon />, translate("infrastructureMenu"), translate("infrastructureMenuSummary"), () => this.openInfrastructureTopology(), this.state.isInfrastructurePanelOpen)}
         {this.renderDrawerIntegrationItem(classes, <DeviceHubIcon />, translate("kubernetesCollectionMenu"), translate("kubernetesMenuSummary"), () => this.openKubernetesManager(), this.state.isKubernetesManagerOpen)}
         <div className={classes.drawerMenuSectionTitle}>{translate("viewSettingsSection")}</div>
-        {this.renderDrawerMenuItem(classes, <WavesIcon />, translate("screenConfig"), () => this.openScreenConfigPanel(), this.state.isScreenConfigOpen)}
         {this.renderDrawerMenuItem(classes, <Brightness4Icon />, translate("preferences"), () => this.openPreferencesPanel(), this.state.isPreferencesPanelOpen)}
         <div className={classes.drawerMenuSectionTitle}>{translate("helpSection")}</div>
         {this.renderDrawerMenuItem(classes, <LibraryBooksIcon />, "Help", this.openHelpDialog.bind(this), this.state.isHelpOpen)}
