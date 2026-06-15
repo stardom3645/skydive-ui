@@ -1991,12 +1991,18 @@ export const styles = (theme: Theme) => createStyles({
     backgroundColor: 'var(--netdive-detail-bg)',
     boxShadow: '0 8px 24px rgba(15, 23, 42, 0.08)',
     color: 'var(--netdive-detail-text)',
-    width: 'min(560px, 100%)',
-    maxWidth: 560,
+    width: 'fit-content',
+    maxWidth: 'min(560px, 100%)',
     boxSizing: 'border-box',
     minHeight: 136,
     padding: theme.spacing(1.5, 1.6),
     pointerEvents: 'auto',
+  },
+  linkTagsCollapsedTabInfrastructure: {
+    width: 'min(452px, 100%)',
+  },
+  linkTagsCollapsedTabKubernetes: {
+    width: 'min(540px, 100%)',
   },
   linkTagsCollapsedMain: {
     display: 'flex',

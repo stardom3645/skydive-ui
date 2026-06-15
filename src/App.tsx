@@ -2543,7 +2543,10 @@ class App extends React.Component<Props, State> {
             }
             {this.state.isLinkTagsCollapsed &&
               <Paper
-                className={classes.linkTagsCollapsedTab}>
+                className={clsx(
+                  classes.linkTagsCollapsedTab,
+                  this.isKubernetesLayerActive() ? classes.linkTagsCollapsedTabKubernetes : classes.linkTagsCollapsedTabInfrastructure
+                )}>
                 <div className={classes.linkTagsCollapsedMain}>
                   <button
                     type="button"
@@ -2554,7 +2557,10 @@ class App extends React.Component<Props, State> {
                       localStorage.setItem("netdive-link-tags-collapsed", "0")
                     }}>
                     <span className={classes.linkTagsCollapsedHeaderLeft}>
-                      <WavesIcon className={classes.linkTagsCollapsedHeaderIcon} />
+                      {this.isKubernetesLayerActive()
+                        ? <DeviceHubIcon className={classes.linkTagsCollapsedHeaderIcon} />
+                        : <WavesIcon className={classes.linkTagsCollapsedHeaderIcon} />
+                      }
                       <span>
                         <Typography component="span" className={classes.linkTagsCollapsedTitle}>
                           {translate("networkLinkLayer")}
