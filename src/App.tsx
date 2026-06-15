@@ -342,7 +342,7 @@ class App extends React.Component<Props, State> {
       vmNameMap: {},
       vmNetworkMap: {},
       isVMConsoleOpening: false,
-      isLinkTagsCollapsed: false,
+      isLinkTagsCollapsed: true,
       isVMConsoleEnabled: true,
       netdiveTheme: getSavedNetdiveTheme(),
       isInfrastructurePanelOpen: false,
@@ -1653,6 +1653,88 @@ class App extends React.Component<Props, State> {
     return `전체 ${all} · 관련 ${related} · 선택 ${selected}`
   }
 
+  private linkTagsCompactSummary(tags: string[]) {
+    return tags.slice(0, 4).map((tag) => {
+      const meta = this.linkTagMeta(tag)
+      const state = this.state.linkTagStates.get(tag)
+      const stateLabel = state === LinkTagState.Visible
+        ? "전체"
+        : state === LinkTagState.EventBased
+          ? "관련"
+          : "선택"
+      return `${meta.key} ${stateLabel}`
+    }).join(" · ")
+  }
+
+  private renderLinkUsageDiagram(classes: any, mode: "event" | "visible" | "hidden") {
+    const active = mode === "visible" ? [1, 2, 3, 4, 5] : mode === "event" ? [2, 3, 4] : [3]
+    const lineClass = (index: number) => active.indexOf(index) !== -1 ? classes.linkUsageLineActive : classes.linkUsageLineMuted
+    const nodeClass = (index: number) => active.indexOf(index) !== -1 ? classes.linkUsageNodeActive : classes.linkUsageNodeMuted
+    return (
+      <svg className={classes.linkUsageDiagram} viewBox="0 0 120 64" aria-hidden="true">
+        <line x1="24" y1="18" x2="58" y2="32" className={lineClass(2)} />
+        <line x1="24" y1="48" x2="58" y2="32" className={lineClass(3)} />
+        <line x1="58" y1="32" x2="96" y2="18" className={lineClass(4)} />
+        <line x1="58" y1="32" x2="96" y2="48" className={lineClass(5)} />
+        <circle cx="24" cy="18" r="6" className={nodeClass(1)} />
+        <circle cx="24" cy="48" r="6" className={nodeClass(2)} />
+        <circle cx="58" cy="32" r="8" className={classes.linkUsageNodeSelected} />
+        <circle cx="96" cy="18" r="6" className={nodeClass(4)} />
+        <circle cx="96" cy="48" r="6" className={nodeClass(5)} />
+      </svg>
+    )
+  }
+
+  private renderLinkUsageExamples(classes: any) {
+    const examples = [
+      {
+        mode: "event" as const,
+        state: LinkTagState.EventBased,
+        title: "선택 노드와 관련된 링크만 표시",
+        points: ["관련 없는 링크를 줄여 가독성 향상", "대규모 환경에서 성능 부담 감소"]
+      },
+      {
+        mode: "visible" as const,
+        state: LinkTagState.Visible,
+        title: "모든 노드 링크 표시",
+        points: ["전체 네트워크 흐름 파악에 유용", "네트워크 병목, 이상 현상 탐지에 도움"]
+      },
+      {
+        mode: "hidden" as const,
+        state: LinkTagState.Hidden,
+        title: "선택 노드만 표시",
+        points: ["특정 노드 트래픽 집중 분석에 유용", "불필요한 정보 없이 집중 분석 가능"]
+      }
+    ]
+
+    return (
+      <div className={classes.linkTagsUsageExamples}>
+        <Typography component="strong" className={classes.linkTagsStateHelpTitle}>
+          사용 예시
+        </Typography>
+        <div className={classes.linkTagsUsageGrid}>
+          {examples.map((example) => {
+            const stateInfo = this.linkTagStateInfo(example.state)
+            return (
+              <div key={example.mode} className={classes.linkTagsUsageCard}>
+                <div className={classes.linkTagsUsageHeader}>
+                  <span className={clsx(classes.linkLayerStateIcon, classes[`linkLayerStateIcon${stateInfo.className}`])}>
+                    {stateInfo.icon}
+                  </span>
+                  <strong>{example.title}</strong>
+                </div>
+                {this.renderLinkUsageDiagram(classes, example.mode)}
+                <ul>
+                  {example.points.map((point) => <li key={point}>{point}</li>)}
+                </ul>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+
   onLinkTagChange(tags: Map<string, LinkTagState>) {
     this.state.linkTagStates = tags
     this.debSetState(this.state)
@@ -2265,6 +2347,7 @@ class App extends React.Component<Props, State> {
     const tags = this.orderedLinkTagsForActiveLayer()
     const visibleTags = tags.filter((tag) => tag !== "ownership" && tag !== "vownership")
     const summaryText = this.linkTagsSummaryText(visibleTags)
+    const compactSummaryText = this.linkTagsCompactSummary(visibleTags)
 
     return (
       <React.Fragment>
@@ -2287,11 +2370,6 @@ class App extends React.Component<Props, State> {
                     </Typography>
                   </div>
                   <div className={classes.linkTagsHeaderActions}>
-                    <Tooltip title="화면 하단에 고정됨">
-                      <span className={classes.linkTagsPinButton}>
-                        <CheckCircleIcon fontSize="small" />
-                      </span>
-                    </Tooltip>
                     <IconButton
                       size="small"
                       className={classes.linkTagsCollapseButton}
@@ -2303,6 +2381,9 @@ class App extends React.Component<Props, State> {
                       <UnfoldLessIcon fontSize="small" />
                     </IconButton>
                   </div>
+                </div>
+                <div className={classes.linkTagsCompactHint}>
+                  {compactSummaryText}
                 </div>
                 <div className={classes.linkLayerCards}>
                   {visibleTags.map((key) => {
@@ -2353,6 +2434,7 @@ class App extends React.Component<Props, State> {
                     })}
                   </div>
                 </div>
+                {this.renderLinkUsageExamples(classes)}
                 {this.isKubernetesLayerActive() &&
                   <div className={classes.linkTagsNotice}>
                     <InfoIcon fontSize="small" />
@@ -2374,7 +2456,7 @@ class App extends React.Component<Props, State> {
                     {translate("networkLinkLayer")}
                   </Typography>
                   <Typography component="span" className={classes.linkTagsCollapsedText}>
-                    {summaryText}
+                    {compactSummaryText || summaryText}
                   </Typography>
                 </div>
                 <UnfoldMoreIcon fontSize="small" className={classes.linkTagsCollapsedIcon} />
