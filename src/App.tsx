@@ -34,9 +34,6 @@ import RestoreIcon from '@material-ui/icons/Restore'
 import Divider from '@material-ui/core/Divider'
 import Container from '@material-ui/core/Container'
 import Paper from '@material-ui/core/Paper'
-import Checkbox from '@material-ui/core/Checkbox'
-import FormGroup from '@material-ui/core/FormGroup'
-import FormControlLabel from '@material-ui/core/FormControlLabel'
 import ToggleButton from '@material-ui/lab/ToggleButton'
 import ToggleButtonGroup from '@material-ui/lab/ToggleButtonGroup'
 import { withSnackbar, WithSnackbarProps } from 'notistack'
@@ -1526,21 +1523,134 @@ class App extends React.Component<Props, State> {
   }
 
   onLinkTagStateChange(event) {
+    this.cycleLinkTagState(event.target.value)
+  }
+
+  private cycleLinkTagState(tag: string) {
     if (!this.tc) {
       return
     }
 
-    switch (this.tc.linkTagStates.get(event.target.value)) {
+    switch (this.tc.linkTagStates.get(tag)) {
       case LinkTagState.Hidden:
-        this.tc.setLinkTagState(event.target.value, LinkTagState.EventBased)
+        this.tc.setLinkTagState(tag, LinkTagState.EventBased)
         break
       case LinkTagState.EventBased:
-        this.tc.setLinkTagState(event.target.value, LinkTagState.Visible)
+        this.tc.setLinkTagState(tag, LinkTagState.Visible)
         break
       case LinkTagState.Visible:
-        this.tc.setLinkTagState(event.target.value, LinkTagState.Hidden)
+        this.tc.setLinkTagState(tag, LinkTagState.Hidden)
         break
     }
+  }
+
+  private linkTagMeta(tag: string) {
+    const normalized = tag.toLowerCase()
+    const meta: { [key: string]: { key: string, name: string, summary: string, description: string } } = {
+      layer2: {
+        key: "L2",
+        name: "물리 네트워크 계층",
+        summary: "Layer 2",
+        description: "스위치, 물리 네트워크 장비 간 실제 연결 링크를 표시합니다."
+      },
+      vlayer2: {
+        key: "vL2",
+        name: "가상 네트워크 계층",
+        summary: "Virtual Layer 2",
+        description: "VM, 가상 스위치, 가상 네트워크 간 연결 링크를 표시합니다."
+      },
+      service: {
+        key: "Service",
+        name: "Service 연결",
+        summary: "Kubernetes Service",
+        description: "Kubernetes Service와 관련 리소스 간 연결을 표시합니다."
+      },
+      node: {
+        key: "Node",
+        name: "Node 연결",
+        summary: "Kubernetes Node",
+        description: "Kubernetes Node와 관련 리소스 간 연결을 표시합니다."
+      },
+      daemonset: {
+        key: "DaemonSet",
+        name: "DaemonSet 연결",
+        summary: "Kubernetes DaemonSet",
+        description: "Kubernetes DaemonSet과 Pod/Node 간 연결을 표시합니다."
+      }
+    }
+    return meta[normalized] || {
+      key: tag,
+      name: translate(tag),
+      summary: "추가 링크 계층",
+      description: "수집된 Graph 데이터에서 제공된 추가 링크 계층입니다."
+    }
+  }
+
+  private orderedLinkTagsForActiveLayer(): string[] {
+    const tags = Array.from(this.state.linkTagStates.keys())
+    const preferred = this.isKubernetesLayerActive()
+      ? ["service", "node", "daemonset"]
+      : ["layer2", "vlayer2"]
+    const preferredSet = new Set(preferred)
+    const infraSet = new Set(["layer2", "vlayer2"])
+    const kubernetesSet = new Set([
+      "cluster",
+      "namespace",
+      "node",
+      "pod",
+      "service",
+      "deployment",
+      "daemonset",
+      "statefulset",
+      "ingress",
+      "networkpolicy"
+    ])
+    const normalizedToTag = new Map(tags.map((tag) => [tag.toLowerCase(), tag]))
+    const ordered = preferred
+      .map((tag) => normalizedToTag.get(tag))
+      .filter((tag): tag is string => !!tag)
+    const extras = tags.filter((tag) => {
+      const normalized = tag.toLowerCase()
+      if (preferredSet.has(normalized)) {
+        return false
+      }
+      return this.isKubernetesLayerActive() ? !infraSet.has(normalized) : !kubernetesSet.has(normalized)
+    })
+    return ordered.concat(extras)
+  }
+
+  private linkTagStateInfo(state: LinkTagState | undefined) {
+    switch (state) {
+      case LinkTagState.Visible:
+        return {
+          icon: "V",
+          label: "모든 노드 링크 표시",
+          description: "모든 노드의 링크와 트래픽이 표시됩니다.",
+          className: "visible"
+        }
+      case LinkTagState.EventBased:
+        return {
+          icon: "-",
+          label: "선택 노드와 관련된 링크만 표시",
+          description: "선택한 노드와 직접 연결되거나 관련된 링크와 트래픽/라인만 표시됩니다.",
+          className: "event"
+        }
+      default:
+        return {
+          icon: "",
+          label: "선택 노드만 표시",
+          description: "선택한 노드의 링크 트래픽만 표시됩니다.",
+          className: "hidden"
+        }
+    }
+  }
+
+  private linkTagsSummaryText(tags: string[]) {
+    const entries = tags.map((tag) => this.state.linkTagStates.get(tag))
+    const all = entries.filter((state) => state === LinkTagState.Visible).length
+    const related = entries.filter((state) => state === LinkTagState.EventBased).length
+    const selected = entries.filter((state) => state === LinkTagState.Hidden).length
+    return `전체 ${all} · 관련 ${related} · 선택 ${selected}`
   }
 
   onLinkTagChange(tags: Map<string, LinkTagState>) {
@@ -2152,37 +2262,103 @@ class App extends React.Component<Props, State> {
   }
 
   renderLinkTagButtons(classes: any) {
+    const tags = this.orderedLinkTagsForActiveLayer()
+    const visibleTags = tags.filter((tag) => tag !== "ownership" && tag !== "vownership")
+    const summaryText = this.linkTagsSummaryText(visibleTags)
+
     return (
       <React.Fragment>
-        {this.state.linkTagStates.size !== 0 &&
+        {visibleTags.length !== 0 &&
           <Container className={classes.linkTagsPanel}>
             {!this.state.isLinkTagsCollapsed &&
               <Paper className={classes.linkTagsPanelPaper}>
                 <div className={classes.linkTagsHeader}>
-                  <Typography component="h6" color="primary">
-                    {translate("networkLinkLayer")}
-                  </Typography>
-                  <IconButton
-                    size="small"
-                    className={classes.linkTagsCollapseButton}
-                    onClick={() => {
-                      this.state.isLinkTagsCollapsed = true
-                      this.setState(this.state)
-                      localStorage.setItem("netdive-link-tags-collapsed", "1")
-                    }}>
-                    <UnfoldLessIcon fontSize="small" />
-                  </IconButton>
+                  <div className={classes.linkTagsHeaderLeft}>
+                    <div className={classes.linkTagsTitleRow}>
+                      <Typography component="h6" className={classes.linkTagsTitle}>
+                        {translate("networkLinkLayer")}
+                      </Typography>
+                      <Tooltip title="표시할 네트워크 연결 범위와 트래픽 표시 방식을 선택합니다.">
+                        <InfoIcon className={classes.linkTagsInfoIcon} />
+                      </Tooltip>
+                    </div>
+                    <Typography component="span" className={classes.linkTagsSummary}>
+                      {summaryText}
+                    </Typography>
+                  </div>
+                  <div className={classes.linkTagsHeaderActions}>
+                    <Tooltip title="화면 하단에 고정됨">
+                      <span className={classes.linkTagsPinButton}>
+                        <CheckCircleIcon fontSize="small" />
+                      </span>
+                    </Tooltip>
+                    <IconButton
+                      size="small"
+                      className={classes.linkTagsCollapseButton}
+                      onClick={() => {
+                        this.state.isLinkTagsCollapsed = true
+                        this.setState(this.state)
+                        localStorage.setItem("netdive-link-tags-collapsed", "1")
+                      }}>
+                      <UnfoldLessIcon fontSize="small" />
+                    </IconButton>
+                  </div>
                 </div>
-                <FormGroup>
-                  {Array.from(this.state.linkTagStates.keys()).map((key) => (
-                    <FormControlLabel key={key} control={
-                      <Checkbox value={key} color="primary" onChange={this.onLinkTagStateChange.bind(this)}
-                        checked={this.state.linkTagStates.get(key) === LinkTagState.Visible}
-                        indeterminate={this.state.linkTagStates.get(key) === LinkTagState.EventBased} />
-                    }
-                      label={translate(key)} />
-                  ))}
-                </FormGroup>
+                <div className={classes.linkLayerCards}>
+                  {visibleTags.map((key) => {
+                    const meta = this.linkTagMeta(key)
+                    const stateInfo = this.linkTagStateInfo(this.state.linkTagStates.get(key))
+                    const stateClass = stateInfo.className === "visible"
+                      ? classes.linkLayerCardVisible
+                      : stateInfo.className === "event"
+                        ? classes.linkLayerCardEvent
+                        : classes.linkLayerCardHidden
+                    return (
+                      <button
+                        type="button"
+                        key={key}
+                        className={clsx(classes.linkLayerCard, stateClass)}
+                        onClick={() => this.cycleLinkTagState(key)}
+                        title={`${meta.name}: ${stateInfo.description}`}>
+                        <div className={classes.linkLayerCardMain}>
+                          <span className={classes.linkLayerCardKey}>{meta.key}</span>
+                          <span className={classes.linkLayerCardName}>{meta.name}</span>
+                          <span className={classes.linkLayerCardSummary}>{meta.summary}</span>
+                        </div>
+                        <span className={clsx(classes.linkLayerStateIcon, classes[`linkLayerStateIcon${stateInfo.className}`])}>
+                          {stateInfo.icon}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+                <div className={classes.linkTagsStateHelp}>
+                  <Typography component="strong" className={classes.linkTagsStateHelpTitle}>
+                    선택 상태에 따른 표시 범위
+                  </Typography>
+                  <div className={classes.linkTagsStateHelpItems}>
+                    {[LinkTagState.EventBased, LinkTagState.Visible, LinkTagState.Hidden].map((state) => {
+                      const stateInfo = this.linkTagStateInfo(state)
+                      return (
+                        <div key={stateInfo.className} className={classes.linkTagsStateHelpItem}>
+                          <span className={clsx(classes.linkLayerStateIcon, classes[`linkLayerStateIcon${stateInfo.className}`])}>
+                            {stateInfo.icon}
+                          </span>
+                          <span>
+                            <strong>{stateInfo.label}</strong>
+                            <em>{stateInfo.description}</em>
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+                {this.isKubernetesLayerActive() &&
+                  <div className={classes.linkTagsNotice}>
+                    <InfoIcon fontSize="small" />
+                    <span>수집되는 자원에 따라 추가 링크 계층이 표시될 수 있습니다.</span>
+                  </div>
+                }
               </Paper>
             }
             {this.state.isLinkTagsCollapsed &&
@@ -2193,9 +2369,15 @@ class App extends React.Component<Props, State> {
                   this.setState(this.state)
                   localStorage.setItem("netdive-link-tags-collapsed", "0")
                 }}>
-                <Typography component="span" color="primary" className={classes.linkTagsCollapsedText}>
-                  계층 필터
-                </Typography>
+                <div className={classes.linkTagsCollapsedMain}>
+                  <Typography component="span" className={classes.linkTagsCollapsedTitle}>
+                    {translate("networkLinkLayer")}
+                  </Typography>
+                  <Typography component="span" className={classes.linkTagsCollapsedText}>
+                    {summaryText}
+                  </Typography>
+                </div>
+                <UnfoldMoreIcon fontSize="small" className={classes.linkTagsCollapsedIcon} />
               </Paper>
             }
           </Container>
