@@ -457,24 +457,29 @@ class App extends React.Component<Props, State> {
   }
 
   private onDocumentMouseDown(event: MouseEvent) {
-    if (!this.state.isInfrastructurePanelOpen && !this.state.isKubernetesManagerOpen && !this.state.isScreenConfigOpen && !this.state.isPreferencesPanelOpen && !this.state.isHelpOpen && !this.state.isAboutOpen) {
+    const isLinkTagsExpanded = !this.state.isLinkTagsCollapsed && this.state.linkTagStates.size !== 0
+    if (!this.state.isInfrastructurePanelOpen && !this.state.isKubernetesManagerOpen && !this.state.isScreenConfigOpen && !this.state.isPreferencesPanelOpen && !this.state.isHelpOpen && !this.state.isAboutOpen && !isLinkTagsExpanded) {
       return
     }
     const target = event.target as Element | null
     if (!target || !target.closest) {
       return
     }
-    if (target.closest('[data-netdive-side-panel="true"], [class*="kubernetesManagerPanel"], [class*="sideSettingsPanel"], [data-netdive-drawer="true"], .MuiDialog-root')) {
+    if (target.closest('[data-netdive-side-panel="true"], [data-netdive-link-tags="true"], [class*="kubernetesManagerPanel"], [class*="sideSettingsPanel"], [data-netdive-drawer="true"], .MuiDialog-root')) {
       return
     }
-    this.closeSidePanels()
+    if (isLinkTagsExpanded) {
+      localStorage.setItem("netdive-link-tags-collapsed", "1")
+    }
+    this.closeSidePanels({ isLinkTagsCollapsed: isLinkTagsExpanded ? true : undefined })
   }
 
-  private closeSidePanels(extraState: { isNavOpen?: boolean, isSelectionOpen?: boolean, isTimetravelOpen?: boolean } = {}) {
+  private closeSidePanels(extraState: { isNavOpen?: boolean, isSelectionOpen?: boolean, isTimetravelOpen?: boolean, isLinkTagsCollapsed?: boolean } = {}) {
     this.setState({
       isNavOpen: extraState.isNavOpen !== undefined ? extraState.isNavOpen : this.state.isNavOpen,
       isSelectionOpen: extraState.isSelectionOpen !== undefined ? extraState.isSelectionOpen : this.state.isSelectionOpen,
       isTimetravelOpen: extraState.isTimetravelOpen !== undefined ? extraState.isTimetravelOpen : this.state.isTimetravelOpen,
+      isLinkTagsCollapsed: extraState.isLinkTagsCollapsed !== undefined ? extraState.isLinkTagsCollapsed : this.state.isLinkTagsCollapsed,
       isInfrastructurePanelOpen: false,
       isKubernetesManagerOpen: false,
       isScreenConfigOpen: false,
@@ -2456,7 +2461,7 @@ class App extends React.Component<Props, State> {
     return (
       <React.Fragment>
         {visibleTags.length !== 0 &&
-          <Container className={classes.linkTagsPanel}>
+          <Container className={classes.linkTagsPanel} data-netdive-link-tags="true">
             {!this.state.isLinkTagsCollapsed &&
               <Paper className={classes.linkTagsPanelPaper}>
                 <div className={classes.linkTagsHeader}>
