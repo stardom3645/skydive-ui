@@ -1650,27 +1650,6 @@ class App extends React.Component<Props, State> {
     }
   }
 
-  private linkTagsSummaryText(tags: string[]) {
-    const entries = tags.map((tag) => this.state.linkTagStates.get(tag))
-    const all = entries.filter((state) => state === LinkTagState.Visible).length
-    const related = entries.filter((state) => state === LinkTagState.EventBased).length
-    const selected = entries.filter((state) => state === LinkTagState.Hidden).length
-    return `전체 ${all} · 관련 ${related} · 선택 ${selected}`
-  }
-
-  private linkTagsCompactSummary(tags: string[]) {
-    return tags.slice(0, 4).map((tag) => {
-      const meta = this.linkTagMeta(tag)
-      const state = this.state.linkTagStates.get(tag)
-      const stateLabel = state === LinkTagState.Visible
-        ? "전체 링크"
-        : state === LinkTagState.EventBased
-          ? "관련 링크"
-          : "선택 노드"
-      return `${meta.key} · ${stateLabel}`
-    }).join(" · ")
-  }
-
   private renderLinkUsageDiagram(classes: any, mode: "event" | "visible" | "hidden") {
     const active = mode === "visible" ? [1, 2, 3, 4, 5] : mode === "event" ? [2, 3, 4] : [3]
     const lineClass = (index: number) => active.indexOf(index) !== -1 ? classes.linkUsageLineActive : classes.linkUsageLineMuted
@@ -1742,6 +1721,33 @@ class App extends React.Component<Props, State> {
             })}
           </div>
         }
+      </div>
+    )
+  }
+
+  private renderCompactLinkTagControls(classes: any, tags: string[]) {
+    return (
+      <div className={classes.linkTagsCompactControls}>
+        {tags.slice(0, 4).map((tag) => {
+          const meta = this.linkTagMeta(tag)
+          const stateInfo = this.linkTagStateInfo(this.state.linkTagStates.get(tag))
+          return (
+            <button
+              type="button"
+              key={tag}
+              className={clsx(classes.linkTagsCompactControl, classes[`linkTagsCompactControl${stateInfo.className}`])}
+              title={`${meta.key}: ${stateInfo.label}`}
+              onClick={(event) => {
+                event.stopPropagation()
+                this.cycleLinkTagState(tag)
+              }}>
+              <span className={classes.linkTagsCompactControlKey}>{meta.key}</span>
+              <span className={clsx(classes.linkLayerStateIcon, classes[`linkLayerStateIcon${stateInfo.className}`])}>
+                {stateInfo.icon}
+              </span>
+            </button>
+          )
+        })}
       </div>
     )
   }
@@ -2357,8 +2363,6 @@ class App extends React.Component<Props, State> {
   renderLinkTagButtons(classes: any) {
     const tags = this.orderedLinkTagsForActiveLayer()
     const visibleTags = tags.filter((tag) => tag !== "ownership" && tag !== "vownership")
-    const summaryText = this.linkTagsSummaryText(visibleTags)
-    const compactSummaryText = this.linkTagsCompactSummary(visibleTags)
 
     return (
       <React.Fragment>
@@ -2376,9 +2380,6 @@ class App extends React.Component<Props, State> {
                         <InfoIcon className={classes.linkTagsInfoIcon} />
                       </Tooltip>
                     </div>
-                    <Typography component="span" className={classes.linkTagsSummary}>
-                      {summaryText}
-                    </Typography>
                   </div>
                   <div className={classes.linkTagsHeaderActions}>
                     <IconButton
@@ -2392,9 +2393,6 @@ class App extends React.Component<Props, State> {
                       <UnfoldLessIcon fontSize="small" />
                     </IconButton>
                   </div>
-                </div>
-                <div className={classes.linkTagsCompactHint}>
-                  {compactSummaryText}
                 </div>
                 <div className={classes.linkLayerCards}>
                   {visibleTags.map((key) => {
@@ -2456,21 +2454,23 @@ class App extends React.Component<Props, State> {
             }
             {this.state.isLinkTagsCollapsed &&
               <Paper
-                className={classes.linkTagsCollapsedTab}
-                onClick={() => {
-                  this.state.isLinkTagsCollapsed = false
-                  this.setState(this.state)
-                  localStorage.setItem("netdive-link-tags-collapsed", "0")
-                }}>
+                className={classes.linkTagsCollapsedTab}>
                 <div className={classes.linkTagsCollapsedMain}>
                   <Typography component="span" className={classes.linkTagsCollapsedTitle}>
                     {translate("networkLinkLayer")}
                   </Typography>
-                  <Typography component="span" className={classes.linkTagsCollapsedText}>
-                    {compactSummaryText || summaryText}
-                  </Typography>
+                  {this.renderCompactLinkTagControls(classes, visibleTags)}
                 </div>
-                <UnfoldMoreIcon fontSize="small" className={classes.linkTagsCollapsedIcon} />
+                <IconButton
+                  size="small"
+                  className={classes.linkTagsCollapseButton}
+                  onClick={() => {
+                    this.state.isLinkTagsCollapsed = false
+                    this.setState(this.state)
+                    localStorage.setItem("netdive-link-tags-collapsed", "0")
+                  }}>
+                  <UnfoldMoreIcon fontSize="small" />
+                </IconButton>
               </Paper>
             }
           </Container>
