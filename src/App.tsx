@@ -1824,6 +1824,7 @@ class App extends React.Component<Props, State> {
             })}
           </div>
         </div>
+        <div className={classes.linkTagsCompactDivider} />
         <div className={classes.linkTagsCompactRow}>
           <span className={classes.linkTagsCompactRowLabel}>표시 범위</span>
           <div className={classes.linkTagsCompactSegment}>

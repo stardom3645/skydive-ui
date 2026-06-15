@@ -2072,9 +2072,14 @@ export const styles = (theme: Theme) => createStyles({
   linkTagsCompactRowLabel: {
     color: 'var(--netdive-detail-muted)',
     fontSize: 12,
-    fontWeight: 700,
+    fontWeight: 600,
     lineHeight: 1,
     whiteSpace: 'nowrap',
+  },
+  linkTagsCompactDivider: {
+    height: 1,
+    backgroundColor: 'var(--netdive-detail-border)',
+    margin: theme.spacing(0.3, 0),
   },
   linkTagsCompactSegment: {
     display: 'flex',
