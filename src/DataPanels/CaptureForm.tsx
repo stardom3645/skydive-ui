@@ -690,10 +690,10 @@ class CaptureForm extends React.Component<Props, State> {
                 </AccordionSummary>
                 <AccordionDetails>
                   <div className={classes.exampleGrid}>
-                    <div><span>Host / Interface / Bridge</span><strong>직접 캡처 가능</strong><small>선택한 인프라 노드에서 캡처합니다.</small></div>
-                    <div><span>Kubernetes Node</span><strong>조건부 가능</strong><small>연결된 인프라 노드 기준 캡처를 권장합니다.</small></div>
-                    <div><span>Pod</span><strong>조건부 가능</strong><small>Pod가 실행 중인 Node 매핑이 필요합니다.</small></div>
-                    <div><span>Service / Namespace / DaemonSet</span><strong>직접 캡처 불가</strong><small>관련 Pod 또는 Node를 먼저 확인합니다.</small></div>
+                    <div><span>Interface / Bond / Bridge</span><strong>직접 캡처 가능</strong><small>캡처 가능한 TID와 캡처 타입이 있는 인프라 객체에서 실행합니다.</small></div>
+                    <div><span>Host / Switch / VM</span><strong>직접 캡처 불가</strong><small>논리/상위 객체이므로 관련 인터페이스나 브리지에서 캡처합니다.</small></div>
+                    <div><span>Kubernetes 리소스</span><strong>직접 캡처 불가</strong><small>현재 정책에서는 관련 인프라 노드에서 캡처 대상을 선택합니다.</small></div>
+                    <div><span>Service / Namespace / DaemonSet</span><strong>직접 캡처 불가</strong><small>관련 Pod, Node, 인프라 객체를 먼저 확인합니다.</small></div>
                   </div>
                 </AccordionDetails>
               </Accordion>
