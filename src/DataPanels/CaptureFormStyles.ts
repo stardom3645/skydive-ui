@@ -351,30 +351,55 @@ export const styles = (theme: Theme) => createStyles({
         '& div': {
             border: '1px solid var(--netdive-detail-border, #dbe7f5)',
             borderRadius: 12,
-            padding: theme.spacing(1),
+            padding: theme.spacing(1.1),
             background: '#fff',
+            minWidth: 0,
         },
-        '& span': {
+        '& header': {
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            gap: theme.spacing(1),
+            minWidth: 0,
+        },
+        '& header span': {
             display: 'inline-flex',
-            color: '#1a73e8',
-            background: '#eff6ff',
+            flexShrink: 0,
             borderRadius: 999,
-            padding: '2px 7px',
+            padding: '3px 7px',
             fontSize: 10.5,
-            fontWeight: 700,
+            fontWeight: 800,
         },
         '& strong': {
             display: 'block',
-            marginTop: theme.spacing(0.6),
             color: 'var(--netdive-detail-text, #0f172a)',
-            fontSize: 12.5,
+            fontSize: 13.5,
+            fontWeight: 800,
+            lineHeight: 1.25,
+            minWidth: 0,
         },
         '& small': {
             display: 'block',
-            marginTop: theme.spacing(0.4),
+            marginTop: theme.spacing(0.75),
             color: 'var(--netdive-detail-muted, #64748b)',
-            fontSize: 11,
-            lineHeight: 1.35,
+            fontSize: 11.5,
+            lineHeight: 1.4,
+        }
+    },
+    exampleCardAvailable: {
+        borderColor: '#bbf7d0 !important',
+        background: '#f0fdf4 !important',
+        '& header span': {
+            color: '#15803d',
+            background: '#dcfce7',
+            border: '1px solid #86efac',
+        }
+    },
+    exampleCardUnavailable: {
+        '& header span': {
+            color: '#b45309',
+            background: '#fffbeb',
+            border: '1px solid #fed7aa',
         }
     },
     wizardHelpPanel: {
