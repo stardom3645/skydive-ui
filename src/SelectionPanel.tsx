@@ -30,7 +30,7 @@ import DataPanel from './StdDataPanel'
 import { a11yProps, TabPanel } from './Tabs'
 import { AppState } from './Store'
 import { styles } from './SelectionPanelStyles'
-import ConfigReducer from './Config'
+import ConfigReducer, { translate } from './Config'
 
 
 interface Props {
@@ -153,17 +153,19 @@ class SelectionPanel extends React.Component<Props, State> {
       return (
         <React.Fragment key={el.id}>
           <div className={classes.tabActions}>
-            <Tooltip title="Remove from selection" aria-label="Remove from selection">
+            <Tooltip title={translate("removeFromSelection")} aria-label={translate("removeFromSelection")}>
               <IconButton
                 onClick={() => this.props.onClose && this.props.onClose(el)}
-                color="inherit">
+                color="inherit"
+                aria-label={translate("removeFromSelection")}>
                 <CancelIcon />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Pin node" aria-label="pin node">
+            <Tooltip title={translate("pinNode")} aria-label={translate("pinNode")}>
               <IconButton
                 onClick={() => this.props.onLocation && this.props.onLocation(el)}
-                color="inherit">
+                color="inherit"
+                aria-label={translate("pinNode")}>
                 <LocationOnIcon />
               </IconButton>
             </Tooltip>

@@ -87,10 +87,8 @@ import { Configuration } from './api/configuration'
 import * as api from './api/api'
 import { StatusApi, APIInfoApi, ConfigApi } from './api'
 import Tools from './Tools'
-import GremlinButton from './ActionButtons/Gremlin'
 import CaptureButton from './ActionButtons/Capture'
 import VMConsoleButton from './ActionButtons/VMConsole'
-import GremlinPanel from './DataPanels/Gremlin'
 import CapturePanel from './DataPanels/Capture'
 import FlowPanel from './DataPanels/Flow'
 import TimetravelPanel from './TimetravelPanel'
@@ -2150,22 +2148,48 @@ class App extends React.Component<Props, State> {
     )
   }
 
+  private isPacketCaptureAvailable(el: Node | Link): el is Node {
+    if (el.type !== 'node') {
+      return false
+    }
+
+    const node = el as Node
+    const type = typeof node.data?.Type === "string" ? node.data.Type.toLowerCase() : ""
+    const manager = typeof node.data?.Manager === "string" ? node.data.Manager.toLowerCase() : ""
+    const tid = node.data?.TID
+
+    if (manager === "k8s" || !tid) {
+      return false
+    }
+
+    const disallowedCaptureTypes = new Set([
+      "switch",
+      "switchport",
+      "host",
+      "libvirt",
+      "system",
+      "tuntap",
+      "ovsbridge"
+    ])
+
+    return !disallowedCaptureTypes.has(type)
+  }
+
   actionButtons(el: Node | Link) {
     const showVMConsoleButton = this.state.isVMConsoleEnabled && el.type === 'node' && this.isVMNode(el)
     const vmNode = showVMConsoleButton ? (el as Node) : undefined
     const vmID = vmNode ? this.getMoldVMID(vmNode) : undefined
     const instanceName = vmNode ? this.getMoldInstanceName(vmNode) : undefined
+    const showCaptureButton = this.isPacketCaptureAvailable(el)
 
     return (
       <React.Fragment>
-        <GremlinButton el={el} onClick={() => {
-          this.state.isGremlinPanelOpen = !this.state.isGremlinPanelOpen
-          this.setState(this.state)
-        }} />
-        <CaptureButton el={el} onClick={() => {
-          this.state.isCapturePanelOpen = !this.state.isCapturePanelOpen
-          this.setState(this.state)
-        }} />
+        {showCaptureButton &&
+          <CaptureButton el={el} onClick={() => {
+            this.state.isCapturePanelOpen = !this.state.isCapturePanelOpen
+            this.setState(this.state)
+          }} />
+        }
         {showVMConsoleButton &&
           <VMConsoleButton
             el={vmNode as Node}
@@ -2336,8 +2360,9 @@ class App extends React.Component<Props, State> {
   dataPanels(el: Node | Link) {
     return (
       <React.Fragment>
-        <GremlinPanel el={el} expanded={this.state.isGremlinPanelOpen} />
-        <CapturePanel el={el} expanded={this.state.isCapturePanelOpen} config={this.config} />
+        {this.isPacketCaptureAvailable(el) &&
+          <CapturePanel el={el} expanded={this.state.isCapturePanelOpen} config={this.config} />
+        }
         {el.data!.Captures &&
           <FlowPanel el={el} />
         }

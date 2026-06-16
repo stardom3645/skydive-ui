@@ -6,6 +6,7 @@ import DesktopWindowsIcon from '@material-ui/icons/DesktopWindows'
 
 import { styles } from '../DataPanels/PanelStyles'
 import { Node } from '../Topology'
+import { translate } from '../Config'
 
 interface Props {
   el: Node
@@ -16,10 +17,10 @@ interface Props {
 export class VMConsoleButton extends React.Component<Props> {
   render() {
     return (
-      <Tooltip title="콘솔 열기" aria-label="Open console">
+      <Tooltip title={translate("openConsole")} aria-label={translate("openConsole")}>
         <span>
           <IconButton
-            aria-label="Open VM console"
+            aria-label={translate("openConsole")}
             onClick={() => this.props.onClick(this.props.el)}
             color="inherit"
             disabled={this.props.disabled === true}>

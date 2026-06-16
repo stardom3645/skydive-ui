@@ -23,6 +23,7 @@ import VideocamIcon from '@material-ui/icons/Videocam'
 
 import { styles } from '../DataPanels/PanelStyles'
 import { Node, Link } from '../Topology'
+import { translate } from '../Config'
 
 interface Props {
     el: Node | Link
@@ -40,9 +41,9 @@ export class CapturePanel extends React.Component<Props> {
             <React.Fragment>
                 {
                     this.props.el.type === 'node' &&
-                    <Tooltip title="Packet capture" aria-label="Packet capture">
+                    <Tooltip title={translate("Packet capture")} aria-label={translate("Packet capture")}>
                         <IconButton
-                            aria-label="Packet capture"
+                            aria-label={translate("Packet capture")}
                             onClick={() => this.props.onClick(this.props.el)}
                             color="inherit">
                             <VideocamIcon />

@@ -125,6 +125,9 @@ export const i18nMap = {
         "infrastructureLayerSummary": "Network · Host · VM",
         "kubernetesLayerSummary": "Cluster · Node · Pod",
         "close": "Close",
+        "removeFromSelection": "Remove from selection",
+        "pinNode": "Pin node",
+        "openConsole": "Open console",
         "setting": "Setting",
         "refresh": "Refresh",
         "loading": "Loading",
@@ -428,6 +431,7 @@ export const i18nMap = {
         "bpf-pcap-only": "BPF filters are only supported for PCAP captures.",
         "sflow-unavailable-no": "This interface does not have an IPv4 address, so sFlow capture cannot be configured.",
         "dpdk-unavailable": "This node is not a DPDK port, so DPDK capture is not available.",
+        "ovs-mirror-only": "Only available on eligible OVS ports.",
         "ovs-mirror-physical-nic-only": "OVS Mirror is only available on OVS ports connected to a physical NIC.",
         "tooltip-pcap": "PCAP: The simplest capture driver with low performance, but works in most environments.",
         "tooltip-afpacket": "AFPacket: High-speed packet capture based on the Linux kernel. Recommended for general NICs.",
@@ -510,6 +514,9 @@ export const i18nMap = {
         "infrastructureLayerSummary": "네트워크 · 호스트 · VM",
         "kubernetesLayerSummary": "클러스터 · 노드 · 파드",
         "close": "닫기",
+        "removeFromSelection": "선택 해제",
+        "pinNode": "노드 위치로 이동",
+        "openConsole": "콘솔 열기",
         "setting": "설정",
         "refresh": "새로고침",
         "loading": "불러오는 중",
@@ -1603,8 +1610,10 @@ class DefaultConfig {
         const alreadyCaptured = captures > 0;
 
         // 캡처 비허용 타입 정의
-        const disallowedCaptureTypes = ["switch", "switchport", "host", "libvirt", "tuntap", "system", "ovsbridge"];
-        const isDisallowed = disallowedCaptureTypes.includes(node.data.Type);
+        const nodeType = typeof node.data.Type === "string" ? node.data.Type.toLowerCase() : "";
+        const manager = typeof node.data.Manager === "string" ? node.data.Manager.toLowerCase() : "";
+        const disallowedCaptureTypes = ["switch", "switchport", "host", "libvirt", "tuntap", "system", "ovsbridge", "ovsport"];
+        const isDisallowed = manager === "k8s" || !node.data.TID || disallowedCaptureTypes.includes(nodeType);
 
         return [
             {

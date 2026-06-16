@@ -1999,10 +1999,10 @@ export const styles = (theme: Theme) => createStyles({
     pointerEvents: 'auto',
   },
   linkTagsCollapsedTabInfrastructure: {
-    width: 'min(452px, 100%)',
+    width: 'min(384px, 100%)',
   },
   linkTagsCollapsedTabKubernetes: {
-    width: 'min(540px, 100%)',
+    width: 'min(472px, 100%)',
   },
   linkTagsCollapsedMain: {
     display: 'flex',

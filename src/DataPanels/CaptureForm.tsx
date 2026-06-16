@@ -27,7 +27,6 @@ import { connect } from 'react-redux'
 import { translate } from "../Config"
 import HelpIconWithDialog from './HelpIconWithDialog'
 import Tooltip from '@material-ui/core/Tooltip'
-import * as ipaddr from "ipaddr.js"
 
 function Alert(props) {
   return <MuiAlert elevation={6} variant="filled" {...props} />
@@ -62,36 +61,11 @@ class CaptureForm extends React.Component<Props, State> {
   constructor(props) {
     super(props)
 
-    const { node } = props
-    const isOvsPort = node.data.Type === "ovsport"
-    const nodeIPs = node.data.IPV4 || []
-    const isSflowEligible   = Array.isArray(nodeIPs) && nodeIPs.length > 0
-    const isDPDKPort        = node.data.Type === "dpdkport"
-    const isOvsMirrorEligible =
-      isOvsPort &&
-      typeof node.data.Name === "string" &&
-      !/^ovs-port-mir/.test(node.data.Name)
-
-    const eligibleTypes: string[] = []
-    if (!isOvsPort) {
-      eligibleTypes.push("pcap", "afpacket")
-    }
-    if (isSflowEligible) {
-      eligibleTypes.push("sflow")
-    }
-    if (isDPDKPort) {
-      eligibleTypes.push("dpdk")
-    }
-    if (isOvsMirrorEligible) {
-      eligibleTypes.push("ovsmirror")
-    }
-    const defaultCaptureType = eligibleTypes[0] || ""
-    
     this.state = {
       name: props.defaultName || "",
       description: "",
       bpf: "",
-      captureType: defaultCaptureType,
+      captureType: this.defaultCaptureType(props.node),
       layerKey: "L3",
       headerSize: "",
       rawPacketLimit: "0",
@@ -104,13 +78,130 @@ class CaptureForm extends React.Component<Props, State> {
     }
   }
 
+  componentDidUpdate(prevProps: Props) {
+    if (this.nodeKey(prevProps.node) === this.nodeKey(this.props.node)) {
+      return
+    }
+
+    const defaultCaptureType = this.defaultCaptureType(this.props.node)
+    this.setState({
+      name: this.props.defaultName || "",
+      captureType: this.isCaptureTypeEligible(this.props.node, this.state.captureType) ? this.state.captureType : defaultCaptureType,
+      bpf: "",
+      description: ""
+    })
+  }
+
+  private nodeKey(node?: Node): string {
+    return node?.data?.TID || node?.id || ""
+  }
+
+  private nodeType(node?: Node): string {
+    return typeof node?.data?.Type === "string" ? node.data.Type.toLowerCase() : ""
+  }
+
+  private nodeIPv4List(node?: Node): any[] {
+    return Array.isArray(node?.data?.IPV4) ? node!.data.IPV4 : []
+  }
+
+  private isOvsPort(node?: Node): boolean {
+    return this.nodeType(node) === "ovsport"
+  }
+
+  private isDPDKPort(node?: Node): boolean {
+    return this.nodeType(node) === "dpdkport"
+  }
+
+  private isOvsMirrorEligible(node?: Node): boolean {
+    return this.isOvsPort(node) &&
+      typeof node?.data?.Name === "string" &&
+      !/^ovs-port-mir/i.test(node.data.Name)
+  }
+
+  private isSflowEligible(node?: Node): boolean {
+    return this.nodeIPv4List(node).length > 0
+  }
+
+  private eligibleCaptureTypes(node?: Node): string[] {
+    const eligibleTypes: string[] = []
+
+    if (!this.isOvsPort(node)) {
+      eligibleTypes.push("pcap", "afpacket")
+    }
+    if (this.isSflowEligible(node)) {
+      eligibleTypes.push("sflow")
+    }
+    if (this.isDPDKPort(node)) {
+      eligibleTypes.push("dpdk")
+    }
+    if (this.isOvsMirrorEligible(node)) {
+      eligibleTypes.push("ovsmirror")
+    }
+
+    return eligibleTypes
+  }
+
+  private defaultCaptureType(node?: Node): string {
+    return this.eligibleCaptureTypes(node)[0] || ""
+  }
+
+  private isCaptureTypeEligible(node: Node | undefined, captureType: string): boolean {
+    return !!captureType && this.eligibleCaptureTypes(node).includes(captureType)
+  }
+
+  private isCaptureDisabled(node?: Node): boolean {
+    const type = this.nodeType(node)
+    const manager = typeof node?.data?.Manager === "string" ? node.data.Manager.toLowerCase() : ""
+    const disallowedTypes = ["switch", "switchport", "host", "libvirt", "tuntap", "system", "ovsbridge"]
+
+    return manager === "k8s" || !node?.data?.TID || disallowedTypes.includes(type) || this.eligibleCaptureTypes(node).length === 0
+  }
+
+  private isHeaderSizeValid(): boolean {
+    if (!this.state.headerSize) {
+      return true
+    }
+
+    const headerSize = parseInt(this.state.headerSize, 10)
+    return !isNaN(headerSize) && headerSize >= 14 && headerSize <= 4096
+  }
+
+  private isRawPacketLimitValid(): boolean {
+    if (!this.state.rawPacketLimit) {
+      return true
+    }
+
+    const rawPacketLimit = parseInt(this.state.rawPacketLimit, 10)
+    return !isNaN(rawPacketLimit) && (rawPacketLimit === 0 || (rawPacketLimit > 0 && rawPacketLimit <= 10))
+  }
+
   handleChange = (field: keyof State) => (event) => {
     const value = event.target.type === 'checkbox' ? event.target.checked : event.target.value
     this.setState({ [field]: value } as Pick<State, keyof State>)
   }
 
   onClick = async () => {
-    if (this.state.captureType !== "pcap" && this.state.bpf.trim() !== "") {
+    const captureType = this.state.captureType || this.defaultCaptureType(this.props.node)
+
+    if (this.isCaptureDisabled(this.props.node) || !this.isCaptureTypeEligible(this.props.node, captureType)) {
+      this.setState({
+        snackbarOpen: true,
+        snackbarMessage: translate("capture-validation-error"),
+        snackbarSeverity: "error"
+      })
+      return
+    }
+
+    if (!this.isHeaderSizeValid() || !this.isRawPacketLimitValid()) {
+      this.setState({
+        snackbarOpen: true,
+        snackbarMessage: translate("capture-validation-error"),
+        snackbarSeverity: "error"
+      })
+      return
+    }
+
+    if (captureType !== "pcap" && this.state.bpf.trim() !== "") {
       this.setState({
         snackbarOpen: true,
         snackbarMessage: translate("bpf-pcap-only"),
@@ -131,17 +222,16 @@ class CaptureForm extends React.Component<Props, State> {
         Name: this.state.name,
         Description: this.state.description,
         BPFFilter: this.state.bpf,
-        Type: this.state.captureType,
+        Type: captureType,
         LayerKeyMode: this.state.layerKey,
-        HeaderSize: this.state.headerSize ? parseInt(this.state.headerSize) : undefined,
-        RawPacketLimit: this.state.rawPacketLimit ? parseInt(this.state.rawPacketLimit) : 0,
+        HeaderSize: this.state.headerSize ? parseInt(this.state.headerSize, 10) : undefined,
+        RawPacketLimit: this.state.rawPacketLimit ? parseInt(this.state.rawPacketLimit, 10) : 0,
         ExtraTCPMetric: this.state.extraTCPMetric,
         IPDefrag: this.state.defragIPv4,
         ReassembleTCP: this.state.reassembleTCP
       }
 
-      const result = await api.createCapture(payload as any)
-      console.log("Capture created:", result)
+      await api.createCapture(payload as any)
 
       // 캡처 성공 시 부모 콜백 호출
       this.setState({
@@ -185,40 +275,15 @@ class CaptureForm extends React.Component<Props, State> {
   render() {
     const { classes } = this.props
 
-    const disallowedTypes = ["switch", "switchport", "host", "libvirt", "tuntap", "system", "ovsbridge"];
-    const isCaptureDisabled = disallowedTypes.includes(this.props.node?.data?.Type);
-
-    const isOvsPort = this.props.node?.data?.Type === "ovsport"
-    const isOvsMirrorEligible =
-          isOvsPort &&
-          typeof this.props.node?.data?.Name === "string" &&
-          !/^ovs-port-mir/.test(this.props.node.data.Name); // 미러 출력 포트 제외
-
-    const isPcapEligible     = !isOvsPort;
-    const isAfpacketEligible = !isOvsPort;
-
-    const nodeIPs = this.props.node?.data?.IPV4 || []
-    const isSflowEligible = Array.isArray(nodeIPs) && nodeIPs.length > 0
-
-    const isDPDKPort = this.props.node?.data?.Type === "dpdkport";
-
-    const eligibleTypes: string[] = []
-    if (!isOvsPort) {
-      eligibleTypes.push("pcap", "afpacket")
-    }
-    if (isSflowEligible) {
-      eligibleTypes.push("sflow")
-    }
-    if (isDPDKPort) {
-      eligibleTypes.push("dpdk")
-    }
-    if (isOvsMirrorEligible) {
-      eligibleTypes.push("ovsmirror")
-    }
-    const defaultCaptureType = eligibleTypes[0] || ""
-
-    // state.captureType 비어있으면 default 사용
+    const isCaptureDisabled = this.isCaptureDisabled(this.props.node)
+    const isPcapEligible = this.isCaptureTypeEligible(this.props.node, "pcap")
+    const isAfpacketEligible = this.isCaptureTypeEligible(this.props.node, "afpacket")
+    const isSflowEligible = this.isCaptureTypeEligible(this.props.node, "sflow")
+    const isDPDKPort = this.isCaptureTypeEligible(this.props.node, "dpdk")
+    const isOvsMirrorEligible = this.isCaptureTypeEligible(this.props.node, "ovsmirror")
+    const defaultCaptureType = this.defaultCaptureType(this.props.node)
     const captureType = this.state.captureType || defaultCaptureType
+    const hasValidationError = !this.isHeaderSizeValid() || !this.isRawPacketLimitValid()
 
     return (
       <>
@@ -375,11 +440,11 @@ class CaptureForm extends React.Component<Props, State> {
                     onChange={this.handleChange("headerSize")}
                     error={
                       !!this.state.headerSize &&
-                      (parseInt(this.state.headerSize) < 14 || parseInt(this.state.headerSize) > 4096)
+                      !this.isHeaderSizeValid()
                     }
                     helperText={
                       !!this.state.headerSize &&
-                      (parseInt(this.state.headerSize) < 14 || parseInt(this.state.headerSize) > 4096)
+                      !this.isHeaderSizeValid()
                         ? translate("capture-headerSize-validation-error")
                         : ""
                     }
@@ -424,7 +489,7 @@ class CaptureForm extends React.Component<Props, State> {
                       />
                     </Tooltip>
                   </FormControl>
-                  <FormControl>
+                  <FormControl fullWidth>
                     <TextField
                       label={
                         <span style={{ display: "flex", alignItems: "center" }}>
@@ -437,26 +502,18 @@ class CaptureForm extends React.Component<Props, State> {
                       onChange={this.handleChange("rawPacketLimit")}
                       error={
                         !!this.state.rawPacketLimit &&
-                        !(
-                          parseInt(this.state.rawPacketLimit) === 0 ||
-                          (parseInt(this.state.rawPacketLimit) > 0 &&
-                           parseInt(this.state.rawPacketLimit) <= 10)
-                        )
+                        !this.isRawPacketLimitValid()
                       }
                       helperText={
                         !!this.state.rawPacketLimit &&
-                        !(
-                          parseInt(this.state.rawPacketLimit) === 0 ||
-                          (parseInt(this.state.rawPacketLimit) > 0 &&
-                           parseInt(this.state.rawPacketLimit) <= 10)
-                        )
+                        !this.isRawPacketLimitValid()
                           ? translate("capture-rawPacketLimit-validation-error")
                           : ""
                       }
                       fullWidth
                       margin="normal"
                     />
-                    </FormControl>
+                  </FormControl>
                 </div>
               </AccordionDetails>
             </Accordion>
@@ -465,7 +522,7 @@ class CaptureForm extends React.Component<Props, State> {
               className={classes.button}
               color="primary"
               onClick={this.onClick}
-              disabled={isCaptureDisabled}
+              disabled={isCaptureDisabled || hasValidationError}
             >
               {translate("Start")}
             </Button>
