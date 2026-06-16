@@ -239,6 +239,7 @@ export class Topology extends React.Component<Props, {}> {
     private gGroups: Selection<SVGGraphicsElement, {}, null, undefined>
     private gGroupButtons: Selection<SVGGraphicsElement, {}, null, undefined>
     private gNodes: Selection<SVGGraphicsElement, {}, null, undefined>
+    private gRaisedLinkLabels: Selection<SVGGraphicsElement, {}, null, undefined>
     private gContextMenu: Selection<SVGGraphicsElement, {}, null, undefined>
     private zoom: zoom
     private liner: line
@@ -472,6 +473,10 @@ export class Topology extends React.Component<Props, {}> {
         // levels group
         this.gLevelLabels = this.g.append("g")
             .attr("class", "level-labels")
+
+        // clicked link labels are copied here so they can be read above nodes.
+        this.gRaisedLinkLabels = this.g.append("g")
+            .attr("class", "raised-link-labels")
 
         // context menu group
         this.gContextMenu = this.svg.append("g")
@@ -1293,6 +1298,28 @@ export class Topology extends React.Component<Props, {}> {
         selectAll("g.link-label").each(function (d: Link) {
             select(this).style("opacity", self.linkLabelOpacity(d))
         })
+    }
+
+    private raiseLinkLabel(labelNode: SVGGElement, link: Link) {
+        event.stopPropagation()
+
+        if (!this.gRaisedLinkLabels) {
+            return
+        }
+
+        this.gRaisedLinkLabels.selectAll("*").remove()
+
+        const clonedLabel = labelNode.cloneNode(true) as SVGGElement
+        select(clonedLabel)
+            .attr("id", "raised-link-label-" + link.id)
+            .classed("link-label-raised", true)
+            .style("opacity", 1)
+            .style("pointer-events", "none")
+
+        const overlayNode = this.gRaisedLinkLabels.node()
+        if (overlayNode) {
+            overlayNode.appendChild(clonedLabel)
+        }
     }
 
     selectNode(id: string, active: boolean = true) {
@@ -3271,6 +3298,7 @@ export class Topology extends React.Component<Props, {}> {
             return best
         }
 
+        const self = this
         var linkLabel = this.gLinkLabels.selectAll('g.link-label')
             .interrupt()
             .data(visibleLinks.filter((d: Link) => this.props.linkAttrs(d).label), (d: Link) => d.id)
@@ -3298,6 +3326,9 @@ export class Topology extends React.Component<Props, {}> {
             .attr("transform", (d: Link) => {
                 const position = linkLabelPosition(d)
                 return `translate(${position.x},${position.y})`
+            })
+            .on("click", function (d: Link) {
+                self.raiseLinkLabel(this as SVGGElement, d)
             })
         linkLabel.select('text').text((d: Link) => this.props.linkAttrs(d).label)
         linkLabel.each(function () {
