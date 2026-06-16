@@ -26,6 +26,7 @@ import CaptureForm from "./CaptureForm"
 import { styles } from './CaptureStyles'
 import { Node, Link } from '../Topology'
 import ConfigReducer from '../Config'
+import { SimpleCaptureSession } from './CaptureStatus'
 
 interface Props {
     classes: any
@@ -33,6 +34,7 @@ interface Props {
     expanded: boolean
     config: ConfigReducer
     onClose: () => void
+    onCaptureCreated?: (node: Node, capture?: SimpleCaptureSession) => void
 }
 
 export class CapturePanel extends React.Component<Props> {
@@ -73,7 +75,17 @@ export class CapturePanel extends React.Component<Props> {
                     <CloseIcon />
                 </IconButton>
                 <DialogContent className={classes.dialogContent}>
-                    <CaptureForm defaultName={this.dataAttrs(node).name} gremlin={`G.V().Has('TID', '${node.data.TID}')`} node={node} onCaptureCreated={this.props.onClose} />
+                    <CaptureForm
+                        defaultName={this.dataAttrs(node).name}
+                        gremlin={`G.V().Has('TID', '${node.data.TID}')`}
+                        node={node}
+                        onCaptureCreated={(capture) => {
+                            if (this.props.onCaptureCreated) {
+                                this.props.onCaptureCreated(node, capture)
+                            }
+                            this.props.onClose()
+                        }}
+                    />
                 </DialogContent>
             </Dialog>
         )

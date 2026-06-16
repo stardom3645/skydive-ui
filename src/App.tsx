@@ -90,6 +90,7 @@ import Tools from './Tools'
 import CaptureButton from './ActionButtons/Capture'
 import VMConsoleButton from './ActionButtons/VMConsole'
 import CapturePanel from './DataPanels/Capture'
+import CaptureStatusPanel, { SimpleCaptureSession } from './DataPanels/CaptureStatus'
 import FlowPanel from './DataPanels/Flow'
 import TimetravelPanel from './TimetravelPanel'
 
@@ -170,6 +171,7 @@ interface State {
   wsContext: WSContext
   isGremlinPanelOpen: boolean
   isCapturePanelOpen: boolean
+  captureSessions: Record<string, SimpleCaptureSession>
   addFilterOpened: boolean
   addFilterValue: AddFilterValue
   isAboutOpen: boolean
@@ -329,6 +331,7 @@ class App extends React.Component<Props, State> {
       wsContext: { GremlinFilter: null, Time: null },
       isGremlinPanelOpen: false,
       isCapturePanelOpen: false,
+      captureSessions: {},
       activeFilter: null,
       addFilterOpened: false,
       addFilterValue: { label: "", gremlinFilter: "" },
@@ -2185,6 +2188,43 @@ class App extends React.Component<Props, State> {
     return !disallowedCaptureTypes.has(type)
   }
 
+  private captureSessionKey(node: Node): string {
+    return node.data?.TID || node.id
+  }
+
+  private setCaptureSession(node: Node, capture?: SimpleCaptureSession) {
+    if (!capture) {
+      return
+    }
+
+    const key = this.captureSessionKey(node)
+    this.setState({
+      captureSessions: {
+        ...this.state.captureSessions,
+        [key]: capture
+      },
+      isCapturePanelOpen: false
+    })
+    this.props.enqueueSnackbar("패킷 캡처를 시작했습니다. 오른쪽 상세 패널에서 진행 상태를 확인할 수 있습니다.", { variant: "success" })
+  }
+
+  private updateCaptureSession(node: Node, capture: SimpleCaptureSession) {
+    const key = this.captureSessionKey(node)
+    this.setState({
+      captureSessions: {
+        ...this.state.captureSessions,
+        [key]: capture
+      }
+    })
+  }
+
+  private clearCaptureSession(node: Node) {
+    const key = this.captureSessionKey(node)
+    const captureSessions = { ...this.state.captureSessions }
+    delete captureSessions[key]
+    this.setState({ captureSessions })
+  }
+
   actionButtons(el: Node | Link) {
     const showVMConsoleButton = this.state.isVMConsoleEnabled && el.type === 'node' && this.isVMNode(el)
     const vmNode = showVMConsoleButton ? (el as Node) : undefined
@@ -2376,6 +2416,16 @@ class App extends React.Component<Props, State> {
             expanded={this.state.isCapturePanelOpen}
             config={this.config}
             onClose={() => this.setState({ isCapturePanelOpen: false })}
+            onCaptureCreated={(node, capture) => this.setCaptureSession(node, capture)}
+          />
+        }
+        {el.type === 'node' && this.state.captureSessions[this.captureSessionKey(el as Node)] &&
+          <CaptureStatusPanel
+            capture={this.state.captureSessions[this.captureSessionKey(el as Node)]}
+            session={this.props.session}
+            onUpdate={(capture) => this.updateCaptureSession(el as Node, capture)}
+            onClear={() => this.clearCaptureSession(el as Node)}
+            onRetry={() => this.setState({ isCapturePanelOpen: true })}
           />
         }
         {el.data!.Captures &&

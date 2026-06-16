@@ -13,7 +13,7 @@ import { createStyles, Theme } from '@material-ui/core/styles'
 export const styles = (theme: Theme) => createStyles({
     captureWizard: {
         display: 'grid',
-        gridTemplateColumns: '150px minmax(0, 1fr) 190px',
+        gridTemplateColumns: '150px minmax(0, 1fr) 220px',
         gap: theme.spacing(1.4),
         alignItems: 'start',
         background: 'var(--netdive-detail-panel-bg, #f8fafc)',
@@ -149,7 +149,7 @@ export const styles = (theme: Theme) => createStyles({
     },
     targetSummaryGrid: {
         display: 'grid',
-        gridTemplateColumns: 'minmax(0, 1.1fr) minmax(0, 0.9fr)',
+        gridTemplateColumns: '1fr',
         gap: theme.spacing(1),
         [theme.breakpoints.down('sm')]: {
             gridTemplateColumns: '1fr',
@@ -210,6 +210,17 @@ export const styles = (theme: Theme) => createStyles({
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
         }
+    },
+    targetStatusLine: {
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 6,
+        marginTop: theme.spacing(1),
+        borderRadius: 10,
+        padding: theme.spacing(0.7, 0.9),
+        fontSize: 12,
+        fontWeight: 700,
+        lineHeight: 1.4,
     },
     diagnosisCard: {
         border: '1px solid var(--netdive-detail-border, #dbe7f5)',
@@ -363,8 +374,23 @@ export const styles = (theme: Theme) => createStyles({
     captureExamples: {
         background: 'var(--netdive-detail-bg, #fff)',
         border: '1px solid var(--netdive-detail-border, #dbe7f5)',
-        borderRadius: 16,
-        padding: theme.spacing(1.3),
+        borderRadius: '14px !important',
+        boxShadow: 'none',
+        overflow: 'hidden',
+        '&::before': {
+            display: 'none',
+        },
+        '& .MuiAccordionSummary-root': {
+            minHeight: 44,
+            padding: theme.spacing(0, 1.2),
+        },
+        '& .MuiAccordionSummary-content': {
+            margin: theme.spacing(1, 0),
+        },
+        '& .MuiAccordionDetails-root': {
+            padding: theme.spacing(0, 1.2, 1.2),
+            display: 'block',
+        }
     },
     exampleGrid: {
         display: 'grid',

@@ -21,7 +21,6 @@ import CheckCircleIcon from '@material-ui/icons/CheckCircle'
 import WarningIcon from '@material-ui/icons/Warning'
 import ErrorOutlineIcon from '@material-ui/icons/ErrorOutline'
 import HelpOutlineIcon from '@material-ui/icons/HelpOutline'
-import LaunchIcon from '@material-ui/icons/Launch'
 
 import { Node } from '../Topology'
 import { Configuration } from '../api/configuration'
@@ -33,6 +32,7 @@ import { connect } from 'react-redux'
 import { translate } from "../Config"
 import HelpIconWithDialog from './HelpIconWithDialog'
 import Tooltip from '@material-ui/core/Tooltip'
+import { SimpleCaptureSession } from './CaptureStatus'
 
 function Alert(props) {
   return <MuiAlert elevation={6} variant="filled" {...props} />
@@ -43,7 +43,7 @@ interface Props {
   defaultName: string
   gremlin: string
   session: session
-  onCaptureCreated?: () => void
+  onCaptureCreated?: (capture?: SimpleCaptureSession) => void
   node: Node
 }
 
@@ -295,7 +295,41 @@ class CaptureForm extends React.Component<Props, State> {
     }
   }
 
-  private async createSimpleCapture(captureType: string, bpf: string): Promise<boolean> {
+  private normalizeSimpleCapture(raw: any, bpf: string): SimpleCaptureSession {
+    const request = raw?.request || {}
+    const target = raw?.target || {}
+    return {
+      id: raw?.id || "",
+      captureID: raw?.captureID,
+      status: raw?.status || "running",
+      startedAt: raw?.startedAt || new Date().toISOString(),
+      expiresAt: raw?.expiresAt || new Date(Date.now() + this.captureDurationSeconds() * 1000).toISOString(),
+      targetName: target.name || this.props.defaultName || this.props.node?.data?.Name || "-",
+      targetType: target.type || this.nodeType(this.props.node),
+      scope: request.scope || this.state.captureScope,
+      filterPreset: request.filterPreset || this.state.filterPreset,
+      bpf: request.bpf || bpf,
+      durationSeconds: request.durationSeconds || this.captureDurationSeconds()
+    }
+  }
+
+  private legacyCaptureSession(captureType: string, bpf: string): SimpleCaptureSession {
+    const now = Date.now()
+    return {
+      id: `legacy-${this.nodeKey(this.props.node)}-${now}`,
+      status: "running",
+      startedAt: new Date(now).toISOString(),
+      expiresAt: new Date(now + this.captureDurationSeconds() * 1000).toISOString(),
+      targetName: this.props.defaultName || this.props.node?.data?.Name || "-",
+      targetType: this.nodeType(this.props.node),
+      scope: this.state.captureScope,
+      filterPreset: this.state.filterPreset,
+      bpf,
+      durationSeconds: this.captureDurationSeconds()
+    }
+  }
+
+  private async createSimpleCapture(captureType: string, bpf: string): Promise<SimpleCaptureSession | null> {
     const response = await fetch(`${this.props.session.endpoint}/api/simple-capture`, {
       method: "POST",
       headers: {
@@ -321,12 +355,12 @@ class CaptureForm extends React.Component<Props, State> {
 
     const contentType = response.headers.get("content-type") || ""
     if (response.status === 404 && !contentType.includes("application/json")) {
-      return false
+      return null
     }
     if (response.status < 200 || response.status >= 300) {
       throw response
     }
-    return true
+    return this.normalizeSimpleCapture(await response.json(), bpf)
   }
 
   handleChange = (field: keyof State) => (event) => {
@@ -366,8 +400,8 @@ class CaptureForm extends React.Component<Props, State> {
     }
 
     try {
-      const simpleCaptureCreated = await this.createSimpleCapture(captureType, bpf)
-      if (!simpleCaptureCreated) {
+      let createdCapture = await this.createSimpleCapture(captureType, bpf)
+      if (!createdCapture) {
         const conf = new Configuration({
           basePath: this.props.session.endpoint + "/api",
           accessToken: this.props.session.token
@@ -389,6 +423,7 @@ class CaptureForm extends React.Component<Props, State> {
         }
 
         await api.createCapture(payload as any)
+        createdCapture = this.legacyCaptureSession(captureType, bpf)
       }
 
       this.setState({
@@ -398,7 +433,7 @@ class CaptureForm extends React.Component<Props, State> {
       })
 
       if (this.props.onCaptureCreated) {
-        this.props.onCaptureCreated()
+        this.props.onCaptureCreated(createdCapture)
       }
 
     } catch (err) {
@@ -455,9 +490,13 @@ class CaptureForm extends React.Component<Props, State> {
     const captureType = this.state.captureType || defaultCaptureType
     const hasValidationError = !this.isHeaderSizeValid() || !this.isRawPacketLimitValid()
     const targetRows = this.targetInfoRows(this.props.node)
-    const recommendedType = this.recommendedCaptureType(this.props.node)
     const statusClass = capability === "available" ? classes.statusAvailable : capability === "conditional" ? classes.statusConditional : classes.statusUnavailable
     const StatusIcon = capability === "available" ? CheckCircleIcon : capability === "conditional" ? WarningIcon : ErrorOutlineIcon
+    const statusSummary = capability === "available"
+      ? "이 대상은 기본 패킷 캡처를 사용할 수 있습니다."
+      : capability === "conditional"
+        ? "이 대상은 관련 인프라 노드에서 캡처하는 정책을 권장합니다."
+        : "이 리소스는 직접 캡처 대상이 아닙니다."
 
     return (
       <>
@@ -466,11 +505,10 @@ class CaptureForm extends React.Component<Props, State> {
             <aside className={classes.wizardSteps}>
               {[
                 ["1", "대상 확인", "자동 진단"],
-                ["2", "설정 선택", "간단 설정"],
-                ["3", "시작 및 결과", "캡처 실행"]
+                ["2", "캡처 설정", "간단 설정"]
               ].map((step, index) => (
-                <div key={step[0]} className={`${classes.wizardStep} ${index === 0 ? classes.wizardStepActive : ""}`}>
-                  <span className={classes.wizardStepCircle}>{index === 0 ? step[0] : <CheckCircleIcon />}</span>
+                <div key={step[0]} className={`${classes.wizardStep} ${classes.wizardStepActive}`}>
+                  <span className={classes.wizardStepCircle}>{step[0]}</span>
                   <span>
                     <strong>{step[1]}</strong>
                     <small>{step[2]}</small>
@@ -487,8 +525,8 @@ class CaptureForm extends React.Component<Props, State> {
               <div className={classes.wizardMainCard}>
                 <div className={classes.wizardCardHeader}>
                   <div>
-                    <Typography component="h3" className={classes.wizardTitle}>1. 대상 확인 및 진단</Typography>
-                    <Typography component="p" className={classes.wizardSubtitle}>선택한 노드의 캡처 가능 여부와 권장 설정을 확인합니다.</Typography>
+                    <Typography component="h3" className={classes.wizardTitle}>1. 대상 확인</Typography>
+                    <Typography component="p" className={classes.wizardSubtitle}>선택한 노드의 캡처 가능 여부를 확인합니다.</Typography>
                   </div>
                   <span className={`${classes.captureStatusBadge} ${statusClass}`}>
                     <StatusIcon fontSize="small" />
@@ -513,32 +551,20 @@ class CaptureForm extends React.Component<Props, State> {
                         ))}
                       </div>
                     }
-                  </div>
-
-                  <div className={`${classes.diagnosisCard} ${statusClass}`}>
-                    <StatusIcon />
-                    <strong>진단 결과</strong>
-                    {capability === "available" && <p>이 대상은 실제 패킷 캡처가 가능한 네트워크 객체입니다. 기본 패킷 캡처를 사용할 수 있습니다.</p>}
-                    {capability === "conditional" && <p>이 대상은 Kubernetes 리소스입니다. 현재 UI에서는 직접 캡처 대신 관련 인프라 노드에서 캡처하는 정책을 권장합니다.</p>}
-                    {capability === "unavailable" && <p>이 리소스는 논리 객체이거나 캡처 지점이 아니므로 직접 패킷 캡처 대상이 아닙니다.</p>}
-                    <button type="button" onClick={() => this.setState({ showDetails: !this.state.showDetails })}>
-                      상세 정보 {this.state.showDetails ? "접기" : "보기"}
-                    </button>
-                    {this.state.showDetails &&
-                      <small>
-                        권장 캡처 타입: {recommendedType ? recommendedType.toUpperCase() : "없음"}. 캡처 가능 여부는 노드 타입, TID, IP 주소, OVS/DPDK 메타데이터를 기준으로 판단합니다.
-                      </small>
-                    }
+                    <div className={`${classes.targetStatusLine} ${statusClass}`}>
+                      <StatusIcon fontSize="small" />
+                      <span>{statusSummary}</span>
+                    </div>
                   </div>
                 </div>
 
                 <div className={classes.simpleSettings}>
-                  <Typography component="h3" className={classes.wizardTitle}>2. 간단 설정</Typography>
+                  <Typography component="h3" className={classes.wizardTitle}>2. 캡처 설정</Typography>
                   <div className={classes.simpleApiBanner}>
                     <CheckCircleIcon />
                     <div>
-                      <strong>권장 기본값: Simple Capture API</strong>
-                      <span>간단 캡처는 별도 Simple Capture API에서 자동 종료와 안전한 기본값을 처리하는 구조를 권장합니다. 현재 화면은 기존 Capture API와 호환되도록 동작합니다.</span>
+                      <strong>권장 기본값</strong>
+                      <span>자동 종료와 안전한 기본 옵션은 Simple Capture API에서 처리합니다.</span>
                     </div>
                   </div>
                   <div className={classes.settingRow}>
@@ -555,7 +581,7 @@ class CaptureForm extends React.Component<Props, State> {
                   <div className={classes.settingRow}>
                     <div>
                       <strong>캡처 시간</strong>
-                      <small>Simple Capture API에서 자동 종료 시간으로 사용됩니다. 기존 Capture API 호환 모드에서는 캡처 생성 후 필요 시 삭제합니다.</small>
+                      <small>설정한 시간이 지나면 자동 종료됩니다.</small>
                     </div>
                     <div className={classes.optionGroup}>
                       {this.renderOptionButton(classes, "30초", this.state.captureDuration === "30s", () => this.setState({ captureDuration: "30s" }))}
@@ -680,15 +706,19 @@ class CaptureForm extends React.Component<Props, State> {
                 }
               </div>
 
-              <div className={classes.captureExamples}>
-                <Typography component="h3" className={classes.wizardTitle}>다양한 대상 유형별 예시</Typography>
-                <div className={classes.exampleGrid}>
-                  <div><span>Host 노드</span><strong>가능: 직접 캡처</strong><small>호스트에서 직접 패킷 캡처가 가능합니다.</small></div>
-                  <div><span>Kubernetes Node</span><strong>조건부: 관련 인프라 노드</strong><small>현재 정책에서는 관련 인프라 노드에서 캡처합니다.</small></div>
-                  <div><span>Pod</span><strong>조건부</strong><small>Pod는 관련 Node 매핑이 필요합니다.</small></div>
-                  <div><span>Service</span><strong>불가: 직접 캡처 불가</strong><small>관련 Pod 또는 Node를 먼저 확인하세요.</small></div>
-                </div>
-              </div>
+              <Accordion className={classes.captureExamples}>
+                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                  <Typography component="h3" className={classes.wizardTitle}>대상 유형별 캡처 정책 보기</Typography>
+                </AccordionSummary>
+                <AccordionDetails>
+                  <div className={classes.exampleGrid}>
+                    <div><span>Host / Interface / Bridge</span><strong>직접 캡처 가능</strong><small>선택한 인프라 노드에서 캡처합니다.</small></div>
+                    <div><span>Kubernetes Node</span><strong>조건부 가능</strong><small>연결된 인프라 노드 기준 캡처를 권장합니다.</small></div>
+                    <div><span>Pod</span><strong>조건부 가능</strong><small>Pod가 실행 중인 Node 매핑이 필요합니다.</small></div>
+                    <div><span>Service / Namespace / DaemonSet</span><strong>직접 캡처 불가</strong><small>관련 Pod 또는 Node를 먼저 확인합니다.</small></div>
+                  </div>
+                </AccordionDetails>
+              </Accordion>
             </section>
 
             <aside className={classes.wizardHelpPanel}>
@@ -700,26 +730,18 @@ class CaptureForm extends React.Component<Props, State> {
               <div className={classes.helpCard}>
                 <strong>이렇게 동작합니다</strong>
                 <ol>
-                  <li>대상 정보를 자동으로 진단합니다.</li>
-                  <li>Simple Capture API에 맞는 안전한 기본값을 제안합니다.</li>
-                  <li>간단 설정만으로 자동 종료 캡처를 시작합니다.</li>
-                  <li>필요 시 고급 옵션을 변경합니다.</li>
+                  <li>대상 정보를 진단합니다.</li>
+                  <li>기본 옵션으로 캡처를 시작합니다.</li>
+                  <li>진행 상태는 상세 패널에서 확인합니다.</li>
                 </ol>
               </div>
               <div className={classes.helpCard}>
                 <strong>API 권장 구조</strong>
                 <p>간단 캡처는 Simple Capture API를 사용하고, 전문 옵션이 필요한 경우에만 기존 Capture API를 유지합니다.</p>
               </div>
-              <div className={classes.helpCard}>
-                <strong>1차 버전 지원 범위</strong>
-                <div className={classes.supportList}><CheckCircleIcon /><span>Host, Interface, Bridge</span></div>
-                <div className={classes.supportList}><WarningIcon /><span>Kubernetes Node, Pod</span></div>
-                <div className={classes.supportList}><ErrorOutlineIcon /><span>Service, Namespace, DaemonSet</span></div>
-              </div>
               <div className={classes.helpNotice}>
                 <strong>캡처 시 유의사항</strong>
                 <span>권한, 성능 영향, 저장 공간, 민감정보 포함 여부를 확인하세요.</span>
-                <a><LaunchIcon fontSize="small" /> 자세히 보기</a>
               </div>
             </aside>
           </div>
