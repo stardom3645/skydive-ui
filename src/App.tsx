@@ -2410,6 +2410,16 @@ class App extends React.Component<Props, State> {
   dataPanels(el: Node | Link) {
     return (
       <React.Fragment>
+        {el.type === 'node' && this.state.captureSessions[this.captureSessionKey(el as Node)] &&
+          <CaptureStatusPanel
+            el={el as Node}
+            capture={this.state.captureSessions[this.captureSessionKey(el as Node)]}
+            session={this.props.session}
+            onUpdate={(capture) => this.updateCaptureSession(el as Node, capture)}
+            onClear={() => this.clearCaptureSession(el as Node)}
+            onRetry={() => this.setState({ isCapturePanelOpen: true })}
+          />
+        }
         {this.isPacketCaptureAvailable(el) &&
           <CapturePanel
             el={el}
@@ -2419,16 +2429,7 @@ class App extends React.Component<Props, State> {
             onCaptureCreated={(node, capture) => this.setCaptureSession(node, capture)}
           />
         }
-        {el.type === 'node' && this.state.captureSessions[this.captureSessionKey(el as Node)] &&
-          <CaptureStatusPanel
-            capture={this.state.captureSessions[this.captureSessionKey(el as Node)]}
-            session={this.props.session}
-            onUpdate={(capture) => this.updateCaptureSession(el as Node, capture)}
-            onClear={() => this.clearCaptureSession(el as Node)}
-            onRetry={() => this.setState({ isCapturePanelOpen: true })}
-          />
-        }
-        {el.data!.Captures &&
+        {el.data!.Captures && !(el.type === 'node' && this.state.captureSessions[this.captureSessionKey(el as Node)]) &&
           <FlowPanel el={el} />
         }
       </React.Fragment>
