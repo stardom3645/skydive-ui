@@ -253,6 +253,37 @@ export const styles = (theme: Theme) => createStyles({
         borderTop: '1px solid var(--netdive-detail-border, #dbe7f5)',
         paddingTop: theme.spacing(1.3),
     },
+    simpleApiBanner: {
+        display: 'grid',
+        gridTemplateColumns: '22px minmax(0, 1fr)',
+        gap: theme.spacing(0.8),
+        alignItems: 'start',
+        marginTop: theme.spacing(1),
+        marginBottom: theme.spacing(0.6),
+        padding: theme.spacing(1),
+        border: '1px solid #bfdbfe',
+        borderRadius: 12,
+        background: '#eff6ff',
+        color: '#1e3a8a',
+        '& svg': {
+            width: 18,
+            height: 18,
+            marginTop: 1,
+            color: '#1a73e8',
+        },
+        '& strong': {
+            display: 'block',
+            fontSize: 12.5,
+            fontWeight: 800,
+            lineHeight: 1.25,
+        },
+        '& span': {
+            display: 'block',
+            marginTop: 3,
+            fontSize: 11.5,
+            lineHeight: 1.45,
+        }
+    },
     settingRow: {
         display: 'grid',
         gridTemplateColumns: '150px minmax(0, 1fr)',

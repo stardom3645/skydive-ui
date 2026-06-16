@@ -489,6 +489,13 @@ class CaptureForm extends React.Component<Props, State> {
 
                 <div className={classes.simpleSettings}>
                   <Typography component="h3" className={classes.wizardTitle}>2. 간단 설정</Typography>
+                  <div className={classes.simpleApiBanner}>
+                    <CheckCircleIcon />
+                    <div>
+                      <strong>권장 기본값: Simple Capture API</strong>
+                      <span>간단 캡처는 별도 Simple Capture API에서 자동 종료와 안전한 기본값을 처리하는 구조를 권장합니다. 현재 화면은 기존 Capture API와 호환되도록 동작합니다.</span>
+                    </div>
+                  </div>
                   <div className={classes.settingRow}>
                     <div>
                       <strong>캡처 범위</strong>
@@ -503,7 +510,7 @@ class CaptureForm extends React.Component<Props, State> {
                   <div className={classes.settingRow}>
                     <div>
                       <strong>캡처 시간</strong>
-                      <small>현재 캡처는 생성 후 플로우 테이블에서 확인하고 필요 시 삭제합니다.</small>
+                      <small>Simple Capture API에서 자동 종료 시간으로 사용됩니다. 기존 Capture API 호환 모드에서는 캡처 생성 후 필요 시 삭제합니다.</small>
                     </div>
                     <div className={classes.optionGroup}>
                       {this.renderOptionButton(classes, "30초", this.state.captureDuration === "30s", () => this.setState({ captureDuration: "30s" }))}
@@ -551,7 +558,7 @@ class CaptureForm extends React.Component<Props, State> {
                     onClick={this.onClick}
                     disabled={isCaptureDisabled || hasValidationError || capability !== "available"}
                     startIcon={<PlayArrowIcon />}>
-                    {translate("Start")}
+                    간단 캡처 시작
                   </Button>
                 </div>
 
@@ -649,10 +656,14 @@ class CaptureForm extends React.Component<Props, State> {
                 <strong>이렇게 동작합니다</strong>
                 <ol>
                   <li>대상 정보를 자동으로 진단합니다.</li>
-                  <li>캡처 가능 여부와 권장 설정을 제안합니다.</li>
-                  <li>간단 설정만으로 캡처를 시작합니다.</li>
+                  <li>Simple Capture API에 맞는 안전한 기본값을 제안합니다.</li>
+                  <li>간단 설정만으로 자동 종료 캡처를 시작합니다.</li>
                   <li>필요 시 고급 옵션을 변경합니다.</li>
                 </ol>
+              </div>
+              <div className={classes.helpCard}>
+                <strong>API 권장 구조</strong>
+                <p>간단 캡처는 Simple Capture API를 사용하고, 전문 옵션이 필요한 경우에만 기존 Capture API를 유지합니다.</p>
               </div>
               <div className={classes.helpCard}>
                 <strong>1차 버전 지원 범위</strong>
