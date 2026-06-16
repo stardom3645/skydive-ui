@@ -1,5 +1,3 @@
-import { minWidth, borderRadius } from "@material-ui/system";
-
 /*
  * Copyright (C) 2019 Sylvain Afchain
  *
@@ -20,7 +18,36 @@ import { minWidth, borderRadius } from "@material-ui/system";
 import { createStyles, Theme } from '@material-ui/core';
 
 export const styles = (theme: Theme) => createStyles({
-  panel: {
-    marginBottom: "16px"
+  dialogPaper: {
+    width: 'min(1120px, calc(100vw - 48px))',
+    maxWidth: '1120px',
+    borderRadius: 18,
+    background: 'var(--netdive-detail-panel-bg, #f8fafc)',
+    border: '1px solid var(--netdive-detail-border, #dbe7f5)',
+    boxShadow: '0 24px 80px rgba(15, 23, 42, 0.24)',
+    overflow: 'hidden',
+  },
+  dialogContent: {
+    position: 'relative',
+    padding: theme.spacing(2.5),
+    maxHeight: 'calc(100vh - 96px)',
+    overflowY: 'auto',
+    boxSizing: 'border-box',
+    '&:first-child': {
+      paddingTop: theme.spacing(2.5),
+    },
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    zIndex: 2,
+    color: 'var(--netdive-detail-muted, #64748b)',
+    background: 'rgba(255, 255, 255, 0.86)',
+    border: '1px solid var(--netdive-detail-border, #dbe7f5)',
+    '&:hover': {
+      background: '#eff6ff',
+      color: '#1a73e8',
+    },
   }
 })

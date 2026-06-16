@@ -2186,7 +2186,7 @@ class App extends React.Component<Props, State> {
       <React.Fragment>
         {showCaptureButton &&
           <CaptureButton el={el} onClick={() => {
-            this.state.isCapturePanelOpen = !this.state.isCapturePanelOpen
+            this.state.isCapturePanelOpen = true
             this.setState(this.state)
           }} />
         }
@@ -2361,7 +2361,12 @@ class App extends React.Component<Props, State> {
     return (
       <React.Fragment>
         {this.isPacketCaptureAvailable(el) &&
-          <CapturePanel el={el} expanded={this.state.isCapturePanelOpen} config={this.config} />
+          <CapturePanel
+            el={el}
+            expanded={this.state.isCapturePanelOpen}
+            config={this.config}
+            onClose={() => this.setState({ isCapturePanelOpen: false })}
+          />
         }
         {el.data!.Captures &&
           <FlowPanel el={el} />

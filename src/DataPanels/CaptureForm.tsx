@@ -287,6 +287,48 @@ class CaptureForm extends React.Component<Props, State> {
     return types[0] || ""
   }
 
+  private captureDurationSeconds(): number {
+    switch (this.state.captureDuration) {
+      case "1m": return 60
+      case "3m": return 180
+      default: return 30
+    }
+  }
+
+  private async createSimpleCapture(captureType: string, bpf: string): Promise<boolean> {
+    const response = await fetch(`${this.props.session.endpoint}/api/simple-capture`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Auth-Token": this.props.session.token
+      },
+      body: JSON.stringify({
+        nodeTID: this.props.node?.data?.TID || "",
+        nodeID: this.props.node?.id || "",
+        scope: this.state.captureScope,
+        durationSeconds: this.captureDurationSeconds(),
+        filterPreset: this.state.filterPreset,
+        bpf,
+        captureType,
+        layerKeyMode: this.state.layerKey,
+        headerSize: this.state.headerSize ? parseInt(this.state.headerSize, 10) : 0,
+        rawPacketLimit: this.state.rawPacketLimit ? parseInt(this.state.rawPacketLimit, 10) : 0,
+        extraTCPMetric: this.state.extraTCPMetric,
+        ipDefrag: this.state.defragIPv4,
+        reassembleTCP: this.state.reassembleTCP
+      })
+    })
+
+    const contentType = response.headers.get("content-type") || ""
+    if (response.status === 404 && !contentType.includes("application/json")) {
+      return false
+    }
+    if (response.status < 200 || response.status >= 300) {
+      throw response
+    }
+    return true
+  }
+
   handleChange = (field: keyof State) => (event) => {
     const value = event.target.type === 'checkbox' ? event.target.checked : event.target.value
     this.setState({ [field]: value } as Pick<State, keyof State>)
@@ -324,27 +366,30 @@ class CaptureForm extends React.Component<Props, State> {
     }
 
     try {
-      const conf = new Configuration({
-        basePath: this.props.session.endpoint + "/api",
-        accessToken: this.props.session.token
-      })
-      const api = new CapturesApi(conf)
+      const simpleCaptureCreated = await this.createSimpleCapture(captureType, bpf)
+      if (!simpleCaptureCreated) {
+        const conf = new Configuration({
+          basePath: this.props.session.endpoint + "/api",
+          accessToken: this.props.session.token
+        })
+        const api = new CapturesApi(conf)
 
-      const payload = {
-        GremlinQuery: this.props.gremlin,
-        Name: this.state.name,
-        Description: this.state.description,
-        BPFFilter: bpf,
-        Type: captureType,
-        LayerKeyMode: this.state.layerKey,
-        HeaderSize: this.state.headerSize ? parseInt(this.state.headerSize, 10) : undefined,
-        RawPacketLimit: this.state.rawPacketLimit ? parseInt(this.state.rawPacketLimit, 10) : 0,
-        ExtraTCPMetric: this.state.extraTCPMetric,
-        IPDefrag: this.state.defragIPv4,
-        ReassembleTCP: this.state.reassembleTCP
+        const payload = {
+          GremlinQuery: this.props.gremlin,
+          Name: this.state.name,
+          Description: this.state.description,
+          BPFFilter: bpf,
+          Type: captureType,
+          LayerKeyMode: this.state.layerKey,
+          HeaderSize: this.state.headerSize ? parseInt(this.state.headerSize, 10) : undefined,
+          RawPacketLimit: this.state.rawPacketLimit ? parseInt(this.state.rawPacketLimit, 10) : 0,
+          ExtraTCPMetric: this.state.extraTCPMetric,
+          IPDefrag: this.state.defragIPv4,
+          ReassembleTCP: this.state.reassembleTCP
+        }
+
+        await api.createCapture(payload as any)
       }
-
-      await api.createCapture(payload as any)
 
       this.setState({
         snackbarOpen: true,

@@ -17,8 +17,10 @@
 
 import * as React from 'react'
 import { withStyles } from '@material-ui/core/styles'
-import Collapse from '@material-ui/core/Collapse'
-
+import Dialog from '@material-ui/core/Dialog'
+import DialogContent from '@material-ui/core/DialogContent'
+import IconButton from '@material-ui/core/IconButton'
+import CloseIcon from '@material-ui/icons/Close'
 
 import CaptureForm from "./CaptureForm"
 import { styles } from './CaptureStyles'
@@ -30,6 +32,7 @@ interface Props {
     el: Node | Link
     expanded: boolean
     config: ConfigReducer
+    onClose: () => void
 }
 
 export class CapturePanel extends React.Component<Props> {
@@ -56,9 +59,23 @@ export class CapturePanel extends React.Component<Props> {
         const node = this.props.el as Node
 
         return (
-            <Collapse in={this.props.expanded} timeout="auto" unmountOnExit className={classes.panel}>
-                <CaptureForm defaultName={this.dataAttrs(node).name} gremlin={`G.V().Has('TID', '${node.data.TID}')`} node={node} />
-            </Collapse>
+            <Dialog
+                open={this.props.expanded}
+                onClose={this.props.onClose}
+                maxWidth="lg"
+                fullWidth
+                classes={{ paper: classes.dialogPaper }}
+                aria-labelledby="capture-wizard-dialog">
+                <IconButton
+                    className={classes.closeButton}
+                    aria-label="close"
+                    onClick={this.props.onClose}>
+                    <CloseIcon />
+                </IconButton>
+                <DialogContent className={classes.dialogContent}>
+                    <CaptureForm defaultName={this.dataAttrs(node).name} gremlin={`G.V().Has('TID', '${node.data.TID}')`} node={node} onCaptureCreated={this.props.onClose} />
+                </DialogContent>
+            </Dialog>
         )
     }
 }
