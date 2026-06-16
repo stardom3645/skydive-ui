@@ -68,6 +68,7 @@ interface State {
 }
 
 type CaptureCapability = "available" | "conditional" | "unavailable"
+type PreflightStatus = "ok" | "warning"
 
 class CaptureForm extends React.Component<Props, State> {
   constructor(props) {
@@ -215,26 +216,26 @@ class CaptureForm extends React.Component<Props, State> {
     const type = this.nodeType(node)
     if (this.isKubernetesNode(node)) {
       switch (type) {
-        case "node": return "Kubernetes Node"
-        case "pod": return "Pod"
-        case "service": return "Service"
-        case "namespace": return "Namespace"
-        case "daemonset": return "DaemonSet"
-        case "deployment": return "Deployment"
-        case "cluster": return "Cluster"
-        default: return "Kubernetes"
+        case "node": return translate("capture-target-k8s-node")
+        case "pod": return translate("capture-target-k8s-pod")
+        case "service": return translate("capture-target-k8s-service")
+        case "namespace": return translate("capture-target-k8s-namespace")
+        case "daemonset": return translate("capture-target-k8s-daemonset")
+        case "deployment": return translate("capture-target-k8s-deployment")
+        case "cluster": return translate("capture-target-k8s-cluster")
+        default: return translate("capture-target-k8s-resource")
       }
     }
 
     switch (type) {
-      case "host": return "Host"
-      case "device": return "Interface"
-      case "bond": return "Bond"
-      case "bridge": return "Bridge"
+      case "host": return translate("phy-hosts")
+      case "device": return translate("phy-nics")
+      case "bond": return translate("phy-bond")
+      case "bridge": return translate("host-bridges")
       case "ovsport": return "OVS Port"
       case "dpdkport": return "DPDK Port"
-      case "port": return "Port"
-      case "internal": return "Interface"
+      case "port": return translate("phy-ports")
+      case "internal": return translate("phy-nics")
       default: return type || "Node"
     }
   }
@@ -284,6 +285,64 @@ class CaptureForm extends React.Component<Props, State> {
       case "3m": return 180
       default: return 30
     }
+  }
+
+  private captureCapabilityLabel(capability: CaptureCapability): string {
+    switch (capability) {
+      case "available": return "캡처 가능"
+      case "conditional": return "조건부 가능"
+      default: return "직접 캡처 불가"
+    }
+  }
+
+  private captureScopeLabel(): string {
+    return this.state.captureScope === "all" ? "전체 트래픽" : "선택 노드 관련 트래픽"
+  }
+
+  private captureDurationLabel(): string {
+    switch (this.state.captureDuration) {
+      case "1m": return "1분"
+      case "3m": return "3분"
+      default: return "30초"
+    }
+  }
+
+  private filterSummaryLabel(): string {
+    const bpf = this.bpfForPreset(this.state.filterPreset).trim()
+    switch (this.state.filterPreset) {
+      case "ssh": return "SSH (tcp port 22)"
+      case "web": return "HTTP/HTTPS (80/443)"
+      case "custom": return bpf ? `직접 입력 (${bpf})` : "직접 입력"
+      default: return "전체"
+    }
+  }
+
+  private preflightChecks(capability: CaptureCapability, hasValidationError: boolean): Array<{ label: string, status: PreflightStatus }> {
+    const checks: Array<{ label: string, status: PreflightStatus }> = []
+
+    if (capability === "available") {
+      checks.push({ label: "캡처 가능한 대상입니다.", status: "ok" })
+    } else if (capability === "conditional") {
+      checks.push({ label: "관련 인프라 노드에서 캡처하는 정책을 권장합니다.", status: "warning" })
+    } else {
+      checks.push({ label: "캡처 가능한 대상이 아닙니다.", status: "warning" })
+    }
+
+    checks.push({ label: "자동 종료 시간이 설정되어 있습니다.", status: "ok" })
+
+    if (this.state.filterPreset === "custom" && this.state.bpf.trim() === "") {
+      checks.push({ label: "직접 입력 필터를 확인하세요.", status: "warning" })
+    } else if (this.state.filterPreset === "all") {
+      checks.push({ label: "필터 없이 전체 트래픽을 캡처합니다.", status: "ok" })
+    } else {
+      checks.push({ label: "필터가 적용됩니다.", status: "ok" })
+    }
+
+    if (hasValidationError) {
+      checks.push({ label: "고급 옵션 입력값을 확인하세요.", status: "warning" })
+    }
+
+    return checks
   }
 
   private normalizeSimpleCapture(raw: any, bpf: string): SimpleCaptureSession {
@@ -495,6 +554,8 @@ class CaptureForm extends React.Component<Props, State> {
     const targetRows = this.targetInfoRows(this.props.node)
     const statusClass = capability === "available" ? classes.statusAvailable : capability === "conditional" ? classes.statusConditional : classes.statusUnavailable
     const StatusIcon = capability === "available" ? CheckCircleIcon : capability === "conditional" ? WarningIcon : ErrorOutlineIcon
+    const capabilityLabel = this.captureCapabilityLabel(capability)
+    const preflightChecks = this.preflightChecks(capability, hasValidationError)
     const statusSummary = capability === "available"
       ? "이 대상은 기본 패킷 캡처를 사용할 수 있습니다."
       : capability === "conditional"
@@ -514,7 +575,7 @@ class CaptureForm extends React.Component<Props, State> {
                   </div>
                   <span className={`${classes.captureStatusBadge} ${statusClass}`}>
                     <StatusIcon fontSize="small" />
-                    {capability === "available" ? "캡처 가능" : capability === "conditional" ? "조건부 가능" : "직접 캡처 불가"}
+                    {capabilityLabel}
                   </span>
                 </div>
 
@@ -686,25 +747,25 @@ class CaptureForm extends React.Component<Props, State> {
 
               <Accordion className={classes.captureExamples}>
                 <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                  <Typography component="h3" className={classes.wizardTitle}>대상 유형별 캡처 정책 보기</Typography>
+                  <Typography component="h3" className={classes.wizardTitle}>{translate("capture-target-policy-title")}</Typography>
                 </AccordionSummary>
                 <AccordionDetails>
                   <div className={classes.exampleGrid}>
                     <div className={classes.exampleCardAvailable}>
-                      <header><strong>Interface / Bond / Bridge</strong><span>직접 캡처 가능</span></header>
-                      <small>캡처 가능한 TID와 캡처 타입이 있는 인프라 객체에서 실행합니다.</small>
+                      <header><strong>{translate("capture-target-policy-capturable-layers")}</strong><span>{translate("capture-target-policy-direct")}</span></header>
+                      <small>{translate("capture-target-policy-infra-desc")}</small>
                     </div>
                     <div className={classes.exampleCardUnavailable}>
-                      <header><strong>Host / Switch / VM</strong><span>직접 캡처 불가</span></header>
-                      <small>논리/상위 객체이므로 관련 인터페이스나 브리지에서 캡처합니다.</small>
+                      <header><strong>{translate("capture-target-policy-logical-layers")}</strong><span>{translate("capture-target-policy-unavailable")}</span></header>
+                      <small>{translate("capture-target-policy-logical-desc")}</small>
                     </div>
                     <div className={classes.exampleCardUnavailable}>
-                      <header><strong>Kubernetes 리소스</strong><span>직접 캡처 불가</span></header>
-                      <small>현재 정책에서는 관련 인프라 노드에서 캡처 대상을 선택합니다.</small>
+                      <header><strong>{translate("capture-target-policy-k8s-layers")}</strong><span>{translate("capture-target-policy-unavailable")}</span></header>
+                      <small>{translate("capture-target-policy-k8s-desc")}</small>
                     </div>
                     <div className={classes.exampleCardUnavailable}>
-                      <header><strong>Service / Namespace / DaemonSet</strong><span>직접 캡처 불가</span></header>
-                      <small>관련 Pod, Node, 인프라 객체를 먼저 확인합니다.</small>
+                      <header><strong>{translate("capture-target-policy-k8s-logical-targets")}</strong><span>{translate("capture-target-policy-unavailable")}</span></header>
+                      <small>{translate("capture-target-policy-k8s-logical-desc")}</small>
                     </div>
                   </div>
                 </AccordionDetails>
@@ -712,27 +773,78 @@ class CaptureForm extends React.Component<Props, State> {
             </section>
 
             <aside className={classes.wizardHelpPanel}>
-              <div className={classes.helpCard}>
-                <HelpOutlineIcon />
-                <strong>간단 캡처 마법사란?</strong>
-                <p>복잡한 옵션 없이 빠르게 패킷을 캡처할 수 있도록 대상 정보를 진단하고 안전한 기본값을 추천합니다.</p>
+              <div className={classes.captureSideCard}>
+                <div className={classes.sideCardTitle}>
+                  <VideocamIcon />
+                  <strong>캡처 요약</strong>
+                </div>
+                <div className={classes.captureSummaryRows}>
+                  <div>
+                    <span>대상</span>
+                    <strong>{this.props.defaultName || this.props.node?.data?.Name || "-"}</strong>
+                  </div>
+                  <div>
+                    <span>유형</span>
+                    <strong>{this.targetTypeLabel(this.props.node)}</strong>
+                  </div>
+                  <div>
+                    <span>상태</span>
+                    <strong><span className={`${classes.summaryStatusBadge} ${statusClass}`}>{capabilityLabel}</span></strong>
+                  </div>
+                  <div>
+                    <span>범위</span>
+                    <strong>{this.captureScopeLabel()}</strong>
+                  </div>
+                  <div>
+                    <span>시간</span>
+                    <strong>{this.captureDurationLabel()}</strong>
+                  </div>
+                  <div>
+                    <span>필터</span>
+                    <strong title={this.filterSummaryLabel()}>{this.filterSummaryLabel()}</strong>
+                  </div>
+                </div>
               </div>
-              <div className={classes.helpCard}>
-                <strong>이렇게 동작합니다</strong>
-                <ol>
-                  <li>대상 정보를 진단합니다.</li>
-                  <li>기본 옵션으로 캡처를 시작합니다.</li>
-                  <li>진행 상태는 상세 패널에서 확인합니다.</li>
-                </ol>
+
+              <div className={classes.captureSideCard}>
+                <div className={classes.sideCardTitle}>
+                  <HelpOutlineIcon />
+                  <strong>시작 전 확인</strong>
+                </div>
+                <ul className={classes.preflightList}>
+                  {preflightChecks.map((check) => {
+                    const CheckIcon = check.status === "ok" ? CheckCircleIcon : WarningIcon
+                    return (
+                      <li key={check.label} className={check.status === "warning" ? classes.preflightWarning : ""}>
+                        <CheckIcon fontSize="small" />
+                        <span>{check.label}</span>
+                      </li>
+                    )
+                  })}
+                </ul>
               </div>
-              <div className={classes.helpCard}>
-                <strong>API 권장 구조</strong>
-                <p>간단 캡처는 Simple Capture API를 사용하고, 전문 옵션이 필요한 경우에만 기존 Capture API를 유지합니다.</p>
-              </div>
-              <div className={classes.helpNotice}>
+
+              <div className={classes.captureCautionCard}>
                 <strong>캡처 시 유의사항</strong>
-                <span>권한, 성능 영향, 저장 공간, 민감정보 포함 여부를 확인하세요.</span>
+                <ul>
+                  <li>캡처 중에는 성능에 영향을 줄 수 있습니다.</li>
+                  <li>캡처 파일에는 민감한 정보가 포함될 수 있습니다.</li>
+                  <li>필요한 시간만 짧게 캡처하세요.</li>
+                </ul>
               </div>
+
+              <Accordion className={classes.captureHelpAccordion}>
+                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                  <Typography component="h3">간단 캡처 도움말</Typography>
+                </AccordionSummary>
+                <AccordionDetails>
+                  <div>
+                    <p>간단 캡처는 대상 정보를 확인하고 안전한 기본값으로 캡처를 시작합니다.</p>
+                    <p>캡처 완료 후 오른쪽 상세 패널에서 결과 상태를 확인할 수 있습니다.</p>
+                    <p>필요하면 고급 옵션에서 세부 설정을 변경할 수 있습니다.</p>
+                  </div>
+                </AccordionDetails>
+              </Accordion>
             </aside>
           </div>
         } />

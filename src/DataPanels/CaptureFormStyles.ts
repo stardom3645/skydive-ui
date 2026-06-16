@@ -13,7 +13,7 @@ import { createStyles, Theme } from '@material-ui/core/styles'
 export const styles = (theme: Theme) => createStyles({
     captureWizard: {
         display: 'grid',
-        gridTemplateColumns: 'minmax(0, 1fr) 220px',
+        gridTemplateColumns: 'minmax(0, 1fr) 280px',
         gap: theme.spacing(1.5),
         alignItems: 'start',
         background: 'var(--netdive-detail-panel-bg, #f8fafc)',
@@ -406,6 +406,155 @@ export const styles = (theme: Theme) => createStyles({
         display: 'flex',
         flexDirection: 'column',
         gap: theme.spacing(1),
+        minWidth: 0,
+    },
+    captureSideCard: {
+        border: '1px solid var(--netdive-detail-border, #dbe7f5)',
+        borderRadius: 14,
+        background: 'var(--netdive-detail-bg, #fff)',
+        padding: theme.spacing(1.1),
+        boxShadow: '0 8px 20px rgba(15, 23, 42, 0.04)',
+    },
+    sideCardTitle: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: theme.spacing(0.7),
+        paddingBottom: theme.spacing(0.8),
+        marginBottom: theme.spacing(0.8),
+        borderBottom: '1px solid rgba(219, 231, 245, 0.8)',
+        color: 'var(--netdive-detail-text, #0f172a)',
+        '& svg': {
+            width: 17,
+            height: 17,
+            color: '#1a73e8',
+        },
+        '& strong': {
+            fontSize: 13.5,
+            fontWeight: 800,
+        }
+    },
+    captureSummaryRows: {
+        display: 'grid',
+        gap: theme.spacing(0.75),
+        '& div': {
+            display: 'grid',
+            gridTemplateColumns: '66px minmax(0, 1fr)',
+            alignItems: 'center',
+            gap: theme.spacing(0.8),
+            minWidth: 0,
+        },
+        '& span': {
+            color: 'var(--netdive-detail-muted, #64748b)',
+            fontSize: 12,
+            fontWeight: 700,
+        },
+        '& strong': {
+            display: 'block',
+            minWidth: 0,
+            color: 'var(--netdive-detail-text, #0f172a)',
+            fontSize: 12.5,
+            fontWeight: 800,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+        }
+    },
+    summaryStatusBadge: {
+        display: 'inline-flex',
+        width: 'fit-content',
+        maxWidth: '100%',
+        borderRadius: 999,
+        padding: '3px 8px',
+        fontSize: 11,
+        fontWeight: 800,
+        lineHeight: 1.25,
+    },
+    preflightList: {
+        display: 'grid',
+        gap: theme.spacing(0.65),
+        margin: 0,
+        padding: 0,
+        listStyle: 'none',
+        '& li': {
+            display: 'grid',
+            gridTemplateColumns: '18px minmax(0, 1fr)',
+            gap: theme.spacing(0.6),
+            alignItems: 'start',
+            color: 'var(--netdive-detail-text, #0f172a)',
+            fontSize: 12.2,
+            lineHeight: 1.45,
+        },
+        '& svg': {
+            width: 16,
+            height: 16,
+            marginTop: 1,
+            color: '#16a34a',
+        }
+    },
+    preflightWarning: {
+        color: '#92400e !important',
+        '& svg': {
+            color: '#d97706 !important',
+        }
+    },
+    captureCautionCard: {
+        border: '1px solid #fde68a',
+        borderRadius: 14,
+        background: '#fffbeb',
+        padding: theme.spacing(1.1),
+        color: '#78350f',
+        '& strong': {
+            display: 'block',
+            fontSize: 13.5,
+            fontWeight: 800,
+            marginBottom: theme.spacing(0.7),
+        },
+        '& ul': {
+            margin: 0,
+            paddingLeft: 17,
+        },
+        '& li': {
+            fontSize: 12,
+            lineHeight: 1.5,
+            marginBottom: theme.spacing(0.35),
+        },
+        '& li:last-child': {
+            marginBottom: 0,
+        }
+    },
+    captureHelpAccordion: {
+        background: 'var(--netdive-detail-bg, #fff)',
+        border: '1px solid var(--netdive-detail-border, #dbe7f5)',
+        borderRadius: '14px !important',
+        boxShadow: 'none',
+        overflow: 'hidden',
+        '&::before': {
+            display: 'none',
+        },
+        '& .MuiAccordionSummary-root': {
+            minHeight: 44,
+            padding: theme.spacing(0, 1.1),
+        },
+        '& .MuiAccordionSummary-content': {
+            margin: theme.spacing(1, 0),
+        },
+        '& h3': {
+            color: 'var(--netdive-detail-text, #0f172a)',
+            fontSize: 13.5,
+            fontWeight: 800,
+        },
+        '& .MuiAccordionDetails-root': {
+            padding: theme.spacing(0, 1.1, 1.1),
+        },
+        '& p': {
+            margin: theme.spacing(0, 0, 0.7),
+            color: 'var(--netdive-detail-muted, #64748b)',
+            fontSize: 12,
+            lineHeight: 1.5,
+        },
+        '& p:last-child': {
+            marginBottom: 0,
+        }
     },
     helpCard: {
         border: '1px solid var(--netdive-detail-border, #dbe7f5)',
