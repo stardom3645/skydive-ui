@@ -49,6 +49,7 @@ interface State {
   error: string
   flows: CaptureFlowSummary[]
   expandedFlowKey: string
+  showAllTopFlows: boolean
 }
 
 const terminalStatuses = new Set(['completed', 'expired', 'delete_failed', 'failed', 'stopped'])
@@ -71,7 +72,7 @@ class CaptureStatusPanel extends React.Component<Props, State> {
 
   constructor(props: Props) {
     super(props)
-    this.state = { now: Date.now(), loading: false, error: '', flows: [], expandedFlowKey: '' }
+    this.state = { now: Date.now(), loading: false, error: '', flows: [], expandedFlowKey: '', showAllTopFlows: false }
   }
 
   componentDidMount() {
@@ -91,7 +92,7 @@ class CaptureStatusPanel extends React.Component<Props, State> {
 
   componentDidUpdate(prevProps: Props) {
     if (prevProps.capture.id !== this.props.capture.id) {
-      this.setState({ now: Date.now(), error: '', flows: [], expandedFlowKey: '' })
+      this.setState({ now: Date.now(), error: '', flows: [], expandedFlowKey: '', showAllTopFlows: false })
       this.fetchStatus()
       this.fetchFlows()
     }
@@ -160,8 +161,11 @@ class CaptureStatusPanel extends React.Component<Props, State> {
       const network = flow.Network || {}
       const transport = flow.Transport || {}
       const protocol = transport.Protocol || network.Protocol || flow.Application || '기타'
+      const normalizedProtocol = String(protocol).toUpperCase()
       const sourcePort = transport.A !== undefined && transport.A !== null ? String(transport.A) : ''
       const destinationPort = transport.B !== undefined && transport.B !== null ? String(transport.B) : ''
+      const application = flow.Application || this.portApplication(destinationPort)
+      const normalizedApplication = String(application || '').toUpperCase()
       const source = network.A || flow.Link?.A || '-'
       const destination = network.B || flow.Link?.B || this.props.capture.targetName || '-'
       const abBytes = Number(metric.ABBytes || 0)
@@ -171,8 +175,8 @@ class CaptureStatusPanel extends React.Component<Props, State> {
 
       return {
         key: flow.UUID || flow.ID || `${source}-${destination}-${sourcePort}-${destinationPort}-${index}`,
-        protocol: String(protocol).toUpperCase(),
-        application: flow.Application || this.portApplication(destinationPort),
+        protocol: normalizedProtocol,
+        application: normalizedApplication && normalizedApplication !== normalizedProtocol ? application : '',
         source: `${source}${sourcePort ? `:${sourcePort}` : ''}`,
         destination: `${destination}${destinationPort ? `:${destinationPort}` : ''}`,
         sourcePort,
@@ -227,9 +231,44 @@ class CaptureStatusPanel extends React.Component<Props, State> {
   }
 
   private topPeer(flows: CaptureFlowSummary[]): string {
-    const topFlow = flows[0]
-    if (!topFlow) return '-'
-    return topFlow.source.split(':')[0] || topFlow.destination.split(':')[0] || '-'
+    return this.topPeerSummary(flows).label
+  }
+
+  private topPeerSummary(flows: CaptureFlowSummary[]): { label: string, percent: number } {
+    if (flows.length === 0) return { label: '-', percent: 0 }
+    const totals = flows.reduce((acc, flow) => {
+      const peer = flow.source.split(':')[0] || flow.destination.split(':')[0] || '-'
+      acc[peer] = (acc[peer] || 0) + Math.max(flow.bytes, 1)
+      return acc
+    }, {} as Record<string, number>)
+    const totalBytes = Object.keys(totals).reduce((sum, key) => sum + totals[key], 0)
+    const top = Object.keys(totals).sort((a, b) => totals[b] - totals[a])[0]
+    return { label: top || '-', percent: totalBytes > 0 ? Math.round((totals[top] / totalBytes) * 100) : 0 }
+  }
+
+  private distributionByProtocol(flows: CaptureFlowSummary[]): Array<{ label: string, bytes: number, percent: number }> {
+    const totalBytes = flows.reduce((sum, flow) => sum + flow.bytes, 0)
+    const totals = flows.reduce((acc, flow) => {
+      acc[flow.protocol] = (acc[flow.protocol] || 0) + flow.bytes
+      return acc
+    }, {} as Record<string, number>)
+    return Object.keys(totals)
+      .sort((a, b) => totals[b] - totals[a])
+      .slice(0, 4)
+      .map(label => ({ label, bytes: totals[label], percent: totalBytes > 0 ? Math.round((totals[label] / totalBytes) * 100) : 0 }))
+  }
+
+  private distributionByPort(flows: CaptureFlowSummary[]): Array<{ port: string, bytes: number, percent: number }> {
+    const totalBytes = flows.reduce((sum, flow) => sum + flow.bytes, 0)
+    const totals = flows.reduce((acc, flow) => {
+      const port = flow.destinationPort || flow.sourcePort
+      if (port) acc[port] = (acc[port] || 0) + flow.bytes
+      return acc
+    }, {} as Record<string, number>)
+    return Object.keys(totals)
+      .sort((a, b) => totals[b] - totals[a])
+      .slice(0, 5)
+      .map(port => ({ port, bytes: totals[port], percent: totalBytes > 0 ? Math.round((totals[port] / totalBytes) * 100) : 0 }))
   }
 
   private tick() {
@@ -322,11 +361,24 @@ class CaptureStatusPanel extends React.Component<Props, State> {
     const isDone = terminalStatuses.has(capture.status) && capture.status !== 'delete_failed' && capture.status !== 'failed' && capture.status !== 'stopped'
     const isLegacy = capture.id.startsWith('legacy-')
     const flows = this.state.flows
-    const topFlows = flows.slice(0, 5)
+    const visibleTopFlows = this.state.showAllTopFlows ? flows : flows.slice(0, 5)
     const totalBytes = flows.reduce((sum, flow) => sum + flow.bytes, 0)
     const totalPackets = flows.reduce((sum, flow) => sum + flow.packets, 0)
     const protocol = this.topProtocol(flows)
+    const peer = this.topPeerSummary(flows)
     const topPort = this.topPort(flows)
+    const protocolDistribution = this.distributionByProtocol(flows)
+    const portDistribution = this.distributionByPort(flows)
+    const donutGradient = protocolDistribution.length > 0
+      ? protocolDistribution.reduce((parts, item, index) => {
+        const previous = parts.offset
+        const next = previous + item.percent
+        const color = index === 0 ? '#2563eb' : index === 1 ? '#22c55e' : index === 2 ? '#94a3b8' : '#cbd5e1'
+        parts.segments.push(`${color} ${previous}% ${next}%`)
+        parts.offset = next
+        return parts
+      }, { segments: [] as string[], offset: 0 }).segments.concat(protocolDistribution.reduce((sum, item) => sum + item.percent, 0) < 100 ? [`#e2e8f0 ${protocolDistribution.reduce((sum, item) => sum + item.percent, 0)}% 100%`] : []).join(', ')
+      : '#e2e8f0 0% 100%'
     const progress = isRunning ? this.progressValue() : 100
 
     return (
@@ -350,16 +402,6 @@ class CaptureStatusPanel extends React.Component<Props, State> {
               <LinearProgress variant="determinate" value={progress} className={classes.captureProgress} />
               <span>{progress}%</span>
             </div>
-            {capture.captureID &&
-              <Accordion className={classes.captureDetailsAccordion}>
-                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                  <Typography component="span">상세 정보</Typography>
-                </AccordionSummary>
-                <AccordionDetails>
-                  <span>Capture ID: {capture.captureID}</span>
-                </AccordionDetails>
-              </Accordion>
-            }
             {this.state.error && <p className={classes.captureStatusError}>{this.state.error}</p>}
             <div className={classes.captureStatusActions}>
               {isRunning &&
@@ -394,7 +436,7 @@ class CaptureStatusPanel extends React.Component<Props, State> {
               <div><span>총 플로우</span><strong>{flows.length.toLocaleString()}</strong></div>
               <div><span>총 트래픽</span><strong>{this.formatBytes(totalBytes)}</strong></div>
               <div><span>주요 프로토콜</span><strong>{protocol.label}</strong><small>{protocol.percent}%</small></div>
-              <div><span>주요 통신 대상</span><strong title={this.topPeer(flows)}>{this.topPeer(flows)}</strong></div>
+              <div><span>주요 통신 대상</span><strong title={peer.label}>{peer.label}</strong><small>{peer.percent}%</small></div>
               <div><span>상위 포트</span><strong>{topPort}</strong><small>{this.portApplication(topPort)}</small></div>
             </div>
           </section>
@@ -402,14 +444,19 @@ class CaptureStatusPanel extends React.Component<Props, State> {
           <section className={classes.captureSummaryCard}>
             <div className={classes.captureSectionHeader}>
               <strong>상위 통신</strong>
-              <span>{totalPackets.toLocaleString()} 패킷</span>
+              {flows.length > 5 &&
+                <button type="button" className={classes.moreButton} onClick={() => this.setState({ showAllTopFlows: !this.state.showAllTopFlows })}>
+                  {this.state.showAllTopFlows ? '접기' : `더보기 (${flows.length - 5})`}
+                </button>
+              }
             </div>
-            {topFlows.length === 0 &&
+            {visibleTopFlows.length === 0 &&
               <p className={classes.captureEmptyState}>아직 표시할 플로우가 없습니다. 캡처가 진행되면 요약이 갱신됩니다.</p>
             }
-            <div className={classes.topFlowList}>
-              {topFlows.map((flow, index) => {
+            <div className={`${classes.topFlowList} ${this.state.showAllTopFlows ? classes.topFlowListScrollable : ''}`}>
+              {visibleTopFlows.map((flow, index) => {
                 const percent = totalBytes > 0 ? Math.max(4, Math.round((flow.bytes / totalBytes) * 100)) : 0
+                const packetPercent = totalPackets > 0 ? Math.round((flow.packets / totalPackets) * 100) : 0
                 const expanded = this.state.expandedFlowKey === flow.key
                 return (
                   <button
@@ -420,7 +467,10 @@ class CaptureStatusPanel extends React.Component<Props, State> {
                     <span className={classes.topFlowRank}>{index + 1}</span>
                     <span className={classes.topFlowMain}>
                       <strong title={`${flow.source} → ${flow.destination}`}>{flow.source} → {flow.destination}</strong>
-                      <em>{flow.protocol}{flow.application ? ` · ${flow.application}` : ''} · {flow.packets.toLocaleString()} 패킷</em>
+                      <em>
+                        <span className={classes.flowBadge}>{flow.protocol}</span>
+                        {flow.application && <span className={classes.flowBadge}>{flow.application}</span>}
+                      </em>
                       <i style={{ width: `${percent}%` }} />
                       {expanded &&
                         <small>
@@ -428,7 +478,10 @@ class CaptureStatusPanel extends React.Component<Props, State> {
                         </small>
                       }
                     </span>
-                    <span className={classes.topFlowBytes}>{this.formatBytes(flow.bytes)}</span>
+                    <span className={classes.topFlowBytes}>
+                      <strong>{this.formatBytes(flow.bytes)}</strong>
+                      <small>{flow.packets.toLocaleString()} 패킷<br />({packetPercent}%)</small>
+                    </span>
                   </button>
                 )
               })}
@@ -438,28 +491,27 @@ class CaptureStatusPanel extends React.Component<Props, State> {
           <section className={classes.captureDistributionGrid}>
             <div className={classes.captureSummaryCard}>
               <strong className={classes.miniSectionTitle}>프로토콜 분포</strong>
-              {Object.entries(flows.reduce((acc, flow) => {
-                acc[flow.protocol] = (acc[flow.protocol] || 0) + flow.bytes
-                return acc
-              }, {} as Record<string, number>)).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([name, bytes]) => (
-                <div className={classes.progressListRow} key={name}>
-                  <span>{name}</span>
-                  <i><b style={{ width: `${totalBytes > 0 ? Math.round((bytes / totalBytes) * 100) : 0}%` }} /></i>
-                  <em>{totalBytes > 0 ? Math.round((bytes / totalBytes) * 100) : 0}%</em>
+              <div className={classes.protocolDonutWrap}>
+                <div className={classes.protocolDonut} style={{ background: `conic-gradient(${donutGradient})` }} />
+                <div className={classes.protocolLegend}>
+                  {protocolDistribution.map((item, index) => (
+                    <div key={item.label}>
+                      <i className={index === 0 ? classes.legendBlue : index === 1 ? classes.legendGreen : classes.legendGray} />
+                      <span>{item.label}</span>
+                      <strong>{item.percent}%</strong>
+                      <em>({this.formatBytes(item.bytes)})</em>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
             </div>
             <div className={classes.captureSummaryCard}>
               <strong className={classes.miniSectionTitle}>상위 포트</strong>
-              {Object.entries(flows.reduce((acc, flow) => {
-                const port = flow.destinationPort || flow.sourcePort
-                if (port) acc[port] = (acc[port] || 0) + flow.bytes
-                return acc
-              }, {} as Record<string, number>)).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([port, bytes]) => (
+              {portDistribution.map(({ port, bytes, percent }) => (
                 <div className={classes.progressListRow} key={port}>
                   <span>{port} {this.portApplication(port)}</span>
-                  <i><b style={{ width: `${totalBytes > 0 ? Math.round((bytes / totalBytes) * 100) : 0}%` }} /></i>
-                  <em>{this.formatBytes(bytes)}</em>
+                  <i><b style={{ width: `${percent}%` }} /></i>
+                  <em>{this.formatBytes(bytes)} · {percent}%</em>
                 </div>
               ))}
             </div>
@@ -577,29 +629,6 @@ const styles = (theme: Theme) => createStyles({
       textAlign: 'right',
     }
   },
-  captureDetailsAccordion: {
-    marginTop: theme.spacing(0.8),
-    boxShadow: 'none',
-    border: '1px solid var(--netdive-detail-border, #dbe7f5)',
-    borderRadius: '10px !important',
-    overflow: 'hidden',
-    '&::before': {
-      display: 'none',
-    },
-    '& .MuiAccordionSummary-root': {
-      minHeight: 34,
-      padding: theme.spacing(0, 1),
-    },
-    '& .MuiAccordionSummary-content': {
-      margin: theme.spacing(0.7, 0),
-    },
-    '& .MuiAccordionDetails-root': {
-      padding: theme.spacing(0, 1, 0.9),
-      color: 'var(--netdive-detail-muted, #64748b)',
-      fontSize: 11.5,
-      wordBreak: 'break-all',
-    }
-  },
   captureStatusError: {
     color: '#b91c1c',
     fontSize: 12,
@@ -635,6 +664,20 @@ const styles = (theme: Theme) => createStyles({
       color: 'var(--netdive-detail-muted, #64748b)',
       fontSize: 11,
       whiteSpace: 'nowrap',
+    }
+  },
+  moreButton: {
+    appearance: 'none',
+    border: 0,
+    background: 'transparent',
+    color: '#1a73e8',
+    fontSize: 12,
+    fontWeight: 800,
+    cursor: 'pointer',
+    padding: theme.spacing(0.3, 0.4),
+    borderRadius: 6,
+    '&:hover': {
+      background: '#eff6ff',
     }
   },
   captureMetricGrid: {
@@ -685,11 +728,17 @@ const styles = (theme: Theme) => createStyles({
     display: 'grid',
     gap: theme.spacing(0.55),
   },
+  topFlowListScrollable: {
+    maxHeight: 360,
+    overflowY: 'auto',
+    paddingRight: 3,
+    scrollbarGutter: 'stable',
+  },
   topFlowItem: {
     appearance: 'none',
     width: '100%',
     display: 'grid',
-    gridTemplateColumns: '24px minmax(0, 1fr) auto',
+    gridTemplateColumns: '24px minmax(0, 1fr) 78px',
     gap: theme.spacing(0.8),
     alignItems: 'center',
     border: '1px solid transparent',
@@ -732,7 +781,9 @@ const styles = (theme: Theme) => createStyles({
       whiteSpace: 'nowrap',
     },
     '& em': {
-      display: 'block',
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: 4,
       color: 'var(--netdive-detail-muted, #64748b)',
       fontSize: 11,
       fontStyle: 'normal',
@@ -754,10 +805,37 @@ const styles = (theme: Theme) => createStyles({
     }
   },
   topFlowBytes: {
+    display: 'grid',
+    justifyItems: 'end',
+    gap: 2,
+    minWidth: 0,
     color: 'var(--netdive-detail-text, #0f172a)',
-    fontSize: 12,
-    fontWeight: 900,
     whiteSpace: 'nowrap',
+    '& strong': {
+      display: 'block',
+      fontSize: 12,
+      fontWeight: 900,
+    },
+    '& small': {
+      display: 'block',
+      color: 'var(--netdive-detail-muted, #64748b)',
+      fontSize: 10.5,
+      fontWeight: 700,
+      lineHeight: 1.25,
+      textAlign: 'right',
+    }
+  },
+  flowBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    border: '1px solid #dbe7f5',
+    borderRadius: 5,
+    background: '#f8fafc',
+    color: '#475569',
+    padding: '1px 5px',
+    fontSize: 10.5,
+    fontWeight: 800,
+    lineHeight: 1.35,
   },
   captureDistributionGrid: {
     display: 'grid',
@@ -771,9 +849,76 @@ const styles = (theme: Theme) => createStyles({
     fontSize: 13,
     fontWeight: 900,
   },
+  protocolDonutWrap: {
+    display: 'grid',
+    gridTemplateColumns: '92px minmax(0, 1fr)',
+    gap: theme.spacing(1),
+    alignItems: 'center',
+  },
+  protocolDonut: {
+    width: 82,
+    height: 82,
+    borderRadius: '50%',
+    position: 'relative',
+    boxShadow: 'inset 0 0 0 1px rgba(219, 231, 245, 0.9)',
+    '&::after': {
+      content: '""',
+      position: 'absolute',
+      inset: 20,
+      borderRadius: '50%',
+      background: 'var(--netdive-detail-bg, #fff)',
+      boxShadow: '0 0 0 1px rgba(219, 231, 245, 0.7)',
+    }
+  },
+  protocolLegend: {
+    display: 'grid',
+    gap: theme.spacing(0.55),
+    minWidth: 0,
+    '& div': {
+      display: 'grid',
+      gridTemplateColumns: '10px minmax(0, 1fr) auto auto',
+      alignItems: 'center',
+      gap: theme.spacing(0.45),
+      minWidth: 0,
+    },
+    '& i': {
+      display: 'block',
+      width: 8,
+      height: 8,
+      borderRadius: '50%',
+    },
+    '& span': {
+      color: 'var(--netdive-detail-text, #0f172a)',
+      fontSize: 11.5,
+      fontWeight: 800,
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap',
+    },
+    '& strong': {
+      color: 'var(--netdive-detail-text, #0f172a)',
+      fontSize: 11.5,
+      fontWeight: 900,
+    },
+    '& em': {
+      color: 'var(--netdive-detail-muted, #64748b)',
+      fontSize: 11,
+      fontStyle: 'normal',
+      fontWeight: 700,
+    }
+  },
+  legendBlue: {
+    background: '#2563eb',
+  },
+  legendGreen: {
+    background: '#22c55e',
+  },
+  legendGray: {
+    background: '#94a3b8',
+  },
   progressListRow: {
     display: 'grid',
-    gridTemplateColumns: '64px minmax(0, 1fr) 54px',
+    gridTemplateColumns: '72px minmax(0, 1fr) 82px',
     gap: theme.spacing(0.7),
     alignItems: 'center',
     marginBottom: theme.spacing(0.65),

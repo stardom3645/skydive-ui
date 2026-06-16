@@ -459,44 +459,6 @@ export const styles = (theme: Theme) => createStyles({
             whiteSpace: 'nowrap',
         }
     },
-    summaryStatusBadge: {
-        display: 'inline-flex',
-        width: 'fit-content',
-        maxWidth: '100%',
-        borderRadius: 999,
-        padding: '3px 8px',
-        fontSize: 11,
-        fontWeight: 800,
-        lineHeight: 1.25,
-    },
-    preflightList: {
-        display: 'grid',
-        gap: theme.spacing(0.65),
-        margin: 0,
-        padding: 0,
-        listStyle: 'none',
-        '& li': {
-            display: 'grid',
-            gridTemplateColumns: '18px minmax(0, 1fr)',
-            gap: theme.spacing(0.6),
-            alignItems: 'start',
-            color: 'var(--netdive-detail-text, #0f172a)',
-            fontSize: 12.2,
-            lineHeight: 1.45,
-        },
-        '& svg': {
-            width: 16,
-            height: 16,
-            marginTop: 1,
-            color: '#16a34a',
-        }
-    },
-    preflightWarning: {
-        color: '#92400e !important',
-        '& svg': {
-            color: '#d97706 !important',
-        }
-    },
     captureCautionCard: {
         border: '1px solid #fde68a',
         borderRadius: 14,

@@ -20,7 +20,6 @@ import PlayArrowIcon from '@material-ui/icons/PlayArrow'
 import CheckCircleIcon from '@material-ui/icons/CheckCircle'
 import WarningIcon from '@material-ui/icons/Warning'
 import ErrorOutlineIcon from '@material-ui/icons/ErrorOutline'
-import HelpOutlineIcon from '@material-ui/icons/HelpOutline'
 
 import { Node } from '../Topology'
 import { Configuration } from '../api/configuration'
@@ -68,8 +67,6 @@ interface State {
 }
 
 type CaptureCapability = "available" | "conditional" | "unavailable"
-type PreflightStatus = "ok" | "warning"
-
 class CaptureForm extends React.Component<Props, State> {
   constructor(props) {
     super(props)
@@ -317,34 +314,6 @@ class CaptureForm extends React.Component<Props, State> {
     }
   }
 
-  private preflightChecks(capability: CaptureCapability, hasValidationError: boolean): Array<{ label: string, status: PreflightStatus }> {
-    const checks: Array<{ label: string, status: PreflightStatus }> = []
-
-    if (capability === "available") {
-      checks.push({ label: "캡처 가능한 대상입니다.", status: "ok" })
-    } else if (capability === "conditional") {
-      checks.push({ label: "관련 인프라 노드에서 캡처하는 정책을 권장합니다.", status: "warning" })
-    } else {
-      checks.push({ label: "캡처 가능한 대상이 아닙니다.", status: "warning" })
-    }
-
-    checks.push({ label: "자동 종료 시간이 설정되어 있습니다.", status: "ok" })
-
-    if (this.state.filterPreset === "custom" && this.state.bpf.trim() === "") {
-      checks.push({ label: "직접 입력 필터를 확인하세요.", status: "warning" })
-    } else if (this.state.filterPreset === "all") {
-      checks.push({ label: "필터 없이 전체 트래픽을 캡처합니다.", status: "ok" })
-    } else {
-      checks.push({ label: "필터가 적용됩니다.", status: "ok" })
-    }
-
-    if (hasValidationError) {
-      checks.push({ label: "고급 옵션 입력값을 확인하세요.", status: "warning" })
-    }
-
-    return checks
-  }
-
   private normalizeSimpleCapture(raw: any, bpf: string): SimpleCaptureSession {
     const request = raw?.request || {}
     const target = raw?.target || {}
@@ -555,7 +524,6 @@ class CaptureForm extends React.Component<Props, State> {
     const statusClass = capability === "available" ? classes.statusAvailable : capability === "conditional" ? classes.statusConditional : classes.statusUnavailable
     const StatusIcon = capability === "available" ? CheckCircleIcon : capability === "conditional" ? WarningIcon : ErrorOutlineIcon
     const capabilityLabel = this.captureCapabilityLabel(capability)
-    const preflightChecks = this.preflightChecks(capability, hasValidationError)
     const statusSummary = capability === "available"
       ? "이 대상은 기본 패킷 캡처를 사용할 수 있습니다."
       : capability === "conditional"
@@ -788,10 +756,6 @@ class CaptureForm extends React.Component<Props, State> {
                     <strong>{this.targetTypeLabel(this.props.node)}</strong>
                   </div>
                   <div>
-                    <span>상태</span>
-                    <strong><span className={`${classes.summaryStatusBadge} ${statusClass}`}>{capabilityLabel}</span></strong>
-                  </div>
-                  <div>
                     <span>범위</span>
                     <strong>{this.captureScopeLabel()}</strong>
                   </div>
@@ -804,24 +768,6 @@ class CaptureForm extends React.Component<Props, State> {
                     <strong title={this.filterSummaryLabel()}>{this.filterSummaryLabel()}</strong>
                   </div>
                 </div>
-              </div>
-
-              <div className={classes.captureSideCard}>
-                <div className={classes.sideCardTitle}>
-                  <HelpOutlineIcon />
-                  <strong>시작 전 확인</strong>
-                </div>
-                <ul className={classes.preflightList}>
-                  {preflightChecks.map((check) => {
-                    const CheckIcon = check.status === "ok" ? CheckCircleIcon : WarningIcon
-                    return (
-                      <li key={check.label} className={check.status === "warning" ? classes.preflightWarning : ""}>
-                        <CheckIcon fontSize="small" />
-                        <span>{check.label}</span>
-                      </li>
-                    )
-                  })}
-                </ul>
               </div>
 
               <div className={classes.captureCautionCard}>
