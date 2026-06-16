@@ -1554,41 +1554,46 @@ class App extends React.Component<Props, State> {
 
   private linkTagMeta(tag: string) {
     const normalized = tag.toLowerCase()
-    const meta: { [key: string]: { key: string, name: string, summary: string, description: string } } = {
+    const meta: { [key: string]: { key: string, name: string, summary: string, description: string, badge?: string } } = {
       layer2: {
         key: "L2",
         name: "물리 네트워크 계층",
         summary: "Layer 2",
-        description: "스위치, 물리 네트워크 장비 간 실제 연결 링크를 표시합니다."
+        description: "스위치, 물리 네트워크 장비 간 실제 연결 링크를 표시합니다.",
+        badge: "물리"
       },
       vlayer2: {
         key: "vL2",
         name: "가상 네트워크 계층",
         summary: "Virtual Layer 2",
-        description: "VM, 가상 스위치, 가상 네트워크 간 연결 링크를 표시합니다."
+        description: "VM, 가상 스위치, 가상 네트워크 간 연결 링크를 표시합니다.",
+        badge: "가상"
       },
       service: {
         key: "Service",
-        name: "Service 연결",
-        summary: "Kubernetes Service",
-        description: "Kubernetes Service와 관련 리소스 간 연결을 표시합니다."
+        name: "서비스",
+        summary: "관련 리소스 연결",
+        description: "Kubernetes Service와 관련 리소스 간 연결을 표시합니다.",
+        badge: "K8s"
       },
       node: {
         key: "Node",
-        name: "Node 연결",
-        summary: "Kubernetes Node",
-        description: "Kubernetes Node와 관련 리소스 간 연결을 표시합니다."
+        name: "노드",
+        summary: "관련 리소스 연결",
+        description: "Kubernetes Node와 관련 리소스 간 연결을 표시합니다.",
+        badge: "K8s"
       },
       daemonset: {
         key: "DaemonSet",
-        name: "DaemonSet 연결",
-        summary: "Kubernetes DaemonSet",
-        description: "Kubernetes DaemonSet과 Pod/Node 간 연결을 표시합니다."
+        name: "데몬셋",
+        summary: "파드/노드 연결",
+        description: "Kubernetes DaemonSet과 Pod/Node 간 연결을 표시합니다.",
+        badge: "K8s"
       }
     }
     return meta[normalized] || {
       key: tag,
-      name: translate(tag),
+      name: `${translate(tag)} 연결`,
       summary: "추가 링크 계층",
       description: "수집된 Graph 데이터에서 제공된 추가 링크 계층입니다."
     }
@@ -1803,7 +1808,7 @@ class App extends React.Component<Props, State> {
         <div className={classes.linkTagsCompactRow}>
           <span className={classes.linkTagsCompactRowLabel}>계층</span>
           <div className={classes.linkTagsCompactSegment}>
-            {tags.slice(0, 4).map((tag) => {
+            {tags.map((tag) => {
               const meta = this.linkTagMeta(tag)
               const isActive = tag === primaryTag
               return (
@@ -1843,6 +1848,11 @@ class App extends React.Component<Props, State> {
         </div>
       </div>
     )
+  }
+
+  private additionalLinkTagCount(tags: string[]) {
+    const baseCount = this.isKubernetesLayerActive() ? 3 : 2
+    return Math.max(0, tags.length - baseCount)
   }
 
   onLinkTagChange(tags: Map<string, LinkTagState>) {
@@ -2556,9 +2566,12 @@ class App extends React.Component<Props, State> {
                         key={key}
                         className={clsx(classes.linkLayerCard, stateClass)}
                         onClick={() => this.cycleLinkTagState(key)}
-                        title={`${meta.name}: ${stateInfo.description}`}>
+                        title={`${meta.description} 현재 상태: ${stateInfo.label}`}>
                         <div className={classes.linkLayerCardMain}>
-                          <span className={classes.linkLayerCardKey}>{meta.key}</span>
+                          <span className={classes.linkLayerCardTop}>
+                            <span className={classes.linkLayerCardKey}>{meta.key}</span>
+                            {meta.badge && <span className={classes.linkLayerCardBadge}>{meta.badge}</span>}
+                          </span>
                           <span className={classes.linkLayerCardName}>{meta.name}</span>
                           <span className={classes.linkLayerCardSummary}>{meta.summary}</span>
                         </div>
@@ -2568,6 +2581,9 @@ class App extends React.Component<Props, State> {
                       </button>
                     )
                   })}
+                  {this.additionalLinkTagCount(visibleTags) > 0 &&
+                    <span className={classes.linkLayerMoreHint}>추가 {this.additionalLinkTagCount(visibleTags)}개는 가로로 스크롤해 확인</span>
+                  }
                 </div>
                 <div className={classes.linkTagsStateHelp}>
                   <Typography component="strong" className={classes.linkTagsStateHelpTitle}>
@@ -2594,7 +2610,7 @@ class App extends React.Component<Props, State> {
                 {this.isKubernetesLayerActive() &&
                   <div className={classes.linkTagsNotice}>
                     <InfoIcon fontSize="small" />
-                    <span>수집되는 자원에 따라 추가 링크 계층이 표시될 수 있습니다.</span>
+                    <span>수집되는 자원에 따라 Service, Node, DaemonSet 외 추가 링크 계층이 표시될 수 있습니다.</span>
                   </div>
                 }
               </Paper>
