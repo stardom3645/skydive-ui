@@ -2002,7 +2002,7 @@ export const styles = (theme: Theme) => createStyles({
     width: 'min(384px, 100%)',
   },
   linkTagsCollapsedTabKubernetes: {
-    width: 'min(472px, 100%)',
+    width: 'min(404px, 100%)',
   },
   linkTagsCollapsedMain: {
     display: 'flex',
