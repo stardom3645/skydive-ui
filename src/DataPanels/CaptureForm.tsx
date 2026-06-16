@@ -62,7 +62,6 @@ interface State {
   captureDuration: string
   filterPreset: string
   showAdvanced: boolean
-  showDetails: boolean
   snackbarOpen: boolean
   snackbarMessage: string
   snackbarSeverity: "success" | "error"
@@ -89,7 +88,6 @@ class CaptureForm extends React.Component<Props, State> {
       captureDuration: "30s",
       filterPreset: "all",
       showAdvanced: false,
-      showDetails: false,
       snackbarOpen: false,
       snackbarMessage: "",
       snackbarSeverity: "error"
@@ -110,8 +108,7 @@ class CaptureForm extends React.Component<Props, State> {
       captureScope: "related",
       captureDuration: "30s",
       filterPreset: "all",
-      showAdvanced: false,
-      showDetails: false
+      showAdvanced: false
     })
   }
 
@@ -279,12 +276,6 @@ class CaptureForm extends React.Component<Props, State> {
       case "custom": return this.state.bpf
       default: return ""
     }
-  }
-
-  private recommendedCaptureType(node?: Node): string {
-    const types = this.eligibleCaptureTypes(node)
-    if (types.includes("pcap")) return "pcap"
-    return types[0] || ""
   }
 
   private captureDurationSeconds(): number {
@@ -477,6 +468,18 @@ class CaptureForm extends React.Component<Props, State> {
     )
   }
 
+  private renderCompactTextField(classes: any, props: any) {
+    return (
+      <TextField
+        {...props}
+        className={`${classes.compactField} ${props.className || ""}`}
+        variant="outlined"
+        fullWidth
+        margin="none"
+      />
+    )
+  }
+
   render() {
     const { classes } = this.props
     const capability = this.captureCapability(this.props.node)
@@ -502,25 +505,6 @@ class CaptureForm extends React.Component<Props, State> {
       <>
         <Panel icon={<VideocamIcon />} title={translate("Packet capture")} content={
           <div className={classes.captureWizard}>
-            <aside className={classes.wizardSteps}>
-              {[
-                ["1", "대상 확인", "자동 진단"],
-                ["2", "캡처 설정", "간단 설정"]
-              ].map((step, index) => (
-                <div key={step[0]} className={`${classes.wizardStep} ${classes.wizardStepActive}`}>
-                  <span className={classes.wizardStepCircle}>{step[0]}</span>
-                  <span>
-                    <strong>{step[1]}</strong>
-                    <small>{step[2]}</small>
-                  </span>
-                </div>
-              ))}
-              <div className={classes.wizardWarningCard}>
-                <WarningIcon />
-                <span>패킷 캡처는 네트워크 성능에 영향을 줄 수 있습니다.</span>
-              </div>
-            </aside>
-
             <section className={classes.wizardMain}>
               <div className={classes.wizardMainCard}>
                 <div className={classes.wizardCardHeader}>
@@ -604,15 +588,15 @@ class CaptureForm extends React.Component<Props, State> {
                   </div>
 
                   {this.state.filterPreset === "custom" &&
-                    <TextField
-                      label={translate("Filter (BPF)")}
-                      className={classes.textField}
-                      fullWidth
-                      margin="normal"
-                      placeholder="예: tcp port 22"
-                      value={this.state.bpf}
-                      onChange={this.handleChange("bpf")}
-                    />
+                    <div className={classes.inlineFieldCard}>
+                      <span className={classes.sectionLabel}>직접 입력 BPF</span>
+                      {this.renderCompactTextField(classes, {
+                        label: translate("Filter (BPF)"),
+                        placeholder: "예: tcp port 22",
+                        value: this.state.bpf,
+                        onChange: this.handleChange("bpf")
+                      })}
+                    </div>
                   }
                 </div>
 
@@ -639,8 +623,8 @@ class CaptureForm extends React.Component<Props, State> {
                       <Typography className={classes.heading}>{translate("Advanced options")}</Typography>
                     </AccordionSummary>
                     <AccordionDetails>
-                      <div style={{ width: "100%" }}>
-                        <FormControl variant="outlined" fullWidth className={classes.control}>
+                      <div className={classes.advancedGrid}>
+                        <FormControl variant="outlined" fullWidth className={classes.compactField}>
                           <InputLabel id="capture-type-label">{translate("Capture Type")}</InputLabel>
                           <Select
                             id="capture-type"
@@ -655,7 +639,7 @@ class CaptureForm extends React.Component<Props, State> {
                             {isOvsMirrorEligible ? <MenuItem value="ovsmirror">OVS Mirror</MenuItem> : <MenuItem value="ovsmirror" disabled>OVS Mirror</MenuItem>}
                           </Select>
                         </FormControl>
-                        <FormControl variant="outlined" fullWidth className={classes.control}>
+                        <FormControl variant="outlined" fullWidth className={classes.compactField}>
                           <InputLabel id="layer-key-label">{translate("Layers used for Flow Key")}</InputLabel>
                           <Select
                             id="layer-key"
@@ -667,17 +651,23 @@ class CaptureForm extends React.Component<Props, State> {
                             <MenuItem value="L3">L3</MenuItem>
                           </Select>
                         </FormControl>
-                        <TextField
-                          label={translate("Header size")}
-                          type="number"
-                          value={this.state.headerSize}
-                          onChange={this.handleChange("headerSize")}
-                          error={!!this.state.headerSize && !this.isHeaderSizeValid()}
-                          helperText={!!this.state.headerSize && !this.isHeaderSizeValid() ? translate("capture-headerSize-validation-error") : ""}
-                          fullWidth
-                          margin="normal"
-                        />
-                        <FormControl component="fieldset" className={classes.control}>
+                        {this.renderCompactTextField(classes, {
+                          label: translate("Header size"),
+                          type: "number",
+                          value: this.state.headerSize,
+                          onChange: this.handleChange("headerSize"),
+                          error: !!this.state.headerSize && !this.isHeaderSizeValid(),
+                          helperText: !!this.state.headerSize && !this.isHeaderSizeValid() ? translate("capture-headerSize-validation-error") : ""
+                        })}
+                        {this.renderCompactTextField(classes, {
+                          label: <span className={classes.fieldLabelWithHelp}>{translate("Raw packet limit")}<HelpIconWithDialog topic="raw-packet-limit" /></span>,
+                          type: "number",
+                          value: this.state.rawPacketLimit,
+                          onChange: this.handleChange("rawPacketLimit"),
+                          error: !!this.state.rawPacketLimit && !this.isRawPacketLimitValid(),
+                          helperText: !!this.state.rawPacketLimit && !this.isRawPacketLimitValid() ? translate("capture-rawPacketLimit-validation-error") : ""
+                        })}
+                        <FormControl component="fieldset" className={classes.advancedChecks}>
                           <Tooltip title={translate("capture-extraTCPMetric-tooltip")} arrow>
                             <FormControlLabel control={<Checkbox checked={this.state.extraTCPMetric} onChange={this.handleChange("extraTCPMetric")} color="primary" />} label={translate("Extra TCP metric")} />
                           </Tooltip>
@@ -687,18 +677,6 @@ class CaptureForm extends React.Component<Props, State> {
                           <Tooltip title={translate("capture-reassembleTCP-tooltip")} arrow>
                             <FormControlLabel control={<Checkbox checked={this.state.reassembleTCP} onChange={this.handleChange("reassembleTCP")} color="primary" />} label={translate("Reassemble TCP packets")} />
                           </Tooltip>
-                        </FormControl>
-                        <FormControl fullWidth>
-                          <TextField
-                            label={<span style={{ display: "flex", alignItems: "center" }}>{translate("Raw packet limit")}<HelpIconWithDialog topic="raw-packet-limit" /></span>}
-                            type="number"
-                            value={this.state.rawPacketLimit}
-                            onChange={this.handleChange("rawPacketLimit")}
-                            error={!!this.state.rawPacketLimit && !this.isRawPacketLimitValid()}
-                            helperText={!!this.state.rawPacketLimit && !this.isRawPacketLimitValid() ? translate("capture-rawPacketLimit-validation-error") : ""}
-                            fullWidth
-                            margin="normal"
-                          />
                         </FormControl>
                       </div>
                     </AccordionDetails>

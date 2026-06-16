@@ -13,8 +13,8 @@ import { createStyles, Theme } from '@material-ui/core/styles'
 export const styles = (theme: Theme) => createStyles({
     captureWizard: {
         display: 'grid',
-        gridTemplateColumns: '150px minmax(0, 1fr) 220px',
-        gap: theme.spacing(1.4),
+        gridTemplateColumns: 'minmax(0, 1fr) 220px',
+        gap: theme.spacing(1.5),
         alignItems: 'start',
         background: 'var(--netdive-detail-panel-bg, #f8fafc)',
         padding: theme.spacing(1.2),
@@ -22,69 +22,6 @@ export const styles = (theme: Theme) => createStyles({
         boxSizing: 'border-box',
         [theme.breakpoints.down('md')]: {
             gridTemplateColumns: '1fr',
-        }
-    },
-    wizardSteps: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: theme.spacing(1),
-    },
-    wizardStep: {
-        display: 'grid',
-        gridTemplateColumns: '28px minmax(0, 1fr)',
-        gap: theme.spacing(0.8),
-        alignItems: 'center',
-        padding: theme.spacing(0.9),
-        border: '1px solid var(--netdive-detail-border, #dbe7f5)',
-        borderRadius: 12,
-        background: 'var(--netdive-detail-bg, #fff)',
-        color: 'var(--netdive-detail-muted, #64748b)',
-        '& strong': {
-            display: 'block',
-            color: 'var(--netdive-detail-text, #0f172a)',
-            fontSize: 12.5,
-            lineHeight: 1.25,
-        },
-        '& small': {
-            display: 'block',
-            fontSize: 11,
-            lineHeight: 1.3,
-        }
-    },
-    wizardStepActive: {
-        borderColor: '#93c5fd',
-        background: '#eff6ff',
-    },
-    wizardStepCircle: {
-        width: 26,
-        height: 26,
-        borderRadius: 999,
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: '#1a73e8',
-        color: '#fff',
-        fontSize: 12,
-        fontWeight: 700,
-        '& svg': {
-            width: 15,
-            height: 15,
-        }
-    },
-    wizardWarningCard: {
-        display: 'flex',
-        gap: theme.spacing(0.7),
-        padding: theme.spacing(1),
-        borderRadius: 12,
-        border: '1px solid #fed7aa',
-        background: '#fff7ed',
-        color: '#9a3412',
-        fontSize: 11.5,
-        lineHeight: 1.45,
-        '& svg': {
-            width: 16,
-            height: 16,
-            flexShrink: 0,
         }
     },
     wizardMain: {
@@ -222,43 +159,6 @@ export const styles = (theme: Theme) => createStyles({
         fontWeight: 700,
         lineHeight: 1.4,
     },
-    diagnosisCard: {
-        border: '1px solid var(--netdive-detail-border, #dbe7f5)',
-        borderRadius: 14,
-        padding: theme.spacing(1.2),
-        '& > svg': {
-            width: 18,
-            height: 18,
-        },
-        '& strong': {
-            display: 'block',
-            marginTop: theme.spacing(0.5),
-            fontSize: 13,
-        },
-        '& p': {
-            margin: theme.spacing(0.5, 0),
-            color: 'var(--netdive-detail-text, #0f172a)',
-            fontSize: 12,
-            lineHeight: 1.45,
-        },
-        '& button': {
-            appearance: 'none',
-            border: 0,
-            background: 'transparent',
-            color: '#1a73e8',
-            cursor: 'pointer',
-            fontSize: 12,
-            fontWeight: 700,
-            padding: 0,
-        },
-        '& small': {
-            display: 'block',
-            marginTop: theme.spacing(0.7),
-            color: 'var(--netdive-detail-muted, #64748b)',
-            fontSize: 11,
-            lineHeight: 1.45,
-        }
-    },
     simpleSettings: {
         marginTop: theme.spacing(1.5),
         borderTop: '1px solid var(--netdive-detail-border, #dbe7f5)',
@@ -360,6 +260,57 @@ export const styles = (theme: Theme) => createStyles({
         background: '#e8f2ff',
         color: '#1a73e8',
     },
+    inlineFieldCard: {
+        marginTop: theme.spacing(0.8),
+        border: '1px solid var(--netdive-detail-border, #dbe7f5)',
+        borderRadius: 12,
+        background: '#f8fafc',
+        padding: theme.spacing(1),
+    },
+    compactField: {
+        margin: 0,
+        '& .MuiOutlinedInput-root': {
+            borderRadius: 10,
+            backgroundColor: '#fff',
+            minHeight: 42,
+            '& fieldset': {
+                borderColor: 'var(--netdive-detail-border, #dbe7f5)',
+            },
+            '&:hover fieldset': {
+                borderColor: '#93c5fd',
+            },
+            '&.Mui-focused fieldset': {
+                borderColor: '#1a73e8',
+                borderWidth: 1,
+            },
+        },
+        '& .MuiInputBase-input': {
+            color: 'var(--netdive-detail-text, #0f172a)',
+            fontSize: 13,
+            lineHeight: 1.45,
+            padding: '11px 12px',
+            boxSizing: 'border-box',
+        },
+        '& .MuiInputLabel-outlined': {
+            color: 'var(--netdive-detail-muted, #64748b)',
+            fontSize: 12,
+        },
+        '& .MuiFormHelperText-root': {
+            marginLeft: 2,
+            fontSize: 11,
+        },
+        '& .MuiSelect-select': {
+            minHeight: 'auto',
+            padding: '11px 32px 11px 12px',
+            fontSize: 13,
+            boxSizing: 'border-box',
+        }
+    },
+    fieldLabelWithHelp: {
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4,
+    },
     wizardActions: {
         display: 'flex',
         justifyContent: 'space-between',
@@ -457,18 +408,6 @@ export const styles = (theme: Theme) => createStyles({
             margin: theme.spacing(0.7, 0, 0),
         }
     },
-    supportList: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: 6,
-        marginTop: theme.spacing(0.7),
-        color: 'var(--netdive-detail-text, #0f172a)',
-        fontSize: 11.5,
-        '& svg': {
-            width: 15,
-            height: 15,
-        }
-    },
     helpNotice: {
         border: '1px solid #bfdbfe',
         borderRadius: 14,
@@ -484,50 +423,13 @@ export const styles = (theme: Theme) => createStyles({
             display: 'block',
             fontSize: 11.5,
             lineHeight: 1.45,
-        },
-        '& a': {
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 4,
-            marginTop: theme.spacing(0.8),
-            color: '#1a73e8',
-            fontSize: 11.5,
-            fontWeight: 700,
         }
-    },
-    textField: {
-        marginLeft: 0,
-        marginRight: 0,
-        width: '100%',
-        maxWidth: '100%',
-        boxSizing: 'border-box'
     },
     button: {
         borderRadius: 10,
         boxShadow: '0 8px 18px rgba(26, 115, 232, 0.22)',
         fontWeight: 700,
         padding: '7px 14px',
-    },
-    control: {
-        display: "block !important",
-        "& .MuiInputBase-root": {
-            display: "block !important",
-            width: "100%",
-            maxWidth: "100%",
-            boxSizing: "border-box"
-        },
-        "& .MuiSelect-root, & .MuiInputBase-input, & textarea, & input": {
-            width: "100%",
-            maxWidth: "100%",
-            boxSizing: "border-box",
-            paddingLeft: "5px"
-        },
-        marginTop: 24,
-        marginLeft: 0,
-        marginRight: 0,
-        width: '100%',
-        maxWidth: '100%',
-        boxSizing: 'border-box'
     },
     advanced: {
         width: '100%',
@@ -556,5 +458,32 @@ export const styles = (theme: Theme) => createStyles({
         color: 'var(--netdive-detail-text, #0f172a)',
         fontWeight: 700,
         fontSize: 13,
+    },
+    advancedGrid: {
+        width: '100%',
+        display: 'grid',
+        gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+        gap: theme.spacing(1),
+        [theme.breakpoints.down('sm')]: {
+            gridTemplateColumns: '1fr',
+        }
+    },
+    advancedChecks: {
+        gridColumn: '1 / -1',
+        border: '1px solid var(--netdive-detail-border, #dbe7f5)',
+        borderRadius: 12,
+        background: '#f8fafc',
+        padding: theme.spacing(0.8, 1),
+        '& .MuiFormControlLabel-root': {
+            marginRight: theme.spacing(1.4),
+            marginLeft: 0,
+            color: 'var(--netdive-detail-text, #0f172a)',
+        },
+        '& .MuiFormControlLabel-label': {
+            fontSize: 12.5,
+        },
+        '& .MuiCheckbox-root': {
+            padding: 6,
+        }
     }
 })
