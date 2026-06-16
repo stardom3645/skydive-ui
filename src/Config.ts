@@ -1382,6 +1382,16 @@ class DefaultConfig {
                 attrs.icon = "\uf07b"
                 attrs.weight = WEIGHT_K8S_NAMESPACE
                 break
+            case "daemonset":
+            case "deployment":
+            case "replicaset":
+            case "replicationcontroller":
+            case "statefulset":
+            case "job":
+            case "cronjob":
+                attrs.icon = "\uf1b3"
+                attrs.weight = WEIGHT_K8S_POD
+                break
             case "ingress":
                 attrs.icon = "\uf0ac"
                 attrs.weight = WEIGHT_K8S_POD

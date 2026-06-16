@@ -821,7 +821,14 @@ export class Topology extends React.Component<Props, {}> {
 
                 var name = this.props.groupName ? this.props.groupName(child.wrapped) : nodeType + '(s)'
 
-                var wrapped = new Node(gid, [], { Name: name, Type: nodeType }, state, () => { return child.wrapped.getWeight() })
+                const groupData: any = { Name: name, Type: nodeType }
+                if (child.wrapped.data.Manager === "k8s") {
+                    groupData.Manager = child.wrapped.data.Manager
+                    groupData.Type = child.wrapped.data.Type || nodeType
+                    groupData.GroupType = nodeType
+                }
+
+                var wrapped = new Node(gid, [], groupData, state, () => { return child.wrapped.getWeight() })
                 wrapper = new NodeWrapper(gid, WrapperType.Group, wrapped, node)
             }
 
