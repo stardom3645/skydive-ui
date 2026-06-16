@@ -195,6 +195,7 @@ export interface BadgeAttrs {
     iconClass?: string
     fill?: string
     stroke?: string
+    className?: string
 }
 
 interface Props {
@@ -2959,11 +2960,21 @@ export class Topology extends React.Component<Props, {}> {
 
             var badgeEnter = badge.enter()
                 .append("g")
-                .attr("class", "node-badge")
             badge.exit().remove()
 
             badgeEnter
                 .append("rect")
+
+            badgeEnter
+                .append("text")
+
+            var badgeMerged = badgeEnter.merge(badge as any)
+
+            badgeMerged
+                .attr("class", (d: BadgeAttrs) => `node-badge ${d.className || ""}`.trim())
+
+            badgeMerged
+                .select("rect")
                 .attr("x", (d: BadgeAttrs, i: number) => 38 - i * 28)
                 .attr("y", -60)
                 .attr("width", 24)
@@ -2972,8 +2983,8 @@ export class Topology extends React.Component<Props, {}> {
                 .attr("ry", 5)
                 .attr("fill", (d: BadgeAttrs) => d.fill ? d.fill : "#6975a9")
 
-            badgeEnter
-                .append("text")
+            badgeMerged
+                .select("text")
                 .attr("class", (d: BadgeAttrs) => d.iconClass ? d.iconClass : "")
                 .attr("dx", (d: BadgeAttrs, i: number) => 50 - i * 28)
                 .attr("dy", -41)

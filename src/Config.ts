@@ -1592,7 +1592,12 @@ class DefaultConfig {
         }
 
         if (node.data.Captures) {
-            attrs.badges = [{ text: "\uf03d" }]
+            attrs.badges = [{
+                text: "\uf111",
+                fill: "#ef4444",
+                stroke: "#ffffff",
+                className: "node-badge-capture"
+            }]
         }
 
         // Keep node icons aligned 1:1 with left infrastructure layer icons.

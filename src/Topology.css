@@ -267,6 +267,16 @@ svg {
     font-weight: 900;
 }
 
+.node-badge-capture rect {
+    stroke: #ffffff;
+    stroke-width: 2px;
+    filter: drop-shadow(0 2px 5px rgba(239, 68, 68, 0.38));
+}
+
+.node-badge-capture text {
+    font-size: 11px;
+}
+
 .font-brands {
     font-family: 'Font Awesome 5 Brands' !important;
 }
