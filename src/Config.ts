@@ -2195,7 +2195,7 @@ class DefaultConfig {
 
         const sourceMetric = trafficNodeMetric(link.source)
         const targetMetric = trafficNodeMetric(link.target)
-        var metric = sourceMetric.metric || targetMetric.metric || link.source.data.LastUpdateMetric
+        var metric = sourceMetric.metric || targetMetric.metric
         var bandwidth = 0
         if (metric && metric.Last > metric.Start) {
             bandwidth = (metric.RxBytes + metric.TxBytes) * 8
