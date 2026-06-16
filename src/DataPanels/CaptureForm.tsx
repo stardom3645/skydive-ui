@@ -16,6 +16,12 @@ import FormControlLabel from '@material-ui/core/FormControlLabel'
 import Checkbox from '@material-ui/core/Checkbox'
 import Snackbar from '@material-ui/core/Snackbar'
 import MuiAlert from '@material-ui/lab/Alert'
+import PlayArrowIcon from '@material-ui/icons/PlayArrow'
+import CheckCircleIcon from '@material-ui/icons/CheckCircle'
+import WarningIcon from '@material-ui/icons/Warning'
+import ErrorOutlineIcon from '@material-ui/icons/ErrorOutline'
+import HelpOutlineIcon from '@material-ui/icons/HelpOutline'
+import LaunchIcon from '@material-ui/icons/Launch'
 
 import { Node } from '../Topology'
 import { Configuration } from '../api/configuration'
@@ -52,10 +58,17 @@ interface State {
   extraTCPMetric: boolean
   defragIPv4: boolean
   reassembleTCP: boolean
+  captureScope: string
+  captureDuration: string
+  filterPreset: string
+  showAdvanced: boolean
+  showDetails: boolean
   snackbarOpen: boolean
   snackbarMessage: string
   snackbarSeverity: "success" | "error"
 }
+
+type CaptureCapability = "available" | "conditional" | "unavailable"
 
 class CaptureForm extends React.Component<Props, State> {
   constructor(props) {
@@ -72,6 +85,11 @@ class CaptureForm extends React.Component<Props, State> {
       extraTCPMetric: false,
       defragIPv4: false,
       reassembleTCP: false,
+      captureScope: "related",
+      captureDuration: "30s",
+      filterPreset: "all",
+      showAdvanced: false,
+      showDetails: false,
       snackbarOpen: false,
       snackbarMessage: "",
       snackbarSeverity: "error"
@@ -88,7 +106,12 @@ class CaptureForm extends React.Component<Props, State> {
       name: this.props.defaultName || "",
       captureType: this.isCaptureTypeEligible(this.props.node, this.state.captureType) ? this.state.captureType : defaultCaptureType,
       bpf: "",
-      description: ""
+      description: "",
+      captureScope: "related",
+      captureDuration: "30s",
+      filterPreset: "all",
+      showAdvanced: false,
+      showDetails: false
     })
   }
 
@@ -102,6 +125,10 @@ class CaptureForm extends React.Component<Props, State> {
 
   private nodeIPv4List(node?: Node): any[] {
     return Array.isArray(node?.data?.IPV4) ? node!.data.IPV4 : []
+  }
+
+  private isKubernetesNode(node?: Node): boolean {
+    return typeof node?.data?.Manager === "string" && node.data.Manager.toLowerCase() === "k8s"
   }
 
   private isOvsPort(node?: Node): boolean {
@@ -149,12 +176,24 @@ class CaptureForm extends React.Component<Props, State> {
     return !!captureType && this.eligibleCaptureTypes(node).includes(captureType)
   }
 
+  private captureCapability(node?: Node): CaptureCapability {
+    const type = this.nodeType(node)
+    if (this.isKubernetesNode(node)) {
+      return type === "node" ? "conditional" : "unavailable"
+    }
+
+    if (this.isCaptureDisabled(node)) {
+      return "unavailable"
+    }
+
+    return "available"
+  }
+
   private isCaptureDisabled(node?: Node): boolean {
     const type = this.nodeType(node)
-    const manager = typeof node?.data?.Manager === "string" ? node.data.Manager.toLowerCase() : ""
     const disallowedTypes = ["switch", "switchport", "host", "libvirt", "tuntap", "system", "ovsbridge"]
 
-    return manager === "k8s" || !node?.data?.TID || disallowedTypes.includes(type) || this.eligibleCaptureTypes(node).length === 0
+    return this.isKubernetesNode(node) || !node?.data?.TID || disallowedTypes.includes(type) || this.eligibleCaptureTypes(node).length === 0
   }
 
   private isHeaderSizeValid(): boolean {
@@ -175,6 +214,79 @@ class CaptureForm extends React.Component<Props, State> {
     return !isNaN(rawPacketLimit) && (rawPacketLimit === 0 || (rawPacketLimit > 0 && rawPacketLimit <= 10))
   }
 
+  private targetTypeLabel(node?: Node): string {
+    const type = this.nodeType(node)
+    if (this.isKubernetesNode(node)) {
+      switch (type) {
+        case "node": return "Kubernetes Node"
+        case "pod": return "Pod"
+        case "service": return "Service"
+        case "namespace": return "Namespace"
+        case "daemonset": return "DaemonSet"
+        case "deployment": return "Deployment"
+        case "cluster": return "Cluster"
+        default: return "Kubernetes"
+      }
+    }
+
+    switch (type) {
+      case "host": return "Host"
+      case "device": return "Interface"
+      case "bond": return "Bond"
+      case "bridge": return "Bridge"
+      case "ovsport": return "OVS Port"
+      case "dpdkport": return "DPDK Port"
+      case "port": return "Port"
+      case "internal": return "Interface"
+      default: return type || "Node"
+    }
+  }
+
+  private targetIPAddress(node?: Node): string | undefined {
+    const ipv4 = this.nodeIPv4List(node)
+    if (ipv4.length > 0) {
+      return ipv4.join(", ")
+    }
+    if (Array.isArray(node?.data?.IPV6) && node!.data.IPV6.length > 0) {
+      return node!.data.IPV6.join(", ")
+    }
+    return undefined
+  }
+
+  private targetInfoRows(node?: Node): Array<{ label: string, value: string }> {
+    const rows: Array<{ label: string, value: string }> = []
+    const ip = this.targetIPAddress(node)
+    const os = node?.data?.OS || node?.data?.Platform || node?.data?.KernelVersion
+    const state = node?.data?.State || node?.data?.Status
+    const ifName = node?.data?.IfName || node?.data?.Name
+    const driver = node?.data?.Driver
+    const mac = node?.data?.MAC
+
+    if (ip) rows.push({ label: "IP 주소", value: ip })
+    if (os) rows.push({ label: "운영체제", value: os })
+    if (state) rows.push({ label: "상태", value: state })
+    if (ifName) rows.push({ label: "주요 인터페이스", value: ifName })
+    if (driver) rows.push({ label: "드라이버", value: driver })
+    if (mac) rows.push({ label: "MAC 주소", value: mac })
+
+    return rows.slice(0, 5)
+  }
+
+  private bpfForPreset(preset: string): string {
+    switch (preset) {
+      case "ssh": return "tcp port 22"
+      case "web": return "tcp port 80 or tcp port 443"
+      case "custom": return this.state.bpf
+      default: return ""
+    }
+  }
+
+  private recommendedCaptureType(node?: Node): string {
+    const types = this.eligibleCaptureTypes(node)
+    if (types.includes("pcap")) return "pcap"
+    return types[0] || ""
+  }
+
   handleChange = (field: keyof State) => (event) => {
     const value = event.target.type === 'checkbox' ? event.target.checked : event.target.value
     this.setState({ [field]: value } as Pick<State, keyof State>)
@@ -182,6 +294,7 @@ class CaptureForm extends React.Component<Props, State> {
 
   onClick = async () => {
     const captureType = this.state.captureType || this.defaultCaptureType(this.props.node)
+    const bpf = this.bpfForPreset(this.state.filterPreset)
 
     if (this.isCaptureDisabled(this.props.node) || !this.isCaptureTypeEligible(this.props.node, captureType)) {
       this.setState({
@@ -201,13 +314,13 @@ class CaptureForm extends React.Component<Props, State> {
       return
     }
 
-    if (captureType !== "pcap" && this.state.bpf.trim() !== "") {
+    if (captureType !== "pcap" && bpf.trim() !== "") {
       this.setState({
         snackbarOpen: true,
         snackbarMessage: translate("bpf-pcap-only"),
         snackbarSeverity: "error"
-      });
-      return;
+      })
+      return
     }
 
     try {
@@ -221,7 +334,7 @@ class CaptureForm extends React.Component<Props, State> {
         GremlinQuery: this.props.gremlin,
         Name: this.state.name,
         Description: this.state.description,
-        BPFFilter: this.state.bpf,
+        BPFFilter: bpf,
         Type: captureType,
         LayerKeyMode: this.state.layerKey,
         HeaderSize: this.state.headerSize ? parseInt(this.state.headerSize, 10) : undefined,
@@ -233,48 +346,60 @@ class CaptureForm extends React.Component<Props, State> {
 
       await api.createCapture(payload as any)
 
-      // 캡처 성공 시 부모 콜백 호출
       this.setState({
         snackbarOpen: true,
         snackbarMessage: translate("capture-create-success"),
         snackbarSeverity: "success"
       })
-      
+
       if (this.props.onCaptureCreated) {
         this.props.onCaptureCreated()
       }
 
     } catch (err) {
-        console.error("에러 발생:", err)
-        let message = translate("capture-create-failed")
+      console.error("에러 발생:", err)
+      let message = translate("capture-create-failed")
 
-        if (err instanceof Response) {
-          if (err.status === 409) {
-            message += ": " + translate("capture-duplicate-error")
-          } else if (err.status === 400) {
-            message += ": " + translate("capture-validation-error")
-          } else {
-            message += ": " + translate("capture-unknown-error")
-          }
-        } else if (err.message?.includes("Network Error")) {
-          message += ": " + translate("capture-network-error")
-        } else if (err.message) {
-          message += ": " + err.message
+      if (err instanceof Response) {
+        if (err.status === 409) {
+          message += ": " + translate("capture-duplicate-error")
+        } else if (err.status === 400) {
+          message += ": " + translate("capture-validation-error")
         } else {
           message += ": " + translate("capture-unknown-error")
         }
+      } else if (err.message?.includes("Network Error")) {
+        message += ": " + translate("capture-network-error")
+      } else if (err.message) {
+        message += ": " + err.message
+      } else {
+        message += ": " + translate("capture-unknown-error")
+      }
 
-        this.setState({
-          snackbarOpen: true,
-          snackbarMessage: message,
-          snackbarSeverity: "error"
-        })
+      this.setState({
+        snackbarOpen: true,
+        snackbarMessage: message,
+        snackbarSeverity: "error"
+      })
     }
+  }
+
+  private renderOptionButton(classes: any, label: string, selected: boolean, onClick: () => void, helper?: string, disabled?: boolean) {
+    return (
+      <button
+        type="button"
+        className={`${classes.wizardOptionButton} ${selected ? classes.wizardOptionButtonActive : ""}`}
+        disabled={disabled === true}
+        onClick={onClick}>
+        <span>{label}</span>
+        {helper && <small>{helper}</small>}
+      </button>
+    )
   }
 
   render() {
     const { classes } = this.props
-
+    const capability = this.captureCapability(this.props.node)
     const isCaptureDisabled = this.isCaptureDisabled(this.props.node)
     const isPcapEligible = this.isCaptureTypeEligible(this.props.node, "pcap")
     const isAfpacketEligible = this.isCaptureTypeEligible(this.props.node, "afpacket")
@@ -284,261 +409,272 @@ class CaptureForm extends React.Component<Props, State> {
     const defaultCaptureType = this.defaultCaptureType(this.props.node)
     const captureType = this.state.captureType || defaultCaptureType
     const hasValidationError = !this.isHeaderSizeValid() || !this.isRawPacketLimitValid()
+    const targetRows = this.targetInfoRows(this.props.node)
+    const recommendedType = this.recommendedCaptureType(this.props.node)
+    const statusClass = capability === "available" ? classes.statusAvailable : capability === "conditional" ? classes.statusConditional : classes.statusUnavailable
+    const StatusIcon = capability === "available" ? CheckCircleIcon : capability === "conditional" ? WarningIcon : ErrorOutlineIcon
 
     return (
       <>
         <Panel icon={<VideocamIcon />} title={translate("Packet capture")} content={
-          <>
-            <TextField
-              label={translate("Name")}
-              className={classes.textField}
-              fullWidth
-              margin="normal"
-              value={this.state.name}
-              onChange={this.handleChange("name")}
-            />
-            <TextField
-              label={translate("Description")}
-              className={classes.textField}
-              fullWidth
-              multiline
-              margin="normal"
-              value={this.state.description}
-              onChange={this.handleChange("description")}
-            />
-            <TextField
-              label={translate("Filter (BPF)")}
-              className={classes.textField}
-              fullWidth
-              margin="normal"
-              value={this.state.bpf}
-              onChange={this.handleChange("bpf")}
-            />
-            <Accordion className={classes.advanced}>
-              <AccordionSummary expandIcon={<ExpandMoreIcon />} className={classes.advancedSummary}>
-                <Typography className={classes.heading}>{translate("Advanced options")}</Typography>
-              </AccordionSummary>
-              <AccordionDetails>
-                <div style={{ width: "100%" }}>
-                  <FormControl variant="outlined" fullWidth className={classes.control}>
-                    <InputLabel id="capture-type-label">{translate("Capture Type")}</InputLabel>
-                    <Select
-                      id="capture-type"
-                      labelId="capture-type-label"
-                      value={captureType}
-                      onChange={this.handleChange("captureType")}
-                      label={translate("Capture Type")}
-                    >
-                      {isPcapEligible ? (
-                        <MenuItem value="pcap">
-                          <Tooltip title={translate("tooltip-pcap")} placement="right" arrow>
-                            <span>PCAP</span>
-                          </Tooltip>
-                        </MenuItem>
-                      ) : (
-                        <Tooltip title={translate("tooltip-pcap-unavailable")} placement="right" arrow>
-                          <span>
-                            <MenuItem value="pcap" disabled>PCAP</MenuItem>
-                          </span>
-                        </Tooltip>
-                      )}
+          <div className={classes.captureWizard}>
+            <aside className={classes.wizardSteps}>
+              {[
+                ["1", "대상 확인", "자동 진단"],
+                ["2", "설정 선택", "간단 설정"],
+                ["3", "시작 및 결과", "캡처 실행"]
+              ].map((step, index) => (
+                <div key={step[0]} className={`${classes.wizardStep} ${index === 0 ? classes.wizardStepActive : ""}`}>
+                  <span className={classes.wizardStepCircle}>{index === 0 ? step[0] : <CheckCircleIcon />}</span>
+                  <span>
+                    <strong>{step[1]}</strong>
+                    <small>{step[2]}</small>
+                  </span>
+                </div>
+              ))}
+              <div className={classes.wizardWarningCard}>
+                <WarningIcon />
+                <span>패킷 캡처는 네트워크 성능에 영향을 줄 수 있습니다.</span>
+              </div>
+            </aside>
 
-                      {isAfpacketEligible ? (
-                        <MenuItem value="afpacket">
-                          <Tooltip title={translate("tooltip-afpacket")} placement="right" arrow>
-                            <span>AFPacket</span>
-                          </Tooltip>
-                        </MenuItem>
-                      ) : (
-                        <Tooltip title={translate("tooltip-afpacket-unavailable")} placement="right" arrow>
-                          <span>
-                            <MenuItem value="afpacket" disabled>AFPacket</MenuItem>
-                          </span>
-                        </Tooltip>
-                      )}
+            <section className={classes.wizardMain}>
+              <div className={classes.wizardMainCard}>
+                <div className={classes.wizardCardHeader}>
+                  <div>
+                    <Typography component="h3" className={classes.wizardTitle}>1. 대상 확인 및 진단</Typography>
+                    <Typography component="p" className={classes.wizardSubtitle}>선택한 노드의 캡처 가능 여부와 권장 설정을 확인합니다.</Typography>
+                  </div>
+                  <span className={`${classes.captureStatusBadge} ${statusClass}`}>
+                    <StatusIcon fontSize="small" />
+                    {capability === "available" ? "캡처 가능" : capability === "conditional" ? "조건부 가능" : "직접 캡처 불가"}
+                  </span>
+                </div>
 
-                      {/* <MenuItem value="ebpf">
-                        <Tooltip title={translate("tooltip-ebpf")} placement="right" arrow>
-                          <span>eBPF</span>
-                        </Tooltip>
-                      </MenuItem> */}
-
-                      {isSflowEligible ? (
-                        <MenuItem value="sflow">
-                          <Tooltip title={translate("tooltip-sflow")} placement="right" arrow>
-                            <span>sFlow</span>
-                          </Tooltip>
-                        </MenuItem>
-                      ) : (
-                        <Tooltip
-                          title={translate("sflow-unavailable-no")}
-                          placement="right"
-                          arrow
-                        >
-                          <span>
-                            <MenuItem value="sflow" disabled>
-                              sFlow
-                            </MenuItem>
-                          </span>
-                        </Tooltip>
-                      )}
-
-                      {isDPDKPort ? (
-                        <MenuItem value="dpdk">
-                          <Tooltip title={translate("tooltip-dpdk")} placement="right" arrow>
-                            <span>DPDK</span>
-                          </Tooltip>
-                        </MenuItem>
-                      ) : (
-                        <Tooltip
-                          title={translate("dpdk-unavailable")}
-                          placement="right"
-                          arrow
-                        >
-                          <span>
-                            <MenuItem value="dpdk" disabled>
-                              DPDK
-                            </MenuItem>
-                          </span>
-                        </Tooltip>
-                      )}
-                      
-                      {isOvsMirrorEligible ? (
-                        <MenuItem value="ovsmirror">OVS Mirror</MenuItem>
-                      ) : (
-                        <Tooltip
-                          title={translate("ovs-mirror-only")}
-                          placement="right"
-                          arrow
-                        >
-                          <span>
-                            <MenuItem value="ovsmirror" disabled>
-                              OVS Mirror
-                            </MenuItem>
-                          </span>
-                        </Tooltip>
-                      )}
-                    </Select>
-                  </FormControl>
-                  <FormControl variant="outlined" fullWidth className={classes.control}>
-                    <InputLabel id="layer-key-label">{translate("Layers used for Flow Key")}</InputLabel>
-                    <Select
-                      id="layer-key"
-                      labelId="layer-key-label"
-                      value={this.state.layerKey}
-                      onChange={this.handleChange("layerKey")}
-                      label={translate("Layers used for Flow Key")}
-                    >
-                      <MenuItem value="L2">L2</MenuItem>
-                      <MenuItem value="L3">L3</MenuItem>
-                    </Select>
-                  </FormControl>
-                  <TextField
-                    label={translate("Header size")}
-                    type="number"
-                    value={this.state.headerSize}
-                    onChange={this.handleChange("headerSize")}
-                    error={
-                      !!this.state.headerSize &&
-                      !this.isHeaderSizeValid()
+                <div className={classes.targetSummaryGrid}>
+                  <div className={classes.targetCard}>
+                    <span className={classes.sectionLabel}>선택한 대상</span>
+                    <div className={classes.targetNameRow}>
+                      <strong>{this.props.defaultName || this.props.node?.data?.Name || "-"}</strong>
+                      <span>{this.targetTypeLabel(this.props.node)}</span>
+                    </div>
+                    {targetRows.length > 0 &&
+                      <div className={classes.targetInfoGrid}>
+                        {targetRows.map((row) => (
+                          <div key={row.label}>
+                            <span>{row.label}</span>
+                            <strong>{row.value}</strong>
+                          </div>
+                        ))}
+                      </div>
                     }
-                    helperText={
-                      !!this.state.headerSize &&
-                      !this.isHeaderSizeValid()
-                        ? translate("capture-headerSize-validation-error")
-                        : ""
+                  </div>
+
+                  <div className={`${classes.diagnosisCard} ${statusClass}`}>
+                    <StatusIcon />
+                    <strong>진단 결과</strong>
+                    {capability === "available" && <p>이 대상은 실제 패킷 캡처가 가능한 네트워크 객체입니다. 기본 패킷 캡처를 사용할 수 있습니다.</p>}
+                    {capability === "conditional" && <p>이 대상은 Kubernetes 리소스입니다. 현재 UI에서는 직접 캡처 대신 관련 인프라 노드에서 캡처하는 정책을 권장합니다.</p>}
+                    {capability === "unavailable" && <p>이 리소스는 논리 객체이거나 캡처 지점이 아니므로 직접 패킷 캡처 대상이 아닙니다.</p>}
+                    <button type="button" onClick={() => this.setState({ showDetails: !this.state.showDetails })}>
+                      상세 정보 {this.state.showDetails ? "접기" : "보기"}
+                    </button>
+                    {this.state.showDetails &&
+                      <small>
+                        권장 캡처 타입: {recommendedType ? recommendedType.toUpperCase() : "없음"}. 캡처 가능 여부는 노드 타입, TID, IP 주소, OVS/DPDK 메타데이터를 기준으로 판단합니다.
+                      </small>
                     }
-                    fullWidth
-                    margin="normal"
-                  />
-                  <FormControl component="fieldset" className={classes.control}>
-                    <Tooltip title={translate("capture-extraTCPMetric-tooltip")} arrow>
-                      <FormControlLabel
-                        control={
-                          <Checkbox
-                            checked={this.state.extraTCPMetric}
-                            onChange={this.handleChange("extraTCPMetric")}
-                            color="primary"
-                          />
-                        }
-                        label={translate("Extra TCP metric")}
-                      />
-                    </Tooltip>
-                    <Tooltip title={translate("capture-IPDefrag-tooltip")} arrow>
-                      <FormControlLabel
-                        control={
-                          <Checkbox
-                            checked={this.state.defragIPv4}
-                            onChange={this.handleChange("defragIPv4")}
-                            color="primary"
-                          />
-                        }
-                        label={translate("Defragment IPv4 packets")}
-                      />
-                    </Tooltip>
-                    <Tooltip title={translate("capture-reassembleTCP-tooltip")} arrow>
-                      <FormControlLabel
-                        control={
-                          <Checkbox
-                            checked={this.state.reassembleTCP}
-                            onChange={this.handleChange("reassembleTCP")}
-                            color="primary"
-                          />
-                        }
-                        label={translate("Reassemble TCP packets")}
-                      />
-                    </Tooltip>
-                  </FormControl>
-                  <FormControl fullWidth>
+                  </div>
+                </div>
+
+                <div className={classes.simpleSettings}>
+                  <Typography component="h3" className={classes.wizardTitle}>2. 간단 설정</Typography>
+                  <div className={classes.settingRow}>
+                    <div>
+                      <strong>캡처 범위</strong>
+                      <small>문제 재현 시간을 고려하여 적절한 범위를 선택하세요.</small>
+                    </div>
+                    <div className={classes.optionGroup}>
+                      {this.renderOptionButton(classes, "선택 노드 관련 트래픽", this.state.captureScope === "related", () => this.setState({ captureScope: "related" }))}
+                      {this.renderOptionButton(classes, "전체 트래픽", this.state.captureScope === "all", () => this.setState({ captureScope: "all" }))}
+                    </div>
+                  </div>
+
+                  <div className={classes.settingRow}>
+                    <div>
+                      <strong>캡처 시간</strong>
+                      <small>현재 캡처는 생성 후 플로우 테이블에서 확인하고 필요 시 삭제합니다.</small>
+                    </div>
+                    <div className={classes.optionGroup}>
+                      {this.renderOptionButton(classes, "30초", this.state.captureDuration === "30s", () => this.setState({ captureDuration: "30s" }))}
+                      {this.renderOptionButton(classes, "1분", this.state.captureDuration === "1m", () => this.setState({ captureDuration: "1m" }))}
+                      {this.renderOptionButton(classes, "3분", this.state.captureDuration === "3m", () => this.setState({ captureDuration: "3m" }))}
+                    </div>
+                  </div>
+
+                  <div className={classes.settingRow}>
+                    <div>
+                      <strong>필터</strong>
+                      <small>필요한 경우에만 트래픽 필터를 제한합니다.</small>
+                    </div>
+                    <div className={classes.optionGroup}>
+                      {this.renderOptionButton(classes, "전체", this.state.filterPreset === "all", () => this.setState({ filterPreset: "all", bpf: "" }))}
+                      {this.renderOptionButton(classes, "SSH", this.state.filterPreset === "ssh", () => this.setState({ filterPreset: "ssh" }), "tcp 22", !isPcapEligible)}
+                      {this.renderOptionButton(classes, "HTTP/HTTPS", this.state.filterPreset === "web", () => this.setState({ filterPreset: "web" }), "80/443", !isPcapEligible)}
+                      {this.renderOptionButton(classes, "직접 입력", this.state.filterPreset === "custom", () => this.setState({ filterPreset: "custom" }), undefined, !isPcapEligible)}
+                    </div>
+                  </div>
+
+                  {this.state.filterPreset === "custom" &&
                     <TextField
-                      label={
-                        <span style={{ display: "flex", alignItems: "center" }}>
-                          {translate("Raw packet limit")}
-                          <HelpIconWithDialog topic="raw-packet-limit" />
-                        </span>
-                      }
-                      type="number"
-                      value={this.state.rawPacketLimit}
-                      onChange={this.handleChange("rawPacketLimit")}
-                      error={
-                        !!this.state.rawPacketLimit &&
-                        !this.isRawPacketLimitValid()
-                      }
-                      helperText={
-                        !!this.state.rawPacketLimit &&
-                        !this.isRawPacketLimitValid()
-                          ? translate("capture-rawPacketLimit-validation-error")
-                          : ""
-                      }
+                      label={translate("Filter (BPF)")}
+                      className={classes.textField}
                       fullWidth
                       margin="normal"
+                      placeholder="예: tcp port 22"
+                      value={this.state.bpf}
+                      onChange={this.handleChange("bpf")}
                     />
-                  </FormControl>
+                  }
                 </div>
-              </AccordionDetails>
-            </Accordion>
-            <Button
-              variant="contained"
-              className={classes.button}
-              color="primary"
-              onClick={this.onClick}
-              disabled={isCaptureDisabled || hasValidationError}
-            >
-              {translate("Start")}
-            </Button>
-          </>
+
+                <div className={classes.wizardActions}>
+                  <Button
+                    className={classes.advancedToggle}
+                    onClick={() => this.setState({ showAdvanced: !this.state.showAdvanced })}>
+                    {this.state.showAdvanced ? "고급 옵션 숨기기" : "고급 옵션 보기"}
+                  </Button>
+                  <Button
+                    variant="contained"
+                    className={classes.button}
+                    color="primary"
+                    onClick={this.onClick}
+                    disabled={isCaptureDisabled || hasValidationError || capability !== "available"}
+                    startIcon={<PlayArrowIcon />}>
+                    {translate("Start")}
+                  </Button>
+                </div>
+
+                {this.state.showAdvanced &&
+                  <Accordion className={classes.advanced} expanded>
+                    <AccordionSummary expandIcon={<ExpandMoreIcon />} className={classes.advancedSummary}>
+                      <Typography className={classes.heading}>{translate("Advanced options")}</Typography>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <div style={{ width: "100%" }}>
+                        <FormControl variant="outlined" fullWidth className={classes.control}>
+                          <InputLabel id="capture-type-label">{translate("Capture Type")}</InputLabel>
+                          <Select
+                            id="capture-type"
+                            labelId="capture-type-label"
+                            value={captureType}
+                            onChange={this.handleChange("captureType")}
+                            label={translate("Capture Type")}>
+                            {isPcapEligible ? <MenuItem value="pcap">PCAP</MenuItem> : <MenuItem value="pcap" disabled>PCAP</MenuItem>}
+                            {isAfpacketEligible ? <MenuItem value="afpacket">AFPacket</MenuItem> : <MenuItem value="afpacket" disabled>AFPacket</MenuItem>}
+                            {isSflowEligible ? <MenuItem value="sflow">sFlow</MenuItem> : <MenuItem value="sflow" disabled>sFlow</MenuItem>}
+                            {isDPDKPort ? <MenuItem value="dpdk">DPDK</MenuItem> : <MenuItem value="dpdk" disabled>DPDK</MenuItem>}
+                            {isOvsMirrorEligible ? <MenuItem value="ovsmirror">OVS Mirror</MenuItem> : <MenuItem value="ovsmirror" disabled>OVS Mirror</MenuItem>}
+                          </Select>
+                        </FormControl>
+                        <FormControl variant="outlined" fullWidth className={classes.control}>
+                          <InputLabel id="layer-key-label">{translate("Layers used for Flow Key")}</InputLabel>
+                          <Select
+                            id="layer-key"
+                            labelId="layer-key-label"
+                            value={this.state.layerKey}
+                            onChange={this.handleChange("layerKey")}
+                            label={translate("Layers used for Flow Key")}>
+                            <MenuItem value="L2">L2</MenuItem>
+                            <MenuItem value="L3">L3</MenuItem>
+                          </Select>
+                        </FormControl>
+                        <TextField
+                          label={translate("Header size")}
+                          type="number"
+                          value={this.state.headerSize}
+                          onChange={this.handleChange("headerSize")}
+                          error={!!this.state.headerSize && !this.isHeaderSizeValid()}
+                          helperText={!!this.state.headerSize && !this.isHeaderSizeValid() ? translate("capture-headerSize-validation-error") : ""}
+                          fullWidth
+                          margin="normal"
+                        />
+                        <FormControl component="fieldset" className={classes.control}>
+                          <Tooltip title={translate("capture-extraTCPMetric-tooltip")} arrow>
+                            <FormControlLabel control={<Checkbox checked={this.state.extraTCPMetric} onChange={this.handleChange("extraTCPMetric")} color="primary" />} label={translate("Extra TCP metric")} />
+                          </Tooltip>
+                          <Tooltip title={translate("capture-IPDefrag-tooltip")} arrow>
+                            <FormControlLabel control={<Checkbox checked={this.state.defragIPv4} onChange={this.handleChange("defragIPv4")} color="primary" />} label={translate("Defragment IPv4 packets")} />
+                          </Tooltip>
+                          <Tooltip title={translate("capture-reassembleTCP-tooltip")} arrow>
+                            <FormControlLabel control={<Checkbox checked={this.state.reassembleTCP} onChange={this.handleChange("reassembleTCP")} color="primary" />} label={translate("Reassemble TCP packets")} />
+                          </Tooltip>
+                        </FormControl>
+                        <FormControl fullWidth>
+                          <TextField
+                            label={<span style={{ display: "flex", alignItems: "center" }}>{translate("Raw packet limit")}<HelpIconWithDialog topic="raw-packet-limit" /></span>}
+                            type="number"
+                            value={this.state.rawPacketLimit}
+                            onChange={this.handleChange("rawPacketLimit")}
+                            error={!!this.state.rawPacketLimit && !this.isRawPacketLimitValid()}
+                            helperText={!!this.state.rawPacketLimit && !this.isRawPacketLimitValid() ? translate("capture-rawPacketLimit-validation-error") : ""}
+                            fullWidth
+                            margin="normal"
+                          />
+                        </FormControl>
+                      </div>
+                    </AccordionDetails>
+                  </Accordion>
+                }
+              </div>
+
+              <div className={classes.captureExamples}>
+                <Typography component="h3" className={classes.wizardTitle}>다양한 대상 유형별 예시</Typography>
+                <div className={classes.exampleGrid}>
+                  <div><span>Host 노드</span><strong>가능: 직접 캡처</strong><small>호스트에서 직접 패킷 캡처가 가능합니다.</small></div>
+                  <div><span>Kubernetes Node</span><strong>조건부: 관련 인프라 노드</strong><small>현재 정책에서는 관련 인프라 노드에서 캡처합니다.</small></div>
+                  <div><span>Pod</span><strong>조건부</strong><small>Pod는 관련 Node 매핑이 필요합니다.</small></div>
+                  <div><span>Service</span><strong>불가: 직접 캡처 불가</strong><small>관련 Pod 또는 Node를 먼저 확인하세요.</small></div>
+                </div>
+              </div>
+            </section>
+
+            <aside className={classes.wizardHelpPanel}>
+              <div className={classes.helpCard}>
+                <HelpOutlineIcon />
+                <strong>간단 캡처 마법사란?</strong>
+                <p>복잡한 옵션 없이 빠르게 패킷을 캡처할 수 있도록 대상 정보를 진단하고 안전한 기본값을 추천합니다.</p>
+              </div>
+              <div className={classes.helpCard}>
+                <strong>이렇게 동작합니다</strong>
+                <ol>
+                  <li>대상 정보를 자동으로 진단합니다.</li>
+                  <li>캡처 가능 여부와 권장 설정을 제안합니다.</li>
+                  <li>간단 설정만으로 캡처를 시작합니다.</li>
+                  <li>필요 시 고급 옵션을 변경합니다.</li>
+                </ol>
+              </div>
+              <div className={classes.helpCard}>
+                <strong>1차 버전 지원 범위</strong>
+                <div className={classes.supportList}><CheckCircleIcon /><span>Host, Interface, Bridge</span></div>
+                <div className={classes.supportList}><WarningIcon /><span>Kubernetes Node, Pod</span></div>
+                <div className={classes.supportList}><ErrorOutlineIcon /><span>Service, Namespace, DaemonSet</span></div>
+              </div>
+              <div className={classes.helpNotice}>
+                <strong>캡처 시 유의사항</strong>
+                <span>권한, 성능 영향, 저장 공간, 민감정보 포함 여부를 확인하세요.</span>
+                <a><LaunchIcon fontSize="small" /> 자세히 보기</a>
+              </div>
+            </aside>
+          </div>
         } />
 
         <Snackbar
           open={this.state.snackbarOpen}
           autoHideDuration={4000}
           onClose={() => this.setState({ snackbarOpen: false })}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-        >
-          <Alert
-            onClose={() => this.setState({ snackbarOpen: false })}
-            severity={this.state.snackbarSeverity}
-          >
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+          <Alert onClose={() => this.setState({ snackbarOpen: false })} severity={this.state.snackbarSeverity}>
             {this.state.snackbarMessage}
           </Alert>
         </Snackbar>
