@@ -148,17 +148,6 @@ export const styles = (theme: Theme) => createStyles({
             whiteSpace: 'nowrap',
         }
     },
-    targetStatusLine: {
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 6,
-        marginTop: theme.spacing(1),
-        borderRadius: 10,
-        padding: theme.spacing(0.7, 0.9),
-        fontSize: 12,
-        fontWeight: 700,
-        lineHeight: 1.4,
-    },
     simpleSettings: {
         marginTop: theme.spacing(1.5),
         borderTop: '1px solid var(--netdive-detail-border, #dbe7f5)',
@@ -305,11 +294,6 @@ export const styles = (theme: Theme) => createStyles({
             fontSize: 13,
             boxSizing: 'border-box',
         }
-    },
-    fieldLabelWithHelp: {
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 4,
     },
     wizardActions: {
         display: 'flex',
@@ -588,12 +572,105 @@ export const styles = (theme: Theme) => createStyles({
         borderColor: "unset",
         '& .MuiAccordionSummary-content': {
             backgroundColor: "unset",
+            minWidth: 0,
         }
+    },
+    advancedTitleRow: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: theme.spacing(0.7),
+        minWidth: 0,
+        flexWrap: 'wrap',
     },
     heading: {
         color: 'var(--netdive-detail-text, #0f172a)',
         fontWeight: 700,
         fontSize: 13,
+    },
+    expertBadge: {
+        display: 'inline-flex',
+        alignItems: 'center',
+        borderRadius: 999,
+        padding: '3px 7px',
+        background: '#fff7ed',
+        border: '1px solid #fed7aa',
+        color: '#c2410c',
+        fontSize: 10.5,
+        fontWeight: 800,
+        lineHeight: 1.2,
+    },
+    advancedDefaultBadge: {
+        display: 'inline-flex',
+        alignItems: 'center',
+        borderRadius: 999,
+        padding: '3px 7px',
+        background: '#f0fdf4',
+        border: '1px solid #bbf7d0',
+        color: '#15803d',
+        fontSize: 10.5,
+        fontWeight: 800,
+        lineHeight: 1.2,
+    },
+    advancedChangedBadge: {
+        display: 'inline-flex',
+        alignItems: 'center',
+        borderRadius: 999,
+        padding: '3px 7px',
+        background: '#eff6ff',
+        border: '1px solid #bfdbfe',
+        color: '#1d4ed8',
+        fontSize: 10.5,
+        fontWeight: 800,
+        lineHeight: 1.2,
+    },
+    advancedContent: {
+        width: '100%',
+        display: 'grid',
+        gap: theme.spacing(1.1),
+    },
+    advancedNotice: {
+        display: 'grid',
+        gridTemplateColumns: '20px minmax(0, 1fr)',
+        gap: theme.spacing(0.8),
+        alignItems: 'start',
+        border: '1px solid #fed7aa',
+        borderRadius: 12,
+        background: '#fffbeb',
+        color: '#92400e',
+        padding: theme.spacing(1),
+        '& svg': {
+            width: 18,
+            height: 18,
+            marginTop: 1,
+            color: '#d97706',
+        },
+        '& span': {
+            fontSize: 12,
+            lineHeight: 1.5,
+            fontWeight: 700,
+        }
+    },
+    advancedSection: {
+        border: '1px solid rgba(219, 231, 245, 0.9)',
+        borderRadius: 14,
+        background: '#fff',
+        padding: theme.spacing(1.1),
+        '& > header': {
+            marginBottom: theme.spacing(1),
+        },
+        '& > header strong': {
+            display: 'block',
+            color: 'var(--netdive-detail-text, #0f172a)',
+            fontSize: 13.5,
+            fontWeight: 900,
+        },
+        '& > header small': {
+            display: 'block',
+            marginTop: 3,
+            color: 'var(--netdive-detail-muted, #64748b)',
+            fontSize: 11.5,
+            lineHeight: 1.45,
+        }
     },
     advancedGrid: {
         width: '100%',
@@ -604,22 +681,74 @@ export const styles = (theme: Theme) => createStyles({
             gridTemplateColumns: '1fr',
         }
     },
-    advancedChecks: {
-        gridColumn: '1 / -1',
-        border: '1px solid var(--netdive-detail-border, #dbe7f5)',
-        borderRadius: 12,
-        background: '#f8fafc',
-        padding: theme.spacing(0.8, 1),
+    advancedOptionBlock: {
+        minWidth: 0,
+        '& > small': {
+            display: 'block',
+            marginTop: theme.spacing(0.45),
+            color: 'var(--netdive-detail-muted, #64748b)',
+            fontSize: 11.2,
+            lineHeight: 1.45,
+        },
+    },
+    advancedOptionLabel: {
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4,
+        minWidth: 0,
+        '& svg': {
+            width: 14,
+            height: 14,
+            color: '#64748b',
+            flexShrink: 0,
+        },
+    },
+    advancedCheckList: {
+        display: 'grid',
+        gap: theme.spacing(0.8),
+        '& > div': {
+            position: 'relative',
+            border: '1px solid rgba(219, 231, 245, 0.9)',
+            borderRadius: 12,
+            background: '#f8fafc',
+            padding: theme.spacing(0.65, 0.9, 0.8),
+            minWidth: 0,
+        },
         '& .MuiFormControlLabel-root': {
-            marginRight: theme.spacing(1.4),
+            marginRight: 0,
             marginLeft: 0,
             color: 'var(--netdive-detail-text, #0f172a)',
+            alignItems: 'flex-start',
         },
         '& .MuiFormControlLabel-label': {
             fontSize: 12.5,
+            fontWeight: 800,
+            lineHeight: 1.35,
         },
         '& .MuiCheckbox-root': {
             padding: 6,
+            marginTop: -3,
+        },
+        '& small': {
+            display: 'block',
+            marginLeft: 32,
+            marginTop: -3,
+            color: 'var(--netdive-detail-muted, #64748b)',
+            fontSize: 11.3,
+            lineHeight: 1.45,
+        },
+        '& em': {
+            display: 'inline-flex',
+            marginLeft: 32,
+            marginTop: theme.spacing(0.45),
+            borderRadius: 999,
+            padding: '3px 7px',
+            background: '#fff7ed',
+            border: '1px solid #fed7aa',
+            color: '#c2410c',
+            fontSize: 10.5,
+            fontStyle: 'normal',
+            fontWeight: 800,
         }
     }
 })

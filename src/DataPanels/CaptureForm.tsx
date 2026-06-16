@@ -20,6 +20,7 @@ import PlayArrowIcon from '@material-ui/icons/PlayArrow'
 import CheckCircleIcon from '@material-ui/icons/CheckCircle'
 import WarningIcon from '@material-ui/icons/Warning'
 import ErrorOutlineIcon from '@material-ui/icons/ErrorOutline'
+import HelpOutlineIcon from '@material-ui/icons/HelpOutline'
 
 import { Node } from '../Topology'
 import { Configuration } from '../api/configuration'
@@ -29,7 +30,6 @@ import { styles } from './CaptureFormStyles'
 import { AppState, session } from '../Store'
 import { connect } from 'react-redux'
 import { translate } from "../Config"
-import HelpIconWithDialog from './HelpIconWithDialog'
 import Tooltip from '@material-ui/core/Tooltip'
 import { SimpleCaptureSession } from './CaptureStatus'
 
@@ -314,6 +314,27 @@ class CaptureForm extends React.Component<Props, State> {
     }
   }
 
+  private isAdvancedDefaultChanged(captureType: string, defaultCaptureType: string): boolean {
+    return captureType !== defaultCaptureType ||
+      this.state.layerKey !== "L3" ||
+      this.state.headerSize !== "" ||
+      this.state.rawPacketLimit !== "0" ||
+      this.state.extraTCPMetric ||
+      this.state.defragIPv4 ||
+      this.state.reassembleTCP
+  }
+
+  private renderAdvancedLabel(classes: any, label: string, tooltip: string) {
+    return (
+      <span className={classes.advancedOptionLabel}>
+        {label}
+        <Tooltip title={tooltip} arrow>
+          <HelpOutlineIcon />
+        </Tooltip>
+      </span>
+    )
+  }
+
   private normalizeSimpleCapture(raw: any, bpf: string): SimpleCaptureSession {
     const request = raw?.request || {}
     const target = raw?.target || {}
@@ -520,16 +541,11 @@ class CaptureForm extends React.Component<Props, State> {
     const defaultCaptureType = this.defaultCaptureType(this.props.node)
     const captureType = this.state.captureType || defaultCaptureType
     const hasValidationError = !this.isHeaderSizeValid() || !this.isRawPacketLimitValid()
+    const advancedChanged = this.isAdvancedDefaultChanged(captureType, defaultCaptureType)
     const targetRows = this.targetInfoRows(this.props.node)
     const statusClass = capability === "available" ? classes.statusAvailable : capability === "conditional" ? classes.statusConditional : classes.statusUnavailable
     const StatusIcon = capability === "available" ? CheckCircleIcon : capability === "conditional" ? WarningIcon : ErrorOutlineIcon
     const capabilityLabel = this.captureCapabilityLabel(capability)
-    const statusSummary = capability === "available"
-      ? "이 대상은 기본 패킷 캡처를 사용할 수 있습니다."
-      : capability === "conditional"
-        ? "이 대상은 관련 인프라 노드에서 캡처하는 정책을 권장합니다."
-        : "이 리소스는 직접 캡처 대상이 아닙니다."
-
     return (
       <>
         <Panel icon={<VideocamIcon />} title={translate("Packet capture")} content={
@@ -564,10 +580,6 @@ class CaptureForm extends React.Component<Props, State> {
                         ))}
                       </div>
                     }
-                    <div className={`${classes.targetStatusLine} ${statusClass}`}>
-                      <StatusIcon fontSize="small" />
-                      <span>{statusSummary}</span>
-                    </div>
                   </div>
                 </div>
 
@@ -649,64 +661,115 @@ class CaptureForm extends React.Component<Props, State> {
                 {this.state.showAdvanced &&
                   <Accordion className={classes.advanced} expanded>
                     <AccordionSummary expandIcon={<ExpandMoreIcon />} className={classes.advancedSummary}>
-                      <Typography className={classes.heading}>{translate("Advanced options")}</Typography>
+                      <div className={classes.advancedTitleRow}>
+                        <Typography className={classes.heading}>{translate("Advanced options")}</Typography>
+                        <span className={classes.expertBadge}>전문가용</span>
+                        <span className={advancedChanged ? classes.advancedChangedBadge : classes.advancedDefaultBadge}>
+                          {advancedChanged ? "기본값 변경됨" : "기본값 사용 중"}
+                        </span>
+                      </div>
                     </AccordionSummary>
                     <AccordionDetails>
-                      <div className={classes.advancedGrid}>
-                        <FormControl variant="outlined" fullWidth className={classes.compactField}>
-                          <InputLabel id="capture-type-label">{translate("Capture Type")}</InputLabel>
-                          <Select
-                            id="capture-type"
-                            labelId="capture-type-label"
-                            value={captureType}
-                            onChange={this.handleChange("captureType")}
-                            label={translate("Capture Type")}>
-                            {isPcapEligible ? <MenuItem value="pcap">PCAP</MenuItem> : <MenuItem value="pcap" disabled>PCAP</MenuItem>}
-                            {isAfpacketEligible ? <MenuItem value="afpacket">AFPacket</MenuItem> : <MenuItem value="afpacket" disabled>AFPacket</MenuItem>}
-                            {isSflowEligible ? <MenuItem value="sflow">sFlow</MenuItem> : <MenuItem value="sflow" disabled>sFlow</MenuItem>}
-                            {isDPDKPort ? <MenuItem value="dpdk">DPDK</MenuItem> : <MenuItem value="dpdk" disabled>DPDK</MenuItem>}
-                            {isOvsMirrorEligible ? <MenuItem value="ovsmirror">OVS Mirror</MenuItem> : <MenuItem value="ovsmirror" disabled>OVS Mirror</MenuItem>}
-                          </Select>
-                        </FormControl>
-                        <FormControl variant="outlined" fullWidth className={classes.compactField}>
-                          <InputLabel id="layer-key-label">{translate("Layers used for Flow Key")}</InputLabel>
-                          <Select
-                            id="layer-key"
-                            labelId="layer-key-label"
-                            value={this.state.layerKey}
-                            onChange={this.handleChange("layerKey")}
-                            label={translate("Layers used for Flow Key")}>
-                            <MenuItem value="L2">L2</MenuItem>
-                            <MenuItem value="L3">L3</MenuItem>
-                          </Select>
-                        </FormControl>
-                        {this.renderCompactTextField(classes, {
-                          label: translate("Header size"),
-                          type: "number",
-                          value: this.state.headerSize,
-                          onChange: this.handleChange("headerSize"),
-                          error: !!this.state.headerSize && !this.isHeaderSizeValid(),
-                          helperText: !!this.state.headerSize && !this.isHeaderSizeValid() ? translate("capture-headerSize-validation-error") : ""
-                        })}
-                        {this.renderCompactTextField(classes, {
-                          label: <span className={classes.fieldLabelWithHelp}>{translate("Raw packet limit")}<HelpIconWithDialog topic="raw-packet-limit" /></span>,
-                          type: "number",
-                          value: this.state.rawPacketLimit,
-                          onChange: this.handleChange("rawPacketLimit"),
-                          error: !!this.state.rawPacketLimit && !this.isRawPacketLimitValid(),
-                          helperText: !!this.state.rawPacketLimit && !this.isRawPacketLimitValid() ? translate("capture-rawPacketLimit-validation-error") : ""
-                        })}
-                        <FormControl component="fieldset" className={classes.advancedChecks}>
-                          <Tooltip title={translate("capture-extraTCPMetric-tooltip")} arrow>
-                            <FormControlLabel control={<Checkbox checked={this.state.extraTCPMetric} onChange={this.handleChange("extraTCPMetric")} color="primary" />} label={translate("Extra TCP metric")} />
-                          </Tooltip>
-                          <Tooltip title={translate("capture-IPDefrag-tooltip")} arrow>
-                            <FormControlLabel control={<Checkbox checked={this.state.defragIPv4} onChange={this.handleChange("defragIPv4")} color="primary" />} label={translate("Defragment IPv4 packets")} />
-                          </Tooltip>
-                          <Tooltip title={translate("capture-reassembleTCP-tooltip")} arrow>
-                            <FormControlLabel control={<Checkbox checked={this.state.reassembleTCP} onChange={this.handleChange("reassembleTCP")} color="primary" />} label={translate("Reassemble TCP packets")} />
-                          </Tooltip>
-                        </FormControl>
+                      <div className={classes.advancedContent}>
+                        <div className={classes.advancedNotice}>
+                          <WarningIcon />
+                          <span>전문가용 옵션입니다. 일반적인 캡처는 기본값을 권장합니다. 옵션을 변경하면 캡처 결과, 성능, 파일 크기에 영향을 줄 수 있습니다.</span>
+                        </div>
+
+                        <section className={classes.advancedSection}>
+                          <header>
+                            <strong>수집 방식</strong>
+                            <small>패킷을 어떤 방식과 기준으로 수집할지 설정합니다.</small>
+                          </header>
+                          <div className={classes.advancedGrid}>
+                            <div className={classes.advancedOptionBlock}>
+                              <FormControl variant="outlined" fullWidth className={classes.compactField}>
+                                <InputLabel id="capture-type-label">
+                                  {this.renderAdvancedLabel(classes, translate("Capture Type"), "패킷을 수집하는 방식을 선택합니다. 일반적으로 PCAP을 사용합니다.")}
+                                </InputLabel>
+                                <Select
+                                  id="capture-type"
+                                  labelId="capture-type-label"
+                                  value={captureType}
+                                  onChange={this.handleChange("captureType")}
+                                  label={translate("Capture Type")}>
+                                  <MenuItem value="pcap" disabled={!isPcapEligible} title={!isPcapEligible ? "현재 환경에서 사용할 수 없습니다." : ""}>PCAP</MenuItem>
+                                  <MenuItem value="afpacket" disabled={!isAfpacketEligible} title={!isAfpacketEligible ? "현재 환경에서 사용할 수 없습니다." : ""}>AFPacket</MenuItem>
+                                  <MenuItem value="sflow" disabled={!isSflowEligible} title={!isSflowEligible ? "현재 환경에서 사용할 수 없습니다." : ""}>sFlow</MenuItem>
+                                  <MenuItem value="dpdk" disabled={!isDPDKPort} title={!isDPDKPort ? "현재 환경에서 사용할 수 없습니다." : ""}>DPDK</MenuItem>
+                                  <MenuItem value="ovsmirror" disabled={!isOvsMirrorEligible} title={!isOvsMirrorEligible ? "현재 환경에서 사용할 수 없습니다." : ""}>OVS Mirror</MenuItem>
+                                </Select>
+                              </FormControl>
+                              <small>패킷을 수집하는 방식을 선택합니다. 기본값: PCAP</small>
+                            </div>
+
+                            <div className={classes.advancedOptionBlock}>
+                              <FormControl variant="outlined" fullWidth className={classes.compactField}>
+                                <InputLabel id="layer-key-label">
+                                  {this.renderAdvancedLabel(classes, translate("Layers used for Flow Key"), "플로우를 어떤 네트워크 계층 기준으로 묶을지 선택합니다. 일반적으로 L3를 사용합니다.")}
+                                </InputLabel>
+                                <Select
+                                  id="layer-key"
+                                  labelId="layer-key-label"
+                                  value={this.state.layerKey}
+                                  onChange={this.handleChange("layerKey")}
+                                  label={translate("Layers used for Flow Key")}>
+                                  <MenuItem value="L2">L2</MenuItem>
+                                  <MenuItem value="L3">L3</MenuItem>
+                                </Select>
+                              </FormControl>
+                              <small>플로우를 어떤 네트워크 계층 기준으로 묶을지 선택합니다. 기본값: L3</small>
+                            </div>
+
+                            <div className={classes.advancedOptionBlock}>
+                              {this.renderCompactTextField(classes, {
+                                label: this.renderAdvancedLabel(classes, translate("Header size"), "저장할 패킷 헤더 길이를 제한합니다. 비워두면 기본값을 사용합니다."),
+                                type: "number",
+                                value: this.state.headerSize,
+                                onChange: this.handleChange("headerSize"),
+                                error: !!this.state.headerSize && !this.isHeaderSizeValid(),
+                                helperText: !!this.state.headerSize && !this.isHeaderSizeValid() ? translate("capture-headerSize-validation-error") : ""
+                              })}
+                              <small>저장할 패킷 헤더 길이를 제한합니다. 비워두면 기본값을 사용합니다.</small>
+                            </div>
+
+                            <div className={classes.advancedOptionBlock}>
+                              {this.renderCompactTextField(classes, {
+                                label: this.renderAdvancedLabel(classes, translate("Raw packet limit"), "저장할 원시 패킷 수를 제한합니다. 0이면 제한하지 않습니다."),
+                                type: "number",
+                                value: this.state.rawPacketLimit,
+                                onChange: this.handleChange("rawPacketLimit"),
+                                error: !!this.state.rawPacketLimit && !this.isRawPacketLimitValid(),
+                                helperText: !!this.state.rawPacketLimit && !this.isRawPacketLimitValid() ? translate("capture-rawPacketLimit-validation-error") : ""
+                              })}
+                              <small>저장할 원시 패킷 수를 제한합니다. 0이면 제한하지 않습니다.</small>
+                            </div>
+                          </div>
+                        </section>
+
+                        <section className={classes.advancedSection}>
+                          <header>
+                            <strong>분석 옵션</strong>
+                            <small>정확도와 상세 분석을 높일 수 있지만 캡처 부하가 증가할 수 있습니다.</small>
+                          </header>
+                          <div className={classes.advancedCheckList}>
+                            <div>
+                              <FormControlLabel control={<Checkbox checked={this.state.extraTCPMetric} onChange={this.handleChange("extraTCPMetric")} color="primary" />} label={this.renderAdvancedLabel(classes, translate("Extra TCP metric"), "TCP 지연, 재전송 등 추가 분석 정보를 수집합니다. 캡처 부하가 증가할 수 있습니다.")} />
+                              <small>TCP 지연, 재전송 등 추가 분석 정보를 수집합니다.</small>
+                              <em>성능 영향</em>
+                            </div>
+                            <div>
+                              <FormControlLabel control={<Checkbox checked={this.state.defragIPv4} onChange={this.handleChange("defragIPv4")} color="primary" />} label={this.renderAdvancedLabel(classes, translate("Defragment IPv4 packets"), "분할된 IPv4 패킷을 다시 조립해 분석합니다. 분석 정확도는 높아질 수 있으나 부하가 증가합니다.")} />
+                              <small>분할된 IPv4 패킷을 다시 조립해 분석합니다.</small>
+                              <em>성능 영향</em>
+                            </div>
+                            <div>
+                              <FormControlLabel control={<Checkbox checked={this.state.reassembleTCP} onChange={this.handleChange("reassembleTCP")} color="primary" />} label={this.renderAdvancedLabel(classes, translate("Reassemble TCP packets"), "TCP 스트림을 재조립해 상위 프로토콜 분석에 활용합니다. HTTP/TLS 분석에 유용하지만 부하가 증가합니다.")} />
+                              <small>TCP 스트림을 재조립해 상위 프로토콜 분석에 활용합니다.</small>
+                              <em>성능 영향 · 파일 크기 증가</em>
+                            </div>
+                          </div>
+                        </section>
                       </div>
                     </AccordionDetails>
                   </Accordion>

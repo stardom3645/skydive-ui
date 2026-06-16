@@ -54,7 +54,6 @@ import DialogActions from '@material-ui/core/DialogActions'
 import Button from '@material-ui/core/Button'
 import Switch from '@material-ui/core/Switch'
 import Chip from '@material-ui/core/Chip'
-import WavesIcon from '@material-ui/icons/Waves'
 import Tooltip from '@material-ui/core/Tooltip'
 import UnfoldMoreIcon from '@material-ui/icons/UnfoldMore'
 import UnfoldLessIcon from '@material-ui/icons/UnfoldLess'
@@ -67,6 +66,7 @@ import CheckCircleIcon from '@material-ui/icons/CheckCircle'
 import ErrorOutlineIcon from '@material-ui/icons/ErrorOutline'
 import RefreshIcon from '@material-ui/icons/Refresh'
 import DeviceHubIcon from '@material-ui/icons/DeviceHub'
+import AccountTreeIcon from '@material-ui/icons/AccountTree'
 import ChevronRightIcon from '@material-ui/icons/ChevronRight'
 import CheckIcon from '@material-ui/icons/Check'
 import LogoLight from '../assets/logo-ablestack.png'
@@ -2684,7 +2684,7 @@ class App extends React.Component<Props, State> {
                     <span className={classes.linkTagsCollapsedHeaderLeft}>
                       {this.isKubernetesLayerActive()
                         ? <DeviceHubIcon className={classes.linkTagsCollapsedHeaderIcon} />
-                        : <WavesIcon className={classes.linkTagsCollapsedHeaderIcon} />
+                        : <AccountTreeIcon className={classes.linkTagsCollapsedHeaderIcon} />
                       }
                       <span>
                         <Typography component="span" className={classes.linkTagsCollapsedTitle}>
@@ -2734,13 +2734,13 @@ class App extends React.Component<Props, State> {
     const activeTag = this.activeNodeTagName()
     const activeLabel = activeTag === "kubernetes" ? "Kubernetes" : translate("infrastructureMenu")
     const activeSummary = activeTag === "kubernetes" ? translate("kubernetesLayerSummary") : translate("infrastructureLayerSummary")
-    const activeIcon = activeTag === "kubernetes" ? <DeviceHubIcon fontSize="small" /> : <WavesIcon fontSize="small" />
+    const activeIcon = activeTag === "kubernetes" ? <DeviceHubIcon fontSize="small" /> : <AccountTreeIcon fontSize="small" />
     const items = [
       {
         tag: infrastructureTag,
         label: translate("infrastructureMenu"),
         summary: translate("infrastructureLayerSummary"),
-        icon: <WavesIcon fontSize="small" />
+        icon: <AccountTreeIcon fontSize="small" />
       },
       {
         tag: "kubernetes",
@@ -3823,7 +3823,7 @@ class App extends React.Component<Props, State> {
           />
         </div>
         <div className={classes.drawerMenuSectionTitle}>{translate("collectionSection")}</div>
-        {this.renderDrawerIntegrationItem(classes, <WavesIcon />, translate("infrastructureMenu"), translate("infrastructureMenuSummary"), () => this.openInfrastructureTopology(), this.state.isInfrastructurePanelOpen)}
+        {this.renderDrawerIntegrationItem(classes, <AccountTreeIcon />, translate("infrastructureMenu"), translate("infrastructureMenuSummary"), () => this.openInfrastructureTopology(), this.state.isInfrastructurePanelOpen)}
         {this.renderDrawerIntegrationItem(classes, <DeviceHubIcon />, translate("kubernetesCollectionMenu"), translate("kubernetesMenuSummary"), () => this.openKubernetesManager(), this.state.isKubernetesManagerOpen)}
         <div className={classes.drawerMenuSectionTitle}>{translate("viewSettingsSection")}</div>
         {this.renderDrawerMenuItem(classes, <Brightness4Icon />, translate("preferences"), () => this.openPreferencesPanel(), this.state.isPreferencesPanelOpen)}

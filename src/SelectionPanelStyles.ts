@@ -122,13 +122,13 @@ export const styles = (theme: Theme) => createStyles({
     fontWeight: 900,
     fontSize: 35,
     marginBottom: `0 !important`,
-    color: 'var(--netdive-detail-accent)'
+    color: 'var(--topology-level-label-active-text)'
   },
   tabIconBrands: {
     fontFamily: `"Font Awesome 5 Brands" !important`,
     fontWeight: 900,
     fontSize: 35,
     marginBottom: `0 !important`,
-    color: 'var(--netdive-detail-accent)'
+    color: 'var(--topology-level-label-active-text)'
   }
 })
