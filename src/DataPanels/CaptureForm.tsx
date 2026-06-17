@@ -854,10 +854,28 @@ class CaptureForm extends React.Component<Props, State> {
                     <Typography component="h3">캡처 도움말</Typography>
                   </AccordionSummary>
                   <AccordionDetails>
-                    <div>
-                      <p>패킷 캡처는 대상 정보를 확인하고 안전한 기본값으로 시작합니다.</p>
-                      <p>캡처 완료 후 오른쪽 상세 패널에서 결과 상태를 확인할 수 있습니다.</p>
-                      <p>필요하면 고급 옵션에서 세부 설정을 변경할 수 있습니다.</p>
+                    <div className={classes.captureHelpList}>
+                      <div>
+                        <CheckCircleIcon />
+                        <span>
+                          <strong>대상 정보 확인</strong>
+                          <small>선택한 대상 정보를 확인합니다.</small>
+                        </span>
+                      </div>
+                      <div>
+                        <CheckCircleIcon />
+                        <span>
+                          <strong>권장 기본값 사용</strong>
+                          <small>안전한 기본값으로 캡처를 시작합니다.</small>
+                        </span>
+                      </div>
+                      <div>
+                        <CheckCircleIcon />
+                        <span>
+                          <strong>결과 확인</strong>
+                          <small>완료 후 오른쪽 상세 패널에서 요약과 상태를 확인합니다.</small>
+                        </span>
+                      </div>
                     </div>
                   </AccordionDetails>
                 </Accordion>

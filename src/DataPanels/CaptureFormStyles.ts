@@ -34,7 +34,7 @@ export const styles = (theme: Theme) => createStyles({
         background: 'var(--netdive-detail-bg, #fff)',
         border: '1px solid var(--netdive-detail-border, #dbe7f5)',
         borderRadius: 16,
-        padding: theme.spacing(1.35),
+        padding: theme.spacing(1.25),
         boxShadow: '0 10px 26px rgba(15, 23, 42, 0.06)',
         minWidth: 0,
     },
@@ -43,7 +43,7 @@ export const styles = (theme: Theme) => createStyles({
         alignItems: 'flex-start',
         justifyContent: 'space-between',
         gap: theme.spacing(1),
-        marginBottom: theme.spacing(1.2),
+        marginBottom: theme.spacing(0.85),
     },
     wizardTitle: {
         margin: 0,
@@ -87,7 +87,7 @@ export const styles = (theme: Theme) => createStyles({
     targetSummaryGrid: {
         display: 'grid',
         gridTemplateColumns: '1fr',
-        gap: theme.spacing(1),
+        gap: theme.spacing(0.75),
         [theme.breakpoints.down('sm')]: {
             gridTemplateColumns: '1fr',
         }
@@ -95,7 +95,7 @@ export const styles = (theme: Theme) => createStyles({
     targetCard: {
         border: '1px solid var(--netdive-detail-border, #dbe7f5)',
         borderRadius: 14,
-        padding: theme.spacing(1),
+        padding: theme.spacing(0.85, 1),
         background: '#fff',
     },
     sectionLabel: {
@@ -112,7 +112,7 @@ export const styles = (theme: Theme) => createStyles({
         gap: theme.spacing(0.7),
         '& strong': {
             color: 'var(--netdive-detail-text, #0f172a)',
-            fontSize: 16,
+            fontSize: 15.5,
             lineHeight: 1.25,
         },
         '& span': {
@@ -128,8 +128,8 @@ export const styles = (theme: Theme) => createStyles({
     targetInfoGrid: {
         display: 'grid',
         gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-        gap: theme.spacing(0.65, 0.9),
-        marginTop: theme.spacing(0.9),
+        gap: theme.spacing(0.55, 0.9),
+        marginTop: theme.spacing(0.75),
         '& div': {
             minWidth: 0,
         },
@@ -300,13 +300,15 @@ export const styles = (theme: Theme) => createStyles({
         justifyContent: 'space-between',
         alignItems: 'center',
         gap: theme.spacing(1),
-        marginTop: theme.spacing(1),
-        paddingTop: theme.spacing(1),
+        marginTop: theme.spacing(1.05),
+        padding: theme.spacing(0.9, 0, 0),
         borderTop: '1px solid rgba(219, 231, 245, 0.75)',
     },
     advancedToggle: {
         color: '#1a73e8',
         fontWeight: 700,
+        paddingLeft: 0,
+        paddingRight: theme.spacing(1),
     },
     captureExamples: {
         background: 'var(--netdive-detail-bg, #fff)',
@@ -397,7 +399,7 @@ export const styles = (theme: Theme) => createStyles({
         border: '1px solid var(--netdive-detail-border, #dbe7f5)',
         borderRadius: 16,
         background: 'var(--netdive-detail-bg, #fff)',
-        padding: theme.spacing(1.15),
+        padding: theme.spacing(1.05),
         boxShadow: '0 8px 20px rgba(15, 23, 42, 0.04)',
     },
     preflightPanelHeader: {
@@ -442,7 +444,7 @@ export const styles = (theme: Theme) => createStyles({
     },
     captureSummaryRows: {
         display: 'grid',
-        gap: theme.spacing(0.75),
+        gap: theme.spacing(0.65),
         '& div': {
             display: 'grid',
             gridTemplateColumns: '66px minmax(0, 1fr)',
@@ -516,15 +518,37 @@ export const styles = (theme: Theme) => createStyles({
         '& .MuiAccordionDetails-root': {
             padding: theme.spacing(0, 1.1, 1.1),
         },
-        '& p': {
-            margin: theme.spacing(0, 0, 0.7),
-            color: 'var(--netdive-detail-muted, #64748b)',
-            fontSize: 12,
-            lineHeight: 1.5,
+    },
+    captureHelpList: {
+        display: 'grid',
+        gap: theme.spacing(0.75),
+        '& > div': {
+            display: 'grid',
+            gridTemplateColumns: '18px minmax(0, 1fr)',
+            gap: theme.spacing(0.65),
+            alignItems: 'start',
+            minWidth: 0,
         },
-        '& p:last-child': {
-            marginBottom: 0,
-        }
+        '& svg': {
+            width: 16,
+            height: 16,
+            marginTop: 1,
+            color: '#1a73e8',
+        },
+        '& strong': {
+            display: 'block',
+            color: 'var(--netdive-detail-text, #0f172a)',
+            fontSize: 12.5,
+            fontWeight: 800,
+            lineHeight: 1.25,
+        },
+        '& small': {
+            display: 'block',
+            marginTop: 2,
+            color: 'var(--netdive-detail-muted, #64748b)',
+            fontSize: 11.5,
+            lineHeight: 1.45,
+        },
     },
     helpCard: {
         border: '1px solid var(--netdive-detail-border, #dbe7f5)',
