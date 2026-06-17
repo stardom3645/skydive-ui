@@ -220,21 +220,6 @@ class CaptureStatusPanel extends React.Component<Props, State> {
     return { label: top || '-', percent: totalBytes > 0 ? Math.round((totals[top] / totalBytes) * 100) : 0 }
   }
 
-  private topPortSummary(flows: CaptureFlowSummary[]): { port: string, percent: number, application: string } {
-    const totalBytes = flows.reduce((sum, flow) => sum + flow.bytes, 0)
-    const totals = flows.reduce((acc, flow) => {
-      const port = flow.destinationPort || flow.sourcePort
-      if (port) acc[port] = (acc[port] || 0) + Math.max(flow.bytes, 1)
-      return acc
-    }, {} as Record<string, number>)
-    const port = Object.keys(totals).sort((a, b) => totals[b] - totals[a])[0] || '-'
-    return {
-      port,
-      percent: port !== '-' && totalBytes > 0 ? Math.round((totals[port] / totalBytes) * 100) : 0,
-      application: this.portApplication(port)
-    }
-  }
-
   private topPeer(flows: CaptureFlowSummary[]): string {
     return this.topPeerSummary(flows).label
   }
@@ -418,7 +403,6 @@ class CaptureStatusPanel extends React.Component<Props, State> {
     const totalPackets = flows.reduce((sum, flow) => sum + flow.packets, 0)
     const protocol = this.topProtocol(flows)
     const peer = this.topPeerSummary(flows)
-    const topPort = this.topPortSummary(flows)
     const protocolDistribution = this.distributionByProtocol(flows)
     const portDistribution = this.distributionByPort(flows)
     const progress = isRunning ? this.progressValue() : 100
@@ -452,24 +436,24 @@ class CaptureStatusPanel extends React.Component<Props, State> {
                 <Typography component="strong">{this.statusTitle()}</Typography>
                 <span>{capture.targetName || '-'} · {this.scopeLabel()} · 필터: {this.filterLabel()}</span>
               </div>
+              <em className={statusBadgeClass}>
+                {this.statusLabel(isRunning, isDone)}
+              </em>
             </div>
 
-            <div className={classes.captureCountdown}>
-              <span>{isRunning ? '남은 시간' : '소요 시간'}</span>
-              <strong>{isRunning ? this.formatRemaining() : this.formatDuration(this.elapsedSeconds())}</strong>
+            <div className={classes.captureProgressPanel}>
+              <div className={classes.captureCountdown}>
+                <span>{isRunning ? '남은 시간' : '소요 시간'}</span>
+                <strong>{isRunning ? this.formatRemaining() : this.formatDuration(this.elapsedSeconds())}</strong>
+              </div>
+              <div className={classes.captureProgressRow}>
+                <LinearProgress variant="determinate" value={progress} className={classes.captureProgress} />
+                <span>{progress}%</span>
+              </div>
             </div>
-            <div className={classes.captureProgressRow}>
-              <LinearProgress variant="determinate" value={progress} className={classes.captureProgress} />
-              <span>{progress}%</span>
-            </div>
+
             {this.state.error && <p className={classes.captureStatusError}>{this.state.error}</p>}
-            <div className={classes.captureStatusMetaGrid}>
-              <div><span>대상</span><strong>{capture.targetName || '-'}</strong></div>
-              <div><span>유형</span><strong>{this.targetTypeLabel()}</strong></div>
-              <div><span>범위</span><strong>{this.scopeLabel()}</strong></div>
-              <div><span>필터</span><strong title={this.filterLabel()}>{this.filterLabel()}</strong></div>
-              <div><span>시간</span><strong>{this.formatDuration(capture.durationSeconds || 0)}</strong></div>
-            </div>
+
             <div className={classes.captureStatusActions}>
               {isRunning &&
                 <Button size="small" variant="outlined" startIcon={<StopIcon />} disabled={this.state.loading || isLegacy} onClick={() => this.stopCapture()}>
@@ -489,11 +473,6 @@ class CaptureStatusPanel extends React.Component<Props, State> {
                   다시 캡처
                 </Button>
               }
-              {!isRunning &&
-                <Button size="small" onClick={this.props.onClear}>
-                  닫기
-                </Button>
-              }
             </div>
           </section>
 
@@ -503,11 +482,10 @@ class CaptureStatusPanel extends React.Component<Props, State> {
               <span>마지막 업데이트: {new Date(this.state.now).toLocaleTimeString()}</span>
             </div>
             <div className={classes.captureMetricGrid}>
-              <div><span>총 플로우</span><strong>{flows.length.toLocaleString()}</strong></div>
               <div><span>총 트래픽</span><strong>{this.formatBytes(totalBytes)}</strong></div>
-              <div><span>주요 프로토콜</span><strong>{protocol.label}</strong><small>{protocol.percent}%</small></div>
+              <div><span>총 플로우</span><strong>{flows.length.toLocaleString()}</strong><small>flows</small></div>
               <div><span>주요 통신 대상</span><strong title={peer.label}>{peer.label}</strong><small>{peer.percent}%</small></div>
-              <div><span>상위 포트</span><strong>{topPort.port}</strong><small>{topPort.application ? `${topPort.application} · ${topPort.percent}%` : `${topPort.percent}%`}</small></div>
+              <div><span>주요 프로토콜</span><strong>{protocol.label}</strong><small>{protocol.percent}%</small></div>
             </div>
           </section>
 
@@ -714,15 +692,16 @@ const styles = (theme: Theme) => createStyles({
     gap: theme.spacing(1),
   },
   captureStatusCard: {
-    padding: theme.spacing(1.25),
-    border: '1px solid var(--netdive-detail-border, #dbe7f5)',
-    borderRadius: 14,
+    padding: theme.spacing(1.35),
+    border: '1px solid rgba(219, 231, 245, 0.82)',
+    borderRadius: 16,
     background: 'var(--netdive-detail-bg, #fff)',
-    boxShadow: '0 8px 20px rgba(15, 23, 42, 0.04)',
+    boxShadow: '0 10px 26px rgba(15, 23, 42, 0.045)',
   },
   captureStatusHeader: {
     display: 'flex',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
     gap: theme.spacing(1),
     '& strong': {
       display: 'block',
@@ -746,34 +725,8 @@ const styles = (theme: Theme) => createStyles({
       whiteSpace: 'nowrap',
     }
   },
-  captureStatusMetaGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-    gap: theme.spacing(0.65),
-    marginTop: theme.spacing(1),
-    padding: theme.spacing(0.75),
-    border: '1px solid rgba(219, 231, 245, 0.8)',
-    borderRadius: 12,
-    background: 'rgba(248, 250, 252, 0.74)',
-    '& div': {
-      minWidth: 0,
-    },
-    '& span': {
-      display: 'block',
-      color: 'var(--netdive-detail-muted, #64748b)',
-      fontSize: 10.5,
-      fontWeight: 800,
-      marginBottom: 2,
-    },
-    '& strong': {
-      display: 'block',
-      color: 'var(--netdive-detail-text, #0f172a)',
-      fontSize: 12,
-      fontWeight: 900,
-      overflow: 'hidden',
-      textOverflow: 'ellipsis',
-      whiteSpace: 'nowrap',
-    }
+  captureProgressPanel: {
+    marginTop: theme.spacing(1.05),
   },
   captureStatusRunning: {
     color: '#1d4ed8',
@@ -796,17 +749,16 @@ const styles = (theme: Theme) => createStyles({
     border: '1px solid #fed7aa',
   },
   captureCountdown: {
-    marginTop: theme.spacing(1),
     '& span': {
       display: 'block',
       color: 'var(--netdive-detail-muted, #64748b)',
-      fontSize: 12,
-      fontWeight: 700,
+      fontSize: 11,
+      fontWeight: 800,
     },
     '& strong': {
       display: 'block',
       color: '#1d4ed8',
-      fontSize: 23,
+      fontSize: 30,
       lineHeight: 1.2,
       fontWeight: 900,
       letterSpacing: '-0.03em',
@@ -822,7 +774,7 @@ const styles = (theme: Theme) => createStyles({
     display: 'flex',
     alignItems: 'center',
     gap: theme.spacing(0.8),
-    marginTop: theme.spacing(1),
+    marginTop: theme.spacing(0.75),
     '& span': {
       color: 'var(--netdive-detail-muted, #64748b)',
       fontSize: 11,
@@ -841,8 +793,19 @@ const styles = (theme: Theme) => createStyles({
     alignItems: 'center',
     gap: theme.spacing(0.8),
     justifyContent: 'flex-end',
-    marginTop: theme.spacing(1.1),
+    marginTop: theme.spacing(1),
     flexWrap: 'wrap',
+    '& .MuiButton-root': {
+      borderColor: 'rgba(203, 213, 225, 0.95)',
+      color: 'var(--netdive-detail-text, #0f172a)',
+      borderRadius: 10,
+      textTransform: 'none',
+      fontWeight: 800,
+      '&:hover': {
+        borderColor: '#93c5fd',
+        background: '#f3f8ff',
+      }
+    }
   },
   downloadPending: {
     display: 'inline-flex',
@@ -859,11 +822,11 @@ const styles = (theme: Theme) => createStyles({
     }
   },
   captureSummaryCard: {
-    border: '1px solid var(--netdive-detail-border, #dbe7f5)',
-    borderRadius: 14,
+    border: '1px solid rgba(219, 231, 245, 0.82)',
+    borderRadius: 16,
     background: 'var(--netdive-detail-bg, #fff)',
-    padding: theme.spacing(1.15),
-    boxShadow: '0 8px 20px rgba(15, 23, 42, 0.04)',
+    padding: theme.spacing(1.25),
+    boxShadow: '0 8px 22px rgba(15, 23, 42, 0.035)',
     minWidth: 0,
   },
   captureSectionHeader: {
@@ -899,14 +862,20 @@ const styles = (theme: Theme) => createStyles({
   },
   captureMetricGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-    gap: theme.spacing(0.8),
+    gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+    gap: 0,
+    borderRadius: 14,
+    background: 'linear-gradient(180deg, rgba(248, 250, 252, 0.56), rgba(255, 255, 255, 0.98))',
+    overflow: 'hidden',
     '& div': {
-      border: '1px solid rgba(219, 231, 245, 0.9)',
-      borderRadius: 12,
-      padding: theme.spacing(0.9),
+      border: 0,
+      borderLeft: '1px solid rgba(226, 232, 240, 0.92)',
+      padding: theme.spacing(1.1, 1),
       minWidth: 0,
-      background: '#fff',
+      boxSizing: 'border-box',
+      '&:first-child': {
+        borderLeft: 0,
+      }
     },
     '& span': {
       display: 'block',
@@ -918,7 +887,7 @@ const styles = (theme: Theme) => createStyles({
     '& strong': {
       display: 'block',
       color: 'var(--netdive-detail-text, #0f172a)',
-      fontSize: 17,
+      fontSize: 18,
       fontWeight: 900,
       overflow: 'hidden',
       textOverflow: 'ellipsis',
@@ -926,11 +895,21 @@ const styles = (theme: Theme) => createStyles({
     },
     '& small': {
       display: 'block',
-      marginTop: 2,
+      marginTop: 4,
       color: 'var(--netdive-detail-muted, #64748b)',
       fontSize: 11,
       fontWeight: 700,
-    }
+    },
+    '@media (max-width: 520px)': {
+      gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+      '& div:nth-child(3)': {
+        borderLeft: 0,
+        borderTop: '1px solid rgba(226, 232, 240, 0.92)',
+      },
+      '& div:nth-child(4)': {
+        borderTop: '1px solid rgba(226, 232, 240, 0.92)',
+      },
+    },
   },
   captureEmptyState: {
     margin: 0,
@@ -943,7 +922,7 @@ const styles = (theme: Theme) => createStyles({
   },
   topFlowList: {
     display: 'grid',
-    gap: theme.spacing(0.55),
+    gap: 0,
   },
   topFlowListScrollable: {
     maxHeight: 360,
@@ -955,24 +934,26 @@ const styles = (theme: Theme) => createStyles({
     appearance: 'none',
     width: '100%',
     display: 'grid',
-    gridTemplateColumns: '24px minmax(0, 1fr) 78px',
-    gap: theme.spacing(0.8),
+    gridTemplateColumns: '28px minmax(0, 1fr) 82px',
+    gap: theme.spacing(0.9),
     alignItems: 'center',
-    border: '1px solid transparent',
-    borderRadius: 12,
-    background: '#fff',
-    padding: theme.spacing(0.7),
+    border: 0,
+    borderBottom: '1px solid rgba(226, 232, 240, 0.78)',
+    borderRadius: 0,
+    background: 'transparent',
+    padding: theme.spacing(0.9, 0.2),
     cursor: 'pointer',
     textAlign: 'left',
-    transition: 'border-color 160ms ease, background-color 160ms ease',
+    transition: 'background-color 160ms ease',
+    '&:last-child': {
+      borderBottom: 0,
+    },
     '&:hover': {
-      borderColor: '#bfdbfe',
-      background: '#f3f8ff',
+      background: 'rgba(243, 248, 255, 0.72)',
     }
   },
   topFlowItemExpanded: {
-    borderColor: '#93c5fd',
-    background: '#eff6ff',
+    background: 'rgba(239, 246, 255, 0.72)',
   },
   topFlowRank: {
     display: 'inline-flex',
@@ -991,8 +972,9 @@ const styles = (theme: Theme) => createStyles({
     '& strong': {
       display: 'block',
       color: 'var(--netdive-detail-text, #0f172a)',
-      fontSize: 12.5,
+      fontSize: 13,
       fontWeight: 800,
+      lineHeight: 1.35,
       overflow: 'hidden',
       textOverflow: 'ellipsis',
       whiteSpace: 'nowrap',
@@ -1000,7 +982,7 @@ const styles = (theme: Theme) => createStyles({
     '& em': {
       display: 'flex',
       flexWrap: 'wrap',
-      gap: 4,
+      gap: 5,
       color: 'var(--netdive-detail-muted, #64748b)',
       fontSize: 11,
       fontStyle: 'normal',
@@ -1008,10 +990,10 @@ const styles = (theme: Theme) => createStyles({
     },
     '& i': {
       display: 'block',
-      height: 4,
+      height: 3,
       borderRadius: 999,
       background: '#2563eb',
-      marginTop: 6,
+      marginTop: 7,
       maxWidth: '100%',
     },
     '& small': {
@@ -1045,9 +1027,9 @@ const styles = (theme: Theme) => createStyles({
   flowBadge: {
     display: 'inline-flex',
     alignItems: 'center',
-    border: '1px solid #dbe7f5',
+    border: 0,
     borderRadius: 5,
-    background: '#f8fafc',
+    background: '#eef2f7',
     color: '#475569',
     padding: '1px 5px',
     fontSize: 10.5,
@@ -1064,8 +1046,11 @@ const styles = (theme: Theme) => createStyles({
   },
   captureDistributionGrid: {
     display: 'grid',
-    gridTemplateColumns: '1fr',
+    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
     gap: theme.spacing(1),
+    '@media (max-width: 560px)': {
+      gridTemplateColumns: '1fr',
+    },
   },
   miniSectionTitle: {
     display: 'block',
