@@ -452,6 +452,7 @@ class CaptureForm extends React.Component<Props, State> {
           GremlinQuery: this.props.gremlin,
           Name: this.state.name,
           Description: this.state.description,
+          DurationSeconds: this.captureDurationSeconds(),
           BPFFilter: bpf,
           Type: captureType,
           LayerKeyMode: this.state.layerKey,
@@ -589,7 +590,7 @@ class CaptureForm extends React.Component<Props, State> {
                     <CheckCircleIcon />
                     <div>
                       <strong>권장 기본값</strong>
-                      <span>자동 종료와 안전한 기본 옵션은 Simple Capture API에서 처리합니다.</span>
+                      <span>자동 종료와 안전한 기본 옵션으로 캡처를 시작합니다.</span>
                     </div>
                   </div>
                   <div className={classes.settingRow}>
@@ -654,7 +655,7 @@ class CaptureForm extends React.Component<Props, State> {
                     onClick={this.onClick}
                     disabled={isCaptureDisabled || hasValidationError || capability !== "available"}
                     startIcon={<PlayArrowIcon />}>
-                    간단 캡처 시작
+                    캡처 시작
                   </Button>
                 </div>
 
@@ -844,11 +845,11 @@ class CaptureForm extends React.Component<Props, State> {
 
               <Accordion className={classes.captureHelpAccordion}>
                 <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                  <Typography component="h3">간단 캡처 도움말</Typography>
+                  <Typography component="h3">캡처 도움말</Typography>
                 </AccordionSummary>
                 <AccordionDetails>
                   <div>
-                    <p>간단 캡처는 대상 정보를 확인하고 안전한 기본값으로 캡처를 시작합니다.</p>
+                    <p>패킷 캡처는 대상 정보를 확인하고 안전한 기본값으로 시작합니다.</p>
                     <p>캡처 완료 후 오른쪽 상세 패널에서 결과 상태를 확인할 수 있습니다.</p>
                     <p>필요하면 고급 옵션에서 세부 설정을 변경할 수 있습니다.</p>
                   </div>

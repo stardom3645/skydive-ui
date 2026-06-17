@@ -271,6 +271,12 @@ export interface Capture {
      */
     Description?: string;
     /**
+     * Capture duration in seconds
+     * @type {number}
+     * @memberof Capture
+     */
+    DurationSeconds?: number;
+    /**
      * 
      * @type {ExtraLayers}
      * @memberof Capture
@@ -2179,6 +2185,7 @@ export const CapturesApiFetchParamCreator = function (configuration?: Configurat
                 GremlinQuery: capture.GremlinQuery,
                 Name: capture.Name,
                 Description: capture.Description,
+                DurationSeconds: capture.DurationSeconds,
                 BPFFilter: capture.BPFFilter,
                 Type: capture.Type,
                 LayerKeyMode: capture.LayerKeyMode,
@@ -4750,4 +4757,3 @@ export class WorkflowsApi extends BaseAPI {
     }
 
 }
-
