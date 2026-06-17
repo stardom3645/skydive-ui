@@ -49,7 +49,7 @@ export const styles = (theme: Theme) => createStyles({
         margin: 0,
         color: 'var(--netdive-detail-text, #0f172a)',
         fontSize: 15,
-        fontWeight: 800,
+        fontWeight: 700,
         lineHeight: 1.25,
     },
     wizardSubtitle: {
@@ -65,7 +65,7 @@ export const styles = (theme: Theme) => createStyles({
         borderRadius: 999,
         padding: '5px 9px',
         fontSize: 11.5,
-        fontWeight: 700,
+        fontWeight: 650,
         whiteSpace: 'nowrap',
         border: '1px solid transparent',
     },
@@ -102,7 +102,7 @@ export const styles = (theme: Theme) => createStyles({
         display: 'block',
         color: 'var(--netdive-detail-muted, #64748b)',
         fontSize: 11.5,
-        fontWeight: 700,
+        fontWeight: 600,
         marginBottom: theme.spacing(0.7),
     },
     targetNameRow: {
@@ -113,6 +113,7 @@ export const styles = (theme: Theme) => createStyles({
         '& strong': {
             color: 'var(--netdive-detail-text, #0f172a)',
             fontSize: 15.5,
+            fontWeight: 700,
             lineHeight: 1.25,
         },
         '& span': {
@@ -122,7 +123,7 @@ export const styles = (theme: Theme) => createStyles({
             color: '#1a73e8',
             border: '1px solid #bfdbfe',
             fontSize: 11,
-            fontWeight: 700,
+            fontWeight: 650,
         }
     },
     targetInfoGrid: {
@@ -143,6 +144,7 @@ export const styles = (theme: Theme) => createStyles({
             display: 'block',
             color: 'var(--netdive-detail-text, #0f172a)',
             fontSize: 12,
+            fontWeight: 650,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
@@ -174,7 +176,7 @@ export const styles = (theme: Theme) => createStyles({
             display: 'inline',
             color: 'var(--netdive-detail-text, #0f172a)',
             fontSize: 11.8,
-            fontWeight: 800,
+            fontWeight: 700,
             lineHeight: 1.35,
             marginRight: 6,
         },
@@ -195,6 +197,7 @@ export const styles = (theme: Theme) => createStyles({
             display: 'block',
             color: 'var(--netdive-detail-text, #0f172a)',
             fontSize: 13,
+            fontWeight: 650,
         },
         '& > div:first-child small': {
             display: 'block',
@@ -227,7 +230,7 @@ export const styles = (theme: Theme) => createStyles({
         alignItems: 'flex-start',
         gap: 2,
         fontSize: 12,
-        fontWeight: 700,
+        fontWeight: 650,
         transition: 'border-color 160ms ease, background-color 160ms ease, color 160ms ease',
         '& small': {
             color: 'var(--netdive-detail-muted, #64748b)',
@@ -352,13 +355,13 @@ export const styles = (theme: Theme) => createStyles({
             borderRadius: 999,
             padding: '3px 7px',
             fontSize: 10.5,
-            fontWeight: 800,
+            fontWeight: 700,
         },
         '& strong': {
             display: 'block',
             color: 'var(--netdive-detail-text, #0f172a)',
             fontSize: 13.5,
-            fontWeight: 800,
+            fontWeight: 700,
             lineHeight: 1.25,
             minWidth: 0,
         },
@@ -406,7 +409,7 @@ export const styles = (theme: Theme) => createStyles({
             display: 'block',
             color: 'var(--netdive-detail-text, #0f172a)',
             fontSize: 14,
-            fontWeight: 900,
+            fontWeight: 750,
             lineHeight: 1.25,
         },
         '& span': {
@@ -435,7 +438,7 @@ export const styles = (theme: Theme) => createStyles({
         },
         '& strong': {
             fontSize: 13.5,
-            fontWeight: 800,
+            fontWeight: 700,
         }
     },
     captureSummaryRows: {
@@ -451,14 +454,14 @@ export const styles = (theme: Theme) => createStyles({
         '& span': {
             color: 'var(--netdive-detail-muted, #64748b)',
             fontSize: 12,
-            fontWeight: 700,
+            fontWeight: 600,
         },
         '& strong': {
             display: 'block',
             minWidth: 0,
             color: 'var(--netdive-detail-text, #0f172a)',
             fontSize: 12.5,
-            fontWeight: 800,
+            fontWeight: 700,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
@@ -474,7 +477,7 @@ export const styles = (theme: Theme) => createStyles({
         '& strong': {
             display: 'block',
             fontSize: 13.5,
-            fontWeight: 800,
+            fontWeight: 700,
             marginBottom: theme.spacing(0.7),
         },
         '& ul': {
@@ -509,7 +512,7 @@ export const styles = (theme: Theme) => createStyles({
         '& h3': {
             color: 'var(--netdive-detail-text, #0f172a)',
             fontSize: 13.5,
-            fontWeight: 800,
+            fontWeight: 700,
         },
         '& .MuiAccordionDetails-root': {
             padding: theme.spacing(0, 1.1, 1.1),
@@ -535,7 +538,7 @@ export const styles = (theme: Theme) => createStyles({
             display: 'block',
             color: 'var(--netdive-detail-text, #0f172a)',
             fontSize: 12.5,
-            fontWeight: 800,
+            fontWeight: 700,
             lineHeight: 1.25,
         },
         '& small': {
@@ -592,7 +595,7 @@ export const styles = (theme: Theme) => createStyles({
     button: {
         borderRadius: 10,
         boxShadow: '0 6px 14px rgba(26, 115, 232, 0.16)',
-        fontWeight: 700,
+        fontWeight: 650,
         padding: '7px 13px',
     },
     advanced: {
@@ -628,7 +631,7 @@ export const styles = (theme: Theme) => createStyles({
     },
     heading: {
         color: 'var(--netdive-detail-text, #0f172a)',
-        fontWeight: 700,
+        fontWeight: 650,
         fontSize: 13,
     },
     expertBadge: {
@@ -640,7 +643,7 @@ export const styles = (theme: Theme) => createStyles({
         border: '1px solid #fed7aa',
         color: '#c2410c',
         fontSize: 10.5,
-        fontWeight: 800,
+        fontWeight: 700,
         lineHeight: 1.2,
     },
     advancedDefaultBadge: {
@@ -652,7 +655,7 @@ export const styles = (theme: Theme) => createStyles({
         border: '1px solid #bbf7d0',
         color: '#15803d',
         fontSize: 10.5,
-        fontWeight: 800,
+        fontWeight: 700,
         lineHeight: 1.2,
     },
     advancedChangedBadge: {
@@ -664,7 +667,7 @@ export const styles = (theme: Theme) => createStyles({
         border: '1px solid #bfdbfe',
         color: '#1d4ed8',
         fontSize: 10.5,
-        fontWeight: 800,
+        fontWeight: 700,
         lineHeight: 1.2,
     },
     advancedContent: {
@@ -691,7 +694,7 @@ export const styles = (theme: Theme) => createStyles({
         '& span': {
             fontSize: 12,
             lineHeight: 1.5,
-            fontWeight: 700,
+            fontWeight: 600,
         }
     },
     advancedSection: {
@@ -706,7 +709,7 @@ export const styles = (theme: Theme) => createStyles({
             display: 'block',
             color: 'var(--netdive-detail-text, #0f172a)',
             fontSize: 15,
-            fontWeight: 900,
+            fontWeight: 750,
             lineHeight: 1.25,
         },
         '& > header small': {
@@ -749,7 +752,7 @@ export const styles = (theme: Theme) => createStyles({
         minWidth: 0,
         color: 'var(--netdive-detail-text, #0f172a)',
         fontSize: 13,
-        fontWeight: 800,
+        fontWeight: 700,
         lineHeight: 1.25,
         '& svg': {
             width: 13,
@@ -767,7 +770,7 @@ export const styles = (theme: Theme) => createStyles({
             color: '#1d4ed8',
             fontSize: 10,
             fontStyle: 'normal',
-            fontWeight: 800,
+            fontWeight: 700,
             lineHeight: 1.2,
         },
     },
@@ -778,7 +781,7 @@ export const styles = (theme: Theme) => createStyles({
         '& strong': {
             color: 'var(--netdive-detail-text, #0f172a)',
             fontSize: 12.5,
-            fontWeight: 800,
+            fontWeight: 700,
             lineHeight: 1.25,
         },
         '& small': {
@@ -818,7 +821,7 @@ export const styles = (theme: Theme) => createStyles({
             gap: 5,
             color: 'var(--netdive-detail-text, #0f172a)',
             fontSize: 12.5,
-            fontWeight: 800,
+            fontWeight: 700,
             lineHeight: 1.25,
         },
         '& small': {
@@ -838,7 +841,7 @@ export const styles = (theme: Theme) => createStyles({
             color: '#c2410c',
             fontSize: 10,
             fontStyle: 'normal',
-            fontWeight: 800,
+            fontWeight: 700,
             lineHeight: 1.2,
         },
         '& i': {
@@ -851,7 +854,7 @@ export const styles = (theme: Theme) => createStyles({
             color: '#1d4ed8',
             fontSize: 10,
             fontStyle: 'normal',
-            fontWeight: 800,
+            fontWeight: 700,
             lineHeight: 1.2,
         }
     }
