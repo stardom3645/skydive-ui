@@ -221,13 +221,19 @@ class CaptureStatusPanel extends React.Component<Props, State> {
     return { label: top || '-', percent: totalBytes > 0 ? Math.round((totals[top] / totalBytes) * 100) : 0 }
   }
 
-  private topPort(flows: CaptureFlowSummary[]): string {
+  private topPortSummary(flows: CaptureFlowSummary[]): { port: string, percent: number, application: string } {
+    const totalBytes = flows.reduce((sum, flow) => sum + flow.bytes, 0)
     const totals = flows.reduce((acc, flow) => {
       const port = flow.destinationPort || flow.sourcePort
       if (port) acc[port] = (acc[port] || 0) + Math.max(flow.bytes, 1)
       return acc
     }, {} as Record<string, number>)
-    return Object.keys(totals).sort((a, b) => totals[b] - totals[a])[0] || '-'
+    const port = Object.keys(totals).sort((a, b) => totals[b] - totals[a])[0] || '-'
+    return {
+      port,
+      percent: port !== '-' && totalBytes > 0 ? Math.round((totals[port] / totalBytes) * 100) : 0,
+      application: this.portApplication(port)
+    }
   }
 
   private topPeer(flows: CaptureFlowSummary[]): string {
@@ -325,6 +331,28 @@ class CaptureStatusPanel extends React.Component<Props, State> {
     return `${minutes}:${seconds}`
   }
 
+  private formatDuration(seconds: number): string {
+    const minutes = Math.floor(seconds / 60).toString().padStart(2, '0')
+    const rest = Math.max(0, seconds % 60).toString().padStart(2, '0')
+    return `${minutes}:${rest}`
+  }
+
+  private elapsedSeconds(): number {
+    const startedAt = new Date(this.props.capture.startedAt).getTime()
+    if (!Number.isFinite(startedAt)) return 0
+    const elapsed = Math.floor((this.state.now - startedAt) / 1000)
+    return Math.max(0, Math.min(elapsed, this.props.capture.durationSeconds || elapsed))
+  }
+
+  private endpointAddress(endpoint: string): string {
+    if (!endpoint) return '-'
+    const lastColon = endpoint.lastIndexOf(':')
+    if (lastColon > -1 && /^\d+$/.test(endpoint.slice(lastColon + 1))) {
+      return endpoint.slice(0, lastColon)
+    }
+    return endpoint
+  }
+
   private scopeLabel() {
     return this.props.capture.scope === 'all' ? '전체 트래픽' : '선택 노드 관련 트래픽'
   }
@@ -366,7 +394,7 @@ class CaptureStatusPanel extends React.Component<Props, State> {
     const totalPackets = flows.reduce((sum, flow) => sum + flow.packets, 0)
     const protocol = this.topProtocol(flows)
     const peer = this.topPeerSummary(flows)
-    const topPort = this.topPort(flows)
+    const topPort = this.topPortSummary(flows)
     const protocolDistribution = this.distributionByProtocol(flows)
     const portDistribution = this.distributionByPort(flows)
     const donutGradient = protocolDistribution.length > 0
@@ -382,21 +410,37 @@ class CaptureStatusPanel extends React.Component<Props, State> {
     const progress = isRunning ? this.progressValue() : 100
 
     return (
-      <Panel icon={<VideocamIcon />} title="패킷 캡처 상태" content={
+      <Panel icon={<VideocamIcon />} title="패킷 캡처" content={
         <div className={classes.captureResultShell}>
+          <div className={classes.captureTabStrip}>
+            <span>개요</span>
+            <span>연결</span>
+            <span>트래픽</span>
+            <span>이벤트</span>
+            <span className={classes.captureTabActive}>패킷 캡처</span>
+          </div>
+
           <div className={classes.captureStatusCard}>
             <div className={classes.captureStatusHeader}>
               <div>
                 <Typography component="strong">{this.statusTitle()}</Typography>
-                <span>{capture.targetName || '-'} · {this.scopeLabel()} · 필터: {this.filterLabel()}</span>
+                <span>{capture.targetName || '-'} · {capture.targetType || 'Node'}</span>
               </div>
               <em className={isRunning ? classes.captureStatusRunning : isDone ? classes.captureStatusDone : classes.captureStatusWarning}>
                 {this.statusLabel(isRunning, isDone)}
               </em>
             </div>
+
+            <div className={classes.captureStatusMetaGrid}>
+              <div><span>대상</span><strong>{capture.targetName || '-'}</strong></div>
+              <div><span>범위</span><strong>{this.scopeLabel()}</strong></div>
+              <div><span>필터</span><strong title={this.filterLabel()}>{this.filterLabel()}</strong></div>
+              <div><span>시간</span><strong>{this.formatDuration(capture.durationSeconds || 0)}</strong></div>
+            </div>
+
             <div className={classes.captureCountdown}>
               <span>{isRunning ? '남은 시간' : '소요 시간'}</span>
-              <strong>{isRunning ? this.formatRemaining() : '00:00'}</strong>
+              <strong>{isRunning ? this.formatRemaining() : this.formatDuration(this.elapsedSeconds())}</strong>
             </div>
             <div className={classes.captureProgressRow}>
               <LinearProgress variant="determinate" value={progress} className={classes.captureProgress} />
@@ -410,9 +454,7 @@ class CaptureStatusPanel extends React.Component<Props, State> {
                 </Button>
               }
               {isDone &&
-                <Button size="small" color="primary" variant="outlined" startIcon={<GetAppIcon />} disabled>
-                  다운로드 준비 중
-                </Button>
+                <span className={classes.downloadPending}><GetAppIcon /> 캡처 파일을 준비 중입니다.</span>
               }
               {!isRunning &&
                 <Button size="small" variant="outlined" startIcon={<ReplayIcon />} onClick={this.props.onRetry}>
@@ -429,7 +471,7 @@ class CaptureStatusPanel extends React.Component<Props, State> {
 
           <section className={classes.captureSummaryCard}>
             <div className={classes.captureSectionHeader}>
-              <strong>실시간 요약</strong>
+              <strong>캡처 요약</strong>
               <span>마지막 업데이트: {new Date(this.state.now).toLocaleTimeString()}</span>
             </div>
             <div className={classes.captureMetricGrid}>
@@ -437,7 +479,7 @@ class CaptureStatusPanel extends React.Component<Props, State> {
               <div><span>총 트래픽</span><strong>{this.formatBytes(totalBytes)}</strong></div>
               <div><span>주요 프로토콜</span><strong>{protocol.label}</strong><small>{protocol.percent}%</small></div>
               <div><span>주요 통신 대상</span><strong title={peer.label}>{peer.label}</strong><small>{peer.percent}%</small></div>
-              <div><span>상위 포트</span><strong>{topPort}</strong><small>{this.portApplication(topPort)}</small></div>
+              <div><span>상위 포트</span><strong>{topPort.port}</strong><small>{topPort.application ? `${topPort.application} · ${topPort.percent}%` : `${topPort.percent}%`}</small></div>
             </div>
           </section>
 
@@ -458,6 +500,9 @@ class CaptureStatusPanel extends React.Component<Props, State> {
                 const percent = totalBytes > 0 ? Math.max(4, Math.round((flow.bytes / totalBytes) * 100)) : 0
                 const packetPercent = totalPackets > 0 ? Math.round((flow.packets / totalPackets) * 100) : 0
                 const expanded = this.state.expandedFlowKey === flow.key
+                const sourceAddress = this.endpointAddress(flow.source)
+                const destinationAddress = this.endpointAddress(flow.destination)
+                const displayPort = flow.destinationPort || flow.sourcePort || '-'
                 return (
                   <button
                     type="button"
@@ -466,15 +511,16 @@ class CaptureStatusPanel extends React.Component<Props, State> {
                     onClick={() => this.setState({ expandedFlowKey: expanded ? '' : flow.key })}>
                     <span className={classes.topFlowRank}>{index + 1}</span>
                     <span className={classes.topFlowMain}>
-                      <strong title={`${flow.source} → ${flow.destination}`}>{flow.source} → {flow.destination}</strong>
+                      <strong title={`${flow.source} → ${flow.destination}`}>{sourceAddress} → {destinationAddress}</strong>
                       <em>
                         <span className={classes.flowBadge}>{flow.protocol}</span>
                         {flow.application && <span className={classes.flowBadge}>{flow.application}</span>}
+                        <span className={classes.flowPort}>포트 {displayPort}</span>
                       </em>
                       <i style={{ width: `${percent}%` }} />
                       {expanded &&
                         <small>
-                          포트 {flow.sourcePort || '-'} → {flow.destinationPort || '-'} · 트래픽 {this.formatBytes(flow.bytes)}
+                          원시 포트 {flow.sourcePort || '-'} → {flow.destinationPort || '-'} · 트래픽 {this.formatBytes(flow.bytes)} · {flow.packets.toLocaleString()} 패킷
                         </small>
                       }
                     </span>
@@ -539,6 +585,43 @@ const styles = (theme: Theme) => createStyles({
     flexDirection: 'column',
     gap: theme.spacing(1),
   },
+  captureTabStrip: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(0.2),
+    borderBottom: '1px solid var(--netdive-detail-border, #dbe7f5)',
+    margin: theme.spacing(-0.2, -0.4, 0.4),
+    padding: theme.spacing(0, 0.4),
+    overflowX: 'auto',
+    scrollbarWidth: 'none',
+    '&::-webkit-scrollbar': {
+      display: 'none',
+    },
+    '& span': {
+      position: 'relative',
+      display: 'inline-flex',
+      alignItems: 'center',
+      minHeight: 34,
+      padding: theme.spacing(0, 0.75),
+      color: 'var(--netdive-detail-muted, #64748b)',
+      fontSize: 12,
+      fontWeight: 800,
+      whiteSpace: 'nowrap',
+    }
+  },
+  captureTabActive: {
+    color: '#1a73e8 !important',
+    '&::after': {
+      content: '""',
+      position: 'absolute',
+      left: 8,
+      right: 8,
+      bottom: -1,
+      height: 2,
+      borderRadius: 999,
+      background: '#1a73e8',
+    }
+  },
   captureStatusCard: {
     padding: theme.spacing(1.2),
     border: '1px solid var(--netdive-detail-border, #dbe7f5)',
@@ -568,6 +651,35 @@ const styles = (theme: Theme) => createStyles({
       fontStyle: 'normal',
       fontSize: 11,
       fontWeight: 800,
+      whiteSpace: 'nowrap',
+    }
+  },
+  captureStatusMetaGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+    gap: theme.spacing(0.65),
+    marginTop: theme.spacing(1),
+    padding: theme.spacing(0.75),
+    border: '1px solid rgba(219, 231, 245, 0.8)',
+    borderRadius: 12,
+    background: 'rgba(248, 250, 252, 0.74)',
+    '& div': {
+      minWidth: 0,
+    },
+    '& span': {
+      display: 'block',
+      color: 'var(--netdive-detail-muted, #64748b)',
+      fontSize: 10.5,
+      fontWeight: 800,
+      marginBottom: 2,
+    },
+    '& strong': {
+      display: 'block',
+      color: 'var(--netdive-detail-text, #0f172a)',
+      fontSize: 12,
+      fontWeight: 900,
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
       whiteSpace: 'nowrap',
     }
   },
@@ -604,13 +716,6 @@ const styles = (theme: Theme) => createStyles({
       marginTop: 2,
     }
   },
-  captureStatusMeta: {
-    display: 'grid',
-    gap: 4,
-    marginTop: theme.spacing(1),
-    color: 'var(--netdive-detail-muted, #64748b)',
-    fontSize: 12,
-  },
   captureProgress: {
     flex: 1,
     height: 8,
@@ -636,10 +741,25 @@ const styles = (theme: Theme) => createStyles({
   },
   captureStatusActions: {
     display: 'flex',
+    alignItems: 'center',
     gap: theme.spacing(0.8),
     justifyContent: 'flex-end',
     marginTop: theme.spacing(1.1),
     flexWrap: 'wrap',
+  },
+  downloadPending: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 5,
+    color: 'var(--netdive-detail-muted, #64748b)',
+    fontSize: 11.5,
+    fontWeight: 800,
+    marginRight: 'auto',
+    '& svg': {
+      width: 15,
+      height: 15,
+      color: '#64748b',
+    }
   },
   captureSummaryCard: {
     border: '1px solid var(--netdive-detail-border, #dbe7f5)',
@@ -833,6 +953,14 @@ const styles = (theme: Theme) => createStyles({
     background: '#f8fafc',
     color: '#475569',
     padding: '1px 5px',
+    fontSize: 10.5,
+    fontWeight: 800,
+    lineHeight: 1.35,
+  },
+  flowPort: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    color: 'var(--netdive-detail-muted, #64748b)',
     fontSize: 10.5,
     fontWeight: 800,
     lineHeight: 1.35,
