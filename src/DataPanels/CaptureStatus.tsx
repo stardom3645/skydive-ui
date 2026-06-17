@@ -10,6 +10,10 @@ import StopIcon from '@material-ui/icons/Stop'
 import ReplayIcon from '@material-ui/icons/Replay'
 import GetAppIcon from '@material-ui/icons/GetApp'
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore'
+import SwapVertIcon from '@material-ui/icons/SwapVert'
+import AccountTreeIcon from '@material-ui/icons/AccountTree'
+import TrackChangesIcon from '@material-ui/icons/TrackChanges'
+import SecurityIcon from '@material-ui/icons/Security'
 import { createStyles, Theme, withStyles } from '@material-ui/core/styles'
 
 import { session } from '../Store'
@@ -382,14 +386,6 @@ class CaptureStatusPanel extends React.Component<Props, State> {
     }
   }
 
-  private targetNetworkInfo(): string {
-    const ipv4 = Array.isArray(this.props.el?.data?.IPV4) ? this.props.el.data.IPV4 : []
-    const ipv6 = Array.isArray(this.props.el?.data?.IPV6) ? this.props.el.data.IPV6 : []
-    if (ipv4.length > 0) return ipv4.join(', ')
-    if (ipv6.length > 0) return ipv6.join(', ')
-    return ''
-  }
-
   render() {
     const { classes, capture } = this.props
     const isRunning = capture.status === 'running'
@@ -406,35 +402,16 @@ class CaptureStatusPanel extends React.Component<Props, State> {
     const protocolDistribution = this.distributionByProtocol(flows)
     const portDistribution = this.distributionByPort(flows)
     const progress = isRunning ? this.progressValue() : 100
-    const targetNetworkInfo = this.targetNetworkInfo()
+    const durationLabel = this.formatDuration(capture.durationSeconds || 0)
 
     return (
       <div className={classes.captureResultPanel}>
-        <div className={classes.capturePanelHeader}>
-          <div className={classes.captureTargetIdentity}>
-            <VideocamIcon />
-            <div>
-              <div className={classes.captureTargetTitleRow}>
-                <Typography component="h3">{capture.targetName || '-'}</Typography>
-                <span>{this.targetTypeLabel()}</span>
-              </div>
-              {targetNetworkInfo && <p>{targetNetworkInfo}</p>}
-            </div>
-          </div>
-          <div className={classes.captureHeaderActions}>
-            <em className={statusBadgeClass}>
-              {this.statusLabel(isRunning, isDone)}
-            </em>
-            <button type="button" onClick={this.props.onClear} aria-label="패킷 캡처 패널 닫기">×</button>
-          </div>
-        </div>
-
         <div className={classes.captureResultShell}>
           <section className={classes.captureStatusCard}>
             <div className={classes.captureStatusHeader}>
               <div>
-                <Typography component="strong">{this.statusTitle()}</Typography>
-                <span>{capture.targetName || '-'} · {this.scopeLabel()} · 필터: {this.filterLabel()}</span>
+                <Typography component="strong"><VideocamIcon /> {this.statusTitle()}</Typography>
+                <span>{capture.targetName || '-'} · {this.targetTypeLabel()} · {this.scopeLabel()} · 필터: {this.filterLabel()}</span>
               </div>
               <em className={statusBadgeClass}>
                 {this.statusLabel(isRunning, isDone)}
@@ -443,7 +420,7 @@ class CaptureStatusPanel extends React.Component<Props, State> {
 
             <div className={classes.captureProgressPanel}>
               <div className={classes.captureCountdown}>
-                <span>{isRunning ? '남은 시간' : '소요 시간'}</span>
+                <span>{isRunning ? `남은 시간 (${durationLabel})` : isDone ? '캡처 완료' : '소요 시간'}</span>
                 <strong>{isRunning ? this.formatRemaining() : this.formatDuration(this.elapsedSeconds())}</strong>
               </div>
               <div className={classes.captureProgressRow}>
@@ -482,10 +459,22 @@ class CaptureStatusPanel extends React.Component<Props, State> {
               <span>마지막 업데이트: {new Date(this.state.now).toLocaleTimeString()}</span>
             </div>
             <div className={classes.captureMetricGrid}>
-              <div><span>총 트래픽</span><strong>{this.formatBytes(totalBytes)}</strong></div>
-              <div><span>총 플로우</span><strong>{flows.length.toLocaleString()}</strong><small>flows</small></div>
-              <div><span>주요 통신 대상</span><strong title={peer.label}>{peer.label}</strong><small>{peer.percent}%</small></div>
-              <div><span>주요 프로토콜</span><strong>{protocol.label}</strong><small>{protocol.percent}%</small></div>
+              <div className={classes.captureMetricItem}>
+                <i className={`${classes.captureMetricIcon} ${classes.captureMetricTraffic}`}><SwapVertIcon /></i>
+                <span className={classes.captureMetricBody}><em>총 트래픽</em><strong>{this.formatBytes(totalBytes)}</strong><small>bytes</small></span>
+              </div>
+              <div className={classes.captureMetricItem}>
+                <i className={`${classes.captureMetricIcon} ${classes.captureMetricFlow}`}><AccountTreeIcon /></i>
+                <span className={classes.captureMetricBody}><em>총 플로우</em><strong>{flows.length.toLocaleString()}</strong><small>flows</small></span>
+              </div>
+              <div className={classes.captureMetricItem}>
+                <i className={`${classes.captureMetricIcon} ${classes.captureMetricPeer}`}><TrackChangesIcon /></i>
+                <span className={classes.captureMetricBody}><em>주요 통신 대상</em><strong title={peer.label}>{peer.label}</strong><small>{peer.percent}%</small></span>
+              </div>
+              <div className={classes.captureMetricItem}>
+                <i className={`${classes.captureMetricIcon} ${classes.captureMetricProtocol}`}><SecurityIcon /></i>
+                <span className={classes.captureMetricBody}><em>주요 프로토콜</em><strong>{protocol.label}</strong><small>{protocol.percent}%</small></span>
+              </div>
             </div>
           </section>
 
@@ -522,6 +511,7 @@ class CaptureStatusPanel extends React.Component<Props, State> {
                         <span className={classes.flowBadge}>{flow.protocol}</span>
                         {flow.application && <span className={classes.flowBadge}>{flow.application}</span>}
                         <span className={classes.flowPort}>포트 {displayPort}</span>
+                        <span className={classes.flowPort}>{flow.packets.toLocaleString()} 패킷</span>
                       </em>
                       <i style={{ width: `${percent}%` }} />
                       {expanded &&
@@ -532,7 +522,7 @@ class CaptureStatusPanel extends React.Component<Props, State> {
                     </span>
                     <span className={classes.topFlowBytes}>
                       <strong>{this.formatBytes(flow.bytes)}</strong>
-                      <small>{flow.packets.toLocaleString()} 패킷<br />({packetPercent}%)</small>
+                      <small>{packetPercent}%</small>
                     </span>
                   </button>
                 )
@@ -589,102 +579,12 @@ const styles = (theme: Theme) => createStyles({
   captureResultPanel: {
     display: 'flex',
     flexDirection: 'column',
-    gap: theme.spacing(1.2),
-    padding: theme.spacing(1.2),
-    border: '1px solid var(--netdive-detail-border, #dbe7f5)',
-    borderRadius: 16,
-    background: 'linear-gradient(180deg, rgba(248, 250, 252, 0.92), rgba(255, 255, 255, 0.98))',
-    boxShadow: '0 12px 28px rgba(15, 23, 42, 0.06)',
-  },
-  capturePanelHeader: {
-    display: 'flex',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
     gap: theme.spacing(1),
-    paddingBottom: theme.spacing(1),
-    borderBottom: '1px solid rgba(219, 231, 245, 0.92)',
-  },
-  captureTargetIdentity: {
-    display: 'flex',
-    alignItems: 'flex-start',
-    gap: theme.spacing(0.9),
-    minWidth: 0,
-    '& > svg': {
-      width: 26,
-      height: 26,
-      color: '#1a73e8',
-      marginTop: 2,
-      flex: '0 0 auto',
-    },
-    '& p': {
-      margin: theme.spacing(0.35, 0, 0),
-      color: 'var(--netdive-detail-muted, #64748b)',
-      fontSize: 12,
-      fontWeight: 700,
-      overflow: 'hidden',
-      textOverflow: 'ellipsis',
-      whiteSpace: 'nowrap',
-    }
-  },
-  captureTargetTitleRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: theme.spacing(0.6),
-    minWidth: 0,
-    '& h3': {
-      margin: 0,
-      color: 'var(--netdive-detail-text, #0f172a)',
-      fontSize: 20,
-      lineHeight: 1.18,
-      fontWeight: 900,
-      letterSpacing: '-0.03em',
-      overflow: 'hidden',
-      textOverflow: 'ellipsis',
-      whiteSpace: 'nowrap',
-    },
-    '& span': {
-      display: 'inline-flex',
-      alignItems: 'center',
-      border: '1px solid #bfdbfe',
-      borderRadius: 999,
-      background: '#eff6ff',
-      color: '#1d4ed8',
-      padding: '3px 8px',
-      fontSize: 11,
-      fontWeight: 900,
-      whiteSpace: 'nowrap',
-    }
-  },
-  captureHeaderActions: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: theme.spacing(0.6),
-    flex: '0 0 auto',
-    '& em': {
-      borderRadius: 999,
-      padding: '4px 8px',
-      fontStyle: 'normal',
-      fontSize: 11,
-      fontWeight: 900,
-      whiteSpace: 'nowrap',
-    },
-    '& button': {
-      appearance: 'none',
-      border: '1px solid var(--netdive-detail-border, #dbe7f5)',
-      width: 28,
-      height: 28,
-      borderRadius: 9,
-      background: '#fff',
-      color: 'var(--netdive-detail-muted, #64748b)',
-      fontSize: 20,
-      lineHeight: 1,
-      cursor: 'pointer',
-      '&:hover': {
-        color: '#1a73e8',
-        borderColor: '#bfdbfe',
-        background: '#f3f8ff',
-      }
-    }
+    padding: theme.spacing(0.8),
+    border: '1px solid rgba(219, 231, 245, 0.72)',
+    borderRadius: 16,
+    background: 'linear-gradient(180deg, rgba(248, 250, 252, 0.82), rgba(255, 255, 255, 0.98))',
+    boxShadow: '0 12px 28px rgba(15, 23, 42, 0.045)',
   },
   captureResultShell: {
     display: 'flex',
@@ -692,11 +592,11 @@ const styles = (theme: Theme) => createStyles({
     gap: theme.spacing(1),
   },
   captureStatusCard: {
-    padding: theme.spacing(1.35),
+    padding: theme.spacing(1.45),
     border: '1px solid rgba(219, 231, 245, 0.82)',
     borderRadius: 16,
-    background: 'var(--netdive-detail-bg, #fff)',
-    boxShadow: '0 10px 26px rgba(15, 23, 42, 0.045)',
+    background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.78))',
+    boxShadow: '0 12px 28px rgba(15, 23, 42, 0.05)',
   },
   captureStatusHeader: {
     display: 'flex',
@@ -704,10 +604,17 @@ const styles = (theme: Theme) => createStyles({
     alignItems: 'flex-start',
     gap: theme.spacing(1),
     '& strong': {
-      display: 'block',
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 7,
       color: 'var(--netdive-detail-text, #0f172a)',
-      fontSize: 14,
-      fontWeight: 800,
+      fontSize: 15,
+      fontWeight: 900,
+      '& svg': {
+        width: 17,
+        height: 17,
+        color: '#0f172a',
+      }
     },
     '& span': {
       display: 'block',
@@ -758,7 +665,7 @@ const styles = (theme: Theme) => createStyles({
     '& strong': {
       display: 'block',
       color: '#1d4ed8',
-      fontSize: 30,
+      fontSize: 34,
       lineHeight: 1.2,
       fontWeight: 900,
       letterSpacing: '-0.03em',
@@ -865,51 +772,90 @@ const styles = (theme: Theme) => createStyles({
     gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
     gap: 0,
     borderRadius: 14,
-    background: 'linear-gradient(180deg, rgba(248, 250, 252, 0.56), rgba(255, 255, 255, 0.98))',
+    background: 'transparent',
     overflow: 'hidden',
-    '& div': {
+    '& $captureMetricItem': {
       border: 0,
       borderLeft: '1px solid rgba(226, 232, 240, 0.92)',
-      padding: theme.spacing(1.1, 1),
-      minWidth: 0,
-      boxSizing: 'border-box',
       '&:first-child': {
         borderLeft: 0,
       }
     },
-    '& span': {
+    '@media (max-width: 520px)': {
+      gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+      '& $captureMetricItem:nth-child(3)': {
+        borderLeft: 0,
+        borderTop: '1px solid rgba(226, 232, 240, 0.92)',
+      },
+      '& $captureMetricItem:nth-child(4)': {
+        borderTop: '1px solid rgba(226, 232, 240, 0.92)',
+      },
+    },
+  },
+  captureMetricItem: {
+    display: 'grid',
+    gridTemplateColumns: '34px minmax(0, 1fr)',
+    gap: theme.spacing(0.75),
+    alignItems: 'center',
+    minWidth: 0,
+    padding: theme.spacing(0.95, 1),
+    boxSizing: 'border-box',
+  },
+  captureMetricIcon: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 30,
+    height: 30,
+    borderRadius: 999,
+    '& svg': {
+      width: 17,
+      height: 17,
+    }
+  },
+  captureMetricTraffic: {
+    color: '#2563eb',
+    background: '#e8f2ff',
+  },
+  captureMetricFlow: {
+    color: '#059669',
+    background: '#dcfce7',
+  },
+  captureMetricPeer: {
+    color: '#7c3aed',
+    background: '#f3e8ff',
+  },
+  captureMetricProtocol: {
+    color: '#ea580c',
+    background: '#ffedd5',
+  },
+  captureMetricBody: {
+    minWidth: 0,
+    '& em': {
       display: 'block',
       color: 'var(--netdive-detail-muted, #64748b)',
-      fontSize: 11,
+      fontSize: 10.5,
+      fontStyle: 'normal',
       fontWeight: 800,
-      marginBottom: 4,
+      marginBottom: 3,
     },
     '& strong': {
       display: 'block',
       color: 'var(--netdive-detail-text, #0f172a)',
-      fontSize: 18,
+      fontSize: 17,
       fontWeight: 900,
       overflow: 'hidden',
       textOverflow: 'ellipsis',
       whiteSpace: 'nowrap',
+      lineHeight: 1.18,
     },
     '& small': {
       display: 'block',
-      marginTop: 4,
+      marginTop: 3,
       color: 'var(--netdive-detail-muted, #64748b)',
-      fontSize: 11,
+      fontSize: 10.5,
       fontWeight: 700,
-    },
-    '@media (max-width: 520px)': {
-      gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-      '& div:nth-child(3)': {
-        borderLeft: 0,
-        borderTop: '1px solid rgba(226, 232, 240, 0.92)',
-      },
-      '& div:nth-child(4)': {
-        borderTop: '1px solid rgba(226, 232, 240, 0.92)',
-      },
-    },
+    }
   },
   captureEmptyState: {
     margin: 0,
@@ -934,14 +880,14 @@ const styles = (theme: Theme) => createStyles({
     appearance: 'none',
     width: '100%',
     display: 'grid',
-    gridTemplateColumns: '28px minmax(0, 1fr) 82px',
-    gap: theme.spacing(0.9),
+    gridTemplateColumns: '30px minmax(0, 1fr) 74px',
+    gap: theme.spacing(1),
     alignItems: 'center',
     border: 0,
     borderBottom: '1px solid rgba(226, 232, 240, 0.78)',
     borderRadius: 0,
     background: 'transparent',
-    padding: theme.spacing(0.9, 0.2),
+    padding: theme.spacing(1, 0.25),
     cursor: 'pointer',
     textAlign: 'left',
     transition: 'background-color 160ms ease',
@@ -959,8 +905,8 @@ const styles = (theme: Theme) => createStyles({
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    width: 22,
-    height: 22,
+    width: 24,
+    height: 24,
     borderRadius: 999,
     background: '#e8f2ff',
     color: '#1d4ed8',
@@ -972,8 +918,8 @@ const styles = (theme: Theme) => createStyles({
     '& strong': {
       display: 'block',
       color: 'var(--netdive-detail-text, #0f172a)',
-      fontSize: 13,
-      fontWeight: 800,
+      fontSize: 13.5,
+      fontWeight: 900,
       lineHeight: 1.35,
       overflow: 'hidden',
       textOverflow: 'ellipsis',
@@ -993,7 +939,7 @@ const styles = (theme: Theme) => createStyles({
       height: 3,
       borderRadius: 999,
       background: '#2563eb',
-      marginTop: 7,
+      marginTop: 8,
       maxWidth: '100%',
     },
     '& small': {
@@ -1012,13 +958,13 @@ const styles = (theme: Theme) => createStyles({
     whiteSpace: 'nowrap',
     '& strong': {
       display: 'block',
-      fontSize: 12,
+      fontSize: 13,
       fontWeight: 900,
     },
     '& small': {
       display: 'block',
       color: 'var(--netdive-detail-muted, #64748b)',
-      fontSize: 10.5,
+      fontSize: 11,
       fontWeight: 700,
       lineHeight: 1.25,
       textAlign: 'right',
