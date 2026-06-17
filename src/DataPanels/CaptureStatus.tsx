@@ -11,9 +11,9 @@ import ReplayIcon from '@material-ui/icons/Replay'
 import GetAppIcon from '@material-ui/icons/GetApp'
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore'
 import SwapVertIcon from '@material-ui/icons/SwapVert'
-import AccountTreeIcon from '@material-ui/icons/AccountTree'
+import DeviceHubIcon from '@material-ui/icons/DeviceHub'
 import TrackChangesIcon from '@material-ui/icons/TrackChanges'
-import SecurityIcon from '@material-ui/icons/Security'
+import CodeIcon from '@material-ui/icons/Code'
 import { createStyles, Theme, withStyles } from '@material-ui/core/styles'
 
 import { session } from '../Store'
@@ -472,7 +472,7 @@ class CaptureStatusPanel extends React.Component<Props, State> {
                 <span className={classes.captureMetricBody}><em>총 트래픽</em><strong>{this.formatBytes(totalBytes)}</strong><small>bytes</small></span>
               </div>
               <div className={classes.captureMetricItem}>
-                <i className={`${classes.captureMetricIcon} ${classes.captureMetricFlow}`}><AccountTreeIcon /></i>
+                <i className={`${classes.captureMetricIcon} ${classes.captureMetricFlow}`}><DeviceHubIcon /></i>
                 <span className={classes.captureMetricBody}><em>총 플로우</em><strong>{flows.length.toLocaleString()}</strong><small>flows</small></span>
               </div>
               <div className={classes.captureMetricItem}>
@@ -480,7 +480,7 @@ class CaptureStatusPanel extends React.Component<Props, State> {
                 <span className={classes.captureMetricBody}><em>주요 통신 대상</em><strong title={peer.label}>{peer.label}</strong><small>{peer.percent}%</small></span>
               </div>
               <div className={classes.captureMetricItem}>
-                <i className={`${classes.captureMetricIcon} ${classes.captureMetricProtocol}`}><SecurityIcon /></i>
+                <i className={`${classes.captureMetricIcon} ${classes.captureMetricProtocol}`}><CodeIcon /></i>
                 <span className={classes.captureMetricBody}><em>주요 프로토콜</em><strong>{protocol.label}</strong><small>{protocol.percent}%</small></span>
               </div>
             </div>
