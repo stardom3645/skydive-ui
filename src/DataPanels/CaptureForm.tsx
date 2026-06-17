@@ -7,7 +7,6 @@ import Accordion from '@material-ui/core/Accordion'
 import AccordionSummary from '@material-ui/core/AccordionSummary'
 import AccordionDetails from '@material-ui/core/AccordionDetails'
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore'
-import InputLabel from '@material-ui/core/InputLabel'
 import Select from '@material-ui/core/Select'
 import MenuItem from '@material-ui/core/MenuItem'
 import FormControl from '@material-ui/core/FormControl'
@@ -698,16 +697,14 @@ class CaptureForm extends React.Component<Props, State> {
                           </header>
                           <div className={classes.advancedGrid}>
                             <div className={classes.advancedOptionBlock}>
+                              <div className={classes.advancedFieldLabel}>
+                                {this.renderAdvancedLabel(classes, translate("Capture Type"), captureType !== defaultCaptureType, "패킷을 수집하는 방식을 선택합니다. 일반적으로 PCAP을 사용합니다.")}
+                              </div>
                               <FormControl variant="outlined" fullWidth className={classes.compactField}>
-                                <InputLabel id="capture-type-label">
-                                  {this.renderAdvancedLabel(classes, translate("Capture Type"), captureType !== defaultCaptureType, "패킷을 수집하는 방식을 선택합니다. 일반적으로 PCAP을 사용합니다.")}
-                                </InputLabel>
                                 <Select
                                   id="capture-type"
-                                  labelId="capture-type-label"
                                   value={captureType}
-                                  onChange={this.handleChange("captureType")}
-                                  label={translate("Capture Type")}>
+                                  onChange={this.handleChange("captureType")}>
                                   <MenuItem value="pcap" disabled={!isPcapEligible}>
                                     <span className={classes.advancedMenuItem}><strong>PCAP</strong><small>{isPcapEligible ? this.captureTypeDescription("pcap") : "현재 환경에서 사용할 수 없습니다."}</small></span>
                                   </MenuItem>
@@ -729,45 +726,48 @@ class CaptureForm extends React.Component<Props, State> {
                             </div>
 
                             <div className={classes.advancedOptionBlock}>
+                              <div className={classes.advancedFieldLabel}>
+                                {this.renderAdvancedLabel(classes, translate("Layers used for Flow Key"), this.state.layerKey !== "L3")}
+                              </div>
                               <FormControl variant="outlined" fullWidth className={classes.compactField}>
-                                <InputLabel id="layer-key-label">
-                                  {this.renderAdvancedLabel(classes, translate("Layers used for Flow Key"), this.state.layerKey !== "L3")}
-                                </InputLabel>
                                 <Select
                                   id="layer-key"
-                                  labelId="layer-key-label"
                                   value={this.state.layerKey}
-                                  onChange={this.handleChange("layerKey")}
-                                  label={translate("Layers used for Flow Key")}>
+                                  onChange={this.handleChange("layerKey")}>
                                   <MenuItem value="L2">L2</MenuItem>
                                   <MenuItem value="L3">L3</MenuItem>
                                 </Select>
                               </FormControl>
-                              <small>플로우를 어떤 네트워크 계층 기준으로 묶을지 선택합니다. 기본값: L3</small>
+                              <small>플로우 묶음 기준입니다. 기본값: L3</small>
                             </div>
 
                             <div className={classes.advancedOptionBlock}>
+                              <div className={classes.advancedFieldLabel}>
+                                {this.renderAdvancedLabel(classes, translate("Header size"), this.state.headerSize !== "")}
+                              </div>
                               {this.renderCompactTextField(classes, {
-                                label: this.renderAdvancedLabel(classes, translate("Header size"), this.state.headerSize !== ""),
                                 type: "number",
+                                placeholder: "기본값",
                                 value: this.state.headerSize,
                                 onChange: this.handleChange("headerSize"),
                                 error: !!this.state.headerSize && !this.isHeaderSizeValid(),
                                 helperText: !!this.state.headerSize && !this.isHeaderSizeValid() ? translate("capture-headerSize-validation-error") : ""
                               })}
-                              <small>저장할 패킷 헤더 길이를 제한합니다. 비워두면 기본값을 사용합니다.</small>
+                              <small>저장할 헤더 길이입니다. 비우면 기본값 사용</small>
                             </div>
 
                             <div className={classes.advancedOptionBlock}>
+                              <div className={classes.advancedFieldLabel}>
+                                {this.renderAdvancedLabel(classes, translate("Raw packet limit"), this.state.rawPacketLimit !== "10")}
+                              </div>
                               {this.renderCompactTextField(classes, {
-                                label: this.renderAdvancedLabel(classes, translate("Raw packet limit"), this.state.rawPacketLimit !== "10"),
                                 type: "number",
                                 value: this.state.rawPacketLimit,
                                 onChange: this.handleChange("rawPacketLimit"),
                                 error: !!this.state.rawPacketLimit && !this.isRawPacketLimitValid(),
                                 helperText: !!this.state.rawPacketLimit && !this.isRawPacketLimitValid() ? translate("capture-rawPacketLimit-validation-error") : ""
                               })}
-                              <small>PCAP 다운로드에 사용할 원시 패킷 수를 제한합니다. 기본값: 10</small>
+                              <small>PCAP 저장 패킷 수입니다. 기본값: 10</small>
                             </div>
                           </div>
                         </section>

@@ -261,7 +261,7 @@ export const styles = (theme: Theme) => createStyles({
         '& .MuiOutlinedInput-root': {
             borderRadius: 10,
             backgroundColor: '#fff',
-            minHeight: 42,
+            minHeight: 38,
             '& fieldset': {
                 borderColor: 'var(--netdive-detail-border, #dbe7f5)',
             },
@@ -276,13 +276,9 @@ export const styles = (theme: Theme) => createStyles({
         '& .MuiInputBase-input': {
             color: 'var(--netdive-detail-text, #0f172a)',
             fontSize: 13,
-            lineHeight: 1.45,
-            padding: '11px 12px',
+            lineHeight: 1.35,
+            padding: '9px 12px',
             boxSizing: 'border-box',
-        },
-        '& .MuiInputLabel-outlined': {
-            color: 'var(--netdive-detail-muted, #64748b)',
-            fontSize: 12,
         },
         '& .MuiFormHelperText-root': {
             marginLeft: 2,
@@ -290,7 +286,7 @@ export const styles = (theme: Theme) => createStyles({
         },
         '& .MuiSelect-select': {
             minHeight: 'auto',
-            padding: '11px 32px 11px 12px',
+            padding: '9px 32px 9px 12px',
             fontSize: 13,
             boxSizing: 'border-box',
         }
@@ -733,11 +729,17 @@ export const styles = (theme: Theme) => createStyles({
         minWidth: 0,
         '& > small': {
             display: 'block',
-            marginTop: theme.spacing(0.5),
+            marginTop: theme.spacing(0.35),
             color: 'var(--netdive-detail-muted, #64748b)',
-            fontSize: 11.4,
-            lineHeight: 1.45,
+            fontSize: 11.1,
+            lineHeight: 1.35,
         },
+    },
+    advancedFieldLabel: {
+        display: 'flex',
+        alignItems: 'center',
+        minHeight: 20,
+        marginBottom: theme.spacing(0.35),
     },
     advancedOptionLabel: {
         display: 'inline-flex',
@@ -745,12 +747,12 @@ export const styles = (theme: Theme) => createStyles({
         gap: 5,
         minWidth: 0,
         color: 'var(--netdive-detail-text, #0f172a)',
-        fontSize: 12.5,
-        fontWeight: 700,
+        fontSize: 13.25,
+        fontWeight: 800,
         lineHeight: 1.25,
         '& svg': {
-            width: 14,
-            height: 14,
+            width: 13,
+            height: 13,
             color: '#64748b',
             flexShrink: 0,
         },
