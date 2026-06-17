@@ -12,7 +12,6 @@ import GetAppIcon from '@material-ui/icons/GetApp'
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore'
 import { createStyles, Theme, withStyles } from '@material-ui/core/styles'
 
-import Panel from './Panel'
 import { session } from '../Store'
 import { Configuration } from '../api/configuration'
 import { TopologyApi } from '../api'
@@ -383,11 +382,36 @@ class CaptureStatusPanel extends React.Component<Props, State> {
     return '확인 필요'
   }
 
+  private targetTypeLabel(): string {
+    const rawType = this.props.capture.targetType || this.props.el?.data?.Type || 'Node'
+    const type = String(rawType).toLowerCase()
+    switch (type) {
+      case 'bridge': return 'Bridge'
+      case 'host': return 'Host'
+      case 'device': return 'Interface'
+      case 'bond': return 'Bond'
+      case 'ovsport': return 'OVS Port'
+      case 'dpdkport': return 'DPDK Port'
+      case 'node': return 'Kubernetes Node'
+      default: return rawType ? String(rawType) : 'Node'
+    }
+  }
+
+  private targetNetworkInfo(): string {
+    const ipv4 = Array.isArray(this.props.el?.data?.IPV4) ? this.props.el.data.IPV4 : []
+    const ipv6 = Array.isArray(this.props.el?.data?.IPV6) ? this.props.el.data.IPV6 : []
+    if (ipv4.length > 0) return ipv4.join(', ')
+    if (ipv6.length > 0) return ipv6.join(', ')
+    return ''
+  }
+
   render() {
     const { classes, capture } = this.props
     const isRunning = capture.status === 'running'
     const isDone = terminalStatuses.has(capture.status) && capture.status !== 'delete_failed' && capture.status !== 'failed' && capture.status !== 'stopped'
     const isLegacy = capture.id.startsWith('legacy-')
+    const isFailed = capture.status === 'failed' || capture.status === 'delete_failed'
+    const statusBadgeClass = isRunning ? classes.captureStatusRunning : isDone ? classes.captureStatusDone : isFailed ? classes.captureStatusFailed : classes.captureStatusWarning
     const flows = this.state.flows
     const visibleTopFlows = this.state.showAllTopFlows ? flows : flows.slice(0, 5)
     const totalBytes = flows.reduce((sum, flow) => sum + flow.bytes, 0)
@@ -397,45 +421,37 @@ class CaptureStatusPanel extends React.Component<Props, State> {
     const topPort = this.topPortSummary(flows)
     const protocolDistribution = this.distributionByProtocol(flows)
     const portDistribution = this.distributionByPort(flows)
-    const donutGradient = protocolDistribution.length > 0
-      ? protocolDistribution.reduce((parts, item, index) => {
-        const previous = parts.offset
-        const next = previous + item.percent
-        const color = index === 0 ? '#2563eb' : index === 1 ? '#22c55e' : index === 2 ? '#94a3b8' : '#cbd5e1'
-        parts.segments.push(`${color} ${previous}% ${next}%`)
-        parts.offset = next
-        return parts
-      }, { segments: [] as string[], offset: 0 }).segments.concat(protocolDistribution.reduce((sum, item) => sum + item.percent, 0) < 100 ? [`#e2e8f0 ${protocolDistribution.reduce((sum, item) => sum + item.percent, 0)}% 100%`] : []).join(', ')
-      : '#e2e8f0 0% 100%'
     const progress = isRunning ? this.progressValue() : 100
+    const targetNetworkInfo = this.targetNetworkInfo()
 
     return (
-      <Panel icon={<VideocamIcon />} title="패킷 캡처" content={
-        <div className={classes.captureResultShell}>
-          <div className={classes.captureTabStrip}>
-            <span>개요</span>
-            <span>연결</span>
-            <span>트래픽</span>
-            <span>이벤트</span>
-            <span className={classes.captureTabActive}>패킷 캡처</span>
+      <div className={classes.captureResultPanel}>
+        <div className={classes.capturePanelHeader}>
+          <div className={classes.captureTargetIdentity}>
+            <VideocamIcon />
+            <div>
+              <div className={classes.captureTargetTitleRow}>
+                <Typography component="h3">{capture.targetName || '-'}</Typography>
+                <span>{this.targetTypeLabel()}</span>
+              </div>
+              {targetNetworkInfo && <p>{targetNetworkInfo}</p>}
+            </div>
           </div>
+          <div className={classes.captureHeaderActions}>
+            <em className={statusBadgeClass}>
+              {this.statusLabel(isRunning, isDone)}
+            </em>
+            <button type="button" onClick={this.props.onClear} aria-label="패킷 캡처 패널 닫기">×</button>
+          </div>
+        </div>
 
-          <div className={classes.captureStatusCard}>
+        <div className={classes.captureResultShell}>
+          <section className={classes.captureStatusCard}>
             <div className={classes.captureStatusHeader}>
               <div>
                 <Typography component="strong">{this.statusTitle()}</Typography>
-                <span>{capture.targetName || '-'} · {capture.targetType || 'Node'}</span>
+                <span>{capture.targetName || '-'} · {this.scopeLabel()} · 필터: {this.filterLabel()}</span>
               </div>
-              <em className={isRunning ? classes.captureStatusRunning : isDone ? classes.captureStatusDone : classes.captureStatusWarning}>
-                {this.statusLabel(isRunning, isDone)}
-              </em>
-            </div>
-
-            <div className={classes.captureStatusMetaGrid}>
-              <div><span>대상</span><strong>{capture.targetName || '-'}</strong></div>
-              <div><span>범위</span><strong>{this.scopeLabel()}</strong></div>
-              <div><span>필터</span><strong title={this.filterLabel()}>{this.filterLabel()}</strong></div>
-              <div><span>시간</span><strong>{this.formatDuration(capture.durationSeconds || 0)}</strong></div>
             </div>
 
             <div className={classes.captureCountdown}>
@@ -447,16 +463,28 @@ class CaptureStatusPanel extends React.Component<Props, State> {
               <span>{progress}%</span>
             </div>
             {this.state.error && <p className={classes.captureStatusError}>{this.state.error}</p>}
+            <div className={classes.captureStatusMetaGrid}>
+              <div><span>대상</span><strong>{capture.targetName || '-'}</strong></div>
+              <div><span>유형</span><strong>{this.targetTypeLabel()}</strong></div>
+              <div><span>범위</span><strong>{this.scopeLabel()}</strong></div>
+              <div><span>필터</span><strong title={this.filterLabel()}>{this.filterLabel()}</strong></div>
+              <div><span>시간</span><strong>{this.formatDuration(capture.durationSeconds || 0)}</strong></div>
+            </div>
             <div className={classes.captureStatusActions}>
               {isRunning &&
                 <Button size="small" variant="outlined" startIcon={<StopIcon />} disabled={this.state.loading || isLegacy} onClick={() => this.stopCapture()}>
                   중지
                 </Button>
               }
+              {isFailed &&
+                <Button size="small" variant="outlined" startIcon={<ReplayIcon />} onClick={this.props.onRetry}>
+                  다시 시도
+                </Button>
+              }
               {isDone &&
                 <span className={classes.downloadPending}><GetAppIcon /> 캡처 파일을 준비 중입니다.</span>
               }
-              {!isRunning &&
+              {!isRunning && !isFailed &&
                 <Button size="small" variant="outlined" startIcon={<ReplayIcon />} onClick={this.props.onRetry}>
                   다시 캡처
                 </Button>
@@ -467,7 +495,7 @@ class CaptureStatusPanel extends React.Component<Props, State> {
                 </Button>
               }
             </div>
-          </div>
+          </section>
 
           <section className={classes.captureSummaryCard}>
             <div className={classes.captureSectionHeader}>
@@ -537,22 +565,22 @@ class CaptureStatusPanel extends React.Component<Props, State> {
           <section className={classes.captureDistributionGrid}>
             <div className={classes.captureSummaryCard}>
               <strong className={classes.miniSectionTitle}>프로토콜 분포</strong>
-              <div className={classes.protocolDonutWrap}>
-                <div className={classes.protocolDonut} style={{ background: `conic-gradient(${donutGradient})` }} />
-                <div className={classes.protocolLegend}>
-                  {protocolDistribution.map((item, index) => (
-                    <div key={item.label}>
-                      <i className={index === 0 ? classes.legendBlue : index === 1 ? classes.legendGreen : classes.legendGray} />
-                      <span>{item.label}</span>
-                      <strong>{item.percent}%</strong>
-                      <em>({this.formatBytes(item.bytes)})</em>
-                    </div>
-                  ))}
+              {protocolDistribution.length === 0 &&
+                <p className={classes.captureEmptyState}>아직 프로토콜 분포가 없습니다.</p>
+              }
+              {protocolDistribution.map((item) => (
+                <div className={classes.progressListRow} key={item.label}>
+                  <span>{item.label}</span>
+                  <i><b style={{ width: `${item.percent}%` }} /></i>
+                  <em>{item.percent}% · {this.formatBytes(item.bytes)}</em>
                 </div>
-              </div>
+              ))}
             </div>
             <div className={classes.captureSummaryCard}>
               <strong className={classes.miniSectionTitle}>상위 포트</strong>
+              {portDistribution.length === 0 &&
+                <p className={classes.captureEmptyState}>아직 포트 통계가 없습니다.</p>
+              }
               {portDistribution.map(({ port, bytes, percent }) => (
                 <div className={classes.progressListRow} key={port}>
                   <span>{port} {this.portApplication(port)}</span>
@@ -573,60 +601,124 @@ class CaptureStatusPanel extends React.Component<Props, State> {
           </Accordion>
 
           <p className={classes.captureSummaryHint}>요약 정보는 실시간으로 갱신되며, 캡처 완료 후 최종 값이 확정됩니다.</p>
-          </div>
-      } />
+        </div>
+      </div>
     )
   }
 }
 
 const styles = (theme: Theme) => createStyles({
+  captureResultPanel: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: theme.spacing(1.2),
+    padding: theme.spacing(1.2),
+    border: '1px solid var(--netdive-detail-border, #dbe7f5)',
+    borderRadius: 16,
+    background: 'linear-gradient(180deg, rgba(248, 250, 252, 0.92), rgba(255, 255, 255, 0.98))',
+    boxShadow: '0 12px 28px rgba(15, 23, 42, 0.06)',
+  },
+  capturePanelHeader: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: theme.spacing(1),
+    paddingBottom: theme.spacing(1),
+    borderBottom: '1px solid rgba(219, 231, 245, 0.92)',
+  },
+  captureTargetIdentity: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: theme.spacing(0.9),
+    minWidth: 0,
+    '& > svg': {
+      width: 26,
+      height: 26,
+      color: '#1a73e8',
+      marginTop: 2,
+      flex: '0 0 auto',
+    },
+    '& p': {
+      margin: theme.spacing(0.35, 0, 0),
+      color: 'var(--netdive-detail-muted, #64748b)',
+      fontSize: 12,
+      fontWeight: 700,
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap',
+    }
+  },
+  captureTargetTitleRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(0.6),
+    minWidth: 0,
+    '& h3': {
+      margin: 0,
+      color: 'var(--netdive-detail-text, #0f172a)',
+      fontSize: 20,
+      lineHeight: 1.18,
+      fontWeight: 900,
+      letterSpacing: '-0.03em',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap',
+    },
+    '& span': {
+      display: 'inline-flex',
+      alignItems: 'center',
+      border: '1px solid #bfdbfe',
+      borderRadius: 999,
+      background: '#eff6ff',
+      color: '#1d4ed8',
+      padding: '3px 8px',
+      fontSize: 11,
+      fontWeight: 900,
+      whiteSpace: 'nowrap',
+    }
+  },
+  captureHeaderActions: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: theme.spacing(0.6),
+    flex: '0 0 auto',
+    '& em': {
+      borderRadius: 999,
+      padding: '4px 8px',
+      fontStyle: 'normal',
+      fontSize: 11,
+      fontWeight: 900,
+      whiteSpace: 'nowrap',
+    },
+    '& button': {
+      appearance: 'none',
+      border: '1px solid var(--netdive-detail-border, #dbe7f5)',
+      width: 28,
+      height: 28,
+      borderRadius: 9,
+      background: '#fff',
+      color: 'var(--netdive-detail-muted, #64748b)',
+      fontSize: 20,
+      lineHeight: 1,
+      cursor: 'pointer',
+      '&:hover': {
+        color: '#1a73e8',
+        borderColor: '#bfdbfe',
+        background: '#f3f8ff',
+      }
+    }
+  },
   captureResultShell: {
     display: 'flex',
     flexDirection: 'column',
     gap: theme.spacing(1),
   },
-  captureTabStrip: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: theme.spacing(0.2),
-    borderBottom: '1px solid var(--netdive-detail-border, #dbe7f5)',
-    margin: theme.spacing(-0.2, -0.4, 0.4),
-    padding: theme.spacing(0, 0.4),
-    overflowX: 'auto',
-    scrollbarWidth: 'none',
-    '&::-webkit-scrollbar': {
-      display: 'none',
-    },
-    '& span': {
-      position: 'relative',
-      display: 'inline-flex',
-      alignItems: 'center',
-      minHeight: 34,
-      padding: theme.spacing(0, 0.75),
-      color: 'var(--netdive-detail-muted, #64748b)',
-      fontSize: 12,
-      fontWeight: 800,
-      whiteSpace: 'nowrap',
-    }
-  },
-  captureTabActive: {
-    color: '#1a73e8 !important',
-    '&::after': {
-      content: '""',
-      position: 'absolute',
-      left: 8,
-      right: 8,
-      bottom: -1,
-      height: 2,
-      borderRadius: 999,
-      background: '#1a73e8',
-    }
-  },
   captureStatusCard: {
-    padding: theme.spacing(1.2),
+    padding: theme.spacing(1.25),
     border: '1px solid var(--netdive-detail-border, #dbe7f5)',
     borderRadius: 14,
     background: 'var(--netdive-detail-bg, #fff)',
+    boxShadow: '0 8px 20px rgba(15, 23, 42, 0.04)',
   },
   captureStatusHeader: {
     display: 'flex',
@@ -692,6 +784,11 @@ const styles = (theme: Theme) => createStyles({
     color: '#15803d',
     background: '#f0fdf4',
     border: '1px solid #bbf7d0',
+  },
+  captureStatusFailed: {
+    color: '#b91c1c',
+    background: '#fef2f2',
+    border: '1px solid #fecaca',
   },
   captureStatusWarning: {
     color: '#b45309',
@@ -976,73 +1073,6 @@ const styles = (theme: Theme) => createStyles({
     color: 'var(--netdive-detail-text, #0f172a)',
     fontSize: 13,
     fontWeight: 900,
-  },
-  protocolDonutWrap: {
-    display: 'grid',
-    gridTemplateColumns: '92px minmax(0, 1fr)',
-    gap: theme.spacing(1),
-    alignItems: 'center',
-  },
-  protocolDonut: {
-    width: 82,
-    height: 82,
-    borderRadius: '50%',
-    position: 'relative',
-    boxShadow: 'inset 0 0 0 1px rgba(219, 231, 245, 0.9)',
-    '&::after': {
-      content: '""',
-      position: 'absolute',
-      inset: 20,
-      borderRadius: '50%',
-      background: 'var(--netdive-detail-bg, #fff)',
-      boxShadow: '0 0 0 1px rgba(219, 231, 245, 0.7)',
-    }
-  },
-  protocolLegend: {
-    display: 'grid',
-    gap: theme.spacing(0.55),
-    minWidth: 0,
-    '& div': {
-      display: 'grid',
-      gridTemplateColumns: '10px minmax(0, 1fr) auto auto',
-      alignItems: 'center',
-      gap: theme.spacing(0.45),
-      minWidth: 0,
-    },
-    '& i': {
-      display: 'block',
-      width: 8,
-      height: 8,
-      borderRadius: '50%',
-    },
-    '& span': {
-      color: 'var(--netdive-detail-text, #0f172a)',
-      fontSize: 11.5,
-      fontWeight: 800,
-      overflow: 'hidden',
-      textOverflow: 'ellipsis',
-      whiteSpace: 'nowrap',
-    },
-    '& strong': {
-      color: 'var(--netdive-detail-text, #0f172a)',
-      fontSize: 11.5,
-      fontWeight: 900,
-    },
-    '& em': {
-      color: 'var(--netdive-detail-muted, #64748b)',
-      fontSize: 11,
-      fontStyle: 'normal',
-      fontWeight: 700,
-    }
-  },
-  legendBlue: {
-    background: '#2563eb',
-  },
-  legendGreen: {
-    background: '#22c55e',
-  },
-  legendGray: {
-    background: '#94a3b8',
   },
   progressListRow: {
     display: 'grid',

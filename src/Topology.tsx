@@ -246,6 +246,7 @@ export class Topology extends React.Component<Props, {}> {
     private liner: line
     private nodeClickedID: number
     private showLevelLabelsTimeoutID: number
+    private raisedLinkLabelID: string
     private d3nodes: Map<string, D3Node>
     private absTransformX: number
     private absTransformY: number
@@ -285,6 +286,7 @@ export class Topology extends React.Component<Props, {}> {
         this.isCtrlPressed = false
         this.nodeClickedID = 0
         this.showLevelLabelsTimeoutID = 0
+        this.raisedLinkLabelID = ""
     }
     componentDidMount() {
         select("body")
@@ -345,6 +347,7 @@ export class Topology extends React.Component<Props, {}> {
             .attr("width", width)
             .attr("height", height)
             .on("click", () => {
+                this.clearRaisedLinkLabel()
                 this.hideNodeContextMenu()
                 this.props.onClick()
             })
@@ -1301,6 +1304,13 @@ export class Topology extends React.Component<Props, {}> {
         })
     }
 
+    private clearRaisedLinkLabel() {
+        this.raisedLinkLabelID = ""
+        if (this.gRaisedLinkLabels) {
+            this.gRaisedLinkLabels.selectAll("*").remove()
+        }
+    }
+
     private raiseLinkLabel(labelNode: SVGGElement, link: Link) {
         event.stopPropagation()
 
@@ -1308,7 +1318,13 @@ export class Topology extends React.Component<Props, {}> {
             return
         }
 
+        if (this.raisedLinkLabelID === link.id) {
+            this.clearRaisedLinkLabel()
+            return
+        }
+
         this.gRaisedLinkLabels.selectAll("*").remove()
+        this.raisedLinkLabelID = link.id
 
         const clonedLabel = labelNode.cloneNode(true) as SVGGElement
         select(clonedLabel)
@@ -1550,6 +1566,7 @@ export class Topology extends React.Component<Props, {}> {
 
     private nodeClicked(d: D3Node) {
         event.stopPropagation()
+        this.clearRaisedLinkLabel()
 
         if (this.nodeClickedID) {
             return
@@ -2101,6 +2118,7 @@ export class Topology extends React.Component<Props, {}> {
     private linkClicked(d: Link) {
         event.stopPropagation()
 
+        this.clearRaisedLinkLabel()
         this.hideNodeContextMenu()
         this.selectLink(d.id, true)
     }
@@ -3313,6 +3331,10 @@ export class Topology extends React.Component<Props, {}> {
         var linkLabel = this.gLinkLabels.selectAll('g.link-label')
             .interrupt()
             .data(visibleLinks.filter((d: Link) => this.props.linkAttrs(d).label), (d: Link) => d.id)
+
+        if (this.raisedLinkLabelID && !visibleLinks.some((d: Link) => d.id === this.raisedLinkLabelID && this.props.linkAttrs(d).label)) {
+            this.clearRaisedLinkLabel()
+        }
 
         var linkLabelEnter = linkLabel.enter()
             .append('g')
