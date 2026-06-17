@@ -403,6 +403,7 @@ class CaptureStatusPanel extends React.Component<Props, State> {
     const portDistribution = this.distributionByPort(flows)
     const progress = isRunning ? this.progressValue() : 100
     const durationLabel = this.formatDuration(capture.durationSeconds || 0)
+    const progressClass = isDone ? `${classes.captureProgress} ${classes.captureProgressDone}` : classes.captureProgress
 
     return (
       <div className={classes.captureResultPanel}>
@@ -412,10 +413,10 @@ class CaptureStatusPanel extends React.Component<Props, State> {
               <div>
                 <Typography component="strong"><VideocamIcon /> {this.statusTitle()}</Typography>
                 <span className={classes.captureMetaLine}>
-                  <em>대상</em><b>{capture.targetName || '-'}</b>
-                  <em>유형</em><b>{this.targetTypeLabel()}</b>
-                  <em>범위</em><b>{this.scopeLabel()}</b>
-                  <em>필터</em><b>{this.filterLabel()}</b>
+                  <i><em>대상</em><b>{capture.targetName || '-'}</b></i>
+                  <i><em>유형</em><b>{this.targetTypeLabel()}</b></i>
+                  <i><em>범위</em><b>{this.scopeLabel()}</b></i>
+                  <i><em>필터</em><b>{this.filterLabel()}</b></i>
                 </span>
               </div>
               <div className={classes.captureHeroControls}>
@@ -432,7 +433,7 @@ class CaptureStatusPanel extends React.Component<Props, State> {
                 <strong>{isRunning ? this.formatRemaining() : this.formatDuration(this.elapsedSeconds())}</strong>
               </div>
               <div className={classes.captureProgressRow}>
-                <LinearProgress variant="determinate" value={progress} className={classes.captureProgress} />
+                <LinearProgress variant="determinate" value={progress} className={progressClass} />
                 <span>{progress}%</span>
               </div>
             </div>
@@ -544,8 +545,8 @@ class CaptureStatusPanel extends React.Component<Props, State> {
               {protocolDistribution.length === 0 &&
                 <p className={classes.captureEmptyState}>아직 프로토콜 분포가 없습니다.</p>
               }
-              {protocolDistribution.map((item) => (
-                <div className={classes.progressListRow} key={item.label}>
+              {protocolDistribution.map((item, index) => (
+                <div className={`${classes.progressListRow} ${index === 0 ? classes.progressListRowPrimary : ''}`} key={item.label}>
                   <span>{item.label}</span>
                   <i><b style={{ width: `${item.percent}%` }} /></i>
                   <em>{item.percent}% · {this.formatBytes(item.bytes)}</em>
@@ -557,8 +558,8 @@ class CaptureStatusPanel extends React.Component<Props, State> {
               {portDistribution.length === 0 &&
                 <p className={classes.captureEmptyState}>아직 포트 통계가 없습니다.</p>
               }
-              {portDistribution.map(({ port, bytes, percent }) => (
-                <div className={classes.progressListRow} key={port}>
+              {portDistribution.map(({ port, bytes, percent }, index) => (
+                <div className={`${classes.progressListRow} ${index === 0 ? classes.progressListRowPrimary : ''}`} key={port}>
                   <span>{port} {this.portApplication(port)}</span>
                   <i><b style={{ width: `${percent}%` }} /></i>
                   <em>{this.formatBytes(bytes)} · {percent}%</em>
@@ -587,12 +588,9 @@ const styles = (theme: Theme) => createStyles({
   captureResultPanel: {
     display: 'flex',
     flexDirection: 'column',
-    gap: theme.spacing(1),
-    padding: theme.spacing(0.8),
-    border: '1px solid rgba(219, 231, 245, 0.72)',
-    borderRadius: 16,
-    background: 'linear-gradient(180deg, rgba(248, 250, 252, 0.82), rgba(255, 255, 255, 0.98))',
-    boxShadow: '0 12px 28px rgba(15, 23, 42, 0.045)',
+    gap: theme.spacing(1.15),
+    padding: theme.spacing(0.35, 0.2, 0.6),
+    background: 'transparent',
   },
   captureResultShell: {
     display: 'flex',
@@ -600,11 +598,11 @@ const styles = (theme: Theme) => createStyles({
     gap: theme.spacing(1),
   },
   captureStatusCard: {
-    padding: theme.spacing(1.45),
-    border: '1px solid rgba(219, 231, 245, 0.82)',
+    padding: theme.spacing(1.55),
+    border: '1px solid rgba(226, 232, 240, 0.94)',
     borderRadius: 16,
-    background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.78))',
-    boxShadow: '0 12px 28px rgba(15, 23, 42, 0.05)',
+    background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 252, 255, 0.92))',
+    boxShadow: '0 10px 24px rgba(15, 23, 42, 0.045)',
   },
   captureStatusHeader: {
     display: 'flex',
@@ -629,20 +627,34 @@ const styles = (theme: Theme) => createStyles({
     display: 'flex',
     flexWrap: 'wrap',
     alignItems: 'center',
-    gap: '4px 8px',
-    marginTop: 7,
+    gap: 6,
+    marginTop: 8,
     color: 'var(--netdive-detail-muted, #64748b)',
     fontSize: 11.5,
     lineHeight: 1.45,
+    '& i': {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 4,
+      minWidth: 0,
+      padding: '2px 7px',
+      borderRadius: 999,
+      background: 'rgba(248, 250, 252, 0.92)',
+      border: '1px solid rgba(226, 232, 240, 0.8)',
+      fontStyle: 'normal',
+    },
     '& em': {
       fontStyle: 'normal',
       color: '#94a3b8',
-      fontWeight: 800,
+      fontWeight: 700,
     },
     '& b': {
-      color: 'var(--netdive-detail-text, #0f172a)',
+      color: '#334155',
       fontWeight: 800,
-    },
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap',
+    }
   },
   captureHeroControls: {
     display: 'inline-flex',
@@ -668,8 +680,8 @@ const styles = (theme: Theme) => createStyles({
       fontWeight: 800,
       cursor: 'pointer',
       '&:hover': {
-        color: '#1a73e8',
-        background: '#f3f8ff',
+        color: '#3156c9',
+        background: '#f3f6fb',
       }
     },
   },
@@ -701,25 +713,30 @@ const styles = (theme: Theme) => createStyles({
       display: 'block',
       color: 'var(--netdive-detail-muted, #64748b)',
       fontSize: 11,
-      fontWeight: 800,
+      fontWeight: 700,
     },
     '& strong': {
       display: 'block',
       color: '#3156c9',
-      fontSize: 29,
+      fontSize: 32,
       lineHeight: 1.2,
-      fontWeight: 800,
+      fontWeight: 700,
       letterSpacing: '-0.03em',
       marginTop: 2,
     }
   },
   captureProgress: {
     flex: 1,
-    height: 6,
+    height: 5,
     borderRadius: 999,
-    backgroundColor: '#e5e7eb',
+    backgroundColor: '#e8edf4',
     '& .MuiLinearProgress-barColorPrimary': {
-      backgroundColor: '#4f67c8',
+      backgroundColor: '#5b73d6',
+    }
+  },
+  captureProgressDone: {
+    '& .MuiLinearProgress-barColorPrimary': {
+      backgroundColor: '#4aa66a',
     }
   },
   captureProgressRow: {
@@ -774,11 +791,11 @@ const styles = (theme: Theme) => createStyles({
     }
   },
   captureSummaryCard: {
-    border: '1px solid rgba(219, 231, 245, 0.82)',
+    border: '1px solid rgba(226, 232, 240, 0.94)',
     borderRadius: 16,
     background: 'var(--netdive-detail-bg, #fff)',
-    padding: theme.spacing(1.25),
-    boxShadow: '0 8px 22px rgba(15, 23, 42, 0.035)',
+    padding: theme.spacing(1.35),
+    boxShadow: '0 8px 20px rgba(15, 23, 42, 0.03)',
     minWidth: 0,
   },
   captureSectionHeader: {
@@ -815,41 +832,29 @@ const styles = (theme: Theme) => createStyles({
   captureMetricGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-    gap: 0,
-    borderRadius: 14,
+    gap: theme.spacing(1),
+    borderRadius: 0,
     background: 'transparent',
-    overflow: 'hidden',
-    '& $captureMetricItem': {
-      border: 0,
-      borderLeft: '1px solid rgba(226, 232, 240, 0.92)',
-      '&:first-child': {
-        borderLeft: 0,
-      },
-      '&:nth-child(3)': {
-        borderLeft: 0,
-        borderTop: '1px solid rgba(226, 232, 240, 0.92)',
-      },
-      '&:nth-child(4)': {
-        borderTop: '1px solid rgba(226, 232, 240, 0.92)',
-      }
-    },
   },
   captureMetricItem: {
     display: 'grid',
-    gridTemplateColumns: '38px minmax(0, 1fr)',
-    gap: theme.spacing(0.85),
+    gridTemplateColumns: '40px minmax(0, 1fr)',
+    gap: theme.spacing(0.95),
     alignItems: 'center',
     minWidth: 0,
-    minHeight: 76,
-    padding: theme.spacing(1.05, 1),
+    minHeight: 88,
+    padding: theme.spacing(1.15),
     boxSizing: 'border-box',
+    border: '1px solid rgba(226, 232, 240, 0.72)',
+    borderRadius: 14,
+    background: 'linear-gradient(180deg, rgba(248, 250, 252, 0.62), rgba(255, 255, 255, 0.96))',
   },
   captureMetricIcon: {
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    width: 32,
-    height: 32,
+    width: 34,
+    height: 34,
     borderRadius: 999,
     '& svg': {
       width: 17,
@@ -885,11 +890,10 @@ const styles = (theme: Theme) => createStyles({
     '& strong': {
       display: 'block',
       color: 'var(--netdive-detail-text, #0f172a)',
-      fontSize: 18,
+      fontSize: 20,
       fontWeight: 900,
-      overflow: 'hidden',
-      textOverflow: 'ellipsis',
-      whiteSpace: 'nowrap',
+      overflowWrap: 'anywhere',
+      whiteSpace: 'normal',
       lineHeight: 1.18,
     },
     '& small': {
@@ -912,6 +916,10 @@ const styles = (theme: Theme) => createStyles({
   topFlowList: {
     display: 'grid',
     gap: 0,
+    '& $topFlowItem:nth-child(n+2) $topFlowMain i': {
+      background: '#93a4ba',
+      opacity: 0.58,
+    }
   },
   topFlowListScrollable: {
     maxHeight: 360,
@@ -924,13 +932,13 @@ const styles = (theme: Theme) => createStyles({
     width: '100%',
     display: 'grid',
     gridTemplateColumns: '30px minmax(0, 1fr) 74px',
-    gap: theme.spacing(1),
+    gap: theme.spacing(1.1),
     alignItems: 'center',
     border: 0,
-    borderBottom: '1px solid rgba(226, 232, 240, 0.78)',
+    borderBottom: '1px solid rgba(226, 232, 240, 0.62)',
     borderRadius: 0,
     background: 'transparent',
-    padding: theme.spacing(1, 0.25),
+    padding: theme.spacing(1.15, 0.25),
     cursor: 'pointer',
     textAlign: 'left',
     transition: 'background-color 160ms ease',
@@ -963,7 +971,7 @@ const styles = (theme: Theme) => createStyles({
       color: 'var(--netdive-detail-text, #0f172a)',
       fontSize: 13.5,
       fontWeight: 900,
-      lineHeight: 1.35,
+      lineHeight: 1.42,
       overflow: 'hidden',
       textOverflow: 'ellipsis',
       whiteSpace: 'nowrap',
@@ -971,7 +979,7 @@ const styles = (theme: Theme) => createStyles({
     '& em': {
       display: 'flex',
       flexWrap: 'wrap',
-      gap: 5,
+      gap: 6,
       color: 'var(--netdive-detail-muted, #64748b)',
       fontSize: 11,
       fontStyle: 'normal',
@@ -982,7 +990,7 @@ const styles = (theme: Theme) => createStyles({
       height: 3,
       borderRadius: 999,
       background: '#4f67c8',
-      marginTop: 8,
+      marginTop: 9,
       maxWidth: '100%',
     },
     '& small': {
@@ -1051,9 +1059,9 @@ const styles = (theme: Theme) => createStyles({
   progressListRow: {
     display: 'grid',
     gridTemplateColumns: '72px minmax(0, 1fr) 82px',
-    gap: theme.spacing(0.7),
+    gap: theme.spacing(0.85),
     alignItems: 'center',
-    marginBottom: theme.spacing(0.65),
+    marginBottom: theme.spacing(0.82),
     '& span': {
       color: 'var(--netdive-detail-text, #0f172a)',
       fontSize: 11.5,
@@ -1064,7 +1072,7 @@ const styles = (theme: Theme) => createStyles({
     },
     '& i': {
       display: 'block',
-      height: 5,
+      height: 4,
       borderRadius: 999,
       background: '#e2e8f0',
       overflow: 'hidden',
@@ -1073,7 +1081,7 @@ const styles = (theme: Theme) => createStyles({
       display: 'block',
       height: '100%',
       borderRadius: 999,
-      background: '#2563eb',
+      background: '#93a4ba',
     },
     '& em': {
       color: 'var(--netdive-detail-muted, #64748b)',
@@ -1081,6 +1089,11 @@ const styles = (theme: Theme) => createStyles({
       fontStyle: 'normal',
       fontWeight: 700,
       textAlign: 'right',
+    }
+  },
+  progressListRowPrimary: {
+    '& b': {
+      background: '#5b73d6',
     }
   },
   rawFlowAccordion: {
