@@ -412,12 +412,6 @@ class CaptureStatusPanel extends React.Component<Props, State> {
             <div className={classes.captureStatusHeader}>
               <div>
                 <Typography component="strong"><VideocamIcon /> {this.statusTitle()}</Typography>
-                <span className={classes.captureMetaLine}>
-                  <i><em>대상</em><b>{capture.targetName || '-'}</b></i>
-                  <i><em>유형</em><b>{this.targetTypeLabel()}</b></i>
-                  <i><em>범위</em><b>{this.scopeLabel()}</b></i>
-                  <i><em>필터</em><b>{this.filterLabel()}</b></i>
-                </span>
               </div>
               <div className={classes.captureHeroControls}>
                 <em className={statusBadgeClass}>
@@ -436,6 +430,13 @@ class CaptureStatusPanel extends React.Component<Props, State> {
                 <LinearProgress variant="determinate" value={progress} className={progressClass} />
                 <span>{progress}%</span>
               </div>
+            </div>
+
+            <div className={classes.captureMetaGrid}>
+              <div><span>대상</span><strong>{capture.targetName || '-'}</strong></div>
+              <div><span>유형</span><strong>{this.targetTypeLabel()}</strong></div>
+              <div><span>범위</span><strong>{this.scopeLabel()}</strong></div>
+              <div><span>필터</span><strong>{this.filterLabel()}</strong></div>
             </div>
 
             {this.state.error && <p className={classes.captureStatusError}>{this.state.error}</p>}
@@ -623,37 +624,33 @@ const styles = (theme: Theme) => createStyles({
       }
     },
   },
-  captureMetaLine: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 8,
-    color: 'var(--netdive-detail-muted, #64748b)',
-    fontSize: 11.5,
-    lineHeight: 1.45,
-    '& i': {
-      display: 'inline-flex',
-      alignItems: 'center',
-      gap: 4,
+  captureMetaGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+    gap: theme.spacing(0.85, 1.4),
+    marginTop: theme.spacing(1.2),
+    paddingTop: theme.spacing(1.05),
+    borderTop: '1px solid rgba(226, 232, 240, 0.86)',
+    '& div': {
       minWidth: 0,
-      padding: '2px 7px',
-      borderRadius: 999,
-      background: 'rgba(248, 250, 252, 0.92)',
-      border: '1px solid rgba(226, 232, 240, 0.8)',
-      fontStyle: 'normal',
     },
-    '& em': {
-      fontStyle: 'normal',
+    '& span': {
+      display: 'block',
       color: '#94a3b8',
+      fontSize: 10.5,
+      lineHeight: 1.25,
       fontWeight: 700,
+      marginBottom: 2,
     },
-    '& b': {
+    '& strong': {
+      display: 'block',
       color: '#334155',
+      fontSize: 12.5,
+      lineHeight: 1.35,
       fontWeight: 800,
       overflow: 'hidden',
       textOverflow: 'ellipsis',
-      whiteSpace: 'nowrap',
+      whiteSpace: 'normal',
     }
   },
   captureHeroControls: {
@@ -838,12 +835,12 @@ const styles = (theme: Theme) => createStyles({
   },
   captureMetricItem: {
     display: 'grid',
-    gridTemplateColumns: '40px minmax(0, 1fr)',
-    gap: theme.spacing(0.95),
+    gridTemplateColumns: '42px minmax(0, 1fr)',
+    gap: theme.spacing(1.05),
     alignItems: 'center',
     minWidth: 0,
-    minHeight: 88,
-    padding: theme.spacing(1.15),
+    minHeight: 92,
+    padding: theme.spacing(1.45),
     boxSizing: 'border-box',
     border: '1px solid rgba(226, 232, 240, 0.72)',
     borderRadius: 14,
@@ -853,8 +850,8 @@ const styles = (theme: Theme) => createStyles({
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    width: 34,
-    height: 34,
+    width: 36,
+    height: 36,
     borderRadius: 999,
     '& svg': {
       width: 17,

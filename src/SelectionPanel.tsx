@@ -112,17 +112,38 @@ class SelectionPanel extends React.Component<Props, State> {
         return icon
       }
 
+      const subtitle = this.tabSubtitle(el)
+
       return (
         <Tab className={classes.tabRoot} icon={<span className={className}>{iconRender()}</span>}
           key={"tab-" + i}
           label={
             <Tooltip title={title} placement="bottom" arrow classes={{ tooltip: classes.tabTitleTooltip }}>
-              <span className={`${classes.tabTitle} ${title.includes("\n") ? classes.tabTitleMulti : ""}`} title={title}>{title}</span>
+              <span className={classes.tabLabelBlock}>
+                <span className={`${classes.tabTitle} ${title.includes("\n") ? classes.tabTitleMulti : ""}`} title={title}>{title}</span>
+                {subtitle && <span className={classes.tabSubtitle} title={subtitle}>{subtitle}</span>}
+              </span>
             </Tooltip>
           }
           {...a11yProps(i)} />
       )
     })
+  }
+
+  private tabSubtitle(el: Node | Link): string {
+    if (!el || !el.data) {
+      return ""
+    }
+
+    const type = String(el.data.Type || el.data.type || el.type || "").trim()
+    const ipv4 = Array.isArray(el.data.IPV4) && el.data.IPV4.length > 0 ? String(el.data.IPV4[0]) : ""
+    const ipv6 = Array.isArray(el.data.IPV6) && el.data.IPV6.length > 0 ? String(el.data.IPV6[0]) : ""
+    const address = ipv4 || ipv6
+
+    if (type && address) {
+      return `${type} · ${address}`
+    }
+    return type || address
   }
 
   private dataFields(el: Node | Link): Array<any> {

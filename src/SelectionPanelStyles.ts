@@ -19,13 +19,13 @@ import { createStyles, Theme } from '@material-ui/core'
 
 export const styles = (theme: Theme) => createStyles({
   rightPanelPaperContent: {
-    paddingTop: theme.spacing(2.5),
+    paddingTop: theme.spacing(1.75),
     paddingBottom: theme.spacing(2.5),
     paddingLeft: theme.spacing(2.5),
     paddingRight: theme.spacing(3.25),
     width: `100%`,
     height: `100%`,
-    maxHeight: 'calc(100% - 90px)',
+    maxHeight: 'calc(100% - 70px)',
     backgroundColor: 'var(--netdive-detail-bg)',
     overflowY: 'auto',
     overflowX: 'hidden',
@@ -67,27 +67,47 @@ export const styles = (theme: Theme) => createStyles({
   tabRoot: {
     minWidth: 136,
     maxWidth: 220,
-    paddingLeft: theme.spacing(1.5),
-    paddingRight: theme.spacing(1.5),
+    paddingLeft: theme.spacing(1.25),
+    paddingRight: theme.spacing(1.25),
     overflow: 'hidden',
     '&.MuiTab-labelIcon': {
-      minHeight: 72
+      minHeight: 58
     },
     '& .MuiTab-wrapper': {
       width: '100%',
-      minWidth: 0
+      minWidth: 0,
+      alignItems: 'flex-start'
     }
   },
+  tabLabelBlock: {
+    display: 'block',
+    maxWidth: '100%',
+    minWidth: 0,
+    textAlign: 'left'
+  },
   tabTitle: {
-    display: 'inline-block',
+    display: 'block',
     maxWidth: '100%',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
-    fontSize: 18,
-    fontWeight: 600,
+    fontSize: 19,
+    lineHeight: 1.18,
+    fontWeight: 700,
     color: 'var(--netdive-detail-text)',
     cursor: 'help'
+  },
+  tabSubtitle: {
+    display: 'block',
+    maxWidth: '100%',
+    marginTop: 3,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    color: 'var(--netdive-detail-muted, #64748b)',
+    fontSize: 12,
+    lineHeight: 1.25,
+    fontWeight: 600
   },
   tabTitleMulti: {
     whiteSpace: 'pre-line',
@@ -101,9 +121,9 @@ export const styles = (theme: Theme) => createStyles({
   tabActions: {
     display: 'flex',
     flexDirection: 'row-reverse',
-    marginBottom: theme.spacing(1.5),
-    borderBottom: '1px solid var(--netdive-detail-accent)',
-    paddingBottom: theme.spacing(1)
+    marginBottom: theme.spacing(1.15),
+    borderBottom: '1px solid rgba(226, 232, 240, 0.92)',
+    paddingBottom: theme.spacing(0.85)
   },
   gremlinExpr: {
     fontSize: '16px',
@@ -113,21 +133,21 @@ export const styles = (theme: Theme) => createStyles({
     marginBottom: 16
   },
   iconImg: {
-    maxWidth: 32,
-    maxHeight: 32,
+    maxWidth: 30,
+    maxHeight: 30,
     verticalAlign: 'middle'
   },
   tabIconFree: {
     fontFamily: `"Font Awesome 5 Free" !important`,
     fontWeight: 900,
-    fontSize: 35,
+    fontSize: 32,
     marginBottom: `0 !important`,
     color: 'var(--topology-level-label-active-text)'
   },
   tabIconBrands: {
     fontFamily: `"Font Awesome 5 Brands" !important`,
     fontWeight: 900,
-    fontSize: 35,
+    fontSize: 32,
     marginBottom: `0 !important`,
     color: 'var(--topology-level-label-active-text)'
   }
