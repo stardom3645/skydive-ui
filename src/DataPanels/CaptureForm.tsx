@@ -78,7 +78,7 @@ class CaptureForm extends React.Component<Props, State> {
       captureType: this.defaultCaptureType(props.node),
       layerKey: "L3",
       headerSize: "",
-      rawPacketLimit: "0",
+      rawPacketLimit: "10",
       extraTCPMetric: false,
       defragIPv4: false,
       reassembleTCP: false,
@@ -106,6 +106,7 @@ class CaptureForm extends React.Component<Props, State> {
       captureScope: "related",
       captureDuration: "30s",
       filterPreset: "all",
+      rawPacketLimit: "10",
       showAdvanced: false
     })
   }
@@ -318,7 +319,7 @@ class CaptureForm extends React.Component<Props, State> {
     return captureType !== defaultCaptureType ||
       this.state.layerKey !== "L3" ||
       this.state.headerSize !== "" ||
-      this.state.rawPacketLimit !== "0" ||
+      this.state.rawPacketLimit !== "10" ||
       this.state.extraTCPMetric ||
       this.state.defragIPv4 ||
       this.state.reassembleTCP
@@ -736,14 +737,14 @@ class CaptureForm extends React.Component<Props, State> {
 
                             <div className={classes.advancedOptionBlock}>
                               {this.renderCompactTextField(classes, {
-                                label: this.renderAdvancedLabel(classes, translate("Raw packet limit"), "저장할 원시 패킷 수를 제한합니다. 0이면 제한하지 않습니다."),
+                                label: this.renderAdvancedLabel(classes, translate("Raw packet limit"), "PCAP 다운로드에 사용할 원시 패킷 수를 제한합니다. 0이면 원시 패킷을 저장하지 않습니다."),
                                 type: "number",
                                 value: this.state.rawPacketLimit,
                                 onChange: this.handleChange("rawPacketLimit"),
                                 error: !!this.state.rawPacketLimit && !this.isRawPacketLimitValid(),
                                 helperText: !!this.state.rawPacketLimit && !this.isRawPacketLimitValid() ? translate("capture-rawPacketLimit-validation-error") : ""
                               })}
-                              <small>저장할 원시 패킷 수를 제한합니다. 0이면 제한하지 않습니다.</small>
+                              <small>PCAP 다운로드에 사용할 원시 패킷 수를 제한합니다. 기본값: 10</small>
                             </div>
                           </div>
                         </section>

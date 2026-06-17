@@ -8,6 +8,7 @@ import AccordionDetails from '@material-ui/core/AccordionDetails'
 import VideocamIcon from '@material-ui/icons/Videocam'
 import StopIcon from '@material-ui/icons/Stop'
 import ReplayIcon from '@material-ui/icons/Replay'
+import GetAppIcon from '@material-ui/icons/GetApp'
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore'
 import SwapVertIcon from '@material-ui/icons/SwapVert'
 import DeviceHubIcon from '@material-ui/icons/DeviceHub'
@@ -48,6 +49,7 @@ interface Props {
 interface State {
   now: number
   loading: boolean
+  downloading: boolean
   error: string
   flows: CaptureFlowSummary[]
   expandedFlowKey: string
@@ -74,7 +76,7 @@ class CaptureStatusPanel extends React.Component<Props, State> {
 
   constructor(props: Props) {
     super(props)
-    this.state = { now: Date.now(), loading: false, error: '', flows: [], expandedFlowKey: '', showAllTopFlows: false }
+    this.state = { now: Date.now(), loading: false, downloading: false, error: '', flows: [], expandedFlowKey: '', showAllTopFlows: false }
   }
 
   componentDidMount() {
@@ -94,7 +96,7 @@ class CaptureStatusPanel extends React.Component<Props, State> {
 
   componentDidUpdate(prevProps: Props) {
     if (prevProps.capture.id !== this.props.capture.id) {
-      this.setState({ now: Date.now(), error: '', flows: [], expandedFlowKey: '', showAllTopFlows: false })
+      this.setState({ now: Date.now(), error: '', flows: [], expandedFlowKey: '', showAllTopFlows: false, downloading: false })
       this.fetchStatus()
       this.fetchFlows()
     }
@@ -295,6 +297,59 @@ class CaptureStatusPanel extends React.Component<Props, State> {
     }
   }
 
+  private downloadFilename(response: Response): string {
+    const disposition = response.headers.get('content-disposition') || ''
+    const match = disposition.match(/filename="?([^"]+)"?/i)
+    if (match && match[1]) {
+      return match[1]
+    }
+    const safeName = String(this.props.capture.targetName || 'capture').replace(/[^\w.-]+/g, '-')
+    return `netdive-capture-${safeName}-${this.props.capture.id}.pcap`
+  }
+
+  private async downloadCapture() {
+    if (this.props.capture.id.startsWith('legacy-')) {
+      this.setState({ error: '기존 캡처는 다운로드를 지원하지 않습니다.' })
+      return
+    }
+
+    this.setState({ downloading: true, error: '' })
+    try {
+      const response = await fetch(`${this.props.session.endpoint}/api/simple-capture/${this.props.capture.id}/download`, {
+        headers: { 'X-Auth-Token': this.props.session.token }
+      })
+      if (!response.ok) {
+        let message = `HTTP ${response.status}`
+        try {
+          const body = await response.json()
+          if (body?.error) {
+            message = body.error
+          }
+        } catch (err) {
+          // Keep the HTTP status message if the server returned a non-JSON error.
+        }
+        throw new Error(message)
+      }
+
+      const blob = await response.blob()
+      if (blob.size === 0) {
+        throw new Error('다운로드할 패킷 데이터가 없습니다.')
+      }
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = this.downloadFilename(response)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      this.setState({ error: err instanceof Error ? err.message : '캡처 파일 다운로드에 실패했습니다.' })
+    } finally {
+      this.setState({ downloading: false })
+    }
+  }
+
   private remainingSeconds(): number {
     const expiresAt = new Date(this.props.capture.expiresAt).getTime()
     if (!Number.isFinite(expiresAt)) return 0
@@ -452,9 +507,16 @@ class CaptureStatusPanel extends React.Component<Props, State> {
                 </Button>
               }
               {!isRunning && !isFailed &&
-                <Button size="small" variant="outlined" startIcon={<ReplayIcon />} onClick={this.props.onRetry}>
-                  다시 캡처
-                </Button>
+                <>
+                  {isDone &&
+                    <Button size="small" variant="outlined" startIcon={<GetAppIcon />} disabled={this.state.downloading || isLegacy} onClick={() => this.downloadCapture()}>
+                      {this.state.downloading ? '다운로드 중' : '다운로드'}
+                    </Button>
+                  }
+                  <Button size="small" variant="outlined" startIcon={<ReplayIcon />} onClick={this.props.onRetry}>
+                    다시 캡처
+                  </Button>
+                </>
               }
             </div>
           </section>
