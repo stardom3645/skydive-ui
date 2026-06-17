@@ -772,7 +772,7 @@ class CaptureForm extends React.Component<Props, State> {
                                 error: !!this.state.rawPacketLimit && !this.isRawPacketLimitValid(),
                                 helperText: !!this.state.rawPacketLimit && !this.isRawPacketLimitValid() ? translate("capture-rawPacketLimit-validation-error") : ""
                               })}
-                              <small>PCAP용 원시 패킷을 최대 10개 저장합니다. 0은 저장 안 함</small>
+                              <small>다운로드용 원시 패킷을 최대 10개 저장합니다. 0은 저장 안 함</small>
                             </div>
                           </div>
                         </section>

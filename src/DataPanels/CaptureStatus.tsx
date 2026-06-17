@@ -328,6 +328,9 @@ class CaptureStatusPanel extends React.Component<Props, State> {
         } catch (err) {
           // Keep the HTTP status message if the server returned a non-JSON error.
         }
+        if (message === 'downloadable packet data is not available' || message === 'raw packet capture was disabled') {
+          message = '다운로드할 패킷 데이터가 없습니다.'
+        }
         throw new Error(message)
       }
 
