@@ -65,25 +65,29 @@ export const styles = (theme: Theme) => createStyles({
     }
   },
   tabRoot: {
-    minWidth: 136,
-    maxWidth: 220,
+    minWidth: 210,
+    maxWidth: 320,
     paddingLeft: theme.spacing(1.25),
     paddingRight: theme.spacing(1.25),
     overflow: 'hidden',
     '&.MuiTab-labelIcon': {
-      minHeight: 58
+      minHeight: 54
     },
     '& .MuiTab-wrapper': {
       width: '100%',
       minWidth: 0,
-      alignItems: 'flex-start'
+      alignItems: 'center',
+      justifyContent: 'flex-start',
+      flexDirection: 'row',
+      gap: theme.spacing(1)
     }
   },
   tabLabelBlock: {
     display: 'block',
     maxWidth: '100%',
     minWidth: 0,
-    textAlign: 'left'
+    textAlign: 'left',
+    flex: '1 1 auto'
   },
   tabTitle: {
     display: 'block',
@@ -91,7 +95,7 @@ export const styles = (theme: Theme) => createStyles({
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
-    fontSize: 19,
+    fontSize: 18,
     lineHeight: 1.18,
     fontWeight: 700,
     color: 'var(--netdive-detail-text)',
@@ -105,7 +109,7 @@ export const styles = (theme: Theme) => createStyles({
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
     color: 'var(--netdive-detail-muted, #64748b)',
-    fontSize: 12,
+    fontSize: 12.5,
     lineHeight: 1.25,
     fontWeight: 600
   },
@@ -142,6 +146,7 @@ export const styles = (theme: Theme) => createStyles({
     fontWeight: 900,
     fontSize: 32,
     marginBottom: `0 !important`,
+    flex: '0 0 auto',
     color: 'var(--topology-level-label-active-text)'
   },
   tabIconBrands: {
@@ -149,6 +154,7 @@ export const styles = (theme: Theme) => createStyles({
     fontWeight: 900,
     fontSize: 32,
     marginBottom: `0 !important`,
+    flex: '0 0 auto',
     color: 'var(--topology-level-label-active-text)'
   }
 })

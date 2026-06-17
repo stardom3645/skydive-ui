@@ -8,7 +8,6 @@ import AccordionDetails from '@material-ui/core/AccordionDetails'
 import VideocamIcon from '@material-ui/icons/Videocam'
 import StopIcon from '@material-ui/icons/Stop'
 import ReplayIcon from '@material-ui/icons/Replay'
-import GetAppIcon from '@material-ui/icons/GetApp'
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore'
 import SwapVertIcon from '@material-ui/icons/SwapVert'
 import DeviceHubIcon from '@material-ui/icons/DeviceHub'
@@ -423,7 +422,7 @@ class CaptureStatusPanel extends React.Component<Props, State> {
 
             <div className={classes.captureProgressPanel}>
               <div className={classes.captureCountdown}>
-                <span>{isRunning ? `남은 시간 (${durationLabel})` : isDone ? '캡처 완료' : '소요 시간'}</span>
+                <span>{isRunning ? `남은 시간 · 총 ${durationLabel}` : '소요 시간'}</span>
                 <strong>{isRunning ? this.formatRemaining() : this.formatDuration(this.elapsedSeconds())}</strong>
               </div>
               <div className={classes.captureProgressRow}>
@@ -451,9 +450,6 @@ class CaptureStatusPanel extends React.Component<Props, State> {
                 <Button size="small" variant="outlined" startIcon={<ReplayIcon />} onClick={this.props.onRetry}>
                   다시 시도
                 </Button>
-              }
-              {isDone &&
-                <span className={classes.downloadPending}><GetAppIcon /> 캡처 파일을 준비 중입니다.</span>
               }
               {!isRunning && !isFailed &&
                 <Button size="small" variant="outlined" startIcon={<ReplayIcon />} onClick={this.props.onRetry}>
@@ -773,20 +769,6 @@ const styles = (theme: Theme) => createStyles({
       }
     }
   },
-  downloadPending: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 5,
-    color: 'var(--netdive-detail-muted, #64748b)',
-    fontSize: 11.5,
-    fontWeight: 800,
-    marginRight: 'auto',
-    '& svg': {
-      width: 15,
-      height: 15,
-      color: '#64748b',
-    }
-  },
   captureSummaryCard: {
     border: '1px solid rgba(226, 232, 240, 0.94)',
     borderRadius: 16,
@@ -835,12 +817,12 @@ const styles = (theme: Theme) => createStyles({
   },
   captureMetricItem: {
     display: 'grid',
-    gridTemplateColumns: '42px minmax(0, 1fr)',
-    gap: theme.spacing(1.05),
+    gridTemplateColumns: '40px minmax(0, 1fr)',
+    gap: theme.spacing(0.95),
     alignItems: 'center',
     minWidth: 0,
-    minHeight: 92,
-    padding: theme.spacing(1.45),
+    minHeight: 86,
+    padding: theme.spacing(1.2),
     boxSizing: 'border-box',
     border: '1px solid rgba(226, 232, 240, 0.72)',
     borderRadius: 14,
@@ -850,8 +832,8 @@ const styles = (theme: Theme) => createStyles({
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    width: 36,
-    height: 36,
+    width: 34,
+    height: 34,
     borderRadius: 999,
     '& svg': {
       width: 17,
@@ -1042,7 +1024,7 @@ const styles = (theme: Theme) => createStyles({
     display: 'grid',
     gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
     gap: theme.spacing(1),
-    '@media (max-width: 560px)': {
+    '@media (max-width: 720px)': {
       gridTemplateColumns: '1fr',
     },
   },
@@ -1094,6 +1076,7 @@ const styles = (theme: Theme) => createStyles({
     }
   },
   rawFlowAccordion: {
+    marginTop: theme.spacing(0.4),
     boxShadow: 'none',
     border: '1px solid var(--netdive-detail-border, #dbe7f5)',
     borderRadius: '14px !important',
@@ -1121,11 +1104,11 @@ const styles = (theme: Theme) => createStyles({
     }
   },
   captureSummaryHint: {
-    margin: 0,
-    border: '1px solid #bfdbfe',
+    margin: theme.spacing(0.25, 0, 1.25),
+    border: '1px solid rgba(226, 232, 240, 0.92)',
     borderRadius: 12,
-    background: '#eff6ff',
-    color: '#1e3a8a',
+    background: '#f8fafc',
+    color: 'var(--netdive-detail-muted, #64748b)',
     padding: theme.spacing(0.9, 1),
     fontSize: 12,
     lineHeight: 1.45,

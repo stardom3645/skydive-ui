@@ -135,7 +135,8 @@ class SelectionPanel extends React.Component<Props, State> {
       return ""
     }
 
-    const type = String(el.data.Type || el.data.type || el.type || "").trim()
+    const rawType = String(el.data.Type || el.data.type || el.type || "").trim()
+    const type = rawType ? rawType.charAt(0).toUpperCase() + rawType.slice(1) : ""
     const ipv4 = Array.isArray(el.data.IPV4) && el.data.IPV4.length > 0 ? String(el.data.IPV4[0]) : ""
     const ipv6 = Array.isArray(el.data.IPV6) && el.data.IPV6.length > 0 ? String(el.data.IPV6[0]) : ""
     const address = ipv4 || ipv6
