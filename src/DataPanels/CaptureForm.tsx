@@ -12,7 +12,6 @@ import Select from '@material-ui/core/Select'
 import MenuItem from '@material-ui/core/MenuItem'
 import FormControl from '@material-ui/core/FormControl'
 import Typography from '@material-ui/core/Typography'
-import FormControlLabel from '@material-ui/core/FormControlLabel'
 import Checkbox from '@material-ui/core/Checkbox'
 import Snackbar from '@material-ui/core/Snackbar'
 import MuiAlert from '@material-ui/lab/Alert'
@@ -325,13 +324,27 @@ class CaptureForm extends React.Component<Props, State> {
       this.state.reassembleTCP
   }
 
-  private renderAdvancedLabel(classes: any, label: string, tooltip: string) {
+  private captureTypeDescription(captureType: string): string {
+    switch (captureType) {
+      case "afpacket": return "Linux 패킷 소켓 기반 수집 방식입니다. 일반 환경에서는 PCAP을 권장합니다."
+      case "sflow": return "샘플링 기반 트래픽 수집 방식입니다."
+      case "dpdk": return "고성능 패킷 처리 환경에서 사용하는 방식입니다."
+      case "ovsmirror": return "OVS 미러링 기반 캡처 방식입니다."
+      case "pcap":
+      default: return "일반적인 패킷 캡처 방식입니다. 기본값으로 권장합니다."
+    }
+  }
+
+  private renderAdvancedLabel(classes: any, label: string, changed = false, tooltip?: string) {
     return (
       <span className={classes.advancedOptionLabel}>
         {label}
-        <Tooltip title={tooltip} arrow>
-          <HelpOutlineIcon />
-        </Tooltip>
+        {tooltip &&
+          <Tooltip title={tooltip} arrow>
+            <HelpOutlineIcon />
+          </Tooltip>
+        }
+        {changed && <em>변경됨</em>}
       </span>
     )
   }
@@ -687,7 +700,7 @@ class CaptureForm extends React.Component<Props, State> {
                             <div className={classes.advancedOptionBlock}>
                               <FormControl variant="outlined" fullWidth className={classes.compactField}>
                                 <InputLabel id="capture-type-label">
-                                  {this.renderAdvancedLabel(classes, translate("Capture Type"), "패킷을 수집하는 방식을 선택합니다. 일반적으로 PCAP을 사용합니다.")}
+                                  {this.renderAdvancedLabel(classes, translate("Capture Type"), captureType !== defaultCaptureType, "패킷을 수집하는 방식을 선택합니다. 일반적으로 PCAP을 사용합니다.")}
                                 </InputLabel>
                                 <Select
                                   id="capture-type"
@@ -695,20 +708,30 @@ class CaptureForm extends React.Component<Props, State> {
                                   value={captureType}
                                   onChange={this.handleChange("captureType")}
                                   label={translate("Capture Type")}>
-                                  <MenuItem value="pcap" disabled={!isPcapEligible} title={!isPcapEligible ? "현재 환경에서 사용할 수 없습니다." : ""}>PCAP</MenuItem>
-                                  <MenuItem value="afpacket" disabled={!isAfpacketEligible} title={!isAfpacketEligible ? "현재 환경에서 사용할 수 없습니다." : ""}>AFPacket</MenuItem>
-                                  <MenuItem value="sflow" disabled={!isSflowEligible} title={!isSflowEligible ? "현재 환경에서 사용할 수 없습니다." : ""}>sFlow</MenuItem>
-                                  <MenuItem value="dpdk" disabled={!isDPDKPort} title={!isDPDKPort ? "현재 환경에서 사용할 수 없습니다." : ""}>DPDK</MenuItem>
-                                  <MenuItem value="ovsmirror" disabled={!isOvsMirrorEligible} title={!isOvsMirrorEligible ? "현재 환경에서 사용할 수 없습니다." : ""}>OVS Mirror</MenuItem>
+                                  <MenuItem value="pcap" disabled={!isPcapEligible}>
+                                    <span className={classes.advancedMenuItem}><strong>PCAP</strong><small>{isPcapEligible ? this.captureTypeDescription("pcap") : "현재 환경에서 사용할 수 없습니다."}</small></span>
+                                  </MenuItem>
+                                  <MenuItem value="afpacket" disabled={!isAfpacketEligible}>
+                                    <span className={classes.advancedMenuItem}><strong>AFPacket</strong><small>{isAfpacketEligible ? this.captureTypeDescription("afpacket") : "현재 환경에서 사용할 수 없습니다."}</small></span>
+                                  </MenuItem>
+                                  <MenuItem value="sflow" disabled={!isSflowEligible}>
+                                    <span className={classes.advancedMenuItem}><strong>sFlow</strong><small>{isSflowEligible ? this.captureTypeDescription("sflow") : "현재 환경에서 사용할 수 없습니다."}</small></span>
+                                  </MenuItem>
+                                  <MenuItem value="dpdk" disabled={!isDPDKPort}>
+                                    <span className={classes.advancedMenuItem}><strong>DPDK</strong><small>{isDPDKPort ? this.captureTypeDescription("dpdk") : "현재 환경에서 사용할 수 없습니다."}</small></span>
+                                  </MenuItem>
+                                  <MenuItem value="ovsmirror" disabled={!isOvsMirrorEligible}>
+                                    <span className={classes.advancedMenuItem}><strong>OVS Mirror</strong><small>{isOvsMirrorEligible ? this.captureTypeDescription("ovsmirror") : "현재 환경에서 사용할 수 없습니다."}</small></span>
+                                  </MenuItem>
                                 </Select>
                               </FormControl>
-                              <small>패킷을 수집하는 방식을 선택합니다. 기본값: PCAP</small>
+                              <small>{this.captureTypeDescription(captureType)}</small>
                             </div>
 
                             <div className={classes.advancedOptionBlock}>
                               <FormControl variant="outlined" fullWidth className={classes.compactField}>
                                 <InputLabel id="layer-key-label">
-                                  {this.renderAdvancedLabel(classes, translate("Layers used for Flow Key"), "플로우를 어떤 네트워크 계층 기준으로 묶을지 선택합니다. 일반적으로 L3를 사용합니다.")}
+                                  {this.renderAdvancedLabel(classes, translate("Layers used for Flow Key"), this.state.layerKey !== "L3")}
                                 </InputLabel>
                                 <Select
                                   id="layer-key"
@@ -725,7 +748,7 @@ class CaptureForm extends React.Component<Props, State> {
 
                             <div className={classes.advancedOptionBlock}>
                               {this.renderCompactTextField(classes, {
-                                label: this.renderAdvancedLabel(classes, translate("Header size"), "저장할 패킷 헤더 길이를 제한합니다. 비워두면 기본값을 사용합니다."),
+                                label: this.renderAdvancedLabel(classes, translate("Header size"), this.state.headerSize !== ""),
                                 type: "number",
                                 value: this.state.headerSize,
                                 onChange: this.handleChange("headerSize"),
@@ -737,7 +760,7 @@ class CaptureForm extends React.Component<Props, State> {
 
                             <div className={classes.advancedOptionBlock}>
                               {this.renderCompactTextField(classes, {
-                                label: this.renderAdvancedLabel(classes, translate("Raw packet limit"), "PCAP 다운로드에 사용할 원시 패킷 수를 제한합니다. 0이면 원시 패킷을 저장하지 않습니다."),
+                                label: this.renderAdvancedLabel(classes, translate("Raw packet limit"), this.state.rawPacketLimit !== "10"),
                                 type: "number",
                                 value: this.state.rawPacketLimit,
                                 onChange: this.handleChange("rawPacketLimit"),
@@ -756,19 +779,25 @@ class CaptureForm extends React.Component<Props, State> {
                           </header>
                           <div className={classes.advancedCheckList}>
                             <div>
-                              <FormControlLabel control={<Checkbox checked={this.state.extraTCPMetric} onChange={this.handleChange("extraTCPMetric")} color="primary" />} label={this.renderAdvancedLabel(classes, translate("Extra TCP metric"), "TCP 지연, 재전송 등 추가 분석 정보를 수집합니다. 캡처 부하가 증가할 수 있습니다.")} />
-                              <small>TCP 지연, 재전송 등 추가 분석 정보를 수집합니다.</small>
-                              <em>성능 영향</em>
+                              <Checkbox checked={this.state.extraTCPMetric} onChange={this.handleChange("extraTCPMetric")} color="primary" />
+                              <span>
+                                <strong>{translate("Extra TCP metric")} <em>성능 영향</em>{this.state.extraTCPMetric && <i>변경됨</i>}</strong>
+                                <small>TCP 지연, 재전송 등 추가 분석 정보를 수집합니다.</small>
+                              </span>
                             </div>
                             <div>
-                              <FormControlLabel control={<Checkbox checked={this.state.defragIPv4} onChange={this.handleChange("defragIPv4")} color="primary" />} label={this.renderAdvancedLabel(classes, translate("Defragment IPv4 packets"), "분할된 IPv4 패킷을 다시 조립해 분석합니다. 분석 정확도는 높아질 수 있으나 부하가 증가합니다.")} />
-                              <small>분할된 IPv4 패킷을 다시 조립해 분석합니다.</small>
-                              <em>성능 영향</em>
+                              <Checkbox checked={this.state.defragIPv4} onChange={this.handleChange("defragIPv4")} color="primary" />
+                              <span>
+                                <strong>{translate("Defragment IPv4 packets")} <em>성능 영향</em>{this.state.defragIPv4 && <i>변경됨</i>}</strong>
+                                <small>분할된 IPv4 패킷을 다시 조립해 분석합니다.</small>
+                              </span>
                             </div>
                             <div>
-                              <FormControlLabel control={<Checkbox checked={this.state.reassembleTCP} onChange={this.handleChange("reassembleTCP")} color="primary" />} label={this.renderAdvancedLabel(classes, translate("Reassemble TCP packets"), "TCP 스트림을 재조립해 상위 프로토콜 분석에 활용합니다. HTTP/TLS 분석에 유용하지만 부하가 증가합니다.")} />
-                              <small>TCP 스트림을 재조립해 상위 프로토콜 분석에 활용합니다.</small>
-                              <em>성능 영향 · 파일 크기 증가</em>
+                              <Checkbox checked={this.state.reassembleTCP} onChange={this.handleChange("reassembleTCP")} color="primary" />
+                              <span>
+                                <strong>{translate("Reassemble TCP packets")} <em>성능 영향 · 파일 크기 증가</em>{this.state.reassembleTCP && <i>변경됨</i>}</strong>
+                                <small>TCP 스트림을 재조립해 상위 프로토콜 분석에 활용합니다.</small>
+                              </span>
                             </div>
                           </div>
                         </section>
