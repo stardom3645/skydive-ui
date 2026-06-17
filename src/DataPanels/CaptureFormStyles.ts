@@ -34,7 +34,7 @@ export const styles = (theme: Theme) => createStyles({
         background: 'var(--netdive-detail-bg, #fff)',
         border: '1px solid var(--netdive-detail-border, #dbe7f5)',
         borderRadius: 16,
-        padding: theme.spacing(1.5),
+        padding: theme.spacing(1.35),
         boxShadow: '0 10px 26px rgba(15, 23, 42, 0.06)',
         minWidth: 0,
     },
@@ -95,7 +95,7 @@ export const styles = (theme: Theme) => createStyles({
     targetCard: {
         border: '1px solid var(--netdive-detail-border, #dbe7f5)',
         borderRadius: 14,
-        padding: theme.spacing(1.2),
+        padding: theme.spacing(1),
         background: '#fff',
     },
     sectionLabel: {
@@ -112,7 +112,7 @@ export const styles = (theme: Theme) => createStyles({
         gap: theme.spacing(0.7),
         '& strong': {
             color: 'var(--netdive-detail-text, #0f172a)',
-            fontSize: 17,
+            fontSize: 16,
             lineHeight: 1.25,
         },
         '& span': {
@@ -128,8 +128,8 @@ export const styles = (theme: Theme) => createStyles({
     targetInfoGrid: {
         display: 'grid',
         gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-        gap: theme.spacing(0.8),
-        marginTop: theme.spacing(1.2),
+        gap: theme.spacing(0.65, 0.9),
+        marginTop: theme.spacing(0.9),
         '& div': {
             minWidth: 0,
         },
@@ -149,39 +149,39 @@ export const styles = (theme: Theme) => createStyles({
         }
     },
     simpleSettings: {
-        marginTop: theme.spacing(1.5),
+        marginTop: theme.spacing(1.15),
         borderTop: '1px solid var(--netdive-detail-border, #dbe7f5)',
-        paddingTop: theme.spacing(1.3),
+        paddingTop: theme.spacing(1.1),
     },
     simpleApiBanner: {
         display: 'grid',
-        gridTemplateColumns: '22px minmax(0, 1fr)',
-        gap: theme.spacing(0.8),
-        alignItems: 'start',
-        marginTop: theme.spacing(1),
-        marginBottom: theme.spacing(0.6),
-        padding: theme.spacing(1),
-        border: '1px solid #bfdbfe',
-        borderRadius: 12,
-        background: '#eff6ff',
-        color: '#1e3a8a',
+        gridTemplateColumns: '16px minmax(0, 1fr)',
+        gap: theme.spacing(0.65),
+        alignItems: 'center',
+        marginTop: theme.spacing(0.85),
+        marginBottom: theme.spacing(0.35),
+        padding: theme.spacing(0.65, 0.8),
+        border: '1px solid rgba(219, 231, 245, 0.9)',
+        borderRadius: 10,
+        background: '#f8fafc',
+        color: 'var(--netdive-detail-muted, #64748b)',
         '& svg': {
-            width: 18,
-            height: 18,
-            marginTop: 1,
-            color: '#1a73e8',
+            width: 15,
+            height: 15,
+            color: '#64748b',
         },
         '& strong': {
-            display: 'block',
-            fontSize: 12.5,
+            display: 'inline',
+            color: 'var(--netdive-detail-text, #0f172a)',
+            fontSize: 11.8,
             fontWeight: 800,
-            lineHeight: 1.25,
+            lineHeight: 1.35,
+            marginRight: 6,
         },
         '& span': {
-            display: 'block',
-            marginTop: 3,
+            display: 'inline',
             fontSize: 11.5,
-            lineHeight: 1.45,
+            lineHeight: 1.35,
         }
     },
     settingRow: {
@@ -300,7 +300,9 @@ export const styles = (theme: Theme) => createStyles({
         justifyContent: 'space-between',
         alignItems: 'center',
         gap: theme.spacing(1),
-        marginTop: theme.spacing(1.2),
+        marginTop: theme.spacing(1),
+        paddingTop: theme.spacing(1),
+        borderTop: '1px solid rgba(219, 231, 245, 0.75)',
     },
     advancedToggle: {
         color: '#1a73e8',
@@ -389,23 +391,44 @@ export const styles = (theme: Theme) => createStyles({
     wizardHelpPanel: {
         display: 'flex',
         flexDirection: 'column',
-        gap: theme.spacing(1),
         minWidth: 0,
     },
-    captureSideCard: {
+    capturePreflightPanel: {
         border: '1px solid var(--netdive-detail-border, #dbe7f5)',
-        borderRadius: 14,
+        borderRadius: 16,
         background: 'var(--netdive-detail-bg, #fff)',
-        padding: theme.spacing(1.1),
+        padding: theme.spacing(1.15),
         boxShadow: '0 8px 20px rgba(15, 23, 42, 0.04)',
+    },
+    preflightPanelHeader: {
+        paddingBottom: theme.spacing(0.9),
+        marginBottom: theme.spacing(0.9),
+        borderBottom: '1px solid rgba(219, 231, 245, 0.8)',
+        '& strong': {
+            display: 'block',
+            color: 'var(--netdive-detail-text, #0f172a)',
+            fontSize: 14,
+            fontWeight: 900,
+            lineHeight: 1.25,
+        },
+        '& span': {
+            display: 'block',
+            marginTop: 3,
+            color: 'var(--netdive-detail-muted, #64748b)',
+            fontSize: 11.5,
+            lineHeight: 1.45,
+        }
+    },
+    preflightSection: {
+        paddingBottom: theme.spacing(1),
+        marginBottom: theme.spacing(1),
+        borderBottom: '1px solid rgba(219, 231, 245, 0.65)',
     },
     sideCardTitle: {
         display: 'flex',
         alignItems: 'center',
         gap: theme.spacing(0.7),
-        paddingBottom: theme.spacing(0.8),
         marginBottom: theme.spacing(0.8),
-        borderBottom: '1px solid rgba(219, 231, 245, 0.8)',
         color: 'var(--netdive-detail-text, #0f172a)',
         '& svg': {
             width: 17,
@@ -445,9 +468,10 @@ export const styles = (theme: Theme) => createStyles({
     },
     captureCautionCard: {
         border: '1px solid #fde68a',
-        borderRadius: 14,
+        borderRadius: 12,
         background: '#fffbeb',
-        padding: theme.spacing(1.1),
+        padding: theme.spacing(0.95),
+        marginBottom: theme.spacing(1),
         color: '#78350f',
         '& strong': {
             display: 'block',
@@ -547,9 +571,9 @@ export const styles = (theme: Theme) => createStyles({
     },
     button: {
         borderRadius: 10,
-        boxShadow: '0 8px 18px rgba(26, 115, 232, 0.22)',
+        boxShadow: '0 6px 14px rgba(26, 115, 232, 0.16)',
         fontWeight: 700,
-        padding: '7px 14px',
+        padding: '7px 13px',
     },
     advanced: {
         width: '100%',

@@ -805,56 +805,63 @@ class CaptureForm extends React.Component<Props, State> {
             </section>
 
             <aside className={classes.wizardHelpPanel}>
-              <div className={classes.captureSideCard}>
-                <div className={classes.sideCardTitle}>
-                  <VideocamIcon />
-                  <strong>캡처 요약</strong>
+              <div className={classes.capturePreflightPanel}>
+                <div className={classes.preflightPanelHeader}>
+                  <strong>시작 전 확인</strong>
+                  <span>현재 캡처 설정을 확인합니다.</span>
                 </div>
-                <div className={classes.captureSummaryRows}>
-                  <div>
-                    <span>대상</span>
-                    <strong>{this.props.defaultName || this.props.node?.data?.Name || "-"}</strong>
-                  </div>
-                  <div>
-                    <span>유형</span>
-                    <strong>{this.targetTypeLabel(this.props.node)}</strong>
-                  </div>
-                  <div>
-                    <span>범위</span>
-                    <strong>{this.captureScopeLabel()}</strong>
-                  </div>
-                  <div>
-                    <span>시간</span>
-                    <strong>{this.captureDurationLabel()}</strong>
-                  </div>
-                  <div>
-                    <span>필터</span>
-                    <strong title={this.filterSummaryLabel()}>{this.filterSummaryLabel()}</strong>
-                  </div>
-                </div>
-              </div>
 
-              <div className={classes.captureCautionCard}>
-                <strong>캡처 시 유의사항</strong>
-                <ul>
-                  <li>캡처 중에는 성능에 영향을 줄 수 있습니다.</li>
-                  <li>캡처 파일에는 민감한 정보가 포함될 수 있습니다.</li>
-                  <li>필요한 시간만 짧게 캡처하세요.</li>
-                </ul>
-              </div>
-
-              <Accordion className={classes.captureHelpAccordion}>
-                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                  <Typography component="h3">캡처 도움말</Typography>
-                </AccordionSummary>
-                <AccordionDetails>
-                  <div>
-                    <p>패킷 캡처는 대상 정보를 확인하고 안전한 기본값으로 시작합니다.</p>
-                    <p>캡처 완료 후 오른쪽 상세 패널에서 결과 상태를 확인할 수 있습니다.</p>
-                    <p>필요하면 고급 옵션에서 세부 설정을 변경할 수 있습니다.</p>
+                <section className={classes.preflightSection}>
+                  <div className={classes.sideCardTitle}>
+                    <VideocamIcon />
+                    <strong>캡처 요약</strong>
                   </div>
-                </AccordionDetails>
-              </Accordion>
+                  <div className={classes.captureSummaryRows}>
+                    <div>
+                      <span>대상</span>
+                      <strong>{this.props.defaultName || this.props.node?.data?.Name || "-"}</strong>
+                    </div>
+                    <div>
+                      <span>유형</span>
+                      <strong>{this.targetTypeLabel(this.props.node)}</strong>
+                    </div>
+                    <div>
+                      <span>범위</span>
+                      <strong>{this.captureScopeLabel()}</strong>
+                    </div>
+                    <div>
+                      <span>시간</span>
+                      <strong>{this.captureDurationLabel()}</strong>
+                    </div>
+                    <div>
+                      <span>필터</span>
+                      <strong title={this.filterSummaryLabel()}>{this.filterSummaryLabel()}</strong>
+                    </div>
+                  </div>
+                </section>
+
+                <section className={classes.captureCautionCard}>
+                  <strong>캡처 시 유의사항</strong>
+                  <ul>
+                    <li>캡처 중에는 성능에 영향을 줄 수 있습니다.</li>
+                    <li>캡처 파일에는 민감한 정보가 포함될 수 있습니다.</li>
+                    <li>필요한 시간만 짧게 캡처하세요.</li>
+                  </ul>
+                </section>
+
+                <Accordion className={classes.captureHelpAccordion}>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                    <Typography component="h3">캡처 도움말</Typography>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <div>
+                      <p>패킷 캡처는 대상 정보를 확인하고 안전한 기본값으로 시작합니다.</p>
+                      <p>캡처 완료 후 오른쪽 상세 패널에서 결과 상태를 확인할 수 있습니다.</p>
+                      <p>필요하면 고급 옵션에서 세부 설정을 변경할 수 있습니다.</p>
+                    </div>
+                  </AccordionDetails>
+                </Accordion>
+              </div>
             </aside>
           </div>
         } />
