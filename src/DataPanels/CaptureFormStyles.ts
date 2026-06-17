@@ -705,8 +705,9 @@ export const styles = (theme: Theme) => createStyles({
         '& > header strong': {
             display: 'block',
             color: 'var(--netdive-detail-text, #0f172a)',
-            fontSize: 13.5,
+            fontSize: 15,
             fontWeight: 900,
+            lineHeight: 1.25,
         },
         '& > header small': {
             display: 'block',
@@ -747,7 +748,7 @@ export const styles = (theme: Theme) => createStyles({
         gap: 5,
         minWidth: 0,
         color: 'var(--netdive-detail-text, #0f172a)',
-        fontSize: 13.25,
+        fontSize: 13,
         fontWeight: 800,
         lineHeight: 1.25,
         '& svg': {
@@ -789,22 +790,22 @@ export const styles = (theme: Theme) => createStyles({
     },
     advancedCheckList: {
         display: 'grid',
-        gap: theme.spacing(0.65),
+        gap: theme.spacing(0.45),
         '& > div': {
             position: 'relative',
             display: 'grid',
-            gridTemplateColumns: '30px minmax(0, 1fr)',
-            gap: theme.spacing(0.4),
+            gridTemplateColumns: '26px minmax(0, 1fr)',
+            gap: theme.spacing(0.35),
             alignItems: 'start',
             border: '1px solid rgba(219, 231, 245, 0.9)',
-            borderRadius: 11,
+            borderRadius: 10,
             background: '#f8fafc',
-            padding: theme.spacing(0.45, 0.75, 0.55),
+            padding: theme.spacing(0.3, 0.65, 0.4),
             minWidth: 0,
         },
         '& .MuiCheckbox-root': {
-            padding: 6,
-            marginTop: -5,
+            padding: 4,
+            marginTop: -4,
         },
         '& span': {
             display: 'block',
@@ -818,14 +819,14 @@ export const styles = (theme: Theme) => createStyles({
             color: 'var(--netdive-detail-text, #0f172a)',
             fontSize: 12.5,
             fontWeight: 800,
-            lineHeight: 1.35,
+            lineHeight: 1.25,
         },
         '& small': {
             display: 'block',
-            marginTop: 2,
+            marginTop: 1,
             color: 'var(--netdive-detail-muted, #64748b)',
-            fontSize: 11.3,
-            lineHeight: 1.45,
+            fontSize: 11.1,
+            lineHeight: 1.3,
         },
         '& em': {
             display: 'inline-flex',

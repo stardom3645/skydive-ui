@@ -18,7 +18,6 @@ import PlayArrowIcon from '@material-ui/icons/PlayArrow'
 import CheckCircleIcon from '@material-ui/icons/CheckCircle'
 import WarningIcon from '@material-ui/icons/Warning'
 import ErrorOutlineIcon from '@material-ui/icons/ErrorOutline'
-import HelpOutlineIcon from '@material-ui/icons/HelpOutline'
 
 import { Node } from '../Topology'
 import { Configuration } from '../api/configuration'
@@ -28,7 +27,6 @@ import { styles } from './CaptureFormStyles'
 import { AppState, session } from '../Store'
 import { connect } from 'react-redux'
 import { translate } from "../Config"
-import Tooltip from '@material-ui/core/Tooltip'
 import { SimpleCaptureSession } from './CaptureStatus'
 
 function Alert(props) {
@@ -334,15 +332,21 @@ class CaptureForm extends React.Component<Props, State> {
     }
   }
 
-  private renderAdvancedLabel(classes: any, label: string, changed = false, tooltip?: string) {
+  private captureTypeLabel(captureType: string): string {
+    switch (captureType) {
+      case "afpacket": return "AFPacket"
+      case "sflow": return "sFlow"
+      case "dpdk": return "DPDK"
+      case "ovsmirror": return "OVS Mirror"
+      case "pcap":
+      default: return "PCAP"
+    }
+  }
+
+  private renderAdvancedLabel(classes: any, label: string, changed = false) {
     return (
       <span className={classes.advancedOptionLabel}>
         {label}
-        {tooltip &&
-          <Tooltip title={tooltip} arrow>
-            <HelpOutlineIcon />
-          </Tooltip>
-        }
         {changed && <em>변경됨</em>}
       </span>
     )
@@ -698,12 +702,13 @@ class CaptureForm extends React.Component<Props, State> {
                           <div className={classes.advancedGrid}>
                             <div className={classes.advancedOptionBlock}>
                               <div className={classes.advancedFieldLabel}>
-                                {this.renderAdvancedLabel(classes, translate("Capture Type"), captureType !== defaultCaptureType, "패킷을 수집하는 방식을 선택합니다. 일반적으로 PCAP을 사용합니다.")}
+                                {this.renderAdvancedLabel(classes, translate("Capture Type"), captureType !== defaultCaptureType)}
                               </div>
                               <FormControl variant="outlined" fullWidth className={classes.compactField}>
                                 <Select
                                   id="capture-type"
                                   value={captureType}
+                                  renderValue={(value) => this.captureTypeLabel(String(value))}
                                   onChange={this.handleChange("captureType")}>
                                   <MenuItem value="pcap" disabled={!isPcapEligible}>
                                     <span className={classes.advancedMenuItem}><strong>PCAP</strong><small>{isPcapEligible ? this.captureTypeDescription("pcap") : "현재 환경에서 사용할 수 없습니다."}</small></span>
@@ -722,7 +727,7 @@ class CaptureForm extends React.Component<Props, State> {
                                   </MenuItem>
                                 </Select>
                               </FormControl>
-                              <small>{this.captureTypeDescription(captureType)}</small>
+                              <small>{captureType === defaultCaptureType ? "기본값으로 권장합니다." : this.captureTypeDescription(captureType)}</small>
                             </div>
 
                             <div className={classes.advancedOptionBlock}>
@@ -767,7 +772,7 @@ class CaptureForm extends React.Component<Props, State> {
                                 error: !!this.state.rawPacketLimit && !this.isRawPacketLimitValid(),
                                 helperText: !!this.state.rawPacketLimit && !this.isRawPacketLimitValid() ? translate("capture-rawPacketLimit-validation-error") : ""
                               })}
-                              <small>PCAP 저장 패킷 수입니다. 기본값: 10</small>
+                              <small>PCAP용 원시 패킷을 최대 10개 저장합니다. 0은 저장 안 함</small>
                             </div>
                           </div>
                         </section>
