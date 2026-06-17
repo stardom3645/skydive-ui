@@ -595,7 +595,7 @@ const styles = (theme: Theme) => createStyles({
     gap: theme.spacing(1),
   },
   captureStatusCard: {
-    padding: theme.spacing(1.55),
+    padding: theme.spacing(1.35),
     border: '1px solid rgba(226, 232, 240, 0.94)',
     borderRadius: 16,
     background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 252, 255, 0.92))',
@@ -623,9 +623,9 @@ const styles = (theme: Theme) => createStyles({
   captureMetaGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-    gap: theme.spacing(0.85, 1.4),
-    marginTop: theme.spacing(1.2),
-    paddingTop: theme.spacing(1.05),
+    gap: theme.spacing(0.65, 1.2),
+    marginTop: theme.spacing(0.85),
+    paddingTop: theme.spacing(0.75),
     borderTop: '1px solid rgba(226, 232, 240, 0.86)',
     '& div': {
       minWidth: 0,
@@ -679,7 +679,7 @@ const styles = (theme: Theme) => createStyles({
     },
   },
   captureProgressPanel: {
-    marginTop: theme.spacing(1.05),
+    marginTop: theme.spacing(0.75),
   },
   captureStatusRunning: {
     color: '#3156c9',
@@ -736,7 +736,7 @@ const styles = (theme: Theme) => createStyles({
     display: 'flex',
     alignItems: 'center',
     gap: theme.spacing(0.8),
-    marginTop: theme.spacing(0.75),
+    marginTop: theme.spacing(0.55),
     '& span': {
       color: 'var(--netdive-detail-muted, #64748b)',
       fontSize: 11,
@@ -755,7 +755,7 @@ const styles = (theme: Theme) => createStyles({
     alignItems: 'center',
     gap: theme.spacing(0.8),
     justifyContent: 'flex-end',
-    marginTop: theme.spacing(1),
+    marginTop: theme.spacing(0.75),
     flexWrap: 'wrap',
     '& .MuiButton-root': {
       borderColor: 'rgba(203, 213, 225, 0.95)',
@@ -896,8 +896,8 @@ const styles = (theme: Theme) => createStyles({
     display: 'grid',
     gap: 0,
     '& $topFlowItem:nth-child(n+2) $topFlowMain i': {
-      background: '#93a4ba',
-      opacity: 0.58,
+      background: '#9aa8ba',
+      opacity: 0.48,
     }
   },
   topFlowListScrollable: {
@@ -966,10 +966,11 @@ const styles = (theme: Theme) => createStyles({
     },
     '& i': {
       display: 'block',
-      height: 3,
+      height: 2,
       borderRadius: 999,
-      background: '#4f67c8',
-      marginTop: 9,
+      background: '#6f82d7',
+      opacity: 0.74,
+      marginTop: 7,
       maxWidth: '100%',
     },
     '& small': {
