@@ -411,11 +411,19 @@ class CaptureStatusPanel extends React.Component<Props, State> {
             <div className={classes.captureStatusHeader}>
               <div>
                 <Typography component="strong"><VideocamIcon /> {this.statusTitle()}</Typography>
-                <span>{capture.targetName || '-'} · {this.targetTypeLabel()} · {this.scopeLabel()} · 필터: {this.filterLabel()}</span>
+                <span className={classes.captureMetaLine}>
+                  <em>대상</em><b>{capture.targetName || '-'}</b>
+                  <em>유형</em><b>{this.targetTypeLabel()}</b>
+                  <em>범위</em><b>{this.scopeLabel()}</b>
+                  <em>필터</em><b>{this.filterLabel()}</b>
+                </span>
               </div>
-              <em className={statusBadgeClass}>
-                {this.statusLabel(isRunning, isDone)}
-              </em>
+              <div className={classes.captureHeroControls}>
+                <em className={statusBadgeClass}>
+                  {this.statusLabel(isRunning, isDone)}
+                </em>
+                <button type="button" onClick={this.props.onClear}>접기</button>
+              </div>
             </div>
 
             <div className={classes.captureProgressPanel}>
@@ -616,29 +624,62 @@ const styles = (theme: Theme) => createStyles({
         color: '#0f172a',
       }
     },
-    '& span': {
-      display: 'block',
-      marginTop: 3,
-      color: 'var(--netdive-detail-muted, #64748b)',
-      fontSize: 12,
-    },
+  },
+  captureMetaLine: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: '4px 8px',
+    marginTop: 7,
+    color: 'var(--netdive-detail-muted, #64748b)',
+    fontSize: 11.5,
+    lineHeight: 1.45,
     '& em': {
-      alignSelf: 'flex-start',
+      fontStyle: 'normal',
+      color: '#94a3b8',
+      fontWeight: 800,
+    },
+    '& b': {
+      color: 'var(--netdive-detail-text, #0f172a)',
+      fontWeight: 800,
+    },
+  },
+  captureHeroControls: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: theme.spacing(0.5),
+    flex: '0 0 auto',
+    '& em': {
       borderRadius: 999,
       padding: '4px 8px',
       fontStyle: 'normal',
       fontSize: 11,
       fontWeight: 800,
       whiteSpace: 'nowrap',
-    }
+    },
+    '& button': {
+      appearance: 'none',
+      border: 0,
+      background: 'transparent',
+      color: 'var(--netdive-detail-muted, #64748b)',
+      borderRadius: 7,
+      padding: '4px 6px',
+      fontSize: 11,
+      fontWeight: 800,
+      cursor: 'pointer',
+      '&:hover': {
+        color: '#1a73e8',
+        background: '#f3f8ff',
+      }
+    },
   },
   captureProgressPanel: {
     marginTop: theme.spacing(1.05),
   },
   captureStatusRunning: {
-    color: '#1d4ed8',
-    background: '#eff6ff',
-    border: '1px solid #bfdbfe',
+    color: '#3156c9',
+    background: '#eef4ff',
+    border: '1px solid #c7d7fe',
   },
   captureStatusDone: {
     color: '#15803d',
@@ -664,18 +705,22 @@ const styles = (theme: Theme) => createStyles({
     },
     '& strong': {
       display: 'block',
-      color: '#1d4ed8',
-      fontSize: 34,
+      color: '#3156c9',
+      fontSize: 29,
       lineHeight: 1.2,
-      fontWeight: 900,
+      fontWeight: 800,
       letterSpacing: '-0.03em',
       marginTop: 2,
     }
   },
   captureProgress: {
     flex: 1,
-    height: 8,
+    height: 6,
     borderRadius: 999,
+    backgroundColor: '#e5e7eb',
+    '& .MuiLinearProgress-barColorPrimary': {
+      backgroundColor: '#4f67c8',
+    }
   },
   captureProgressRow: {
     display: 'flex',
@@ -757,7 +802,7 @@ const styles = (theme: Theme) => createStyles({
     appearance: 'none',
     border: 0,
     background: 'transparent',
-    color: '#1a73e8',
+    color: '#3156c9',
     fontSize: 12,
     fontWeight: 800,
     cursor: 'pointer',
@@ -769,7 +814,7 @@ const styles = (theme: Theme) => createStyles({
   },
   captureMetricGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
     gap: 0,
     borderRadius: 14,
     background: 'transparent',
@@ -779,34 +824,32 @@ const styles = (theme: Theme) => createStyles({
       borderLeft: '1px solid rgba(226, 232, 240, 0.92)',
       '&:first-child': {
         borderLeft: 0,
-      }
-    },
-    '@media (max-width: 520px)': {
-      gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-      '& $captureMetricItem:nth-child(3)': {
+      },
+      '&:nth-child(3)': {
         borderLeft: 0,
         borderTop: '1px solid rgba(226, 232, 240, 0.92)',
       },
-      '& $captureMetricItem:nth-child(4)': {
+      '&:nth-child(4)': {
         borderTop: '1px solid rgba(226, 232, 240, 0.92)',
-      },
+      }
     },
   },
   captureMetricItem: {
     display: 'grid',
-    gridTemplateColumns: '34px minmax(0, 1fr)',
-    gap: theme.spacing(0.75),
+    gridTemplateColumns: '38px minmax(0, 1fr)',
+    gap: theme.spacing(0.85),
     alignItems: 'center',
     minWidth: 0,
-    padding: theme.spacing(0.95, 1),
+    minHeight: 76,
+    padding: theme.spacing(1.05, 1),
     boxSizing: 'border-box',
   },
   captureMetricIcon: {
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    width: 30,
-    height: 30,
+    width: 32,
+    height: 32,
     borderRadius: 999,
     '& svg': {
       width: 17,
@@ -814,20 +857,20 @@ const styles = (theme: Theme) => createStyles({
     }
   },
   captureMetricTraffic: {
-    color: '#2563eb',
-    background: '#e8f2ff',
+    color: '#475569',
+    background: '#eef4ff',
   },
   captureMetricFlow: {
-    color: '#059669',
-    background: '#dcfce7',
+    color: '#3f7f67',
+    background: '#e9f7ef',
   },
   captureMetricPeer: {
-    color: '#7c3aed',
-    background: '#f3e8ff',
+    color: '#6750a4',
+    background: '#f1edff',
   },
   captureMetricProtocol: {
-    color: '#ea580c',
-    background: '#ffedd5',
+    color: '#8a5a2b',
+    background: '#f7efe5',
   },
   captureMetricBody: {
     minWidth: 0,
@@ -842,7 +885,7 @@ const styles = (theme: Theme) => createStyles({
     '& strong': {
       display: 'block',
       color: 'var(--netdive-detail-text, #0f172a)',
-      fontSize: 17,
+      fontSize: 18,
       fontWeight: 900,
       overflow: 'hidden',
       textOverflow: 'ellipsis',
@@ -908,8 +951,8 @@ const styles = (theme: Theme) => createStyles({
     width: 24,
     height: 24,
     borderRadius: 999,
-    background: '#e8f2ff',
-    color: '#1d4ed8',
+    background: '#eef4ff',
+    color: '#3156c9',
     fontSize: 11,
     fontWeight: 900,
   },
@@ -938,7 +981,7 @@ const styles = (theme: Theme) => createStyles({
       display: 'block',
       height: 3,
       borderRadius: 999,
-      background: '#2563eb',
+      background: '#4f67c8',
       marginTop: 8,
       maxWidth: '100%',
     },
