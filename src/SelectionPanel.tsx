@@ -28,7 +28,7 @@ import { withStyles } from '@material-ui/core/styles'
 import { Node, Link } from './Topology'
 import DataPanel from './StdDataPanel'
 import { a11yProps, TabPanel } from './Tabs'
-import { AppState } from './Store'
+import { AppState, session } from './Store'
 import { styles } from './SelectionPanelStyles'
 import ConfigReducer, { translate } from './Config'
 import HostDetailPanel from './DataPanels/HostDetailPanel'
@@ -38,6 +38,7 @@ interface Props {
   classes: any
   selection: Array<Node | Link>
   revision: number
+  session: session
   onLocation?: (node: Node | Link) => void
   onClose?: (node: Node | Link) => void
   config: ConfigReducer
@@ -232,7 +233,7 @@ class SelectionPanel extends React.Component<Props, State> {
           {this.props.panelsContent && this.props.panelsContent(el)}
           <TabPanel key={"tabpanel-" + el.id} value={this.state.tab} index={i}>
             {el.type === 'node' && String(el.data?.Type || '').toLowerCase() === 'host'
-              ? <HostDetailPanel node={el as Node} />
+              ? <HostDetailPanel node={el as Node} session={this.props.session} />
               : renderDataPanels(el)
             }
           </TabPanel>
@@ -269,7 +270,8 @@ class SelectionPanel extends React.Component<Props, State> {
 
 export const mapStateToProps = (state: AppState) => ({
   selection: state.selection,
-  revision: state.selectionRevision
+  revision: state.selectionRevision,
+  session: state.session
 })
 
 export const mapDispatchToProps = ({
