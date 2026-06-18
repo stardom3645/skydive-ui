@@ -1,11 +1,6 @@
 import * as React from 'react'
-import Accordion from '@material-ui/core/Accordion'
-import AccordionSummary from '@material-ui/core/AccordionSummary'
-import AccordionDetails from '@material-ui/core/AccordionDetails'
 import IconButton from '@material-ui/core/IconButton'
 import Tooltip from '@material-ui/core/Tooltip'
-import Typography from '@material-ui/core/Typography'
-import ExpandMoreIcon from '@material-ui/icons/ExpandMore'
 import FileCopyIcon from '@material-ui/icons/FileCopy'
 import InfoIcon from '@material-ui/icons/Info'
 import StorageIcon from '@material-ui/icons/Storage'
@@ -14,7 +9,6 @@ import TimelineIcon from '@material-ui/icons/Timeline'
 import DeviceHubIcon from '@material-ui/icons/DeviceHub'
 import PowerIcon from '@material-ui/icons/Power'
 import LabelIcon from '@material-ui/icons/Label'
-import CodeIcon from '@material-ui/icons/Code'
 import SecurityIcon from '@material-ui/icons/Security'
 import RouterIcon from '@material-ui/icons/Router'
 import ArrowForwardIosIcon from '@material-ui/icons/ArrowForwardIos'
@@ -517,7 +511,6 @@ class HostDetailPanel extends React.Component<Props, State> {
     const ipList = this.ips()
     const macList = this.macs()
     const representativeIp = ipList[0] || ''
-    const kernelCmdLine = firstValue(data, ['KernelCmdLine', 'CommandLine'])
     const socketStats = this.socketStats()
     const virtualization = firstValue(data, ['VirtualizationSystem', 'Hypervisor', 'HypervisorType', 'Platform'])
     const zone = firstValue(data, ['Zone', 'ZoneName'])
@@ -559,7 +552,6 @@ class HostDetailPanel extends React.Component<Props, State> {
       { label: translate('Platform'), value: data.Platform },
       { label: translate('PlatformVersion'), value: data.PlatformVersion },
       { label: translate('KernelVersion'), value: data.KernelVersion, copy: true },
-      { label: translate('hostBootImage'), value: firstValue(data, ['BootImage', 'KernelImage', 'Image']), copy: true },
       { label: translate('hostBootTime'), value: formatDate(firstValue(data, ['BootTime', 'StartedAt', 'StartTime'])) }
     ]
 
@@ -623,22 +615,7 @@ class HostDetailPanel extends React.Component<Props, State> {
       <div className={classes.root}>
         {this.renderSection(<InfoIcon />, translate('hostOperationalStatus'), translate('hostOperationalStatusDescription'), this.renderStatusTiles(statusTiles))}
         {this.renderSection(<InfoIcon />, translate('hostBasicInfo'), translate('hostOverviewDescription'), this.renderRows(basicRows))}
-        {this.renderSection(<ComputerIcon />, translate('hostOsPlatform'), translate('hostOsPlatformDescription'), (
-          <React.Fragment>
-            {this.renderRows(osRows)}
-            {kernelCmdLine && (
-              <Accordion className={classes.inlineAccordion} TransitionProps={{ unmountOnExit: true }}>
-                <AccordionSummary className={classes.inlineSummary} expandIcon={<ExpandMoreIcon />}>
-                  <span className={classes.panelIcon}><CodeIcon /></span>
-                  <Typography>{translate('hostKernelCmdLineView')}</Typography>
-                </AccordionSummary>
-                <AccordionDetails className={classes.rawDetails}>
-                  <pre className={classes.codeBlock}>{kernelCmdLine}</pre>
-                </AccordionDetails>
-              </Accordion>
-            )}
-          </React.Fragment>
-        ))}
+        {this.renderSection(<ComputerIcon />, translate('hostOsPlatform'), translate('hostOsPlatformDescription'), this.renderRows(osRows))}
         {this.renderSection(<TimelineIcon />, translate('hostResourceUsage'), translate('hostResourceUsageDescription'), this.renderMetricGrid(resourceMetrics))}
         {this.renderSection(<DeviceHubIcon />, translate('hostConnectedResources'), translate('hostConnectedResourcesDescription'), this.renderMetricGrid(connectedMetrics, translate('hostNoConnectedResources')))}
         {this.renderSection(<RouterIcon />, translate('hostNetworkSummary'), translate('hostNetworkSummaryDescription'), this.renderMetricGrid(networkMetrics, translate('hostNetworkDetailsMissing')))}
