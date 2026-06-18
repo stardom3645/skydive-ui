@@ -11,7 +11,6 @@ import PowerIcon from '@material-ui/icons/Power'
 import LabelIcon from '@material-ui/icons/Label'
 import SecurityIcon from '@material-ui/icons/Security'
 import RouterIcon from '@material-ui/icons/Router'
-import ArrowForwardIosIcon from '@material-ui/icons/ArrowForwardIos'
 import { withStyles } from '@material-ui/core/styles'
 
 import { Node } from '../Topology'
@@ -193,7 +192,7 @@ class HostDetailPanel extends React.Component<Props, State> {
             ...asArray(nodeData.IpAddress),
             ...asArray(nodeData.ipaddress),
             ...asArray(nodeData.ManagementIP),
-            ...asArray(nodeData.ManagementIp),
+            ...asArray(nodeData.ManagementIp)
         ].map(stringify)
         const nodeKeys = uniqueStrings([
             this.props.node.id,
@@ -234,8 +233,11 @@ class HostDetailPanel extends React.Component<Props, State> {
             CPUAllocatedPercent: firstValue(host, ['CPUAllocatedPercent', 'cpuAllocatedPercent']),
             MemoryAllocatedPercent: firstValue(host, ['MemoryAllocatedPercent', 'memoryAllocatedPercent']),
             StorageUsedPercent: firstValue(host, ['StorageUsedPercent', 'storageUsedPercent']),
-            RunningVMCount: firstValue(host, ['RunningVMCount', 'runningVmCount', 'runningVMCount', 'VmCount', 'vmCount']),
-            SystemVMCount: firstValue(host, ['SystemVMCount', 'systemVmCount', 'systemVMCount'])
+            RunningVMCount: firstValue(host, ['RunningVMCount', 'runningVmCount', 'runningVMCount', 'UserVMCount', 'userVmCount', 'VmCount', 'vmCount']),
+            UserVMCount: firstValue(host, ['UserVMCount', 'userVmCount', 'RunningVMCount', 'runningVmCount', 'VmCount', 'vmCount']),
+            SystemVMCount: firstValue(host, ['SystemVMCount', 'systemVmCount', 'systemVMCount']),
+            VirtualRouterCount: firstValue(host, ['VirtualRouterCount', 'virtualRouterCount', 'RouterCount', 'routerCount', 'VRCount']),
+            NetworkCount: firstValue(host, ['NetworkCount', 'networkCount', 'ConnectedNetworkCount', 'connectedNetworkCount'])
         }
     }
 
@@ -286,7 +288,7 @@ class HostDetailPanel extends React.Component<Props, State> {
             ...asArray(data.IpAddress),
             ...asArray(data.ipaddress),
             ...asArray(data.ManagementIP),
-            ...asArray(data.ManagementIp),
+            ...asArray(data.ManagementIp)
         ].map(stringify).filter(Boolean)
     }
 
@@ -297,7 +299,7 @@ class HostDetailPanel extends React.Component<Props, State> {
             ...asArray(data.Mac),
             ...asArray(data.MACs),
             ...asArray(data.MacAddress),
-            ...asArray(data.macaddress),
+            ...asArray(data.macaddress)
         ].map(stringify).filter(Boolean)
     }
 
@@ -423,17 +425,35 @@ class HostDetailPanel extends React.Component<Props, State> {
     }
 
     private renderOsSummary(data: any) {
+        const { classes } = this.props
         const platform = firstValue(data, ['Platform', 'platform'])
         const platformVersion = firstValue(data, ['PlatformVersion', 'platformVersion', 'platformversion'])
         const os = firstValue(data, ['OS', 'Os', 'OperatingSystem'])
         const kernelVersion = firstValue(data, ['KernelVersion'])
-        const bootTime = formatDate(firstValue(data, ['BootTime', 'StartedAt', 'StartTime']))
-        const rows: KeyValueRow[] = [
-            { label: translate('Platform'), value: [platform, platformVersion, os].filter(Boolean).join(' · ') },
-            { label: translate('KernelVersion'), value: kernelVersion, copy: true },
-            { label: translate('hostBootTime'), value: bootTime }
-        ]
-        return this.renderRows(rows)
+        const platformText = [platform, platformVersion, os].filter(Boolean).join(' · ') || translate('hostNoData')
+
+        return (
+            <div className={classes.rowsCompact}>
+                <div className={classes.kvRow}>
+                    <div className={classes.kvLabel}>{translate('Platform')}</div>
+                    <div className={classes.kvValueWrap}>
+                        <Tooltip title={platformText} placement="top" arrow>
+                            <span className={classes.kvValue}>{platformText}</span>
+                        </Tooltip>
+                    </div>
+                </div>
+                {kernelVersion && (
+                    <div className={classes.kvRow}>
+                        <div className={classes.kvLabel}>{translate('KernelVersion')}</div>
+                        {this.renderValue({ label: translate('KernelVersion'), value: kernelVersion, copy: true })}
+                    </div>
+                )}
+            </div>
+        )
+    }
+
+    private hasMetricValues(items: MetricItem[]): boolean {
+        return items.some(item => item.value !== '')
     }
 
     private renderSection(icon: React.ReactNode, title: string, description: string, children: React.ReactNode, className = '') {
@@ -512,21 +532,6 @@ class HostDetailPanel extends React.Component<Props, State> {
         )
     }
 
-    private renderPath(items: string[]) {
-        const { classes } = this.props
-        const visible = items.filter(Boolean)
-        if (!visible.length) return <div className={classes.emptyState}>{translate('hostNoTopologyPath')}</div>
-        return (
-            <div className={classes.pathRow}>
-                {visible.map((item, index) => (
-                    <React.Fragment key={`${item}-${index}`}>
-                        <span className={classes.pathChip}>{item}</span>
-                        {index < visible.length - 1 && <ArrowForwardIosIcon className={classes.pathArrow} />}
-                    </React.Fragment>
-                ))}
-            </div>
-        )
-    }
 
     render() {
         const { classes, node } = this.props
@@ -540,17 +545,17 @@ class HostDetailPanel extends React.Component<Props, State> {
         const zone = firstValue(data, ['Zone', 'ZoneName'])
         const cluster = firstValue(data, ['Cluster', 'ClusterName'])
         const pod = firstValue(data, ['Pod', 'PodName'])
-        const domain = firstValue(data, ['Domain', 'DomainName'])
-        const account = firstValue(data, ['Account', 'AccountName'])
         const resourceState = firstValue(data, ['ResourceState', 'resourceState', 'AllocationState', 'allocationState'])
         const managementServer = firstValue(data, ['ManagementServer', 'ManagementIP', 'ManagementIp', 'managementIp', 'privateIpAddress'])
-        const vmCount = numberValue(data, ['VmCount', 'VMCount', 'UserVmCount', 'RunningVms', 'RunningVMCount', 'runningVmCount', 'VirtualMachineCount'])
+        const vmCount = numberValue(data, ['UserVMCount', 'userVmCount', 'VmCount', 'VMCount', 'UserVmCount', 'RunningVms', 'RunningVMCount', 'runningVmCount', 'VirtualMachineCount'])
         const systemVmCount = numberValue(data, ['SystemVmCount', 'SystemVMCount', 'systemVmCount'])
         const virtualRouterCount = numberValue(data, ['VirtualRouterCount', 'RouterCount', 'VRCount'])
         const cpuPercent = percentValue(data, ['CPUUsage', 'CpuUsage', 'CPU', 'CPUAllocatedPercent', 'cpuAllocatedPercent'])
         const memoryPercent = percentValue(data, ['MemoryUsage', 'MemUsage', 'Memory', 'MemoryAllocatedPercent', 'memoryAllocatedPercent'])
         const storagePercent = percentValue(data, ['StorageUsage', 'DiskUsage', 'Storage', 'StorageUsedPercent', 'storageUsedPercent'])
-        const networkCount = numberValue(data, ['NetworkCount', 'NetworksCount']) || asArray(data.Networks).length || asArray(data.Network).length
+        const explicitNetworkCount = numberValue(data, ['NetworkCount', 'networkCount', 'NetworksCount', 'ConnectedNetworkCount', 'connectedNetworkCount'])
+        const derivedNetworkCount = asArray(data.Networks).length || asArray(data.Network).length
+        const networkCount = explicitNetworkCount !== undefined ? explicitNetworkCount : (derivedNetworkCount > 0 ? derivedNetworkCount : undefined)
         const physicalNicCount = numberValue(data, ['PhysicalNicCount', 'PhysicalNICCount', 'NicCount', 'NICCount'])
         const bridgeCount = numberValue(data, ['BridgeCount', 'HostBridgeCount'])
         const bondCount = numberValue(data, ['BondCount', 'BondingCount'])
@@ -588,7 +593,7 @@ class HostDetailPanel extends React.Component<Props, State> {
             { label: translate('hostConnectedVMs'), value: vmCount !== undefined ? String(vmCount) : '', icon: <ComputerIcon /> },
             { label: translate('hostSystemVMs'), value: systemVmCount !== undefined ? String(systemVmCount) : '', icon: <SecurityIcon /> },
             { label: translate('hostVirtualRouters'), value: virtualRouterCount !== undefined ? String(virtualRouterCount) : '', icon: <RouterIcon /> },
-            { label: translate('hostNetworkCount'), value: networkCount ? String(networkCount) : '', icon: <SecurityIcon /> }
+            { label: translate('hostNetworkCount'), value: networkCount !== undefined ? String(networkCount) : '', icon: <SecurityIcon /> }
         ]
 
         const socketMetrics: MetricItem[] = [
@@ -603,18 +608,22 @@ class HostDetailPanel extends React.Component<Props, State> {
         const resolvedBondCount = bondCount !== undefined ? bondCount : this.interfaceCountByPattern([/\bbond\b/, /\bbonding\b/])
         const networkMetrics: MetricItem[] = [
             { label: translate('hostManagementIp'), value: managementServer || representativeIp, icon: <RouterIcon /> },
+            { label: translate('MAC'), value: macList.length ? String(macList.length) : '', icon: <SecurityIcon /> },
             { label: translate('phy-nics'), value: resolvedPhysicalNicCount !== undefined ? String(resolvedPhysicalNicCount) : '', sub: this.mainInterface() || undefined, icon: <DeviceHubIcon /> },
             { label: translate('host-bridges'), value: resolvedBridgeCount !== undefined ? String(resolvedBridgeCount) : '', icon: <RouterIcon /> },
             { label: translate('phy-bond'), value: resolvedBondCount !== undefined ? String(resolvedBondCount) : '', icon: <SecurityIcon /> }
         ]
 
-        const hasMoldRows = [zone, cluster, pod, domain, account, resourceState, managementServer, firstValue(data, ['MoldHostId', 'CloudStackHostId', 'HostId', 'HostID'])].some(value => !isBlank(value))
-        const topologyPath = [zone, cluster, pod, name]
+        const hasMoldRows = [zone, cluster, pod, resourceState, managementServer, firstValue(data, ['MoldHostId', 'CloudStackHostId', 'HostId', 'HostID'])].some(value => !isBlank(value))
         const statusTiles: StatusTile[] = [
             { label: translate('moldStatus'), value: hasMoldRows ? translate('connected') : translate('hostInfoUnavailable'), tone: hasMoldRows ? 'success' : 'muted', icon: <StorageIcon /> },
             { label: translate('hostCollectionState'), value: translate('hostStatusCollected'), tone: 'success', icon: <TimelineIcon /> },
             { label: translate('hostAgent'), value: this.statusText(), tone: this.statusText() === translate('hostStatusNormal') ? 'success' : 'warning', icon: <SecurityIcon /> }
         ]
+        const hasResourceMetrics = this.hasMetricValues(resourceMetrics)
+        const hasConnectedMetrics = this.hasMetricValues(connectedMetrics)
+        const visibleNetworkMetrics = networkMetrics.filter(item => item.value)
+        const hasNetworkSummary = visibleNetworkMetrics.length > 1
         const hasRecentSignals = eventRows.some(row => !isBlank(row.value))
 
         return (
@@ -622,11 +631,9 @@ class HostDetailPanel extends React.Component<Props, State> {
                 {this.renderSection(<InfoIcon />, translate('hostOperationalStatus'), translate('hostOperationalStatusDescription'), this.renderStatusTiles(statusTiles))}
                 {this.renderSection(<InfoIcon />, translate('hostBasicInfo'), translate('hostOverviewDescription'), this.renderRows(basicRows))}
                 {this.renderSection(<ComputerIcon />, translate('hostOsPlatform'), translate('hostOsPlatformDescription'), this.renderOsSummary(data))}
-                {this.renderSection(<TimelineIcon />, translate('hostResourceUsage'), translate('hostResourceUsageDescription'), this.renderMetricGrid(resourceMetrics))}
-                {this.renderSection(<DeviceHubIcon />, translate('hostConnectedResources'), translate('hostConnectedResourcesDescription'), this.renderMetricGrid(connectedMetrics, translate('hostNoConnectedResources')))}
-                {this.renderSection(<RouterIcon />, translate('hostNetworkSummary'), translate('hostNetworkSummaryDescription'), this.renderMetricGrid(networkMetrics, translate('hostNetworkDetailsMissing')))}
-
-                {this.renderSection(<RouterIcon />, translate('hostTopologyPath'), translate('hostTopologyPathDescription'), this.renderPath(topologyPath))}
+                {hasResourceMetrics && this.renderSection(<TimelineIcon />, translate('hostResourceUsage'), translate('hostResourceUsageDescription'), this.renderMetricGrid(resourceMetrics))}
+                {hasConnectedMetrics && this.renderSection(<DeviceHubIcon />, translate('hostConnectedResources'), translate('hostConnectedResourcesDescription'), this.renderMetricGrid(connectedMetrics, translate('hostNoConnectedResources')))}
+                {hasNetworkSummary && this.renderSection(<RouterIcon />, translate('hostNetworkSummary'), translate('hostNetworkSummaryDescription'), this.renderMetricGrid(networkMetrics, translate('hostNetworkDetailsMissing')))}
 
                 {this.renderSection(<PowerIcon />, translate('hostSocketsProcesses'), translate('hostSocketsProcessesDescription'), (
                     <React.Fragment>
