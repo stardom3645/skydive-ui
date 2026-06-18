@@ -232,7 +232,7 @@ class SelectionPanel extends React.Component<Props, State> {
           {this.props.panelsContent && this.props.panelsContent(el)}
           <TabPanel key={"tabpanel-" + el.id} value={this.state.tab} index={i}>
             {el.type === 'node' && String(el.data?.Type || '').toLowerCase() === 'host'
-              ? <HostDetailPanel node={el as Node} rawPanels={renderDataPanels(el)} />
+              ? <HostDetailPanel node={el as Node} />
               : renderDataPanels(el)
             }
           </TabPanel>

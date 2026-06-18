@@ -7,68 +7,6 @@ export const styles = (theme: Theme) => createStyles({
     gap: theme.spacing(1.5),
     color: 'var(--netdive-detail-text)'
   },
-  objectHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: theme.spacing(1.25),
-    padding: theme.spacing(1.25, 1.5),
-    border: '1px solid var(--netdive-detail-border-soft)',
-    borderRadius: 14,
-    background: 'var(--netdive-detail-card-bg, #ffffff)',
-    boxShadow: '0 8px 22px rgba(15, 23, 42, 0.045)',
-    minWidth: 0
-  },
-  objectIcon: {
-    width: 40,
-    height: 40,
-    flex: '0 0 40px',
-    borderRadius: 12,
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    color: 'var(--topology-level-label-active-text)',
-    background: 'rgba(232, 242, 255, 0.92)',
-    fontFamily: '"Font Awesome 5 Free" !important',
-    fontWeight: 900,
-    fontSize: 20
-  },
-  objectText: {
-    minWidth: 0,
-    flex: '1 1 auto'
-  },
-  objectNameRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: theme.spacing(0.75),
-    minWidth: 0
-  },
-  objectName: {
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-    fontSize: 19,
-    lineHeight: 1.2,
-    fontWeight: 800,
-    letterSpacing: '-0.02em',
-    color: 'var(--netdive-detail-text)'
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    flex: '0 0 8px',
-    borderRadius: '50%',
-    background: '#22c55e',
-    boxShadow: '0 0 0 3px rgba(34, 197, 94, 0.12)'
-  },
-  objectSubtitle: {
-    marginTop: 4,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-    color: 'var(--netdive-detail-muted, #64748b)',
-    fontSize: 12.5,
-    fontWeight: 600
-  },
   sectionCard: {
     border: '1px solid var(--netdive-detail-border-soft)',
     borderRadius: 14,
@@ -93,9 +31,9 @@ export const styles = (theme: Theme) => createStyles({
     justifyContent: 'center',
     color: 'var(--topology-level-label-active-text)',
     background: 'rgba(232, 242, 255, 0.82)',
-    fontFamily: '"Font Awesome 5 Free" !important',
-    fontWeight: 900,
-    fontSize: 13
+    '& svg': {
+      fontSize: 17
+    }
   },
   sectionTitleBlock: {
     minWidth: 0
@@ -179,6 +117,12 @@ export const styles = (theme: Theme) => createStyles({
     background: 'var(--netdive-detail-soft-card, #fbfdff)',
     minWidth: 0
   },
+  metricTileMuted: {
+    background: 'rgba(248, 250, 252, 0.78)',
+    '& $metricValue': {
+      color: 'var(--netdive-detail-muted, #64748b)'
+    }
+  },
   metricLabel: {
     color: 'var(--netdive-detail-muted, #64748b)',
     fontSize: 11.5,
@@ -222,6 +166,17 @@ export const styles = (theme: Theme) => createStyles({
     flexWrap: 'wrap',
     gap: theme.spacing(0.75),
     padding: theme.spacing(0.5, 1.5, 1.45)
+  },
+  networkNotice: {
+    margin: theme.spacing(0, 1.5, 1),
+    padding: theme.spacing(0.85, 1),
+    borderRadius: 10,
+    border: '1px solid var(--netdive-detail-border-soft)',
+    background: 'rgba(248, 250, 252, 0.86)',
+    color: 'var(--netdive-detail-muted, #64748b)',
+    fontSize: 12,
+    lineHeight: 1.45,
+    fontWeight: 600
   },
   pill: {
     display: 'inline-flex',
