@@ -40,6 +40,13 @@ interface MetricItem {
   muted?: boolean
 }
 
+interface InsightItem {
+  label: string
+  value: string
+  sub?: string
+  icon?: React.ReactNode
+}
+
 interface PillItem {
   label: string
   title?: string
@@ -208,6 +215,38 @@ class HostDetailPanel extends React.Component<Props> {
     )
   }
 
+  private renderHero(items: InsightItem[], chips: string[]) {
+    const { classes } = this.props
+    const visible = items.filter(item => item.value)
+    return (
+      <section className={classes.heroCard}>
+        <div className={classes.heroHeader}>
+          <div>
+            <div className={classes.heroTitle}>{translate('hostOperationsSummary')}</div>
+            <div className={classes.heroDescription}>{translate('hostOperationsDescription')}</div>
+          </div>
+          <div className={classes.heroChips}>
+            {chips.filter(Boolean).slice(0, 3).map(chip => <span className={classes.statusChip} key={chip}>{chip}</span>)}
+          </div>
+        </div>
+        <div className={classes.heroInsights}>
+          {visible.map(item => (
+            <div className={classes.heroInsight} key={item.label}>
+              <span className={classes.heroInsightIcon}>{item.icon || <InfoIcon />}</span>
+              <div className={classes.heroInsightText}>
+                <div className={classes.heroInsightLabel}>{item.label}</div>
+                <Tooltip title={item.value} placement="top" arrow>
+                  <div className={classes.heroInsightValue}>{item.value}</div>
+                </Tooltip>
+                {item.sub && <div className={classes.heroInsightSub}>{item.sub}</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    )
+  }
+
   private renderMetrics(items: MetricItem[]) {
     const { classes } = this.props
     const visible = items.filter(item => item.value)
@@ -305,6 +344,21 @@ class HostDetailPanel extends React.Component<Props> {
     ]
   }
 
+  private moldRows(): KeyValueRow[] {
+    const data = this.props.node.data || {}
+    return [
+      { label: translate('hostZone'), value: firstValue(data, ['Zone', 'ZoneName']) },
+      { label: translate('hostCluster'), value: firstValue(data, ['Cluster', 'ClusterName']) },
+      { label: translate('hostPod'), value: firstValue(data, ['Pod', 'PodName']) },
+      { label: translate('hostDomain'), value: firstValue(data, ['Domain', 'DomainName']) },
+      { label: translate('hostAccount'), value: firstValue(data, ['Account', 'AccountName']) },
+      { label: translate('hostMoldHostId'), value: firstValue(data, ['MoldHostId', 'CloudStackHostId', 'HostId', 'HostID']), copy: true },
+      { label: translate('hostResourceState'), value: firstValue(data, ['ResourceState']) },
+      { label: translate('hostAllocationState'), value: firstValue(data, ['AllocationState']) },
+      { label: translate('hostManagementServer'), value: firstValue(data, ['ManagementServer', 'ManagementIP', 'ManagementIp']) }
+    ]
+  }
+
   render() {
     const { classes, node } = this.props
     const data = node.data || {}
@@ -349,6 +403,32 @@ class HostDetailPanel extends React.Component<Props> {
       { label: translate('hostLocation'), value: [data.Zone, data.Rack, data.Site].map(stringify).filter(Boolean).join(' / ') }
     ]
 
+    const virtualization = firstValue(data, ['VirtualizationSystem', 'Hypervisor', 'Platform'])
+    const platform = [firstValue(data, ['OS', 'Os', 'OperatingSystem']), data.Platform, data.PlatformVersion].map(stringify).filter(Boolean).join(' · ')
+    const socketCount = this.sockets().length
+    const openPortCount = new Set(this.sockets().map(socket => stringify(socket.LocalPort || socket.Port || socket.localPort)).filter(Boolean)).size
+    const heroItems: InsightItem[] = [
+      {
+        label: translate('hostHypervisor'),
+        value: virtualization || translate('hostInfoUnavailable'),
+        sub: platform || undefined,
+        icon: <ComputerIcon />
+      },
+      {
+        label: translate('hostSocketFootprint'),
+        value: socketCount ? String(socketCount) : translate('hostInfoUnavailable'),
+        sub: openPortCount ? `${translate('hostOpenPorts')} ${openPortCount}` : undefined,
+        icon: <PowerIcon />
+      },
+      {
+        label: translate('hostRepresentativeAddress'),
+        value: representativeIp || translate('hostNoRepresentativeIp'),
+        sub: this.mainInterface() || undefined,
+        icon: <DeviceHubIcon />
+      }
+    ]
+    const heroChips = [this.statusText(), virtualization, data.Platform].map(stringify).filter(Boolean)
+
     const resourceMetrics: MetricItem[] = [
       { label: translate('hostCpuUsage'), value: percentValue(data, ['CPUUsage', 'CpuUsage', 'CPU']) !== undefined ? `${Math.round(percentValue(data, ['CPUUsage', 'CpuUsage', 'CPU'])!)}%` : '', percent: percentValue(data, ['CPUUsage', 'CpuUsage', 'CPU']) },
       { label: translate('hostMemoryUsage'), value: percentValue(data, ['MemoryUsage', 'MemUsage', 'Memory']) !== undefined ? `${Math.round(percentValue(data, ['MemoryUsage', 'MemUsage', 'Memory'])!)}%` : '', percent: percentValue(data, ['MemoryUsage', 'MemUsage', 'Memory']) },
@@ -362,10 +442,17 @@ class HostDetailPanel extends React.Component<Props> {
       { label: translate('hostNetworkCount'), value: String(networkList.length), muted: networkList.length === 0 }
     ]
     const networkDetailMissing = ipList.length === 0 && macList.length === 0 && networkList.length === 0
+    const moldRows = this.moldRows()
 
     return (
       <div className={classes.root}>
+        {this.renderHero(heroItems, heroChips)}
         {this.renderSection(<InfoIcon />, translate('hostStatusSection'), translate('hostStatusSectionDescription'), this.renderRows(statusRows))}
+        {this.renderSection(<StorageIcon />, translate('hostMoldContext'), translate('hostMoldContextDescription'), (
+          moldRows.some(row => !isBlank(row.value))
+            ? this.renderRows(moldRows)
+            : <div className={classes.emptyState}>{translate('hostMoldMissing')}</div>
+        ))}
         {this.renderSection(<StorageIcon />, translate('hostBasicInfo'), translate('hostBasicInfoDescription'), this.renderRows(basicRows))}
         {this.renderSection(<ComputerIcon />, translate('hostOsPlatform'), translate('hostOsPlatformDescription'), (
           <React.Fragment>
@@ -397,7 +484,8 @@ class HostDetailPanel extends React.Component<Props> {
         ))}
         {this.renderSection(<PowerIcon />, translate('hostSocketsProcesses'), translate('hostSocketsProcessesDescription'), (
           <React.Fragment>
-            {this.renderRows(this.socketSummary())}
+            {this.renderMetrics(this.socketSummary().map(row => ({ label: row.label, value: stringify(row.value) })))}
+            <div className={classes.subsectionLabel}>{translate('hostTopPorts')}</div>
             {this.renderPills(this.topPorts(), translate('hostNoSocketInfo'))}
           </React.Fragment>
         ))}

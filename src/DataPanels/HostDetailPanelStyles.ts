@@ -7,6 +7,114 @@ export const styles = (theme: Theme) => createStyles({
     gap: theme.spacing(1.5),
     color: 'var(--netdive-detail-text)'
   },
+  heroCard: {
+    border: '1px solid var(--netdive-detail-border-soft)',
+    borderRadius: 16,
+    background: 'linear-gradient(135deg, var(--netdive-detail-card-bg, #ffffff) 0%, var(--netdive-detail-soft-card, #f8fbff) 100%)',
+    padding: theme.spacing(1.5),
+    boxShadow: '0 12px 28px rgba(15, 23, 42, 0.045)'
+  },
+  heroHeader: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: theme.spacing(1),
+    marginBottom: theme.spacing(1.35)
+  },
+  heroTitle: {
+    color: 'var(--netdive-detail-text)',
+    fontSize: 15,
+    lineHeight: 1.25,
+    fontWeight: 850
+  },
+  heroDescription: {
+    marginTop: 4,
+    color: 'var(--netdive-detail-muted, #64748b)',
+    fontSize: 12,
+    lineHeight: 1.4,
+    fontWeight: 500
+  },
+  heroChips: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
+    gap: theme.spacing(0.5),
+    maxWidth: 160
+  },
+  statusChip: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    minHeight: 24,
+    padding: '4px 8px',
+    borderRadius: 999,
+    background: 'rgba(232, 242, 255, 0.9)',
+    color: 'var(--topology-level-label-active-text)',
+    fontSize: 11,
+    lineHeight: 1,
+    fontWeight: 800,
+    maxWidth: 116,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap'
+  },
+  heroInsights: {
+    display: 'grid',
+    gridTemplateColumns: '1fr',
+    gap: theme.spacing(0.85)
+  },
+  heroInsight: {
+    display: 'grid',
+    gridTemplateColumns: '32px minmax(0, 1fr)',
+    gap: theme.spacing(1),
+    alignItems: 'center',
+    minWidth: 0,
+    padding: theme.spacing(0.85, 1),
+    borderRadius: 12,
+    background: 'rgba(255, 255, 255, 0.72)',
+    border: '1px solid rgba(219, 231, 245, 0.72)'
+  },
+  heroInsightIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: 'var(--topology-level-label-active-text)',
+    background: 'rgba(232, 242, 255, 0.8)',
+    '& svg': {
+      fontSize: 18
+    }
+  },
+  heroInsightText: {
+    minWidth: 0
+  },
+  heroInsightLabel: {
+    color: 'var(--netdive-detail-muted, #64748b)',
+    fontSize: 11,
+    lineHeight: 1.2,
+    fontWeight: 750
+  },
+  heroInsightValue: {
+    marginTop: 3,
+    color: 'var(--netdive-detail-text)',
+    fontSize: 14,
+    lineHeight: 1.25,
+    fontWeight: 850,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap'
+  },
+  heroInsightSub: {
+    marginTop: 2,
+    color: 'var(--netdive-detail-muted, #64748b)',
+    fontSize: 11.5,
+    lineHeight: 1.3,
+    fontWeight: 550,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap'
+  },
   sectionCard: {
     border: '1px solid var(--netdive-detail-border-soft)',
     borderRadius: 14,
@@ -104,7 +212,7 @@ export const styles = (theme: Theme) => createStyles({
   metricGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-    gap: theme.spacing(1),
+    gap: theme.spacing(0.9),
     padding: theme.spacing(1.35, 1.5, 1.5),
     [theme.breakpoints.down(420)]: {
       gridTemplateColumns: '1fr'
@@ -113,7 +221,7 @@ export const styles = (theme: Theme) => createStyles({
   metricTile: {
     border: '1px solid var(--netdive-detail-border-soft)',
     borderRadius: 12,
-    padding: theme.spacing(1.15),
+    padding: theme.spacing(1.05),
     background: 'var(--netdive-detail-soft-card, #fbfdff)',
     minWidth: 0
   },
@@ -194,6 +302,15 @@ export const styles = (theme: Theme) => createStyles({
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap'
+  },
+  subsectionLabel: {
+    padding: theme.spacing(0, 1.5, 0.75),
+    color: 'var(--netdive-detail-muted, #64748b)',
+    fontSize: 11.5,
+    lineHeight: 1.2,
+    fontWeight: 800,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3
   },
   rawAccordion: {
     border: '1px solid var(--netdive-detail-border-soft)',
