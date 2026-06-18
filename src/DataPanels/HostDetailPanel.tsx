@@ -402,10 +402,10 @@ class HostDetailPanel extends React.Component<Props, State> {
     )
   }
 
-  private renderRows(rows: KeyValueRow[]) {
+  private renderRows(rows: KeyValueRow[], emptyText = translate('hostNoData')) {
     const { classes } = this.props
     const visible = rows.filter(row => !isBlank(row.value))
-    if (!visible.length) return <div className={classes.emptyState}>{translate('hostNoData')}</div>
+    if (!visible.length) return <div className={classes.emptyState}>{emptyText}</div>
     return (
       <div className={classes.rowsCompact}>
         {visible.map(row => (
@@ -434,10 +434,10 @@ class HostDetailPanel extends React.Component<Props, State> {
     )
   }
 
-  private renderMetricGrid(items: MetricItem[]) {
+  private renderMetricGrid(items: MetricItem[], emptyText = translate('hostNoResourceMetrics')) {
     const { classes } = this.props
     const visible = items.filter(item => item.value)
-    if (!visible.length) return <div className={classes.emptyState}>{translate('hostNoResourceMetrics')}</div>
+    if (!visible.length) return <div className={classes.emptyState}>{emptyText}</div>
     return (
       <div className={classes.metricGrid}>
         {visible.map(item => (
@@ -529,6 +529,7 @@ class HostDetailPanel extends React.Component<Props, State> {
     const managementServer = firstValue(data, ['ManagementServer', 'ManagementIP', 'ManagementIp'])
     const vmCount = numberValue(data, ['VmCount', 'VMCount', 'UserVmCount', 'RunningVms', 'VirtualMachineCount'])
     const systemVmCount = numberValue(data, ['SystemVmCount', 'SystemVMCount'])
+    const virtualRouterCount = numberValue(data, ['VirtualRouterCount', 'RouterCount', 'VRCount'])
     const cpuPercent = percentValue(data, ['CPUUsage', 'CpuUsage', 'CPU'])
     const memoryPercent = percentValue(data, ['MemoryUsage', 'MemUsage', 'Memory'])
     const storagePercent = percentValue(data, ['StorageUsage', 'DiskUsage', 'Storage'])
@@ -563,10 +564,10 @@ class HostDetailPanel extends React.Component<Props, State> {
     ]
 
     const eventRows: KeyValueRow[] = [
-      { label: translate('hostCollectionState'), value: translate('hostStatusCollected') },
-      { label: translate('hostAgent'), value: this.statusText() },
       { label: translate('hostLastUpdate'), value: formatDate(firstValue(data, ['UpdatedAt', 'LastUpdate', 'LastSeen', '@UpdatedAt', '@CreatedAt', 'CreatedAt'])) },
-      { label: translate('hostMonitoringPeriod'), value: firstValue(data, ['Uptime', 'MonitoringPeriod']) }
+      { label: translate('hostRecentEvent'), value: firstValue(data, ['RecentEvent', 'LastEvent', 'Event']) },
+      { label: translate('hostRecentCapture'), value: firstValue(data, ['RecentCapture', 'LastCapture', 'CaptureState']) },
+      { label: translate('hostRecentStateChange'), value: formatDate(firstValue(data, ['StateChangedAt', 'LastStateChange', 'StatusChangedAt'])) }
     ]
 
     const resourceMetrics: MetricItem[] = [
@@ -577,9 +578,9 @@ class HostDetailPanel extends React.Component<Props, State> {
 
     const interfaceCount = this.interfaces().length || (this.mainInterface() ? 1 : 0)
     const connectedMetrics: MetricItem[] = [
-      { label: translate('hostConnectedVMs'), value: vmCount !== undefined ? String(vmCount) : '', sub: systemVmCount !== undefined ? `${translate('hostSystemVMs')} ${systemVmCount}` : undefined, icon: <ComputerIcon /> },
-      { label: translate('hostInterfaceCount'), value: interfaceCount ? String(interfaceCount) : '', sub: this.mainInterface() || undefined, icon: <DeviceHubIcon /> },
-      { label: translate('hostIpCount'), value: ipList.length ? String(ipList.length) : '', sub: representativeIp || undefined, icon: <RouterIcon /> },
+      { label: translate('hostConnectedVMs'), value: vmCount !== undefined ? String(vmCount) : '', icon: <ComputerIcon /> },
+      { label: translate('hostSystemVMs'), value: systemVmCount !== undefined ? String(systemVmCount) : '', icon: <SecurityIcon /> },
+      { label: translate('hostVirtualRouters'), value: virtualRouterCount !== undefined ? String(virtualRouterCount) : '', icon: <RouterIcon /> },
       { label: translate('hostNetworkCount'), value: networkCount ? String(networkCount) : '', icon: <SecurityIcon /> }
     ]
 
@@ -639,8 +640,8 @@ class HostDetailPanel extends React.Component<Props, State> {
           </React.Fragment>
         ))}
         {this.renderSection(<TimelineIcon />, translate('hostResourceUsage'), translate('hostResourceUsageDescription'), this.renderMetricGrid(resourceMetrics))}
-        {this.renderSection(<DeviceHubIcon />, translate('hostConnectedResources'), translate('hostConnectedResourcesDescription'), this.renderMetricGrid(connectedMetrics))}
-        {this.renderSection(<RouterIcon />, translate('hostNetworkSummary'), translate('hostNetworkSummaryDescription'), this.renderMetricGrid(networkMetrics))}
+        {this.renderSection(<DeviceHubIcon />, translate('hostConnectedResources'), translate('hostConnectedResourcesDescription'), this.renderMetricGrid(connectedMetrics, translate('hostNoConnectedResources')))}
+        {this.renderSection(<RouterIcon />, translate('hostNetworkSummary'), translate('hostNetworkSummaryDescription'), this.renderMetricGrid(networkMetrics, translate('hostNetworkDetailsMissing')))}
 
         {this.renderSection(<RouterIcon />, translate('hostTopologyPath'), translate('hostTopologyPathDescription'), this.renderPath(topologyPath))}
 
@@ -653,7 +654,7 @@ class HostDetailPanel extends React.Component<Props, State> {
           </React.Fragment>
         ))}
 
-        {this.renderSection(<InfoIcon />, translate('hostRecentSignals'), translate('hostRecentSignalsDescription'), this.renderRows(eventRows))}
+        {this.renderSection(<InfoIcon />, translate('hostRecentSignals'), translate('hostRecentSignalsDescription'), this.renderRows(eventRows, translate('hostNoRecentSignals')))}
 
         {tags.length > 1 && this.renderSection(<LabelIcon />, translate('hostSystemTags'), translate('hostSystemTagsDescription'), this.renderPills(tags, translate('hostNoTags')))}
 

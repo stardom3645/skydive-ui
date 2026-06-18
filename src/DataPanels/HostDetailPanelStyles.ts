@@ -55,22 +55,22 @@ export const styles = (theme: Theme) => createStyles({
   },
   statusTileList: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-    gap: theme.spacing(0.75),
-    padding: theme.spacing(1.2, 1.35, 1.35)
+    gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
+    gap: 8,
+    padding: theme.spacing(1.1, 1.25, 1.25)
   },
   statusTile: {
     position: 'relative',
-    display: 'flex',
-    flexDirection: 'column',
+    display: 'grid',
+    gridTemplateColumns: '22px minmax(0, 1fr)',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: theme.spacing(0.55),
-    minHeight: 70,
-    padding: theme.spacing(0.85, 0.6),
-    borderRadius: 12,
-    border: '1px solid rgba(187, 247, 208, 0.82)',
-    background: 'rgba(240, 253, 244, 0.72)',
+    columnGap: theme.spacing(0.75),
+    rowGap: 2,
+    minHeight: 58,
+    padding: '10px 12px',
+    borderRadius: 10,
+    border: '1px solid var(--netdive-detail-border-soft)',
+    background: 'rgba(240, 253, 244, 0.56)',
     overflow: 'hidden'
   },
   statusTileMuted: {
@@ -89,30 +89,30 @@ export const styles = (theme: Theme) => createStyles({
   },
   statusDot: {
     position: 'absolute',
-    top: 8,
-    right: 8,
+    top: 9,
+    right: 9,
     width: 6,
     height: 6,
     borderRadius: 999,
     background: '#22c55e'
   },
   statusTileIcon: {
-    width: 30,
-    height: 30,
-    borderRadius: 9,
+    width: 22,
+    height: 22,
+    borderRadius: 7,
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
     color: 'var(--topology-level-label-active-text)',
     background: 'rgba(255, 255, 255, 0.76)',
     '& svg': {
-      fontSize: 16
+      fontSize: 14
     }
   },
   statusTileText: {
     minWidth: 0,
     maxWidth: '100%',
-    textAlign: 'center'
+    paddingRight: 10
   },
   statusTileLabel: {
     color: 'var(--netdive-detail-muted, #64748b)',
@@ -124,7 +124,7 @@ export const styles = (theme: Theme) => createStyles({
     whiteSpace: 'nowrap'
   },
   statusTileValue: {
-    marginTop: 3,
+    marginTop: 2,
     color: 'var(--netdive-detail-text)',
     fontSize: 13,
     lineHeight: 1.2,
@@ -185,9 +185,9 @@ export const styles = (theme: Theme) => createStyles({
   },
   metricGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(94px, 1fr))',
-    gap: theme.spacing(0.75),
-    padding: theme.spacing(1.2, 1.35, 1.35)
+    gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
+    gap: 8,
+    padding: theme.spacing(1.1, 1.25, 1.25)
   },
   metricTile: {
     display: 'flex',
@@ -195,10 +195,10 @@ export const styles = (theme: Theme) => createStyles({
     justifyContent: 'center',
     gap: theme.spacing(0.35),
     border: '1px solid var(--netdive-detail-border-soft)',
-    borderRadius: 13,
-    padding: theme.spacing(0.9, 0.95),
+    borderRadius: 10,
+    padding: '10px 12px',
     background: 'var(--netdive-detail-soft-card, #fbfdff)',
-    minHeight: 72,
+    minHeight: 64,
     minWidth: 0
   },
   metricTileMuted: {
