@@ -31,6 +31,7 @@ import { a11yProps, TabPanel } from './Tabs'
 import { AppState } from './Store'
 import { styles } from './SelectionPanelStyles'
 import ConfigReducer, { translate } from './Config'
+import HostDetailPanel from './DataPanels/HostDetailPanel'
 
 
 interface Props {
@@ -167,6 +168,41 @@ class SelectionPanel extends React.Component<Props, State> {
       return data
     }
 
+    const renderDataPanels = (el: Node | Link) => {
+      return this.dataFields(el).map(entry => {
+        var data = el.data
+        var exclude = new Array<any>()
+
+        if (entry.field) {
+          data = dataByPath(el.data, entry.field)
+        } else if (entry.data) {
+          data = entry.data(el)
+        }
+
+        exclude = this.dataFields(el).filter(cfg => cfg.field).map(cfg => {
+          if (entry.field) {
+            return cfg.field.replace(entry.field + ".", "")
+          } else {
+            return cfg.field
+          }
+        })
+
+        if (data) {
+          var title = entry.title || entry.field || "General"
+          var sortKeys = entry.sortKeys ? entry.sortKeys(data) : null
+          var filterKeys = entry.filterKeys ? entry.filterKeys(data) : null
+
+          var suffix = title.toLowerCase().replace(" ", "-")
+          return (
+            <DataPanel key={"dataviewer-" + el.id + "-" + suffix} title={title} revision={this.props.revision}
+              defaultExpanded={entry.expanded} data={data} exclude={exclude} sortKeys={sortKeys} filterKeys={filterKeys}
+              normalizer={entry.normalizer} graph={entry.graph} icon={entry.icon} iconClass={entry.iconClass}
+              deletable={entry.deletable} customRenders={entry.customRenders} onDelete={entry.onDelete} helpTooltipText={entry.helpTooltipText}/>
+          )
+        }
+      })
+    }
+
     return this.props.selection.map((el: Node | Link, i: number) => {
       if (this.state.tab !== i) {
         return null
@@ -195,38 +231,9 @@ class SelectionPanel extends React.Component<Props, State> {
           </div>
           {this.props.panelsContent && this.props.panelsContent(el)}
           <TabPanel key={"tabpanel-" + el.id} value={this.state.tab} index={i}>
-            {this.dataFields(el).map(entry => {
-              var data = el.data
-              var exclude = new Array<any>()
-
-              if (entry.field) {
-                data = dataByPath(el.data, entry.field)
-              } else if (entry.data) {
-                data = entry.data(el)
-              }
-
-              exclude = this.dataFields(el).filter(cfg => cfg.field).map(cfg => {
-                if (entry.field) {
-                  return cfg.field.replace(entry.field + ".", "")
-                } else {
-                  return cfg.field
-                }
-              })
-
-              if (data) {
-                var title = entry.title || entry.field || "General"
-                var sortKeys = entry.sortKeys ? entry.sortKeys(data) : null
-                var filterKeys = entry.filterKeys ? entry.filterKeys(data) : null
-
-                var suffix = title.toLowerCase().replace(" ", "-")
-                return (
-                  <DataPanel key={"dataviewer-" + el.id + "-" + suffix} title={title} revision={this.props.revision}
-                    defaultExpanded={entry.expanded} data={data} exclude={exclude} sortKeys={sortKeys} filterKeys={filterKeys}
-                    normalizer={entry.normalizer} graph={entry.graph} icon={entry.icon} iconClass={entry.iconClass}
-                    deletable={entry.deletable} customRenders={entry.customRenders} onDelete={entry.onDelete} helpTooltipText={entry.helpTooltipText}/>
-                )
-              }
-            })
+            {el.type === 'node' && String(el.data?.Type || '').toLowerCase() === 'host'
+              ? <HostDetailPanel node={el as Node} rawPanels={renderDataPanels(el)} />
+              : renderDataPanels(el)
             }
           </TabPanel>
         </React.Fragment>
