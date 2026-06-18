@@ -56,6 +56,13 @@ interface PillItem {
   title?: string
 }
 
+interface StatusTile {
+  label: string
+  value: string
+  tone?: 'success' | 'muted' | 'warning'
+  icon?: React.ReactNode
+}
+
 const isBlank = (value: any): boolean => {
   if (value === undefined || value === null) return true
   if (Array.isArray(value)) return value.length === 0
@@ -356,6 +363,24 @@ class HostDetailPanel extends React.Component<Props, State> {
     )
   }
 
+  private renderStatusTiles(items: StatusTile[]) {
+    const { classes } = this.props
+    return (
+      <div className={classes.statusTileList}>
+        {items.map(item => (
+          <div className={`${classes.statusTile} ${item.tone === 'muted' ? classes.statusTileMuted : ''} ${item.tone === 'warning' ? classes.statusTileWarning : ''}`} key={item.label}>
+            <span className={classes.statusDot} />
+            <span className={classes.statusTileIcon}>{item.icon || <InfoIcon />}</span>
+            <div className={classes.statusTileText}>
+              <div className={classes.statusTileLabel}>{item.label}</div>
+              <div className={classes.statusTileValue}>{item.value}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
   private renderPills(values: Array<string | PillItem>, emptyText: string) {
     const { classes } = this.props
     if (!values.length) return <div className={classes.emptyState}>{emptyText}</div>
@@ -392,7 +417,6 @@ class HostDetailPanel extends React.Component<Props, State> {
   render() {
     const { classes, node } = this.props
     const data = this.mergedData()
-    const rawData = node.data || {}
     const name = firstValue(data, ['Name', 'Hostname', 'HostName']) || node.id
     const ipList = this.ips()
     const macList = this.macs()
@@ -421,25 +445,34 @@ class HostDetailPanel extends React.Component<Props, State> {
     ].filter(Boolean)
 
     const basicRows: KeyValueRow[] = [
-      { label: translate('Type'), value: data.Type || 'host' },
+      { label: translate('Hostname'), value: name },
+      { label: translate('hostMoldHostId'), value: firstValue(data, ['MoldHostId', 'CloudStackHostId', 'HostId', 'HostID', 'UUID', 'uuid']), copy: true },
+      { label: translate('hostManagementIp'), value: managementServer || representativeIp, copy: true },
+      { label: translate('hostLocation'), value: [zone, pod, cluster].filter(Boolean).join(' > ') },
       { label: translate('hostVirtualizationSystem'), value: virtualization },
-      { label: translate('hostResourceState'), value: resourceState },
-      { label: translate('TID'), value: rawData.TID || data.TID, copy: true }
+      { label: translate('hostResourceState'), value: resourceState }
+    ]
+
+    const osRows: KeyValueRow[] = [
+      { label: translate('hostOS'), value: firstValue(data, ['OS', 'Os', 'OperatingSystem']) },
+      { label: translate('Platform'), value: data.Platform },
+      { label: translate('PlatformVersion'), value: data.PlatformVersion },
+      { label: translate('KernelVersion'), value: data.KernelVersion, copy: true },
+      { label: translate('hostBootImage'), value: firstValue(data, ['BootImage', 'KernelImage', 'Image']), copy: true },
+      { label: translate('hostBootTime'), value: formatDate(firstValue(data, ['BootTime', 'StartedAt', 'StartTime'])) }
     ]
 
     const eventRows: KeyValueRow[] = [
       { label: translate('hostCollectionState'), value: translate('hostStatusCollected') },
       { label: translate('hostAgent'), value: this.statusText() },
       { label: translate('hostLastUpdate'), value: formatDate(firstValue(data, ['UpdatedAt', 'LastUpdate', 'LastSeen', '@UpdatedAt', '@CreatedAt', 'CreatedAt'])) },
-      { label: translate('hostBootTime'), value: formatDate(firstValue(data, ['BootTime', 'StartedAt', 'StartTime'])) },
-      { label: translate('KernelVersion'), value: data.KernelVersion, copy: true }
+      { label: translate('hostMonitoringPeriod'), value: firstValue(data, ['Uptime', 'MonitoringPeriod']) }
     ]
 
     const resourceMetrics: MetricItem[] = [
       { label: translate('hostCpuUsage'), value: cpuPercent !== undefined ? `${Math.round(cpuPercent)}%` : '', percent: cpuPercent, icon: <TimelineIcon /> },
       { label: translate('hostMemoryUsage'), value: memoryPercent !== undefined ? `${Math.round(memoryPercent)}%` : '', percent: memoryPercent, icon: <StorageIcon /> },
-      { label: translate('hostStorageUsage'), value: storagePercent !== undefined ? `${Math.round(storagePercent)}%` : '', percent: storagePercent, icon: <StorageIcon /> },
-      { label: translate('hostSocketsProcesses'), value: socketStats.total ? String(socketStats.total) : '', sub: `${translate('hostOpenPorts')} ${socketStats.ports || 0}`, icon: <PowerIcon /> }
+      { label: translate('hostStorageUsage'), value: storagePercent !== undefined ? `${Math.round(storagePercent)}%` : '', percent: storagePercent, icon: <StorageIcon /> }
     ]
 
     const interfaceCount = this.interfaces().length || (this.mainInterface() ? 1 : 0)
@@ -448,6 +481,13 @@ class HostDetailPanel extends React.Component<Props, State> {
       { label: translate('hostInterfaceCount'), value: interfaceCount ? String(interfaceCount) : '', sub: this.mainInterface() || undefined, icon: <DeviceHubIcon /> },
       { label: translate('hostIpCount'), value: ipList.length ? String(ipList.length) : '', sub: representativeIp || undefined, icon: <RouterIcon /> },
       { label: translate('hostListenPorts'), value: socketStats.total ? String(socketStats.listen || 0) : '', sub: `${translate('hostExternalConnections')} ${socketStats.external || 0}`, muted: socketStats.listen === 0, icon: <SecurityIcon /> }
+    ]
+
+    const networkRows: KeyValueRow[] = [
+      { label: translate('hostManagementIp'), value: managementServer || representativeIp, copy: true },
+      { label: translate('hostInterfaceCount'), value: interfaceCount || '' },
+      { label: translate('hostMainInterface'), value: this.mainInterface() },
+      { label: translate('MAC'), value: macList.join(', '), copy: true }
     ]
 
     const moldRows: KeyValueRow[] = [
@@ -462,15 +502,35 @@ class HostDetailPanel extends React.Component<Props, State> {
 
     const hasMoldRows = moldRows.some(row => !isBlank(row.value))
     const topologyPath = [zone, cluster, pod, name]
+    const statusTiles: StatusTile[] = [
+      { label: translate('moldStatus'), value: hasMoldRows ? translate('connected') : translate('hostInfoUnavailable'), tone: hasMoldRows ? 'success' : 'muted', icon: <StorageIcon /> },
+      { label: translate('hostCollectionState'), value: translate('hostStatusCollected'), tone: 'success', icon: <TimelineIcon /> },
+      { label: translate('hostAgent'), value: this.statusText(), tone: this.statusText() === translate('hostStatusNormal') ? 'success' : 'warning', icon: <SecurityIcon /> }
+    ]
 
     return (
       <div className={classes.root}>
-        <div className={classes.overviewGrid}>
-          {this.renderSection(<InfoIcon />, translate('hostBasicInfo'), translate('hostOverviewDescription'), this.renderRows(basicRows), classes.overviewCard)}
-          {this.renderSection(<TimelineIcon />, translate('hostResourceUsage'), translate('hostResourceUsageDescription'), this.renderMetricGrid(resourceMetrics), classes.overviewCard)}
-          {this.renderSection(<DeviceHubIcon />, translate('hostConnectedResources'), translate('hostConnectedResourcesDescription'), this.renderMetricGrid(connectedMetrics), classes.overviewCard)}
-          {this.renderSection(<InfoIcon />, translate('hostRecentSignals'), translate('hostRecentSignalsDescription'), this.renderRows(eventRows), classes.overviewCard)}
-        </div>
+        {this.renderSection(<InfoIcon />, translate('hostOperationalStatus'), translate('hostOperationalStatusDescription'), this.renderStatusTiles(statusTiles))}
+        {this.renderSection(<InfoIcon />, translate('hostBasicInfo'), translate('hostOverviewDescription'), this.renderRows(basicRows))}
+        {this.renderSection(<ComputerIcon />, translate('hostOsPlatform'), translate('hostOsPlatformDescription'), (
+          <React.Fragment>
+            {this.renderRows(osRows)}
+            {kernelCmdLine && (
+              <Accordion className={classes.inlineAccordion} TransitionProps={{ unmountOnExit: true }}>
+                <AccordionSummary className={classes.inlineSummary} expandIcon={<ExpandMoreIcon />}>
+                  <span className={classes.panelIcon}><CodeIcon /></span>
+                  <Typography>{translate('hostKernelCmdLineView')}</Typography>
+                </AccordionSummary>
+                <AccordionDetails className={classes.rawDetails}>
+                  <pre className={classes.codeBlock}>{kernelCmdLine}</pre>
+                </AccordionDetails>
+              </Accordion>
+            )}
+          </React.Fragment>
+        ))}
+        {this.renderSection(<TimelineIcon />, translate('hostResourceUsage'), translate('hostResourceUsageDescription'), this.renderMetricGrid(resourceMetrics))}
+        {this.renderSection(<DeviceHubIcon />, translate('hostConnectedResources'), translate('hostConnectedResourcesDescription'), this.renderMetricGrid(connectedMetrics))}
+        {this.renderSection(<RouterIcon />, translate('hostNetworkSummary'), translate('hostNetworkSummaryDescription'), this.renderRows(networkRows))}
 
         {this.renderSection(<RouterIcon />, translate('hostTopologyPath'), translate('hostTopologyPathDescription'), this.renderPath(topologyPath))}
 
@@ -482,17 +542,7 @@ class HostDetailPanel extends React.Component<Props, State> {
           </React.Fragment>
         ))}
 
-        {kernelCmdLine && (
-          <Accordion className={classes.rawAccordion} TransitionProps={{ unmountOnExit: true }}>
-            <AccordionSummary className={classes.rawSummary} expandIcon={<ExpandMoreIcon />}>
-              <span className={classes.panelIcon}><CodeIcon /></span>
-              <Typography>{translate('hostKernelCmdLineView')}</Typography>
-            </AccordionSummary>
-            <AccordionDetails className={classes.rawDetails}>
-              <pre className={classes.codeBlock}>{kernelCmdLine}</pre>
-            </AccordionDetails>
-          </Accordion>
-        )}
+        {this.renderSection(<InfoIcon />, translate('hostRecentSignals'), translate('hostRecentSignalsDescription'), this.renderRows(eventRows))}
 
         {tags.length > 1 && this.renderSection(<LabelIcon />, translate('hostSystemTags'), translate('hostSystemTagsDescription'), this.renderPills(tags, translate('hostNoTags')))}
 

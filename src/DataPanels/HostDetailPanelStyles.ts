@@ -8,17 +8,6 @@ export const styles = (theme: Theme) => createStyles({
     color: 'var(--netdive-detail-text)',
     paddingBottom: theme.spacing(1)
   },
-  overviewGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-    gap: theme.spacing(1.25),
-    [theme.breakpoints.down(520)]: {
-      gridTemplateColumns: '1fr'
-    }
-  },
-  overviewCard: {
-    minHeight: 0
-  },
   panelCard: {
     border: '1px solid var(--netdive-detail-border-soft)',
     borderRadius: 16,
@@ -63,6 +52,80 @@ export const styles = (theme: Theme) => createStyles({
     fontSize: 11.5,
     lineHeight: 1.35,
     fontWeight: 500
+  },
+  statusTileList: {
+    display: 'grid',
+    gridTemplateColumns: '1fr',
+    gap: theme.spacing(0.85),
+    padding: theme.spacing(1.2, 1.35, 1.35)
+  },
+  statusTile: {
+    position: 'relative',
+    display: 'grid',
+    gridTemplateColumns: '28px minmax(0, 1fr)',
+    gap: theme.spacing(0.9),
+    alignItems: 'center',
+    minHeight: 46,
+    padding: theme.spacing(0.9, 1),
+    borderRadius: 12,
+    border: '1px solid rgba(187, 247, 208, 0.82)',
+    background: 'rgba(240, 253, 244, 0.72)',
+    overflow: 'hidden'
+  },
+  statusTileMuted: {
+    borderColor: 'var(--netdive-detail-border-soft)',
+    background: 'rgba(248, 250, 252, 0.82)',
+    '& $statusDot': {
+      background: 'rgba(148, 163, 184, 0.75)'
+    }
+  },
+  statusTileWarning: {
+    borderColor: 'rgba(253, 186, 116, 0.72)',
+    background: 'rgba(255, 247, 237, 0.72)',
+    '& $statusDot': {
+      background: '#f97316'
+    }
+  },
+  statusDot: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 7,
+    height: 7,
+    borderRadius: 999,
+    background: '#22c55e'
+  },
+  statusTileIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 9,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: 'var(--topology-level-label-active-text)',
+    background: 'rgba(255, 255, 255, 0.76)',
+    '& svg': {
+      fontSize: 16
+    }
+  },
+  statusTileText: {
+    minWidth: 0
+  },
+  statusTileLabel: {
+    color: 'var(--netdive-detail-muted, #64748b)',
+    fontSize: 11.4,
+    lineHeight: 1.2,
+    fontWeight: 700
+  },
+  statusTileValue: {
+    marginTop: 3,
+    color: 'var(--netdive-detail-text)',
+    fontSize: 13,
+    lineHeight: 1.2,
+    fontWeight: 800,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap'
   },
   rowsCompact: {
     padding: theme.spacing(0.25, 1.35)
@@ -116,12 +179,9 @@ export const styles = (theme: Theme) => createStyles({
   },
   metricGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+    gridTemplateColumns: '1fr',
     gap: theme.spacing(1),
-    padding: theme.spacing(1.2, 1.35, 1.35),
-    [theme.breakpoints.down(420)]: {
-      gridTemplateColumns: '1fr'
-    }
+    padding: theme.spacing(1.2, 1.35, 1.35)
   },
   metricTile: {
     display: 'grid',
@@ -282,6 +342,31 @@ export const styles = (theme: Theme) => createStyles({
     },
     '&.Mui-expanded': {
       margin: 0
+    }
+  },
+  inlineAccordion: {
+    margin: theme.spacing(0.5, 1.35, 1.35),
+    border: '1px solid var(--netdive-detail-border-soft)',
+    borderRadius: '12px !important',
+    background: 'var(--netdive-detail-soft-card, #fbfdff)',
+    boxShadow: 'none',
+    '&:before': {
+      display: 'none'
+    },
+    '&.Mui-expanded': {
+      margin: theme.spacing(0.5, 1.35, 1.35)
+    }
+  },
+  inlineSummary: {
+    minHeight: '48px !important',
+    padding: theme.spacing(0, 1),
+    '&.Mui-expanded': {
+      minHeight: '48px !important'
+    },
+    '& .MuiAccordionSummary-content': {
+      alignItems: 'center',
+      gap: theme.spacing(0.8),
+      margin: '10px 0 !important'
     }
   },
   rawSummary: {
