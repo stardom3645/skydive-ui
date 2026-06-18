@@ -44,6 +44,7 @@ interface Props {
   config: ConfigReducer
   buttonsContent?: (el: Node | Link) => JSX.Element
   panelsContent?: (el: Node | Link) => JSX.Element
+  moldInventory?: any
 }
 
 interface State {
@@ -233,7 +234,7 @@ class SelectionPanel extends React.Component<Props, State> {
           {this.props.panelsContent && this.props.panelsContent(el)}
           <TabPanel key={"tabpanel-" + el.id} value={this.state.tab} index={i}>
             {el.type === 'node' && String(el.data?.Type || '').toLowerCase() === 'host'
-              ? <HostDetailPanel node={el as Node} session={this.props.session} />
+              ? <HostDetailPanel node={el as Node} session={this.props.session} moldInventory={this.props.moldInventory} />
               : renderDataPanels(el)
             }
           </TabPanel>

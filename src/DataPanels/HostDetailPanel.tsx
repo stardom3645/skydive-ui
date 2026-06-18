@@ -29,6 +29,7 @@ interface Props {
   classes: any
   node: Node
   session?: session
+  moldInventory?: any
 }
 
 interface State {
@@ -127,6 +128,15 @@ const compactProcessName = (process: string): string => {
   return base
 }
 
+const uniqueStrings = (values: string[]): string[] => {
+  const seen = new Set<string>()
+  return values.map(value => value.trim()).filter(value => {
+    if (!value || seen.has(value)) return false
+    seen.add(value)
+    return true
+  })
+}
+
 class HostDetailPanel extends React.Component<Props, State> {
   state: State = {}
 
@@ -150,8 +160,82 @@ class HostDetailPanel extends React.Component<Props, State> {
 
   private mergedData(): any {
     return {
-      ...(this.state.moldDetail || {}),
-      ...(this.props.node.data || {})
+      ...(this.props.node.data || {}),
+      ...(this.inventoryHostDetail() || {}),
+      ...(this.state.moldDetail || {})
+    }
+  }
+
+  private inventoryHosts(): any[] {
+    const inventory = this.props.moldInventory
+    if (!inventory) return []
+    const candidates = [
+      inventory.hosts,
+      inventory.host,
+      inventory.Hosts,
+      inventory.data?.hosts,
+      inventory.data?.host,
+      inventory.inventory?.hosts,
+      inventory.listhostsresponse?.host,
+      inventory.listHostsResponse?.host,
+      inventory.ListHostsResponse?.Host,
+      inventory.items
+    ]
+    for (const candidate of candidates) {
+      if (Array.isArray(candidate)) return candidate
+    }
+    return []
+  }
+
+  private inventoryHostDetail(): any | undefined {
+    const hosts = this.inventoryHosts()
+    if (!hosts.length) return undefined
+    const nodeData = this.props.node.data || {}
+    const nodeIps = [
+      ...asArray(nodeData.IPV4),
+      ...asArray(nodeData.IPV6),
+      ...asArray(nodeData.IP),
+      ...asArray(nodeData.Addr),
+      ...asArray(nodeData.IpAddress),
+      ...asArray(nodeData.ipaddress),
+      ...asArray(nodeData.ManagementIP),
+      ...asArray(nodeData.ManagementIp),
+    ].map(stringify)
+    const nodeKeys = uniqueStrings([
+      this.props.node.id,
+      firstValue(nodeData, ['ID', 'Id', 'UUID', 'uuid', 'MoldHostId', 'CloudStackHostId', 'HostId', 'HostID']),
+      firstValue(nodeData, ['Name', 'Hostname', 'HostName']),
+      firstValue(nodeData, ['ManagementIP', 'ManagementIp', 'IpAddress', 'ipaddress']),
+      ...nodeIps
+    ].map(value => String(value || '').toLowerCase()))
+
+    const host = hosts.find(item => {
+      const hostKeys = uniqueStrings([
+        firstValue(item, ['ID', 'Id', 'id', 'UUID', 'uuid', 'HostId', 'hostid']),
+        firstValue(item, ['Name', 'name', 'Hostname', 'hostname', 'HostName']),
+        firstValue(item, ['ManagementIP', 'ManagementIp', 'managementip', 'managementipaddress', 'IpAddress', 'ipaddress'])
+      ].map(value => String(value || '').toLowerCase()))
+      return hostKeys.some(key => nodeKeys.includes(key))
+    })
+
+    if (!host) return undefined
+    return this.normalizeMoldHost(host)
+  }
+
+  private normalizeMoldHost(host: any): any {
+    return {
+      ...host,
+      MoldHostId: firstValue(host, ['MoldHostId', 'CloudStackHostId', 'HostId', 'HostID', 'id', 'uuid']),
+      Name: firstValue(host, ['Name', 'name', 'Hostname', 'hostname', 'HostName']),
+      Hostname: firstValue(host, ['Hostname', 'hostname', 'Name', 'name', 'HostName']),
+      ManagementIP: firstValue(host, ['ManagementIP', 'ManagementIp', 'managementip', 'managementipaddress', 'IpAddress', 'ipaddress']),
+      Zone: firstValue(host, ['Zone', 'ZoneName', 'zonename']),
+      Pod: firstValue(host, ['Pod', 'PodName', 'podname']),
+      Cluster: firstValue(host, ['Cluster', 'ClusterName', 'clustername']),
+      Hypervisor: firstValue(host, ['Hypervisor', 'hypervisor', 'HypervisorType', 'hypervisortype']),
+      ResourceState: firstValue(host, ['ResourceState', 'resourcestate', 'AllocationState', 'state']),
+      Platform: firstValue(host, ['Platform', 'platform', 'OsCategoryName', 'oscategoryname']),
+      PlatformVersion: firstValue(host, ['PlatformVersion', 'platformversion', 'Version', 'version'])
     }
   }
 
@@ -247,6 +331,18 @@ class HostDetailPanel extends React.Component<Props, State> {
     if (explicit) return explicit
     const firstInterface = this.interfaces()[0]
     return firstValue(firstInterface, ['Name', 'name', 'Interface', 'IfName', 'Device'])
+  }
+
+  private interfaceCountByPattern(patterns: RegExp[]): number | undefined {
+    const interfaces = this.interfaces()
+    if (!interfaces.length) return undefined
+    return interfaces.filter(iface => {
+      const haystack = [
+        firstValue(iface, ['Name', 'name', 'Interface', 'IfName', 'Device']),
+        firstValue(iface, ['Type', 'type', 'Kind', 'Driver', 'driver', 'DeviceType'])
+      ].join(' ').toLowerCase()
+      return patterns.some(pattern => pattern.test(haystack))
+    }).length
   }
 
   private socketStats() {
@@ -436,6 +532,10 @@ class HostDetailPanel extends React.Component<Props, State> {
     const cpuPercent = percentValue(data, ['CPUUsage', 'CpuUsage', 'CPU'])
     const memoryPercent = percentValue(data, ['MemoryUsage', 'MemUsage', 'Memory'])
     const storagePercent = percentValue(data, ['StorageUsage', 'DiskUsage', 'Storage'])
+    const networkCount = numberValue(data, ['NetworkCount', 'NetworksCount']) || asArray(data.Networks).length || asArray(data.Network).length
+    const physicalNicCount = numberValue(data, ['PhysicalNicCount', 'PhysicalNICCount', 'NicCount', 'NICCount'])
+    const bridgeCount = numberValue(data, ['BridgeCount', 'HostBridgeCount'])
+    const bondCount = numberValue(data, ['BondCount', 'BondingCount'])
     const tags = [
       data.Type ? `type: ${data.Type}` : '',
       data.Manager ? `manager: ${data.Manager}` : '',
@@ -480,14 +580,24 @@ class HostDetailPanel extends React.Component<Props, State> {
       { label: translate('hostConnectedVMs'), value: vmCount !== undefined ? String(vmCount) : '', sub: systemVmCount !== undefined ? `${translate('hostSystemVMs')} ${systemVmCount}` : undefined, icon: <ComputerIcon /> },
       { label: translate('hostInterfaceCount'), value: interfaceCount ? String(interfaceCount) : '', sub: this.mainInterface() || undefined, icon: <DeviceHubIcon /> },
       { label: translate('hostIpCount'), value: ipList.length ? String(ipList.length) : '', sub: representativeIp || undefined, icon: <RouterIcon /> },
-      { label: translate('hostListenPorts'), value: socketStats.total ? String(socketStats.listen || 0) : '', sub: `${translate('hostExternalConnections')} ${socketStats.external || 0}`, muted: socketStats.listen === 0, icon: <SecurityIcon /> }
+      { label: translate('hostNetworkCount'), value: networkCount ? String(networkCount) : '', icon: <SecurityIcon /> }
     ]
 
-    const networkRows: KeyValueRow[] = [
-      { label: translate('hostManagementIp'), value: managementServer || representativeIp, copy: true },
-      { label: translate('hostInterfaceCount'), value: interfaceCount || '' },
-      { label: translate('hostMainInterface'), value: this.mainInterface() },
-      { label: translate('MAC'), value: macList.join(', '), copy: true }
+    const socketMetrics: MetricItem[] = [
+      { label: translate('hostTotalSockets'), value: socketStats.total ? String(socketStats.total) : '', icon: <PowerIcon /> },
+      { label: translate('hostOpenPorts'), value: socketStats.total ? String(socketStats.ports || 0) : '', icon: <RouterIcon /> },
+      { label: translate('hostListenPorts'), value: socketStats.total ? String(socketStats.listen || 0) : '', icon: <SecurityIcon /> },
+      { label: translate('hostExternalConnections'), value: socketStats.total ? String(socketStats.external || 0) : '', icon: <DeviceHubIcon /> }
+    ]
+
+    const resolvedPhysicalNicCount = physicalNicCount !== undefined ? physicalNicCount : this.interfaceCountByPattern([/\bnic\b/, /\beth\d+\b/, /\benp/, /\bens/, /\beno/])
+    const resolvedBridgeCount = bridgeCount !== undefined ? bridgeCount : this.interfaceCountByPattern([/\bbridge\b/, /^br/, /\bovs\b/])
+    const resolvedBondCount = bondCount !== undefined ? bondCount : this.interfaceCountByPattern([/\bbond\b/, /\bbonding\b/])
+    const networkMetrics: MetricItem[] = [
+      { label: translate('hostManagementIp'), value: managementServer || representativeIp, icon: <RouterIcon /> },
+      { label: translate('phy-nics'), value: resolvedPhysicalNicCount !== undefined ? String(resolvedPhysicalNicCount) : '', sub: this.mainInterface() || undefined, icon: <DeviceHubIcon /> },
+      { label: translate('host-bridges'), value: resolvedBridgeCount !== undefined ? String(resolvedBridgeCount) : '', icon: <RouterIcon /> },
+      { label: translate('phy-bond'), value: resolvedBondCount !== undefined ? String(resolvedBondCount) : '', icon: <SecurityIcon /> }
     ]
 
     const moldRows: KeyValueRow[] = [
@@ -530,7 +640,7 @@ class HostDetailPanel extends React.Component<Props, State> {
         ))}
         {this.renderSection(<TimelineIcon />, translate('hostResourceUsage'), translate('hostResourceUsageDescription'), this.renderMetricGrid(resourceMetrics))}
         {this.renderSection(<DeviceHubIcon />, translate('hostConnectedResources'), translate('hostConnectedResourcesDescription'), this.renderMetricGrid(connectedMetrics))}
-        {this.renderSection(<RouterIcon />, translate('hostNetworkSummary'), translate('hostNetworkSummaryDescription'), this.renderRows(networkRows))}
+        {this.renderSection(<RouterIcon />, translate('hostNetworkSummary'), translate('hostNetworkSummaryDescription'), this.renderMetricGrid(networkMetrics))}
 
         {this.renderSection(<RouterIcon />, translate('hostTopologyPath'), translate('hostTopologyPathDescription'), this.renderPath(topologyPath))}
 
@@ -538,6 +648,7 @@ class HostDetailPanel extends React.Component<Props, State> {
 
         {this.renderSection(<PowerIcon />, translate('hostSocketsProcesses'), translate('hostSocketsProcessesDescription'), (
           <React.Fragment>
+            {this.renderMetricGrid(socketMetrics)}
             {this.renderPills(this.topPorts(), translate('hostNoSocketInfo'))}
           </React.Fragment>
         ))}

@@ -55,18 +55,19 @@ export const styles = (theme: Theme) => createStyles({
   },
   statusTileList: {
     display: 'grid',
-    gridTemplateColumns: '1fr',
-    gap: theme.spacing(0.85),
+    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+    gap: theme.spacing(0.75),
     padding: theme.spacing(1.2, 1.35, 1.35)
   },
   statusTile: {
     position: 'relative',
-    display: 'grid',
-    gridTemplateColumns: '28px minmax(0, 1fr)',
-    gap: theme.spacing(0.9),
+    display: 'flex',
+    flexDirection: 'column',
     alignItems: 'center',
-    minHeight: 46,
-    padding: theme.spacing(0.9, 1),
+    justifyContent: 'center',
+    gap: theme.spacing(0.55),
+    minHeight: 70,
+    padding: theme.spacing(0.85, 0.6),
     borderRadius: 12,
     border: '1px solid rgba(187, 247, 208, 0.82)',
     background: 'rgba(240, 253, 244, 0.72)',
@@ -88,16 +89,16 @@ export const styles = (theme: Theme) => createStyles({
   },
   statusDot: {
     position: 'absolute',
-    top: 10,
-    right: 10,
-    width: 7,
-    height: 7,
+    top: 8,
+    right: 8,
+    width: 6,
+    height: 6,
     borderRadius: 999,
     background: '#22c55e'
   },
   statusTileIcon: {
-    width: 28,
-    height: 28,
+    width: 30,
+    height: 30,
     borderRadius: 9,
     display: 'inline-flex',
     alignItems: 'center',
@@ -109,13 +110,18 @@ export const styles = (theme: Theme) => createStyles({
     }
   },
   statusTileText: {
-    minWidth: 0
+    minWidth: 0,
+    maxWidth: '100%',
+    textAlign: 'center'
   },
   statusTileLabel: {
     color: 'var(--netdive-detail-muted, #64748b)',
     fontSize: 11.4,
     lineHeight: 1.2,
-    fontWeight: 700
+    fontWeight: 700,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap'
   },
   statusTileValue: {
     marginTop: 3,
@@ -179,19 +185,20 @@ export const styles = (theme: Theme) => createStyles({
   },
   metricGrid: {
     display: 'grid',
-    gridTemplateColumns: '1fr',
-    gap: theme.spacing(1),
+    gridTemplateColumns: 'repeat(auto-fit, minmax(94px, 1fr))',
+    gap: theme.spacing(0.75),
     padding: theme.spacing(1.2, 1.35, 1.35)
   },
   metricTile: {
-    display: 'grid',
-    gridTemplateColumns: '30px minmax(0, 1fr)',
-    gap: theme.spacing(0.85),
-    alignItems: 'center',
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+    gap: theme.spacing(0.35),
     border: '1px solid var(--netdive-detail-border-soft)',
     borderRadius: 13,
-    padding: theme.spacing(1),
+    padding: theme.spacing(0.9, 0.95),
     background: 'var(--netdive-detail-soft-card, #fbfdff)',
+    minHeight: 72,
     minWidth: 0
   },
   metricTileMuted: {
@@ -201,17 +208,7 @@ export const styles = (theme: Theme) => createStyles({
     }
   },
   metricIcon: {
-    width: 30,
-    height: 30,
-    borderRadius: 10,
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    color: 'var(--topology-level-label-active-text)',
-    background: 'rgba(232, 242, 255, 0.82)',
-    '& svg': {
-      fontSize: 16
-    }
+    display: 'none'
   },
   metricBody: {
     minWidth: 0
@@ -223,10 +220,11 @@ export const styles = (theme: Theme) => createStyles({
     fontWeight: 700,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap'
+    whiteSpace: 'nowrap',
+    textAlign: 'left'
   },
   metricValue: {
-    marginTop: 4,
+    marginTop: 2,
     color: 'var(--netdive-detail-text)',
     fontSize: 18,
     lineHeight: 1.12,
@@ -234,7 +232,7 @@ export const styles = (theme: Theme) => createStyles({
     overflowWrap: 'anywhere'
   },
   metricSub: {
-    marginTop: 4,
+    marginTop: 2,
     color: 'var(--netdive-detail-muted, #64748b)',
     fontSize: 11.2,
     lineHeight: 1.25,

@@ -156,6 +156,7 @@ const getSavedNetdiveTheme = (): NetdiveTheme => {
 interface State {
   vmNameMap?: Record<string, string>
   vmNetworkMap?: Record<string, Array<{ networkName: string, macAddress: string, ipAddress: string }>>
+  moldInventory?: any
   isContextMenuOn: string
   contextMenuX: number
   contextMenuY: number
@@ -312,6 +313,8 @@ class App extends React.Component<Props, State> {
   private kubernetesTestRequestSeq: number
   private kubernetesTestProgressTimers: number[]
   private kubernetesCheckListRef: React.RefObject<HTMLDivElement>
+  private moldInventoryFailureLogged: boolean
+  private moldInventoryUnavailable: boolean
 
   constructor(props) {
     super(props)
@@ -343,6 +346,7 @@ class App extends React.Component<Props, State> {
       language: "ko",
       vmNameMap: {},
       vmNetworkMap: {},
+      moldInventory: undefined,
       isVMConsoleOpening: false,
       isLinkTagsCollapsed: true,
       isLinkTagExamplesOpen: false,
@@ -399,6 +403,8 @@ class App extends React.Component<Props, State> {
     this.kubernetesTestRequestSeq = 0
     this.kubernetesTestProgressTimers = []
     this.kubernetesCheckListRef = React.createRef()
+    this.moldInventoryFailureLogged = false
+    this.moldInventoryUnavailable = false
   }
 
   setLanguage(lang: "en" | "ko") {
@@ -438,11 +444,13 @@ class App extends React.Component<Props, State> {
     // Libvirt VM 이름 매핑 정보 불러오기 (초기 + 주기 갱신)
     this.refreshVmNameMap()
     this.refreshVmNetworkMap()
+    this.refreshMoldInventory()
     this.refreshVMConsoleEnabled()
     this.refreshKubernetesClusters()
     this.vmNameMapRefreshID = window.setInterval(() => {
       this.refreshVmNameMap()
       this.refreshVmNetworkMap()
+      this.refreshMoldInventory()
     }, 10000)
   }
 
@@ -526,6 +534,34 @@ class App extends React.Component<Props, State> {
       }
     }).catch((err) => {
       console.debug("Failed to refresh vmNetworkMap", err)
+    })
+  }
+
+  private refreshMoldInventory() {
+    if (this.moldInventoryUnavailable) {
+      return
+    }
+    const ts = Date.now()
+    fetch(`/api/mold/inventory?_=${ts}`, { cache: "no-store" }).then((resp) => {
+      if (!resp.ok) {
+        if (resp.status === 404 || resp.status === 501) {
+          this.moldInventoryUnavailable = true
+        }
+        throw new Error(`mold inventory api failed: ${resp.status}`)
+      }
+      return resp.json()
+    }).then((data) => {
+      const prev = this.state.moldInventory || {}
+      const same = JSON.stringify(prev) === JSON.stringify(data || {})
+      this.moldInventoryFailureLogged = false
+      if (!same) {
+        this.setState({ moldInventory: data })
+      }
+    }).catch((err) => {
+      if (!this.moldInventoryFailureLogged) {
+        console.debug("Failed to refresh moldInventory", err)
+        this.moldInventoryFailureLogged = true
+      }
     })
   }
 
@@ -3936,7 +3972,7 @@ class App extends React.Component<Props, State> {
               square={true}>
               {!this.state.isTimetravelOpen &&
                 <SelectionPanel onLocation={this.onSelectionLocation.bind(this)} onClose={this.onSelectionClose.bind(this)} config={this.config}
-                  buttonsContent={this.actionButtons.bind(this)} panelsContent={this.dataPanels.bind(this)} />
+                  buttonsContent={this.actionButtons.bind(this)} panelsContent={this.dataPanels.bind(this)} moldInventory={this.state.moldInventory} />
               }
               {this.state.isTimetravelOpen &&
                 <TimetravelPanel config={this.config} onNavigate={this.onNavigate.bind(this)} />
