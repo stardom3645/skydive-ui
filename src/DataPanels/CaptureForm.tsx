@@ -765,14 +765,19 @@ class CaptureForm extends React.Component<Props, State> {
                               <div className={classes.advancedFieldLabel}>
                                 {this.renderAdvancedLabel(classes, translate("Raw packet limit"), this.state.rawPacketLimit !== "10")}
                               </div>
-                              {this.renderCompactTextField(classes, {
-                                type: "number",
-                                value: this.state.rawPacketLimit,
-                                onChange: this.handleChange("rawPacketLimit"),
-                                error: !!this.state.rawPacketLimit && !this.isRawPacketLimitValid(),
-                                helperText: !!this.state.rawPacketLimit && !this.isRawPacketLimitValid() ? translate("capture-rawPacketLimit-validation-error") : ""
-                              })}
-                              <small>다운로드용 원시 패킷을 최대 10개 저장합니다. 0은 저장 안 함</small>
+                              <FormControl variant="outlined" fullWidth className={classes.compactField}>
+                                <Select
+                                  id="raw-packet-limit"
+                                  value={this.state.rawPacketLimit}
+                                  onChange={this.handleChange("rawPacketLimit")}>
+                                  {Array.from({ length: 11 }, (_, value) => (
+                                    <MenuItem key={value} value={String(value)}>
+                                      {value === 0 ? "0 - 저장 안 함" : `${value}개 / flow`}
+                                    </MenuItem>
+                                  ))}
+                                </Select>
+                              </FormControl>
+                              <small>PCAP 다운로드용 원시 패킷을 각 flow마다 최대 0~10개 저장합니다. 0은 저장 안 함</small>
                             </div>
                           </div>
                         </section>
