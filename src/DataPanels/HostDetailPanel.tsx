@@ -11,7 +11,6 @@ import PowerIcon from '@material-ui/icons/Power'
 import LabelIcon from '@material-ui/icons/Label'
 import SecurityIcon from '@material-ui/icons/Security'
 import RouterIcon from '@material-ui/icons/Router'
-import SettingsIcon from '@material-ui/icons/Settings'
 import { withStyles } from '@material-ui/core/styles'
 
 import { Node } from '../Topology'
@@ -527,6 +526,21 @@ class HostDetailPanel extends React.Component<Props, State> {
         )
     }
 
+    private infrastructureIcon(glyph: string, tone: string) {
+        const { classes } = this.props
+        const colors: Record<string, string> = {
+            network: '#3f7ee8',
+            'user-vm': '#41a878',
+            'system-vm': '#6d4bd8',
+            router: '#7c4bd3'
+        }
+        return (
+            <span className={`${classes.connectedResourceFaIcon} fa fas fa-fw`} style={{ color: colors[tone] || colors.network }}>
+                {glyph}
+            </span>
+        )
+    }
+
     private renderStatusTiles(items: StatusTile[]) {
         const { classes } = this.props
         return (
@@ -623,10 +637,10 @@ class HostDetailPanel extends React.Component<Props, State> {
         ]
 
         const connectedResources: OverviewCardItem[] = [
-            { label: translate('hostConnectedVMs'), description: translate('hostConnectedVMsDescription'), value: vmCount !== undefined ? String(vmCount) : '', icon: <ComputerIcon /> },
-            { label: translate('hostSystemVMs'), description: translate('hostSystemVMsDescription'), value: systemVmCount !== undefined ? String(systemVmCount) : '', icon: <SettingsIcon /> },
-            { label: translate('hostVirtualRouters'), description: translate('hostVirtualRoutersDescription'), value: virtualRouterCount !== undefined ? String(virtualRouterCount) : '', icon: <RouterIcon /> },
-            { label: translate('hostNetworkCount'), description: translate('hostNetworkCountDescription'), value: networkCount !== undefined ? String(networkCount) : '', icon: <DeviceHubIcon /> }
+            { label: translate('hostConnectedVMs'), description: translate('hostConnectedVMsDescription'), value: vmCount !== undefined ? String(vmCount) : '', icon: this.infrastructureIcon('\uf108', 'user-vm') },
+            { label: translate('hostSystemVMs'), description: translate('hostSystemVMsDescription'), value: systemVmCount !== undefined ? String(systemVmCount) : '', icon: this.infrastructureIcon('\uf085', 'system-vm') },
+            { label: translate('hostVirtualRouters'), description: translate('hostVirtualRoutersDescription'), value: virtualRouterCount !== undefined ? String(virtualRouterCount) : '', icon: this.infrastructureIcon('\uf4d7', 'router') },
+            { label: translate('hostNetworkCount'), description: translate('hostNetworkCountDescription'), value: networkCount !== undefined ? String(networkCount) : '', icon: this.infrastructureIcon('\uf6ff', 'network') }
         ]
 
         const socketMetrics: MetricItem[] = [

@@ -192,70 +192,75 @@ export const styles = (theme: Theme) => createStyles({
   connectedResourceGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-    gap: theme.spacing(1),
-    padding: theme.spacing(1.1, 1.25, 1.25),
+    gap: theme.spacing(0.85),
+    padding: theme.spacing(1, 1.15, 1.15),
     [theme.breakpoints.down('sm')]: {
       gridTemplateColumns: '1fr'
     }
   },
   connectedResourceCard: {
-    minHeight: 96,
+    minHeight: 76,
     width: '100%',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: theme.spacing(1.25),
-    padding: theme.spacing(1.45, 1.5),
-    borderRadius: 14,
+    gap: theme.spacing(0.8),
+    padding: theme.spacing(1.05, 1.05),
+    borderRadius: 10,
     border: '1px solid var(--netdive-detail-border)',
     backgroundColor: 'var(--netdive-detail-section-bg)',
     textAlign: 'left',
     transition: 'background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease',
     '& strong': {
       color: 'var(--netdive-detail-title)',
-      fontSize: 15,
+      fontSize: 12.5,
       lineHeight: 1.15,
-      fontWeight: 900
+      fontWeight: 800
     },
     '& small': {
       color: 'var(--netdive-detail-muted)',
-      fontSize: 13,
-      lineHeight: 1.4,
-      fontWeight: 700
+      fontSize: 11.2,
+      lineHeight: 1.25,
+      fontWeight: 600
     }
   },
   connectedResourceCardMain: {
     display: 'flex',
     alignItems: 'center',
-    gap: theme.spacing(1.25),
+    gap: theme.spacing(0.75),
     minWidth: 0,
     '& > span:last-child': {
       minWidth: 0,
       display: 'flex',
       flexDirection: 'column',
-      gap: 3
+      gap: 2
     }
   },
   connectedResourceCardIcon: {
     flexShrink: 0,
-    width: 30,
-    height: 30,
-    borderRadius: 11,
+    width: 26,
+    height: 26,
+    borderRadius: 8,
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    color: 'var(--topology-level-label-active-text)',
-    background: 'rgba(232, 242, 255, 0.82)',
+    background: 'rgba(248, 250, 252, 0.96)',
     '& svg': {
-      fontSize: 17
+      fontSize: 15
     }
+  },
+  connectedResourceFaIcon: {
+    fontFamily: '"Font Awesome 5 Free"',
+    fontSize: 16,
+    fontWeight: 900,
+    lineHeight: 1
   },
   connectedResourceCardValue: {
     flexShrink: 0,
     color: 'var(--netdive-detail-title)',
-    fontSize: 24,
+    fontSize: 18,
     lineHeight: 1,
-    fontWeight: 900,
+    fontWeight: 850,
     minWidth: 0,
     textAlign: 'right'
   },
