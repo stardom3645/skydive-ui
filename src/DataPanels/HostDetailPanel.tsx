@@ -593,7 +593,7 @@ class HostDetailPanel extends React.Component<Props, State> {
             { label: translate('hostConnectedVMs'), value: vmCount !== undefined ? String(vmCount) : '', icon: <ComputerIcon /> },
             { label: translate('hostSystemVMs'), value: systemVmCount !== undefined ? String(systemVmCount) : '', icon: <SecurityIcon /> },
             { label: translate('hostVirtualRouters'), value: virtualRouterCount !== undefined ? String(virtualRouterCount) : '', icon: <RouterIcon /> },
-            { label: translate('hostNetworkCount'), value: networkCount !== undefined ? String(networkCount) : '', icon: <SecurityIcon /> }
+            { label: '연결 네트워크', value: networkCount !== undefined ? String(networkCount) : '', icon: <SecurityIcon /> }
         ]
 
         const socketMetrics: MetricItem[] = [
