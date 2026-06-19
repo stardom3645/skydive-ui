@@ -189,6 +189,76 @@ export const styles = (theme: Theme) => createStyles({
     gap: 8,
     padding: theme.spacing(1.1, 1.25, 1.25)
   },
+  connectedResourceGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+    gap: theme.spacing(1),
+    padding: theme.spacing(1.1, 1.25, 1.25),
+    [theme.breakpoints.down('sm')]: {
+      gridTemplateColumns: '1fr'
+    }
+  },
+  connectedResourceCard: {
+    minHeight: 96,
+    width: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing(1.25),
+    padding: theme.spacing(1.45, 1.5),
+    borderRadius: 14,
+    border: '1px solid var(--netdive-detail-border)',
+    backgroundColor: 'var(--netdive-detail-section-bg)',
+    textAlign: 'left',
+    transition: 'background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease',
+    '& strong': {
+      color: 'var(--netdive-detail-title)',
+      fontSize: 15,
+      lineHeight: 1.15,
+      fontWeight: 900
+    },
+    '& small': {
+      color: 'var(--netdive-detail-muted)',
+      fontSize: 13,
+      lineHeight: 1.4,
+      fontWeight: 700
+    }
+  },
+  connectedResourceCardMain: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(1.25),
+    minWidth: 0,
+    '& > span:last-child': {
+      minWidth: 0,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 3
+    }
+  },
+  connectedResourceCardIcon: {
+    flexShrink: 0,
+    width: 30,
+    height: 30,
+    borderRadius: 11,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: 'var(--topology-level-label-active-text)',
+    background: 'rgba(232, 242, 255, 0.82)',
+    '& svg': {
+      fontSize: 17
+    }
+  },
+  connectedResourceCardValue: {
+    flexShrink: 0,
+    color: 'var(--netdive-detail-title)',
+    fontSize: 24,
+    lineHeight: 1,
+    fontWeight: 900,
+    minWidth: 0,
+    textAlign: 'right'
+  },
   metricTile: {
     display: 'flex',
     flexDirection: 'column',

@@ -11,6 +11,7 @@ import PowerIcon from '@material-ui/icons/Power'
 import LabelIcon from '@material-ui/icons/Label'
 import SecurityIcon from '@material-ui/icons/Security'
 import RouterIcon from '@material-ui/icons/Router'
+import SettingsIcon from '@material-ui/icons/Settings'
 import { withStyles } from '@material-ui/core/styles'
 
 import { Node } from '../Topology'
@@ -42,6 +43,13 @@ interface MetricItem {
     sub?: string
     percent?: number
     muted?: boolean
+    icon?: React.ReactNode
+}
+
+interface OverviewCardItem {
+    label: string
+    description: string
+    value: string
     icon?: React.ReactNode
 }
 
@@ -497,6 +505,28 @@ class HostDetailPanel extends React.Component<Props, State> {
         )
     }
 
+    private renderOverviewGrid(items: OverviewCardItem[], emptyText = translate('hostNoConnectedResources')) {
+        const { classes } = this.props
+        const visible = items.filter(item => item.value)
+        if (!visible.length) return <div className={classes.emptyState}>{emptyText}</div>
+        return (
+            <div className={classes.connectedResourceGrid}>
+                {visible.map(item => (
+                    <div className={classes.connectedResourceCard} key={item.label}>
+                        <span className={classes.connectedResourceCardMain}>
+                            <span className={classes.connectedResourceCardIcon}>{item.icon || <InfoIcon />}</span>
+                            <span>
+                                <strong>{item.label}</strong>
+                                <small>{item.description}</small>
+                            </span>
+                        </span>
+                        <span className={classes.connectedResourceCardValue}>{item.value}</span>
+                    </div>
+                ))}
+            </div>
+        )
+    }
+
     private renderStatusTiles(items: StatusTile[]) {
         const { classes } = this.props
         return (
@@ -547,14 +577,17 @@ class HostDetailPanel extends React.Component<Props, State> {
         const pod = firstValue(data, ['Pod', 'PodName'])
         const resourceState = firstValue(data, ['ResourceState', 'resourceState', 'AllocationState', 'allocationState'])
         const managementServer = firstValue(data, ['ManagementServer', 'ManagementIP', 'ManagementIp', 'managementIp', 'privateIpAddress'])
-        const vmCount = numberValue(data, ['UserVMCount', 'userVmCount', 'VmCount', 'VMCount', 'UserVmCount', 'RunningVms', 'RunningVMCount', 'runningVmCount', 'VirtualMachineCount'])
-        const systemVmCount = numberValue(data, ['SystemVmCount', 'SystemVMCount', 'systemVmCount'])
-        const virtualRouterCount = numberValue(data, ['VirtualRouterCount', 'RouterCount', 'VRCount'])
+        const connectedVmArrayCount = asArray(data.UserVMs).length || asArray(data.VMs).length || asArray(data.VirtualMachines).length
+        const systemVmArrayCount = asArray(data.SystemVMs).length || asArray(data.SystemVms).length || asArray(data.SystemVirtualMachines).length
+        const virtualRouterArrayCount = asArray(data.VirtualRouters).length || asArray(data.Routers).length || asArray(data.VirtualRouter).length
+        const vmCount = numberValue(data, ['ConnectedVMCount', 'ConnectedVmCount', 'UserVMCount', 'userVmCount', 'VmCount', 'VMCount', 'UserVmCount', 'RunningVms', 'RunningVMCount', 'runningVmCount', 'VirtualMachineCount']) ?? (connectedVmArrayCount > 0 ? connectedVmArrayCount : undefined)
+        const systemVmCount = numberValue(data, ['SystemVmCount', 'SystemVMCount', 'systemVmCount']) ?? (systemVmArrayCount > 0 ? systemVmArrayCount : undefined)
+        const virtualRouterCount = numberValue(data, ['VirtualRouterCount', 'virtualRouterCount', 'RouterCount', 'routerCount', 'VRCount']) ?? (virtualRouterArrayCount > 0 ? virtualRouterArrayCount : undefined)
         const cpuPercent = percentValue(data, ['CPUUsage', 'CpuUsage', 'CPU', 'CPUAllocatedPercent', 'cpuAllocatedPercent'])
         const memoryPercent = percentValue(data, ['MemoryUsage', 'MemUsage', 'Memory', 'MemoryAllocatedPercent', 'memoryAllocatedPercent'])
         const storagePercent = percentValue(data, ['StorageUsage', 'DiskUsage', 'Storage', 'StorageUsedPercent', 'storageUsedPercent'])
         const explicitNetworkCount = numberValue(data, ['NetworkCount', 'networkCount', 'NetworksCount', 'ConnectedNetworkCount', 'connectedNetworkCount'])
-        const derivedNetworkCount = asArray(data.Networks).length || asArray(data.Network).length
+        const derivedNetworkCount = asArray(data.Networks).length || asArray(data.Network).length || asArray(data.NetworkObjects).length || asArray(data.Interfaces).length || asArray(data.interfaces).length
         const networkCount = explicitNetworkCount !== undefined ? explicitNetworkCount : (derivedNetworkCount > 0 ? derivedNetworkCount : undefined)
         const physicalNicCount = numberValue(data, ['PhysicalNicCount', 'PhysicalNICCount', 'NicCount', 'NICCount'])
         const bridgeCount = numberValue(data, ['BridgeCount', 'HostBridgeCount'])
@@ -589,11 +622,11 @@ class HostDetailPanel extends React.Component<Props, State> {
             { label: translate('hostStorageUsage'), value: storagePercent !== undefined ? `${Math.round(storagePercent)}%` : '', percent: storagePercent, icon: <StorageIcon /> }
         ]
 
-        const connectedMetrics: MetricItem[] = [
-            { label: translate('hostConnectedVMs'), value: vmCount !== undefined ? String(vmCount) : '', icon: <ComputerIcon /> },
-            { label: translate('hostSystemVMs'), value: systemVmCount !== undefined ? String(systemVmCount) : '', icon: <SecurityIcon /> },
-            { label: translate('hostVirtualRouters'), value: virtualRouterCount !== undefined ? String(virtualRouterCount) : '', icon: <RouterIcon /> },
-            { label: '연결 네트워크', value: networkCount !== undefined ? String(networkCount) : '', icon: <SecurityIcon /> }
+        const connectedResources: OverviewCardItem[] = [
+            { label: translate('hostConnectedVMs'), description: translate('hostConnectedVMsDescription'), value: vmCount !== undefined ? String(vmCount) : '', icon: <ComputerIcon /> },
+            { label: translate('hostSystemVMs'), description: translate('hostSystemVMsDescription'), value: systemVmCount !== undefined ? String(systemVmCount) : '', icon: <SettingsIcon /> },
+            { label: translate('hostVirtualRouters'), description: translate('hostVirtualRoutersDescription'), value: virtualRouterCount !== undefined ? String(virtualRouterCount) : '', icon: <RouterIcon /> },
+            { label: translate('hostNetworkCount'), description: translate('hostNetworkCountDescription'), value: networkCount !== undefined ? String(networkCount) : '', icon: <DeviceHubIcon /> }
         ]
 
         const socketMetrics: MetricItem[] = [
@@ -621,7 +654,7 @@ class HostDetailPanel extends React.Component<Props, State> {
             { label: translate('hostAgent'), value: this.statusText(), tone: this.statusText() === translate('hostStatusNormal') ? 'success' : 'warning', icon: <SecurityIcon /> }
         ]
         const hasResourceMetrics = this.hasMetricValues(resourceMetrics)
-        const hasConnectedMetrics = this.hasMetricValues(connectedMetrics)
+        const hasConnectedMetrics = connectedResources.some(item => !isBlank(item.value))
         const visibleNetworkMetrics = networkMetrics.filter(item => item.value)
         const hasNetworkSummary = visibleNetworkMetrics.length > 1
         const hasRecentSignals = eventRows.some(row => !isBlank(row.value))
@@ -632,7 +665,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                 {this.renderSection(<InfoIcon />, translate('hostBasicInfo'), translate('hostOverviewDescription'), this.renderRows(basicRows))}
                 {this.renderSection(<ComputerIcon />, translate('hostOsPlatform'), translate('hostOsPlatformDescription'), this.renderOsSummary(data))}
                 {hasResourceMetrics && this.renderSection(<TimelineIcon />, translate('hostResourceUsage'), translate('hostResourceUsageDescription'), this.renderMetricGrid(resourceMetrics))}
-                {hasConnectedMetrics && this.renderSection(<DeviceHubIcon />, translate('hostConnectedResources'), translate('hostConnectedResourcesDescription'), this.renderMetricGrid(connectedMetrics, translate('hostNoConnectedResources')))}
+                {hasConnectedMetrics && this.renderSection(<DeviceHubIcon />, translate('hostConnectedResources'), translate('hostConnectedResourcesDescription'), this.renderOverviewGrid(connectedResources, translate('hostNoConnectedResources')))}
                 {hasNetworkSummary && this.renderSection(<RouterIcon />, translate('hostNetworkSummary'), translate('hostNetworkSummaryDescription'), this.renderMetricGrid(networkMetrics, translate('hostNetworkDetailsMissing')))}
 
                 {this.renderSection(<PowerIcon />, translate('hostSocketsProcesses'), translate('hostSocketsProcessesDescription'), (
