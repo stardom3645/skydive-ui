@@ -3882,6 +3882,7 @@ class App extends React.Component<Props, State> {
   render() {
     const { classes } = this.props
     const isDark = this.state.netdiveTheme === "dark"
+    const infrastructureHostSummaries = this.infrastructureSummary().hostsById
     return (
       <div className={clsx(classes.app, isDark && classes.appDark)}>
         <CssBaseline />
@@ -3972,7 +3973,7 @@ class App extends React.Component<Props, State> {
               square={true}>
               {!this.state.isTimetravelOpen &&
                 <SelectionPanel onLocation={this.onSelectionLocation.bind(this)} onClose={this.onSelectionClose.bind(this)} config={this.config}
-                  buttonsContent={this.actionButtons.bind(this)} panelsContent={this.dataPanels.bind(this)} moldInventory={this.state.moldInventory} />
+                  buttonsContent={this.actionButtons.bind(this)} panelsContent={this.dataPanels.bind(this)} moldInventory={this.state.moldInventory} infrastructureHostSummaries={infrastructureHostSummaries} />
               }
               {this.state.isTimetravelOpen &&
                 <TimetravelPanel config={this.config} onNavigate={this.onNavigate.bind(this)} />

@@ -23,6 +23,7 @@ interface Props {
     node: Node
     session?: session
     moldInventory?: any
+    infrastructureHostSummaries?: Record<string, any>
 }
 
 interface State {
@@ -591,18 +592,19 @@ class HostDetailPanel extends React.Component<Props, State> {
         const pod = firstValue(data, ['Pod', 'PodName'])
         const resourceState = firstValue(data, ['ResourceState', 'resourceState', 'AllocationState', 'allocationState'])
         const managementServer = firstValue(data, ['ManagementServer', 'ManagementIP', 'ManagementIp', 'managementIp', 'privateIpAddress'])
+        const graphHostSummary = this.props.infrastructureHostSummaries?.[node.id]
         const connectedVmArrayCount = asArray(data.UserVMs).length || asArray(data.VMs).length || asArray(data.VirtualMachines).length
         const systemVmArrayCount = asArray(data.SystemVMs).length || asArray(data.SystemVms).length || asArray(data.SystemVirtualMachines).length
         const virtualRouterArrayCount = asArray(data.VirtualRouters).length || asArray(data.Routers).length || asArray(data.VirtualRouter).length
-        const vmCount = numberValue(data, ['ConnectedVMCount', 'ConnectedVmCount', 'UserVMCount', 'userVmCount', 'VmCount', 'VMCount', 'UserVmCount', 'RunningVms', 'RunningVMCount', 'runningVmCount', 'VirtualMachineCount']) ?? (connectedVmArrayCount > 0 ? connectedVmArrayCount : undefined)
-        const systemVmCount = numberValue(data, ['SystemVmCount', 'SystemVMCount', 'systemVmCount']) ?? (systemVmArrayCount > 0 ? systemVmArrayCount : undefined)
-        const virtualRouterCount = numberValue(data, ['VirtualRouterCount', 'virtualRouterCount', 'RouterCount', 'routerCount', 'VRCount']) ?? (virtualRouterArrayCount > 0 ? virtualRouterArrayCount : undefined)
+        const vmCount = graphHostSummary?.userVMs ?? numberValue(data, ['ConnectedVMCount', 'ConnectedVmCount', 'UserVMCount', 'userVmCount', 'VmCount', 'VMCount', 'UserVmCount', 'RunningVms', 'RunningVMCount', 'runningVmCount', 'VirtualMachineCount']) ?? (connectedVmArrayCount > 0 ? connectedVmArrayCount : undefined)
+        const systemVmCount = graphHostSummary?.systemVMs ?? numberValue(data, ['SystemVmCount', 'SystemVMCount', 'systemVmCount']) ?? (systemVmArrayCount > 0 ? systemVmArrayCount : undefined)
+        const virtualRouterCount = graphHostSummary?.routers ?? numberValue(data, ['VirtualRouterCount', 'virtualRouterCount', 'RouterCount', 'routerCount', 'VRCount']) ?? (virtualRouterArrayCount > 0 ? virtualRouterArrayCount : undefined)
         const cpuPercent = percentValue(data, ['CPUUsage', 'CpuUsage', 'CPU', 'CPUAllocatedPercent', 'cpuAllocatedPercent'])
         const memoryPercent = percentValue(data, ['MemoryUsage', 'MemUsage', 'Memory', 'MemoryAllocatedPercent', 'memoryAllocatedPercent'])
         const storagePercent = percentValue(data, ['StorageUsage', 'DiskUsage', 'Storage', 'StorageUsedPercent', 'storageUsedPercent'])
         const explicitNetworkCount = numberValue(data, ['NetworkCount', 'networkCount', 'NetworksCount', 'ConnectedNetworkCount', 'connectedNetworkCount'])
         const derivedNetworkCount = asArray(data.Networks).length || asArray(data.Network).length || asArray(data.NetworkObjects).length || asArray(data.Interfaces).length || asArray(data.interfaces).length
-        const networkCount = explicitNetworkCount !== undefined ? explicitNetworkCount : (derivedNetworkCount > 0 ? derivedNetworkCount : undefined)
+        const networkCount = graphHostSummary?.networkObjects ?? (explicitNetworkCount !== undefined ? explicitNetworkCount : (derivedNetworkCount > 0 ? derivedNetworkCount : undefined))
         const physicalNicCount = numberValue(data, ['PhysicalNicCount', 'PhysicalNICCount', 'NicCount', 'NICCount'])
         const bridgeCount = numberValue(data, ['BridgeCount', 'HostBridgeCount'])
         const bondCount = numberValue(data, ['BondCount', 'BondingCount'])
@@ -637,10 +639,10 @@ class HostDetailPanel extends React.Component<Props, State> {
         ]
 
         const connectedResources: OverviewCardItem[] = [
-            { label: translate('hostConnectedVMs'), description: translate('hostConnectedVMsDescription'), value: vmCount !== undefined ? String(vmCount) : '', icon: this.infrastructureIcon('\uf108', 'user-vm') },
-            { label: translate('hostSystemVMs'), description: translate('hostSystemVMsDescription'), value: systemVmCount !== undefined ? String(systemVmCount) : '', icon: this.infrastructureIcon('\uf085', 'system-vm') },
-            { label: translate('hostVirtualRouters'), description: translate('hostVirtualRoutersDescription'), value: virtualRouterCount !== undefined ? String(virtualRouterCount) : '', icon: this.infrastructureIcon('\uf4d7', 'router') },
-            { label: translate('hostNetworkCount'), description: translate('hostNetworkCountDescription'), value: networkCount !== undefined ? String(networkCount) : '', icon: this.infrastructureIcon('\uf6ff', 'network') }
+            { label: translate('infrastructureUserVMs'), description: translate('infrastructureUserVMsDescription'), value: vmCount !== undefined ? String(vmCount) : '', icon: this.infrastructureIcon('\uf108', 'user-vm') },
+            { label: translate('infrastructureSystemVMs'), description: translate('infrastructureSystemVMsDescription'), value: systemVmCount !== undefined ? String(systemVmCount) : '', icon: this.infrastructureIcon('\uf085', 'system-vm') },
+            { label: translate('infrastructureRouters'), description: translate('infrastructureRoutersDescription'), value: virtualRouterCount !== undefined ? String(virtualRouterCount) : '', icon: this.infrastructureIcon('\uf4d7', 'router') },
+            { label: translate('infrastructureNetworkObjects'), description: translate('infrastructureNetworkObjectsDescription'), value: networkCount !== undefined ? String(networkCount) : '', icon: this.infrastructureIcon('\uf6ff', 'network') }
         ]
 
         const socketMetrics: MetricItem[] = [
