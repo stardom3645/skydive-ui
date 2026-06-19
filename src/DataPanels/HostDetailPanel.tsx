@@ -18,6 +18,8 @@ import { session } from '../Store'
 import { translate } from '../Config'
 import { styles } from './HostDetailPanelStyles'
 
+import HostResourceTrendPanel from './HostResourceTrendPanel'
+
 interface Props {
     classes: any
     node: Node
@@ -681,6 +683,11 @@ class HostDetailPanel extends React.Component<Props, State> {
                 {this.renderSection(<InfoIcon />, translate('hostBasicInfo'), translate('hostOverviewDescription'), this.renderRows(basicRows))}
                 {this.renderSection(<ComputerIcon />, translate('hostOsPlatform'), translate('hostOsPlatformDescription'), this.renderOsSummary(data))}
                 {hasResourceMetrics && this.renderSection(<TimelineIcon />, translate('hostResourceUsage'), translate('hostResourceUsageDescription'), this.renderMetricGrid(resourceMetrics))}
+                <HostResourceTrendPanel
+                    node={node}
+                    session={this.props.session}
+                    data={data}
+                />
                 {hasConnectedMetrics && this.renderSection(<DeviceHubIcon />, translate('hostConnectedResources'), translate('hostConnectedResourcesDescription'), this.renderOverviewGrid(connectedResources, translate('hostNoConnectedResources')))}
                 {hasNetworkSummary && this.renderSection(<RouterIcon />, translate('hostNetworkSummary'), translate('hostNetworkSummaryDescription'), this.renderMetricGrid(networkMetrics, translate('hostNetworkDetailsMissing')))}
 
