@@ -43,6 +43,14 @@ interface TrendPoint {
     value?: number
 }
 
+interface TrendDisplayItem {
+    key: string
+    label: string
+    unit: string
+    value: string
+    series: TrendSeries[]
+}
+
 const styles = (theme: Theme) => createStyles({
     card: {
         border: '1px solid var(--netdive-detail-border-soft)',
@@ -130,6 +138,31 @@ const styles = (theme: Theme) => createStyles({
         fontWeight: 850,
         whiteSpace: 'nowrap'
     },
+    legend: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        marginTop: -2,
+        marginBottom: 6,
+        color: 'var(--netdive-detail-muted, #64748b)',
+        fontSize: 10.5,
+        fontWeight: 700
+    },
+    legendItem: {
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4
+    },
+    legendLine: {
+        width: 14,
+        height: 0,
+        borderTop: '2px solid var(--netdive-detail-accent, #1A73E8)'
+    },
+    legendLineSecondary: {
+        width: 14,
+        height: 0,
+        borderTop: '2px dashed rgba(100, 116, 139, 0.9)'
+    },
     svg: {
         width: '100%',
         height: 44,
@@ -143,6 +176,14 @@ const styles = (theme: Theme) => createStyles({
         fill: 'none',
         stroke: 'var(--netdive-detail-accent, #1A73E8)',
         strokeWidth: 2,
+        strokeLinecap: 'round',
+        strokeLinejoin: 'round'
+    },
+    lineSecondary: {
+        fill: 'none',
+        stroke: 'rgba(100, 116, 139, 0.9)',
+        strokeWidth: 2,
+        strokeDasharray: '4 3',
         strokeLinecap: 'round',
         strokeLinejoin: 'round'
     },
@@ -230,7 +271,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         const detail = data || node.data || {}
         const name = firstValue(detail, ['Name', 'Hostname', 'HostName']) || node.id
         const managementIp = firstValue(detail, ['ManagementIP', 'ManagementIp', 'managementIp', 'IpAddress', 'ipaddress'])
-        const host = firstValue(data, ['Hostname', 'HostName', 'Name']) || name
+        const host = firstValue(detail, ['Hostname', 'HostName', 'Name']) || name
         const loadedFor = this.hostQueryKey(node, data)
 
         const params = new URLSearchParams()
@@ -238,6 +279,8 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         params.set('name', name)
         params.set('range', '3h')
         params.set('step', '60s')
+        params.set('job', 'cube')
+        params.set('port', '3003')
         if (managementIp) {
             params.set('managementIp', managementIp)
             params.set('ip', managementIp)
@@ -267,7 +310,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
     private formatValue(value: number | undefined, unit: string): string {
         if (value === undefined || value === null || Number.isNaN(value)) return 'N/A'
 
-        if (unit === 'percent') {
+        if (unit === 'percent' || unit === 'percentage' || unit === '%') {
             return `${Math.round(value)}%`
         }
 
@@ -278,16 +321,106 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
             return `${Math.round(value)} bps`
         }
 
+        if (unit === 'iops') {
+            if (value >= 1000) return `${(value / 1000).toFixed(1)}K IOPS`
+            return `${value.toFixed(value >= 10 ? 0 : 1)} IOPS`
+        }
+
+        if (unit === 'count') {
+            return `${value.toFixed(value >= 10 ? 0 : 2)} count`
+        }
+
         return String(Math.round(value))
     }
 
-    private buildPath(points: TrendPoint[], width: number, height: number): string {
+    private seriesByKey(series: TrendSeries[], key: string): TrendSeries | undefined {
+        return series.find(item => item.key === key)
+    }
+
+    private hasValues(series?: TrendSeries): boolean {
+        return !!series && Array.isArray(series.values) && series.values.some(point => typeof point.value === 'number')
+    }
+
+    private displayItems(series: TrendSeries[]): TrendDisplayItem[] {
+        const cpu = this.seriesByKey(series, 'cpu')
+        const memory = this.seriesByKey(series, 'memory')
+        const storageIops = this.seriesByKey(series, 'storageIops')
+        const networkRx = this.seriesByKey(series, 'networkRx')
+        const networkTx = this.seriesByKey(series, 'networkTx')
+        const networkDrops = this.seriesByKey(series, 'networkDrops')
+        const items: TrendDisplayItem[] = []
+
+        if (this.hasValues(cpu)) {
+            items.push({
+                key: 'cpu',
+                label: 'CPU Usage',
+                unit: 'percent',
+                value: this.formatValue(cpu?.lastValue, 'percent'),
+                series: [cpu as TrendSeries]
+            })
+        }
+
+        if (this.hasValues(memory)) {
+            items.push({
+                key: 'memory',
+                label: 'Memory Usage',
+                unit: 'percent',
+                value: this.formatValue(memory?.lastValue, 'percent'),
+                series: [memory as TrendSeries]
+            })
+        }
+
+        if (this.hasValues(storageIops)) {
+            items.push({
+                key: 'storageIops',
+                label: 'Storage IOPS',
+                unit: 'iops',
+                value: this.formatValue(storageIops?.lastValue, 'iops'),
+                series: [storageIops as TrendSeries]
+            })
+        }
+
+        if (this.hasValues(networkRx) || this.hasValues(networkTx)) {
+            const rxValue = this.formatValue(networkRx?.lastValue, 'bps')
+            const txValue = this.formatValue(networkTx?.lastValue, 'bps')
+            items.push({
+                key: 'networkTraffic',
+                label: 'Network Traffic',
+                unit: 'bps',
+                value: `RX ${rxValue} / TX ${txValue}`,
+                series: [networkRx, networkTx].filter(Boolean) as TrendSeries[]
+            })
+        }
+
+        if (this.hasValues(networkDrops)) {
+            items.push({
+                key: 'networkDrops',
+                label: 'Network Drops / Errors',
+                unit: 'count',
+                value: this.formatValue(networkDrops?.lastValue, 'count'),
+                series: [networkDrops as TrendSeries]
+            })
+        }
+
+        return items
+    }
+
+    private pointRange(seriesList: TrendSeries[]): { min: number, max: number } {
+        const values = seriesList.flatMap(series => (series.values || [])
+            .filter(point => typeof point.value === 'number')
+            .map(point => Number(point.value)))
+
+        if (!values.length) return { min: 0, max: 1 }
+        const min = Math.min(...values)
+        const max = Math.max(...values)
+        if (min === max) return { min: Math.max(0, min - 1), max: max + 1 }
+        return { min, max }
+    }
+
+    private buildPath(points: TrendPoint[], width: number, height: number, min: number, max: number): string {
         const valid = points.filter(point => typeof point.value === 'number') as Array<TrendPoint & { value: number }>
         if (valid.length < 2) return ''
 
-        const values = valid.map(point => point.value)
-        const min = Math.min(...values)
-        const max = Math.max(...values)
         const range = max - min || 1
         const left = 4
         const right = width - 4
@@ -306,22 +439,38 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         return `${linePath} L ${width - 4} ${height - 6} L 4 ${height - 6} Z`
     }
 
-    private renderSparkline(series: TrendSeries) {
+    private renderLegend(item: TrendDisplayItem) {
+        const { classes } = this.props
+        if (item.key !== 'networkTraffic') return null
+
+        return (
+            <div className={classes.legend}>
+                <span className={classes.legendItem}><span className={classes.legendLine} />RX</span>
+                <span className={classes.legendItem}><span className={classes.legendLineSecondary} />TX</span>
+            </div>
+        )
+    }
+
+    private renderSparkline(item: TrendDisplayItem) {
         const { classes } = this.props
         const width = 240
         const height = 44
-        const linePath = this.buildPath(series.values || [], width, height)
-        const fillPath = this.buildFillPath(linePath, width, height)
+        const { min, max } = this.pointRange(item.series)
+        const linePaths = item.series.map(series => this.buildPath(series.values || [], width, height, min, max))
+        const firstLinePath = linePaths[0] || ''
+        const fillPath = item.series.length === 1 ? this.buildFillPath(firstLinePath, width, height) : ''
 
-        if (!linePath) {
+        if (!linePaths.some(Boolean)) {
             return <div className={classes.empty}>수집된 추이 데이터가 없습니다.</div>
         }
 
         return (
             <svg className={classes.svg} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
                 <line className={classes.axis} x1="4" y1={height - 6} x2={width - 4} y2={height - 6} />
-                <path className={classes.fill} d={fillPath} />
-                <path className={classes.line} d={linePath} />
+                {fillPath && <path className={classes.fill} d={fillPath} />}
+                {linePaths.map((path, index) => path && (
+                    <path className={index === 0 ? classes.line : classes.lineSecondary} d={path} key={`${item.key}-${index}`} />
+                ))}
             </svg>
         )
     }
@@ -329,8 +478,8 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
     render() {
         const { classes } = this.props
         const { loading, error, trend } = this.state
-        const series = (trend?.series || []).filter(item => item.key !== 'networkTx' || item.values.length > 0)
-        const hasTrend = series.length > 0
+        const displayItems = this.displayItems(trend?.series || [])
+        const hasTrend = displayItems.length > 0
 
         return (
             <section className={classes.card}>
@@ -338,7 +487,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
                     <span className={classes.icon}><TimelineIcon /></span>
                     <div className={classes.titleBlock}>
                         <div className={classes.title}>리소스 3시간 추이</div>
-                        <div className={classes.description}>Wall Prometheus에서 CPU, Memory, Disk, Network 추이를 조회합니다.</div>
+                        <div className={classes.description}>CPU, Memory, Storage IOPS, Network Traffic, Drops 추이를 조회합니다.</div>
                     </div>
                 </div>
 
@@ -364,12 +513,13 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
 
                     {hasTrend && (
                         <div className={classes.grid}>
-                            {series.map(item => (
+                            {displayItems.map(item => (
                                 <div className={classes.trendTile} key={item.key}>
                                     <div className={classes.trendTop}>
                                         <div className={classes.trendLabel}>{item.label}</div>
-                                        <div className={classes.trendValue}>{this.formatValue(item.lastValue, item.unit)}</div>
+                                        <div className={classes.trendValue}>{item.value}</div>
                                     </div>
+                                    {this.renderLegend(item)}
                                     {this.renderSparkline(item)}
                                 </div>
                             ))}
