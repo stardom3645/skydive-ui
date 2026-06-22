@@ -409,7 +409,7 @@ class HostDetailPanel extends React.Component<Props, State> {
     private socketProcess(socket: any): string {
         const process = this.socketString(socket, ['Process', 'ProcessName', 'Name', 'Service', 'process', 'processName', 'service'])
         const compact = compactProcessName(process)
-        return compact || process || 'unknown'
+        return compact || process || translate('hostSocketNoProcess')
     }
 
     private listeningServices(): SocketServiceItem[] {
@@ -462,6 +462,22 @@ class HostDetailPanel extends React.Component<Props, State> {
         return Math.max(0, listLength - 4)
     }
 
+    private socketStateLabel(state: string): string {
+        const normalized = String(state || '').toUpperCase()
+        switch (normalized) {
+            case 'LISTEN':
+                return translate('hostSocketStateListen')
+            case 'ESTABLISHED':
+                return translate('hostSocketStateEstablished')
+            case 'TIME_WAIT':
+                return translate('hostSocketStateTimeWait')
+            case 'CLOSE_WAIT':
+                return translate('hostSocketStateCloseWait')
+            default:
+                return state || '-'
+        }
+    }
+
     private hostInfrastructureNodeIDs(key?: InfrastructureFocusKey): string[] {
         const summary = this.props.infrastructureHostSummaries?.[this.props.node.id]
         if (!summary || !key) return []
@@ -483,13 +499,6 @@ class HostDetailPanel extends React.Component<Props, State> {
         if (!actionKey) return
         const app = (window as any).App
         const ids = nodeIDs.length ? nodeIDs : this.hostInfrastructureNodeIDs(actionKey)
-        if (app && typeof app.setState === 'function') {
-            app.setState({
-                isInfrastructurePanelOpen: true,
-                infrastructureViewMode: 'hosts',
-                infrastructureFocus: actionKey
-            })
-        }
         if (app && typeof app.focusInfrastructureNodeIDs === 'function' && ids.length > 0) {
             app.focusInfrastructureNodeIDs(ids)
         }
@@ -507,22 +516,22 @@ class HostDetailPanel extends React.Component<Props, State> {
             <div className={classes.socketSection}>
                 <div className={classes.socketBlock}>
                     <div className={classes.socketBlockHeader}>
-                        <strong className={classes.socketBlockTitle}>Listening Services <span>(열린 포트)</span></strong>
-                        {services.length > 3 && <span className={classes.socketMoreLink}>+{services.length - 3} more</span>}
+                        <strong className={classes.socketBlockTitle}>{translate('hostListeningServices')} <span>({translate('hostOpenPorts')})</span></strong>
+                        {services.length > 3 && <span className={classes.socketMoreLink}>+{services.length - 3} {translate('hostSocketMoreItems')}</span>}
                     </div>
                     <div className={classes.socketServiceList}>
                         {services.slice(0, 3).map(item => (
                             <div className={classes.socketServiceRow} key={`${item.port}-${item.protocol}-${item.process}`}>
                                 <span className={classes.socketServicePort}>{item.port} / {item.protocol}</span>
                                 <span className={classes.socketProcessName}>{item.process}</span>
-                                <span className={`${classes.socketStateBadge} ${classes.socketStateListen}`}>LISTEN</span>
+                                <span className={`${classes.socketStateBadge} ${classes.socketStateListen}`}>{this.socketStateLabel('LISTEN')}</span>
                             </div>
                         ))}
                     </div>
                 </div>
                 <div className={classes.socketBlock}>
                     <div className={classes.socketBlockHeader}>
-                        <strong className={classes.socketBlockTitle}>Top Socket Processes</strong>
+                        <strong className={classes.socketBlockTitle}>{translate('hostTopSocketProcesses')}</strong>
                     </div>
                     <div className={classes.socketProcessList}>
                         {processes.map(item => (
@@ -538,12 +547,12 @@ class HostDetailPanel extends React.Component<Props, State> {
                 </div>
                 <div className={classes.socketBlock}>
                     <div className={classes.socketBlockHeader}>
-                        <strong className={classes.socketBlockTitle}>Connection States</strong>
+                        <strong className={classes.socketBlockTitle}>{translate('hostConnectionStates')}</strong>
                     </div>
                     <div className={classes.socketStateGrid}>
                         {states.map(item => (
                             <div className={`${classes.socketStateCard} ${classes[`socketStateCard${item.tone}`]}`} key={item.state}>
-                                <span>{item.state}</span>
+                                <span>{this.socketStateLabel(item.state)}</span>
                                 <strong>{item.count}</strong>
                             </div>
                         ))}

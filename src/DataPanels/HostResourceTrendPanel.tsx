@@ -210,7 +210,7 @@ const styles = (theme: Theme) => createStyles({
     },
     svg: {
         width: '100%',
-        height: 74,
+        height: 78,
         display: 'block',
         overflow: 'visible'
     },
@@ -225,15 +225,15 @@ const styles = (theme: Theme) => createStyles({
     },
     axisLabel: {
         fill: 'rgba(71, 85, 105, 0.86)',
-        fontSize: 9.2,
+        fontSize: 8.8,
         fontWeight: 560,
-        letterSpacing: '-0.015em'
+        letterSpacing: 0
     },
     timeLabel: {
         fill: 'rgba(71, 85, 105, 0.82)',
-        fontSize: 9.2,
+        fontSize: 8.8,
         fontWeight: 560,
-        letterSpacing: '-0.015em'
+        letterSpacing: 0
     },
     line: {
         fill: 'none',
@@ -600,12 +600,12 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
 
     private renderSparkline(item: TrendDisplayItem, trend?: HostTrendResponse) {
         const { classes } = this.props
-        const width = 640
-        const height = 74
-        const left = 58
-        const right = width - 10
+        const width = 430
+        const height = 78
+        const left = 52
+        const right = width - 8
         const top = 8
-        const bottom = height - 20
+        const bottom = height - 22
         const { min, max } = this.pointRange(item.series, item.unit)
         const range = max - min || 1
         const linePaths = item.series.map(series => {
@@ -627,7 +627,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         }
 
         return (
-            <svg className={classes.svg} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
+            <svg className={classes.svg} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="xMidYMid meet">
                 <line className={classes.guide} x1={left} y1={top} x2={right} y2={top} />
                 <line className={classes.guide} x1={left} y1={(top + bottom) / 2} x2={right} y2={(top + bottom) / 2} />
                 <line className={classes.axis} x1={left} y1={bottom} x2={right} y2={bottom} />

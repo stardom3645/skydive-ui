@@ -550,7 +550,20 @@ export const i18nMap = {
         "tooltip-afpacket-unavailable": "This node does not support AFPacket capture.",
         "tooltip-pcap-unavailable": "This node does not support PCAP capture.",
         "expandAllNodes": "Expand All Nodes",
-        "collapseAllNodes": "Collapse All Nodes"
+        "collapseAllNodes": "Collapse All Nodes",
+        "hostListeningServices": "Listening services",
+        "hostTopSocketProcesses": "Top socket processes",
+        "hostConnectionStates": "Connection states",
+        "hostSocketMoreItems": "more",
+        "hostSocketProtocolTcp": "TCP",
+        "hostSocketProtocolUdp": "UDP",
+        "hostSocketStateListen": "LISTEN",
+        "hostSocketStateEstablished": "ESTABLISHED",
+        "hostSocketStateTimeWait": "TIME_WAIT",
+        "hostSocketStateCloseWait": "CLOSE_WAIT",
+        "hostSocketNoProcess": "Unknown process",
+        "hostSocketNoService": "No listening service",
+        "hostSocketNoConnectionState": "No connection state"
     },
     ko: {
         "k8s-Federations": "쿠버네티스 페더레이션",
@@ -1046,7 +1059,20 @@ export const i18nMap = {
         "tooltip-afpacket-unavailable": "이 노드는 AFPacket 캡처를 사용할 수 없습니다.",
         "tooltip-pcap-unavailable": "이 노드는 PCAP 캡처를 사용할 수 없습니다.",
         "expandAllNodes": "모든 노드 확장",
-        "collapseAllNodes": "모든 노드 축소"
+        "collapseAllNodes": "모든 노드 축소",
+        "hostListeningServices": "수신 대기 서비스",
+        "hostTopSocketProcesses": "주요 소켓 프로세스",
+        "hostConnectionStates": "연결 상태",
+        "hostSocketMoreItems": "개 더 있음",
+        "hostSocketProtocolTcp": "TCP",
+        "hostSocketProtocolUdp": "UDP",
+        "hostSocketStateListen": "수신 대기",
+        "hostSocketStateEstablished": "연결됨",
+        "hostSocketStateTimeWait": "종료 대기",
+        "hostSocketStateCloseWait": "종료 확인 대기",
+        "hostSocketNoProcess": "알 수 없는 프로세스",
+        "hostSocketNoService": "수신 대기 서비스 없음",
+        "hostSocketNoConnectionState": "연결 상태 없음"
     }
 };
 
