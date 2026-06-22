@@ -6,7 +6,6 @@ import InfoIcon from '@material-ui/icons/Info'
 import TimelineIcon from '@material-ui/icons/Timeline'
 import DeviceHubIcon from '@material-ui/icons/DeviceHub'
 import PowerIcon from '@material-ui/icons/Power'
-import LabelIcon from '@material-ui/icons/Label'
 import SecurityIcon from '@material-ui/icons/Security'
 import RouterIcon from '@material-ui/icons/Router'
 import { withStyles } from '@material-ui/core/styles'
@@ -31,6 +30,8 @@ interface State {
     moldDetailLoadedFor?: string
 }
 
+type InfrastructureFocusKey = 'networkObjects' | 'routers' | 'userVMs' | 'systemVMs'
+
 interface KeyValueRow {
     label: string
     value: any
@@ -51,6 +52,27 @@ interface OverviewCardItem {
     description: string
     value: string
     icon?: React.ReactNode
+    actionKey?: InfrastructureFocusKey
+    nodeIDs?: string[]
+}
+
+interface SocketServiceItem {
+    port: string
+    protocol: string
+    process: string
+    count: number
+}
+
+interface SocketProcessItem {
+    process: string
+    count: number
+    percent: number
+}
+
+interface SocketStateItem {
+    state: string
+    count: number
+    tone: 'success' | 'info' | 'warning' | 'muted'
 }
 
 interface PillItem {
@@ -346,51 +368,199 @@ class HostDetailPanel extends React.Component<Props, State> {
         }).length
     }
 
+    private socketString(socket: any, keys: string[]): string {
+        for (const key of keys) {
+            const value = stringify(socket?.[key])
+            if (value) return value
+        }
+        return ''
+    }
+
     private socketStats() {
         const sockets = this.sockets()
         const ports = new Set<string>()
         let listen = 0
         let external = 0
         sockets.forEach(socket => {
-            const port = stringify(socket.LocalPort || socket.Port || socket.localPort)
+            const port = this.socketString(socket, ['LocalPort', 'Port', 'localPort'])
             if (port) ports.add(port)
-            const state = stringify(socket.State || socket.Status).toLowerCase()
-            const remote = stringify(socket.RemoteAddress || socket.RemoteAddr || socket.remoteAddress)
-            if (state === 'listen' || state === 'listening' || (!remote && port)) listen += 1
+            const state = this.normalizeSocketState(socket)
+            const remote = this.socketString(socket, ['RemoteAddress', 'RemoteAddr', 'remoteAddress'])
+            if (state === 'LISTEN') listen += 1
             if (remote && remote !== '127.0.0.1' && remote !== '::1' && remote !== '0.0.0.0') external += 1
         })
         return { total: sockets.length, ports: ports.size, listen, external }
     }
 
-    private topPorts(): PillItem[] {
-        const ports = new Map<string, PillItem>()
+    private normalizeSocketState(socket: any): string {
+        const rawState = this.socketString(socket, ['State', 'Status', 'state', 'status']).toUpperCase()
+        const remote = this.socketString(socket, ['RemoteAddress', 'RemoteAddr', 'remoteAddress'])
+        const port = this.socketString(socket, ['LocalPort', 'Port', 'localPort'])
+        if (rawState === 'LISTENING') return 'LISTEN'
+        if (rawState) return rawState
+        if (!remote && port) return 'LISTEN'
+        return 'UNKNOWN'
+    }
+
+    private socketProtocol(socket: any): string {
+        return (this.socketString(socket, ['Protocol', 'Proto', 'protocol', 'proto']) || 'TCP').toUpperCase()
+    }
+
+    private socketProcess(socket: any): string {
+        const process = this.socketString(socket, ['Process', 'ProcessName', 'Name', 'Service', 'process', 'processName', 'service'])
+        const compact = compactProcessName(process)
+        return compact || process || 'unknown'
+    }
+
+    private listeningServices(): SocketServiceItem[] {
+        const groups = new Map<string, SocketServiceItem>()
         this.sockets().forEach(socket => {
-            const port = stringify(socket.LocalPort || socket.Port || socket.localPort)
+            if (this.normalizeSocketState(socket) !== 'LISTEN') return
+            const port = this.socketString(socket, ['LocalPort', 'Port', 'localPort'])
             if (!port) return
-            const process = stringify(socket.Process || socket.ProcessName || socket.Name || socket.Service)
-            const shortProcess = compactProcessName(process)
-            ports.set(port, {
-                label: shortProcess ? `${port} / ${shortProcess}` : port,
-                title: process ? `${port} / ${process}` : port
-            })
+            const protocol = this.socketProtocol(socket)
+            const process = this.socketProcess(socket)
+            const key = `${port}/${protocol}/${process}`
+            const current = groups.get(key)
+            if (current) {
+                current.count += 1
+            } else {
+                groups.set(key, { port, protocol, process, count: 1 })
+            }
         })
-        const values = Array.from(ports.values())
-        if (values.length > 4) {
-            return values.slice(0, 4).concat({
-                label: `+${values.length - 4} more`,
-                title: translate('hostMoreSocketInfo')
+        return Array.from(groups.values()).sort((a, b) => Number(a.port) - Number(b.port)).slice(0, 4)
+    }
+
+    private topSocketProcesses(): SocketProcessItem[] {
+        const total = this.sockets().length
+        const counts = new Map<string, number>()
+        this.sockets().forEach(socket => {
+            const process = this.socketProcess(socket)
+            counts.set(process, (counts.get(process) || 0) + 1)
+        })
+        return Array.from(counts.entries())
+            .map(([process, count]) => ({ process, count, percent: total ? (count / total) * 100 : 0 }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 3)
+    }
+
+    private connectionStateSummary(): SocketStateItem[] {
+        const counts = new Map<string, number>()
+        this.sockets().forEach(socket => {
+            const state = this.normalizeSocketState(socket)
+            counts.set(state, (counts.get(state) || 0) + 1)
+        })
+        return [
+            { state: 'ESTABLISHED', count: counts.get('ESTABLISHED') || 0, tone: 'success' as const },
+            { state: 'TIME_WAIT', count: counts.get('TIME_WAIT') || 0, tone: 'info' as const },
+            { state: 'CLOSE_WAIT', count: counts.get('CLOSE_WAIT') || 0, tone: 'warning' as const },
+            { state: 'SYN_SENT', count: counts.get('SYN_SENT') || 0, tone: 'muted' as const }
+        ]
+    }
+
+    private socketMoreCount(listLength: number): number {
+        return Math.max(0, listLength - 4)
+    }
+
+    private hostInfrastructureNodeIDs(key?: InfrastructureFocusKey): string[] {
+        const summary = this.props.infrastructureHostSummaries?.[this.props.node.id]
+        if (!summary || !key) return []
+        switch (key) {
+            case 'userVMs':
+                return summary.userVMNodeIDs || []
+            case 'systemVMs':
+                return summary.systemVMNodeIDs || []
+            case 'routers':
+                return summary.routerNodeIDs || []
+            case 'networkObjects':
+                return summary.networkObjectNodeIDs || []
+            default:
+                return []
+        }
+    }
+
+    private focusConnectedResource(actionKey?: InfrastructureFocusKey, nodeIDs: string[] = []) {
+        if (!actionKey) return
+        const app = (window as any).App
+        const ids = nodeIDs.length ? nodeIDs : this.hostInfrastructureNodeIDs(actionKey)
+        if (app && typeof app.setState === 'function') {
+            app.setState({
+                isInfrastructurePanelOpen: true,
+                infrastructureViewMode: 'hosts',
+                infrastructureFocus: actionKey
             })
         }
-        return values
+        if (app && typeof app.focusInfrastructureNodeIDs === 'function' && ids.length > 0) {
+            app.focusInfrastructureNodeIDs(ids)
+        }
+    }
+
+    private renderSocketProcessSummary() {
+        const { classes } = this.props
+        const services = this.listeningServices()
+        const processes = this.topSocketProcesses()
+        const states = this.connectionStateSummary()
+        if (!services.length && !processes.length && !states.some(item => item.count > 0)) {
+            return <div className={classes.emptyState}>{translate('hostNoSocketInfo')}</div>
+        }
+        return (
+            <div className={classes.socketSection}>
+                <div className={classes.socketBlock}>
+                    <div className={classes.socketBlockHeader}>
+                        <strong className={classes.socketBlockTitle}>Listening Services <span>(열린 포트)</span></strong>
+                        {services.length > 3 && <span className={classes.socketMoreLink}>+{services.length - 3} more</span>}
+                    </div>
+                    <div className={classes.socketServiceList}>
+                        {services.slice(0, 3).map(item => (
+                            <div className={classes.socketServiceRow} key={`${item.port}-${item.protocol}-${item.process}`}>
+                                <span className={classes.socketServicePort}>{item.port} / {item.protocol}</span>
+                                <span className={classes.socketProcessName}>{item.process}</span>
+                                <span className={`${classes.socketStateBadge} ${classes.socketStateListen}`}>LISTEN</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                <div className={classes.socketBlock}>
+                    <div className={classes.socketBlockHeader}>
+                        <strong className={classes.socketBlockTitle}>Top Socket Processes</strong>
+                    </div>
+                    <div className={classes.socketProcessList}>
+                        {processes.map(item => (
+                            <div className={classes.socketProcessRow} key={item.process}>
+                                <span className={classes.socketProcessName}>{item.process}</span>
+                                <span>{item.count}</span>
+                                <div className={classes.socketProcessBarTrack}>
+                                    <div className={classes.socketProcessBarFill} style={{ width: `${Math.min(100, item.percent)}%` }} />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                <div className={classes.socketBlock}>
+                    <div className={classes.socketBlockHeader}>
+                        <strong className={classes.socketBlockTitle}>Connection States</strong>
+                    </div>
+                    <div className={classes.socketStateGrid}>
+                        {states.map(item => (
+                            <div className={`${classes.socketStateCard} ${classes[`socketStateCard${item.tone}`]}`} key={item.state}>
+                                <span>{item.state}</span>
+                                <strong>{item.count}</strong>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        )
     }
 
     private renderValue(row: KeyValueRow) {
         const { classes } = this.props
         const value = stringify(row.value) || 'N/A'
+        const displayValue = row.label === translate('KernelVersion') && value.length > 22 ? `${value.slice(0, 13)}...${value.slice(-8)}` : value
         return (
             <div className={classes.kvValueWrap}>
                 <Tooltip title={value} placement="top" arrow>
-                    <span className={classes.kvValue}>{value}</span>
+                    <span className={classes.kvValue}>{displayValue}</span>
                 </Tooltip>
                 {row.copy && value !== 'N/A' && (
                     <Tooltip title={translate('copy')} placement="top" arrow>
@@ -466,18 +636,27 @@ class HostDetailPanel extends React.Component<Props, State> {
         if (!visible.length) return <div className={classes.emptyState}>{emptyText}</div>
         return (
             <div className={classes.connectedResourceGrid}>
-                {visible.map(item => (
-                    <div className={classes.connectedResourceCard} key={item.label}>
-                        <span className={classes.connectedResourceCardMain}>
-                            <span className={classes.connectedResourceCardIcon}>{item.icon || <InfoIcon />}</span>
-                            <span>
-                                <strong>{item.label}</strong>
-                                <small>{item.description}</small>
+                {visible.map(item => {
+                    const canFocus = !!item.actionKey && !!item.nodeIDs && item.nodeIDs.length > 0
+                    return (
+                        <button
+                            type="button"
+                            className={`${classes.connectedResourceCard} ${canFocus ? classes.connectedResourceCardClickable : ''}`}
+                            key={item.label}
+                            onClick={() => canFocus && this.focusConnectedResource(item.actionKey, item.nodeIDs)}
+                            disabled={!canFocus}>
+                            <span className={classes.connectedResourceCardMain}>
+                                <span className={classes.connectedResourceCardIcon}>{item.icon || <InfoIcon />}</span>
+                                <span>
+                                    <strong>{item.label}</strong>
+                                    <small>{item.description}</small>
+                                </span>
                             </span>
-                        </span>
-                        <span className={classes.connectedResourceCardValue}>{item.value}</span>
-                    </div>
-                ))}
+                            <span className={classes.connectedResourceCardValue}>{item.value}</span>
+                            {canFocus && <span className={classes.connectedResourceCardAction}>상세 보기 →</span>}
+                        </button>
+                    )
+                })}
             </div>
         )
     }
@@ -574,19 +753,11 @@ class HostDetailPanel extends React.Component<Props, State> {
         ]
 
         const connectedResources: OverviewCardItem[] = [
-            { label: translate('infrastructureUserVMs'), description: translate('infrastructureUserVMsDescription'), value: vmCount !== undefined ? String(vmCount) : '', icon: this.infrastructureIcon('\uf108', 'user-vm') },
-            { label: translate('infrastructureSystemVMs'), description: translate('infrastructureSystemVMsDescription'), value: systemVmCount !== undefined ? String(systemVmCount) : '', icon: this.infrastructureIcon('\uf085', 'system-vm') },
-            { label: translate('infrastructureRouters'), description: translate('infrastructureRoutersDescription'), value: virtualRouterCount !== undefined ? String(virtualRouterCount) : '', icon: this.infrastructureIcon('\uf4d7', 'router') },
-            { label: translate('infrastructureNetworkObjects'), description: translate('infrastructureNetworkObjectsDescription'), value: networkCount !== undefined ? String(networkCount) : '', icon: this.infrastructureIcon('\uf6ff', 'network') }
+            { label: translate('infrastructureUserVMs'), description: translate('infrastructureUserVMsDescription'), value: vmCount !== undefined ? String(vmCount) : '', icon: this.infrastructureIcon('\uf108', 'user-vm'), actionKey: 'userVMs', nodeIDs: this.hostInfrastructureNodeIDs('userVMs') },
+            { label: translate('infrastructureSystemVMs'), description: translate('infrastructureSystemVMsDescription'), value: systemVmCount !== undefined ? String(systemVmCount) : '', icon: this.infrastructureIcon('\uf085', 'system-vm'), actionKey: 'systemVMs', nodeIDs: this.hostInfrastructureNodeIDs('systemVMs') },
+            { label: translate('infrastructureRouters'), description: translate('infrastructureRoutersDescription'), value: virtualRouterCount !== undefined ? String(virtualRouterCount) : '', icon: this.infrastructureIcon('\uf4d7', 'router'), actionKey: 'routers', nodeIDs: this.hostInfrastructureNodeIDs('routers') },
+            { label: translate('infrastructureNetworkObjects'), description: translate('infrastructureNetworkObjectsDescription'), value: networkCount !== undefined ? String(networkCount) : '', icon: this.infrastructureIcon('\uf6ff', 'network'), actionKey: 'networkObjects', nodeIDs: this.hostInfrastructureNodeIDs('networkObjects') }
         ]
-
-        const socketMetrics: MetricItem[] = [
-            { label: translate('hostTotalSockets'), value: socketStats.total ? String(socketStats.total) : '', icon: <PowerIcon /> },
-            { label: translate('hostOpenPorts'), value: socketStats.total ? String(socketStats.ports || 0) : '', icon: <RouterIcon /> },
-            { label: translate('hostListenPorts'), value: socketStats.total ? String(socketStats.listen || 0) : '', icon: <SecurityIcon /> },
-            { label: translate('hostExternalConnections'), value: socketStats.total ? String(socketStats.external || 0) : '', icon: <DeviceHubIcon /> }
-        ]
-
         const resolvedPhysicalNicCount = physicalNicCount !== undefined ? physicalNicCount : this.interfaceCountByPattern([/\bnic\b/, /\beth\d+\b/, /\benp/, /\bens/, /\beno/])
         const resolvedBridgeCount = bridgeCount !== undefined ? bridgeCount : this.interfaceCountByPattern([/\bbridge\b/, /^br/, /\bovs\b/])
         const resolvedBondCount = bondCount !== undefined ? bondCount : this.interfaceCountByPattern([/\bbond\b/, /\bbonding\b/])
@@ -615,16 +786,9 @@ class HostDetailPanel extends React.Component<Props, State> {
                 {hasConnectedMetrics && this.renderSection(<DeviceHubIcon />, translate('hostConnectedResources'), translate('hostConnectedResourcesDescription'), this.renderOverviewGrid(connectedResources, translate('hostNoConnectedResources')))}
                 {hasNetworkSummary && this.renderSection(<RouterIcon />, translate('hostNetworkSummary'), translate('hostNetworkSummaryDescription'), this.renderMetricGrid(networkMetrics, translate('hostNetworkDetailsMissing')))}
 
-                {this.renderSection(<PowerIcon />, translate('hostSocketsProcesses'), translate('hostSocketsProcessesDescription'), (
-                    <React.Fragment>
-                        {this.renderMetricGrid(socketMetrics)}
-                        {this.renderPills(this.topPorts(), translate('hostNoSocketInfo'))}
-                    </React.Fragment>
-                ))}
+                {this.renderSection(<PowerIcon />, translate('hostSocketsProcesses'), '이 호스트의 네트워크 연결 상태와 주요 프로세스 정보입니다.', this.renderSocketProcessSummary())}
 
                 {hasRecentSignals && this.renderSection(<InfoIcon />, translate('hostRecentSignals'), translate('hostRecentSignalsDescription'), this.renderRows(eventRows, translate('hostNoRecentSignals')))}
-
-                {tags.length > 1 && this.renderSection(<LabelIcon />, translate('hostSystemTags'), translate('hostSystemTagsDescription'), this.renderPills(tags, translate('hostNoTags')))}
 
                 {!hasMoldRows && (
                     <div className={classes.noticeCard}>
