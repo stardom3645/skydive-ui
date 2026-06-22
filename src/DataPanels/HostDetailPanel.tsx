@@ -3,8 +3,6 @@ import IconButton from '@material-ui/core/IconButton'
 import Tooltip from '@material-ui/core/Tooltip'
 import FileCopyIcon from '@material-ui/icons/FileCopy'
 import InfoIcon from '@material-ui/icons/Info'
-import StorageIcon from '@material-ui/icons/Storage'
-import ComputerIcon from '@material-ui/icons/Computer'
 import TimelineIcon from '@material-ui/icons/Timeline'
 import DeviceHubIcon from '@material-ui/icons/DeviceHub'
 import PowerIcon from '@material-ui/icons/Power'
@@ -58,13 +56,6 @@ interface OverviewCardItem {
 interface PillItem {
     label: string
     title?: string
-}
-
-interface StatusTile {
-    label: string
-    value: string
-    tone?: 'success' | 'muted' | 'warning'
-    icon?: React.ReactNode
 }
 
 const isBlank = (value: any): boolean => {
@@ -428,34 +419,6 @@ class HostDetailPanel extends React.Component<Props, State> {
         )
     }
 
-    private renderOsSummary(data: any) {
-        const { classes } = this.props
-        const platform = firstValue(data, ['Platform', 'platform'])
-        const platformVersion = firstValue(data, ['PlatformVersion', 'platformVersion', 'platformversion'])
-        const os = firstValue(data, ['OS', 'Os', 'OperatingSystem'])
-        const kernelVersion = firstValue(data, ['KernelVersion'])
-        const platformText = [platform, platformVersion, os].filter(Boolean).join(' · ') || translate('hostNoData')
-
-        return (
-            <div className={classes.rowsCompact}>
-                <div className={classes.kvRow}>
-                    <div className={classes.kvLabel}>{translate('Platform')}</div>
-                    <div className={classes.kvValueWrap}>
-                        <Tooltip title={platformText} placement="top" arrow>
-                            <span className={classes.kvValue}>{platformText}</span>
-                        </Tooltip>
-                    </div>
-                </div>
-                {kernelVersion && (
-                    <div className={classes.kvRow}>
-                        <div className={classes.kvLabel}>{translate('KernelVersion')}</div>
-                        {this.renderValue({ label: translate('KernelVersion'), value: kernelVersion, copy: true })}
-                    </div>
-                )}
-            </div>
-        )
-    }
-
     private renderSection(icon: React.ReactNode, title: string, description: string, children: React.ReactNode, className = '') {
         const { classes } = this.props
         return (
@@ -534,24 +497,6 @@ class HostDetailPanel extends React.Component<Props, State> {
         )
     }
 
-    private renderStatusTiles(items: StatusTile[]) {
-        const { classes } = this.props
-        return (
-            <div className={classes.statusTileList}>
-                {items.map(item => (
-                    <div className={`${classes.statusTile} ${item.tone === 'muted' ? classes.statusTileMuted : ''} ${item.tone === 'warning' ? classes.statusTileWarning : ''}`} key={item.label}>
-                        <span className={classes.statusDot} />
-                        <span className={classes.statusTileIcon}>{item.icon || <InfoIcon />}</span>
-                        <div className={classes.statusTileText}>
-                            <div className={classes.statusTileLabel}>{item.label}</div>
-                            <div className={classes.statusTileValue}>{item.value}</div>
-                        </div>
-                    </div>
-                ))}
-            </div>
-        )
-    }
-
     private renderPills(values: Array<string | PillItem>, emptyText: string) {
         const { classes } = this.props
         if (!values.length) return <div className={classes.emptyState}>{emptyText}</div>
@@ -577,11 +522,19 @@ class HostDetailPanel extends React.Component<Props, State> {
         const macList = this.macs()
         const representativeIp = ipList[0] || ''
         const socketStats = this.socketStats()
-        const virtualization = firstValue(data, ['VirtualizationSystem', 'Hypervisor', 'HypervisorType', 'Platform'])
+        const virtualization = firstValue(data, ['VirtualizationSystem', 'Hypervisor', 'HypervisorType'])
+        const virtualizationText = virtualization ? virtualization.toUpperCase() : ''
         const zone = firstValue(data, ['Zone', 'ZoneName'])
         const cluster = firstValue(data, ['Cluster', 'ClusterName'])
         const pod = firstValue(data, ['Pod', 'PodName'])
+        const locationText = [zone, pod, cluster].filter(Boolean).join(' > ')
+        const locationWithVirtualization = locationText ? `${locationText}${virtualizationText ? ` (${virtualizationText})` : ''}` : virtualizationText
         const resourceState = firstValue(data, ['ResourceState', 'resourceState', 'AllocationState', 'allocationState'])
+        const platform = firstValue(data, ['Platform', 'platform'])
+        const platformVersion = firstValue(data, ['PlatformVersion', 'platformVersion', 'platformversion'])
+        const os = firstValue(data, ['OS', 'Os', 'OperatingSystem'])
+        const kernelVersion = firstValue(data, ['KernelVersion'])
+        const platformText = [platform, platformVersion, os].filter(Boolean).join(' · ')
         const managementServer = firstValue(data, ['ManagementServer', 'ManagementIP', 'ManagementIp', 'managementIp', 'privateIpAddress'])
         const graphHostSummary = this.props.infrastructureHostSummaries?.[node.id]
         const connectedVmArrayCount = asArray(data.UserVMs).length || asArray(data.VMs).length || asArray(data.VirtualMachines).length
@@ -608,8 +561,9 @@ class HostDetailPanel extends React.Component<Props, State> {
             { label: translate('Hostname'), value: name },
             { label: translate('hostMoldHostId'), value: firstValue(data, ['MoldHostId', 'CloudStackHostId', 'HostId', 'HostID', 'UUID', 'uuid']), copy: true },
             { label: translate('hostManagementIp'), value: managementServer || representativeIp, copy: true },
-            { label: translate('hostLocation'), value: [zone, pod, cluster].filter(Boolean).join(' > ') },
-            { label: translate('hostVirtualizationSystem'), value: virtualization }
+            { label: translate('hostLocation'), value: locationWithVirtualization },
+            { label: translate('Platform'), value: platformText },
+            { label: translate('KernelVersion'), value: kernelVersion, copy: true }
         ]
 
         const eventRows: KeyValueRow[] = [
@@ -645,11 +599,6 @@ class HostDetailPanel extends React.Component<Props, State> {
         ]
 
         const hasMoldRows = [zone, cluster, pod, resourceState, managementServer, firstValue(data, ['MoldHostId', 'CloudStackHostId', 'HostId', 'HostID'])].some(value => !isBlank(value))
-        const statusTiles: StatusTile[] = [
-            { label: translate('moldStatus'), value: hasMoldRows ? translate('connected') : translate('hostInfoUnavailable'), tone: hasMoldRows ? 'success' : 'muted', icon: <StorageIcon /> },
-            { label: translate('hostCollectionState'), value: translate('hostStatusCollected'), tone: 'success', icon: <TimelineIcon /> },
-            { label: translate('hostAgent'), value: this.statusText(), tone: this.statusText() === translate('hostStatusNormal') ? 'success' : 'warning', icon: <SecurityIcon /> }
-        ]
         const hasConnectedMetrics = connectedResources.some(item => !isBlank(item.value))
         const visibleNetworkMetrics = networkMetrics.filter(item => item.value)
         const hasNetworkSummary = visibleNetworkMetrics.length > 1
@@ -657,9 +606,7 @@ class HostDetailPanel extends React.Component<Props, State> {
 
         return (
             <div className={classes.root}>
-                {this.renderSection(<InfoIcon />, translate('hostOperationalStatus'), translate('hostOperationalStatusDescription'), this.renderStatusTiles(statusTiles))}
                 {this.renderSection(<InfoIcon />, translate('hostBasicInfo'), translate('hostOverviewDescription'), this.renderRows(basicRows))}
-                {this.renderSection(<ComputerIcon />, translate('hostOsPlatform'), translate('hostOsPlatformDescription'), this.renderOsSummary(data))}
                 <HostResourceTrendPanel
                     node={node}
                     session={this.props.session}
