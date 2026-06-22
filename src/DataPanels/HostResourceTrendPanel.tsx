@@ -72,7 +72,6 @@ const styles = (theme: Theme) => createStyles({
         display: 'flex',
         alignItems: 'center',
         gap: theme.spacing(0.9),
-        flexWrap: 'wrap',
         padding: theme.spacing(1.25, 1.35),
         borderBottom: '1px solid var(--netdive-detail-border-subtle, rgba(226, 232, 240, 0.72))',
         background: 'var(--netdive-detail-section-header, #f8fafc)'
@@ -92,7 +91,8 @@ const styles = (theme: Theme) => createStyles({
         }
     },
     titleBlock: {
-        minWidth: 0
+        minWidth: 0,
+        flex: '1 1 auto'
     },
     title: {
         color: 'var(--netdive-detail-text)',
@@ -111,7 +111,9 @@ const styles = (theme: Theme) => createStyles({
         marginLeft: 'auto',
         display: 'flex',
         alignItems: 'center',
-        gap: 6
+        justifyContent: 'flex-end',
+        gap: 6,
+        flex: '0 0 auto'
     },
     rangeSelect: {
         height: 30,
@@ -130,17 +132,14 @@ const styles = (theme: Theme) => createStyles({
     },
     grid: {
         display: 'grid',
-        gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-        gap: 8,
-        [theme.breakpoints.down('sm')]: {
-            gridTemplateColumns: '1fr'
-        }
+        gridTemplateColumns: '1fr',
+        gap: 8
     },
     trendTile: {
         minWidth: 0,
         border: '1px solid var(--netdive-detail-border-soft)',
         borderRadius: 12,
-        padding: '10px 12px',
+        padding: '9px 12px',
         background: 'var(--netdive-detail-soft-card, #fbfdff)'
     },
     trendTop: {
@@ -148,7 +147,7 @@ const styles = (theme: Theme) => createStyles({
         alignItems: 'flex-start',
         justifyContent: 'space-between',
         gap: 8,
-        marginBottom: 8
+        marginBottom: 6
     },
     trendLabel: {
         minWidth: 0,
@@ -156,21 +155,15 @@ const styles = (theme: Theme) => createStyles({
         fontSize: 11.5,
         lineHeight: 1.2,
         fontWeight: 750,
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
         whiteSpace: 'nowrap'
     },
     trendValue: {
-        flex: '0 1 auto',
-        minWidth: 0,
-        maxWidth: '58%',
+        flex: '0 0 auto',
         color: 'var(--netdive-detail-text)',
-        fontSize: 13.2,
+        fontSize: 14,
         lineHeight: 1.15,
         fontWeight: 850,
         whiteSpace: 'nowrap',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
         textAlign: 'right'
     },
     trendValueStack: {
@@ -211,16 +204,31 @@ const styles = (theme: Theme) => createStyles({
     legendLineSecondary: {
         width: 14,
         height: 0,
-        borderTop: '2px dashed rgba(100, 116, 139, 0.9)'
+        borderTop: '2px dashed #f97316'
     },
     svg: {
         width: '100%',
-        height: 44,
+        height: 68,
         display: 'block'
     },
     axis: {
-        stroke: 'rgba(148, 163, 184, 0.26)',
+        stroke: 'rgba(148, 163, 184, 0.28)',
         strokeWidth: 1
+    },
+    guide: {
+        stroke: 'rgba(148, 163, 184, 0.32)',
+        strokeWidth: 1,
+        strokeDasharray: '3 3'
+    },
+    axisLabel: {
+        fill: 'var(--netdive-detail-muted, #64748b)',
+        fontSize: 10,
+        fontWeight: 650
+    },
+    timeLabel: {
+        fill: 'var(--netdive-detail-muted, #64748b)',
+        fontSize: 10,
+        fontWeight: 650
     },
     line: {
         fill: 'none',
@@ -231,7 +239,7 @@ const styles = (theme: Theme) => createStyles({
     },
     lineSecondary: {
         fill: 'none',
-        stroke: 'rgba(100, 116, 139, 0.9)',
+        stroke: '#f97316',
         strokeWidth: 2,
         strokeDasharray: '4 3',
         strokeLinecap: 'round',
@@ -256,7 +264,7 @@ const styles = (theme: Theme) => createStyles({
         fontWeight: 650
     },
     refreshing: {
-        marginBottom: 8,
+        marginBottom: 6,
         color: 'var(--netdive-detail-muted, #64748b)',
         fontSize: 11,
         fontWeight: 650
@@ -534,14 +542,53 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         return <div className={classes.trendValue}>{item.value}</div>
     }
 
+    private formatAxisValue(value: number, unit: string): string {
+        if (unit === 'percent' || unit === 'percentage' || unit === '%') {
+            return `${Math.round(value)}%`
+        }
+        if (unit === 'bps') {
+            if (value >= 1000 * 1000 * 1000) return `${(value / 1000 / 1000 / 1000).toFixed(0)}G`
+            if (value >= 1000 * 1000) return `${(value / 1000 / 1000).toFixed(0)}M`
+            if (value >= 1000) return `${(value / 1000).toFixed(0)}K`
+            return `${Math.round(value)}`
+        }
+        if (unit === 'iops') {
+            if (value >= 1000) return `${(value / 1000).toFixed(1)}K`
+            return `${Math.round(value)}`
+        }
+        if (unit === 'count') {
+            return value >= 10 ? `${Math.round(value)}` : value.toFixed(1)
+        }
+        return `${Math.round(value)}`
+    }
+
+    private timeAxisLabels(): string[] {
+        return [`${this.rangeLabel()} 전`, '중간', '지금']
+    }
+
     private renderSparkline(item: TrendDisplayItem) {
         const { classes } = this.props
-        const width = 240
-        const height = 44
+        const width = 640
+        const height = 68
+        const left = 56
+        const right = width - 8
+        const top = 6
+        const bottom = height - 16
         const { min, max } = this.pointRange(item.series)
-        const linePaths = item.series.map(series => this.buildPath(series.values || [], width, height, min, max))
+        const range = max - min || 1
+        const linePaths = item.series.map(series => {
+            const valid = (series.values || []).filter(point => typeof point.value === 'number') as Array<TrendPoint & { value: number }>
+            if (valid.length < 2) return ''
+            return valid.map((point, index) => {
+                const x = left + ((right - left) * index) / Math.max(valid.length - 1, 1)
+                const y = bottom - ((point.value - min) / range) * (bottom - top)
+                return `${index === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`
+            }).join(' ')
+        })
         const firstLinePath = linePaths[0] || ''
-        const fillPath = item.series.length === 1 ? this.buildFillPath(firstLinePath, width, height) : ''
+        const fillPath = item.series.length === 1 && firstLinePath ? `${firstLinePath} L ${right} ${bottom} L ${left} ${bottom} Z` : ''
+        const mid = min + ((max - min) / 2)
+        const axisLabels = this.timeAxisLabels()
 
         if (!linePaths.some(Boolean)) {
             return <div className={classes.empty}>수집된 추이 데이터가 없습니다.</div>
@@ -549,7 +596,16 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
 
         return (
             <svg className={classes.svg} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
-                <line className={classes.axis} x1="4" y1={height - 6} x2={width - 4} y2={height - 6} />
+                <line className={classes.guide} x1={left} y1={top} x2={right} y2={top} />
+                <line className={classes.guide} x1={left} y1={(top + bottom) / 2} x2={right} y2={(top + bottom) / 2} />
+                <line className={classes.axis} x1={left} y1={bottom} x2={right} y2={bottom} />
+                <line className={classes.axis} x1={left} y1={top} x2={left} y2={bottom} />
+                <text className={classes.axisLabel} x="4" y={top + 4}>{this.formatAxisValue(max, item.unit)}</text>
+                <text className={classes.axisLabel} x="4" y={((top + bottom) / 2) + 4}>{this.formatAxisValue(mid, item.unit)}</text>
+                <text className={classes.axisLabel} x="4" y={bottom + 3}>{this.formatAxisValue(min, item.unit)}</text>
+                <text className={classes.timeLabel} x={left} y={height - 3}>{axisLabels[0]}</text>
+                <text className={classes.timeLabel} x={(left + right) / 2} y={height - 3} textAnchor="middle">{axisLabels[1]}</text>
+                <text className={classes.timeLabel} x={right} y={height - 3} textAnchor="end">{axisLabels[2]}</text>
                 {fillPath && <path className={classes.fill} d={fillPath} />}
                 {linePaths.map((path, index) => path && (
                     <path className={index === 0 ? classes.line : classes.lineSecondary} d={path} key={`${item.key}-${index}`} />
