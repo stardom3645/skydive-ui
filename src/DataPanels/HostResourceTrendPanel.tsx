@@ -399,7 +399,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         }
 
         if (unit === 'count') {
-            return `${value.toFixed(value >= 10 ? 0 : 2)} count`
+            return `${Math.floor(value)} 회`
         }
 
         return String(Math.round(value))
@@ -478,7 +478,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         return items
     }
 
-    private pointRange(seriesList: TrendSeries[]): { min: number, max: number } {
+    private pointRange(seriesList: TrendSeries[], unit: string): { min: number, max: number } {
         const values = seriesList.reduce<number[]>((acc, series) => {
             const points = (series.values || [])
                 .filter(point => typeof point.value === 'number')
@@ -486,11 +486,38 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
             return acc.concat(points)
         }, [])
 
+        if (unit === 'percent' || unit === 'percentage' || unit === '%') {
+            return { min: 0, max: 100 }
+        }
+
         if (!values.length) return { min: 0, max: 1 }
-        const min = Math.min(...values)
-        const max = Math.max(...values)
-        if (min === max) return { min: Math.max(0, min - 1), max: max + 1 }
-        return { min, max }
+
+        const max = Math.max.apply(null, values)
+        return { min: 0, max: this.niceAxisMax(max, unit) }
+    }
+
+    private niceAxisMax(value: number, unit: string): number {
+        if (!isFinite(value) || value <= 0) return 1
+
+        const multiplier = unit === 'count' ? 1 : Math.pow(10, Math.floor(Math.log(value) / Math.LN10))
+        const normalized = value / multiplier
+        let nice = 1
+
+        if (normalized <= 1) {
+            nice = 1
+        } else if (normalized <= 2) {
+            nice = 2
+        } else if (normalized <= 5) {
+            nice = 5
+        } else {
+            nice = 10
+        }
+
+        if (unit === 'count') {
+            return Math.max(1, Math.ceil(value))
+        }
+
+        return nice * multiplier
     }
 
     private buildPath(points: TrendPoint[], width: number, height: number, min: number, max: number): string {
@@ -547,26 +574,48 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
             return `${Math.round(value)}%`
         }
         if (unit === 'bps') {
-            if (value >= 1000 * 1000 * 1000) return `${(value / 1000 / 1000 / 1000).toFixed(0)}G`
-            if (value >= 1000 * 1000) return `${(value / 1000 / 1000).toFixed(0)}M`
-            if (value >= 1000) return `${(value / 1000).toFixed(0)}K`
-            return `${Math.round(value)}`
+            if (value >= 1000 * 1000 * 1000) return `${this.trimFixed(value / 1000 / 1000 / 1000)} Gbps`
+            if (value >= 1000 * 1000) return `${this.trimFixed(value / 1000 / 1000)} Mbps`
+            if (value >= 1000) return `${this.trimFixed(value / 1000)} Kbps`
+            return `${Math.round(value)} bps`
         }
         if (unit === 'iops') {
-            if (value >= 1000) return `${(value / 1000).toFixed(1)}K`
-            return `${Math.round(value)}`
+            if (value >= 1000) return `${this.trimFixed(value / 1000)}K IOPS`
+            return `${Math.round(value)} IOPS`
         }
         if (unit === 'count') {
-            return value >= 10 ? `${Math.round(value)}` : value.toFixed(1)
+            return `${Math.floor(value)} 회`
         }
         return `${Math.round(value)}`
     }
 
-    private timeAxisLabels(): string[] {
-        return [`${this.rangeLabel()} 전`, '중간', '지금']
+    private trimFixed(value: number): string {
+        const fixed = value >= 10 ? value.toFixed(0) : value.toFixed(1)
+        return fixed.replace(/\.0$/, '')
     }
 
-    private renderSparkline(item: TrendDisplayItem) {
+    private formatTimeLabel(timestamp: number): string {
+        if (!timestamp) return '--:--'
+        const date = new Date(timestamp * 1000)
+        const hours = this.padTime(date.getHours())
+        const minutes = this.padTime(date.getMinutes())
+        return `${hours}:${minutes}`
+    }
+
+    private padTime(value: number): string {
+        return value < 10 ? `0${value}` : String(value)
+    }
+
+    private timeAxisLabels(start?: number, end?: number): string[] {
+        if (!start || !end || end <= start) {
+            return ['--:--', '--:--', '--:--']
+        }
+
+        const mid = start + Math.floor((end - start) / 2)
+        return [this.formatTimeLabel(start), this.formatTimeLabel(mid), this.formatTimeLabel(end)]
+    }
+
+    private renderSparkline(item: TrendDisplayItem, trend?: HostTrendResponse) {
         const { classes } = this.props
         const width = 640
         const height = 68
@@ -574,7 +623,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         const right = width - 8
         const top = 6
         const bottom = height - 16
-        const { min, max } = this.pointRange(item.series)
+        const { min, max } = this.pointRange(item.series, item.unit)
         const range = max - min || 1
         const linePaths = item.series.map(series => {
             const valid = (series.values || []).filter(point => typeof point.value === 'number') as Array<TrendPoint & { value: number }>
@@ -588,7 +637,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         const firstLinePath = linePaths[0] || ''
         const fillPath = item.series.length === 1 && firstLinePath ? `${firstLinePath} L ${right} ${bottom} L ${left} ${bottom} Z` : ''
         const mid = min + ((max - min) / 2)
-        const axisLabels = this.timeAxisLabels()
+        const axisLabels = this.timeAxisLabels(trend?.start, trend?.end)
 
         if (!linePaths.some(Boolean)) {
             return <div className={classes.empty}>수집된 추이 데이터가 없습니다.</div>
@@ -671,7 +720,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
                                         {this.renderTrendValue(item)}
                                     </div>
                                     {this.renderLegend(item)}
-                                    {this.renderSparkline(item)}
+                                    {this.renderSparkline(item, trend)}
                                 </div>
                             ))}
                         </div>
