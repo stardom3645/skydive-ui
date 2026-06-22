@@ -649,11 +649,10 @@ class HostDetailPanel extends React.Component<Props, State> {
                                 <span className={classes.connectedResourceCardIcon}>{item.icon || <InfoIcon />}</span>
                                 <span>
                                     <strong>{item.label}</strong>
-                                    <small>{item.description}</small>
                                 </span>
                             </span>
                             <span className={classes.connectedResourceCardValue}>{item.value}</span>
-                            {canFocus && <span className={classes.connectedResourceCardAction}>상세 보기 →</span>}
+                            {canFocus && <span className={classes.connectedResourceCardAction}>›</span>}
                         </button>
                     )
                 })}

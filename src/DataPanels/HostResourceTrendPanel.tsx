@@ -159,10 +159,11 @@ const styles = (theme: Theme) => createStyles({
     },
     trendValue: {
         flex: '0 0 auto',
-        color: 'var(--netdive-detail-text)',
-        fontSize: 14,
+        color: 'var(--netdive-detail-title, #0f172a)',
+        fontSize: 12.8,
         lineHeight: 1.15,
-        fontWeight: 850,
+        fontWeight: 760,
+        letterSpacing: '-0.01em',
         whiteSpace: 'nowrap',
         textAlign: 'right'
     },
@@ -175,10 +176,11 @@ const styles = (theme: Theme) => createStyles({
         maxWidth: '62%'
     },
     trendValueLine: {
-        color: 'var(--netdive-detail-text)',
-        fontSize: 11.6,
-        lineHeight: 1.1,
-        fontWeight: 850,
+        color: 'var(--netdive-detail-title, #0f172a)',
+        fontSize: 11.2,
+        lineHeight: 1.16,
+        fontWeight: 760,
+        letterSpacing: '-0.01em',
         whiteSpace: 'nowrap'
     },
     legend: {
@@ -208,8 +210,9 @@ const styles = (theme: Theme) => createStyles({
     },
     svg: {
         width: '100%',
-        height: 68,
-        display: 'block'
+        height: 74,
+        display: 'block',
+        overflow: 'visible'
     },
     axis: {
         stroke: 'rgba(148, 163, 184, 0.28)',
@@ -221,14 +224,16 @@ const styles = (theme: Theme) => createStyles({
         strokeDasharray: '3 3'
     },
     axisLabel: {
-        fill: 'var(--netdive-detail-muted, #64748b)',
-        fontSize: 10,
-        fontWeight: 650
+        fill: 'rgba(71, 85, 105, 0.86)',
+        fontSize: 9.2,
+        fontWeight: 560,
+        letterSpacing: '-0.015em'
     },
     timeLabel: {
-        fill: 'var(--netdive-detail-muted, #64748b)',
-        fontSize: 10,
-        fontWeight: 650
+        fill: 'rgba(71, 85, 105, 0.82)',
+        fontSize: 9.2,
+        fontWeight: 560,
+        letterSpacing: '-0.015em'
     },
     line: {
         fill: 'none',
@@ -520,28 +525,6 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         return nice * multiplier
     }
 
-    private buildPath(points: TrendPoint[], width: number, height: number, min: number, max: number): string {
-        const valid = points.filter(point => typeof point.value === 'number') as Array<TrendPoint & { value: number }>
-        if (valid.length < 2) return ''
-
-        const range = max - min || 1
-        const left = 4
-        const right = width - 4
-        const top = 5
-        const bottom = height - 6
-
-        return valid.map((point, index) => {
-            const x = left + ((right - left) * index) / Math.max(valid.length - 1, 1)
-            const y = bottom - ((point.value - min) / range) * (bottom - top)
-            return `${index === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`
-        }).join(' ')
-    }
-
-    private buildFillPath(linePath: string, width: number, height: number): string {
-        if (!linePath) return ''
-        return `${linePath} L ${width - 4} ${height - 6} L 4 ${height - 6} Z`
-    }
-
     private renderLegend(item: TrendDisplayItem) {
         const { classes } = this.props
         if (item.key !== 'networkTraffic') return null
@@ -618,11 +601,11 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
     private renderSparkline(item: TrendDisplayItem, trend?: HostTrendResponse) {
         const { classes } = this.props
         const width = 640
-        const height = 68
-        const left = 56
-        const right = width - 8
-        const top = 6
-        const bottom = height - 16
+        const height = 74
+        const left = 58
+        const right = width - 10
+        const top = 8
+        const bottom = height - 20
         const { min, max } = this.pointRange(item.series, item.unit)
         const range = max - min || 1
         const linePaths = item.series.map(series => {
@@ -649,12 +632,12 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
                 <line className={classes.guide} x1={left} y1={(top + bottom) / 2} x2={right} y2={(top + bottom) / 2} />
                 <line className={classes.axis} x1={left} y1={bottom} x2={right} y2={bottom} />
                 <line className={classes.axis} x1={left} y1={top} x2={left} y2={bottom} />
-                <text className={classes.axisLabel} x="4" y={top + 4}>{this.formatAxisValue(max, item.unit)}</text>
-                <text className={classes.axisLabel} x="4" y={((top + bottom) / 2) + 4}>{this.formatAxisValue(mid, item.unit)}</text>
-                <text className={classes.axisLabel} x="4" y={bottom + 3}>{this.formatAxisValue(min, item.unit)}</text>
-                <text className={classes.timeLabel} x={left} y={height - 3}>{axisLabels[0]}</text>
-                <text className={classes.timeLabel} x={(left + right) / 2} y={height - 3} textAnchor="middle">{axisLabels[1]}</text>
-                <text className={classes.timeLabel} x={right} y={height - 3} textAnchor="end">{axisLabels[2]}</text>
+                <text className={classes.axisLabel} x="6" y={top + 4}>{this.formatAxisValue(max, item.unit)}</text>
+                <text className={classes.axisLabel} x="6" y={((top + bottom) / 2) + 3}>{this.formatAxisValue(mid, item.unit)}</text>
+                <text className={classes.axisLabel} x="6" y={bottom + 3}>{this.formatAxisValue(min, item.unit)}</text>
+                <text className={classes.timeLabel} x={left} y={height - 4}>{axisLabels[0]}</text>
+                <text className={classes.timeLabel} x={(left + right) / 2} y={height - 4} textAnchor="middle">{axisLabels[1]}</text>
+                <text className={classes.timeLabel} x={right} y={height - 4} textAnchor="end">{axisLabels[2]}</text>
                 {fillPath && <path className={classes.fill} d={fillPath} />}
                 {linePaths.map((path, index) => path && (
                     <path className={index === 0 ? classes.line : classes.lineSecondary} d={path} key={`${item.key}-${index}`} />

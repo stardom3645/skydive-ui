@@ -114,32 +114,29 @@ export const styles = (theme: Theme) => createStyles({
     },
     connectedResourceCard: {
         position: 'relative',
-        minHeight: 76,
+        minHeight: 58,
         width: '100%',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        gap: theme.spacing(0.8),
-        padding: theme.spacing(1.05, 1.05),
-        borderRadius: 10,
+        gap: theme.spacing(0.85),
+        padding: theme.spacing(0.9, 1),
+        borderRadius: 12,
         border: '1px solid var(--netdive-detail-border)',
         backgroundColor: 'var(--netdive-detail-section-bg)',
         textAlign: 'left',
-        transition: 'background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease',
+        transition: 'background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease',
         '&:disabled': {
             cursor: 'default'
         },
         '& strong': {
             color: 'var(--netdive-detail-title)',
-            fontSize: 12.5,
+            fontSize: 12.6,
             lineHeight: 1.15,
-            fontWeight: 800
-        },
-        '& small': {
-            color: 'var(--netdive-detail-muted)',
-            fontSize: 11.2,
-            lineHeight: 1.25,
-            fontWeight: 600
+            fontWeight: 820,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap'
         }
     },
     connectedResourceCardClickable: {
@@ -147,7 +144,8 @@ export const styles = (theme: Theme) => createStyles({
         '&:hover': {
             borderColor: 'rgba(26, 115, 232, 0.34)',
             backgroundColor: 'rgba(232, 242, 255, 0.28)',
-            boxShadow: '0 6px 16px rgba(15, 23, 42, 0.055)'
+            boxShadow: '0 6px 16px rgba(15, 23, 42, 0.055)',
+            transform: 'translateY(-1px)'
         }
     },
     connectedResourceCardMain: {
@@ -164,20 +162,20 @@ export const styles = (theme: Theme) => createStyles({
     },
     connectedResourceCardIcon: {
         flexShrink: 0,
-        width: 26,
-        height: 26,
-        borderRadius: 8,
+        width: 30,
+        height: 30,
+        borderRadius: 10,
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
         background: 'rgba(248, 250, 252, 0.96)',
         '& svg': {
-            fontSize: 15
+            fontSize: 16
         }
     },
     connectedResourceFaIcon: {
         fontFamily: '"Font Awesome 5 Free"',
-        fontSize: 16,
+        fontSize: 17,
         fontWeight: 900,
         lineHeight: 1
     },
@@ -186,17 +184,18 @@ export const styles = (theme: Theme) => createStyles({
         color: 'var(--netdive-detail-title)',
         fontSize: 18,
         lineHeight: 1,
-        fontWeight: 850,
-        minWidth: 0,
-        textAlign: 'right'
+        fontWeight: 820,
+        minWidth: 22,
+        textAlign: 'right',
+        letterSpacing: '-0.015em'
     },
     connectedResourceCardAction: {
-        position: 'absolute',
-        right: 10,
-        bottom: 8,
+        flex: '0 0 auto',
         color: 'var(--topology-level-label-active-text)',
-        fontSize: 10.5,
-        fontWeight: 800
+        fontSize: 18,
+        lineHeight: 1,
+        fontWeight: 760,
+        opacity: 0.86
     },
     metricGrid: {
         display: 'grid',
