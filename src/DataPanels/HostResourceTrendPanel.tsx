@@ -18,6 +18,7 @@ interface State {
     error: string
     trend?: HostTrendResponse
     loadedFor: string
+    trendRange: string
 }
 
 interface HostTrendResponse {
@@ -51,6 +52,13 @@ interface TrendDisplayItem {
     series: TrendSeries[]
 }
 
+const trendRanges = [
+    { label: '1시간', value: '1h' },
+    { label: '3시간', value: '3h' },
+    { label: '6시간', value: '6h' },
+    { label: '12시간', value: '12h' }
+]
+
 const styles = (theme: Theme) => createStyles({
     card: {
         border: '1px solid var(--netdive-detail-border-soft)',
@@ -63,6 +71,7 @@ const styles = (theme: Theme) => createStyles({
         display: 'flex',
         alignItems: 'center',
         gap: theme.spacing(0.9),
+        flexWrap: 'wrap',
         padding: theme.spacing(1.25, 1.35),
         borderBottom: '1px solid var(--netdive-detail-border-subtle, rgba(226, 232, 240, 0.72))',
         background: 'var(--netdive-detail-section-header, #f8fafc)'
@@ -96,6 +105,24 @@ const styles = (theme: Theme) => createStyles({
         fontSize: 11.5,
         lineHeight: 1.35,
         fontWeight: 500
+    },
+    headerActions: {
+        marginLeft: 'auto',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6
+    },
+    rangeSelect: {
+        height: 30,
+        minWidth: 78,
+        border: '1px solid var(--netdive-detail-border-soft)',
+        borderRadius: 9,
+        padding: '0 24px 0 9px',
+        color: 'var(--netdive-detail-text)',
+        background: 'var(--netdive-detail-soft-card, #fbfdff)',
+        fontSize: 11.5,
+        fontWeight: 750,
+        outline: 'none'
     },
     body: {
         padding: theme.spacing(1.1, 1.25, 1.25)
@@ -239,7 +266,8 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
     state: State = {
         loading: false,
         error: '',
-        loadedFor: ''
+        loadedFor: '',
+        trendRange: '3h'
     }
 
     componentDidMount() {
@@ -259,6 +287,16 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         return this.props.session?.endpoint || `${window.location.protocol}//${window.location.host}`
     }
 
+    private rangeLabel(): string {
+        const item = trendRanges.find(range => range.value === this.state.trendRange)
+        return item ? item.label : this.state.trendRange
+    }
+
+    private handleRangeChange(event: React.ChangeEvent<HTMLSelectElement>) {
+        const trendRange = event.target.value
+        this.setState({ trendRange }, () => this.loadTrend())
+    }
+
     private hostQueryKey(node = this.props.node, data = this.props.data): string {
         const detail = data || node.data || {}
         const name = firstValue(detail, ['Name', 'Hostname', 'HostName']) || node.id
@@ -272,12 +310,13 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         const name = firstValue(detail, ['Name', 'Hostname', 'HostName']) || node.id
         const managementIp = firstValue(detail, ['ManagementIP', 'ManagementIp', 'managementIp', 'IpAddress', 'ipaddress'])
         const host = firstValue(detail, ['Hostname', 'HostName', 'Name']) || name
-        const loadedFor = this.hostQueryKey(node, data)
+        const trendRange = this.state.trendRange
+        const loadedFor = `${this.hostQueryKey(node, data)}:${trendRange}`
 
         const params = new URLSearchParams()
         params.set('host', host)
         params.set('name', name)
-        params.set('range', '3h')
+        params.set('range', trendRange)
         params.set('step', '60s')
         params.set('job', 'cube')
         params.set('port', '3003')
@@ -406,9 +445,12 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
     }
 
     private pointRange(seriesList: TrendSeries[]): { min: number, max: number } {
-        const values = seriesList.flatMap(series => (series.values || [])
-            .filter(point => typeof point.value === 'number')
-            .map(point => Number(point.value)))
+        const values = seriesList.reduce<number[]>((acc, series) => {
+            const points = (series.values || [])
+                .filter(point => typeof point.value === 'number')
+                .map(point => Number(point.value))
+            return acc.concat(points)
+        }, [])
 
         if (!values.length) return { min: 0, max: 1 }
         const min = Math.min(...values)
@@ -486,8 +528,20 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
                 <div className={classes.header}>
                     <span className={classes.icon}><TimelineIcon /></span>
                     <div className={classes.titleBlock}>
-                        <div className={classes.title}>리소스 3시간 추이</div>
+                        <div className={classes.title}>리소스 {this.rangeLabel()} 추이</div>
                         <div className={classes.description}>CPU, Memory, Storage IOPS, Network Traffic, Drops 추이를 조회합니다.</div>
+                    </div>
+                    <div className={classes.headerActions}>
+                        <select
+                            className={classes.rangeSelect}
+                            value={this.state.trendRange}
+                            onChange={event => this.handleRangeChange(event)}
+                            aria-label="리소스 추이 시간 범위"
+                        >
+                            {trendRanges.map(range => (
+                                <option value={range.value} key={range.value}>{range.label}</option>
+                            ))}
+                        </select>
                     </div>
                 </div>
 
