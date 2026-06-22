@@ -110,12 +110,6 @@ const numberValue = (data: any, keys: string[]): number | undefined => {
     return undefined
 }
 
-const percentValue = (data: any, keys: string[]): number | undefined => {
-    const value = numberValue(data, keys)
-    if (value === undefined) return undefined
-    return Math.max(0, Math.min(100, value <= 1 ? value * 100 : value))
-}
-
 const formatDate = (value: any): string => {
     if (isBlank(value)) return ''
     const date = new Date(value)
@@ -462,10 +456,6 @@ class HostDetailPanel extends React.Component<Props, State> {
         )
     }
 
-    private hasMetricValues(items: MetricItem[]): boolean {
-        return items.some(item => item.value !== '')
-    }
-
     private renderSection(icon: React.ReactNode, title: string, description: string, children: React.ReactNode, className = '') {
         const { classes } = this.props
         return (
@@ -579,7 +569,6 @@ class HostDetailPanel extends React.Component<Props, State> {
         )
     }
 
-
     render() {
         const { classes, node } = this.props
         const data = this.mergedData()
@@ -601,9 +590,6 @@ class HostDetailPanel extends React.Component<Props, State> {
         const vmCount = graphHostSummary?.userVMs ?? numberValue(data, ['ConnectedVMCount', 'ConnectedVmCount', 'UserVMCount', 'userVmCount', 'VmCount', 'VMCount', 'UserVmCount', 'RunningVms', 'RunningVMCount', 'runningVmCount', 'VirtualMachineCount']) ?? (connectedVmArrayCount > 0 ? connectedVmArrayCount : undefined)
         const systemVmCount = graphHostSummary?.systemVMs ?? numberValue(data, ['SystemVmCount', 'SystemVMCount', 'systemVmCount']) ?? (systemVmArrayCount > 0 ? systemVmArrayCount : undefined)
         const virtualRouterCount = graphHostSummary?.routers ?? numberValue(data, ['VirtualRouterCount', 'virtualRouterCount', 'RouterCount', 'routerCount', 'VRCount']) ?? (virtualRouterArrayCount > 0 ? virtualRouterArrayCount : undefined)
-        const cpuPercent = percentValue(data, ['CPUUsage', 'CpuUsage', 'CPU', 'CPUAllocatedPercent', 'cpuAllocatedPercent'])
-        const memoryPercent = percentValue(data, ['MemoryUsage', 'MemUsage', 'Memory', 'MemoryAllocatedPercent', 'memoryAllocatedPercent'])
-        const storagePercent = percentValue(data, ['StorageUsage', 'DiskUsage', 'Storage', 'StorageUsedPercent', 'storageUsedPercent'])
         const explicitNetworkCount = numberValue(data, ['NetworkCount', 'networkCount', 'NetworksCount', 'ConnectedNetworkCount', 'connectedNetworkCount'])
         const derivedNetworkCount = asArray(data.Networks).length || asArray(data.Network).length || asArray(data.NetworkObjects).length || asArray(data.Interfaces).length || asArray(data.interfaces).length
         const networkCount = graphHostSummary?.networkObjects ?? (explicitNetworkCount !== undefined ? explicitNetworkCount : (derivedNetworkCount > 0 ? derivedNetworkCount : undefined))
@@ -623,8 +609,7 @@ class HostDetailPanel extends React.Component<Props, State> {
             { label: translate('hostMoldHostId'), value: firstValue(data, ['MoldHostId', 'CloudStackHostId', 'HostId', 'HostID', 'UUID', 'uuid']), copy: true },
             { label: translate('hostManagementIp'), value: managementServer || representativeIp, copy: true },
             { label: translate('hostLocation'), value: [zone, pod, cluster].filter(Boolean).join(' > ') },
-            { label: translate('hostVirtualizationSystem'), value: virtualization },
-            { label: translate('hostResourceState'), value: resourceState }
+            { label: translate('hostVirtualizationSystem'), value: virtualization }
         ]
 
         const eventRows: KeyValueRow[] = [
@@ -632,12 +617,6 @@ class HostDetailPanel extends React.Component<Props, State> {
             { label: translate('hostRecentEvent'), value: firstValue(data, ['RecentEvent', 'LastEvent', 'Event']) },
             { label: translate('hostRecentCapture'), value: firstValue(data, ['RecentCapture', 'LastCapture', 'CaptureState']) },
             { label: translate('hostRecentStateChange'), value: formatDate(firstValue(data, ['StateChangedAt', 'LastStateChange', 'StatusChangedAt'])) }
-        ]
-
-        const resourceMetrics: MetricItem[] = [
-            { label: translate('hostCpuUsage'), value: cpuPercent !== undefined ? `${Math.round(cpuPercent)}%` : '', percent: cpuPercent, icon: <TimelineIcon /> },
-            { label: translate('hostMemoryUsage'), value: memoryPercent !== undefined ? `${Math.round(memoryPercent)}%` : '', percent: memoryPercent, icon: <StorageIcon /> },
-            { label: translate('hostStorageUsage'), value: storagePercent !== undefined ? `${Math.round(storagePercent)}%` : '', percent: storagePercent, icon: <StorageIcon /> }
         ]
 
         const connectedResources: OverviewCardItem[] = [
@@ -671,7 +650,6 @@ class HostDetailPanel extends React.Component<Props, State> {
             { label: translate('hostCollectionState'), value: translate('hostStatusCollected'), tone: 'success', icon: <TimelineIcon /> },
             { label: translate('hostAgent'), value: this.statusText(), tone: this.statusText() === translate('hostStatusNormal') ? 'success' : 'warning', icon: <SecurityIcon /> }
         ]
-        const hasResourceMetrics = this.hasMetricValues(resourceMetrics)
         const hasConnectedMetrics = connectedResources.some(item => !isBlank(item.value))
         const visibleNetworkMetrics = networkMetrics.filter(item => item.value)
         const hasNetworkSummary = visibleNetworkMetrics.length > 1
@@ -682,7 +660,6 @@ class HostDetailPanel extends React.Component<Props, State> {
                 {this.renderSection(<InfoIcon />, translate('hostOperationalStatus'), translate('hostOperationalStatusDescription'), this.renderStatusTiles(statusTiles))}
                 {this.renderSection(<InfoIcon />, translate('hostBasicInfo'), translate('hostOverviewDescription'), this.renderRows(basicRows))}
                 {this.renderSection(<ComputerIcon />, translate('hostOsPlatform'), translate('hostOsPlatformDescription'), this.renderOsSummary(data))}
-                {hasResourceMetrics && this.renderSection(<TimelineIcon />, translate('hostResourceUsage'), translate('hostResourceUsageDescription'), this.renderMetricGrid(resourceMetrics))}
                 <HostResourceTrendPanel
                     node={node}
                     session={this.props.session}

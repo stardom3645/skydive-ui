@@ -10,7 +10,7 @@ interface Props {
     classes: any
     node: Node
     session?: session
-    data: any
+    data?: any
 }
 
 interface State {
@@ -163,6 +163,12 @@ const styles = (theme: Theme) => createStyles({
         color: 'var(--netdive-detail-muted, #64748b)',
         fontSize: 12.5,
         fontWeight: 650
+    },
+    refreshing: {
+        marginBottom: 8,
+        color: 'var(--netdive-detail-muted, #64748b)',
+        fontSize: 11,
+        fontWeight: 650
     }
 })
 
@@ -200,7 +206,10 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
     }
 
     componentDidUpdate(prevProps: Props) {
-        if (prevProps.node.id !== this.props.node.id || prevProps.data !== this.props.data) {
+        const prevKey = this.hostQueryKey(prevProps.node, prevProps.data)
+        const nextKey = this.hostQueryKey(this.props.node, this.props.data)
+
+        if (prevKey !== nextKey) {
             this.loadTrend()
         }
     }
@@ -209,19 +218,20 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         return this.props.session?.endpoint || `${window.location.protocol}//${window.location.host}`
     }
 
-    private hostQueryKey(): string {
-        const { node, data } = this.props
-        const name = firstValue(data, ['Name', 'Hostname', 'HostName']) || node.id
-        const managementIp = firstValue(data, ['ManagementIP', 'ManagementIp', 'managementIp', 'IpAddress', 'ipaddress'])
+    private hostQueryKey(node = this.props.node, data = this.props.data): string {
+        const detail = data || node.data || {}
+        const name = firstValue(detail, ['Name', 'Hostname', 'HostName']) || node.id
+        const managementIp = firstValue(detail, ['ManagementIP', 'ManagementIp', 'managementIp', 'IpAddress', 'ipaddress'])
         return `${node.id}:${name}:${managementIp}`
     }
 
     private loadTrend() {
         const { node, data } = this.props
-        const name = firstValue(data, ['Name', 'Hostname', 'HostName']) || node.id
-        const managementIp = firstValue(data, ['ManagementIP', 'ManagementIp', 'managementIp', 'IpAddress', 'ipaddress'])
+        const detail = data || node.data || {}
+        const name = firstValue(detail, ['Name', 'Hostname', 'HostName']) || node.id
+        const managementIp = firstValue(detail, ['ManagementIP', 'ManagementIp', 'managementIp', 'IpAddress', 'ipaddress'])
         const host = firstValue(data, ['Hostname', 'HostName', 'Name']) || name
-        const loadedFor = this.hostQueryKey()
+        const loadedFor = this.hostQueryKey(node, data)
 
         const params = new URLSearchParams()
         params.set('host', host)
@@ -249,7 +259,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
             }
         }).catch(error => {
             if (this.state.loadedFor === loadedFor) {
-                this.setState({ loading: false, trend: undefined, error: error.message || 'trend unavailable' })
+                this.setState({ loading: false, error: error.message || 'trend unavailable' })
             }
         })
     }
@@ -320,6 +330,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         const { classes } = this.props
         const { loading, error, trend } = this.state
         const series = (trend?.series || []).filter(item => item.key !== 'networkTx' || item.values.length > 0)
+        const hasTrend = series.length > 0
 
         return (
             <section className={classes.card}>
@@ -332,22 +343,26 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
                 </div>
 
                 <div className={classes.body}>
-                    {loading && (
+                    {loading && !hasTrend && (
                         <div className={classes.loading}>
                             <CircularProgress size={16} />
                             <span>추이 데이터를 조회하는 중입니다.</span>
                         </div>
                     )}
 
-                    {!loading && error && (
+                    {loading && hasTrend && (
+                        <div className={classes.refreshing}>추이 데이터를 갱신하는 중입니다.</div>
+                    )}
+
+                    {!loading && error && !hasTrend && (
                         <div className={classes.empty}>Wall Prometheus 추이 데이터를 조회하지 못했습니다.</div>
                     )}
 
-                    {!loading && !error && series.length === 0 && (
+                    {!loading && !error && !hasTrend && (
                         <div className={classes.empty}>표시할 리소스 추이 데이터가 없습니다.</div>
                     )}
 
-                    {!loading && !error && series.length > 0 && (
+                    {hasTrend && (
                         <div className={classes.grid}>
                             {series.map(item => (
                                 <div className={classes.trendTile} key={item.key}>
@@ -367,4 +382,3 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
 }
 
 export default withStyles(styles)(HostResourceTrendPanel)
-
