@@ -528,7 +528,6 @@ class HostDetailPanel extends React.Component<Props, State> {
         const cluster = firstValue(data, ['Cluster', 'ClusterName'])
         const pod = firstValue(data, ['Pod', 'PodName'])
         const locationText = [zone, pod, cluster].filter(Boolean).join(' > ')
-        const locationWithVirtualization = locationText ? `${locationText}${virtualizationText ? ` (${virtualizationText})` : ''}` : virtualizationText
         const resourceState = firstValue(data, ['ResourceState', 'resourceState', 'AllocationState', 'allocationState'])
         const platform = firstValue(data, ['Platform', 'platform'])
         const platformVersion = firstValue(data, ['PlatformVersion', 'platformVersion', 'platformversion'])
@@ -561,7 +560,8 @@ class HostDetailPanel extends React.Component<Props, State> {
             { label: translate('Hostname'), value: name },
             { label: translate('hostMoldHostId'), value: firstValue(data, ['MoldHostId', 'CloudStackHostId', 'HostId', 'HostID', 'UUID', 'uuid']), copy: true },
             { label: translate('hostManagementIp'), value: managementServer || representativeIp, copy: true },
-            { label: translate('hostLocation'), value: locationWithVirtualization },
+            { label: translate('hostLocation'), value: locationText },
+            { label: '하이퍼바이저', value: virtualizationText },
             { label: translate('Platform'), value: platformText },
             { label: translate('KernelVersion'), value: kernelVersion, copy: true }
         ]

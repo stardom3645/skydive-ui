@@ -49,6 +49,7 @@ interface TrendDisplayItem {
     label: string
     unit: string
     value: string
+    valueLines?: string[]
     series: TrendSeries[]
 }
 
@@ -144,12 +145,13 @@ const styles = (theme: Theme) => createStyles({
     },
     trendTop: {
         display: 'flex',
-        alignItems: 'baseline',
+        alignItems: 'flex-start',
         justifyContent: 'space-between',
         gap: 8,
         marginBottom: 8
     },
     trendLabel: {
+        minWidth: 0,
         color: 'var(--netdive-detail-muted, #64748b)',
         fontSize: 11.5,
         lineHeight: 1.2,
@@ -159,8 +161,29 @@ const styles = (theme: Theme) => createStyles({
         whiteSpace: 'nowrap'
     },
     trendValue: {
+        flex: '0 1 auto',
+        minWidth: 0,
+        maxWidth: '58%',
         color: 'var(--netdive-detail-text)',
-        fontSize: 15,
+        fontSize: 13.2,
+        lineHeight: 1.15,
+        fontWeight: 850,
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        textAlign: 'right'
+    },
+    trendValueStack: {
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'flex-end',
+        gap: 2,
+        flex: '0 0 auto',
+        maxWidth: '62%'
+    },
+    trendValueLine: {
+        color: 'var(--netdive-detail-text)',
+        fontSize: 11.6,
         lineHeight: 1.1,
         fontWeight: 850,
         whiteSpace: 'nowrap'
@@ -294,7 +317,8 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
 
     private handleRangeChange(event: React.ChangeEvent<HTMLSelectElement>) {
         const trendRange = event.target.value
-        this.setState({ trendRange }, () => this.loadTrend())
+        if (trendRange === this.state.trendRange) return
+        this.setState({ trendRange, trend: undefined, error: '', loading: true }, () => this.loadTrend())
     }
 
     private hostQueryKey(node = this.props.node, data = this.props.data): string {
@@ -318,6 +342,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         params.set('name', name)
         params.set('range', trendRange)
         params.set('step', '60s')
+        params.set('_', String(Date.now()))
         params.set('job', 'cube')
         params.set('port', '3003')
         if (managementIp) {
@@ -426,7 +451,8 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
                 key: 'networkTraffic',
                 label: 'Network Traffic',
                 unit: 'bps',
-                value: `RX ${rxValue} / TX ${txValue}`,
+                value: '',
+                valueLines: [`RX ${rxValue}`, `TX ${txValue}`],
                 series: [networkRx, networkTx].filter(Boolean) as TrendSeries[]
             })
         }
@@ -491,6 +517,21 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
                 <span className={classes.legendItem}><span className={classes.legendLineSecondary} />TX</span>
             </div>
         )
+    }
+
+    private renderTrendValue(item: TrendDisplayItem) {
+        const { classes } = this.props
+        if (item.valueLines && item.valueLines.length > 0) {
+            return (
+                <div className={classes.trendValueStack}>
+                    {item.valueLines.map(line => (
+                        <div className={classes.trendValueLine} key={line}>{line}</div>
+                    ))}
+                </div>
+            )
+        }
+
+        return <div className={classes.trendValue}>{item.value}</div>
     }
 
     private renderSparkline(item: TrendDisplayItem) {
@@ -568,10 +609,10 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
                     {hasTrend && (
                         <div className={classes.grid}>
                             {displayItems.map(item => (
-                                <div className={classes.trendTile} key={item.key}>
+                                <div className={classes.trendTile} key={`${item.key}-${this.state.trendRange}-${trend?.start || 0}-${trend?.end || 0}`}>
                                     <div className={classes.trendTop}>
                                         <div className={classes.trendLabel}>{item.label}</div>
-                                        <div className={classes.trendValue}>{item.value}</div>
+                                        {this.renderTrendValue(item)}
                                     </div>
                                     {this.renderLegend(item)}
                                     {this.renderSparkline(item)}
