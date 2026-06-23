@@ -315,82 +315,87 @@ export const styles = (theme: Theme) => createStyles({
         padding: 0,
         background: 'transparent',
         color: 'var(--topology-level-label-active-text)',
-        fontSize: 11.2,
+        fontSize: 11,
         lineHeight: 1.3,
-        fontWeight: 800,
+        fontWeight: 700,
         cursor: 'pointer'
     },
     socketSummaryGrid: {
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
-        gap: 8
+        gap: 6
     },
     socketSummaryTile: {
-        borderRadius: 10,
+        borderRadius: 9,
         border: '1px solid var(--netdive-detail-border-soft)',
-        background: 'var(--netdive-detail-soft-card, #fbfdff)',
-        padding: '10px 12px'
+        background: 'rgba(248, 250, 252, 0.7)',
+        padding: '8px 10px'
     },
     socketSummaryLabel: {
         color: 'var(--netdive-detail-muted, #64748b)',
-        fontSize: 11.2,
-        lineHeight: 1.35,
+        fontSize: 10.8,
+        lineHeight: 1.25,
         fontWeight: 700
     },
     socketSummaryValue: {
-        marginTop: 4,
+        marginTop: 3,
         color: 'var(--netdive-detail-title)',
-        fontSize: 20,
+        fontSize: 17,
         lineHeight: 1.1,
-        fontWeight: 850,
+        fontWeight: 800,
         letterSpacing: '-0.02em'
     },
     socketServiceList: {
         display: 'flex',
-        flexDirection: 'column',
-        gap: 6
+        flexWrap: 'wrap',
+        gap: 8
     },
     socketServiceRow: {
-        display: 'grid',
-        gridTemplateColumns: '72px minmax(0, 1fr)',
+        minWidth: 0,
+        maxWidth: '100%'
+    },
+    socketServiceTag: {
+        display: 'inline-flex',
         alignItems: 'center',
-        gap: 8,
-        minHeight: 25,
+        gap: 5,
+        minHeight: 28,
+        maxWidth: '100%',
+        padding: '4px 10px',
+        borderRadius: 8,
+        border: '1px solid rgba(59, 130, 246, 0.18)',
+        background: 'rgba(239, 246, 255, 0.72)',
         color: 'var(--netdive-detail-text)',
         fontSize: 11.4,
+        lineHeight: 1.2,
         fontWeight: 700
     },
     socketServicePort: {
         color: 'var(--netdive-detail-title)',
-        fontWeight: 850,
+        fontWeight: 800,
         whiteSpace: 'nowrap'
     },
-    socketProcessName: {
+    socketServiceProtocol: {
+        color: 'var(--netdive-detail-muted, #64748b)',
+        fontWeight: 700,
+        whiteSpace: 'nowrap',
+        textTransform: 'uppercase'
+    },
+    socketServiceDivider: {
+        color: 'rgba(100, 116, 139, 0.7)',
+        fontWeight: 600
+    },
+    socketServiceProcess: {
         minWidth: 0,
         overflow: 'hidden',
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap',
         color: 'var(--netdive-detail-text)',
-        fontWeight: 800
-    },
-    socketStateBadge: {
-        justifySelf: 'end',
-        borderRadius: 999,
-        padding: '3px 7px',
-        fontSize: 9.5,
-        lineHeight: 1,
-        fontWeight: 900,
-        whiteSpace: 'nowrap'
-    },
-    socketStateListen: {
-        color: '#16a34a',
-        background: 'rgba(34, 197, 94, 0.12)',
-        border: '1px solid rgba(34, 197, 94, 0.20)'
+        fontWeight: 700
     },
     socketProcessList: {
         display: 'flex',
         flexDirection: 'column',
-        gap: 7
+        gap: 6
     },
     socketProcessRow: {
         display: 'grid',
@@ -398,19 +403,27 @@ export const styles = (theme: Theme) => createStyles({
         alignItems: 'center',
         gap: 8,
         color: 'var(--netdive-detail-text)',
-        fontSize: 11.4,
+        fontSize: 11.2,
         fontWeight: 750
     },
+    socketProcessName: {
+        minWidth: 0,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        color: 'var(--netdive-detail-text)',
+        fontWeight: 760
+    },
     socketProcessBarTrack: {
-        height: 6,
+        height: 5,
         borderRadius: 999,
         overflow: 'hidden',
-        background: 'rgba(148, 163, 184, 0.18)'
+        background: 'rgba(148, 163, 184, 0.15)'
     },
     socketProcessBarFill: {
         height: '100%',
         borderRadius: 999,
-        background: 'linear-gradient(90deg, #f97316, #ef4444)'
+        background: 'linear-gradient(90deg, rgba(59, 130, 246, 0.72), rgba(99, 102, 241, 0.62))'
     },
     pathRow: {
         display: 'flex',

@@ -563,7 +563,8 @@ export const i18nMap = {
         "hostSocketStateCloseWait": "CLOSE_WAIT",
         "hostSocketNoProcess": "Unknown process",
         "hostSocketNoService": "No listening service",
-        "hostSocketNoConnectionState": "No connection state"
+        "hostSocketNoConnectionState": "No connection state",
+        "hostSocketCollapse": "Collapse"
     },
     ko: {
         "k8s-Federations": "쿠버네티스 페더레이션",
@@ -1072,7 +1073,8 @@ export const i18nMap = {
         "hostSocketStateCloseWait": "종료 확인 대기",
         "hostSocketNoProcess": "알 수 없는 프로세스",
         "hostSocketNoService": "수신 대기 서비스 없음",
-        "hostSocketNoConnectionState": "연결 상태 없음"
+        "hostSocketNoConnectionState": "연결 상태 없음",
+        "hostSocketCollapse": "접기"
     }
 };
 

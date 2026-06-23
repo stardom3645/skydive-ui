@@ -516,12 +516,12 @@ class HostDetailPanel extends React.Component<Props, State> {
                 <div className={classes.socketBlock}>
                     <div className={classes.socketBlockHeader}>
                         <strong className={classes.socketBlockTitle}>{translate('hostTopSocketProcesses')}</strong>
-                        {hiddenProcessCount > 0 && (
+                        {(hiddenProcessCount > 0 || this.state.showAllSocketProcesses) && (
                             <button
                                 type="button"
                                 className={classes.socketMoreButton}
-                                onClick={() => this.setState({ showAllSocketProcesses: true })}>
-                                +{hiddenProcessCount}{translate('hostSocketMoreItems')}
+                                onClick={() => this.setState({ showAllSocketProcesses: !this.state.showAllSocketProcesses })}>
+                                {this.state.showAllSocketProcesses ? translate('hostSocketCollapse') : `+${hiddenProcessCount}${translate('hostSocketMoreItems')}`}
                             </button>
                         )}
                     </div>
@@ -540,20 +540,25 @@ class HostDetailPanel extends React.Component<Props, State> {
                 <div className={classes.socketBlock}>
                     <div className={classes.socketBlockHeader}>
                         <strong className={classes.socketBlockTitle}>{translate('hostListeningServices')} <span>({socketStats.listen || 0})</span></strong>
-                        {hiddenServiceCount > 0 && (
+                        {(hiddenServiceCount > 0 || this.state.showAllListeningServices) && (
                             <button
                                 type="button"
                                 className={classes.socketMoreButton}
-                                onClick={() => this.setState({ showAllListeningServices: true })}>
-                                +{hiddenServiceCount}{translate('hostSocketMoreItems')}
+                                onClick={() => this.setState({ showAllListeningServices: !this.state.showAllListeningServices })}>
+                                {this.state.showAllListeningServices ? translate('hostSocketCollapse') : `+${hiddenServiceCount}${translate('hostSocketMoreItems')}`}
                             </button>
                         )}
                     </div>
                     <div className={classes.socketServiceList}>
                         {visibleServices.map(item => (
                             <div className={classes.socketServiceRow} key={`${item.port}-${item.protocol}-${item.process}`}>
-                                <span className={classes.socketServicePort}>{item.port} / {item.protocol}</span>
-                                <span className={classes.socketProcessName}>{item.process}</span>
+                                <span className={classes.socketServiceTag}>
+                                    <span className={classes.socketServicePort}>{item.port}</span>
+                                    <span className={classes.socketServiceDivider}>/</span>
+                                    <span className={classes.socketServiceProtocol}>{item.protocol}</span>
+                                    <span className={classes.socketServiceDivider}>/</span>
+                                    <span className={classes.socketServiceProcess}>{item.process}</span>
+                                </span>
                             </div>
                         ))}
                     </div>
