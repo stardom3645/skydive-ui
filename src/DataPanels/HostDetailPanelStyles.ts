@@ -347,42 +347,35 @@ export const styles = (theme: Theme) => createStyles({
     },
     socketServiceList: {
         display: 'flex',
-        flexWrap: 'wrap',
-        gap: 8
+        flexDirection: 'column',
+        gap: 6
     },
     socketServiceRow: {
-        minWidth: 0,
-        maxWidth: '100%'
-    },
-    socketServiceTag: {
-        display: 'inline-flex',
+        display: 'grid',
+        gridTemplateColumns: '88px minmax(0, 1fr)',
         alignItems: 'center',
-        gap: 5,
+        gap: 10,
         minHeight: 28,
         maxWidth: '100%',
-        padding: '4px 10px',
-        borderRadius: 8,
-        border: '1px solid rgba(59, 130, 246, 0.18)',
-        background: 'rgba(239, 246, 255, 0.72)',
         color: 'var(--netdive-detail-text)',
         fontSize: 11.4,
         lineHeight: 1.2,
         fontWeight: 700
     },
-    socketServicePort: {
+    socketServicePortBadge: {
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: 24,
+        padding: '3px 8px',
+        borderRadius: 999,
+        border: '1px solid rgba(148, 163, 184, 0.24)',
+        background: 'rgba(248, 250, 252, 0.96)',
         color: 'var(--netdive-detail-title)',
         fontWeight: 800,
-        whiteSpace: 'nowrap'
-    },
-    socketServiceProtocol: {
-        color: 'var(--netdive-detail-muted, #64748b)',
-        fontWeight: 700,
         whiteSpace: 'nowrap',
-        textTransform: 'uppercase'
-    },
-    socketServiceDivider: {
-        color: 'rgba(100, 116, 139, 0.7)',
-        fontWeight: 600
+        fontSize: 10.6,
+        letterSpacing: '-0.01em'
     },
     socketServiceProcess: {
         minWidth: 0,

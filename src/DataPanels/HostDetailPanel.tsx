@@ -28,7 +28,7 @@ interface Props {
 interface State {
     moldDetail?: any
     moldDetailLoadedFor?: string
-    showAllListeningServices?: boolean
+    listeningServicesVisibleCount?: number
     showAllSocketProcesses?: boolean
 }
 
@@ -153,7 +153,7 @@ class HostDetailPanel extends React.Component<Props, State> {
     componentDidUpdate(prevProps: Props) {
         if (prevProps.node.id !== this.props.node.id) {
             this.setState({
-                showAllListeningServices: false,
+                listeningServicesVisibleCount: undefined,
                 showAllSocketProcesses: false
             })
             this.loadMoldHostDetail()
@@ -490,7 +490,8 @@ class HostDetailPanel extends React.Component<Props, State> {
         const services = this.listeningServices()
         const processes = this.topSocketProcesses()
         const socketStats = this.socketStats()
-        const visibleServices = this.state.showAllListeningServices ? services : services.slice(0, 5)
+        const visibleServiceCount = this.state.listeningServicesVisibleCount || 5
+        const visibleServices = services.slice(0, visibleServiceCount)
         const visibleProcesses = this.state.showAllSocketProcesses ? processes : processes.slice(0, 5)
         const hiddenServiceCount = Math.max(0, services.length - visibleServices.length)
         const hiddenProcessCount = Math.max(0, processes.length - visibleProcesses.length)
@@ -540,25 +541,24 @@ class HostDetailPanel extends React.Component<Props, State> {
                 <div className={classes.socketBlock}>
                     <div className={classes.socketBlockHeader}>
                         <strong className={classes.socketBlockTitle}>{translate('hostListeningServices')} <span>({socketStats.listen || 0})</span></strong>
-                        {(hiddenServiceCount > 0 || this.state.showAllListeningServices) && (
+                        {(hiddenServiceCount > 0 || services.length > 5) && (
                             <button
                                 type="button"
                                 className={classes.socketMoreButton}
-                                onClick={() => this.setState({ showAllListeningServices: !this.state.showAllListeningServices })}>
-                                {this.state.showAllListeningServices ? translate('hostSocketCollapse') : `+${hiddenServiceCount}${translate('hostSocketMoreItems')}`}
+                                onClick={() => this.setState({
+                                    listeningServicesVisibleCount: hiddenServiceCount > 0
+                                        ? Math.min(services.length, visibleServiceCount + 10)
+                                        : undefined
+                                })}>
+                                {hiddenServiceCount > 0 ? `+${hiddenServiceCount}${translate('hostSocketMoreItems')}` : translate('hostSocketCollapse')}
                             </button>
                         )}
                     </div>
                     <div className={classes.socketServiceList}>
                         {visibleServices.map(item => (
                             <div className={classes.socketServiceRow} key={`${item.port}-${item.protocol}-${item.process}`}>
-                                <span className={classes.socketServiceTag}>
-                                    <span className={classes.socketServicePort}>{item.port}</span>
-                                    <span className={classes.socketServiceDivider}>/</span>
-                                    <span className={classes.socketServiceProtocol}>{item.protocol}</span>
-                                    <span className={classes.socketServiceDivider}>/</span>
-                                    <span className={classes.socketServiceProcess}>{item.process}</span>
-                                </span>
+                                <span className={classes.socketServicePortBadge}>{item.port} / {item.protocol}</span>
+                                <span className={classes.socketServiceProcess}>{item.process}</span>
                             </div>
                         ))}
                     </div>
