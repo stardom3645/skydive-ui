@@ -148,6 +148,9 @@ export const styles = (theme: Theme) => createStyles({
             transform: 'translateY(-1px)'
         }
     },
+    connectedResourceCardStatic: {
+        justifyContent: 'flex-start'
+    },
     connectedResourceCardMain: {
         display: 'flex',
         alignItems: 'center',
@@ -189,12 +192,17 @@ export const styles = (theme: Theme) => createStyles({
         textAlign: 'right',
         letterSpacing: '-0.015em'
     },
+    connectedResourceCardValueStatic: {
+        minWidth: 0,
+        marginLeft: theme.spacing(0.75),
+        textAlign: 'left'
+    },
     connectedResourceCardAction: {
         flex: '0 0 auto',
         color: 'var(--topology-level-label-active-text)',
         fontSize: 18,
         lineHeight: 1,
-        fontWeight: 760,
+        fontWeight: 600,
         opacity: 0.86
     },
     metricGrid: {
@@ -307,7 +315,10 @@ export const styles = (theme: Theme) => createStyles({
     socketServiceList: {
         display: 'flex',
         flexDirection: 'column',
-        gap: 6
+        gap: 6,
+        maxHeight: 216,
+        overflowY: 'auto',
+        paddingRight: 4
     },
     socketServiceRow: {
         display: 'grid',
@@ -349,7 +360,10 @@ export const styles = (theme: Theme) => createStyles({
     socketProcessList: {
         display: 'flex',
         flexDirection: 'column',
-        gap: 7
+        gap: 7,
+        maxHeight: 216,
+        overflowY: 'auto',
+        paddingRight: 4
     },
     socketProcessRow: {
         display: 'grid',
@@ -370,55 +384,6 @@ export const styles = (theme: Theme) => createStyles({
         height: '100%',
         borderRadius: 999,
         background: 'linear-gradient(90deg, #f97316, #ef4444)'
-    },
-    socketStateGrid: {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
-        gap: 6
-    },
-    socketStateCard: {
-        minWidth: 0,
-        borderRadius: 10,
-        border: '1px solid var(--netdive-detail-border-soft)',
-        background: 'rgba(248, 250, 252, 0.72)',
-        padding: '8px 6px',
-        textAlign: 'center',
-        '& span': {
-            display: 'block',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            fontSize: 9.3,
-            lineHeight: 1.1,
-            fontWeight: 850
-        },
-        '& strong': {
-            display: 'block',
-            marginTop: 4,
-            fontSize: 15,
-            lineHeight: 1,
-            fontWeight: 900
-        }
-    },
-    socketStateCardsuccess: {
-        color: '#16a34a',
-        background: 'rgba(34, 197, 94, 0.10)',
-        borderColor: 'rgba(34, 197, 94, 0.22)'
-    },
-    socketStateCardinfo: {
-        color: '#2563eb',
-        background: 'rgba(37, 99, 235, 0.08)',
-        borderColor: 'rgba(37, 99, 235, 0.18)'
-    },
-    socketStateCardwarning: {
-        color: '#d97706',
-        background: 'rgba(245, 158, 11, 0.10)',
-        borderColor: 'rgba(245, 158, 11, 0.22)'
-    },
-    socketStateCardmuted: {
-        color: 'var(--netdive-detail-muted, #64748b)',
-        background: 'rgba(248, 250, 252, 0.86)',
-        borderColor: 'var(--netdive-detail-border-soft)'
     },
     pathRow: {
         display: 'flex',

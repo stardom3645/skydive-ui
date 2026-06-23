@@ -69,12 +69,6 @@ interface SocketProcessItem {
     percent: number
 }
 
-interface SocketStateItem {
-    state: string
-    count: number
-    tone: 'success' | 'info' | 'warning' | 'muted'
-}
-
 interface PillItem {
     label: string
     title?: string
@@ -428,7 +422,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                 groups.set(key, { port, protocol, process, count: 1 })
             }
         })
-        return Array.from(groups.values()).sort((a, b) => Number(a.port) - Number(b.port)).slice(0, 4)
+        return Array.from(groups.values()).sort((a, b) => Number(a.port) - Number(b.port))
     }
 
     private topSocketProcesses(): SocketProcessItem[] {
@@ -441,25 +435,6 @@ class HostDetailPanel extends React.Component<Props, State> {
         return Array.from(counts.entries())
             .map(([process, count]) => ({ process, count, percent: total ? (count / total) * 100 : 0 }))
             .sort((a, b) => b.count - a.count)
-            .slice(0, 3)
-    }
-
-    private connectionStateSummary(): SocketStateItem[] {
-        const counts = new Map<string, number>()
-        this.sockets().forEach(socket => {
-            const state = this.normalizeSocketState(socket)
-            counts.set(state, (counts.get(state) || 0) + 1)
-        })
-        return [
-            { state: 'ESTABLISHED', count: counts.get('ESTABLISHED') || 0, tone: 'success' as const },
-            { state: 'TIME_WAIT', count: counts.get('TIME_WAIT') || 0, tone: 'info' as const },
-            { state: 'CLOSE_WAIT', count: counts.get('CLOSE_WAIT') || 0, tone: 'warning' as const },
-            { state: 'SYN_SENT', count: counts.get('SYN_SENT') || 0, tone: 'muted' as const }
-        ]
-    }
-
-    private socketMoreCount(listLength: number): number {
-        return Math.max(0, listLength - 4)
     }
 
     private socketStateLabel(state: string): string {
@@ -508,19 +483,18 @@ class HostDetailPanel extends React.Component<Props, State> {
         const { classes } = this.props
         const services = this.listeningServices()
         const processes = this.topSocketProcesses()
-        const states = this.connectionStateSummary()
-        if (!services.length && !processes.length && !states.some(item => item.count > 0)) {
+        const socketStats = this.socketStats()
+        if (!services.length && !processes.length) {
             return <div className={classes.emptyState}>{translate('hostNoSocketInfo')}</div>
         }
         return (
             <div className={classes.socketSection}>
                 <div className={classes.socketBlock}>
                     <div className={classes.socketBlockHeader}>
-                        <strong className={classes.socketBlockTitle}>{translate('hostListeningServices')} <span>({translate('hostOpenPorts')})</span></strong>
-                        {services.length > 3 && <span className={classes.socketMoreLink}>+{services.length - 3} {translate('hostSocketMoreItems')}</span>}
+                        <strong className={classes.socketBlockTitle}>{translate('hostListeningServices')} <span>({socketStats.listen || 0})</span></strong>
                     </div>
                     <div className={classes.socketServiceList}>
-                        {services.slice(0, 3).map(item => (
+                        {services.map(item => (
                             <div className={classes.socketServiceRow} key={`${item.port}-${item.protocol}-${item.process}`}>
                                 <span className={classes.socketServicePort}>{item.port} / {item.protocol}</span>
                                 <span className={classes.socketProcessName}>{item.process}</span>
@@ -541,19 +515,6 @@ class HostDetailPanel extends React.Component<Props, State> {
                                 <div className={classes.socketProcessBarTrack}>
                                     <div className={classes.socketProcessBarFill} style={{ width: `${Math.min(100, item.percent)}%` }} />
                                 </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-                <div className={classes.socketBlock}>
-                    <div className={classes.socketBlockHeader}>
-                        <strong className={classes.socketBlockTitle}>{translate('hostConnectionStates')}</strong>
-                    </div>
-                    <div className={classes.socketStateGrid}>
-                        {states.map(item => (
-                            <div className={`${classes.socketStateCard} ${classes[`socketStateCard${item.tone}`]}`} key={item.state}>
-                                <span>{this.socketStateLabel(item.state)}</span>
-                                <strong>{item.count}</strong>
                             </div>
                         ))}
                     </div>
@@ -646,11 +607,13 @@ class HostDetailPanel extends React.Component<Props, State> {
         return (
             <div className={classes.connectedResourceGrid}>
                 {visible.map(item => {
-                    const canFocus = !!item.actionKey && !!item.nodeIDs && item.nodeIDs.length > 0
+                    const numericValue = Number(item.value)
+                    const hasZeroValue = item.value !== '' && !Number.isNaN(numericValue) && numericValue === 0
+                    const canFocus = !hasZeroValue && !!item.actionKey && !!item.nodeIDs && item.nodeIDs.length > 0
                     return (
                         <button
                             type="button"
-                            className={`${classes.connectedResourceCard} ${canFocus ? classes.connectedResourceCardClickable : ''}`}
+                            className={`${classes.connectedResourceCard} ${canFocus ? classes.connectedResourceCardClickable : classes.connectedResourceCardStatic}`}
                             key={item.label}
                             onClick={() => canFocus && this.focusConnectedResource(item.actionKey, item.nodeIDs)}
                             disabled={!canFocus}>
@@ -660,7 +623,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                                     <strong>{item.label}</strong>
                                 </span>
                             </span>
-                            <span className={classes.connectedResourceCardValue}>{item.value}</span>
+                            <span className={`${classes.connectedResourceCardValue} ${!canFocus ? classes.connectedResourceCardValueStatic : ''}`}>{item.value}</span>
                             {canFocus && <span className={classes.connectedResourceCardAction}>›</span>}
                         </button>
                     )
