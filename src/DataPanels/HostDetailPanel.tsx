@@ -28,6 +28,8 @@ interface Props {
 interface State {
     moldDetail?: any
     moldDetailLoadedFor?: string
+    showAllListeningServices?: boolean
+    showAllSocketProcesses?: boolean
 }
 
 type InfrastructureFocusKey = 'networkObjects' | 'routers' | 'userVMs' | 'systemVMs'
@@ -150,6 +152,10 @@ class HostDetailPanel extends React.Component<Props, State> {
 
     componentDidUpdate(prevProps: Props) {
         if (prevProps.node.id !== this.props.node.id) {
+            this.setState({
+                showAllListeningServices: false,
+                showAllSocketProcesses: false
+            })
             this.loadMoldHostDetail()
         }
     }
@@ -484,37 +490,70 @@ class HostDetailPanel extends React.Component<Props, State> {
         const services = this.listeningServices()
         const processes = this.topSocketProcesses()
         const socketStats = this.socketStats()
+        const visibleServices = this.state.showAllListeningServices ? services : services.slice(0, 5)
+        const visibleProcesses = this.state.showAllSocketProcesses ? processes : processes.slice(0, 5)
+        const hiddenServiceCount = Math.max(0, services.length - visibleServices.length)
+        const hiddenProcessCount = Math.max(0, processes.length - visibleProcesses.length)
         if (!services.length && !processes.length) {
             return <div className={classes.emptyState}>{translate('hostNoSocketInfo')}</div>
         }
         return (
             <div className={classes.socketSection}>
-                <div className={classes.socketBlock}>
-                    <div className={classes.socketBlockHeader}>
-                        <strong className={classes.socketBlockTitle}>{translate('hostListeningServices')} <span>({socketStats.listen || 0})</span></strong>
+                <div className={classes.socketSummaryGrid}>
+                    <div className={classes.socketSummaryTile}>
+                        <div className={classes.socketSummaryLabel}>{translate('hostListenPorts')}</div>
+                        <div className={classes.socketSummaryValue}>{socketStats.listen || 0}</div>
                     </div>
-                    <div className={classes.socketServiceList}>
-                        {services.map(item => (
-                            <div className={classes.socketServiceRow} key={`${item.port}-${item.protocol}-${item.process}`}>
-                                <span className={classes.socketServicePort}>{item.port} / {item.protocol}</span>
-                                <span className={classes.socketProcessName}>{item.process}</span>
-                                <span className={`${classes.socketStateBadge} ${classes.socketStateListen}`}>{this.socketStateLabel('LISTEN')}</span>
-                            </div>
-                        ))}
+                    <div className={classes.socketSummaryTile}>
+                        <div className={classes.socketSummaryLabel}>{translate('hostExternalConnections')}</div>
+                        <div className={classes.socketSummaryValue}>{socketStats.external || 0}</div>
+                    </div>
+                    <div className={classes.socketSummaryTile}>
+                        <div className={classes.socketSummaryLabel}>{translate('hostTopSocketProcesses')}</div>
+                        <div className={classes.socketSummaryValue}>{processes.length}</div>
                     </div>
                 </div>
                 <div className={classes.socketBlock}>
                     <div className={classes.socketBlockHeader}>
                         <strong className={classes.socketBlockTitle}>{translate('hostTopSocketProcesses')}</strong>
+                        {hiddenProcessCount > 0 && (
+                            <button
+                                type="button"
+                                className={classes.socketMoreButton}
+                                onClick={() => this.setState({ showAllSocketProcesses: true })}>
+                                +{hiddenProcessCount}{translate('hostSocketMoreItems')}
+                            </button>
+                        )}
                     </div>
                     <div className={classes.socketProcessList}>
-                        {processes.map(item => (
+                        {visibleProcesses.map(item => (
                             <div className={classes.socketProcessRow} key={item.process}>
                                 <span className={classes.socketProcessName}>{item.process}</span>
                                 <span>{item.count}</span>
                                 <div className={classes.socketProcessBarTrack}>
                                     <div className={classes.socketProcessBarFill} style={{ width: `${Math.min(100, item.percent)}%` }} />
                                 </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                <div className={classes.socketBlock}>
+                    <div className={classes.socketBlockHeader}>
+                        <strong className={classes.socketBlockTitle}>{translate('hostListeningServices')} <span>({socketStats.listen || 0})</span></strong>
+                        {hiddenServiceCount > 0 && (
+                            <button
+                                type="button"
+                                className={classes.socketMoreButton}
+                                onClick={() => this.setState({ showAllListeningServices: true })}>
+                                +{hiddenServiceCount}{translate('hostSocketMoreItems')}
+                            </button>
+                        )}
+                    </div>
+                    <div className={classes.socketServiceList}>
+                        {visibleServices.map(item => (
+                            <div className={classes.socketServiceRow} key={`${item.port}-${item.protocol}-${item.process}`}>
+                                <span className={classes.socketServicePort}>{item.port} / {item.protocol}</span>
+                                <span className={classes.socketProcessName}>{item.process}</span>
                             </div>
                         ))}
                     </div>
@@ -610,21 +649,23 @@ class HostDetailPanel extends React.Component<Props, State> {
                     const numericValue = Number(item.value)
                     const hasZeroValue = item.value !== '' && !Number.isNaN(numericValue) && numericValue === 0
                     const canFocus = !hasZeroValue && !!item.actionKey && !!item.nodeIDs && item.nodeIDs.length > 0
+                    const actionClassName = `${classes.connectedResourceCardAction} ${!canFocus ? classes.connectedResourceCardActionHidden : ''}`
                     return (
                         <button
                             type="button"
                             className={`${classes.connectedResourceCard} ${canFocus ? classes.connectedResourceCardClickable : classes.connectedResourceCardStatic}`}
                             key={item.label}
                             onClick={() => canFocus && this.focusConnectedResource(item.actionKey, item.nodeIDs)}
-                            disabled={!canFocus}>
+                            aria-disabled={!canFocus}
+                            tabIndex={canFocus ? 0 : -1}>
                             <span className={classes.connectedResourceCardMain}>
                                 <span className={classes.connectedResourceCardIcon}>{item.icon || <InfoIcon />}</span>
                                 <span>
                                     <strong>{item.label}</strong>
                                 </span>
                             </span>
-                            <span className={`${classes.connectedResourceCardValue} ${!canFocus ? classes.connectedResourceCardValueStatic : ''}`}>{item.value}</span>
-                            {canFocus && <span className={classes.connectedResourceCardAction}>›</span>}
+                            <span className={classes.connectedResourceCardValue}>{item.value}</span>
+                            <span className={actionClassName} aria-hidden={!canFocus}>›</span>
                         </button>
                     )
                 })}
@@ -757,7 +798,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                 {hasConnectedMetrics && this.renderSection(<DeviceHubIcon />, translate('hostConnectedResources'), translate('hostConnectedResourcesDescription'), this.renderOverviewGrid(connectedResources, translate('hostNoConnectedResources')))}
                 {hasNetworkSummary && this.renderSection(<RouterIcon />, translate('hostNetworkSummary'), translate('hostNetworkSummaryDescription'), this.renderMetricGrid(networkMetrics, translate('hostNetworkDetailsMissing')))}
 
-                {this.renderSection(<PowerIcon />, translate('hostSocketsProcesses'), '이 호스트의 네트워크 연결 상태와 주요 프로세스 정보입니다.', this.renderSocketProcessSummary())}
+                {this.renderSection(<PowerIcon />, translate('hostSocketsProcesses'), '수신 대기 서비스와 주요 소켓 프로세스를 요약합니다.', this.renderSocketProcessSummary())}
 
                 {hasRecentSignals && this.renderSection(<InfoIcon />, translate('hostRecentSignals'), translate('hostRecentSignalsDescription'), this.renderRows(eventRows, translate('hostNoRecentSignals')))}
 

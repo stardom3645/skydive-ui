@@ -149,7 +149,7 @@ export const styles = (theme: Theme) => createStyles({
         }
     },
     connectedResourceCardStatic: {
-        justifyContent: 'flex-start'
+        cursor: 'default'
     },
     connectedResourceCardMain: {
         display: 'flex',
@@ -192,11 +192,6 @@ export const styles = (theme: Theme) => createStyles({
         textAlign: 'right',
         letterSpacing: '-0.015em'
     },
-    connectedResourceCardValueStatic: {
-        minWidth: 0,
-        marginLeft: theme.spacing(0.75),
-        textAlign: 'left'
-    },
     connectedResourceCardAction: {
         flex: '0 0 auto',
         color: 'var(--topology-level-label-active-text)',
@@ -204,6 +199,9 @@ export const styles = (theme: Theme) => createStyles({
         lineHeight: 1,
         fontWeight: 600,
         opacity: 0.86
+    },
+    connectedResourceCardActionHidden: {
+        visibility: 'hidden'
     },
     metricGrid: {
         display: 'grid',
@@ -312,17 +310,49 @@ export const styles = (theme: Theme) => createStyles({
         fontWeight: 850,
         whiteSpace: 'nowrap'
     },
+    socketMoreButton: {
+        border: 0,
+        padding: 0,
+        background: 'transparent',
+        color: 'var(--topology-level-label-active-text)',
+        fontSize: 11.2,
+        lineHeight: 1.3,
+        fontWeight: 800,
+        cursor: 'pointer'
+    },
+    socketSummaryGrid: {
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
+        gap: 8
+    },
+    socketSummaryTile: {
+        borderRadius: 10,
+        border: '1px solid var(--netdive-detail-border-soft)',
+        background: 'var(--netdive-detail-soft-card, #fbfdff)',
+        padding: '10px 12px'
+    },
+    socketSummaryLabel: {
+        color: 'var(--netdive-detail-muted, #64748b)',
+        fontSize: 11.2,
+        lineHeight: 1.35,
+        fontWeight: 700
+    },
+    socketSummaryValue: {
+        marginTop: 4,
+        color: 'var(--netdive-detail-title)',
+        fontSize: 20,
+        lineHeight: 1.1,
+        fontWeight: 850,
+        letterSpacing: '-0.02em'
+    },
     socketServiceList: {
         display: 'flex',
         flexDirection: 'column',
-        gap: 6,
-        maxHeight: 216,
-        overflowY: 'auto',
-        paddingRight: 4
+        gap: 6
     },
     socketServiceRow: {
         display: 'grid',
-        gridTemplateColumns: '72px minmax(0, 1fr) 58px',
+        gridTemplateColumns: '72px minmax(0, 1fr)',
         alignItems: 'center',
         gap: 8,
         minHeight: 25,
@@ -360,10 +390,7 @@ export const styles = (theme: Theme) => createStyles({
     socketProcessList: {
         display: 'flex',
         flexDirection: 'column',
-        gap: 7,
-        maxHeight: 216,
-        overflowY: 'auto',
-        paddingRight: 4
+        gap: 7
     },
     socketProcessRow: {
         display: 'grid',
