@@ -72,6 +72,11 @@ interface SocketProcessItem {
     percent: number
 }
 
+interface KubernetesClusterMatch {
+    id: string
+    name: string
+}
+
 interface PillItem {
     label: string
     title?: string
@@ -515,6 +520,7 @@ class HostDetailPanel extends React.Component<Props, State> {
         const app = (window as any).App
         const topologyNodes: Node[] = Array.isArray(app?.tc?.nodes) ? app.tc.nodes : []
         if (!topologyNodes.length) return []
+        const topologyLinks: any[] = app?.tc?.links ? Array.from(app.tc.links.values()) : []
 
         const data = this.mergedData()
         const hostLookup = collectLookupSet(
@@ -528,6 +534,7 @@ class HostDetailPanel extends React.Component<Props, State> {
             data.IfAddr,
             data.Addresses
         )
+        const hostSubtreeNodeIDs = this.hostSubtreeNodeIDs()
 
         const matchesHostAncestor = (node: Node): boolean => {
             let parent = node.parent
@@ -540,11 +547,25 @@ class HostDetailPanel extends React.Component<Props, State> {
             return false
         }
 
+        const matchesHostLink = (node: Node): boolean => {
+            return topologyLinks.some((link: any) => {
+                const sourceID = link?.source?.id
+                const targetID = link?.target?.id
+                if (!sourceID || !targetID) return false
+                if (sourceID === node.id) return hostSubtreeNodeIDs.has(targetID)
+                if (targetID === node.id) return hostSubtreeNodeIDs.has(sourceID)
+                return false
+            })
+        }
+
         return topologyNodes.filter(node => {
             if (!node || node.data?.Manager !== 'k8s' || String(node.data?.Type || '').toLowerCase() !== 'node') {
                 return false
             }
             if (matchesHostAncestor(node)) {
+                return true
+            }
+            if (matchesHostLink(node)) {
                 return true
             }
 
@@ -584,17 +605,49 @@ class HostDetailPanel extends React.Component<Props, State> {
         })
     }
 
-    private hostKubernetesClusterNames(nodes: Node[]): string[] {
-        return uniqueStrings(nodes.map(node => {
-            let parent = node.parent
-            while (parent) {
-                if (String(parent.data?.Type || '').toLowerCase() === 'cluster') {
-                    return firstValue(parent.data, ['Name', 'ClusterName', 'clusterName']) || parent.id
+    private hostSubtreeNodeIDs(): Set<string> {
+        const ids = new Set<string>()
+        const visit = (node?: Node | null) => {
+            if (!node || ids.has(node.id)) return
+            ids.add(node.id)
+            ;(node.children || []).forEach(child => visit(child))
+        }
+        visit(this.props.node)
+        return ids
+    }
+
+    private kubernetesClusterForNode(node: Node): KubernetesClusterMatch | undefined {
+        let parent = node.parent
+        while (parent) {
+            if (String(parent.data?.Type || '').toLowerCase() === 'cluster') {
+                return {
+                    id: parent.id,
+                    name: firstValue(parent.data, ['Name', 'ClusterName', 'clusterName']) || parent.id
                 }
-                parent = parent.parent
             }
-            return firstValue(node.data, ['Cluster', 'ClusterName', 'clusterName', 'ClusterID'])
-        }).filter(Boolean))
+            parent = parent.parent
+        }
+
+        const fallbackID = firstValue(node.data, ['ClusterID', 'clusterID', 'ClusterId', 'clusterId'])
+            || firstValue(node.data, ['Cluster', 'ClusterName', 'clusterName'])
+        const fallbackName = firstValue(node.data, ['Cluster', 'ClusterName', 'clusterName'])
+        if (!fallbackID && !fallbackName) return undefined
+        return {
+            id: fallbackID || fallbackName,
+            name: fallbackName || fallbackID
+        }
+    }
+
+    private hostKubernetesClusters(nodes: Node[]): KubernetesClusterMatch[] {
+        const clusters = new Map<string, KubernetesClusterMatch>()
+        nodes.forEach(node => {
+            const cluster = this.kubernetesClusterForNode(node)
+            if (!cluster) return
+            if (!clusters.has(cluster.id)) {
+                clusters.set(cluster.id, cluster)
+            }
+        })
+        return Array.from(clusters.values())
     }
 
     private renderSocketProcessSummary() {
@@ -901,8 +954,16 @@ class HostDetailPanel extends React.Component<Props, State> {
             { label: translate('infrastructureNetworkObjects'), description: translate('infrastructureNetworkObjectsDescription'), value: networkCount !== undefined ? String(networkCount) : '', icon: this.infrastructureIcon('\uf6ff', 'network'), actionKey: 'networkObjects', nodeIDs: this.hostInfrastructureNodeIDs('networkObjects') }
         ]
         const kubernetesNodes = this.hostKubernetesNodes()
-        const kubernetesClusterNames = this.hostKubernetesClusterNames(kubernetesNodes)
+        const kubernetesClusters = this.hostKubernetesClusters(kubernetesNodes)
+        const kubernetesClusterNames = kubernetesClusters.map(clusterItem => clusterItem.name)
         const kubernetesResources: OverviewCardItem[] = [
+            {
+                label: translate('kubernetesTopologyClusters'),
+                description: kubernetesClusterNames.join(', '),
+                value: String(kubernetesClusters.length),
+                icon: this.infrastructureIcon('\uf542', 'network'),
+                nodeIDs: kubernetesClusters.map(item => item.id).filter(Boolean)
+            },
             {
                 label: translate('kubernetesTopologyNodes'),
                 description: kubernetesClusterNames.length > 0 ? kubernetesClusterNames.join(', ') : '',
