@@ -229,6 +229,71 @@ class HostDetailPanel extends React.Component<Props, State> {
         return []
     }
 
+    private inventoryVirtualMachines(): any[] {
+        const inventory = this.props.moldInventory
+        const data = this.mergedData()
+        const candidates = [
+            data.ConnectedVMs,
+            data.connectedVMs,
+            data.ConnectedVms,
+            inventory?.virtualMachines,
+            inventory?.virtualmachines,
+            inventory?.vms,
+            inventory?.VMs,
+            inventory?.data?.virtualMachines,
+            inventory?.data?.virtualmachines,
+            inventory?.data?.vms,
+            inventory?.inventory?.virtualMachines,
+            inventory?.inventory?.virtualmachines,
+            inventory?.listvirtualmachinesresponse?.virtualmachine,
+            inventory?.listVirtualMachinesResponse?.virtualmachine,
+            inventory?.ListVirtualMachinesResponse?.VirtualMachine,
+            data.VirtualMachines,
+            data.virtualMachines,
+            data.VMs,
+            data.vms,
+            data.UserVMs,
+            data.userVMs,
+            data.SystemVMs,
+            data.systemVMs
+        ]
+        for (const candidate of candidates) {
+            if (Array.isArray(candidate)) return candidate
+        }
+        return []
+    }
+
+    private objectMatchesHost(value: any, hostKeys: Set<string>): boolean {
+        if (!value || typeof value !== 'object') return false
+        const keys = [
+            'hostid', 'hostId', 'HostId', 'hostID', 'HostID',
+            'hostuuid', 'hostUuid', 'HostUUID',
+            'hostname', 'hostName', 'HostName', 'host', 'Host',
+            'hostip', 'hostIp', 'HostIP',
+            'privateip', 'privateIp', 'privateIpAddress', 'privateipaddress'
+        ]
+        const lookup = collectLookupSet(...keys.map(key => value[key]))
+        return Array.from(lookup).some(token => hostKeys.has(token))
+    }
+
+    private hostInventoryVMs(hostLookup: Set<string>): any[] {
+        const data = this.mergedData()
+        const selectedHostVMs = [
+            ...asArray(data.ConnectedVMs),
+            ...asArray(data.connectedVMs),
+            ...asArray(data.ConnectedVms)
+        ]
+        const matchedInventoryVMs = this.inventoryVirtualMachines().filter(vm => this.objectMatchesHost(vm, hostLookup))
+        const seen = new Set<string>()
+        return [...selectedHostVMs, ...matchedInventoryVMs].filter(vm => {
+            const key = firstValue(vm, ['id', 'uuid', 'name', 'displayName', 'displayname', 'instanceName', 'instancename'])
+            if (!key) return true
+            if (seen.has(key)) return false
+            seen.add(key)
+            return true
+        })
+    }
+
     private inventoryHostDetail(): any | undefined {
         const hosts = this.inventoryHosts()
         if (!hosts.length) return undefined
@@ -598,6 +663,25 @@ class HostDetailPanel extends React.Component<Props, State> {
             ;(node.children || []).forEach(child => visit(child))
         }
         visit(hostRoot)
+        const hostLookup = collectLookupSet(...values)
+        this.hostInventoryVMs(hostLookup).forEach(vm => {
+            [
+                'id', 'uuid', 'name', 'displayname', 'displayName', 'instancename', 'instanceName',
+                'hostname', 'hostName', 'hostIp', 'ips', 'IPs', 'nic', 'nics'
+            ].forEach(key => values.push(vm[key]))
+            asArray(vm.nic || vm.nics || vm.NICs).forEach((nic: any) => {
+                values.push(
+                    nic?.ipaddress,
+                    nic?.ipAddress,
+                    nic?.secondaryip,
+                    nic?.secondaryIp,
+                    nic?.networkname,
+                    nic?.networkName,
+                    nic?.macaddress,
+                    nic?.macAddress
+                )
+            })
+        })
         return collectLookupSet(...values)
     }
 
