@@ -521,6 +521,7 @@ class HostDetailPanel extends React.Component<Props, State> {
         const topologyNodes: Node[] = Array.isArray(app?.tc?.nodes) ? app.tc.nodes : []
         if (!topologyNodes.length) return []
         const topologyLinks: any[] = app?.tc?.links ? Array.from(app.tc.links.values()) : []
+        const topologyNodeMap: Map<string, Node> = app?.tc?.nodes instanceof Map ? app.tc.nodes : new Map<string, Node>()
 
         const data = this.mergedData()
         const hostLookup = collectLookupSet(
@@ -535,6 +536,7 @@ class HostDetailPanel extends React.Component<Props, State> {
             data.Addresses
         )
         const hostSubtreeNodeIDs = this.hostSubtreeNodeIDs()
+        const graphMatchedNodeIDs = this.hostMatchedKubernetesNodeIDsFromGraph(hostSubtreeNodeIDs, topologyLinks, topologyNodeMap)
 
         const matchesHostAncestor = (node: Node): boolean => {
             let parent = node.parent
@@ -561,6 +563,9 @@ class HostDetailPanel extends React.Component<Props, State> {
         return topologyNodes.filter(node => {
             if (!node || node.data?.Manager !== 'k8s' || String(node.data?.Type || '').toLowerCase() !== 'node') {
                 return false
+            }
+            if (graphMatchedNodeIDs.has(node.id)) {
+                return true
             }
             if (matchesHostAncestor(node)) {
                 return true
@@ -614,6 +619,42 @@ class HostDetailPanel extends React.Component<Props, State> {
         }
         visit(this.props.node)
         return ids
+    }
+
+    private hostMatchedKubernetesNodeIDsFromGraph(hostSubtreeNodeIDs: Set<string>, topologyLinks: any[], topologyNodeMap: Map<string, Node>): Set<string> {
+        const matchedNodeIDs = new Set<string>()
+
+        const nearestKubernetesNode = (node?: Node): Node | undefined => {
+            let current = node
+            while (current) {
+                if (current.data?.Manager === 'k8s' && String(current.data?.Type || '').toLowerCase() === 'node') {
+                    return current
+                }
+                current = current.parent || undefined
+            }
+            return undefined
+        }
+
+        topologyLinks.forEach((link: any) => {
+            const sourceID = link?.source?.id
+            const targetID = link?.target?.id
+            if (!sourceID || !targetID) return
+
+            const sourceIsHostSide = hostSubtreeNodeIDs.has(sourceID)
+            const targetIsHostSide = hostSubtreeNodeIDs.has(targetID)
+            if (!sourceIsHostSide && !targetIsHostSide) return
+
+            const remoteID = sourceIsHostSide ? targetID : sourceID
+            const remoteNode = topologyNodeMap.get(remoteID)
+            if (!remoteNode || remoteNode.data?.Manager !== 'k8s') return
+
+            const kubernetesNode = nearestKubernetesNode(remoteNode)
+            if (kubernetesNode) {
+                matchedNodeIDs.add(kubernetesNode.id)
+            }
+        })
+
+        return matchedNodeIDs
     }
 
     private kubernetesClusterForNode(node: Node): KubernetesClusterMatch | undefined {
