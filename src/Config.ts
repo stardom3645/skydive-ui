@@ -95,6 +95,12 @@ export const i18nMap = {
         "host-bridge(s)": "Host Bridges",
         "bridge(s)": "Bridges",
         "bond(s)": "Bond Interfaces",
+        "k8s-cluster-group": "Kubernetes Cluster Group",
+        "k8s-node-group": "Kubernetes Node Group",
+        "k8s-namespace-group": "Kubernetes Namespace Group",
+        "k8s-pod-group": "Kubernetes Pod Group",
+        "k8s-service-group": "Kubernetes Service Group",
+        "k8s-app-group": "Kubernetes Resource Group",
 
         RxPackets: "Received Packets",
         RxBytes: "Received Bytes",
@@ -607,6 +613,12 @@ export const i18nMap = {
         "host-bridge(s)": "호스트 브릿지",
         "bridge(s)": "브릿지",
         "bond(s)": "본딩 인터페이스",
+        "k8s-cluster-group": "쿠버네티스 클러스터 그룹",
+        "k8s-node-group": "쿠버네티스 노드 그룹",
+        "k8s-namespace-group": "쿠버네티스 네임스페이스 그룹",
+        "k8s-pod-group": "쿠버네티스 파드 그룹",
+        "k8s-service-group": "쿠버네티스 서비스 그룹",
+        "k8s-app-group": "쿠버네티스 리소스 그룹",
 
         "RxPackets": "수신 패킷 수",
         "RxBytes": "수신 바이트 수",
@@ -2139,15 +2151,30 @@ class DefaultConfig {
     groupName(node: Node): string | undefined {
         if (node.data.K8s) {
             var labels = node.data.K8s.Labels
-            if (!labels) {
-                return name + "(s)"
+            if (labels) {
+                var app = labels["k8s-app"] || labels["app"]
+                if (app) {
+                    return app
+                }
             }
 
-            var app = labels["k8s-app"] || labels["app"]
-            if (!app) {
-                return "default"
+            switch (node.data.Type) {
+                case "cluster":
+                    return translate("k8s-cluster-group")
+                case "node":
+                    return translate("k8s-node-group")
+                case "namespace":
+                    return translate("k8s-namespace-group")
+                case "pod":
+                    return translate("k8s-pod-group")
+                case "service":
+                case "endpoints":
+                case "ingress":
+                case "networkpolicy":
+                    return translate("k8s-service-group")
+                default:
+                    return translate("k8s-app-group")
             }
-            return app
         }
 
         var nodeType = this.groupType(node)
