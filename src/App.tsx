@@ -3316,7 +3316,7 @@ class App extends React.Component<Props, State> {
     return (
       <button
         type="button"
-        className={classes.infrastructureOverviewCard}
+        className={clsx(classes.infrastructureOverviewCard, classes.infrastructureHostOverviewCardCompact)}
         onClick={() => this.focusInfrastructureNodeIDs(nodeIDs)}
         disabled={nodeIDs.length === 0}>
         <span className={classes.infrastructureOverviewCardMain}>

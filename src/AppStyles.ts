@@ -1127,31 +1127,59 @@ export const styles = (theme: Theme) => createStyles({
     overflowY: 'auto',
     display: 'flex',
     flexDirection: 'column',
-    gap: theme.spacing(1.1),
+    gap: theme.spacing(0.8),
     paddingRight: theme.spacing(0.5)
   },
   infrastructureHostCard: {
-    padding: theme.spacing(1.25),
-    borderRadius: 14,
+    padding: theme.spacing(0.9, 1),
+    borderRadius: 12,
     border: '1px solid var(--netdive-detail-border)',
     backgroundColor: 'var(--netdive-detail-section-bg)'
   },
   infrastructureHostName: {
     color: 'var(--netdive-detail-title)',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: 900
   },
   infrastructureHostOverviewGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-    gap: theme.spacing(1),
-    marginTop: theme.spacing(1),
+    gap: theme.spacing(0.7),
+    marginTop: theme.spacing(0.7),
     [theme.breakpoints.down('sm')]: {
       gridTemplateColumns: '1fr'
     },
     '& $infrastructureOverviewCard': {
       minHeight: 96,
       backgroundColor: 'var(--netdive-detail-bg)'
+    }
+  },
+  infrastructureHostOverviewCardCompact: {
+    minHeight: 76,
+    gap: theme.spacing(0.8),
+    padding: theme.spacing(0.85, 0.95),
+    borderRadius: 12,
+    '& strong': {
+      fontSize: 12.5
+    },
+    '& small': {
+      fontSize: 11,
+      lineHeight: 1.28
+    },
+    '& em': {
+      gap: theme.spacing(0.45)
+    },
+    '& em strong': {
+      fontSize: 19
+    },
+    '& em svg': {
+      fontSize: 16
+    },
+    '& $infrastructureOverviewCardMain': {
+      gap: theme.spacing(0.8)
+    },
+    '& $infrastructureCardIcon': {
+      fontSize: 24
     }
   },
   kubernetesTableHeader: {
