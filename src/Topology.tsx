@@ -36,6 +36,8 @@ const nodeHeight = 280
 const userVmHorizontalGapBoost = 170
 const userVmVerticalGapBoost = 60
 const userVmNameWidthBoost = 130
+const kubernetesNodeHorizontalGapBoost = 110
+const kubernetesNodeLabelWidthBoost = 95
 
 export enum LinkTagState {
     Hidden = 1,
@@ -151,8 +153,13 @@ class NodeWrapper {
             this.size = [50, nodeHeight]
         } else {
             const isUserVmNode = node?.data?.Type === "libvirt"
+            const isKubernetesNode = node?.data?.Manager === "k8s" && node?.data?.Type === "node"
             this.size = [
-                isUserVmNode ? nodeWidth + userVmHorizontalGapBoost : nodeWidth,
+                isUserVmNode
+                    ? nodeWidth + userVmHorizontalGapBoost
+                    : isKubernetesNode
+                        ? nodeWidth + kubernetesNodeHorizontalGapBoost
+                        : nodeWidth,
                 isUserVmNode ? nodeHeight + userVmVerticalGapBoost : nodeHeight
             ]
         }
@@ -2651,13 +2658,20 @@ export class Topology extends React.Component<Props, {}> {
             text.each(function () {
                 var text = select(this)
                 const d = text.datum() as D3Node
-                const labelWidth = d?.data?.wrapped?.data?.Type === "libvirt" ? width + userVmNameWidthBoost : width
+                const isUserVmNode = d?.data?.wrapped?.data?.Type === "libvirt"
+                const isKubernetesNode = d?.data?.wrapped?.data?.Manager === "k8s" && d?.data?.wrapped?.data?.Type === "node"
+                const labelWidth = isUserVmNode
+                    ? width + userVmNameWidthBoost
+                    : isKubernetesNode
+                        ? width + kubernetesNodeLabelWidthBoost
+                        : width
                 var y = text.attr("y")
                 var dy = parseFloat(text.attr("dy"))
                 const rawText = text.text() || ""
                 const explicitLines = rawText.split("\n").filter((v: string) => v.length > 0)
 
                 text.text(null)
+                text.append("title").text(rawText)
 
                 // Respect explicit multi-line labels first (e.g. IP + network name).
                 if (explicitLines.length > 1) {
