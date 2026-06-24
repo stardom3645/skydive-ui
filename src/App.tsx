@@ -3885,6 +3885,7 @@ class App extends React.Component<Props, State> {
     const { classes } = this.props
     const isDark = this.state.netdiveTheme === "dark"
     const infrastructureHostSummaries = this.infrastructureSummary().hostsById
+    const kubernetesTopologySummary = this.kubernetesTopologySummary()
     return (
       <div className={clsx(classes.app, isDark && classes.appDark)}>
         <CssBaseline />
@@ -3975,7 +3976,7 @@ class App extends React.Component<Props, State> {
               square={true}>
               {!this.state.isTimetravelOpen &&
                 <SelectionPanel onLocation={this.onSelectionLocation.bind(this)} onClose={this.onSelectionClose.bind(this)} config={this.config}
-                  buttonsContent={this.actionButtons.bind(this)} panelsContent={this.dataPanels.bind(this)} moldInventory={this.state.moldInventory} infrastructureHostSummaries={infrastructureHostSummaries} />
+                  buttonsContent={this.actionButtons.bind(this)} panelsContent={this.dataPanels.bind(this)} moldInventory={this.state.moldInventory} infrastructureHostSummaries={infrastructureHostSummaries} kubernetesTopologySummary={kubernetesTopologySummary} />
               }
               {this.state.isTimetravelOpen &&
                 <TimetravelPanel config={this.config} onNavigate={this.onNavigate.bind(this)} />
