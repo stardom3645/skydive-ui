@@ -36,8 +36,10 @@ const nodeHeight = 280
 const userVmHorizontalGapBoost = 170
 const userVmVerticalGapBoost = 60
 const userVmNameWidthBoost = 130
+const kubernetesClusterHorizontalGapBoost = 180
 const kubernetesNodeHorizontalGapBoost = 110
 const kubernetesNodeLabelWidthBoost = 95
+const kubernetesNamespaceHorizontalGapBoost = 120
 
 export enum LinkTagState {
     Hidden = 1,
@@ -153,12 +155,18 @@ class NodeWrapper {
             this.size = [50, nodeHeight]
         } else {
             const isUserVmNode = node?.data?.Type === "libvirt"
+            const isKubernetesCluster = node?.data?.Manager === "k8s" && node?.data?.Type === "cluster"
             const isKubernetesNode = node?.data?.Manager === "k8s" && node?.data?.Type === "node"
+            const isKubernetesNamespace = node?.data?.Manager === "k8s" && node?.data?.Type === "namespace"
             this.size = [
                 isUserVmNode
                     ? nodeWidth + userVmHorizontalGapBoost
+                    : isKubernetesCluster
+                        ? nodeWidth + kubernetesClusterHorizontalGapBoost
                     : isKubernetesNode
                         ? nodeWidth + kubernetesNodeHorizontalGapBoost
+                        : isKubernetesNamespace
+                            ? nodeWidth + kubernetesNamespaceHorizontalGapBoost
                         : nodeWidth,
                 isUserVmNode ? nodeHeight + userVmVerticalGapBoost : nodeHeight
             ]
@@ -1153,28 +1161,40 @@ export class Topology extends React.Component<Props, {}> {
         }
 
         var node0 = d3nodes[0]
-        var minX = node0.x, maxX = node0.x, minY = node0.y, maxY = node0.y
+        const node0Width = node0.data.size ? node0.data.size[0] : nodeWidth
+        const node0Height = node0.data.size ? node0.data.size[1] : nodeHeight
+        var minX = node0.x - node0Width / 2
+        var maxX = node0.x + node0Width / 2
+        var minY = node0.y - node0Height / 2
+        var maxY = node0.y + node0Height / 2
 
         for (let node of d3nodes) {
-            if (minX > node.x) {
-                minX = node.x
+            const width = node.data.size ? node.data.size[0] : nodeWidth
+            const height = node.data.size ? node.data.size[1] : nodeHeight
+            const left = node.x - width / 2
+            const right = node.x + width / 2
+            const top = node.y - height / 2
+            const bottom = node.y + height / 2
+
+            if (minX > left) {
+                minX = left
             }
-            if (maxX < node.x) {
-                maxX = node.x
+            if (maxX < right) {
+                maxX = right
             }
-            if (minY > node.y) {
-                minY = node.y
+            if (minY > top) {
+                minY = top
             }
-            if (maxY < node.y) {
-                maxY = node.y
+            if (maxY < bottom) {
+                maxY = bottom
             }
         }
 
         return {
-            x: minX - nodeWidth / 2,
-            y: minY - nodeHeight / 2,
-            width: maxX - minX + nodeWidth,
-            height: maxY - minY + nodeHeight
+            x: minX,
+            y: minY,
+            width: maxX - minX,
+            height: maxY - minY
         }
     }
 
@@ -2683,7 +2703,16 @@ export class Topology extends React.Component<Props, {}> {
                             .text(lineText)
                     })
                 } else {
-                    var words = rawText.match(/.{1,10}/g)
+                    let words: Array<string> | null = null
+                    if (isKubernetesNode) {
+                        const hyphenChunks = rawText
+                            .split(/-/g)
+                            .filter((chunk: string) => chunk.length > 0)
+                            .map((chunk: string, idx: number, arr: Array<string>) => idx < arr.length - 1 ? `${chunk}-` : chunk)
+                        words = hyphenChunks.length > 1 ? hyphenChunks : rawText.match(/.{1,12}/g)
+                    } else {
+                        words = rawText.match(/.{1,10}/g)
+                    }
                     if (!words) {
                         words = [rawText]
                     }
