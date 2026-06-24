@@ -192,7 +192,7 @@ interface State {
   isScreenConfigOpen: boolean
   isPreferencesPanelOpen: boolean
   kubernetesClusters: MoldKubernetesCluster[]
-  kubernetesSelectedId: string
+  kubernetesSelectedIds: string[]
   kubernetesLoading: boolean
   kubernetesMessage: string
   isKubernetesManagerOpen: boolean
@@ -358,7 +358,7 @@ class App extends React.Component<Props, State> {
       isScreenConfigOpen: false,
       isPreferencesPanelOpen: false,
       kubernetesClusters: [],
-      kubernetesSelectedId: "",
+      kubernetesSelectedIds: [],
       kubernetesLoading: false,
       kubernetesMessage: "",
       isKubernetesManagerOpen: false,
@@ -617,9 +617,13 @@ class App extends React.Component<Props, State> {
       if (requestSeq !== this.kubernetesRequestSeq) {
         return
       }
+      const clusters = data.clusters || []
+      const selectedIds = Array.isArray(data.selectedIds)
+        ? data.selectedIds
+        : (data.selectedId ? [data.selectedId] : clusters.filter((cluster: MoldKubernetesCluster) => cluster.collectionEnabled).map((cluster: MoldKubernetesCluster) => cluster.id))
       this.setState({
-        kubernetesClusters: data.clusters || [],
-        kubernetesSelectedId: data.selectedId || "",
+        kubernetesClusters: clusters,
+        kubernetesSelectedIds: selectedIds,
         kubernetesLoading: false,
         moldIntegrationConnected: true
       })
@@ -636,30 +640,37 @@ class App extends React.Component<Props, State> {
     })
   }
 
-  private selectKubernetesCluster(clusterID: string) {
-    if (!clusterID) {
-      return
-    }
+  private saveKubernetesClusterSelection(selectedIds: string[], changedClusterID?: string, successMessage?: string) {
     const requestSeq = ++this.kubernetesRequestSeq
     this.setState({
       kubernetesLoading: true,
       kubernetesMessage: "",
-      kubernetesSelectedId: clusterID,
+      kubernetesSelectedIds: selectedIds,
       kubernetesClusters: this.state.kubernetesClusters.map((cluster) => ({
         ...cluster,
-        collectionEnabled: cluster.id === clusterID,
-        collectionRunning: cluster.id === clusterID ? cluster.collectionRunning : false
+        collectionEnabled: selectedIds.includes(cluster.id),
+        collectionRunning: selectedIds.includes(cluster.id) ? cluster.collectionRunning : false
       }))
     })
-    this.fetchKubernetesAPI("/api/mold/kubernetes-clusters/select", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: clusterID })
-    }).then((data) => {
+    const request = selectedIds.length === 0
+      ? this.fetchKubernetesAPI("/api/mold/kubernetes-clusters/disable", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: changedClusterID || "", ids: [] })
+      })
+      : this.fetchKubernetesAPI("/api/mold/kubernetes-clusters/select", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: changedClusterID || selectedIds[0], ids: selectedIds })
+      })
+    return request.then((data) => {
       if (requestSeq !== this.kubernetesRequestSeq) {
         return
       }
-      this.setState({ kubernetesMessage: data.probeRunning ? translate("kubernetesProbeStarted") : translate("kubernetesProbeStartFailed") })
+      const message = selectedIds.length === 0
+        ? translate("kubernetesCollectionDisabled")
+        : (successMessage || (data.probeRunning ? translate("kubernetesProbeStarted") : translate("kubernetesProbeStartFailed")))
+      this.setState({ kubernetesMessage: message })
       this.refreshKubernetesClusters()
       window.setTimeout(() => this.sync(), 500)
     }).catch((err) => {
@@ -673,38 +684,23 @@ class App extends React.Component<Props, State> {
     })
   }
 
-  private disableKubernetesCollection() {
-    const requestSeq = ++this.kubernetesRequestSeq
-    this.setState({
-      kubernetesLoading: true,
-      kubernetesMessage: "",
-      kubernetesSelectedId: "",
-      kubernetesClusters: this.state.kubernetesClusters.map((cluster) => ({
-        ...cluster,
-        collectionEnabled: false,
-        collectionRunning: false
-      }))
-    })
-    this.fetchKubernetesAPI("/api/mold/kubernetes-clusters/disable", { method: "POST" }).then(() => {
-      if (requestSeq !== this.kubernetesRequestSeq) {
-        return
-      }
-      this.setState({ kubernetesMessage: translate("kubernetesCollectionDisabled") })
-      this.refreshKubernetesClusters()
-      window.setTimeout(() => this.sync(), 500)
-    }).catch((err) => {
-      if (requestSeq === this.kubernetesRequestSeq) {
-        this.setState({
-          kubernetesLoading: false,
-          kubernetesMessage: err && err.name === "AbortError" ? translate("kubernetesRequestTimeout") : translate("kubernetesSaveFailed")
-        })
-      }
-      console.debug("Failed to disable kubernetes collection", err)
-    })
+  private selectKubernetesCluster(clusterID: string) {
+    if (!clusterID) {
+      return
+    }
+    const selectedIds = Array.from(new Set([...this.state.kubernetesSelectedIds, clusterID]))
+    this.saveKubernetesClusterSelection(selectedIds, clusterID)
+  }
+
+  private disableKubernetesCollection(clusterID?: string) {
+    const selectedIds = clusterID
+      ? this.state.kubernetesSelectedIds.filter((id) => id !== clusterID)
+      : []
+    this.saveKubernetesClusterSelection(selectedIds, clusterID)
   }
 
   private testKubernetesConnection(clusterID?: string, openDialog = true, quiet = false): Promise<any> {
-    const targetID = clusterID || this.state.kubernetesSelectedId
+    const targetID = clusterID || this.state.kubernetesSelectedIds[0]
     if (!targetID || (openDialog && this.state.kubernetesTestLoading)) {
       return Promise.resolve(null)
     }
@@ -744,7 +740,7 @@ class App extends React.Component<Props, State> {
         }
         this.setState(nextState)
       }
-      return data
+      return { ...data, clusterID: targetID }
     }).catch((err) => {
       this.clearKubernetesTestProgress()
       const lastTests = {
@@ -921,10 +917,17 @@ class App extends React.Component<Props, State> {
     Promise.all(this.state.kubernetesClusters.map((cluster) => this.testKubernetesConnection(cluster.id, false, true))).then((results) => {
       const total = results.length
       const failed = results.filter((result) => !result || !result.ok).length
-      this.setState({
+      const passedIds = results.filter((result) => result && result.ok && result.clusterID).map((result) => result.clusterID)
+      const summaryMessage = failed === 0 ? translate("kubernetesTestAllSuccess") : `${failed} / ${total} ${translate("kubernetesTestAllFailedSuffix")}`
+      const finalize = () => this.setState({
         kubernetesTestAllLoading: false,
-        kubernetesMessage: failed === 0 ? translate("kubernetesTestAllSuccess") : `${failed} / ${total} ${translate("kubernetesTestAllFailedSuffix")}`
+        kubernetesMessage: summaryMessage
       })
+      if (passedIds.length > 0) {
+        this.saveKubernetesClusterSelection(Array.from(new Set(passedIds)), passedIds[0], summaryMessage).finally(finalize)
+        return
+      }
+      finalize()
     }).catch(() => {
       this.setState({
         kubernetesTestAllLoading: false,
@@ -986,7 +989,7 @@ class App extends React.Component<Props, State> {
   }
 
   private isKubernetesCollectionEnabled(cluster: MoldKubernetesCluster) {
-    return this.state.kubernetesSelectedId ? this.state.kubernetesSelectedId === cluster.id : cluster.collectionEnabled
+    return this.state.kubernetesSelectedIds.length > 0 ? this.state.kubernetesSelectedIds.includes(cluster.id) : cluster.collectionEnabled
   }
 
   private localizeMoldState(state: string) {
@@ -1065,8 +1068,9 @@ class App extends React.Component<Props, State> {
     if (!this.state.kubernetesStopClusterId) {
       return
     }
+    const targetID = this.state.kubernetesStopClusterId
     this.setState({ kubernetesStopClusterId: "" })
-    this.disableKubernetesCollection()
+    this.disableKubernetesCollection(targetID)
   }
 
   private onKubernetesCollectionToggle(cluster: MoldKubernetesCluster, checked: boolean) {
@@ -3703,7 +3707,6 @@ class App extends React.Component<Props, State> {
             }
             {this.state.kubernetesClusters.map((cluster) => {
               const last = this.state.kubernetesLastTests[cluster.id]
-              const selected = this.state.kubernetesSelectedId ? this.state.kubernetesSelectedId === cluster.id : cluster.collectionEnabled
               const collectionEnabled = this.isKubernetesCollectionEnabled(cluster)
               return (
                 <div className={classes.kubernetesTableRow} key={cluster.id}>
@@ -3731,7 +3734,6 @@ class App extends React.Component<Props, State> {
                       color="primary"
                       size="small"
                       checked={collectionEnabled}
-                      disabled={collectionEnabled && !selected}
                       onChange={(event) => this.onKubernetesCollectionToggle(cluster, event.target.checked)} />
                     <span>{this.collectionStateLabel(cluster)}</span>
                   </span>

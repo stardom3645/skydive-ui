@@ -658,7 +658,6 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
                     <span className={classes.icon}><TimelineIcon /></span>
                     <div className={classes.titleBlock}>
                         <div className={classes.title}>리소스 {this.rangeLabel()} 추이</div>
-                        <div className={classes.description}>CPU, Memory, Storage IOPS, Network Traffic, Drops 추이를 조회합니다.</div>
                     </div>
                     <div className={classes.headerActions}>
                         <select
