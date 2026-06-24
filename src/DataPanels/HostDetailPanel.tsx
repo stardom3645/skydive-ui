@@ -516,12 +516,56 @@ class HostDetailPanel extends React.Component<Props, State> {
         }
     }
 
-    private hostKubernetesNodes(): Node[] {
+    private topologyNodes(): Node[] {
         const app = (window as any).App
-        const topologyNodes: Node[] = Array.isArray(app?.tc?.nodes) ? app.tc.nodes : []
+        const nodes = app?.tc?.nodes
+        if (nodes instanceof Map) {
+            return Array.from(nodes.values())
+        }
+        if (Array.isArray(nodes)) {
+            return nodes
+        }
+        return []
+    }
+
+    private topologyNodeMap(nodes?: Node[]): Map<string, Node> {
+        const app = (window as any).App
+        const topologyNodes = app?.tc?.nodes
+        if (topologyNodes instanceof Map) {
+            return topologyNodes
+        }
+        const map = new Map<string, Node>()
+        ;(nodes || []).forEach(node => {
+            if (node?.id) {
+                map.set(node.id, node)
+            }
+        })
+        return map
+    }
+
+    private topologyLinks(): any[] {
+        const app = (window as any).App
+        const links = app?.tc?.links
+        if (links instanceof Map) {
+            return Array.from(links.values())
+        }
+        if (Array.isArray(links)) {
+            return links
+        }
+        return []
+    }
+
+    private endpointID(endpoint: any): string {
+        if (!endpoint) return ''
+        if (typeof endpoint === 'string') return endpoint
+        return endpoint.id || ''
+    }
+
+    private hostKubernetesNodes(): Node[] {
+        const topologyNodes = this.topologyNodes()
         if (!topologyNodes.length) return []
-        const topologyLinks: any[] = app?.tc?.links ? Array.from(app.tc.links.values()) : []
-        const topologyNodeMap: Map<string, Node> = app?.tc?.nodes instanceof Map ? app.tc.nodes : new Map<string, Node>()
+        const topologyLinks = this.topologyLinks()
+        const topologyNodeMap = this.topologyNodeMap(topologyNodes)
 
         const data = this.mergedData()
         const hostLookup = collectLookupSet(
@@ -551,8 +595,8 @@ class HostDetailPanel extends React.Component<Props, State> {
 
         const matchesHostLink = (node: Node): boolean => {
             return topologyLinks.some((link: any) => {
-                const sourceID = link?.source?.id
-                const targetID = link?.target?.id
+                const sourceID = this.endpointID(link?.source)
+                const targetID = this.endpointID(link?.target)
                 if (!sourceID || !targetID) return false
                 if (sourceID === node.id) return hostSubtreeNodeIDs.has(targetID)
                 if (targetID === node.id) return hostSubtreeNodeIDs.has(sourceID)
@@ -636,8 +680,8 @@ class HostDetailPanel extends React.Component<Props, State> {
         }
 
         topologyLinks.forEach((link: any) => {
-            const sourceID = link?.source?.id
-            const targetID = link?.target?.id
+            const sourceID = this.endpointID(link?.source)
+            const targetID = this.endpointID(link?.target)
             if (!sourceID || !targetID) return
 
             const sourceIsHostSide = hostSubtreeNodeIDs.has(sourceID)
@@ -657,7 +701,27 @@ class HostDetailPanel extends React.Component<Props, State> {
         return matchedNodeIDs
     }
 
-    private kubernetesClusterForNode(node: Node): KubernetesClusterMatch | undefined {
+    private kubernetesClusterFromGraph(node: Node, topologyLinks: any[], topologyNodeMap: Map<string, Node>): KubernetesClusterMatch | undefined {
+        for (const link of topologyLinks) {
+            const sourceID = this.endpointID(link?.source)
+            const targetID = this.endpointID(link?.target)
+            if (!sourceID || !targetID || (sourceID !== node.id && targetID !== node.id)) {
+                continue
+            }
+            const remoteID = sourceID === node.id ? targetID : sourceID
+            const remoteNode = topologyNodeMap.get(remoteID)
+            if (!remoteNode || remoteNode.data?.Manager !== 'k8s' || String(remoteNode.data?.Type || '').toLowerCase() !== 'cluster') {
+                continue
+            }
+            return {
+                id: remoteNode.id,
+                name: firstValue(remoteNode.data, ['Name', 'ClusterName', 'clusterName']) || remoteNode.id
+            }
+        }
+        return undefined
+    }
+
+    private kubernetesClusterForNode(node: Node, topologyLinks: any[], topologyNodeMap: Map<string, Node>): KubernetesClusterMatch | undefined {
         let parent = node.parent
         while (parent) {
             if (String(parent.data?.Type || '').toLowerCase() === 'cluster') {
@@ -667,6 +731,11 @@ class HostDetailPanel extends React.Component<Props, State> {
                 }
             }
             parent = parent.parent
+        }
+
+        const graphCluster = this.kubernetesClusterFromGraph(node, topologyLinks, topologyNodeMap)
+        if (graphCluster) {
+            return graphCluster
         }
 
         const fallbackID = firstValue(node.data, ['ClusterID', 'clusterID', 'ClusterId', 'clusterId'])
@@ -680,9 +749,11 @@ class HostDetailPanel extends React.Component<Props, State> {
     }
 
     private hostKubernetesClusters(nodes: Node[]): KubernetesClusterMatch[] {
+        const topologyLinks = this.topologyLinks()
+        const topologyNodeMap = this.topologyNodeMap()
         const clusters = new Map<string, KubernetesClusterMatch>()
         nodes.forEach(node => {
-            const cluster = this.kubernetesClusterForNode(node)
+            const cluster = this.kubernetesClusterForNode(node, topologyLinks, topologyNodeMap)
             if (!cluster) return
             if (!clusters.has(cluster.id)) {
                 clusters.set(cluster.id, cluster)
