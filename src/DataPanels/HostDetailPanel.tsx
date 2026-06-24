@@ -8,6 +8,7 @@ import DeviceHubIcon from '@material-ui/icons/DeviceHub'
 import PowerIcon from '@material-ui/icons/Power'
 import SecurityIcon from '@material-ui/icons/Security'
 import RouterIcon from '@material-ui/icons/Router'
+import AccountTreeIcon from '@material-ui/icons/AccountTree'
 import { withStyles } from '@material-ui/core/styles'
 
 import { Node } from '../Topology'
@@ -141,6 +142,32 @@ const uniqueStrings = (values: string[]): string[] => {
         seen.add(value)
         return true
     })
+}
+
+const lookupTokens = (value: any): string[] => {
+    if (isBlank(value)) return []
+    const text = String(value).trim().toLowerCase()
+    if (!text) return []
+    const normalized = text.split('/')[0]
+    const tokens = [normalized]
+    if (/^\d+\.\d+\.\d+\.\d+$/.test(normalized)) {
+        return tokens
+    }
+    const hostToken = normalized.split('.')[0]
+    if (hostToken && hostToken !== normalized) {
+        tokens.push(hostToken)
+    }
+    return uniqueStrings(tokens)
+}
+
+const collectLookupSet = (...values: any[]): Set<string> => {
+    const set = new Set<string>()
+    values.forEach(value => {
+        asArray(value).forEach(item => {
+            lookupTokens(item).forEach(token => set.add(token))
+        })
+    })
+    return set
 }
 
 class HostDetailPanel extends React.Component<Props, State> {
@@ -477,12 +504,97 @@ class HostDetailPanel extends React.Component<Props, State> {
     }
 
     private focusConnectedResource(actionKey?: InfrastructureFocusKey, nodeIDs: string[] = []) {
-        if (!actionKey) return
         const app = (window as any).App
         const ids = nodeIDs.length ? nodeIDs : this.hostInfrastructureNodeIDs(actionKey)
         if (app && typeof app.focusInfrastructureNodeIDs === 'function' && ids.length > 0) {
             app.focusInfrastructureNodeIDs(ids)
         }
+    }
+
+    private hostKubernetesNodes(): Node[] {
+        const app = (window as any).App
+        const topologyNodes: Node[] = Array.isArray(app?.tc?.nodes) ? app.tc.nodes : []
+        if (!topologyNodes.length) return []
+
+        const data = this.mergedData()
+        const hostLookup = collectLookupSet(
+            this.props.node.id,
+            firstValue(data, ['Name', 'Hostname', 'HostName']),
+            firstValue(data, ['ManagementIP', 'ManagementIp', 'managementIp', 'IpAddress', 'ipaddress']),
+            data.IPV4,
+            data.IPV6,
+            data.IP,
+            data.Addr,
+            data.IfAddr,
+            data.Addresses
+        )
+
+        const matchesHostAncestor = (node: Node): boolean => {
+            let parent = node.parent
+            while (parent) {
+                if (String(parent.data?.Type || '').toLowerCase() === 'host' && parent.id === this.props.node.id) {
+                    return true
+                }
+                parent = parent.parent
+            }
+            return false
+        }
+
+        return topologyNodes.filter(node => {
+            if (!node || node.data?.Manager !== 'k8s' || String(node.data?.Type || '').toLowerCase() !== 'node') {
+                return false
+            }
+            if (matchesHostAncestor(node)) {
+                return true
+            }
+
+            const addressValues: any[] = []
+            asArray(node.data?.Addresses).forEach((entry: any) => {
+                if (typeof entry === 'string') {
+                    addressValues.push(entry)
+                    return
+                }
+                if (entry && typeof entry === 'object') {
+                    addressValues.push(
+                        entry.address,
+                        entry.Address,
+                        entry.ip,
+                        entry.IP,
+                        entry.InternalIP,
+                        entry.ExternalIP,
+                        entry.Hostname,
+                        entry.hostname
+                    )
+                }
+            })
+
+            const nodeLookup = collectLookupSet(
+                node.id,
+                firstValue(node.data, ['Name', 'Hostname', 'HostName', 'NodeName', 'nodeName', 'KubeletHostname', 'kubeletHostname']),
+                firstValue(node.data, ['InternalIP', 'ExternalIP', 'HostIP', 'hostIP', 'IpAddress', 'ipaddress']),
+                node.data?.IPV4,
+                node.data?.IPV6,
+                node.data?.IP,
+                node.data?.Addr,
+                node.data?.IfAddr,
+                addressValues
+            )
+
+            return Array.from(nodeLookup).some(token => hostLookup.has(token))
+        })
+    }
+
+    private hostKubernetesClusterNames(nodes: Node[]): string[] {
+        return uniqueStrings(nodes.map(node => {
+            let parent = node.parent
+            while (parent) {
+                if (String(parent.data?.Type || '').toLowerCase() === 'cluster') {
+                    return firstValue(parent.data, ['Name', 'ClusterName', 'clusterName']) || parent.id
+                }
+                parent = parent.parent
+            }
+            return firstValue(node.data, ['Cluster', 'ClusterName', 'clusterName', 'ClusterID'])
+        }).filter(Boolean))
     }
 
     private renderSocketProcessSummary() {
@@ -678,6 +790,19 @@ class HostDetailPanel extends React.Component<Props, State> {
         )
     }
 
+    private renderConnectedResourceSubsection(icon: React.ReactNode, title: string, items: OverviewCardItem[], emptyText = translate('hostNoConnectedResources')) {
+        const { classes } = this.props
+        return (
+            <div className={classes.connectedResourceSection}>
+                <div className={classes.connectedResourceSectionHeader}>
+                    <span className={classes.connectedResourceSectionIcon}>{icon}</span>
+                    <span className={classes.connectedResourceSectionTitle}>{title}</span>
+                </div>
+                {this.renderOverviewGrid(items, emptyText)}
+            </div>
+        )
+    }
+
     private infrastructureIcon(glyph: string, tone: string) {
         const { classes } = this.props
         const colors: Record<string, string> = {
@@ -775,6 +900,17 @@ class HostDetailPanel extends React.Component<Props, State> {
             { label: translate('infrastructureRouters'), description: translate('infrastructureRoutersDescription'), value: virtualRouterCount !== undefined ? String(virtualRouterCount) : '', icon: this.infrastructureIcon('\uf4d7', 'router'), actionKey: 'routers', nodeIDs: this.hostInfrastructureNodeIDs('routers') },
             { label: translate('infrastructureNetworkObjects'), description: translate('infrastructureNetworkObjectsDescription'), value: networkCount !== undefined ? String(networkCount) : '', icon: this.infrastructureIcon('\uf6ff', 'network'), actionKey: 'networkObjects', nodeIDs: this.hostInfrastructureNodeIDs('networkObjects') }
         ]
+        const kubernetesNodes = this.hostKubernetesNodes()
+        const kubernetesClusterNames = this.hostKubernetesClusterNames(kubernetesNodes)
+        const kubernetesResources: OverviewCardItem[] = [
+            {
+                label: translate('kubernetesTopologyNodes'),
+                description: kubernetesClusterNames.length > 0 ? kubernetesClusterNames.join(', ') : '',
+                value: String(kubernetesNodes.length),
+                icon: this.infrastructureIcon('\uf233', 'host'),
+                nodeIDs: kubernetesNodes.map(item => item.id)
+            }
+        ]
         const resolvedPhysicalNicCount = physicalNicCount !== undefined ? physicalNicCount : this.interfaceCountByPattern([/\bnic\b/, /\beth\d+\b/, /\benp/, /\bens/, /\beno/])
         const resolvedBridgeCount = bridgeCount !== undefined ? bridgeCount : this.interfaceCountByPattern([/\bbridge\b/, /^br/, /\bovs\b/])
         const resolvedBondCount = bondCount !== undefined ? bondCount : this.interfaceCountByPattern([/\bbond\b/, /\bbonding\b/])
@@ -787,7 +923,7 @@ class HostDetailPanel extends React.Component<Props, State> {
         ]
 
         const hasMoldRows = [zone, cluster, pod, resourceState, managementServer, firstValue(data, ['MoldHostId', 'CloudStackHostId', 'HostId', 'HostID'])].some(value => !isBlank(value))
-        const hasConnectedMetrics = connectedResources.some(item => !isBlank(item.value))
+        const hasConnectedMetrics = connectedResources.some(item => !isBlank(item.value)) || kubernetesResources.some(item => !isBlank(item.value))
         const visibleNetworkMetrics = networkMetrics.filter(item => item.value)
         const hasNetworkSummary = visibleNetworkMetrics.length > 1
         const hasRecentSignals = eventRows.some(row => !isBlank(row.value))
@@ -795,12 +931,17 @@ class HostDetailPanel extends React.Component<Props, State> {
         return (
             <div className={classes.root}>
                 {this.renderSection(<InfoIcon />, translate('hostBasicInfo'), translate('hostOverviewDescription'), this.renderRows(basicRows))}
-                {hasConnectedMetrics && this.renderSection(<DeviceHubIcon />, translate('hostConnectedResources'), translate('hostConnectedResourcesDescription'), this.renderOverviewGrid(connectedResources, translate('hostNoConnectedResources')))}
                 <HostResourceTrendPanel
                     node={node}
                     session={this.props.session}
                     data={data}
                 />
+                {hasConnectedMetrics && this.renderSection(<DeviceHubIcon />, translate('hostConnectedResources'), translate('hostConnectedResourcesDescription'), (
+                    <div className={classes.connectedResourceSectionStack}>
+                        {this.renderConnectedResourceSubsection(<AccountTreeIcon />, translate('infrastructureMenu'), connectedResources, translate('hostNoConnectedResources'))}
+                        {this.renderConnectedResourceSubsection(<DeviceHubIcon />, 'Kubernetes', kubernetesResources, translate('hostNoConnectedResources'))}
+                    </div>
+                ))}
                 {this.renderSection(<PowerIcon />, translate('hostSocketsProcesses'), '수신 대기 서비스와 주요 소켓 프로세스를 요약합니다.', this.renderSocketProcessSummary())}
                 {hasNetworkSummary && this.renderSection(<RouterIcon />, translate('hostNetworkSummary'), translate('hostNetworkSummaryDescription'), this.renderMetricGrid(networkMetrics, translate('hostNetworkDetailsMissing')))}
                 {hasRecentSignals && this.renderSection(<InfoIcon />, translate('hostRecentSignals'), translate('hostRecentSignalsDescription'), this.renderRows(eventRows, translate('hostNoRecentSignals')))}

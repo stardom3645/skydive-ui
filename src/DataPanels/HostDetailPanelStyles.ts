@@ -112,6 +112,44 @@ export const styles = (theme: Theme) => createStyles({
             gridTemplateColumns: '1fr'
         }
     },
+    connectedResourceSectionStack: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: theme.spacing(0.9),
+        padding: theme.spacing(1, 1.15, 1.15)
+    },
+    connectedResourceSection: {
+        border: '1px solid var(--netdive-detail-border-soft)',
+        borderRadius: 12,
+        background: 'var(--netdive-detail-soft-card, #fbfdff)',
+        overflow: 'hidden'
+    },
+    connectedResourceSectionHeader: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: theme.spacing(0.75),
+        padding: theme.spacing(0.8, 0.95),
+        borderBottom: '1px solid var(--netdive-detail-border-soft)',
+        background: 'rgba(248, 250, 252, 0.9)'
+    },
+    connectedResourceSectionIcon: {
+        width: 24,
+        height: 24,
+        borderRadius: 8,
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: 'var(--topology-level-label-active-text)',
+        background: 'rgba(232, 242, 255, 0.82)',
+        '& svg': {
+            fontSize: 15
+        }
+    },
+    connectedResourceSectionTitle: {
+        color: 'var(--netdive-detail-title)',
+        fontSize: 12.5,
+        fontWeight: 850
+    },
     connectedResourceCard: {
         position: 'relative',
         minHeight: 58,
