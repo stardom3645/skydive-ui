@@ -24,7 +24,6 @@ interface Props {
     session?: session
     moldInventory?: any
     infrastructureHostSummaries?: Record<string, any>
-    kubernetesTopologySummary?: any
 }
 
 interface State {
@@ -562,15 +561,15 @@ class HostDetailPanel extends React.Component<Props, State> {
         return endpoint.id || ''
     }
 
-    private hostKubernetesNodes(): Node[] {
-        const topologyNodes = this.topologyNodes()
-        if (!topologyNodes.length) return []
-        const topologyLinks = this.topologyLinks()
-        const topologyNodeMap = this.topologyNodeMap(topologyNodes)
+    private selectedTopologyHostNode(): Node {
+        return this.topologyNodeMap().get(this.props.node.id) || this.props.node
+    }
 
+    private hostLookupSet(hostRoot: Node): Set<string> {
         const data = this.mergedData()
-        const hostLookup = collectLookupSet(
+        const values: any[] = [
             this.props.node.id,
+            hostRoot.id,
             firstValue(data, ['Name', 'Hostname', 'HostName']),
             firstValue(data, ['ManagementIP', 'ManagementIp', 'managementIp', 'IpAddress', 'ipaddress']),
             data.IPV4,
@@ -579,7 +578,36 @@ class HostDetailPanel extends React.Component<Props, State> {
             data.Addr,
             data.IfAddr,
             data.Addresses
-        )
+        ]
+        const visit = (node?: Node | null) => {
+            if (!node) return
+            const nodeData = node.data || {}
+            values.push(
+                node.id,
+                firstValue(nodeData, ['Name', 'Hostname', 'HostName', 'NodeName', 'nodeName']),
+                firstValue(nodeData, ['ManagementIP', 'ManagementIp', 'managementIp', 'IpAddress', 'ipaddress', 'InternalIP', 'ExternalIP', 'HostIP', 'hostIP']),
+                nodeData.IPV4,
+                nodeData.IPV6,
+                nodeData.IP,
+                nodeData.Addr,
+                nodeData.IfAddr,
+                nodeData.IfName,
+                nodeData.InterfaceName,
+                nodeData.Addresses
+            )
+            ;(node.children || []).forEach(child => visit(child))
+        }
+        visit(hostRoot)
+        return collectLookupSet(...values)
+    }
+
+    private hostKubernetesNodes(): Node[] {
+        const topologyNodes = this.topologyNodes()
+        if (!topologyNodes.length) return []
+        const topologyLinks = this.topologyLinks()
+        const topologyNodeMap = this.topologyNodeMap(topologyNodes)
+        const hostRoot = this.selectedTopologyHostNode()
+        const hostLookup = this.hostLookupSet(hostRoot)
         const hostSubtreeNodeIDs = this.hostSubtreeNodeIDs()
         const graphMatchedNodeIDs = this.hostMatchedKubernetesNodeIDsFromGraph(hostSubtreeNodeIDs, topologyLinks, topologyNodeMap)
 
@@ -662,7 +690,7 @@ class HostDetailPanel extends React.Component<Props, State> {
             ids.add(node.id)
             ;(node.children || []).forEach(child => visit(child))
         }
-        visit(this.props.node)
+        visit(this.selectedTopologyHostNode())
         return ids
     }
 
@@ -761,16 +789,6 @@ class HostDetailPanel extends React.Component<Props, State> {
             }
         })
         return Array.from(clusters.values())
-    }
-
-    private topologyNodeNames(nodeIDs: string[]): string[] {
-        const topologyNodeMap = this.topologyNodeMap()
-        return nodeIDs
-            .map(id => {
-                const node = topologyNodeMap.get(id)
-                return firstValue(node?.data, ['Name', 'ClusterName', 'clusterName', 'Hostname', 'HostName']) || id
-            })
-            .filter(Boolean)
     }
 
     private renderSocketProcessSummary() {
@@ -1076,31 +1094,23 @@ class HostDetailPanel extends React.Component<Props, State> {
             { label: translate('infrastructureRouters'), description: translate('infrastructureRoutersDescription'), value: virtualRouterCount !== undefined ? String(virtualRouterCount) : '', icon: this.infrastructureIcon('\uf4d7', 'router'), actionKey: 'routers', nodeIDs: this.hostInfrastructureNodeIDs('routers') },
             { label: translate('infrastructureNetworkObjects'), description: translate('infrastructureNetworkObjectsDescription'), value: networkCount !== undefined ? String(networkCount) : '', icon: this.infrastructureIcon('\uf6ff', 'network'), actionKey: 'networkObjects', nodeIDs: this.hostInfrastructureNodeIDs('networkObjects') }
         ]
-        const kubernetesSummary = this.props.kubernetesTopologySummary
         const kubernetesNodes = this.hostKubernetesNodes()
         const kubernetesClusters = this.hostKubernetesClusters(kubernetesNodes)
-        const summaryClusterNodeIDs = Array.isArray(kubernetesSummary?.clusterNodeIDs) ? kubernetesSummary.clusterNodeIDs : []
-        const summaryNodeNodeIDs = Array.isArray(kubernetesSummary?.nodeNodeIDs) ? kubernetesSummary.nodeNodeIDs : []
-        const kubernetesClusterCount = Number.isFinite(kubernetesSummary?.clusters) ? kubernetesSummary.clusters : kubernetesClusters.length
-        const kubernetesNodeCount = Number.isFinite(kubernetesSummary?.nodes) ? kubernetesSummary.nodes : kubernetesNodes.length
-        const kubernetesClusterNodeIDs = summaryClusterNodeIDs.length ? summaryClusterNodeIDs : kubernetesClusters.map(item => item.id).filter(Boolean)
-        const kubernetesNodeNodeIDs = summaryNodeNodeIDs.length ? summaryNodeNodeIDs : kubernetesNodes.map(item => item.id)
         const kubernetesClusterNames = kubernetesClusters.map(clusterItem => clusterItem.name)
-        const summaryClusterNames = summaryClusterNodeIDs.length ? this.topologyNodeNames(summaryClusterNodeIDs) : kubernetesClusterNames
         const kubernetesResources: OverviewCardItem[] = [
             {
                 label: translate('kubernetesTopologyClusters'),
-                description: summaryClusterNames.join(', '),
-                value: String(kubernetesClusterCount),
+                description: kubernetesClusterNames.join(', '),
+                value: String(kubernetesClusters.length),
                 icon: this.infrastructureIcon('\uf542', 'network'),
-                nodeIDs: kubernetesClusterNodeIDs
+                nodeIDs: kubernetesClusters.map(item => item.id).filter(Boolean)
             },
             {
                 label: translate('kubernetesTopologyNodes'),
-                description: summaryClusterNames.length > 0 ? summaryClusterNames.join(', ') : '',
-                value: String(kubernetesNodeCount),
+                description: kubernetesClusterNames.length > 0 ? kubernetesClusterNames.join(', ') : '',
+                value: String(kubernetesNodes.length),
                 icon: this.infrastructureIcon('\uf233', 'host'),
-                nodeIDs: kubernetesNodeNodeIDs
+                nodeIDs: kubernetesNodes.map(item => item.id)
             }
         ]
         const resolvedPhysicalNicCount = physicalNicCount !== undefined ? physicalNicCount : this.interfaceCountByPattern([/\bnic\b/, /\beth\d+\b/, /\benp/, /\bens/, /\beno/])
