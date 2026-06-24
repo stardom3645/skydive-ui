@@ -1125,16 +1125,24 @@ export const styles = (theme: Theme) => createStyles({
   infrastructureHostList: {
     maxHeight: 320,
     overflowY: 'auto',
-    display: 'flex',
-    flexDirection: 'column',
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
     gap: theme.spacing(0.8),
-    paddingRight: theme.spacing(0.5)
+    paddingRight: theme.spacing(0.5),
+    alignContent: 'start',
+    [theme.breakpoints.down('sm')]: {
+      gridTemplateColumns: '1fr'
+    },
+    '& $kubernetesEmptyRow': {
+      gridColumn: '1 / -1'
+    }
   },
   infrastructureHostCard: {
     padding: theme.spacing(0.9, 1),
     borderRadius: 12,
     border: '1px solid var(--netdive-detail-border)',
-    backgroundColor: 'var(--netdive-detail-section-bg)'
+    backgroundColor: 'var(--netdive-detail-section-bg)',
+    minWidth: 0
   },
   infrastructureHostName: {
     color: 'var(--netdive-detail-title)',
