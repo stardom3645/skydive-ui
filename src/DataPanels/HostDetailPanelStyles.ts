@@ -874,16 +874,38 @@ export const styles = (theme: Theme) => createStyles({
     kubernetesNodeList: {
         display: 'flex',
         flexDirection: 'column',
-        padding: theme.spacing(0.35, 0)
+        padding: 0,
+        background: '#ffffff'
+    },
+    kubernetesNodeListHeader: {
+        display: 'grid',
+        gridTemplateColumns: 'minmax(0, 1fr) 96px 110px 88px',
+        alignItems: 'center',
+        columnGap: theme.spacing(1.2),
+        minHeight: 34,
+        padding: theme.spacing(0, 1.25),
+        borderBottom: '1px solid rgba(226, 232, 240, 0.74)',
+        background: 'rgba(248, 250, 252, 0.78)',
+        color: 'var(--netdive-detail-muted, #64748b)',
+        fontSize: 10.8,
+        lineHeight: 1.2,
+        fontWeight: 800,
+        letterSpacing: '0.01em',
+        '& span:last-child': {
+            justifySelf: 'start'
+        },
+        [theme.breakpoints.down('sm')]: {
+            display: 'none'
+        }
     },
     kubernetesNodeRow: {
         display: 'grid',
-        gridTemplateColumns: 'minmax(0, 1.7fr) minmax(78px, 0.5fr) minmax(82px, 0.55fr) 82px 76px',
+        gridTemplateColumns: 'minmax(0, 1fr) 96px 110px 88px',
         alignItems: 'center',
-        gap: theme.spacing(0.9),
-        minHeight: 48,
-        padding: theme.spacing(0.75, 1.15),
-        borderTop: '1px solid rgba(226, 232, 240, 0.58)',
+        columnGap: theme.spacing(1.2),
+        minHeight: 46,
+        padding: theme.spacing(0.72, 1.25),
+        borderTop: '1px solid rgba(226, 232, 240, 0.52)',
         background: 'transparent',
         cursor: 'pointer',
         transition: 'background-color 140ms ease',
@@ -900,8 +922,10 @@ export const styles = (theme: Theme) => createStyles({
         },
         [theme.breakpoints.down('sm')]: {
             gridTemplateColumns: 'minmax(0, 1fr) auto',
-            gridTemplateAreas: '"name status" "role action"',
-            alignItems: 'center'
+            gridTemplateAreas: '"name status" "role role"',
+            rowGap: theme.spacing(0.45),
+            alignItems: 'center',
+            minHeight: 58
         }
     },
     kubernetesNodeCardMain: {
@@ -1033,24 +1057,7 @@ export const styles = (theme: Theme) => createStyles({
         border: '1px solid rgba(203, 213, 225, 0.82)'
     },
     kubernetesNodeMoveButton: {
-        border: '1px solid rgba(59, 130, 246, 0.28)',
-        background: '#ffffff',
-        color: 'var(--topology-level-label-active-text)',
-        minWidth: 72,
-        height: 32,
-        borderRadius: 10,
-        fontSize: 11.6,
-        fontWeight: 800,
-        cursor: 'pointer',
-        transition: 'background-color 140ms ease, border-color 140ms ease',
-        justifySelf: 'end',
-        '&:hover': {
-            background: 'rgba(232, 242, 255, 0.38)',
-            borderColor: 'rgba(26, 115, 232, 0.42)'
-        },
-        [theme.breakpoints.down('sm')]: {
-            gridArea: 'action'
-        }
+        display: 'none'
     },
     kubernetesNodeExpandButton: {
         display: 'flex',

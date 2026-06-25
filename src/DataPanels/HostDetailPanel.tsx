@@ -1143,6 +1143,12 @@ class HostDetailPanel extends React.Component<Props, State> {
                                         </div>
                                     </div>
                                     <div className={classes.kubernetesNodeList}>
+                                        <div className={classes.kubernetesNodeListHeader}>
+                                            <span>노드명</span>
+                                            <span>{translate('role')}</span>
+                                            <span>{translate('version')}</span>
+                                            <span>{translate('status')}</span>
+                                        </div>
                                         {visibleItems.map(item => (
                                             <div
                                                 className={classes.kubernetesNodeRow}
@@ -1163,15 +1169,6 @@ class HostDetailPanel extends React.Component<Props, State> {
                                                 <span className={classes.kubernetesNodeRoleCell}>{item.role}</span>
                                                 <span className={classes.kubernetesNodeVersionCell} title={item.version}>{item.version}</span>
                                                 <span className={`${classes.kubernetesNodeStatusBadge} ${statusBadgeClass(item.status)}`}>{item.status}</span>
-                                                <button
-                                                    type="button"
-                                                    className={classes.kubernetesNodeMoveButton}
-                                                    onClick={(event) => {
-                                                        event.stopPropagation()
-                                                        moveToNode(item.id)
-                                                    }}>
-                                                    {translate('move')} →
-                                                </button>
                                             </div>
                                         ))}
                                     </div>
