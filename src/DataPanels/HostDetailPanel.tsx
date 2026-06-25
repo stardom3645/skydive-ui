@@ -1,6 +1,8 @@
 import * as React from 'react'
 import IconButton from '@material-ui/core/IconButton'
 import Tooltip from '@material-ui/core/Tooltip'
+import Dialog from '@material-ui/core/Dialog'
+import DialogContent from '@material-ui/core/DialogContent'
 import FileCopyIcon from '@material-ui/icons/FileCopy'
 import InfoIcon from '@material-ui/icons/Info'
 import TimelineIcon from '@material-ui/icons/Timeline'
@@ -9,6 +11,8 @@ import PowerIcon from '@material-ui/icons/Power'
 import SecurityIcon from '@material-ui/icons/Security'
 import RouterIcon from '@material-ui/icons/Router'
 import AccountTreeIcon from '@material-ui/icons/AccountTree'
+import SearchIcon from '@material-ui/icons/Search'
+import CloseIcon from '@material-ui/icons/Close'
 import { withStyles } from '@material-ui/core/styles'
 
 import { Node } from '../Topology'
@@ -31,6 +35,9 @@ interface State {
     moldDetailLoadedFor?: string
     listeningServicesVisibleCount?: number
     showAllSocketProcesses?: boolean
+    kubernetesNodePickerOpen?: boolean
+    kubernetesNodePickerQuery?: string
+    kubernetesNodePickerExpanded?: Record<string, boolean>
 }
 
 type InfrastructureFocusKey = 'networkObjects' | 'routers' | 'userVMs' | 'systemVMs'
@@ -57,6 +64,7 @@ interface OverviewCardItem {
     icon?: React.ReactNode
     actionKey?: InfrastructureFocusKey
     nodeIDs?: string[]
+    onClick?: () => void
 }
 
 interface SocketServiceItem {
@@ -75,6 +83,15 @@ interface SocketProcessItem {
 interface KubernetesClusterMatch {
     id: string
     name: string
+}
+
+interface KubernetesNodePickerItem {
+    id: string
+    name: string
+    clusterId: string
+    clusterName: string
+    status: string
+    role: string
 }
 
 interface PillItem {
@@ -186,7 +203,10 @@ class HostDetailPanel extends React.Component<Props, State> {
         if (prevProps.node.id !== this.props.node.id) {
             this.setState({
                 listeningServicesVisibleCount: undefined,
-                showAllSocketProcesses: false
+                showAllSocketProcesses: false,
+                kubernetesNodePickerOpen: false,
+                kubernetesNodePickerQuery: '',
+                kubernetesNodePickerExpanded: {}
             })
             this.loadMoldHostDetail()
         }
@@ -581,6 +601,29 @@ class HostDetailPanel extends React.Component<Props, State> {
         }
     }
 
+    private openKubernetesNodePicker() {
+        this.setState({
+            kubernetesNodePickerOpen: true,
+            kubernetesNodePickerQuery: '',
+            kubernetesNodePickerExpanded: {}
+        })
+    }
+
+    private closeKubernetesNodePicker() {
+        this.setState({
+            kubernetesNodePickerOpen: false,
+            kubernetesNodePickerQuery: '',
+            kubernetesNodePickerExpanded: {}
+        })
+    }
+
+    private focusKubernetesNodeIDs(nodeIDs: string[]) {
+        const app = (window as any).App
+        if (app && typeof app.focusInfrastructureNodeIDs === 'function' && nodeIDs.length > 0) {
+            app.focusInfrastructureNodeIDs(nodeIDs)
+        }
+    }
+
     private topologyNodes(): Node[] {
         const app = (window as any).App
         const nodes = app?.tc?.nodes
@@ -875,6 +918,201 @@ class HostDetailPanel extends React.Component<Props, State> {
         return Array.from(clusters.values())
     }
 
+    private kubernetesNodeStatus(node: Node): string {
+        const directStatus = firstValue(node.data, ['Status', 'status', 'Phase', 'phase', 'Ready', 'ready'])
+        if (directStatus) {
+            const normalized = directStatus.toLowerCase()
+            if (normalized === 'true' || normalized === 'ready') return 'Ready'
+            if (normalized === 'false' || normalized === 'notready' || normalized === 'not-ready') return 'NotReady'
+            return directStatus
+        }
+
+        const conditions = asArray(
+            node.data?.Conditions
+            || node.data?.conditions
+            || node.data?.Status?.Conditions
+            || node.data?.status?.conditions
+        )
+        for (const condition of conditions) {
+            if (!condition || typeof condition !== 'object') continue
+            const type = String(condition.Type || condition.type || '').toLowerCase()
+            if (type !== 'ready') continue
+            const status = String(condition.Status || condition.status || '').toLowerCase()
+            if (status === 'true') return 'Ready'
+            if (status === 'false') return 'NotReady'
+            return condition.Status || condition.status || 'Unknown'
+        }
+
+        return 'Unknown'
+    }
+
+    private kubernetesNodeRole(node: Node): string {
+        const directRole = firstValue(node.data, ['Role', 'role', 'NodeRole', 'nodeRole'])
+        if (directRole) return directRole
+
+        const labels = node.data?.Labels || node.data?.labels || node.data?.Metadata?.Labels || node.data?.metadata?.labels
+        if (labels && typeof labels === 'object') {
+            const keys = Object.keys(labels)
+            if (keys.some(key => key.indexOf('node-role.kubernetes.io/control-plane') === 0)) return 'control-plane'
+            if (keys.some(key => key.indexOf('node-role.kubernetes.io/master') === 0)) return 'master'
+            if (keys.some(key => key.indexOf('node-role.kubernetes.io/worker') === 0)) return 'worker'
+            const kubernetesRole = firstValue(labels, ['kubernetes.io/role', 'node-role.kubernetes.io/role'])
+            if (kubernetesRole) return kubernetesRole
+        }
+
+        const name = firstValue(node.data, ['Name', 'Hostname', 'HostName', 'NodeName', 'nodeName']).toLowerCase()
+        if (name.indexOf('control-plane') >= 0) return 'control-plane'
+        if (name.indexOf('master') >= 0) return 'master'
+        return 'worker'
+    }
+
+    private hostKubernetesNodeOptions(): KubernetesNodePickerItem[] {
+        const topologyLinks = this.topologyLinks()
+        const topologyNodeMap = this.topologyNodeMap()
+        return this.hostKubernetesNodes()
+            .map((node) => {
+                const cluster = this.kubernetesClusterForNode(node, topologyLinks, topologyNodeMap)
+                return {
+                    id: node.id,
+                    name: firstValue(node.data, ['Name', 'Hostname', 'HostName', 'NodeName', 'nodeName', 'KubeletHostname', 'kubeletHostname']) || node.id,
+                    clusterId: cluster?.id || 'unassigned',
+                    clusterName: cluster?.name || 'Unknown Cluster',
+                    status: this.kubernetesNodeStatus(node),
+                    role: this.kubernetesNodeRole(node)
+                }
+            })
+            .sort((a, b) => {
+                const clusterCompare = a.clusterName.localeCompare(b.clusterName)
+                if (clusterCompare !== 0) return clusterCompare
+                return a.name.localeCompare(b.name)
+            })
+    }
+
+    private filteredHostKubernetesNodeOptions(): KubernetesNodePickerItem[] {
+        const query = (this.state.kubernetesNodePickerQuery || '').trim().toLowerCase()
+        const options = this.hostKubernetesNodeOptions()
+        if (!query) return options
+        return options.filter(item =>
+            item.name.toLowerCase().indexOf(query) >= 0
+            || item.clusterName.toLowerCase().indexOf(query) >= 0
+        )
+    }
+
+    private renderKubernetesNodePicker() {
+        const { classes } = this.props
+        const allOptions = this.hostKubernetesNodeOptions()
+        const options = this.filteredHostKubernetesNodeOptions()
+        const grouped = new Map<string, { clusterName: string; items: KubernetesNodePickerItem[] }>()
+        options.forEach((item) => {
+            if (!grouped.has(item.clusterId)) {
+                grouped.set(item.clusterId, { clusterName: item.clusterName, items: [] })
+            }
+            grouped.get(item.clusterId)!.items.push(item)
+        })
+
+        return (
+            <Dialog
+                open={!!this.state.kubernetesNodePickerOpen}
+                onClose={() => this.closeKubernetesNodePicker()}
+                maxWidth="sm"
+                fullWidth
+                classes={{ paper: classes.kubernetesNodePickerDialog }}>
+                <DialogContent className={classes.kubernetesNodePickerContent}>
+                    <div className={classes.kubernetesNodePickerHeader}>
+                        <div className={classes.kubernetesNodePickerTitle}>Kubernetes 노드 이동 대상</div>
+                        <IconButton
+                            className={classes.kubernetesNodePickerClose}
+                            onClick={() => this.closeKubernetesNodePicker()}
+                            aria-label={translate('close')}>
+                            <CloseIcon />
+                        </IconButton>
+                    </div>
+                    <div className={classes.kubernetesNodePickerSearch}>
+                        <SearchIcon />
+                        <input
+                            className={classes.kubernetesNodePickerSearchInput}
+                            type="text"
+                            value={this.state.kubernetesNodePickerQuery || ''}
+                            onChange={(event) => this.setState({ kubernetesNodePickerQuery: event.target.value })}
+                            placeholder={translate('kubernetesNodeSelectorSearchPlaceholder')} />
+                    </div>
+                    <div className={classes.kubernetesNodePickerBody}>
+                        {!grouped.size && (
+                            <div className={classes.emptyState}>
+                                {(this.state.kubernetesNodePickerQuery || '').trim()
+                                    ? translate('kubernetesNodeSelectorNoResults')
+                                    : translate('kubernetesNodeSelectorEmpty')}
+                            </div>
+                        )}
+                        {Array.from(grouped.entries()).map(([clusterId, group]) => {
+                            const expanded = !!this.state.kubernetesNodePickerExpanded?.[clusterId]
+                            const visibleItems = expanded ? group.items : group.items.slice(0, 3)
+                            const hiddenCount = Math.max(0, group.items.length - visibleItems.length)
+                            return (
+                                <div className={classes.kubernetesNodeClusterGroup} key={clusterId}>
+                                    <div className={classes.kubernetesNodeClusterHeader}>
+                                        <span className={classes.kubernetesNodeClusterName}>{group.clusterName}</span>
+                                        <span className={classes.kubernetesNodeClusterCount}>{group.items.length}</span>
+                                    </div>
+                                    <div className={classes.kubernetesNodeList}>
+                                        {visibleItems.map(item => (
+                                            <div className={classes.kubernetesNodeRow} key={item.id}>
+                                                <span className={`${classes.kubernetesNodeStatusDot} ${item.status === 'Ready' ? classes.kubernetesNodeStatusReady : classes.kubernetesNodeStatusMuted}`} />
+                                                <span className={classes.kubernetesNodeName} title={item.name}>{item.name}</span>
+                                                <span className={`${classes.kubernetesNodeStatus} ${item.status === 'Ready' ? classes.kubernetesNodeStatusReadyText : classes.kubernetesNodeStatusMutedText}`}>{item.status}</span>
+                                                <span className={classes.kubernetesNodeRole}>{item.role}</span>
+                                                <button
+                                                    type="button"
+                                                    className={classes.kubernetesNodeMoveButton}
+                                                    onClick={() => {
+                                                        this.closeKubernetesNodePicker()
+                                                        this.focusKubernetesNodeIDs([item.id])
+                                                    }}>
+                                                    {translate('move')}
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {hiddenCount > 0 && (
+                                        <button
+                                            type="button"
+                                            className={classes.kubernetesNodeExpandButton}
+                                            onClick={() => this.setState({
+                                                kubernetesNodePickerExpanded: {
+                                                    ...(this.state.kubernetesNodePickerExpanded || {}),
+                                                    [clusterId]: true
+                                                }
+                                            })}>
+                                            +{hiddenCount}{translate('kubernetesNodeSelectorMoreSuffix')}
+                                        </button>
+                                    )}
+                                </div>
+                            )
+                        })}
+                    </div>
+                    <div className={classes.kubernetesNodePickerActions}>
+                        <button
+                            type="button"
+                            className={classes.kubernetesNodePickerPrimaryAction}
+                            disabled={allOptions.length === 0}
+                            onClick={() => {
+                                this.closeKubernetesNodePicker()
+                                this.focusKubernetesNodeIDs(allOptions.map(item => item.id))
+                            }}>
+                            {translate('kubernetesNodeSelectorHighlightAll')}
+                        </button>
+                        <button
+                            type="button"
+                            className={classes.kubernetesNodePickerSecondaryAction}
+                            onClick={() => this.closeKubernetesNodePicker()}>
+                            {translate('close')}
+                        </button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+        )
+    }
+
     private renderSocketProcessSummary() {
         const { classes } = this.props
         const services = this.listeningServices()
@@ -1043,14 +1281,24 @@ class HostDetailPanel extends React.Component<Props, State> {
                 {visible.map(item => {
                     const numericValue = Number(item.value)
                     const hasZeroValue = item.value !== '' && !Number.isNaN(numericValue) && numericValue === 0
-                    const canFocus = !hasZeroValue && !!item.actionKey && !!item.nodeIDs && item.nodeIDs.length > 0
+                    const canFocus = !hasZeroValue && (
+                        (!!item.onClick)
+                        || (!!item.actionKey && !!item.nodeIDs && item.nodeIDs.length > 0)
+                    )
                     const actionClassName = `${classes.connectedResourceCardAction} ${!canFocus ? classes.connectedResourceCardActionHidden : ''}`
                     return (
                         <button
                             type="button"
                             className={`${classes.connectedResourceCard} ${canFocus ? classes.connectedResourceCardClickable : classes.connectedResourceCardStatic}`}
                             key={item.label}
-                            onClick={() => canFocus && this.focusConnectedResource(item.actionKey, item.nodeIDs)}
+                            onClick={() => {
+                                if (!canFocus) return
+                                if (item.onClick) {
+                                    item.onClick()
+                                    return
+                                }
+                                this.focusConnectedResource(item.actionKey, item.nodeIDs)
+                            }}
                             aria-disabled={!canFocus}
                             tabIndex={canFocus ? 0 : -1}>
                             <span className={classes.connectedResourceCardMain}>
@@ -1183,18 +1431,12 @@ class HostDetailPanel extends React.Component<Props, State> {
         const kubernetesClusterNames = kubernetesClusters.map(clusterItem => clusterItem.name)
         const kubernetesResources: OverviewCardItem[] = [
             {
-                label: translate('kubernetesTopologyClusters'),
-                description: kubernetesClusterNames.join(', '),
-                value: String(kubernetesClusters.length),
-                icon: this.infrastructureIcon('\uf542', 'network'),
-                nodeIDs: kubernetesClusters.map(item => item.id).filter(Boolean)
-            },
-            {
                 label: translate('kubernetesTopologyNodes'),
                 description: kubernetesClusterNames.length > 0 ? kubernetesClusterNames.join(', ') : '',
                 value: String(kubernetesNodes.length),
                 icon: this.infrastructureIcon('\uf233', 'host'),
-                nodeIDs: kubernetesNodes.map(item => item.id)
+                nodeIDs: kubernetesNodes.map(item => item.id),
+                onClick: () => this.openKubernetesNodePicker()
             }
         ]
         const resolvedPhysicalNicCount = physicalNicCount !== undefined ? physicalNicCount : this.interfaceCountByPattern([/\bnic\b/, /\beth\d+\b/, /\benp/, /\bens/, /\beno/])
@@ -1238,6 +1480,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                         <span>{translate('hostMoldMissing')}</span>
                     </div>
                 )}
+                {this.renderKubernetesNodePicker()}
             </div>
         )
     }
