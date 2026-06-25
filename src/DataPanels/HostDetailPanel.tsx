@@ -205,9 +205,15 @@ const getByPath = (value: any, path: string): any => {
 
 class HostDetailPanel extends React.Component<Props, State> {
     state: State = {}
+    private kubernetesNodePickerRef = React.createRef<HTMLDivElement>()
 
     componentDidMount() {
         this.loadMoldHostDetail()
+        document.addEventListener('mousedown', this.handleDocumentMouseDown, true)
+    }
+
+    componentWillUnmount() {
+        document.removeEventListener('mousedown', this.handleDocumentMouseDown, true)
     }
 
     componentDidUpdate(prevProps: Props) {
@@ -221,6 +227,18 @@ class HostDetailPanel extends React.Component<Props, State> {
             })
             this.loadMoldHostDetail()
         }
+    }
+
+    private handleDocumentMouseDown = (event: MouseEvent) => {
+        if (!this.state.kubernetesNodePickerOpen) return
+        const target = event.target as Element | null
+        if (!target || !target.closest) return
+        if (target.closest('.MuiDialog-root, [data-netdive-side-panel="true"], [data-netdive-link-tags="true"], [class*="kubernetesManagerPanel"], [class*="sideSettingsPanel"]')) {
+            return
+        }
+        const drawer = this.kubernetesNodePickerRef.current
+        if (drawer && drawer.contains(target)) return
+        this.closeKubernetesNodePicker()
     }
 
     private copyValue(value: string) {
@@ -1046,8 +1064,12 @@ class HostDetailPanel extends React.Component<Props, State> {
                 open={!!this.state.kubernetesNodePickerOpen}
                 onClose={() => this.closeKubernetesNodePicker()}
                 ModalProps={{ hideBackdrop: true }}
+                PaperProps={{
+                    'data-netdive-drawer': 'true',
+                    'data-netdive-kubernetes-node-picker': 'true'
+                } as any}
                 classes={{ paper: classes.kubernetesNodePickerDrawer }}>
-                <div className={classes.kubernetesNodePickerContent}>
+                <div className={classes.kubernetesNodePickerContent} ref={this.kubernetesNodePickerRef}>
                     <div className={classes.kubernetesNodePickerHeader}>
                         <div className={classes.kubernetesNodePickerHeaderBlock}>
                             <div className={classes.kubernetesNodePickerTitle}>Kubernetes 노드 선택</div>
@@ -1076,12 +1098,6 @@ class HostDetailPanel extends React.Component<Props, State> {
                         </div>
                         <button
                             type="button"
-                            className={classes.kubernetesNodePickerFilterButton}
-                            onClick={() => this.setState({ kubernetesNodePickerQuery: '' })}>
-                            {translate('filter')}
-                        </button>
-                        <button
-                            type="button"
                             className={classes.kubernetesNodePickerExpandAllButton}
                             onClick={() => {
                                 const nextState: Record<string, boolean> = {}
@@ -1094,8 +1110,14 @@ class HostDetailPanel extends React.Component<Props, State> {
                         </button>
                     </div>
                     <div className={classes.kubernetesNodePickerSummary}>
-                        <span>{translate('kubernetesNodeSelectorClusterCountLabel')} <strong>{grouped.size}</strong></span>
-                        <span>{translate('kubernetesNodeSelectorNodeCountLabel')} <strong>{options.length}</strong></span>
+                        <div className={classes.kubernetesNodePickerSummaryItem}>
+                            <span className={classes.kubernetesNodePickerSummaryLabel}>{translate('kubernetesNodeSelectorClusterCountLabel')}</span>
+                            <strong>{grouped.size}</strong>
+                        </div>
+                        <div className={classes.kubernetesNodePickerSummaryItem}>
+                            <span className={classes.kubernetesNodePickerSummaryLabel}>{translate('kubernetesNodeSelectorNodeCountLabel')}</span>
+                            <strong>{options.length}</strong>
+                        </div>
                     </div>
                     <div className={classes.kubernetesNodePickerBody}>
                         {!grouped.size && (
@@ -1129,27 +1151,18 @@ class HostDetailPanel extends React.Component<Props, State> {
                                         <div className={classes.kubernetesNodeClusterHeaderMain}>
                                             {groupExpandable ? (expanded ? <KeyboardArrowDownIcon /> : <KeyboardArrowRightIcon />) : <KeyboardArrowDownIcon />}
                                             <span className={classes.kubernetesNodeClusterIcon}><DeviceHubOutlinedIcon /></span>
-                                            <span className={classes.kubernetesNodeClusterName}>{group.clusterName}</span>
-                                            <span className={classes.kubernetesNodeClusterCount}>{group.items.length}{translate('kubernetesNodeSelectorCountSuffix')}</span>
+                                            <div className={classes.kubernetesNodeClusterTitleBlock}>
+                                                <span className={classes.kubernetesNodeClusterName}>{group.clusterName}</span>
+                                                <span className={classes.kubernetesNodeClusterMeta}>{group.items.length}{translate('kubernetesNodeSelectorCountSuffix')} · Kubernetes Cluster</span>
+                                            </div>
                                         </div>
                                         <div className={classes.kubernetesNodeClusterStatusSummary}>
                                             <span className={`${classes.kubernetesNodeClusterStatusChip} ${classes.kubernetesNodeClusterStatusReady}`}>Ready {readyCount}</span>
-                                            {notReadyCount > 0 && (
-                                                <span className={`${classes.kubernetesNodeClusterStatusChip} ${classes.kubernetesNodeClusterStatusNotReady}`}>NotReady {notReadyCount}</span>
-                                            )}
-                                            {unknownCount > 0 && (
-                                                <span className={`${classes.kubernetesNodeClusterStatusChip} ${classes.kubernetesNodeClusterStatusUnknown}`}>Unknown {unknownCount}</span>
-                                            )}
+                                            <span className={`${classes.kubernetesNodeClusterStatusChip} ${notReadyCount > 0 ? classes.kubernetesNodeClusterStatusNotReady : classes.kubernetesNodeClusterStatusUnknown}`}>{notReadyCount > 0 ? `NotReady ${notReadyCount}` : `Unknown ${unknownCount}`}</span>
                                         </div>
                                     </div>
                                     <div className={classes.kubernetesNodeClusterBody}>
                                         <div className={classes.kubernetesNodeListSection}>
-                                            <div className={classes.kubernetesNodeListSectionHeader}>
-                                                <span className={classes.kubernetesNodeListSectionTitle}>노드 목록</span>
-                                                <span className={classes.kubernetesNodeListSectionHint}>
-                                                    Row를 클릭하면 해당 Kubernetes 노드로 이동합니다.
-                                                </span>
-                                            </div>
                                             <div className={classes.kubernetesNodeList}>
                                                 <div className={classes.kubernetesNodeListHeader}>
                                                     <span>노드명</span>
