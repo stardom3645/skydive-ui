@@ -1142,49 +1142,59 @@ class HostDetailPanel extends React.Component<Props, State> {
                                             )}
                                         </div>
                                     </div>
-                                    <div className={classes.kubernetesNodeList}>
-                                        <div className={classes.kubernetesNodeListHeader}>
-                                            <span>노드명</span>
-                                            <span>{translate('role')}</span>
-                                            <span>{translate('version')}</span>
-                                            <span>{translate('status')}</span>
-                                        </div>
-                                        {visibleItems.map(item => (
-                                            <div
-                                                className={classes.kubernetesNodeRow}
-                                                key={item.id}
-                                                role="button"
-                                                tabIndex={0}
-                                                onClick={() => moveToNode(item.id)}
-                                                onKeyDown={(event) => {
-                                                    if (event.key === 'Enter' || event.key === ' ') {
-                                                        event.preventDefault()
-                                                        moveToNode(item.id)
-                                                    }
-                                                }}>
-                                                <div className={classes.kubernetesNodeNameWrap}>
-                                                    <span className={`${classes.kubernetesNodeStatusDot} ${statusDotClass(item.status)}`} />
-                                                    <span className={classes.kubernetesNodeName} title={item.name}>{item.name}</span>
-                                                </div>
-                                                <span className={classes.kubernetesNodeRoleCell}>{item.role}</span>
-                                                <span className={classes.kubernetesNodeVersionCell} title={item.version}>{item.version}</span>
-                                                <span className={`${classes.kubernetesNodeStatusBadge} ${statusBadgeClass(item.status)}`}>{item.status}</span>
+                                    <div className={classes.kubernetesNodeClusterBody}>
+                                        <div className={classes.kubernetesNodeListSection}>
+                                            <div className={classes.kubernetesNodeListSectionHeader}>
+                                                <span className={classes.kubernetesNodeListSectionTitle}>노드 목록</span>
+                                                <span className={classes.kubernetesNodeListSectionHint}>
+                                                    Row를 클릭하면 해당 Kubernetes 노드로 이동합니다.
+                                                </span>
                                             </div>
-                                        ))}
+                                            <div className={classes.kubernetesNodeList}>
+                                                <div className={classes.kubernetesNodeListHeader}>
+                                                    <span>노드명</span>
+                                                    <span>{translate('role')}</span>
+                                                    <span>{translate('version')}</span>
+                                                    <span>{translate('status')}</span>
+                                                </div>
+                                                {visibleItems.map(item => (
+                                                    <div
+                                                        className={classes.kubernetesNodeRow}
+                                                        key={item.id}
+                                                        role="button"
+                                                        tabIndex={0}
+                                                        onClick={() => moveToNode(item.id)}
+                                                        onKeyDown={(event) => {
+                                                            if (event.key === 'Enter' || event.key === ' ') {
+                                                                event.preventDefault()
+                                                                moveToNode(item.id)
+                                                            }
+                                                        }}>
+                                                        <div className={classes.kubernetesNodeNameWrap}>
+                                                            <span className={`${classes.kubernetesNodeStatusDot} ${statusDotClass(item.status)}`} />
+                                                            <span className={classes.kubernetesNodeName} title={item.name}>{item.name}</span>
+                                                        </div>
+                                                        <span className={classes.kubernetesNodeRoleCell}>{item.role}</span>
+                                                        <span className={classes.kubernetesNodeVersionCell} title={item.version}>{item.version}</span>
+                                                        <span className={`${classes.kubernetesNodeStatusBadge} ${statusBadgeClass(item.status)}`}>{item.status}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        {hiddenCount > 0 && (
+                                            <button
+                                                type="button"
+                                                className={classes.kubernetesNodeExpandButton}
+                                                onClick={() => this.setState({
+                                                    kubernetesNodePickerExpanded: {
+                                                        ...(this.state.kubernetesNodePickerExpanded || {}),
+                                                        [clusterId]: true
+                                                    }
+                                                })}>
+                                                {translate('kubernetesNodeSelectorRemainingPrefix')} {hiddenCount}{translate('kubernetesNodeSelectorRemainingSuffix')}
+                                            </button>
+                                        )}
                                     </div>
-                                    {hiddenCount > 0 && (
-                                        <button
-                                            type="button"
-                                            className={classes.kubernetesNodeExpandButton}
-                                            onClick={() => this.setState({
-                                                kubernetesNodePickerExpanded: {
-                                                    ...(this.state.kubernetesNodePickerExpanded || {}),
-                                                    [clusterId]: true
-                                                }
-                                            })}>
-                                            {translate('kubernetesNodeSelectorRemainingPrefix')} {hiddenCount}{translate('kubernetesNodeSelectorRemainingSuffix')}
-                                        </button>
-                                    )}
                                 </div>
                             )
                         })}
