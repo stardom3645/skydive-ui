@@ -1025,6 +1025,20 @@ class HostDetailPanel extends React.Component<Props, State> {
             }
             grouped.get(item.clusterId)!.items.push(item)
         })
+        const statusBadgeClass = (status: string) => {
+            if (status === 'Ready') return classes.kubernetesNodeStatusBadgeReady
+            if (status === 'NotReady') return classes.kubernetesNodeStatusBadgeNotReady
+            return classes.kubernetesNodeStatusBadgeUnknown
+        }
+        const statusDotClass = (status: string) => {
+            if (status === 'Ready') return classes.kubernetesNodeStatusReady
+            if (status === 'NotReady') return classes.kubernetesNodeStatusNotReady
+            return classes.kubernetesNodeStatusUnknown
+        }
+        const moveToNode = (id: string) => {
+            this.closeKubernetesNodePicker()
+            this.focusKubernetesNodeIDs([id])
+        }
 
         return (
             <Drawer
@@ -1066,10 +1080,6 @@ class HostDetailPanel extends React.Component<Props, State> {
                             onClick={() => this.setState({ kubernetesNodePickerQuery: '' })}>
                             {translate('filter')}
                         </button>
-                    </div>
-                    <div className={classes.kubernetesNodePickerSummary}>
-                        <span>{translate('kubernetesNodeSelectorClusterCountLabel')} <strong>{grouped.size}</strong></span>
-                        <span>{translate('kubernetesNodeSelectorNodeCountLabel')} <strong>{options.length}</strong></span>
                         <button
                             type="button"
                             className={classes.kubernetesNodePickerExpandAllButton}
@@ -1082,6 +1092,10 @@ class HostDetailPanel extends React.Component<Props, State> {
                             }}>
                             {translate('kubernetesNodeSelectorExpandAll')}
                         </button>
+                    </div>
+                    <div className={classes.kubernetesNodePickerSummary}>
+                        <span>{translate('kubernetesNodeSelectorClusterCountLabel')} <strong>{grouped.size}</strong></span>
+                        <span>{translate('kubernetesNodeSelectorNodeCountLabel')} <strong>{options.length}</strong></span>
                     </div>
                     <div className={classes.kubernetesNodePickerBody}>
                         {!grouped.size && (
@@ -1096,6 +1110,9 @@ class HostDetailPanel extends React.Component<Props, State> {
                             const groupExpandable = group.items.length > 3
                             const visibleItems = expanded ? group.items : group.items.slice(0, 3)
                             const hiddenCount = Math.max(0, group.items.length - visibleItems.length)
+                            const readyCount = group.items.filter(item => item.status === 'Ready').length
+                            const notReadyCount = group.items.filter(item => item.status === 'NotReady').length
+                            const unknownCount = Math.max(0, group.items.length - readyCount - notReadyCount)
                             return (
                                 <div className={classes.kubernetesNodeClusterGroup} key={clusterId}>
                                     <div
@@ -1115,32 +1132,46 @@ class HostDetailPanel extends React.Component<Props, State> {
                                             <span className={classes.kubernetesNodeClusterName}>{group.clusterName}</span>
                                             <span className={classes.kubernetesNodeClusterCount}>{group.items.length}{translate('kubernetesNodeSelectorCountSuffix')}</span>
                                         </div>
+                                        <div className={classes.kubernetesNodeClusterStatusSummary}>
+                                            <span className={`${classes.kubernetesNodeClusterStatusChip} ${classes.kubernetesNodeClusterStatusReady}`}>Ready {readyCount}</span>
+                                            {notReadyCount > 0 && (
+                                                <span className={`${classes.kubernetesNodeClusterStatusChip} ${classes.kubernetesNodeClusterStatusNotReady}`}>NotReady {notReadyCount}</span>
+                                            )}
+                                            {unknownCount > 0 && (
+                                                <span className={`${classes.kubernetesNodeClusterStatusChip} ${classes.kubernetesNodeClusterStatusUnknown}`}>Unknown {unknownCount}</span>
+                                            )}
+                                        </div>
                                     </div>
                                     <div className={classes.kubernetesNodeList}>
                                         {visibleItems.map(item => (
-                                            <div className={classes.kubernetesNodeRow} key={item.id}>
-                                                <div className={classes.kubernetesNodeCardMain}>
-                                                    <div className={classes.kubernetesNodeNameWrap}>
-                                                        <span className={`${classes.kubernetesNodeStatusDot} ${item.status === 'Ready' ? classes.kubernetesNodeStatusReady : classes.kubernetesNodeStatusNotReady}`} />
-                                                        <span className={classes.kubernetesNodeName} title={item.name}>{item.name}</span>
-                                                    </div>
-                                                    <div className={classes.kubernetesNodeMetaLine}>
-                                                        <span>{translate('role')}: {item.role}</span>
-                                                        <span>{translate('version')}: {item.version}</span>
-                                                    </div>
+                                            <div
+                                                className={classes.kubernetesNodeRow}
+                                                key={item.id}
+                                                role="button"
+                                                tabIndex={0}
+                                                onClick={() => moveToNode(item.id)}
+                                                onKeyDown={(event) => {
+                                                    if (event.key === 'Enter' || event.key === ' ') {
+                                                        event.preventDefault()
+                                                        moveToNode(item.id)
+                                                    }
+                                                }}>
+                                                <div className={classes.kubernetesNodeNameWrap}>
+                                                    <span className={`${classes.kubernetesNodeStatusDot} ${statusDotClass(item.status)}`} />
+                                                    <span className={classes.kubernetesNodeName} title={item.name}>{item.name}</span>
                                                 </div>
-                                                <div className={classes.kubernetesNodeCardAside}>
-                                                    <span className={`${classes.kubernetesNodeStatusBadge} ${item.status === 'Ready' ? classes.kubernetesNodeStatusBadgeReady : classes.kubernetesNodeStatusBadgeNotReady}`}>{item.status}</span>
-                                                    <button
-                                                        type="button"
-                                                        className={classes.kubernetesNodeMoveButton}
-                                                        onClick={() => {
-                                                            this.closeKubernetesNodePicker()
-                                                            this.focusKubernetesNodeIDs([item.id])
-                                                        }}>
-                                                        {translate('move')} →
-                                                    </button>
-                                                </div>
+                                                <span className={classes.kubernetesNodeRoleCell}>{item.role}</span>
+                                                <span className={classes.kubernetesNodeVersionCell} title={item.version}>{item.version}</span>
+                                                <span className={`${classes.kubernetesNodeStatusBadge} ${statusBadgeClass(item.status)}`}>{item.status}</span>
+                                                <button
+                                                    type="button"
+                                                    className={classes.kubernetesNodeMoveButton}
+                                                    onClick={(event) => {
+                                                        event.stopPropagation()
+                                                        moveToNode(item.id)
+                                                    }}>
+                                                    {translate('move')} →
+                                                </button>
                                             </div>
                                         ))}
                                     </div>
