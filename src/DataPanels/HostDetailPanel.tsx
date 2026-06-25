@@ -1049,7 +1049,7 @@ class HostDetailPanel extends React.Component<Props, State> {
             return classes.kubernetesNodeStatusBadgeUnknown
         }
         const statusLabel = (status: string) => {
-            if (status === 'Unknown') return '상태 미확인'
+            if (status === 'Unknown') return '-'
             return status
         }
         const statusDotClass = (status: string) => {
@@ -1058,9 +1058,9 @@ class HostDetailPanel extends React.Component<Props, State> {
             return classes.kubernetesNodeStatusUnknown
         }
         const roleLabel = (role: string) => {
-            if (role === 'worker') return 'Worker Node'
+            if (role === 'worker') return 'worker'
             if (role === 'control-plane') return 'Control Plane'
-            if (role === 'master') return 'Master Node'
+            if (role === 'master') return 'master'
             return role
         }
         const moveToNode = (id: string) => {
@@ -1084,9 +1084,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                         <div className={classes.kubernetesNodePickerHeaderBlock}>
                             <div className={classes.kubernetesNodePickerTitle}>Kubernetes 노드 탐색</div>
                             <div className={classes.kubernetesNodePickerDescription}>
-                                이 호스트에 배치된 Kubernetes 노드를 Cluster 기준으로 탐색합니다.
-                                <br />
-                                원하는 Node Row를 선택하면 해당 Kubernetes 노드로 이동합니다.
+                                이 호스트에 배치된 Kubernetes 노드를 Cluster 기준으로 탐색하고 이동합니다.
                             </div>
                         </div>
                         <IconButton
@@ -1160,7 +1158,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                                             <span className={classes.kubernetesNodeClusterIcon}><DeviceHubOutlinedIcon /></span>
                                             <div className={classes.kubernetesNodeClusterTitleBlock}>
                                                 <span className={classes.kubernetesNodeClusterName}>{group.clusterName}</span>
-                                                <span className={classes.kubernetesNodeClusterMeta}>Kubernetes Cluster {'>'} Node {group.items.length}{translate('kubernetesNodeSelectorCountSuffix')}</span>
+                                                <span className={classes.kubernetesNodeClusterMeta}>Node {group.items.length}{translate('kubernetesNodeSelectorCountSuffix')}</span>
                                             </div>
                                         </div>
                                     </div>
