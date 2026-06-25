@@ -1,8 +1,7 @@
 import * as React from 'react'
 import IconButton from '@material-ui/core/IconButton'
 import Tooltip from '@material-ui/core/Tooltip'
-import Dialog from '@material-ui/core/Dialog'
-import DialogContent from '@material-ui/core/DialogContent'
+import Drawer from '@material-ui/core/Drawer'
 import FileCopyIcon from '@material-ui/icons/FileCopy'
 import InfoIcon from '@material-ui/icons/Info'
 import TimelineIcon from '@material-ui/icons/Timeline'
@@ -1028,13 +1027,13 @@ class HostDetailPanel extends React.Component<Props, State> {
         })
 
         return (
-            <Dialog
+            <Drawer
+                anchor="right"
                 open={!!this.state.kubernetesNodePickerOpen}
                 onClose={() => this.closeKubernetesNodePicker()}
-                maxWidth="md"
-                fullWidth
-                classes={{ paper: classes.kubernetesNodePickerDialog }}>
-                <DialogContent className={classes.kubernetesNodePickerContent}>
+                ModalProps={{ hideBackdrop: true }}
+                classes={{ paper: classes.kubernetesNodePickerDrawer }}>
+                <div className={classes.kubernetesNodePickerContent}>
                     <div className={classes.kubernetesNodePickerHeader}>
                         <div className={classes.kubernetesNodePickerHeaderBlock}>
                             <div className={classes.kubernetesNodePickerTitle}>Kubernetes 노드 선택</div>
@@ -1117,32 +1116,31 @@ class HostDetailPanel extends React.Component<Props, State> {
                                             <span className={classes.kubernetesNodeClusterCount}>{group.items.length}{translate('kubernetesNodeSelectorCountSuffix')}</span>
                                         </div>
                                     </div>
-                                    <div className={classes.kubernetesNodeTableHead}>
-                                        <span>{translate('nodeName')}</span>
-                                        <span>{translate('role')}</span>
-                                        <span>{translate('status')}</span>
-                                        <span>{translate('version')}</span>
-                                        <span>{translate('kubernetesActions')}</span>
-                                    </div>
                                     <div className={classes.kubernetesNodeList}>
                                         {visibleItems.map(item => (
                                             <div className={classes.kubernetesNodeRow} key={item.id}>
-                                                <div className={classes.kubernetesNodeNameWrap}>
-                                                    <span className={`${classes.kubernetesNodeStatusDot} ${item.status === 'Ready' ? classes.kubernetesNodeStatusReady : classes.kubernetesNodeStatusNotReady}`} />
-                                                    <span className={classes.kubernetesNodeName} title={item.name}>{item.name}</span>
+                                                <div className={classes.kubernetesNodeCardMain}>
+                                                    <div className={classes.kubernetesNodeNameWrap}>
+                                                        <span className={`${classes.kubernetesNodeStatusDot} ${item.status === 'Ready' ? classes.kubernetesNodeStatusReady : classes.kubernetesNodeStatusNotReady}`} />
+                                                        <span className={classes.kubernetesNodeName} title={item.name}>{item.name}</span>
+                                                    </div>
+                                                    <div className={classes.kubernetesNodeMetaLine}>
+                                                        <span>{translate('role')}: {item.role}</span>
+                                                        <span>{translate('version')}: {item.version}</span>
+                                                    </div>
                                                 </div>
-                                                <span className={classes.kubernetesNodeRole}>{item.role}</span>
-                                                <span className={`${classes.kubernetesNodeStatusBadge} ${item.status === 'Ready' ? classes.kubernetesNodeStatusBadgeReady : classes.kubernetesNodeStatusBadgeNotReady}`}>{item.status}</span>
-                                                <span className={classes.kubernetesNodeVersion}>{item.version}</span>
-                                                <button
-                                                    type="button"
-                                                    className={classes.kubernetesNodeMoveButton}
-                                                    onClick={() => {
-                                                        this.closeKubernetesNodePicker()
-                                                        this.focusKubernetesNodeIDs([item.id])
-                                                    }}>
-                                                    {translate('move')} →
-                                                </button>
+                                                <div className={classes.kubernetesNodeCardAside}>
+                                                    <span className={`${classes.kubernetesNodeStatusBadge} ${item.status === 'Ready' ? classes.kubernetesNodeStatusBadgeReady : classes.kubernetesNodeStatusBadgeNotReady}`}>{item.status}</span>
+                                                    <button
+                                                        type="button"
+                                                        className={classes.kubernetesNodeMoveButton}
+                                                        onClick={() => {
+                                                            this.closeKubernetesNodePicker()
+                                                            this.focusKubernetesNodeIDs([item.id])
+                                                        }}>
+                                                        {translate('move')} →
+                                                    </button>
+                                                </div>
                                             </div>
                                         ))}
                                     </div>
@@ -1181,8 +1179,8 @@ class HostDetailPanel extends React.Component<Props, State> {
                             {translate('close')}
                         </button>
                     </div>
-                </DialogContent>
-            </Dialog>
+                </div>
+            </Drawer>
         )
     }
 

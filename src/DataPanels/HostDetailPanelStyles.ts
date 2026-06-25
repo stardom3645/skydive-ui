@@ -599,17 +599,29 @@ export const styles = (theme: Theme) => createStyles({
         whiteSpace: 'pre-wrap',
         wordBreak: 'break-word'
     },
-    kubernetesNodePickerDialog: {
-        borderRadius: '20px !important',
-        overflow: 'hidden',
-        border: '1px solid var(--netdive-detail-border-soft)',
-        boxShadow: '0 22px 56px rgba(15, 23, 42, 0.16)'
+    kubernetesNodePickerDrawer: {
+        width: 620,
+        maxWidth: 'calc(100vw - var(--sidebar-width, 220px) - 24px)',
+        top: '64px !important',
+        height: 'calc(100vh - 64px) !important',
+        borderLeft: '1px solid var(--netdive-detail-border-soft)',
+        background: 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)',
+        boxShadow: '-14px 0 34px rgba(15, 23, 42, 0.12)',
+        [theme.breakpoints.down('sm')]: {
+            width: 'min(94vw, 620px)',
+            maxWidth: '94vw',
+            top: '0 !important',
+            height: '100vh !important'
+        }
     },
     kubernetesNodePickerContent: {
-        padding: theme.spacing(1.7, 1.8, 1.35),
+        height: '100%',
+        boxSizing: 'border-box',
+        padding: theme.spacing(2, 2, 1.5),
         display: 'flex',
         flexDirection: 'column',
-        gap: theme.spacing(1.25)
+        gap: theme.spacing(1.4),
+        overflow: 'hidden'
     },
     kubernetesNodePickerHeader: {
         display: 'flex',
@@ -622,7 +634,7 @@ export const styles = (theme: Theme) => createStyles({
     },
     kubernetesNodePickerTitle: {
         color: 'var(--netdive-detail-title)',
-        fontSize: 17,
+        fontSize: 18,
         lineHeight: 1.2,
         fontWeight: 850
     },
@@ -665,7 +677,8 @@ export const styles = (theme: Theme) => createStyles({
         background: '#ffffff',
         color: 'var(--netdive-detail-muted, #64748b)',
         '& svg': {
-            fontSize: 18
+            fontSize: 18,
+            color: 'var(--topology-level-label-active-text)'
         }
     },
     kubernetesNodePickerSearchInput: {
@@ -702,12 +715,22 @@ export const styles = (theme: Theme) => createStyles({
     kubernetesNodePickerSummary: {
         display: 'flex',
         alignItems: 'center',
-        gap: theme.spacing(1.4),
+        gap: theme.spacing(0.8),
         flexWrap: 'wrap',
         color: 'var(--netdive-detail-muted, #64748b)',
         fontSize: 12.2,
         lineHeight: 1.4,
         fontWeight: 700,
+        padding: theme.spacing(0.15, 0.15),
+        '& > span': {
+            display: 'inline-flex',
+            alignItems: 'center',
+            minHeight: 26,
+            padding: '0 10px',
+            borderRadius: 999,
+            background: '#ffffff',
+            border: '1px solid var(--netdive-detail-border-soft)'
+        },
         '& strong': {
             color: 'var(--topology-level-label-active-text)',
             fontWeight: 850
@@ -727,22 +750,25 @@ export const styles = (theme: Theme) => createStyles({
     kubernetesNodePickerBody: {
         display: 'flex',
         flexDirection: 'column',
-        gap: theme.spacing(1),
-        maxHeight: 520,
+        gap: theme.spacing(1.1),
+        minHeight: 0,
+        flex: 1,
         overflowY: 'auto',
-        paddingRight: theme.spacing(0.25)
+        padding: theme.spacing(0.1, 0.25, 0.1, 0)
     },
     kubernetesNodeClusterGroup: {
         border: '1px solid var(--netdive-detail-border-soft)',
-        borderRadius: 16,
+        borderRadius: 14,
         background: 'var(--netdive-detail-card-bg, #ffffff)',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        boxShadow: '0 6px 18px rgba(15, 23, 42, 0.04)'
     },
     kubernetesNodeClusterHeader: {
         display: 'flex',
         alignItems: 'center',
-        padding: theme.spacing(1.05, 1.15),
-        borderBottom: '1px solid var(--netdive-detail-border-subtle, rgba(226, 232, 240, 0.68))'
+        padding: theme.spacing(1.1, 1.2),
+        borderBottom: '1px solid var(--netdive-detail-border-subtle, rgba(226, 232, 240, 0.68))',
+        background: 'rgba(248, 250, 252, 0.78)'
     },
     kubernetesNodeClusterHeaderClickable: {
         cursor: 'pointer'
@@ -789,54 +815,48 @@ export const styles = (theme: Theme) => createStyles({
         fontSize: 11.2,
         fontWeight: 800
     },
-    kubernetesNodeTableHead: {
-        display: 'grid',
-        gridTemplateColumns: 'minmax(0, 2.2fr) minmax(90px, 0.9fr) minmax(92px, 0.9fr) minmax(72px, 0.8fr) auto',
-        alignItems: 'center',
-        gap: 10,
-        padding: theme.spacing(0.8, 1.15),
-        color: 'var(--netdive-detail-muted, #64748b)',
-        fontSize: 11.1,
-        lineHeight: 1.2,
-        fontWeight: 800,
-        background: 'rgba(248, 250, 252, 0.72)',
-        [theme.breakpoints.down('sm')]: {
-            gridTemplateColumns: 'minmax(0, 1fr) auto'
-        },
-        [theme.breakpoints.down('sm')]: {
-            '& span:nth-child(2), & span:nth-child(3), & span:nth-child(4)': {
-                display: 'none'
-            }
-        }
-    },
     kubernetesNodeList: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 0
+        display: 'grid',
+        gridTemplateColumns: '1fr',
+        gap: theme.spacing(0.75),
+        padding: theme.spacing(1)
     },
     kubernetesNodeRow: {
-        display: 'grid',
-        gridTemplateColumns: 'minmax(0, 2.2fr) minmax(90px, 0.9fr) minmax(92px, 0.9fr) minmax(72px, 0.8fr) auto',
+        display: 'flex',
         alignItems: 'center',
-        gap: 10,
-        minHeight: 50,
-        padding: theme.spacing(0.7, 1.15),
-        borderTop: '1px solid var(--netdive-detail-border-subtle, rgba(226, 232, 240, 0.5))',
-        transition: 'background-color 140ms ease',
+        justifyContent: 'space-between',
+        gap: theme.spacing(1),
+        minHeight: 64,
+        padding: theme.spacing(0.95, 1),
+        border: '1px solid rgba(226, 232, 240, 0.86)',
+        borderRadius: 12,
+        background: '#ffffff',
+        transition: 'background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease',
         '&:hover': {
-            background: 'rgba(248, 250, 252, 0.72)'
+            background: 'rgba(248, 250, 252, 0.72)',
+            borderColor: 'rgba(59, 130, 246, 0.22)',
+            boxShadow: '0 5px 14px rgba(15, 23, 42, 0.045)'
         },
         [theme.breakpoints.down('sm')]: {
-            gridTemplateColumns: 'minmax(0, 1fr) auto',
-            '& $kubernetesNodeStatus': {
-                display: 'none'
-            },
-            '& $kubernetesNodeRole': {
-                display: 'none'
-            },
-            '& $kubernetesNodeVersion': {
-                display: 'none'
-            }
+            alignItems: 'flex-start',
+            flexDirection: 'column'
+        }
+    },
+    kubernetesNodeCardMain: {
+        minWidth: 0,
+        flex: '1 1 auto',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 6
+    },
+    kubernetesNodeCardAside: {
+        flex: '0 0 auto',
+        display: 'flex',
+        alignItems: 'center',
+        gap: theme.spacing(0.8),
+        [theme.breakpoints.down('sm')]: {
+            width: '100%',
+            justifyContent: 'space-between'
         }
     },
     kubernetesNodeNameWrap: {
@@ -860,19 +880,30 @@ export const styles = (theme: Theme) => createStyles({
     kubernetesNodeName: {
         minWidth: 0,
         color: 'var(--netdive-detail-text)',
-        fontSize: 12.5,
+        fontSize: 13,
         lineHeight: 1.35,
-        fontWeight: 700,
+        fontWeight: 800,
         overflow: 'hidden',
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap'
     },
-    kubernetesNodeRole: {
-        color: 'var(--netdive-detail-text)',
-        fontSize: 12,
-        lineHeight: 1.2,
-        fontWeight: 700,
-        whiteSpace: 'nowrap'
+    kubernetesNodeMetaLine: {
+        display: 'flex',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: theme.spacing(0.75),
+        color: 'var(--netdive-detail-muted, #64748b)',
+        fontSize: 11.5,
+        lineHeight: 1.3,
+        fontWeight: 650,
+        '& span': {
+            display: 'inline-flex',
+            alignItems: 'center',
+            maxWidth: '100%',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap'
+        }
     },
     kubernetesNodeStatusBadge: {
         display: 'inline-flex',
@@ -896,13 +927,6 @@ export const styles = (theme: Theme) => createStyles({
         color: '#dc2626',
         background: 'rgba(254, 226, 226, 0.92)',
         border: '1px solid rgba(252, 165, 165, 0.82)'
-    },
-    kubernetesNodeVersion: {
-        color: 'var(--netdive-detail-text)',
-        fontSize: 12,
-        lineHeight: 1.2,
-        fontWeight: 700,
-        whiteSpace: 'nowrap'
     },
     kubernetesNodeMoveButton: {
         border: '1px solid rgba(59, 130, 246, 0.28)',
@@ -944,7 +968,8 @@ export const styles = (theme: Theme) => createStyles({
         display: 'flex',
         justifyContent: 'flex-end',
         gap: theme.spacing(0.9),
-        paddingTop: theme.spacing(0.4)
+        paddingTop: theme.spacing(0.8),
+        borderTop: '1px solid var(--netdive-detail-border-subtle, rgba(226, 232, 240, 0.72))'
     },
     kubernetesNodePickerPrimaryAction: {
         border: '1px solid rgba(37, 99, 235, 0.28)',
