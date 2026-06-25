@@ -13,6 +13,9 @@ import RouterIcon from '@material-ui/icons/Router'
 import AccountTreeIcon from '@material-ui/icons/AccountTree'
 import SearchIcon from '@material-ui/icons/Search'
 import CloseIcon from '@material-ui/icons/Close'
+import KeyboardArrowRightIcon from '@material-ui/icons/KeyboardArrowRight'
+import KeyboardArrowDownIcon from '@material-ui/icons/KeyboardArrowDown'
+import DeviceHubOutlinedIcon from '@material-ui/icons/DeviceHubOutlined'
 import { withStyles } from '@material-ui/core/styles'
 
 import { Node } from '../Topology'
@@ -92,6 +95,7 @@ interface KubernetesNodePickerItem {
     clusterName: string
     status: string
     role: string
+    version: string
 }
 
 interface PillItem {
@@ -190,6 +194,14 @@ const collectLookupSet = (...values: any[]): Set<string> => {
         })
     })
     return set
+}
+
+const getByPath = (value: any, path: string): any => {
+    if (!value || !path) return undefined
+    return path.split('.').reduce((current, key) => {
+        if (current === undefined || current === null) return undefined
+        return current[key]
+    }, value)
 }
 
 class HostDetailPanel extends React.Component<Props, State> {
@@ -972,13 +984,18 @@ class HostDetailPanel extends React.Component<Props, State> {
         return this.hostKubernetesNodes()
             .map((node) => {
                 const cluster = this.kubernetesClusterForNode(node, topologyLinks, topologyNodeMap)
+                const version = firstValue(node.data, ['KubeletVersion', 'kubeletVersion', 'Version', 'version'])
+                    || stringify(getByPath(node.data, 'K8s.Extra.Status.NodeInfo.KubeletVersion'))
+                    || stringify(getByPath(node.data, 'K8s.Extra.Status.NodeInfo.KubeProxyVersion'))
+                    || stringify(getByPath(node.data, 'K8s.Extra.Status.NodeInfo.ContainerRuntimeVersion'))
                 return {
                     id: node.id,
                     name: firstValue(node.data, ['Name', 'Hostname', 'HostName', 'NodeName', 'nodeName', 'KubeletHostname', 'kubeletHostname']) || node.id,
                     clusterId: cluster?.id || 'unassigned',
                     clusterName: cluster?.name || 'Unknown Cluster',
                     status: this.kubernetesNodeStatus(node),
-                    role: this.kubernetesNodeRole(node)
+                    role: this.kubernetesNodeRole(node),
+                    version: version || '-'
                 }
             })
             .sort((a, b) => {
@@ -1014,12 +1031,19 @@ class HostDetailPanel extends React.Component<Props, State> {
             <Dialog
                 open={!!this.state.kubernetesNodePickerOpen}
                 onClose={() => this.closeKubernetesNodePicker()}
-                maxWidth="sm"
+                maxWidth="md"
                 fullWidth
                 classes={{ paper: classes.kubernetesNodePickerDialog }}>
                 <DialogContent className={classes.kubernetesNodePickerContent}>
                     <div className={classes.kubernetesNodePickerHeader}>
-                        <div className={classes.kubernetesNodePickerTitle}>Kubernetes 노드 이동 대상</div>
+                        <div className={classes.kubernetesNodePickerHeaderBlock}>
+                            <div className={classes.kubernetesNodePickerTitle}>Kubernetes 노드 선택</div>
+                            <div className={classes.kubernetesNodePickerDescription}>
+                                이 호스트에 배치된 Kubernetes 노드입니다.
+                                <br />
+                                이동할 노드를 선택하거나 전체 노드를 강조할 수 있습니다.
+                            </div>
+                        </div>
                         <IconButton
                             className={classes.kubernetesNodePickerClose}
                             onClick={() => this.closeKubernetesNodePicker()}
@@ -1027,14 +1051,38 @@ class HostDetailPanel extends React.Component<Props, State> {
                             <CloseIcon />
                         </IconButton>
                     </div>
-                    <div className={classes.kubernetesNodePickerSearch}>
-                        <SearchIcon />
-                        <input
-                            className={classes.kubernetesNodePickerSearchInput}
-                            type="text"
-                            value={this.state.kubernetesNodePickerQuery || ''}
-                            onChange={(event) => this.setState({ kubernetesNodePickerQuery: event.target.value })}
-                            placeholder={translate('kubernetesNodeSelectorSearchPlaceholder')} />
+                    <div className={classes.kubernetesNodePickerToolbar}>
+                        <div className={classes.kubernetesNodePickerSearch}>
+                            <SearchIcon />
+                            <input
+                                className={classes.kubernetesNodePickerSearchInput}
+                                type="text"
+                                value={this.state.kubernetesNodePickerQuery || ''}
+                                onChange={(event) => this.setState({ kubernetesNodePickerQuery: event.target.value })}
+                                placeholder={translate('kubernetesNodeSelectorSearchPlaceholder')} />
+                        </div>
+                        <button
+                            type="button"
+                            className={classes.kubernetesNodePickerFilterButton}
+                            onClick={() => this.setState({ kubernetesNodePickerQuery: '' })}>
+                            {translate('filter')}
+                        </button>
+                    </div>
+                    <div className={classes.kubernetesNodePickerSummary}>
+                        <span>{translate('kubernetesNodeSelectorClusterCountLabel')} <strong>{grouped.size}</strong></span>
+                        <span>{translate('kubernetesNodeSelectorNodeCountLabel')} <strong>{options.length}</strong></span>
+                        <button
+                            type="button"
+                            className={classes.kubernetesNodePickerExpandAllButton}
+                            onClick={() => {
+                                const nextState: Record<string, boolean> = {}
+                                Array.from(grouped.keys()).forEach((clusterId) => {
+                                    nextState[clusterId] = true
+                                })
+                                this.setState({ kubernetesNodePickerExpanded: nextState })
+                            }}>
+                            {translate('kubernetesNodeSelectorExpandAll')}
+                        </button>
                     </div>
                     <div className={classes.kubernetesNodePickerBody}>
                         {!grouped.size && (
@@ -1046,21 +1094,46 @@ class HostDetailPanel extends React.Component<Props, State> {
                         )}
                         {Array.from(grouped.entries()).map(([clusterId, group]) => {
                             const expanded = !!this.state.kubernetesNodePickerExpanded?.[clusterId]
+                            const groupExpandable = group.items.length > 3
                             const visibleItems = expanded ? group.items : group.items.slice(0, 3)
                             const hiddenCount = Math.max(0, group.items.length - visibleItems.length)
                             return (
                                 <div className={classes.kubernetesNodeClusterGroup} key={clusterId}>
-                                    <div className={classes.kubernetesNodeClusterHeader}>
-                                        <span className={classes.kubernetesNodeClusterName}>{group.clusterName}</span>
-                                        <span className={classes.kubernetesNodeClusterCount}>{group.items.length}</span>
+                                    <div
+                                        className={`${classes.kubernetesNodeClusterHeader} ${groupExpandable ? classes.kubernetesNodeClusterHeaderClickable : ''}`}
+                                        onClick={() => {
+                                            if (!groupExpandable) return
+                                            this.setState({
+                                                kubernetesNodePickerExpanded: {
+                                                    ...(this.state.kubernetesNodePickerExpanded || {}),
+                                                    [clusterId]: !expanded
+                                                }
+                                            })
+                                        }}>
+                                        <div className={classes.kubernetesNodeClusterHeaderMain}>
+                                            {groupExpandable ? (expanded ? <KeyboardArrowDownIcon /> : <KeyboardArrowRightIcon />) : <KeyboardArrowDownIcon />}
+                                            <span className={classes.kubernetesNodeClusterIcon}><DeviceHubOutlinedIcon /></span>
+                                            <span className={classes.kubernetesNodeClusterName}>{group.clusterName}</span>
+                                            <span className={classes.kubernetesNodeClusterCount}>{group.items.length}{translate('kubernetesNodeSelectorCountSuffix')}</span>
+                                        </div>
+                                    </div>
+                                    <div className={classes.kubernetesNodeTableHead}>
+                                        <span>{translate('nodeName')}</span>
+                                        <span>{translate('role')}</span>
+                                        <span>{translate('status')}</span>
+                                        <span>{translate('version')}</span>
+                                        <span>{translate('kubernetesActions')}</span>
                                     </div>
                                     <div className={classes.kubernetesNodeList}>
                                         {visibleItems.map(item => (
                                             <div className={classes.kubernetesNodeRow} key={item.id}>
-                                                <span className={`${classes.kubernetesNodeStatusDot} ${item.status === 'Ready' ? classes.kubernetesNodeStatusReady : classes.kubernetesNodeStatusMuted}`} />
-                                                <span className={classes.kubernetesNodeName} title={item.name}>{item.name}</span>
-                                                <span className={`${classes.kubernetesNodeStatus} ${item.status === 'Ready' ? classes.kubernetesNodeStatusReadyText : classes.kubernetesNodeStatusMutedText}`}>{item.status}</span>
+                                                <div className={classes.kubernetesNodeNameWrap}>
+                                                    <span className={`${classes.kubernetesNodeStatusDot} ${item.status === 'Ready' ? classes.kubernetesNodeStatusReady : classes.kubernetesNodeStatusNotReady}`} />
+                                                    <span className={classes.kubernetesNodeName} title={item.name}>{item.name}</span>
+                                                </div>
                                                 <span className={classes.kubernetesNodeRole}>{item.role}</span>
+                                                <span className={`${classes.kubernetesNodeStatusBadge} ${item.status === 'Ready' ? classes.kubernetesNodeStatusBadgeReady : classes.kubernetesNodeStatusBadgeNotReady}`}>{item.status}</span>
+                                                <span className={classes.kubernetesNodeVersion}>{item.version}</span>
                                                 <button
                                                     type="button"
                                                     className={classes.kubernetesNodeMoveButton}
@@ -1068,7 +1141,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                                                         this.closeKubernetesNodePicker()
                                                         this.focusKubernetesNodeIDs([item.id])
                                                     }}>
-                                                    {translate('move')}
+                                                    {translate('move')} →
                                                 </button>
                                             </div>
                                         ))}
@@ -1083,7 +1156,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                                                     [clusterId]: true
                                                 }
                                             })}>
-                                            +{hiddenCount}{translate('kubernetesNodeSelectorMoreSuffix')}
+                                            {translate('kubernetesNodeSelectorRemainingPrefix')} {hiddenCount}{translate('kubernetesNodeSelectorRemainingSuffix')}
                                         </button>
                                     )}
                                 </div>
@@ -1093,7 +1166,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                     <div className={classes.kubernetesNodePickerActions}>
                         <button
                             type="button"
-                            className={classes.kubernetesNodePickerPrimaryAction}
+                            className={classes.kubernetesNodePickerSecondaryAction}
                             disabled={allOptions.length === 0}
                             onClick={() => {
                                 this.closeKubernetesNodePicker()
@@ -1103,7 +1176,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                         </button>
                         <button
                             type="button"
-                            className={classes.kubernetesNodePickerSecondaryAction}
+                            className={classes.kubernetesNodePickerPrimaryAction}
                             onClick={() => this.closeKubernetesNodePicker()}>
                             {translate('close')}
                         </button>
