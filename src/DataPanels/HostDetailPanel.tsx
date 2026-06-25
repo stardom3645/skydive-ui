@@ -1048,10 +1048,20 @@ class HostDetailPanel extends React.Component<Props, State> {
             if (status === 'NotReady') return classes.kubernetesNodeStatusBadgeNotReady
             return classes.kubernetesNodeStatusBadgeUnknown
         }
+        const statusLabel = (status: string) => {
+            if (status === 'Unknown') return '상태 미확인'
+            return status
+        }
         const statusDotClass = (status: string) => {
             if (status === 'Ready') return classes.kubernetesNodeStatusReady
             if (status === 'NotReady') return classes.kubernetesNodeStatusNotReady
             return classes.kubernetesNodeStatusUnknown
+        }
+        const roleLabel = (role: string) => {
+            if (role === 'worker') return 'Worker Node'
+            if (role === 'control-plane') return 'Control Plane'
+            if (role === 'master') return 'Master Node'
+            return role
         }
         const moveToNode = (id: string) => {
             this.closeKubernetesNodePicker()
@@ -1072,11 +1082,11 @@ class HostDetailPanel extends React.Component<Props, State> {
                 <div className={classes.kubernetesNodePickerContent} ref={this.kubernetesNodePickerRef}>
                     <div className={classes.kubernetesNodePickerHeader}>
                         <div className={classes.kubernetesNodePickerHeaderBlock}>
-                            <div className={classes.kubernetesNodePickerTitle}>Kubernetes 노드 선택</div>
+                            <div className={classes.kubernetesNodePickerTitle}>Kubernetes 노드 탐색</div>
                             <div className={classes.kubernetesNodePickerDescription}>
-                                이 호스트에 배치된 Kubernetes 노드입니다.
+                                이 호스트에 배치된 Kubernetes 노드를 Cluster 기준으로 탐색합니다.
                                 <br />
-                                이동할 노드를 선택하거나 전체 노드를 강조할 수 있습니다.
+                                원하는 Node Row를 선택하면 해당 Kubernetes 노드로 이동합니다.
                             </div>
                         </div>
                         <IconButton
@@ -1111,11 +1121,11 @@ class HostDetailPanel extends React.Component<Props, State> {
                     </div>
                     <div className={classes.kubernetesNodePickerSummary}>
                         <div className={classes.kubernetesNodePickerSummaryItem}>
-                            <span className={classes.kubernetesNodePickerSummaryLabel}>{translate('kubernetesNodeSelectorClusterCountLabel')}</span>
+                            <span className={classes.kubernetesNodePickerSummaryLabel}>{translate('kubernetesNodeSelectorClusterCountLabel').replace(/^전체\s*/, '')}</span>
                             <strong>{grouped.size}</strong>
                         </div>
                         <div className={classes.kubernetesNodePickerSummaryItem}>
-                            <span className={classes.kubernetesNodePickerSummaryLabel}>{translate('kubernetesNodeSelectorNodeCountLabel')}</span>
+                            <span className={classes.kubernetesNodePickerSummaryLabel}>{translate('kubernetesNodeSelectorNodeCountLabel').replace(/^전체\s*/, '')}</span>
                             <strong>{options.length}</strong>
                         </div>
                     </div>
@@ -1132,9 +1142,6 @@ class HostDetailPanel extends React.Component<Props, State> {
                             const groupExpandable = group.items.length > 3
                             const visibleItems = expanded ? group.items : group.items.slice(0, 3)
                             const hiddenCount = Math.max(0, group.items.length - visibleItems.length)
-                            const readyCount = group.items.filter(item => item.status === 'Ready').length
-                            const notReadyCount = group.items.filter(item => item.status === 'NotReady').length
-                            const unknownCount = Math.max(0, group.items.length - readyCount - notReadyCount)
                             return (
                                 <div className={classes.kubernetesNodeClusterGroup} key={clusterId}>
                                     <div
@@ -1153,12 +1160,8 @@ class HostDetailPanel extends React.Component<Props, State> {
                                             <span className={classes.kubernetesNodeClusterIcon}><DeviceHubOutlinedIcon /></span>
                                             <div className={classes.kubernetesNodeClusterTitleBlock}>
                                                 <span className={classes.kubernetesNodeClusterName}>{group.clusterName}</span>
-                                                <span className={classes.kubernetesNodeClusterMeta}>{group.items.length}{translate('kubernetesNodeSelectorCountSuffix')} · Kubernetes Cluster</span>
+                                                <span className={classes.kubernetesNodeClusterMeta}>Kubernetes Cluster {'>'} Node {group.items.length}{translate('kubernetesNodeSelectorCountSuffix')}</span>
                                             </div>
-                                        </div>
-                                        <div className={classes.kubernetesNodeClusterStatusSummary}>
-                                            <span className={`${classes.kubernetesNodeClusterStatusChip} ${classes.kubernetesNodeClusterStatusReady}`}>Ready {readyCount}</span>
-                                            <span className={`${classes.kubernetesNodeClusterStatusChip} ${notReadyCount > 0 ? classes.kubernetesNodeClusterStatusNotReady : classes.kubernetesNodeClusterStatusUnknown}`}>{notReadyCount > 0 ? `NotReady ${notReadyCount}` : `Unknown ${unknownCount}`}</span>
                                         </div>
                                     </div>
                                     <div className={classes.kubernetesNodeClusterBody}>
@@ -1187,9 +1190,9 @@ class HostDetailPanel extends React.Component<Props, State> {
                                                             <span className={`${classes.kubernetesNodeStatusDot} ${statusDotClass(item.status)}`} />
                                                             <span className={classes.kubernetesNodeName} title={item.name}>{item.name}</span>
                                                         </div>
-                                                        <span className={classes.kubernetesNodeRoleCell}>{item.role}</span>
+                                                        <span className={classes.kubernetesNodeRoleCell}>{roleLabel(item.role)}</span>
                                                         <span className={classes.kubernetesNodeVersionCell} title={item.version}>{item.version}</span>
-                                                        <span className={`${classes.kubernetesNodeStatusBadge} ${statusBadgeClass(item.status)}`}>{item.status}</span>
+                                                        <span className={`${classes.kubernetesNodeStatusBadge} ${statusBadgeClass(item.status)}`}>{statusLabel(item.status)}</span>
                                                     </div>
                                                 ))}
                                             </div>
