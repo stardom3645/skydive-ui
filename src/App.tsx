@@ -3242,6 +3242,15 @@ class App extends React.Component<Props, State> {
     this.tc.focusInfrastructureNodes(nodeIDs)
   }
 
+  private selectInfrastructureNodeID(nodeID: string) {
+    if (!this.tc || !nodeID) {
+      return
+    }
+    this.syncTopologyNodeTagForNodes([nodeID])
+    this.tc.focusInfrastructureNodes([nodeID])
+    this.tc.selectNode(nodeID, true)
+  }
+
   private infrastructureIcon(glyph: string, tone: string, badge?: string) {
     const colors: Record<string, string> = {
       host: "#3b82f6",
