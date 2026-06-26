@@ -195,7 +195,7 @@ const kubernetesNodeExplorerStyles = `
     outline: 0;
     background: transparent;
     color: #0f172a;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 550;
 }
 .netdive-k8s-explorer-search input::placeholder {
@@ -206,7 +206,7 @@ const kubernetesNodeExplorerStyles = `
     min-width: 76px;
     border-radius: 8px;
     padding: 0 9px;
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1;
     font-weight: 800;
     display: inline-flex;
@@ -281,7 +281,7 @@ const kubernetesNodeExplorerStyles = `
 .netdive-k8s-explorer-summary-label {
     display: block;
     color: #64748b;
-    font-size: 11px;
+    font-size: 13px;
     line-height: 1.12;
     font-weight: 800;
 }
@@ -367,7 +367,7 @@ const kubernetesNodeExplorerStyles = `
     display: block;
     overflow: hidden;
     color: #111827;
-    font-size: 11.75px;
+    font-size: 13.5px;
     line-height: 1.18;
     font-weight: 850;
     text-overflow: ellipsis;
@@ -433,7 +433,7 @@ const kubernetesNodeExplorerStyles = `
     display: block;
     overflow: hidden;
     color: #111827;
-    font-size: 11px;
+    font-size: 12.5px;
     line-height: 1.2;
     font-weight: 800;
     text-overflow: ellipsis;
