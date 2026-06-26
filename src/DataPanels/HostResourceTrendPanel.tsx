@@ -298,6 +298,18 @@ const firstValue = (data: any, keys: string[]): string => {
     return ''
 }
 
+const firstAddressValue = (data: any, keys: string[]): string => {
+    for (const key of keys) {
+        const value = data?.[key]
+        const candidates = Array.isArray(value) ? value : [value]
+        for (const candidate of candidates) {
+            const text = stringify(candidate)
+            if (text) return text
+        }
+    }
+    return ''
+}
+
 class HostResourceTrendPanel extends React.Component<Props, State> {
     state: State = {
         loading: false,
@@ -337,7 +349,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
     private hostQueryKey(node = this.props.node, data = this.props.data): string {
         const detail = data || node.data || {}
         const name = firstValue(detail, ['Name', 'Hostname', 'HostName']) || node.id
-        const managementIp = firstValue(detail, ['ManagementIP', 'ManagementIp', 'managementIp', 'IpAddress', 'ipaddress'])
+        const managementIp = firstAddressValue(detail, ['ManagementIP', 'ManagementIp', 'managementIp', 'IpAddress', 'ipaddress', 'IPV4', 'IPv4', 'ipv4', 'IfAddr'])
         return `${node.id}:${name}:${managementIp}`
     }
 
@@ -345,7 +357,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         const { node, data } = this.props
         const detail = data || node.data || {}
         const name = firstValue(detail, ['Name', 'Hostname', 'HostName']) || node.id
-        const managementIp = firstValue(detail, ['ManagementIP', 'ManagementIp', 'managementIp', 'IpAddress', 'ipaddress'])
+        const managementIp = firstAddressValue(detail, ['ManagementIP', 'ManagementIp', 'managementIp', 'IpAddress', 'ipaddress', 'IPV4', 'IPv4', 'ipv4', 'IfAddr'])
         const host = firstValue(detail, ['Hostname', 'HostName', 'Name']) || name
         const trendRange = this.state.trendRange
         const loadedFor = `${this.hostQueryKey(node, data)}:${trendRange}`
