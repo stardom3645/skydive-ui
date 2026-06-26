@@ -1,3 +1,14 @@
+/*
+v12 Changes:
+- Unified Kubernetes icon hierarchy:
+  * Header: Kubernetes icon
+  * Summary Cluster: Cluster icon (same style as list)
+  * Summary Node: Node icon (same style as node rows)
+  * Cluster header: Cluster icon uses same light container as summary
+  * Node rows: Node icon uses identical SVG/background as summary node icon
+- Host Detail Kubernetes card updated to Node icon.
+- Preserve v11 typography.
+*/
 import * as React from 'react'
 import IconButton from '@material-ui/core/IconButton'
 import Tooltip from '@material-ui/core/Tooltip'
