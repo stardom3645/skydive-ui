@@ -30,6 +30,7 @@ interface Props {
     session?: session
     moldInventory?: any
     infrastructureHostSummaries?: Record<string, any>
+    kubernetesClusters?: any[]
 }
 
 interface State {
@@ -1063,6 +1064,18 @@ class HostDetailPanel extends React.Component<Props, State> {
             if (role === 'master') return 'master'
             return role
         }
+        const clusterMoldState = (clusterId: string, clusterName: string) => {
+            const cluster = (this.props.kubernetesClusters || []).find(item => {
+                const id = String(item?.id || item?.ID || '').toLowerCase()
+                const name = String(item?.name || item?.Name || '').toLowerCase()
+                return id === clusterId.toLowerCase() || name === clusterName.toLowerCase()
+            })
+            const state = String(cluster?.state || cluster?.State || '').toLowerCase()
+            if (state === 'running') return translate('moldStateRunning')
+            if (state === 'stopped') return translate('moldStateStopped')
+            if (state === 'error') return translate('moldStateError')
+            return cluster?.state || cluster?.State || '-'
+        }
         const moveToNode = (id: string) => {
             this.closeKubernetesNodePicker()
             this.focusKubernetesNodeIDs([id])
@@ -1104,6 +1117,18 @@ class HostDetailPanel extends React.Component<Props, State> {
                                 onChange={(event) => this.setState({ kubernetesNodePickerQuery: event.target.value })}
                                 placeholder={translate('kubernetesNodeSelectorSearchPlaceholder')} />
                         </div>
+                    </div>
+                    <div className={classes.kubernetesNodePickerSummary}>
+                        <div className={classes.kubernetesNodePickerSummaryGroup}>
+                            <div className={classes.kubernetesNodePickerSummaryItem}>
+                                <span className={classes.kubernetesNodePickerSummaryLabel}>{translate('kubernetesNodeSelectorClusterCountLabel').replace(/^전체\s*/, '')}</span>
+                                <strong>{grouped.size}</strong>
+                            </div>
+                            <div className={classes.kubernetesNodePickerSummaryItem}>
+                                <span className={classes.kubernetesNodePickerSummaryLabel}>{translate('kubernetesNodeSelectorNodeCountLabel').replace(/^전체\s*/, '')}</span>
+                                <strong>{options.length}</strong>
+                            </div>
+                        </div>
                         <button
                             type="button"
                             className={classes.kubernetesNodePickerExpandAllButton}
@@ -1116,16 +1141,6 @@ class HostDetailPanel extends React.Component<Props, State> {
                             }}>
                             {translate('kubernetesNodeSelectorExpandAll')}
                         </button>
-                    </div>
-                    <div className={classes.kubernetesNodePickerSummary}>
-                        <div className={classes.kubernetesNodePickerSummaryItem}>
-                            <span className={classes.kubernetesNodePickerSummaryLabel}>{translate('kubernetesNodeSelectorClusterCountLabel').replace(/^전체\s*/, '')}</span>
-                            <strong>{grouped.size}</strong>
-                        </div>
-                        <div className={classes.kubernetesNodePickerSummaryItem}>
-                            <span className={classes.kubernetesNodePickerSummaryLabel}>{translate('kubernetesNodeSelectorNodeCountLabel').replace(/^전체\s*/, '')}</span>
-                            <strong>{options.length}</strong>
-                        </div>
                     </div>
                     <div className={classes.kubernetesNodePickerBody}>
                         {!grouped.size && (
@@ -1140,6 +1155,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                             const groupExpandable = group.items.length > 3
                             const visibleItems = expanded ? group.items : group.items.slice(0, 3)
                             const hiddenCount = Math.max(0, group.items.length - visibleItems.length)
+                            const moldState = clusterMoldState(clusterId, group.clusterName)
                             return (
                                 <div className={classes.kubernetesNodeClusterGroup} key={clusterId}>
                                     <div
@@ -1158,19 +1174,13 @@ class HostDetailPanel extends React.Component<Props, State> {
                                             <span className={classes.kubernetesNodeClusterIcon}><DeviceHubOutlinedIcon /></span>
                                             <div className={classes.kubernetesNodeClusterTitleBlock}>
                                                 <span className={classes.kubernetesNodeClusterName}>{group.clusterName}</span>
-                                                <span className={classes.kubernetesNodeClusterMeta}>Node {group.items.length}{translate('kubernetesNodeSelectorCountSuffix')}</span>
+                                                <span className={classes.kubernetesNodeClusterMeta}>Node {group.items.length}{translate('kubernetesNodeSelectorCountSuffix')} · Mold {moldState}</span>
                                             </div>
                                         </div>
                                     </div>
                                     <div className={classes.kubernetesNodeClusterBody}>
                                         <div className={classes.kubernetesNodeListSection}>
                                             <div className={classes.kubernetesNodeList}>
-                                                <div className={classes.kubernetesNodeListHeader}>
-                                                    <span>노드명</span>
-                                                    <span>{translate('role')}</span>
-                                                    <span>{translate('version')}</span>
-                                                    <span>{translate('status')}</span>
-                                                </div>
                                                 {visibleItems.map(item => (
                                                     <div
                                                         className={classes.kubernetesNodeRow}
@@ -1186,10 +1196,11 @@ class HostDetailPanel extends React.Component<Props, State> {
                                                         }}>
                                                         <div className={classes.kubernetesNodeNameWrap}>
                                                             <span className={`${classes.kubernetesNodeStatusDot} ${statusDotClass(item.status)}`} />
-                                                            <span className={classes.kubernetesNodeName} title={item.name}>{item.name}</span>
+                                                            <div className={classes.kubernetesNodeNodeText}>
+                                                                <span className={classes.kubernetesNodeName} title={item.name}>{item.name}</span>
+                                                                <span className={classes.kubernetesNodeMetaLine}>{roleLabel(item.role)} · {item.version}</span>
+                                                            </div>
                                                         </div>
-                                                        <span className={classes.kubernetesNodeRoleCell}>{roleLabel(item.role)}</span>
-                                                        <span className={classes.kubernetesNodeVersionCell} title={item.version}>{item.version}</span>
                                                         <span className={`${classes.kubernetesNodeStatusBadge} ${statusBadgeClass(item.status)}`}>{statusLabel(item.status)}</span>
                                                     </div>
                                                 ))}

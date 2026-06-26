@@ -661,12 +661,8 @@ export const styles = (theme: Theme) => createStyles({
         }
     },
     kubernetesNodePickerToolbar: {
-        display: 'grid',
-        gridTemplateColumns: 'minmax(0, 0.8fr) auto',
-        gap: theme.spacing(0.9),
-        alignItems: 'center',
+        display: 'block',
         [theme.breakpoints.down('sm')]: {
-            gridTemplateColumns: '1fr',
             '& button': {
                 width: '100%'
             }
@@ -676,9 +672,9 @@ export const styles = (theme: Theme) => createStyles({
         display: 'flex',
         alignItems: 'center',
         gap: theme.spacing(0.75),
-        minHeight: 38,
+        minHeight: 36,
         padding: theme.spacing(0, 1),
-        borderRadius: 8,
+        borderRadius: 7,
         border: '1px solid rgba(203, 213, 225, 0.88)',
         background: '#ffffff',
         boxShadow: '0 2px 8px rgba(15, 23, 42, 0.035)',
@@ -720,25 +716,32 @@ export const styles = (theme: Theme) => createStyles({
         }
     },
     kubernetesNodePickerSummary: {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+        display: 'flex',
         alignItems: 'center',
-        gap: theme.spacing(0.8),
-        padding: theme.spacing(0.25, 0),
+        justifyContent: 'space-between',
+        gap: theme.spacing(1),
+        padding: theme.spacing(0.2, 0),
         color: 'var(--netdive-detail-muted, #64748b)',
         [theme.breakpoints.down('sm')]: {
-            gridTemplateColumns: '1fr'
+            alignItems: 'stretch',
+            flexDirection: 'column'
         },
         '& strong': {
             color: 'var(--topology-level-label-active-text)',
-            fontSize: 16,
+            fontSize: 15,
             lineHeight: 1,
             fontWeight: 850
         }
     },
+    kubernetesNodePickerSummaryGroup: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: theme.spacing(0.65)
+    },
     kubernetesNodePickerSummaryItem: {
-        minHeight: 38,
-        padding: theme.spacing(0.65, 0.9),
+        minHeight: 32,
+        minWidth: 86,
+        padding: theme.spacing(0.45, 0.75),
         borderRadius: 8,
         border: '1px solid var(--netdive-detail-border-soft)',
         background: 'var(--netdive-detail-soft-card, #fbfdff)',
@@ -755,9 +758,9 @@ export const styles = (theme: Theme) => createStyles({
         fontWeight: 780
     },
     kubernetesNodePickerExpandAllButton: {
-        minHeight: 38,
-        padding: '0 13px',
-        borderRadius: 8,
+        minHeight: 34,
+        padding: '0 12px',
+        borderRadius: 7,
         border: '1px solid rgba(59, 130, 246, 0.24)',
         background: '#ffffff',
         color: 'var(--topology-level-label-active-text)',
@@ -783,7 +786,7 @@ export const styles = (theme: Theme) => createStyles({
     },
     kubernetesNodeClusterGroup: {
         border: '1px solid rgba(203, 213, 225, 0.82)',
-        borderRadius: 16,
+        borderRadius: 12,
         background: 'var(--netdive-detail-card-bg, #ffffff)',
         overflow: 'hidden',
         boxShadow: '0 8px 20px rgba(15, 23, 42, 0.05)'
@@ -791,8 +794,8 @@ export const styles = (theme: Theme) => createStyles({
     kubernetesNodeClusterBody: {
         display: 'flex',
         flexDirection: 'column',
-        gap: theme.spacing(1),
-        padding: theme.spacing(1, 1.1, 1),
+        gap: theme.spacing(0.75),
+        padding: theme.spacing(0.75, 0.85, 0.85),
         background: 'var(--netdive-detail-card-bg, #ffffff)'
     },
     kubernetesNodeClusterHeader: {
@@ -800,7 +803,7 @@ export const styles = (theme: Theme) => createStyles({
         alignItems: 'center',
         justifyContent: 'space-between',
         gap: theme.spacing(1.2),
-        padding: theme.spacing(1.15, 1.25),
+        padding: theme.spacing(0.85, 1),
         borderBottom: '1px solid var(--netdive-detail-border-subtle, rgba(226, 232, 240, 0.68))',
         background: 'linear-gradient(180deg, rgba(239, 246, 255, 0.96) 0%, rgba(255, 255, 255, 0.98) 100%)',
         borderLeft: '2px solid rgba(37, 99, 235, 0.68)',
@@ -824,9 +827,9 @@ export const styles = (theme: Theme) => createStyles({
         }
     },
     kubernetesNodeClusterIcon: {
-        width: 30,
-        height: 30,
-        borderRadius: 10,
+        width: 28,
+        height: 28,
+        borderRadius: 9,
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -845,7 +848,7 @@ export const styles = (theme: Theme) => createStyles({
     },
     kubernetesNodeClusterName: {
         color: 'var(--netdive-detail-title)',
-        fontSize: 14.2,
+        fontSize: 13.4,
         lineHeight: 1.2,
         fontWeight: 840,
         minWidth: 0,
@@ -865,7 +868,7 @@ export const styles = (theme: Theme) => createStyles({
         padding: 0,
         background: '#ffffff',
         border: '1px solid rgba(226, 232, 240, 0.72)',
-        borderRadius: 10,
+        borderRadius: 8,
         overflow: 'hidden'
     },
     kubernetesNodeListSection: {
@@ -873,37 +876,13 @@ export const styles = (theme: Theme) => createStyles({
         flexDirection: 'column',
         gap: 0
     },
-    kubernetesNodeListHeader: {
-        display: 'grid',
-        gridTemplateColumns: 'minmax(0, 1fr) 92px 104px 96px',
-        alignItems: 'center',
-        columnGap: theme.spacing(1.2),
-        minHeight: 36,
-        padding: theme.spacing(0, 1.15),
-        borderBottom: '1px solid rgba(226, 232, 240, 0.74)',
-        background: 'rgba(248, 250, 252, 0.78)',
-        color: 'var(--netdive-detail-muted, #64748b)',
-        fontSize: 10.8,
-        lineHeight: 1.2,
-        fontWeight: 800,
-        letterSpacing: '0.01em',
-        '& span:nth-child(2), & span:nth-child(3)': {
-            justifySelf: 'start'
-        },
-        '& span:last-child': {
-            justifySelf: 'end'
-        },
-        [theme.breakpoints.down('sm')]: {
-            display: 'none'
-        }
-    },
     kubernetesNodeRow: {
         display: 'grid',
-        gridTemplateColumns: 'minmax(0, 1fr) 92px 104px 96px',
+        gridTemplateColumns: 'minmax(0, 1fr) auto',
         alignItems: 'center',
-        columnGap: theme.spacing(1.2),
-        minHeight: 48,
-        padding: theme.spacing(0.78, 1.15),
+        columnGap: theme.spacing(1),
+        minHeight: 42,
+        padding: theme.spacing(0.65, 0.85),
         borderTop: '1px solid rgba(226, 232, 240, 0.52)',
         borderLeft: '2px solid transparent',
         borderRight: '2px solid transparent',
@@ -930,7 +909,7 @@ export const styles = (theme: Theme) => createStyles({
             gridTemplateAreas: '"name status" "role role"',
             rowGap: theme.spacing(0.45),
             alignItems: 'center',
-            minHeight: 58
+            minHeight: 54
         }
     },
     kubernetesNodeCardMain: {
@@ -977,12 +956,18 @@ export const styles = (theme: Theme) => createStyles({
     kubernetesNodeName: {
         minWidth: 0,
         color: 'var(--netdive-detail-text)',
-        fontSize: 12.7,
+        fontSize: 12.4,
         lineHeight: 1.35,
         fontWeight: 800,
         overflow: 'hidden',
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap'
+    },
+    kubernetesNodeNodeText: {
+        minWidth: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 2
     },
     kubernetesNodeMetaLine: {
         display: 'flex',
@@ -990,7 +975,7 @@ export const styles = (theme: Theme) => createStyles({
         flexWrap: 'wrap',
         gap: theme.spacing(0.75),
         color: 'var(--netdive-detail-muted, #64748b)',
-        fontSize: 11.5,
+        fontSize: 10.9,
         lineHeight: 1.3,
         fontWeight: 650,
         '& span': {
@@ -1034,11 +1019,11 @@ export const styles = (theme: Theme) => createStyles({
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        minHeight: 24,
-        minWidth: 62,
-        padding: '0 9px',
+        minHeight: 22,
+        minWidth: 52,
+        padding: '0 8px',
         borderRadius: 999,
-        fontSize: 11,
+        fontSize: 10.8,
         lineHeight: 1,
         fontWeight: 800,
         whiteSpace: 'nowrap',

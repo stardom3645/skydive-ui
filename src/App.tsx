@@ -3975,7 +3975,7 @@ class App extends React.Component<Props, State> {
               square={true}>
               {!this.state.isTimetravelOpen &&
                 <SelectionPanel onLocation={this.onSelectionLocation.bind(this)} onClose={this.onSelectionClose.bind(this)} config={this.config}
-                  buttonsContent={this.actionButtons.bind(this)} panelsContent={this.dataPanels.bind(this)} moldInventory={this.state.moldInventory} infrastructureHostSummaries={infrastructureHostSummaries} />
+                  buttonsContent={this.actionButtons.bind(this)} panelsContent={this.dataPanels.bind(this)} moldInventory={this.state.moldInventory} infrastructureHostSummaries={infrastructureHostSummaries} kubernetesClusters={this.state.kubernetesClusters} />
               }
               {this.state.isTimetravelOpen &&
                 <TimetravelPanel config={this.config} onNavigate={this.onNavigate.bind(this)} />
