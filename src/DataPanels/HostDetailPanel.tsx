@@ -1614,14 +1614,14 @@ class HostDetailPanel extends React.Component<Props, State> {
 
                     <div className={`${classes.kubernetesNodePickerSummary} netdive-k8s-explorer-summary`}>
                         <div className={`${classes.kubernetesNodePickerSummaryItem} netdive-k8s-explorer-summary-card`}>
-                            {this.kubernetesIcon(`${classes.kubernetesNodePickerSummaryIcon} netdive-k8s-explorer-summary-icon`)}
+                            {this.kubernetesResourceIcon('cluster', `${classes.kubernetesNodePickerSummaryIcon} netdive-k8s-explorer-summary-icon`)}
                             <span>
                                 <span className={`${classes.kubernetesNodePickerSummaryLabel} netdive-k8s-explorer-summary-label`}>Cluster</span>
                                 <strong className="netdive-k8s-explorer-summary-count">{grouped.size}</strong>
                             </span>
                         </div>
                         <div className={`${classes.kubernetesNodePickerSummaryItem} netdive-k8s-explorer-summary-card`}>
-                            {this.kubernetesIcon(`${classes.kubernetesNodePickerSummaryIcon} netdive-k8s-explorer-summary-icon`)}
+                            {this.kubernetesResourceIcon('node', `${classes.kubernetesNodePickerSummaryIcon} netdive-k8s-explorer-summary-icon`)}
                             <span>
                                 <span className={`${classes.kubernetesNodePickerSummaryLabel} netdive-k8s-explorer-summary-label`}>Node</span>
                                 <strong className="netdive-k8s-explorer-summary-count">{options.length}</strong>
@@ -1656,7 +1656,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                                         <span className={`${classes.kubernetesNodeClusterInlineChevron} netdive-k8s-explorer-cluster-toggle`}>
                                             {expanded ? <KeyboardArrowDownIcon /> : <KeyboardArrowRightIcon />}
                                         </span>
-                                        {this.kubernetesIcon(`${classes.kubernetesNodeClusterIcon} netdive-k8s-explorer-cluster-logo`)}
+                                        {this.kubernetesResourceIcon('cluster', `${classes.kubernetesNodeClusterIcon} netdive-k8s-explorer-cluster-logo`)}
                                         <div className={classes.kubernetesNodeClusterTitleBlock}>
                                             <span className={`${classes.kubernetesNodeClusterName} netdive-k8s-explorer-cluster-name`}>{group.clusterName}</span>
                                             <span className={`${classes.kubernetesNodeClusterMeta} netdive-k8s-explorer-cluster-meta`}>{clusterMetaLabel(group.items)}</span>
@@ -1965,6 +1965,19 @@ class HostDetailPanel extends React.Component<Props, State> {
         )
     }
 
+    private kubernetesResourceIcon(kind: 'cluster' | 'node', className?: string) {
+        const glyph = kind === 'cluster' ? '\uf542' : '\uf233'
+        const color = kind === 'cluster' ? '#2563eb' : '#64748b'
+        return (
+            <span
+                className={`${className || ''} fa fas fa-fw`}
+                aria-hidden="true"
+                style={{ color, fontFamily: '"Font Awesome 5 Free"', fontWeight: 900, lineHeight: 1 }}>
+                {glyph}
+            </span>
+        )
+    }
+
     private renderPills(values: Array<string | PillItem>, emptyText: string) {
         const { classes } = this.props
         if (!values.length) return <div className={classes.emptyState}>{emptyText}</div>
@@ -2055,7 +2068,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                 label: translate('kubernetesTopologyNodes'),
                 description: kubernetesClusterNames.length > 0 ? kubernetesClusterNames.join(', ') : '',
                 value: String(kubernetesNodes.length),
-                icon: this.kubernetesIcon(classes.connectedResourceFaIcon),
+                icon: this.kubernetesResourceIcon('node', classes.connectedResourceFaIcon),
                 nodeIDs: kubernetesNodes.map(item => item.id),
                 onClick: () => this.openKubernetesNodePicker()
             }
