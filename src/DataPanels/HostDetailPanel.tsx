@@ -156,7 +156,7 @@ const kubernetesNodeExplorerStyles = `
 .netdive-k8s-explorer-description {
     margin-top: 4px;
     color: #64748b;
-    font-size: 10.5px;
+    font-size: 11px;
     line-height: 1.32;
     font-weight: 550;
 }
@@ -176,7 +176,7 @@ const kubernetesNodeExplorerStyles = `
     align-items: center;
 }
 .netdive-k8s-explorer-search {
-    height: 32px;
+    height: 34px;
     border: 1px solid #dbeafe;
     border-radius: 9px;
     background: #ffffff;
@@ -203,11 +203,11 @@ const kubernetesNodeExplorerStyles = `
     color: #94a3b8;
 }
 .netdive-k8s-explorer-action {
-    height: 32px;
-    min-width: 68px;
+    height: 34px;
+    min-width: 76px;
     border-radius: 8px;
-    padding: 0 8px;
-    font-size: 9px;
+    padding: 0 9px;
+    font-size: 11px;
     line-height: 1;
     font-weight: 800;
     display: inline-flex;
@@ -282,7 +282,7 @@ const kubernetesNodeExplorerStyles = `
 .netdive-k8s-explorer-summary-label {
     display: block;
     color: #64748b;
-    font-size: 10px;
+    font-size: 11px;
     line-height: 1.12;
     font-weight: 800;
 }
@@ -378,8 +378,8 @@ const kubernetesNodeExplorerStyles = `
     display: block;
     margin-top: 3px;
     color: #64748b;
-    font-size: 9px;
-    line-height: 1.15;
+    font-size: 11px;
+    line-height: 1.2;
     font-weight: 700;
 }
 .netdive-k8s-explorer-node-list {
@@ -389,17 +389,17 @@ const kubernetesNodeExplorerStyles = `
 .netdive-k8s-explorer-node-row {
     display: grid;
     grid-template-columns: 9px minmax(0, 1fr) 17px;
-    gap: 7px;
+    gap: 8px;
     align-items: center;
-    min-height: 40px;
-    padding: 6px 9px 6px 34px;
+    min-height: 42px;
+    padding: 7px 12px 7px 30px;
     border: 0;
     border-top: 1px solid #f1f5f9;
     border-radius: 0;
     background: transparent;
     box-shadow: none;
     cursor: pointer;
-    transition: background 0.16s ease, box-shadow 0.16s ease;
+    transition: background-color 0.16s ease, box-shadow 0.16s ease, color 0.16s ease;
 }
 .netdive-k8s-explorer-node-row:first-child {
     border-top: 0;
@@ -407,7 +407,8 @@ const kubernetesNodeExplorerStyles = `
 .netdive-k8s-explorer-node-row:hover,
 .netdive-k8s-explorer-node-row:focus {
     outline: none;
-    background: #f7faff;
+    cursor: pointer;
+    background-color: #f3f8ff;
     box-shadow: inset 2px 0 0 #3b82f6;
 }
 .netdive-k8s-explorer-node-dot {
@@ -433,7 +434,7 @@ const kubernetesNodeExplorerStyles = `
     display: block;
     overflow: hidden;
     color: #111827;
-    font-size: 10.9px;
+    font-size: 11px;
     line-height: 1.2;
     font-weight: 800;
     text-overflow: ellipsis;
@@ -443,8 +444,8 @@ const kubernetesNodeExplorerStyles = `
     display: block;
     margin-top: 2px;
     color: #64748b;
-    font-size: 9.3px;
-    line-height: 1.15;
+    font-size: 11px;
+    line-height: 1.22;
     font-weight: 650;
 }
 .netdive-k8s-explorer-node-chevron {
@@ -464,7 +465,7 @@ const kubernetesNodeExplorerStyles = `
     border-radius: 999px;
     background: #eff6ff;
     color: #2563eb;
-    font-size: 9px;
+    font-size: 11px;
     font-weight: 800;
     opacity: 0;
     pointer-events: none;
@@ -482,16 +483,29 @@ const kubernetesNodeExplorerStyles = `
     display: inline-flex;
     align-items: center;
     max-width: 100%;
-    min-height: 14px;
-    padding: 0 5px;
+    min-height: 16px;
+    padding: 0 6px;
     border-radius: 999px;
-    background: #f1f5f9;
-    color: #475569;
-    font-size: 9px;
-    line-height: 1;
-    font-weight: 750;
+    background: #e8eef7;
+    color: #1f2937;
+    border: 1px solid #d5deeb;
+    font-size: 11px;
+    line-height: 1.1;
+    font-weight: 800;
     vertical-align: middle;
 }
+.netdive-k8s-explorer-node-meta-pill-worker {
+    background: #ecfdf5;
+    color: #065f46;
+    border-color: #bbf7d0;
+}
+.netdive-k8s-explorer-node-meta-pill-control-plane,
+.netdive-k8s-explorer-node-meta-pill-master {
+    background: #eff6ff;
+    color: #1e3a8a;
+    border-color: #bfdbfe;
+}
+
 .netdive-k8s-explorer-node-meta-text {
     display: inline-flex;
     align-items: center;
@@ -1671,7 +1685,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                                                     <div>
                                                         <span className={`${classes.kubernetesNodeName} netdive-k8s-explorer-node-name`} title={item.name}>{item.name}</span>
                                                         <span className={`${classes.kubernetesNodeMetaLine} netdive-k8s-explorer-node-meta netdive-k8s-explorer-node-meta-text`}>
-                                                            <span className="netdive-k8s-explorer-node-meta-pill">{roleLabel(item.role)}</span>
+                                                            <span className={`netdive-k8s-explorer-node-meta-pill netdive-k8s-explorer-node-meta-pill-${roleLabel(item.role)}`}>{roleLabel(item.role)}</span>
                                                             <span className="netdive-k8s-explorer-node-version">Kubernetes {item.version}</span>
                                                         </span>
                                                     </div>
