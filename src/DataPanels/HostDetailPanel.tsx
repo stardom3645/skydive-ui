@@ -75,6 +75,7 @@ interface OverviewCardItem {
     description: string
     value: string
     icon?: React.ReactNode
+    iconContainerClassName?: string
     actionKey?: InfrastructureFocusKey
     nodeIDs?: string[]
     onClick?: () => void
@@ -1645,14 +1646,14 @@ class HostDetailPanel extends React.Component<Props, State> {
 
                     <div className={`${classes.kubernetesNodePickerSummary} netdive-k8s-explorer-summary`}>
                         <div className={`${classes.kubernetesNodePickerSummaryItem} netdive-k8s-explorer-summary-card`}>
-                            {this.kubernetesClusterIcon(`${classes.kubernetesNodePickerSummaryIcon} netdive-k8s-explorer-summary-icon`)}
+                            {this.kubernetesClusterIcon(`${classes.kubernetesNodePickerSummaryIcon} netdive-k8s-explorer-cluster-logo`)}
                             <span>
                                 <span className={`${classes.kubernetesNodePickerSummaryLabel} netdive-k8s-explorer-summary-label`}>Cluster</span>
                                 <strong className="netdive-k8s-explorer-summary-count">{grouped.size}</strong>
                             </span>
                         </div>
                         <div className={`${classes.kubernetesNodePickerSummaryItem} netdive-k8s-explorer-summary-card`}>
-                            {this.kubernetesNodeIcon(`${classes.kubernetesNodePickerSummaryIcon} netdive-k8s-explorer-summary-icon`)}
+                            {this.kubernetesNodeIcon(`${classes.kubernetesNodePickerSummaryIcon} netdive-k8s-explorer-node-icon`)}
                             <span>
                                 <span className={`${classes.kubernetesNodePickerSummaryLabel} netdive-k8s-explorer-summary-label`}>Node</span>
                                 <strong className="netdive-k8s-explorer-summary-count">{options.length}</strong>
@@ -1921,6 +1922,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                         || (!!item.actionKey && !!item.nodeIDs && item.nodeIDs.length > 0)
                     )
                     const actionClassName = `${classes.connectedResourceCardAction} ${!canFocus ? classes.connectedResourceCardActionHidden : ''}`
+                    const iconContainerClassName = `${classes.connectedResourceCardIcon}${item.iconContainerClassName ? ` ${item.iconContainerClassName}` : ''}`
                     return (
                         <button
                             type="button"
@@ -1937,7 +1939,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                             aria-disabled={!canFocus}
                             tabIndex={canFocus ? 0 : -1}>
                             <span className={classes.connectedResourceCardMain}>
-                                <span className={classes.connectedResourceCardIcon}>{item.icon || <InfoIcon />}</span>
+                                <span className={iconContainerClassName}>{item.icon || <InfoIcon />}</span>
                                 <span>
                                     <strong>{item.label}</strong>
                                 </span>
@@ -2112,7 +2114,8 @@ class HostDetailPanel extends React.Component<Props, State> {
                 label: translate('kubernetesTopologyNodes'),
                 description: kubernetesClusterNames.length > 0 ? kubernetesClusterNames.join(', ') : '',
                 value: String(kubernetesNodes.length),
-                icon: this.kubernetesIcon(classes.connectedResourceFaIcon),
+                icon: this.kubernetesNodeIcon(),
+                iconContainerClassName: `${classes.connectedResourceNodeIcon} netdive-k8s-explorer-node-icon`,
                 nodeIDs: kubernetesNodes.map(item => item.id),
                 onClick: () => this.openKubernetesNodePicker()
             }
@@ -2146,7 +2149,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                     <div className={classes.connectedResourceSectionStack}>
                         {this.renderConnectedResourceSubsection(<AccountTreeIcon />, translate('infrastructureMenu'), connectedResources, translate('hostNoConnectedResources'))}
                         {this.renderConnectedResourceSubsection(
-                            <span style={{ color: '#64748b', display: 'inline-flex' }}>{this.kubernetesNodeIcon()}</span>,
+                            <span className={classes.connectedResourceSectionKubernetesNodeIcon}>{this.kubernetesNodeIcon()}</span>,
                             'Kubernetes',
                             kubernetesResources,
                             translate('hostNoConnectedResources')

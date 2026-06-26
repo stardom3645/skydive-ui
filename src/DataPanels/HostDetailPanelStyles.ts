@@ -145,6 +145,22 @@ export const styles = (theme: Theme) => createStyles({
             fontSize: 15
         }
     },
+    connectedResourceSectionKubernetesNodeIcon: {
+        width: 24,
+        height: 24,
+        borderRadius: 8,
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: '#2563eb',
+        background: 'rgba(239, 246, 255, 0.96)',
+        boxShadow: 'inset 0 0 0 1px rgba(219, 234, 254, 0.96)',
+        '& svg': {
+            width: 15,
+            height: 15,
+            display: 'block'
+        }
+    },
     connectedResourceSectionTitle: {
         color: 'var(--netdive-detail-title)',
         fontSize: 12.5,
@@ -212,6 +228,16 @@ export const styles = (theme: Theme) => createStyles({
         background: 'rgba(248, 250, 252, 0.96)',
         '& svg': {
             fontSize: 16
+        }
+    },
+    connectedResourceNodeIcon: {
+        color: '#2563eb',
+        background: '#eff6ff',
+        border: '1px solid #dbeafe',
+        '& svg': {
+            width: 14,
+            height: 14,
+            display: 'block'
         }
     },
     connectedResourceFaIcon: {
@@ -783,9 +809,6 @@ export const styles = (theme: Theme) => createStyles({
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'linear-gradient(180deg, rgba(248, 250, 252, 0.96) 0%, rgba(255, 255, 255, 0.98) 100%)',
-        color: '#64748b',
-        boxShadow: 'inset 0 0 0 1px rgba(203, 213, 225, 0.72)',
         '& svg': {
             fontSize: 18
         }
