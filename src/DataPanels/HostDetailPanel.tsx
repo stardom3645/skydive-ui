@@ -10,7 +10,6 @@ import PowerIcon from '@material-ui/icons/Power'
 import SecurityIcon from '@material-ui/icons/Security'
 import RouterIcon from '@material-ui/icons/Router'
 import AccountTreeIcon from '@material-ui/icons/AccountTree'
-import StorageIcon from '@material-ui/icons/Storage'
 import SearchIcon from '@material-ui/icons/Search'
 import CloseIcon from '@material-ui/icons/Close'
 import KeyboardArrowRightIcon from '@material-ui/icons/KeyboardArrowRight'
@@ -196,7 +195,7 @@ const kubernetesNodeExplorerStyles = `
     outline: 0;
     background: transparent;
     color: #0f172a;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 550;
 }
 .netdive-k8s-explorer-search input::placeholder {
@@ -207,7 +206,7 @@ const kubernetesNodeExplorerStyles = `
     min-width: 76px;
     border-radius: 8px;
     padding: 0 9px;
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1;
     font-weight: 800;
     display: inline-flex;
@@ -222,6 +221,7 @@ const kubernetesNodeExplorerStyles = `
 }
 .netdive-k8s-explorer-action-secondary {
     color: #0f172a;
+    font-size: 12px;
     background: #ffffff;
     border: 1px solid #dbeafe;
 }
@@ -282,7 +282,7 @@ const kubernetesNodeExplorerStyles = `
 .netdive-k8s-explorer-summary-label {
     display: block;
     color: #64748b;
-    font-size: 11px;
+    font-size: 13px;
     line-height: 1.12;
     font-weight: 800;
 }
@@ -368,7 +368,7 @@ const kubernetesNodeExplorerStyles = `
     display: block;
     overflow: hidden;
     color: #111827;
-    font-size: 11.75px;
+    font-size: 13.5px;
     line-height: 1.18;
     font-weight: 850;
     text-overflow: ellipsis;
@@ -389,9 +389,9 @@ const kubernetesNodeExplorerStyles = `
 .netdive-k8s-explorer-node-row {
     display: grid;
     grid-template-columns: 8px 20px minmax(0, 1fr) 17px;
-    gap: 7px;
+    gap: 8px;
     align-items: center;
-    min-height: 42px;
+    min-height: 44px;
     padding: 7px 12px 7px 24px;
     border: 0;
     border-top: 1px solid #f1f5f9;
@@ -430,7 +430,6 @@ const kubernetesNodeExplorerStyles = `
     background: #22c55e;
     box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.12);
 }
-
 .netdive-k8s-explorer-node-icon {
     width: 20px;
     height: 20px;
@@ -444,25 +443,15 @@ const kubernetesNodeExplorerStyles = `
     flex: 0 0 auto;
 }
 .netdive-k8s-explorer-node-icon svg {
-    font-size: 13px !important;
+    width: 13px;
+    height: 13px;
+    display: block;
 }
-.netdive-k8s-explorer-node-icon-control-plane,
-.netdive-k8s-explorer-node-icon-master {
-    color: #1d4ed8;
-    background: #eff6ff;
-    border-color: #bfdbfe;
-}
-.netdive-k8s-explorer-node-icon-worker {
-    color: #334155;
-    background: #f8fafc;
-    border-color: #e2e8f0;
-}
-
 .netdive-k8s-explorer-node-name {
     display: block;
     overflow: hidden;
     color: #111827;
-    font-size: 11px;
+    font-size: 12.5px;
     line-height: 1.2;
     font-weight: 800;
     text-overflow: ellipsis;
@@ -1643,14 +1632,14 @@ class HostDetailPanel extends React.Component<Props, State> {
 
                     <div className={`${classes.kubernetesNodePickerSummary} netdive-k8s-explorer-summary`}>
                         <div className={`${classes.kubernetesNodePickerSummaryItem} netdive-k8s-explorer-summary-card`}>
-                            {this.kubernetesIcon(`${classes.kubernetesNodePickerSummaryIcon} netdive-k8s-explorer-summary-icon`)}
+                            {this.kubernetesClusterIcon(`${classes.kubernetesNodePickerSummaryIcon} netdive-k8s-explorer-summary-icon`)}
                             <span>
                                 <span className={`${classes.kubernetesNodePickerSummaryLabel} netdive-k8s-explorer-summary-label`}>Cluster</span>
                                 <strong className="netdive-k8s-explorer-summary-count">{grouped.size}</strong>
                             </span>
                         </div>
                         <div className={`${classes.kubernetesNodePickerSummaryItem} netdive-k8s-explorer-summary-card`}>
-                            {this.kubernetesIcon(`${classes.kubernetesNodePickerSummaryIcon} netdive-k8s-explorer-summary-icon`)}
+                            {this.kubernetesNodeIcon(`${classes.kubernetesNodePickerSummaryIcon} netdive-k8s-explorer-summary-icon`)}
                             <span>
                                 <span className={`${classes.kubernetesNodePickerSummaryLabel} netdive-k8s-explorer-summary-label`}>Node</span>
                                 <strong className="netdive-k8s-explorer-summary-count">{options.length}</strong>
@@ -1685,7 +1674,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                                         <span className={`${classes.kubernetesNodeClusterInlineChevron} netdive-k8s-explorer-cluster-toggle`}>
                                             {expanded ? <KeyboardArrowDownIcon /> : <KeyboardArrowRightIcon />}
                                         </span>
-                                        {this.kubernetesIcon(`${classes.kubernetesNodeClusterIcon} netdive-k8s-explorer-cluster-logo`)}
+                                        {this.kubernetesClusterIcon(`${classes.kubernetesNodeClusterIcon} netdive-k8s-explorer-cluster-logo`)}
                                         <div className={classes.kubernetesNodeClusterTitleBlock}>
                                             <span className={`${classes.kubernetesNodeClusterName} netdive-k8s-explorer-cluster-name`}>{group.clusterName}</span>
                                             <span className={`${classes.kubernetesNodeClusterMeta} netdive-k8s-explorer-cluster-meta`}>{clusterMetaLabel(group.items)}</span>
@@ -1710,9 +1699,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                                                         }
                                                     }}>
                                                     <span className={`netdive-k8s-explorer-node-dot ${statusDotClass(item.status)}`} />
-                                                    <span className={`netdive-k8s-explorer-node-icon netdive-k8s-explorer-node-icon-${roleLabel(item.role)}`} aria-hidden="true">
-                                                        {roleLabel(item.role) === 'worker' ? <StorageIcon /> : <AccountTreeIcon />}
-                                                    </span>
+                                                    {this.kubernetesNodeIcon('netdive-k8s-explorer-node-icon')}
                                                     <div>
                                                         <span className={`${classes.kubernetesNodeName} netdive-k8s-explorer-node-name`} title={item.name}>{item.name}</span>
                                                         <span className={`${classes.kubernetesNodeMetaLine} netdive-k8s-explorer-node-meta netdive-k8s-explorer-node-meta-text`}>
@@ -1992,6 +1979,31 @@ class HostDetailPanel extends React.Component<Props, State> {
                     <path
                         fill="currentColor"
                         d="M11.1 3.5h1.8v4.9h-1.8V3.5Zm0 12.1h1.8v4.9h-1.8v-4.9ZM3.97 8.1l.9-1.56 4.24 2.45-.9 1.56L3.97 8.1Zm10.92 6.3.9-1.56 4.24 2.45-.9 1.56-4.24-2.45Zm5.14-6.3-4.24 2.45-.9-1.56 4.24-2.45.9 1.56ZM9.11 14.4l-4.24 2.45-.9-1.56 4.24-2.45.9 1.56Z" />
+                </svg>
+            </span>
+        )
+    }
+
+    private kubernetesClusterIcon(className?: string) {
+        return (
+            <span className={className} aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false" style={{ width: '1em', height: '1em', display: 'block' }}>
+                    <path
+                        fill="currentColor"
+                        d="M12 3.25a3.25 3.25 0 0 1 1 6.34v2.08l3.39 1.95a3.25 3.25 0 1 1-1.01 1.73L12 13.41l-3.38 1.94a3.25 3.25 0 1 1-1.01-1.73L11 11.67V9.59a3.25 3.25 0 0 1 1-6.34Zm0 2a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5ZM5.5 15.25a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5Zm13 0a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5Z" />
+                </svg>
+            </span>
+        )
+    }
+
+    private kubernetesNodeIcon(className?: string) {
+        return (
+            <span className={className} aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false" style={{ width: '1em', height: '1em', display: 'block' }}>
+                    <path
+                        fill="currentColor"
+                        d="M6.5 4h11A2.5 2.5 0 0 1 20 6.5v2A2.5 2.5 0 0 1 17.5 11h-11A2.5 2.5 0 0 1 4 8.5v-2A2.5 2.5 0 0 1 6.5 4Zm0 2A.5.5 0 0 0 6 6.5v2a.5.5 0 0 0 .5.5h11a.5.5 0 0 0 .5-.5v-2a.5.5 0 0 0-.5-.5h-11Zm0 7h11A2.5 2.5 0 0 1 20 15.5v2A2.5 2.5 0 0 1 17.5 20h-11A2.5 2.5 0 0 1 4 17.5v-2A2.5 2.5 0 0 1 6.5 13Zm0 2a.5.5 0 0 0-.5.5v2a.5.5 0 0 0 .5.5h11a.5.5 0 0 0 .5-.5v-2a.5.5 0 0 0-.5-.5h-11Z" />
+                    <path fill="currentColor" d="M15.5 7h1.5v1.5h-1.5V7Zm0 9h1.5v1.5h-1.5V16Z" />
                 </svg>
             </span>
         )
