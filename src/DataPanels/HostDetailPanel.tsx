@@ -105,85 +105,90 @@ interface PillItem {
 
 const kubernetesNodeExplorerStyles = `
 .netdive-k8s-explorer-paper {
-    width: min(480px, calc(100vw - 32px)) !important;
-    max-width: 480px !important;
-    right: 12px !important;
-    top: 14px !important;
-    height: calc(100vh - 28px) !important;
-    border-radius: 18px !important;
+    width: min(440px, calc(100vw - 32px)) !important;
+    max-width: 440px !important;
+    right: 18px !important;
+    top: 18px !important;
+    height: auto !important;
+    max-height: calc(100vh - 36px) !important;
+    border-radius: 16px !important;
     overflow: hidden !important;
     background: #ffffff !important;
-    box-shadow: 0 18px 54px rgba(15, 23, 42, 0.18) !important;
-    border: 1px solid rgba(203, 213, 225, 0.72) !important;
+    box-shadow: 0 20px 48px rgba(15, 23, 42, 0.2) !important;
+    border: 1px solid rgba(203, 213, 225, 0.8) !important;
 }
 .netdive-k8s-explorer {
     box-sizing: border-box;
-    height: 100%;
-    padding: 22px 24px 24px;
+    max-height: calc(100vh - 36px);
+    padding: 16px 18px 18px;
     background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
     display: flex;
     flex-direction: column;
-    gap: 18px;
+    gap: 12px;
 }
 .netdive-k8s-explorer-header {
     display: grid;
-    grid-template-columns: 44px minmax(0, 1fr) 36px;
-    gap: 14px;
+    grid-template-columns: 36px minmax(0, 1fr) 30px;
+    gap: 11px;
     align-items: start;
 }
 .netdive-k8s-explorer-logo {
-    width: 44px;
-    height: 44px;
-    border-radius: 14px;
+    width: 36px;
+    height: 36px;
+    border-radius: 11px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
     color: #ffffff;
-    box-shadow: 0 10px 24px rgba(37, 99, 235, 0.22);
+    box-shadow: 0 8px 18px rgba(37, 99, 235, 0.2);
 }
 .netdive-k8s-explorer-logo svg {
-    font-size: 25px !important;
+    font-size: 21px !important;
 }
 .netdive-k8s-explorer-title {
     color: #0f172a;
-    font-size: 22px;
-    line-height: 1.2;
+    font-size: 18px;
+    line-height: 1.22;
     font-weight: 850;
-    letter-spacing: -0.025em;
+    letter-spacing: -0.02em;
 }
 .netdive-k8s-explorer-description {
-    margin-top: 6px;
+    margin-top: 5px;
     color: #64748b;
-    font-size: 13px;
-    line-height: 1.45;
+    font-size: 12px;
+    line-height: 1.42;
     font-weight: 550;
 }
 .netdive-k8s-explorer-close {
-    width: 34px !important;
-    height: 34px !important;
+    width: 28px !important;
+    height: 28px !important;
+    padding: 4px !important;
     color: #475569 !important;
+}
+.netdive-k8s-explorer-close svg {
+    font-size: 20px !important;
 }
 .netdive-k8s-explorer-toolbar {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto auto;
-    gap: 10px;
+    gap: 8px;
     align-items: center;
 }
 .netdive-k8s-explorer-search {
-    height: 44px;
+    height: 38px;
     border: 1px solid #dbeafe;
-    border-radius: 12px;
+    border-radius: 10px;
     background: #ffffff;
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 0 14px;
+    gap: 8px;
+    padding: 0 12px;
     box-shadow: 0 1px 0 rgba(15, 23, 42, 0.02);
 }
 .netdive-k8s-explorer-search svg {
     color: #64748b;
-    font-size: 19px !important;
+    font-size: 17px !important;
 }
 .netdive-k8s-explorer-search input {
     width: 100%;
@@ -191,17 +196,17 @@ const kubernetesNodeExplorerStyles = `
     outline: 0;
     background: transparent;
     color: #0f172a;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 550;
 }
 .netdive-k8s-explorer-search input::placeholder {
     color: #94a3b8;
 }
 .netdive-k8s-explorer-action {
-    height: 44px;
-    border-radius: 12px;
-    padding: 0 15px;
-    font-size: 12.5px;
+    height: 38px;
+    border-radius: 10px;
+    padding: 0 12px;
+    font-size: 11.5px;
     line-height: 1;
     font-weight: 800;
     display: inline-flex;
@@ -234,19 +239,19 @@ const kubernetesNodeExplorerStyles = `
 .netdive-k8s-explorer-summary {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
+    gap: 10px;
 }
 .netdive-k8s-explorer-summary-card {
-    min-height: 74px;
+    min-height: 58px;
     border: 1px solid #e2e8f0;
-    border-radius: 14px;
+    border-radius: 12px;
     background: #ffffff;
     display: grid;
-    grid-template-columns: 42px minmax(0, 1fr);
-    gap: 12px;
+    grid-template-columns: 34px minmax(0, 1fr);
+    gap: 10px;
     align-items: center;
-    padding: 14px 16px;
-    box-shadow: 0 7px 22px rgba(15, 23, 42, 0.035);
+    padding: 10px 12px;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.03);
 }
 .netdive-k8s-explorer-summary-card:nth-child(1) .netdive-k8s-explorer-summary-icon {
     color: #2563eb;
@@ -257,28 +262,28 @@ const kubernetesNodeExplorerStyles = `
     background: #ecfdf5;
 }
 .netdive-k8s-explorer-summary-icon {
-    width: 42px;
-    height: 42px;
-    border-radius: 13px;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
 }
 .netdive-k8s-explorer-summary-icon svg {
-    font-size: 22px !important;
+    font-size: 19px !important;
 }
 .netdive-k8s-explorer-summary-label {
     display: block;
     color: #64748b;
-    font-size: 12px;
+    font-size: 11px;
     line-height: 1.15;
     font-weight: 800;
 }
 .netdive-k8s-explorer-summary-count {
     display: block;
-    margin-top: 4px;
+    margin-top: 3px;
     color: #0f172a;
-    font-size: 22px;
+    font-size: 19px;
     line-height: 1;
     font-weight: 900;
     letter-spacing: -0.02em;
@@ -286,25 +291,25 @@ const kubernetesNodeExplorerStyles = `
 .netdive-k8s-explorer-body {
     min-height: 0;
     overflow: auto;
-    padding-right: 2px;
+    padding-right: 1px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
 }
 .netdive-k8s-explorer-cluster {
     border: 1px solid #e2e8f0;
-    border-radius: 15px;
+    border-radius: 13px;
     background: #ffffff;
     overflow: hidden;
-    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.035);
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.032);
 }
 .netdive-k8s-explorer-cluster-header {
     display: grid;
-    grid-template-columns: 28px 38px minmax(0, 1fr) 28px;
+    grid-template-columns: 24px 32px minmax(0, 1fr) 24px;
     align-items: center;
-    gap: 10px;
-    min-height: 68px;
-    padding: 12px 14px;
+    gap: 8px;
+    min-height: 56px;
+    padding: 10px 12px;
     background: #ffffff;
     cursor: pointer;
     user-select: none;
@@ -314,9 +319,9 @@ const kubernetesNodeExplorerStyles = `
 }
 .netdive-k8s-explorer-cluster-toggle,
 .netdive-k8s-explorer-cluster-chevron {
-    width: 28px;
-    height: 28px;
-    border-radius: 9px;
+    width: 24px;
+    height: 24px;
+    border-radius: 8px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -324,27 +329,27 @@ const kubernetesNodeExplorerStyles = `
 }
 .netdive-k8s-explorer-cluster-toggle svg,
 .netdive-k8s-explorer-cluster-chevron svg {
-    font-size: 20px !important;
+    font-size: 18px !important;
 }
 .netdive-k8s-explorer-cluster-logo {
-    width: 34px;
-    height: 34px;
-    border-radius: 12px;
+    width: 30px;
+    height: 30px;
+    border-radius: 10px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     color: #ffffff;
     background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
-    box-shadow: 0 8px 18px rgba(37, 99, 235, 0.18);
+    box-shadow: 0 6px 14px rgba(37, 99, 235, 0.16);
 }
 .netdive-k8s-explorer-cluster-logo svg {
-    font-size: 20px !important;
+    font-size: 18px !important;
 }
 .netdive-k8s-explorer-cluster-name {
     display: block;
     overflow: hidden;
     color: #111827;
-    font-size: 15px;
+    font-size: 13.5px;
     line-height: 1.2;
     font-weight: 850;
     text-overflow: ellipsis;
@@ -352,9 +357,9 @@ const kubernetesNodeExplorerStyles = `
 }
 .netdive-k8s-explorer-cluster-meta {
     display: block;
-    margin-top: 5px;
+    margin-top: 4px;
     color: #64748b;
-    font-size: 12px;
+    font-size: 11px;
     line-height: 1.2;
     font-weight: 700;
 }
@@ -364,11 +369,11 @@ const kubernetesNodeExplorerStyles = `
 }
 .netdive-k8s-explorer-node-row {
     display: grid;
-    grid-template-columns: 14px minmax(0, 1fr) 28px;
-    gap: 13px;
+    grid-template-columns: 12px minmax(0, 1fr) 24px;
+    gap: 11px;
     align-items: center;
-    min-height: 66px;
-    padding: 11px 16px 11px 42px;
+    min-height: 52px;
+    padding: 9px 14px 9px 40px;
     border: 0;
     border-top: 1px solid #f1f5f9;
     border-radius: 0;
@@ -387,8 +392,8 @@ const kubernetesNodeExplorerStyles = `
     box-shadow: inset 3px 0 0 #3b82f6;
 }
 .netdive-k8s-explorer-node-dot {
-    width: 12px;
-    height: 12px;
+    width: 10px;
+    height: 10px;
     border-radius: 999px;
     background: #22c55e;
     box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.13);
@@ -409,7 +414,7 @@ const kubernetesNodeExplorerStyles = `
     display: block;
     overflow: hidden;
     color: #111827;
-    font-size: 14px;
+    font-size: 12.5px;
     line-height: 1.25;
     font-weight: 800;
     text-overflow: ellipsis;
@@ -417,19 +422,19 @@ const kubernetesNodeExplorerStyles = `
 }
 .netdive-k8s-explorer-node-meta {
     display: block;
-    margin-top: 5px;
+    margin-top: 4px;
     color: #64748b;
-    font-size: 12px;
+    font-size: 11px;
     line-height: 1.2;
     font-weight: 650;
 }
 .netdive-k8s-explorer-node-chevron {
     justify-self: end;
     color: #334155;
-    opacity: 0.82;
+    opacity: 0.8;
 }
 .netdive-k8s-explorer-node-chevron svg {
-    font-size: 21px !important;
+    font-size: 18px !important;
 }
 @media (max-width: 640px) {
     .netdive-k8s-explorer-paper {
@@ -437,11 +442,11 @@ const kubernetesNodeExplorerStyles = `
         max-width: none !important;
         right: 10px !important;
         top: 10px !important;
-        height: calc(100vh - 20px) !important;
+        max-height: calc(100vh - 20px) !important;
     }
     .netdive-k8s-explorer {
-        padding: 18px;
-        gap: 14px;
+        padding: 16px;
+        gap: 12px;
     }
     .netdive-k8s-explorer-toolbar {
         grid-template-columns: 1fr;
@@ -1437,7 +1442,9 @@ class HostDetailPanel extends React.Component<Props, State> {
                 anchor="right"
                 open={!!this.state.kubernetesNodePickerOpen}
                 onClose={() => this.closeKubernetesNodePicker()}
-                ModalProps={{ hideBackdrop: true }}
+                ModalProps={{
+                    BackdropProps: { style: { backgroundColor: 'rgba(15, 23, 42, 0.32)' } }
+                }}
                 PaperProps={{
                     className: 'netdive-k8s-explorer-paper',
                     'data-netdive-drawer': 'true',
