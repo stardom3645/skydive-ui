@@ -65,7 +65,6 @@ import FileCopyIcon from '@material-ui/icons/FileCopy'
 import CheckCircleIcon from '@material-ui/icons/CheckCircle'
 import ErrorOutlineIcon from '@material-ui/icons/ErrorOutline'
 import RefreshIcon from '@material-ui/icons/Refresh'
-import DeviceHubIcon from '@material-ui/icons/DeviceHub'
 import AccountTreeIcon from '@material-ui/icons/AccountTree'
 import ChevronRightIcon from '@material-ui/icons/ChevronRight'
 import CheckIcon from '@material-ui/icons/Check'
@@ -2723,7 +2722,7 @@ class App extends React.Component<Props, State> {
                     }}>
                     <span className={classes.linkTagsCollapsedHeaderLeft}>
                       {this.isKubernetesLayerActive()
-                        ? <DeviceHubIcon className={classes.linkTagsCollapsedHeaderIcon} />
+                        ? this.kubernetesIcon(classes.linkTagsCollapsedHeaderIcon)
                         : <AccountTreeIcon className={classes.linkTagsCollapsedHeaderIcon} />
                       }
                       <span>
@@ -2774,7 +2773,7 @@ class App extends React.Component<Props, State> {
     const activeTag = this.activeNodeTagName()
     const activeLabel = activeTag === "kubernetes" ? "Kubernetes" : translate("infrastructureMenu")
     const activeSummary = activeTag === "kubernetes" ? translate("kubernetesLayerSummary") : translate("infrastructureLayerSummary")
-    const activeIcon = activeTag === "kubernetes" ? <DeviceHubIcon fontSize="small" /> : <AccountTreeIcon fontSize="small" />
+    const activeIcon = activeTag === "kubernetes" ? this.kubernetesIcon() : <AccountTreeIcon fontSize="small" />
     const items = [
       {
         tag: infrastructureTag,
@@ -2786,7 +2785,7 @@ class App extends React.Component<Props, State> {
         tag: "kubernetes",
         label: "Kubernetes",
         summary: translate("kubernetesLayerSummary"),
-        icon: <DeviceHubIcon fontSize="small" />
+        icon: this.kubernetesIcon()
       }
     ]
     return (
@@ -3267,6 +3266,24 @@ class App extends React.Component<Props, State> {
     )
   }
 
+  private kubernetesIcon(className?: string) {
+    return (
+      <span className={className} aria-hidden="true">
+        <svg viewBox="0 0 24 24" focusable="false" style={{ width: "1em", height: "1em", display: "block" }}>
+          <path
+            fill="currentColor"
+            d="M12 2.25 4.13 5.72 2.18 14.1 7.62 20.9h8.76l5.44-6.8-1.95-8.38L12 2.25Zm0 2.18 5.92 2.61 1.47 6.31-4.1 5.12H8.71l-4.1-5.12 1.47-6.31L12 4.43Z" />
+          <path
+            fill="currentColor"
+            d="M12 7.15a4.85 4.85 0 1 0 0 9.7 4.85 4.85 0 0 0 0-9.7Zm0 2.05a2.8 2.8 0 1 1 0 5.6 2.8 2.8 0 0 1 0-5.6Z" />
+          <path
+            fill="currentColor"
+            d="M11.1 3.5h1.8v4.9h-1.8V3.5Zm0 12.1h1.8v4.9h-1.8v-4.9ZM3.97 8.1l.9-1.56 4.24 2.45-.9 1.56L3.97 8.1Zm10.92 6.3.9-1.56 4.24 2.45-.9 1.56-4.24-2.45Zm5.14-6.3-4.24 2.45-.9-1.56 4.24-2.45.9 1.56ZM9.11 14.4l-4.24 2.45-.9-1.56 4.24-2.45.9 1.56Z" />
+        </svg>
+      </span>
+    )
+  }
+
   private topologyImageIcon(src: string, alt: string) {
     return <img src={src} alt={alt} />
   }
@@ -3692,7 +3709,7 @@ class App extends React.Component<Props, State> {
             <Button
               size="small"
               className={classes.kubernetesTestAllButton}
-              startIcon={<DeviceHubIcon fontSize="small" />}
+              startIcon={this.kubernetesIcon()}
               onClick={this.testAllKubernetesConnections.bind(this)}
               disabled={this.state.kubernetesTestLoading || this.state.kubernetesTestAllLoading || this.state.kubernetesClusters.length === 0}>
               {this.state.kubernetesTestAllLoading ? translate("kubernetesTestAllRunning") : translate("kubernetesTestAll")}
@@ -3871,7 +3888,7 @@ class App extends React.Component<Props, State> {
         </div>
         <div className={classes.drawerMenuSectionTitle}>{translate("collectionSection")}</div>
         {this.renderDrawerIntegrationItem(classes, <AccountTreeIcon />, translate("infrastructureMenu"), translate("infrastructureMenuSummary"), () => this.openInfrastructureTopology(), this.state.isInfrastructurePanelOpen)}
-        {this.renderDrawerIntegrationItem(classes, <DeviceHubIcon />, translate("kubernetesCollectionMenu"), translate("kubernetesMenuSummary"), () => this.openKubernetesManager(), this.state.isKubernetesManagerOpen)}
+        {this.renderDrawerIntegrationItem(classes, this.kubernetesIcon(), translate("kubernetesCollectionMenu"), translate("kubernetesMenuSummary"), () => this.openKubernetesManager(), this.state.isKubernetesManagerOpen)}
         <div className={classes.drawerMenuSectionTitle}>{translate("viewSettingsSection")}</div>
         {this.renderDrawerMenuItem(classes, <Brightness4Icon />, translate("preferences"), () => this.openPreferencesPanel(), this.state.isPreferencesPanelOpen)}
         <div className={classes.drawerMenuSectionTitle}>{translate("helpSection")}</div>
