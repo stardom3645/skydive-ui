@@ -103,6 +103,356 @@ interface PillItem {
     title?: string
 }
 
+const kubernetesNodeExplorerStyles = `
+.netdive-k8s-explorer-paper {
+    width: min(480px, calc(100vw - 32px)) !important;
+    max-width: 480px !important;
+    right: 12px !important;
+    top: 14px !important;
+    height: calc(100vh - 28px) !important;
+    border-radius: 18px !important;
+    overflow: hidden !important;
+    background: #ffffff !important;
+    box-shadow: 0 18px 54px rgba(15, 23, 42, 0.18) !important;
+    border: 1px solid rgba(203, 213, 225, 0.72) !important;
+}
+.netdive-k8s-explorer {
+    box-sizing: border-box;
+    height: 100%;
+    padding: 22px 24px 24px;
+    background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+.netdive-k8s-explorer-header {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) 36px;
+    gap: 14px;
+    align-items: start;
+}
+.netdive-k8s-explorer-logo {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+    color: #ffffff;
+    box-shadow: 0 10px 24px rgba(37, 99, 235, 0.22);
+}
+.netdive-k8s-explorer-logo svg {
+    font-size: 25px !important;
+}
+.netdive-k8s-explorer-title {
+    color: #0f172a;
+    font-size: 22px;
+    line-height: 1.2;
+    font-weight: 850;
+    letter-spacing: -0.025em;
+}
+.netdive-k8s-explorer-description {
+    margin-top: 6px;
+    color: #64748b;
+    font-size: 13px;
+    line-height: 1.45;
+    font-weight: 550;
+}
+.netdive-k8s-explorer-close {
+    width: 34px !important;
+    height: 34px !important;
+    color: #475569 !important;
+}
+.netdive-k8s-explorer-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 10px;
+    align-items: center;
+}
+.netdive-k8s-explorer-search {
+    height: 44px;
+    border: 1px solid #dbeafe;
+    border-radius: 12px;
+    background: #ffffff;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 14px;
+    box-shadow: 0 1px 0 rgba(15, 23, 42, 0.02);
+}
+.netdive-k8s-explorer-search svg {
+    color: #64748b;
+    font-size: 19px !important;
+}
+.netdive-k8s-explorer-search input {
+    width: 100%;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: #0f172a;
+    font-size: 13px;
+    font-weight: 550;
+}
+.netdive-k8s-explorer-search input::placeholder {
+    color: #94a3b8;
+}
+.netdive-k8s-explorer-action {
+    height: 44px;
+    border-radius: 12px;
+    padding: 0 15px;
+    font-size: 12.5px;
+    line-height: 1;
+    font-weight: 800;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+.netdive-k8s-explorer-action:hover {
+    transform: translateY(-1px);
+}
+.netdive-k8s-explorer-action-secondary {
+    color: #0f172a;
+    background: #ffffff;
+    border: 1px solid #dbeafe;
+}
+.netdive-k8s-explorer-action-primary {
+    color: #2563eb;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+}
+.netdive-k8s-explorer-action-primary:disabled {
+    color: #94a3b8;
+    background: #f8fafc;
+    border-color: #e2e8f0;
+    cursor: not-allowed;
+    transform: none;
+}
+.netdive-k8s-explorer-summary {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+.netdive-k8s-explorer-summary-card {
+    min-height: 74px;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    background: #ffffff;
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+    padding: 14px 16px;
+    box-shadow: 0 7px 22px rgba(15, 23, 42, 0.035);
+}
+.netdive-k8s-explorer-summary-card:nth-child(1) .netdive-k8s-explorer-summary-icon {
+    color: #2563eb;
+    background: #eff6ff;
+}
+.netdive-k8s-explorer-summary-card:nth-child(2) .netdive-k8s-explorer-summary-icon {
+    color: #16a34a;
+    background: #ecfdf5;
+}
+.netdive-k8s-explorer-summary-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 13px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.netdive-k8s-explorer-summary-icon svg {
+    font-size: 22px !important;
+}
+.netdive-k8s-explorer-summary-label {
+    display: block;
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.15;
+    font-weight: 800;
+}
+.netdive-k8s-explorer-summary-count {
+    display: block;
+    margin-top: 4px;
+    color: #0f172a;
+    font-size: 22px;
+    line-height: 1;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+}
+.netdive-k8s-explorer-body {
+    min-height: 0;
+    overflow: auto;
+    padding-right: 2px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.netdive-k8s-explorer-cluster {
+    border: 1px solid #e2e8f0;
+    border-radius: 15px;
+    background: #ffffff;
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.035);
+}
+.netdive-k8s-explorer-cluster-header {
+    display: grid;
+    grid-template-columns: 28px 38px minmax(0, 1fr) 28px;
+    align-items: center;
+    gap: 10px;
+    min-height: 68px;
+    padding: 12px 14px;
+    background: #ffffff;
+    cursor: pointer;
+    user-select: none;
+}
+.netdive-k8s-explorer-cluster-header:hover {
+    background: #f8fbff;
+}
+.netdive-k8s-explorer-cluster-toggle,
+.netdive-k8s-explorer-cluster-chevron {
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #334155;
+}
+.netdive-k8s-explorer-cluster-toggle svg,
+.netdive-k8s-explorer-cluster-chevron svg {
+    font-size: 20px !important;
+}
+.netdive-k8s-explorer-cluster-logo {
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+    box-shadow: 0 8px 18px rgba(37, 99, 235, 0.18);
+}
+.netdive-k8s-explorer-cluster-logo svg {
+    font-size: 20px !important;
+}
+.netdive-k8s-explorer-cluster-name {
+    display: block;
+    overflow: hidden;
+    color: #111827;
+    font-size: 15px;
+    line-height: 1.2;
+    font-weight: 850;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.netdive-k8s-explorer-cluster-meta {
+    display: block;
+    margin-top: 5px;
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.2;
+    font-weight: 700;
+}
+.netdive-k8s-explorer-node-list {
+    border-top: 1px solid #e2e8f0;
+    background: #ffffff;
+}
+.netdive-k8s-explorer-node-row {
+    display: grid;
+    grid-template-columns: 14px minmax(0, 1fr) 28px;
+    gap: 13px;
+    align-items: center;
+    min-height: 66px;
+    padding: 11px 16px 11px 42px;
+    border: 0;
+    border-top: 1px solid #f1f5f9;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    cursor: pointer;
+    transition: background 0.16s ease, box-shadow 0.16s ease;
+}
+.netdive-k8s-explorer-node-row:first-child {
+    border-top: 0;
+}
+.netdive-k8s-explorer-node-row:hover,
+.netdive-k8s-explorer-node-row:focus {
+    outline: none;
+    background: #f8fbff;
+    box-shadow: inset 3px 0 0 #3b82f6;
+}
+.netdive-k8s-explorer-node-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 999px;
+    background: #22c55e;
+    box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.13);
+}
+.netdive-k8s-explorer-node-dot-ready {
+    background: #22c55e;
+    box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.13);
+}
+.netdive-k8s-explorer-node-dot-not-ready {
+    background: #ef4444;
+    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.12);
+}
+.netdive-k8s-explorer-node-dot-unknown {
+    background: #94a3b8;
+    box-shadow: 0 0 0 4px rgba(148, 163, 184, 0.14);
+}
+.netdive-k8s-explorer-node-name {
+    display: block;
+    overflow: hidden;
+    color: #111827;
+    font-size: 14px;
+    line-height: 1.25;
+    font-weight: 800;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.netdive-k8s-explorer-node-meta {
+    display: block;
+    margin-top: 5px;
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.2;
+    font-weight: 650;
+}
+.netdive-k8s-explorer-node-chevron {
+    justify-self: end;
+    color: #334155;
+    opacity: 0.82;
+}
+.netdive-k8s-explorer-node-chevron svg {
+    font-size: 21px !important;
+}
+@media (max-width: 640px) {
+    .netdive-k8s-explorer-paper {
+        width: calc(100vw - 20px) !important;
+        max-width: none !important;
+        right: 10px !important;
+        top: 10px !important;
+        height: calc(100vh - 20px) !important;
+    }
+    .netdive-k8s-explorer {
+        padding: 18px;
+        gap: 14px;
+    }
+    .netdive-k8s-explorer-toolbar {
+        grid-template-columns: 1fr;
+    }
+    .netdive-k8s-explorer-summary {
+        grid-template-columns: 1fr;
+    }
+}
+`
+
+
 const isBlank = (value: any): boolean => {
     if (value === undefined || value === null) return true
     if (Array.isArray(value)) return value.length === 0
@@ -1054,26 +1404,29 @@ class HostDetailPanel extends React.Component<Props, State> {
             }
             grouped.get(item.clusterId)!.items.push(item)
         })
-        const statusBadgeClass = (status: string) => {
-            if (status === 'Ready') return classes.kubernetesNodeStatusBadgeReady
-            if (status === 'NotReady') return classes.kubernetesNodeStatusBadgeNotReady
-            return classes.kubernetesNodeStatusBadgeUnknown
-        }
-        const statusLabel = (status: string) => {
-            if (status === 'Unknown') return '-'
-            return status
-        }
-        const statusDotClass = (status: string) => {
-            if (status === 'Ready') return classes.kubernetesNodeStatusReady
-            if (status === 'NotReady') return classes.kubernetesNodeStatusNotReady
-            return classes.kubernetesNodeStatusUnknown
-        }
+
         const roleLabel = (role: string) => {
-            if (role === 'worker') return 'worker'
-            if (role === 'control-plane') return 'Control Plane'
+            if (role === 'control-plane') return 'control-plane'
             if (role === 'master') return 'master'
-            return role
+            return 'worker'
         }
+
+        const clusterMetaLabel = (items: KubernetesNodePickerItem[]) => {
+            if (items.length === 1) {
+                const role = roleLabel(items[0].role)
+                if (role === 'worker') return 'Worker Node 1'
+                if (role === 'control-plane') return 'Control Plane Node 1'
+                return `${role} Node 1`
+            }
+            return `Node ${items.length}`
+        }
+
+        const statusDotClass = (status: string) => {
+            if (status === 'Ready') return 'netdive-k8s-explorer-node-dot-ready'
+            if (status === 'NotReady') return 'netdive-k8s-explorer-node-dot-not-ready'
+            return 'netdive-k8s-explorer-node-dot-unknown'
+        }
+
         const moveToNode = (id: string) => {
             this.closeKubernetesNodePicker()
             this.selectKubernetesNodeID(id)
@@ -1086,28 +1439,31 @@ class HostDetailPanel extends React.Component<Props, State> {
                 onClose={() => this.closeKubernetesNodePicker()}
                 ModalProps={{ hideBackdrop: true }}
                 PaperProps={{
+                    className: 'netdive-k8s-explorer-paper',
                     'data-netdive-drawer': 'true',
                     'data-netdive-kubernetes-node-picker': 'true'
                 } as any}
                 classes={{ paper: classes.kubernetesNodePickerDrawer }}>
-                <div className={classes.kubernetesNodePickerContent} ref={this.kubernetesNodePickerRef}>
-                    <div className={classes.kubernetesNodePickerHeader}>
-                        <span className={classes.kubernetesNodePickerHeaderIcon}><DeviceHubOutlinedIcon /></span>
+                <div className={`${classes.kubernetesNodePickerContent} netdive-k8s-explorer`} ref={this.kubernetesNodePickerRef}>
+                    <style>{kubernetesNodeExplorerStyles}</style>
+                    <div className={`${classes.kubernetesNodePickerHeader} netdive-k8s-explorer-header`}>
+                        <span className={`${classes.kubernetesNodePickerHeaderIcon} netdive-k8s-explorer-logo`}><DeviceHubOutlinedIcon /></span>
                         <div className={classes.kubernetesNodePickerHeaderBlock}>
-                            <div className={classes.kubernetesNodePickerTitle}>Kubernetes 노드 탐색</div>
-                            <div className={classes.kubernetesNodePickerDescription}>
+                            <div className={`${classes.kubernetesNodePickerTitle} netdive-k8s-explorer-title`}>Kubernetes 노드 탐색</div>
+                            <div className={`${classes.kubernetesNodePickerDescription} netdive-k8s-explorer-description`}>
                                 이 호스트({hostName})에 배치된 Kubernetes 노드 목록입니다.
                             </div>
                         </div>
                         <IconButton
-                            className={classes.kubernetesNodePickerClose}
+                            className={`${classes.kubernetesNodePickerClose} netdive-k8s-explorer-close`}
                             onClick={() => this.closeKubernetesNodePicker()}
                             aria-label={translate('close')}>
                             <CloseIcon />
                         </IconButton>
                     </div>
-                    <div className={classes.kubernetesNodePickerToolbar}>
-                        <div className={classes.kubernetesNodePickerSearch}>
+
+                    <div className={`${classes.kubernetesNodePickerToolbar} netdive-k8s-explorer-toolbar`}>
+                        <div className={`${classes.kubernetesNodePickerSearch} netdive-k8s-explorer-search`}>
                             <SearchIcon />
                             <input
                                 className={classes.kubernetesNodePickerSearchInput}
@@ -1116,44 +1472,48 @@ class HostDetailPanel extends React.Component<Props, State> {
                                 onChange={(event) => this.setState({ kubernetesNodePickerQuery: event.target.value })}
                                 placeholder={translate('kubernetesNodeSelectorSearchPlaceholder')} />
                         </div>
-                        <div className={classes.kubernetesNodePickerToolbarActions}>
-                            <button
-                                type="button"
-                                className={classes.kubernetesNodePickerExpandAllButton}
-                                onClick={() => {
-                                    const nextState: Record<string, boolean> = {}
-                                    Array.from(grouped.keys()).forEach((clusterId) => {
-                                        nextState[clusterId] = true
-                                    })
-                                    this.setState({ kubernetesNodePickerExpanded: nextState })
-                                }}>
-                                {translate('kubernetesNodeSelectorExpandAll')}
-                            </button>
-                            <button
-                                type="button"
-                                className={classes.kubernetesNodePickerHighlightAllButton}
-                                disabled={allOptions.length === 0}
-                                onClick={() => {
-                                    this.closeKubernetesNodePicker()
-                                    this.focusKubernetesNodeIDs(allOptions.map(item => item.id))
-                                }}>
-                                {translate('kubernetesNodeSelectorHighlightAll')}
-                            </button>
+                        <button
+                            type="button"
+                            className={`${classes.kubernetesNodePickerExpandAllButton} netdive-k8s-explorer-action netdive-k8s-explorer-action-secondary`}
+                            onClick={() => {
+                                const nextState: Record<string, boolean> = {}
+                                Array.from(grouped.keys()).forEach((clusterId) => {
+                                    nextState[clusterId] = true
+                                })
+                                this.setState({ kubernetesNodePickerExpanded: nextState })
+                            }}>
+                            {translate('kubernetesNodeSelectorExpandAll')}
+                        </button>
+                        <button
+                            type="button"
+                            className={`${classes.kubernetesNodePickerHighlightAllButton} netdive-k8s-explorer-action netdive-k8s-explorer-action-primary`}
+                            disabled={allOptions.length === 0}
+                            onClick={() => {
+                                this.closeKubernetesNodePicker()
+                                this.focusKubernetesNodeIDs(allOptions.map(item => item.id))
+                            }}>
+                            {translate('kubernetesNodeSelectorHighlightAll')}
+                        </button>
+                    </div>
+
+                    <div className={`${classes.kubernetesNodePickerSummary} netdive-k8s-explorer-summary`}>
+                        <div className={`${classes.kubernetesNodePickerSummaryItem} netdive-k8s-explorer-summary-card`}>
+                            <span className={`${classes.kubernetesNodePickerSummaryIcon} netdive-k8s-explorer-summary-icon`}><DeviceHubOutlinedIcon /></span>
+                            <span>
+                                <span className={`${classes.kubernetesNodePickerSummaryLabel} netdive-k8s-explorer-summary-label`}>Cluster</span>
+                                <strong className="netdive-k8s-explorer-summary-count">{grouped.size}</strong>
+                            </span>
+                        </div>
+                        <div className={`${classes.kubernetesNodePickerSummaryItem} netdive-k8s-explorer-summary-card`}>
+                            <span className={`${classes.kubernetesNodePickerSummaryIcon} netdive-k8s-explorer-summary-icon`}><DeviceHubIcon /></span>
+                            <span>
+                                <span className={`${classes.kubernetesNodePickerSummaryLabel} netdive-k8s-explorer-summary-label`}>Node</span>
+                                <strong className="netdive-k8s-explorer-summary-count">{options.length}</strong>
+                            </span>
                         </div>
                     </div>
-                    <div className={classes.kubernetesNodePickerSummary}>
-                        <div className={classes.kubernetesNodePickerSummaryItem}>
-                            <span className={classes.kubernetesNodePickerSummaryIcon}><DeviceHubOutlinedIcon /></span>
-                            <span className={classes.kubernetesNodePickerSummaryLabel}>{translate('kubernetesNodeSelectorClusterCountLabel').replace(/^전체\s*/, '')}</span>
-                            <strong>{grouped.size}</strong>
-                        </div>
-                        <div className={classes.kubernetesNodePickerSummaryItem}>
-                            <span className={classes.kubernetesNodePickerSummaryIcon}><DeviceHubIcon /></span>
-                            <span className={classes.kubernetesNodePickerSummaryLabel}>{translate('kubernetesNodeSelectorNodeCountLabel').replace(/^전체\s*/, '')}</span>
-                            <strong>{options.length}</strong>
-                        </div>
-                    </div>
-                    <div className={classes.kubernetesNodePickerBody}>
+
+                    <div className={`${classes.kubernetesNodePickerBody} netdive-k8s-explorer-body`}>
                         {!grouped.size && (
                             <div className={classes.emptyState}>
                                 {(this.state.kubernetesNodePickerQuery || '').trim()
@@ -1166,9 +1526,9 @@ class HostDetailPanel extends React.Component<Props, State> {
                             const visibleItems = expanded ? group.items : group.items.slice(0, 3)
                             const hiddenCount = expanded ? 0 : Math.max(0, group.items.length - visibleItems.length)
                             return (
-                                <div className={classes.kubernetesNodeClusterGroup} key={clusterId}>
+                                <div className={`${classes.kubernetesNodeClusterGroup} netdive-k8s-explorer-cluster`} key={clusterId}>
                                     <div
-                                        className={`${classes.kubernetesNodeClusterHeader} ${classes.kubernetesNodeClusterHeaderClickable}`}
+                                        className={`${classes.kubernetesNodeClusterHeader} netdive-k8s-explorer-cluster-header`}
                                         onClick={() => {
                                             this.setState({
                                                 kubernetesNodePickerExpanded: {
@@ -1177,67 +1537,56 @@ class HostDetailPanel extends React.Component<Props, State> {
                                                 }
                                             })
                                         }}>
-                                        <div className={classes.kubernetesNodeClusterHeaderMain}>
-                                            <span className={classes.kubernetesNodeClusterInlineChevron}>
-                                                {expanded ? <KeyboardArrowDownIcon /> : <KeyboardArrowRightIcon />}
-                                            </span>
-                                            <span className={classes.kubernetesNodeClusterIcon}><DeviceHubOutlinedIcon /></span>
-                                            <div className={classes.kubernetesNodeClusterTitleBlock}>
-                                                <span className={classes.kubernetesNodeClusterName}>{group.clusterName}</span>
-                                                <span className={classes.kubernetesNodeClusterMeta}>Node {group.items.length}{translate('kubernetesNodeSelectorCountSuffix')}</span>
-                                            </div>
+                                        <span className={`${classes.kubernetesNodeClusterInlineChevron} netdive-k8s-explorer-cluster-toggle`}>
+                                            {expanded ? <KeyboardArrowDownIcon /> : <KeyboardArrowRightIcon />}
+                                        </span>
+                                        <span className={`${classes.kubernetesNodeClusterIcon} netdive-k8s-explorer-cluster-logo`}><DeviceHubOutlinedIcon /></span>
+                                        <div className={classes.kubernetesNodeClusterTitleBlock}>
+                                            <span className={`${classes.kubernetesNodeClusterName} netdive-k8s-explorer-cluster-name`}>{group.clusterName}</span>
+                                            <span className={`${classes.kubernetesNodeClusterMeta} netdive-k8s-explorer-cluster-meta`}>{clusterMetaLabel(group.items)}</span>
                                         </div>
-                                        <span className={classes.kubernetesNodeClusterRightChevron}>
+                                        <span className={`${classes.kubernetesNodeClusterRightChevron} netdive-k8s-explorer-cluster-chevron`}>
                                             {expanded ? <KeyboardArrowDownIcon /> : <KeyboardArrowRightIcon />}
                                         </span>
                                     </div>
-                                    {expanded && <div className={classes.kubernetesNodeClusterBody}>
-                                        <div className={classes.kubernetesNodeListSection}>
-                                            <div className={classes.kubernetesNodeList}>
-                                                {visibleItems.map(item => (
-                                                    <div
-                                                        className={classes.kubernetesNodeRow}
-                                                        key={item.id}
-                                                        role="button"
-                                                        tabIndex={0}
-                                                        onClick={() => moveToNode(item.id)}
-                                                        onKeyDown={(event) => {
-                                                            if (event.key === 'Enter' || event.key === ' ') {
-                                                                event.preventDefault()
-                                                                moveToNode(item.id)
-                                                            }
-                                                        }}>
-                                                        <div className={classes.kubernetesNodeNameWrap}>
-                                                            <span className={`${classes.kubernetesNodeStatusDot} ${statusDotClass(item.status)}`} />
-                                                            <div className={classes.kubernetesNodeNodeText}>
-                                                                <span className={classes.kubernetesNodeName} title={item.name}>{item.name}</span>
-                                                                <span className={classes.kubernetesNodeMetaLine}>{roleLabel(item.role)} · {item.version}</span>
-                                                            </div>
-                                                        </div>
-                                                        <span className={classes.kubernetesNodeRowAside}>
-                                                            {item.status !== 'Unknown' && (
-                                                                <span className={`${classes.kubernetesNodeStatusBadge} ${statusBadgeClass(item.status)}`}>{statusLabel(item.status)}</span>
-                                                            )}
-                                                            <KeyboardArrowRightIcon />
-                                                        </span>
+                                    {expanded && (
+                                        <div className={`${classes.kubernetesNodeClusterBody} netdive-k8s-explorer-node-list`}>
+                                            {visibleItems.map(item => (
+                                                <div
+                                                    className={`${classes.kubernetesNodeRow} netdive-k8s-explorer-node-row`}
+                                                    key={item.id}
+                                                    role="button"
+                                                    tabIndex={0}
+                                                    onClick={() => moveToNode(item.id)}
+                                                    onKeyDown={(event) => {
+                                                        if (event.key === 'Enter' || event.key === ' ') {
+                                                            event.preventDefault()
+                                                            moveToNode(item.id)
+                                                        }
+                                                    }}>
+                                                    <span className={`netdive-k8s-explorer-node-dot ${statusDotClass(item.status)}`} />
+                                                    <div>
+                                                        <span className={`${classes.kubernetesNodeName} netdive-k8s-explorer-node-name`} title={item.name}>{item.name}</span>
+                                                        <span className={`${classes.kubernetesNodeMetaLine} netdive-k8s-explorer-node-meta`}>{roleLabel(item.role)} · {item.version}</span>
                                                     </div>
-                                                ))}
-                                            </div>
+                                                    <span className="netdive-k8s-explorer-node-chevron"><KeyboardArrowRightIcon /></span>
+                                                </div>
+                                            ))}
+                                            {hiddenCount > 0 && (
+                                                <button
+                                                    type="button"
+                                                    className={classes.kubernetesNodeExpandButton}
+                                                    onClick={() => this.setState({
+                                                        kubernetesNodePickerExpanded: {
+                                                            ...(this.state.kubernetesNodePickerExpanded || {}),
+                                                            [clusterId]: true
+                                                        }
+                                                    })}>
+                                                    {translate('kubernetesNodeSelectorRemainingPrefix')} {hiddenCount}{translate('kubernetesNodeSelectorRemainingSuffix')}
+                                                </button>
+                                            )}
                                         </div>
-                                        {hiddenCount > 0 && (
-                                            <button
-                                                type="button"
-                                                className={classes.kubernetesNodeExpandButton}
-                                                onClick={() => this.setState({
-                                                    kubernetesNodePickerExpanded: {
-                                                        ...(this.state.kubernetesNodePickerExpanded || {}),
-                                                        [clusterId]: true
-                                                    }
-                                                })}>
-                                                {translate('kubernetesNodeSelectorRemainingPrefix')} {hiddenCount}{translate('kubernetesNodeSelectorRemainingSuffix')}
-                                            </button>
-                                        )}
-                                    </div>}
+                                    )}
                                 </div>
                             )
                         })}
