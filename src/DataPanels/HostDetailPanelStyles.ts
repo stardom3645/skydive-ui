@@ -783,8 +783,9 @@ export const styles = (theme: Theme) => createStyles({
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'rgba(239, 246, 255, 0.95)',
-        color: 'var(--topology-level-label-active-text)',
+        background: 'linear-gradient(180deg, rgba(248, 250, 252, 0.96) 0%, rgba(255, 255, 255, 0.98) 100%)',
+        color: '#64748b',
+        boxShadow: 'inset 0 0 0 1px rgba(203, 213, 225, 0.72)',
         '& svg': {
             fontSize: 18
         }

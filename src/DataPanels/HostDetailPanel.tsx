@@ -267,11 +267,13 @@ const kubernetesNodeExplorerStyles = `
 }
 .netdive-k8s-explorer-summary-card:nth-child(1) .netdive-k8s-explorer-summary-icon {
     color: #2563eb;
-    background: #eff6ff;
+    background: linear-gradient(180deg, rgba(239, 246, 255, 0.94) 0%, rgba(248, 250, 252, 0.98) 100%);
+    box-shadow: inset 0 0 0 1px rgba(147, 197, 253, 0.34);
 }
 .netdive-k8s-explorer-summary-card:nth-child(2) .netdive-k8s-explorer-summary-icon {
-    color: #16a34a;
-    background: #ecfdf5;
+    color: #64748b;
+    background: linear-gradient(180deg, rgba(248, 250, 252, 0.96) 0%, rgba(255, 255, 255, 0.98) 100%);
+    box-shadow: inset 0 0 0 1px rgba(203, 213, 225, 0.72);
 }
 .netdive-k8s-explorer-summary-icon {
     width: 24px;
@@ -2143,7 +2145,12 @@ class HostDetailPanel extends React.Component<Props, State> {
                 {hasConnectedMetrics && this.renderSection(<DeviceHubIcon />, translate('hostConnectedResources'), translate('hostConnectedResourcesDescription'), (
                     <div className={classes.connectedResourceSectionStack}>
                         {this.renderConnectedResourceSubsection(<AccountTreeIcon />, translate('infrastructureMenu'), connectedResources, translate('hostNoConnectedResources'))}
-                        {this.renderConnectedResourceSubsection(this.kubernetesIcon(), 'Kubernetes', kubernetesResources, translate('hostNoConnectedResources'))}
+                        {this.renderConnectedResourceSubsection(
+                            <span style={{ color: '#64748b', display: 'inline-flex' }}>{this.kubernetesNodeIcon()}</span>,
+                            'Kubernetes',
+                            kubernetesResources,
+                            translate('hostNoConnectedResources')
+                        )}
                     </div>
                 ))}
                 {this.renderSection(<PowerIcon />, translate('hostSocketsProcesses'), '수신 대기 서비스와 주요 소켓 프로세스를 요약합니다.', this.renderSocketProcessSummary())}
