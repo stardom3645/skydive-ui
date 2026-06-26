@@ -105,9 +105,9 @@ interface PillItem {
 
 const kubernetesNodeExplorerStyles = `
 .netdive-k8s-explorer-paper {
-    width: min(420px, calc(100vw - 44px)) !important;
-    max-width: 420px !important;
-    right: 28px !important;
+    width: min(456px, calc(100vw - 44px)) !important;
+    max-width: 456px !important;
+    right: 20px !important;
     top: 22px !important;
     height: auto !important;
     max-height: calc(100vh - 56px) !important;
@@ -171,8 +171,8 @@ const kubernetesNodeExplorerStyles = `
 }
 .netdive-k8s-explorer-toolbar {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto;
-    gap: 7px;
+    grid-template-columns: minmax(0, 1fr) max-content max-content;
+    gap: 6px;
     align-items: center;
 }
 .netdive-k8s-explorer-search {
@@ -204,9 +204,10 @@ const kubernetesNodeExplorerStyles = `
 }
 .netdive-k8s-explorer-action {
     height: 34px;
+    min-width: 74px;
     border-radius: 9px;
-    padding: 0 10px;
-    font-size: 10.5px;
+    padding: 0 9px;
+    font-size: 10px;
     line-height: 1;
     font-weight: 800;
     display: inline-flex;
@@ -242,15 +243,15 @@ const kubernetesNodeExplorerStyles = `
     gap: 8px;
 }
 .netdive-k8s-explorer-summary-card {
-    min-height: 50px;
+    min-height: 46px;
     border: 1px solid #e2e8f0;
-    border-radius: 11px;
+    border-radius: 10px;
     background: #ffffff;
     display: grid;
-    grid-template-columns: 28px minmax(0, 1fr);
-    gap: 9px;
+    grid-template-columns: 26px minmax(0, 1fr);
+    gap: 8px;
     align-items: center;
-    padding: 8px 10px;
+    padding: 7px 10px;
     box-shadow: 0 5px 14px rgba(15, 23, 42, 0.028);
 }
 .netdive-k8s-explorer-summary-card:nth-child(1) .netdive-k8s-explorer-summary-icon {
@@ -262,15 +263,21 @@ const kubernetesNodeExplorerStyles = `
     background: #ecfdf5;
 }
 .netdive-k8s-explorer-summary-icon {
-    width: 28px;
-    height: 28px;
-    border-radius: 9px;
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
 }
 .netdive-k8s-explorer-summary-icon svg {
-    font-size: 17px !important;
+    font-size: 16px !important;
+}
+.netdive-k8s-explorer-fa-icon {
+    font-family: "Font Awesome 5 Free";
+    font-size: 15px;
+    font-weight: 900;
+    line-height: 1;
 }
 .netdive-k8s-explorer-summary-label {
     display: block;
@@ -283,7 +290,7 @@ const kubernetesNodeExplorerStyles = `
     display: block;
     margin-top: 2px;
     color: #0f172a;
-    font-size: 17px;
+    font-size: 16px;
     line-height: 1;
     font-weight: 900;
     letter-spacing: -0.02em;
@@ -329,12 +336,12 @@ const kubernetesNodeExplorerStyles = `
 }
 .netdive-k8s-explorer-cluster-toggle svg,
 .netdive-k8s-explorer-cluster-chevron svg {
-    font-size: 17px !important;
+    font-size: 16px !important;
 }
 .netdive-k8s-explorer-cluster-logo {
-    width: 28px;
-    height: 28px;
-    border-radius: 9px;
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -344,6 +351,10 @@ const kubernetesNodeExplorerStyles = `
 }
 .netdive-k8s-explorer-cluster-logo svg {
     font-size: 16px !important;
+}
+.netdive-k8s-explorer-cluster-logo .netdive-k8s-explorer-fa-icon {
+    color: #ffffff;
+    font-size: 15px;
 }
 .netdive-k8s-explorer-cluster-name {
     display: block;
@@ -369,11 +380,11 @@ const kubernetesNodeExplorerStyles = `
 }
 .netdive-k8s-explorer-node-row {
     display: grid;
-    grid-template-columns: 10px minmax(0, 1fr) 22px;
-    gap: 9px;
+    grid-template-columns: 10px minmax(0, 1fr) 18px;
+    gap: 8px;
     align-items: center;
-    min-height: 45px;
-    padding: 8px 12px 8px 36px;
+    min-height: 44px;
+    padding: 7px 10px 7px 36px;
     border: 0;
     border-top: 1px solid #f1f5f9;
     border-radius: 0;
@@ -407,15 +418,15 @@ const kubernetesNodeExplorerStyles = `
     box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.11);
 }
 .netdive-k8s-explorer-node-dot-unknown {
-    background: #94a3b8;
-    box-shadow: 0 0 0 4px rgba(148, 163, 184, 0.13);
+    background: #22c55e;
+    box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.12);
 }
 .netdive-k8s-explorer-node-name {
     display: block;
     overflow: hidden;
     color: #111827;
-    font-size: 11.5px;
-    line-height: 1.22;
+    font-size: 11.25px;
+    line-height: 1.2;
     font-weight: 800;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -424,8 +435,8 @@ const kubernetesNodeExplorerStyles = `
     display: block;
     margin-top: 3px;
     color: #64748b;
-    font-size: 10px;
-    line-height: 1.18;
+    font-size: 9.75px;
+    line-height: 1.15;
     font-weight: 650;
 }
 .netdive-k8s-explorer-node-chevron {
@@ -434,7 +445,34 @@ const kubernetesNodeExplorerStyles = `
     opacity: 0.76;
 }
 .netdive-k8s-explorer-node-chevron svg {
-    font-size: 17px !important;
+    font-size: 16px !important;
+}
+
+.netdive-k8s-explorer-node-meta-pill {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    min-height: 15px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: #f1f5f9;
+    color: #475569;
+    font-size: 9.5px;
+    line-height: 1;
+    font-weight: 750;
+    vertical-align: middle;
+}
+.netdive-k8s-explorer-node-meta-text {
+    display: inline-flex;
+    align-items: center;
+    min-width: 0;
+    max-width: 100%;
+    gap: 5px;
+}
+.netdive-k8s-explorer-node-version {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 @media (max-width: 640px) {
     .netdive-k8s-explorer-paper {
@@ -1341,22 +1379,35 @@ class HostDetailPanel extends React.Component<Props, State> {
     }
 
     private kubernetesNodeRole(node: Node): string {
-        const directRole = firstValue(node.data, ['Role', 'role', 'NodeRole', 'nodeRole'])
-        if (directRole) return directRole
+        const name = firstValue(node.data, ['Name', 'Hostname', 'HostName', 'NodeName', 'nodeName']).toLowerCase()
+        const nameLooksControlPlane = name.indexOf('control-plane') >= 0 || name.indexOf('control') >= 0 || name.indexOf('master') >= 0
 
         const labels = node.data?.Labels || node.data?.labels || node.data?.Metadata?.Labels || node.data?.metadata?.labels
         if (labels && typeof labels === 'object') {
             const keys = Object.keys(labels)
             if (keys.some(key => key.indexOf('node-role.kubernetes.io/control-plane') === 0)) return 'control-plane'
             if (keys.some(key => key.indexOf('node-role.kubernetes.io/master') === 0)) return 'master'
-            if (keys.some(key => key.indexOf('node-role.kubernetes.io/worker') === 0)) return 'worker'
+            if (keys.some(key => key.indexOf('node-role.kubernetes.io/worker') === 0)) return nameLooksControlPlane ? 'control-plane' : 'worker'
             const kubernetesRole = firstValue(labels, ['kubernetes.io/role', 'node-role.kubernetes.io/role'])
-            if (kubernetesRole) return kubernetesRole
+            if (kubernetesRole) {
+                const normalizedRole = kubernetesRole.toLowerCase()
+                if (normalizedRole.indexOf('control') >= 0) return 'control-plane'
+                if (normalizedRole.indexOf('master') >= 0) return 'master'
+                if (normalizedRole.indexOf('worker') >= 0 && nameLooksControlPlane) return 'control-plane'
+                return kubernetesRole
+            }
         }
 
-        const name = firstValue(node.data, ['Name', 'Hostname', 'HostName', 'NodeName', 'nodeName']).toLowerCase()
-        if (name.indexOf('control-plane') >= 0) return 'control-plane'
-        if (name.indexOf('master') >= 0) return 'master'
+        const directRole = firstValue(node.data, ['Role', 'role', 'NodeRole', 'nodeRole'])
+        if (directRole) {
+            const normalizedRole = directRole.toLowerCase()
+            if (normalizedRole.indexOf('control') >= 0) return 'control-plane'
+            if (normalizedRole.indexOf('master') >= 0) return 'master'
+            if (normalizedRole.indexOf('worker') >= 0 && nameLooksControlPlane) return 'control-plane'
+            return directRole
+        }
+
+        if (nameLooksControlPlane) return 'control-plane'
         return 'worker'
     }
 
@@ -1410,26 +1461,32 @@ class HostDetailPanel extends React.Component<Props, State> {
             grouped.get(item.clusterId)!.items.push(item)
         })
 
+        const allExpanded = grouped.size > 0 && Array.from(grouped.keys()).every(clusterId => this.state.kubernetesNodePickerExpanded?.[clusterId] !== false)
+
         const roleLabel = (role: string) => {
-            if (role === 'control-plane') return 'control-plane'
-            if (role === 'master') return 'master'
+            const normalizedRole = String(role || '').toLowerCase()
+            if (normalizedRole.indexOf('control') >= 0) return 'control-plane'
+            if (normalizedRole.indexOf('master') >= 0) return 'master'
             return 'worker'
         }
 
         const clusterMetaLabel = (items: KubernetesNodePickerItem[]) => {
+            const controlPlaneCount = items.filter(item => roleLabel(item.role) === 'control-plane' || roleLabel(item.role) === 'master').length
+            const workerCount = items.length - controlPlaneCount
             if (items.length === 1) {
                 const role = roleLabel(items[0].role)
                 if (role === 'worker') return 'Worker Node 1'
                 if (role === 'control-plane') return 'Control Plane Node 1'
                 return `${role} Node 1`
             }
-            return `Node ${items.length}`
+            if (controlPlaneCount > 0 && workerCount > 0) return `Control Plane ${controlPlaneCount} · Worker ${workerCount}`
+            if (controlPlaneCount > 0) return `Control Plane Node ${controlPlaneCount}`
+            return `Worker Node ${workerCount}`
         }
 
         const statusDotClass = (status: string) => {
-            if (status === 'Ready') return 'netdive-k8s-explorer-node-dot-ready'
             if (status === 'NotReady') return 'netdive-k8s-explorer-node-dot-not-ready'
-            return 'netdive-k8s-explorer-node-dot-unknown'
+            return 'netdive-k8s-explorer-node-dot-ready'
         }
 
         const moveToNode = (id: string) => {
@@ -1454,7 +1511,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                 <div className={`${classes.kubernetesNodePickerContent} netdive-k8s-explorer`} ref={this.kubernetesNodePickerRef}>
                     <style>{kubernetesNodeExplorerStyles}</style>
                     <div className={`${classes.kubernetesNodePickerHeader} netdive-k8s-explorer-header`}>
-                        <span className={`${classes.kubernetesNodePickerHeaderIcon} netdive-k8s-explorer-logo`}><DeviceHubOutlinedIcon /></span>
+                        <span className={`${classes.kubernetesNodePickerHeaderIcon} netdive-k8s-explorer-logo`}><AccountTreeIcon /></span>
                         <div className={classes.kubernetesNodePickerHeaderBlock}>
                             <div className={`${classes.kubernetesNodePickerTitle} netdive-k8s-explorer-title`}>Kubernetes 노드 탐색</div>
                             <div className={`${classes.kubernetesNodePickerDescription} netdive-k8s-explorer-description`}>
@@ -1485,11 +1542,11 @@ class HostDetailPanel extends React.Component<Props, State> {
                             onClick={() => {
                                 const nextState: Record<string, boolean> = {}
                                 Array.from(grouped.keys()).forEach((clusterId) => {
-                                    nextState[clusterId] = true
+                                    nextState[clusterId] = !allExpanded
                                 })
                                 this.setState({ kubernetesNodePickerExpanded: nextState })
                             }}>
-                            {translate('kubernetesNodeSelectorExpandAll')}
+                            {allExpanded ? '전체 접기' : translate('kubernetesNodeSelectorExpandAll')}
                         </button>
                         <button
                             type="button"
@@ -1505,14 +1562,14 @@ class HostDetailPanel extends React.Component<Props, State> {
 
                     <div className={`${classes.kubernetesNodePickerSummary} netdive-k8s-explorer-summary`}>
                         <div className={`${classes.kubernetesNodePickerSummaryItem} netdive-k8s-explorer-summary-card`}>
-                            <span className={`${classes.kubernetesNodePickerSummaryIcon} netdive-k8s-explorer-summary-icon`}><DeviceHubOutlinedIcon /></span>
+                            <span className={`${classes.kubernetesNodePickerSummaryIcon} netdive-k8s-explorer-summary-icon`}><AccountTreeIcon /></span>
                             <span>
                                 <span className={`${classes.kubernetesNodePickerSummaryLabel} netdive-k8s-explorer-summary-label`}>Cluster</span>
                                 <strong className="netdive-k8s-explorer-summary-count">{grouped.size}</strong>
                             </span>
                         </div>
                         <div className={`${classes.kubernetesNodePickerSummaryItem} netdive-k8s-explorer-summary-card`}>
-                            <span className={`${classes.kubernetesNodePickerSummaryIcon} netdive-k8s-explorer-summary-icon`}><DeviceHubIcon /></span>
+                            <span className={`${classes.kubernetesNodePickerSummaryIcon} netdive-k8s-explorer-summary-icon`}><span className="netdive-k8s-explorer-fa-icon">&#xf233;</span></span>
                             <span>
                                 <span className={`${classes.kubernetesNodePickerSummaryLabel} netdive-k8s-explorer-summary-label`}>Node</span>
                                 <strong className="netdive-k8s-explorer-summary-count">{options.length}</strong>
@@ -1547,7 +1604,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                                         <span className={`${classes.kubernetesNodeClusterInlineChevron} netdive-k8s-explorer-cluster-toggle`}>
                                             {expanded ? <KeyboardArrowDownIcon /> : <KeyboardArrowRightIcon />}
                                         </span>
-                                        <span className={`${classes.kubernetesNodeClusterIcon} netdive-k8s-explorer-cluster-logo`}><DeviceHubOutlinedIcon /></span>
+                                        <span className={`${classes.kubernetesNodeClusterIcon} netdive-k8s-explorer-cluster-logo`}><AccountTreeIcon /></span>
                                         <div className={classes.kubernetesNodeClusterTitleBlock}>
                                             <span className={`${classes.kubernetesNodeClusterName} netdive-k8s-explorer-cluster-name`}>{group.clusterName}</span>
                                             <span className={`${classes.kubernetesNodeClusterMeta} netdive-k8s-explorer-cluster-meta`}>{clusterMetaLabel(group.items)}</span>
@@ -1574,7 +1631,10 @@ class HostDetailPanel extends React.Component<Props, State> {
                                                     <span className={`netdive-k8s-explorer-node-dot ${statusDotClass(item.status)}`} />
                                                     <div>
                                                         <span className={`${classes.kubernetesNodeName} netdive-k8s-explorer-node-name`} title={item.name}>{item.name}</span>
-                                                        <span className={`${classes.kubernetesNodeMetaLine} netdive-k8s-explorer-node-meta`}>{roleLabel(item.role)} · {item.version}</span>
+                                                        <span className={`${classes.kubernetesNodeMetaLine} netdive-k8s-explorer-node-meta netdive-k8s-explorer-node-meta-text`}>
+                                                            <span className="netdive-k8s-explorer-node-meta-pill">{roleLabel(item.role)}</span>
+                                                            <span className="netdive-k8s-explorer-node-version">{item.version}</span>
+                                                        </span>
                                                     </div>
                                                     <span className="netdive-k8s-explorer-node-chevron"><KeyboardArrowRightIcon /></span>
                                                 </div>
