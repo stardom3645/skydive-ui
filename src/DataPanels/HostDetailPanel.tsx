@@ -10,6 +10,7 @@ import PowerIcon from '@material-ui/icons/Power'
 import SecurityIcon from '@material-ui/icons/Security'
 import RouterIcon from '@material-ui/icons/Router'
 import AccountTreeIcon from '@material-ui/icons/AccountTree'
+import StorageIcon from '@material-ui/icons/Storage'
 import SearchIcon from '@material-ui/icons/Search'
 import CloseIcon from '@material-ui/icons/Close'
 import KeyboardArrowRightIcon from '@material-ui/icons/KeyboardArrowRight'
@@ -195,7 +196,7 @@ const kubernetesNodeExplorerStyles = `
     outline: 0;
     background: transparent;
     color: #0f172a;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 550;
 }
 .netdive-k8s-explorer-search input::placeholder {
@@ -206,7 +207,7 @@ const kubernetesNodeExplorerStyles = `
     min-width: 76px;
     border-radius: 8px;
     padding: 0 9px;
-    font-size: 12px;
+    font-size: 11px;
     line-height: 1;
     font-weight: 800;
     display: inline-flex;
@@ -281,7 +282,7 @@ const kubernetesNodeExplorerStyles = `
 .netdive-k8s-explorer-summary-label {
     display: block;
     color: #64748b;
-    font-size: 13px;
+    font-size: 11px;
     line-height: 1.12;
     font-weight: 800;
 }
@@ -352,22 +353,22 @@ const kubernetesNodeExplorerStyles = `
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    color: #2563eb;
-    background: linear-gradient(180deg, rgba(239, 246, 255, 0.94) 0%, rgba(248, 250, 252, 0.98) 100%);
-    box-shadow: inset 0 0 0 1px rgba(147, 197, 253, 0.34);
+    color: #ffffff;
+    background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+    box-shadow: 0 5px 12px rgba(37, 99, 235, 0.14);
 }
 .netdive-k8s-explorer-cluster-logo svg {
     font-size: 14px !important;
 }
 .netdive-k8s-explorer-cluster-logo .netdive-k8s-explorer-fa-icon {
-    color: #2563eb;
+    color: #ffffff;
     font-size: 15px;
 }
 .netdive-k8s-explorer-cluster-name {
     display: block;
     overflow: hidden;
     color: #111827;
-    font-size: 13.5px;
+    font-size: 11.75px;
     line-height: 1.18;
     font-weight: 850;
     text-overflow: ellipsis;
@@ -387,11 +388,11 @@ const kubernetesNodeExplorerStyles = `
 }
 .netdive-k8s-explorer-node-row {
     display: grid;
-    grid-template-columns: 9px minmax(0, 1fr) 17px;
-    gap: 8px;
+    grid-template-columns: 8px 20px minmax(0, 1fr) 17px;
+    gap: 7px;
     align-items: center;
     min-height: 42px;
-    padding: 7px 12px 7px 30px;
+    padding: 7px 12px 7px 24px;
     border: 0;
     border-top: 1px solid #f1f5f9;
     border-radius: 0;
@@ -429,11 +430,39 @@ const kubernetesNodeExplorerStyles = `
     background: #22c55e;
     box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.12);
 }
+
+.netdive-k8s-explorer-node-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 7px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #2563eb;
+    background: #eff6ff;
+    border: 1px solid #dbeafe;
+    flex: 0 0 auto;
+}
+.netdive-k8s-explorer-node-icon svg {
+    font-size: 13px !important;
+}
+.netdive-k8s-explorer-node-icon-control-plane,
+.netdive-k8s-explorer-node-icon-master {
+    color: #1d4ed8;
+    background: #eff6ff;
+    border-color: #bfdbfe;
+}
+.netdive-k8s-explorer-node-icon-worker {
+    color: #334155;
+    background: #f8fafc;
+    border-color: #e2e8f0;
+}
+
 .netdive-k8s-explorer-node-name {
     display: block;
     overflow: hidden;
     color: #111827;
-    font-size: 12.5px;
+    font-size: 11px;
     line-height: 1.2;
     font-weight: 800;
     text-overflow: ellipsis;
@@ -1614,14 +1643,14 @@ class HostDetailPanel extends React.Component<Props, State> {
 
                     <div className={`${classes.kubernetesNodePickerSummary} netdive-k8s-explorer-summary`}>
                         <div className={`${classes.kubernetesNodePickerSummaryItem} netdive-k8s-explorer-summary-card`}>
-                            {this.kubernetesResourceIcon('cluster', `${classes.kubernetesNodePickerSummaryIcon} netdive-k8s-explorer-summary-icon`)}
+                            {this.kubernetesIcon(`${classes.kubernetesNodePickerSummaryIcon} netdive-k8s-explorer-summary-icon`)}
                             <span>
                                 <span className={`${classes.kubernetesNodePickerSummaryLabel} netdive-k8s-explorer-summary-label`}>Cluster</span>
                                 <strong className="netdive-k8s-explorer-summary-count">{grouped.size}</strong>
                             </span>
                         </div>
                         <div className={`${classes.kubernetesNodePickerSummaryItem} netdive-k8s-explorer-summary-card`}>
-                            {this.kubernetesResourceIcon('node', `${classes.kubernetesNodePickerSummaryIcon} netdive-k8s-explorer-summary-icon`)}
+                            {this.kubernetesIcon(`${classes.kubernetesNodePickerSummaryIcon} netdive-k8s-explorer-summary-icon`)}
                             <span>
                                 <span className={`${classes.kubernetesNodePickerSummaryLabel} netdive-k8s-explorer-summary-label`}>Node</span>
                                 <strong className="netdive-k8s-explorer-summary-count">{options.length}</strong>
@@ -1656,7 +1685,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                                         <span className={`${classes.kubernetesNodeClusterInlineChevron} netdive-k8s-explorer-cluster-toggle`}>
                                             {expanded ? <KeyboardArrowDownIcon /> : <KeyboardArrowRightIcon />}
                                         </span>
-                                        {this.kubernetesResourceIcon('cluster', `${classes.kubernetesNodeClusterIcon} netdive-k8s-explorer-cluster-logo`)}
+                                        {this.kubernetesIcon(`${classes.kubernetesNodeClusterIcon} netdive-k8s-explorer-cluster-logo`)}
                                         <div className={classes.kubernetesNodeClusterTitleBlock}>
                                             <span className={`${classes.kubernetesNodeClusterName} netdive-k8s-explorer-cluster-name`}>{group.clusterName}</span>
                                             <span className={`${classes.kubernetesNodeClusterMeta} netdive-k8s-explorer-cluster-meta`}>{clusterMetaLabel(group.items)}</span>
@@ -1681,6 +1710,9 @@ class HostDetailPanel extends React.Component<Props, State> {
                                                         }
                                                     }}>
                                                     <span className={`netdive-k8s-explorer-node-dot ${statusDotClass(item.status)}`} />
+                                                    <span className={`netdive-k8s-explorer-node-icon netdive-k8s-explorer-node-icon-${roleLabel(item.role)}`} aria-hidden="true">
+                                                        {roleLabel(item.role) === 'worker' ? <StorageIcon /> : <AccountTreeIcon />}
+                                                    </span>
                                                     <div>
                                                         <span className={`${classes.kubernetesNodeName} netdive-k8s-explorer-node-name`} title={item.name}>{item.name}</span>
                                                         <span className={`${classes.kubernetesNodeMetaLine} netdive-k8s-explorer-node-meta netdive-k8s-explorer-node-meta-text`}>
@@ -1965,19 +1997,6 @@ class HostDetailPanel extends React.Component<Props, State> {
         )
     }
 
-    private kubernetesResourceIcon(kind: 'cluster' | 'node', className?: string) {
-        const glyph = kind === 'cluster' ? '\uf542' : '\uf233'
-        const color = kind === 'cluster' ? '#2563eb' : '#64748b'
-        return (
-            <span
-                className={`${className || ''} fa fas fa-fw`}
-                aria-hidden="true"
-                style={{ color, fontFamily: '"Font Awesome 5 Free"', fontWeight: 900, lineHeight: 1 }}>
-                {glyph}
-            </span>
-        )
-    }
-
     private renderPills(values: Array<string | PillItem>, emptyText: string) {
         const { classes } = this.props
         if (!values.length) return <div className={classes.emptyState}>{emptyText}</div>
@@ -2068,7 +2087,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                 label: translate('kubernetesTopologyNodes'),
                 description: kubernetesClusterNames.length > 0 ? kubernetesClusterNames.join(', ') : '',
                 value: String(kubernetesNodes.length),
-                icon: this.kubernetesResourceIcon('node', classes.connectedResourceFaIcon),
+                icon: this.kubernetesIcon(classes.connectedResourceFaIcon),
                 nodeIDs: kubernetesNodes.map(item => item.id),
                 onClick: () => this.openKubernetesNodePicker()
             }
