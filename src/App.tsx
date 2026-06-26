@@ -1996,6 +1996,10 @@ class App extends React.Component<Props, State> {
       return
     }
 
+    if (tag !== this.activeNodeTagName()) {
+      this.clearSelectionForLayerChange()
+    }
+
     this.tc.activeNodeTag(tag)
 
     this.state.nodeTagStates = this.tc.nodeTagStates
@@ -2025,9 +2029,6 @@ class App extends React.Component<Props, State> {
 
   private selectTopologyLayer(tag: string) {
     this.closeMenu("layer-filter")
-    if (tag !== this.activeNodeTagName()) {
-      this.clearSelectionForLayerChange()
-    }
     this.activeNodeTag(tag)
   }
 

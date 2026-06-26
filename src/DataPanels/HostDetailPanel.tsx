@@ -352,15 +352,15 @@ const kubernetesNodeExplorerStyles = `
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    color: #ffffff;
-    background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
-    box-shadow: 0 5px 12px rgba(37, 99, 235, 0.14);
+    color: #2563eb;
+    background: linear-gradient(180deg, rgba(239, 246, 255, 0.94) 0%, rgba(248, 250, 252, 0.98) 100%);
+    box-shadow: inset 0 0 0 1px rgba(147, 197, 253, 0.34);
 }
 .netdive-k8s-explorer-cluster-logo svg {
     font-size: 14px !important;
 }
 .netdive-k8s-explorer-cluster-logo .netdive-k8s-explorer-fa-icon {
-    color: #ffffff;
+    color: #2563eb;
     font-size: 15px;
 }
 .netdive-k8s-explorer-cluster-name {

@@ -914,8 +914,8 @@ export const styles = (theme: Theme) => createStyles({
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'linear-gradient(180deg, rgba(219, 234, 254, 0.94) 0%, rgba(239, 246, 255, 0.96) 100%)',
-        boxShadow: 'inset 0 0 0 1px rgba(147, 197, 253, 0.28)',
+        background: 'linear-gradient(180deg, rgba(239, 246, 255, 0.94) 0%, rgba(248, 250, 252, 0.98) 100%)',
+        boxShadow: 'inset 0 0 0 1px rgba(147, 197, 253, 0.34)',
         '& svg': {
             fontSize: 17,
             color: 'var(--topology-level-label-active-text)'
