@@ -14,11 +14,14 @@ import { withStyles } from '@material-ui/core/styles'
 
 import { Node } from '../Topology'
 import { translate } from '../Config'
+import { session } from '../Store'
 import { styles } from './HostDetailPanelStyles'
+import HostResourceTrendPanel from './HostResourceTrendPanel'
 
 interface Props {
     classes: any
     node: Node
+    session?: session
     moldInventory?: any
     vmNameMap?: Record<string, string>
     vmNetworkMap?: Record<string, Array<{ networkName: string, macAddress: string, ipAddress: string }>>
@@ -104,8 +107,6 @@ const uniqueStrings = (values: any[]): string[] => {
         return true
     })
 }
-
-const normalizeMac = (value: any): string => String(value || '').toLowerCase().replace(/[^0-9a-f]/g, '')
 
 class VMDetailPanel extends React.Component<Props> {
     private copyValue(value: string) {
@@ -245,6 +246,15 @@ class VMDetailPanel extends React.Component<Props> {
         }
         visit(this.props.node)
         return result
+    }
+
+    private topologyNicNodes(): Node[] {
+        const nicTypes = ['tap', 'tun', 'tuntap', 'interface', 'veth']
+        return this.topologyNetworkNodes().filter(node => {
+            const type = String(node.data?.Type || '').toLowerCase()
+            const driver = String(node.data?.Driver || '').toLowerCase()
+            return nicTypes.indexOf(type) >= 0 || nicTypes.indexOf(driver) >= 0
+        })
     }
 
     private ips(): string[] {
@@ -414,20 +424,6 @@ class VMDetailPanel extends React.Component<Props> {
         )
     }
 
-    private renderPills(values: string[], emptyText: string) {
-        const { classes } = this.props
-        if (!values.length) return <div className={classes.emptyState}>{emptyText}</div>
-        return (
-            <div className={classes.pillList}>
-                {values.map(value => (
-                    <Tooltip title={value} key={value} placement="top" arrow>
-                        <span className={classes.pill}>{value}</span>
-                    </Tooltip>
-                ))}
-            </div>
-        )
-    }
-
     render() {
         const { classes, node } = this.props
         const data = this.mergedData()
@@ -447,12 +443,8 @@ class VMDetailPanel extends React.Component<Props> {
         const zone = firstValue(data, ['Zone', 'zone', 'ZoneName', 'zonename'])
         const pod = firstValue(data, ['Pod', 'pod', 'PodName', 'podname'])
         const cluster = firstValue(data, ['Cluster', 'cluster', 'ClusterName', 'clustername'])
-        const account = firstValue(data, ['Account', 'account', 'AccountName', 'accountName'])
-        const domain = firstValue(data, ['Domain', 'domain', 'DomainName', 'domainName'])
-        const locationText = [zone, pod, cluster].filter(Boolean).join(' > ')
         const os = firstValue(data, ['OS', 'Os', 'OperatingSystem', 'osdisplayname', 'osDisplayName', 'GuestOS', 'guestOS'])
         const hypervisor = firstValue(data, ['Hypervisor', 'hypervisor', 'HypervisorType', 'hypervisorType'])
-        const serviceOffering = firstValue(data, ['ServiceOffering', 'serviceOffering', 'ServiceOfferingName', 'serviceofferingname'])
 
         const basicRows: KeyValueRow[] = [
             { label: translate('vmName'), value: displayName, copy: true },
@@ -465,26 +457,18 @@ class VMDetailPanel extends React.Component<Props> {
             { label: translate('hostHypervisor'), value: hypervisor }
         ]
 
-        const moldRows: KeyValueRow[] = [
-            { label: translate('Hostname'), value: hostName, copy: true },
-            { label: translate('hostLocation'), value: locationText },
-            { label: translate('hostAccount'), value: account },
-            { label: translate('hostDomain'), value: domain },
-            { label: translate('vmServiceOffering'), value: serviceOffering },
-            { label: translate('hostResourceState'), value: firstValue(data, ['ResourceState', 'resourceState', 'AllocationState', 'allocationState']) }
-        ]
-
         const resourceMetrics: MetricItem[] = [
             { label: translate('hostCpuUsage'), value: cpuPercent !== undefined ? `${cpuPercent}%` : (cpuCount !== undefined ? String(cpuCount) : ''), sub: cpuCount !== undefined ? `${cpuCount} vCPU` : undefined, percent: cpuPercent, icon: <DnsIcon /> },
             { label: translate('hostMemoryUsage'), value: memoryPercent !== undefined ? `${memoryPercent}%` : memory, sub: memoryPercent !== undefined ? memory : undefined, percent: memoryPercent, icon: <MemoryIcon /> },
             { label: translate('hostStorageUsage'), value: firstValue(data, ['RootDiskSize', 'rootDiskSize', 'DiskSize', 'diskSize', 'Storage', 'storage']), icon: <StorageIcon /> }
         ]
 
+        const topologyNicNodes = this.topologyNicNodes()
         const networkMetrics: MetricItem[] = [
             { label: translate('hostRepresentativeIp'), value: ipList[0] || '', icon: <RouterIcon /> },
             { label: translate('hostIpCount'), value: ipList.length ? String(ipList.length) : '', icon: <RouterIcon /> },
             { label: translate('hostMacCount'), value: macList.length ? String(macList.length) : '', icon: <SecurityIcon /> },
-            { label: translate('hostNetworkCount'), value: networkEntries.length ? String(networkEntries.length) : (topologyNetworkNodes.length ? String(topologyNetworkNodes.length) : ''), icon: <DeviceHubIcon /> }
+            { label: translate('vmNics'), value: networkEntries.length ? String(networkEntries.length) : (topologyNicNodes.length ? String(topologyNicNodes.length) : ''), icon: <DeviceHubIcon /> }
         ]
 
         const eventRows: KeyValueRow[] = [
@@ -497,29 +481,23 @@ class VMDetailPanel extends React.Component<Props> {
         const connectedResources: OverviewCardItem[] = [
             { label: translate('infrastructureHosts'), value: hostName ? '1' : '', icon: <DnsIcon />, nodeIDs: host ? [host.id] : [] },
             { label: translate('hostNetworkCount'), value: topologyNetworkNodes.length ? String(topologyNetworkNodes.length) : '', icon: <DeviceHubIcon />, nodeIDs: topologyNetworkNodes.map(item => item.id) },
-            { label: translate('vmNics'), value: networkEntries.length ? String(networkEntries.length) : '', icon: <RouterIcon /> }
+            { label: translate('vmNics'), value: networkEntries.length ? String(networkEntries.length) : (topologyNicNodes.length ? String(topologyNicNodes.length) : ''), icon: <RouterIcon />, nodeIDs: topologyNicNodes.map(item => item.id) }
         ]
 
-        const nicPills = networkEntries.map(nic => {
-            const macMatch = macList.find(mac => normalizeMac(mac) === normalizeMac(nic.macAddress))
-            return [nic.networkName, nic.ipAddress, macMatch || nic.macAddress].filter(Boolean).join(' / ')
-        })
         const hasResourceMetrics = resourceMetrics.some(item => !isBlank(item.value))
         const hasRecentSignals = eventRows.some(row => !isBlank(row.value))
-        const hasMoldRows = moldRows.some(row => !isBlank(row.value))
 
         return (
             <div className={classes.root}>
                 {this.renderSection(<InfoIcon />, translate('vmBasicInfo'), translate('vmOverviewDescription'), this.renderRows(basicRows))}
+                <HostResourceTrendPanel
+                    node={node}
+                    session={this.props.session}
+                    data={data}
+                />
                 {hasResourceMetrics && this.renderSection(<TimelineIcon />, translate('hostResourceUsage'), translate('vmResourceUsageDescription'), this.renderMetricGrid(resourceMetrics))}
                 {this.renderSection(<DeviceHubIcon />, translate('hostConnectedResources'), translate('vmConnectedResourcesDescription'), this.renderOverviewGrid(connectedResources))}
-                {this.renderSection(<RouterIcon />, translate('hostNetworkSummary'), translate('vmNetworkSummaryDescription'), (
-                    <React.Fragment>
-                        {this.renderMetricGrid(networkMetrics, translate('hostNetworkDetailsMissing'))}
-                        {this.renderPills(nicPills, translate('vmNoNicInfo'))}
-                    </React.Fragment>
-                ))}
-                {hasMoldRows && this.renderSection(<StorageIcon />, translate('hostMoldContext'), translate('vmMoldContextDescription'), this.renderRows(moldRows))}
+                {networkMetrics.some(item => !isBlank(item.value)) && this.renderSection(<RouterIcon />, translate('hostNetworkSummary'), translate('vmNetworkSummaryDescription'), this.renderMetricGrid(networkMetrics, translate('hostNetworkDetailsMissing')))}
                 {hasRecentSignals && this.renderSection(<InfoIcon />, translate('hostRecentSignals'), translate('hostRecentSignalsDescription'), this.renderRows(eventRows, translate('hostNoRecentSignals')))}
                 {this.renderSection(<InfoIcon />, translate('hostRawInfo'), '', (
                     <pre className={classes.codeBlock}>{JSON.stringify(data, null, 2)}</pre>
