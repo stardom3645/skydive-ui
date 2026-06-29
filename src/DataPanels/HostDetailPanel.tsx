@@ -2149,7 +2149,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                     <div className={classes.connectedResourceSectionStack}>
                         {this.renderConnectedResourceSubsection(<AccountTreeIcon />, translate('infrastructureMenu'), connectedResources, translate('hostNoConnectedResources'))}
                         {this.renderConnectedResourceSubsection(
-                            <span className={classes.connectedResourceSectionKubernetesNodeIcon}>{this.kubernetesNodeIcon()}</span>,
+                            <span className={classes.connectedResourceSectionKubernetesNodeIcon}>{this.kubernetesIcon()}</span>,
                             'Kubernetes',
                             kubernetesResources,
                             translate('hostNoConnectedResources')
