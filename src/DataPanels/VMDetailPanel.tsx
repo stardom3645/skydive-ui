@@ -108,7 +108,7 @@ const uniqueStrings = (values: any[]): string[] => {
 }
 
 class VMDetailPanel extends React.Component<Props> {
-    private nicTypes = ['tap', 'tun', 'tuntap', 'interface', 'veth']
+    private virtualNetworkTypes = ['tap', 'tun', 'tuntap']
 
     private copyValue(value: string) {
         if (!value) return
@@ -249,19 +249,48 @@ class VMDetailPanel extends React.Component<Props> {
         return result
     }
 
+    private nodeName(node: Node): string {
+        return firstValue(node.data, ['Name', 'name', 'IfName', 'ifname']) || node.id
+    }
+
     private topologyNicNodes(): Node[] {
         return this.topologyNetworkNodes().filter(node => {
             const type = String(node.data?.Type || '').toLowerCase()
             const driver = String(node.data?.Driver || '').toLowerCase()
-            return this.nicTypes.indexOf(type) >= 0 || this.nicTypes.indexOf(driver) >= 0
+            return type === 'device' || driver === 'device'
+        })
+    }
+
+    private topologyHostBridgeNodes(): Node[] {
+        return this.topologyNetworkNodes().filter(node => {
+            const type = String(node.data?.Type || '').toLowerCase()
+            const driver = String(node.data?.Driver || '').toLowerCase()
+            const name = this.nodeName(node).toLowerCase()
+            return type === 'bridge' || driver === 'bridge' || type === 'ovsbridge' || /^br/.test(name)
+        })
+    }
+
+    private topologyVMNetworkNodes(): Node[] {
+        const bridgeIDs = new Set(this.topologyHostBridgeNodes().map(node => node.id))
+        const nicIDs = new Set(this.topologyNicNodes().map(node => node.id))
+        return this.topologyNetworkNodes().filter(node => {
+            if (bridgeIDs.has(node.id) || nicIDs.has(node.id)) return false
+            const type = String(node.data?.Type || '').toLowerCase()
+            const driver = String(node.data?.Driver || '').toLowerCase()
+            const name = this.nodeName(node).toLowerCase()
+            return this.virtualNetworkTypes.indexOf(type) >= 0 || this.virtualNetworkTypes.indexOf(driver) >= 0 || /^vnet/.test(name)
         })
     }
 
     private topologyNetworkLayerNodes(): Node[] {
+        const vmNetworkIDs = new Set(this.topologyVMNetworkNodes().map(node => node.id))
+        if (vmNetworkIDs.size > 0) {
+            return this.topologyNetworkNodes().filter(node => vmNetworkIDs.has(node.id))
+        }
         return this.topologyNetworkNodes().filter(node => {
             const type = String(node.data?.Type || '').toLowerCase()
             const driver = String(node.data?.Driver || '').toLowerCase()
-            return this.nicTypes.indexOf(type) < 0 && this.nicTypes.indexOf(driver) < 0
+            return type !== 'device' && driver !== 'device' && type !== 'bridge' && driver !== 'bridge' && type !== 'ovsbridge'
         })
     }
 
@@ -474,29 +503,25 @@ class VMDetailPanel extends React.Component<Props> {
         const data = this.mergedData()
         const libvirtName = firstValue(data, ['Name', 'name']) || node.id
         const displayName = this.props.vmNameMap?.[libvirtName] || firstValue(data, ['DisplayName', 'displayName', 'displayname']) || libvirtName
-        const instanceName = firstValue(data, ['InstanceName', 'instanceName', 'instancename'])
         const host = this.topologyHost()
         const hostName = host ? firstValue(host.data, ['Name', 'Hostname', 'HostName']) || host.id : firstValue(data, ['HostName', 'hostname', 'hostName', 'Host', 'host'])
-        const networkEntries = this.vmNetworkEntries()
         const topologyNetworkLayerNodes = this.topologyNetworkLayerNodes()
         const cpuCount = numberValue(data, ['CpuNumber', 'cpuNumber', 'CPUNumber', 'Cpus', 'cpus', 'CpuCount', 'cpuCount'])
         const memory = firstValue(data, ['Memory', 'memory', 'MemoryTotal', 'memoryTotal', 'MaxMemory', 'maxMemory'])
         const cpuPercent = numberValue(data, ['CPUPercent', 'cpuPercent', 'CpuUsagePercent', 'cpuUsagePercent', 'CPUUsage', 'cpuUsage'])
         const memoryPercent = numberValue(data, ['MemoryPercent', 'memoryPercent', 'MemoryUsagePercent', 'memoryUsagePercent'])
         const os = firstValue(data, ['OS', 'Os', 'OperatingSystem', 'osdisplayname', 'osDisplayName', 'GuestOS', 'guestOS'])
-        const hypervisor = firstValue(data, ['Hypervisor', 'hypervisor', 'HypervisorType', 'hypervisorType'])
 
         const basicRows: KeyValueRow[] = [
             { label: translate('vmName'), value: displayName, copy: true },
             { label: translate('vmLibvirtName'), value: libvirtName !== displayName ? libvirtName : '', copy: true },
-            { label: translate('vmInstanceName'), value: instanceName, copy: true },
             { label: translate('vmId'), value: firstValue(data, ['UUID', 'uuid', 'ID', 'Id', 'id', 'ExtID', 'VirtualMachineID', 'virtualMachineId']), copy: true },
-            { label: translate('vmType'), value: this.vmKind() },
             { label: translate('hostOperationalStatus'), value: this.statusText() },
+            { label: 'Host', value: hostName, copy: true },
             { label: translate('vmPrivateIp'), value: this.privateIp(), copy: true },
-            { label: translate('vmPublicIp'), value: this.publicIp(), copy: true },
-            { label: translate('hostOS'), value: os },
-            { label: translate('hostHypervisor'), value: hypervisor }
+            { label: 'Guest OS', value: os },
+            { label: translate('vmCpu'), value: cpuCount !== undefined ? `${cpuCount} vCPU` : '', copy: false },
+            { label: translate('vmMemory'), value: memory, copy: false }
         ]
 
         const resourceMetrics: MetricItem[] = [
@@ -506,6 +531,7 @@ class VMDetailPanel extends React.Component<Props> {
         ]
 
         const topologyNicNodes = this.topologyNicNodes()
+        const topologyHostBridgeNodes = this.topologyHostBridgeNodes()
         const eventRows: KeyValueRow[] = [
             { label: translate('hostLastUpdate'), value: formatDate(firstValue(data, ['UpdatedAt', 'LastUpdate', 'LastSeen', '@UpdatedAt', '@CreatedAt', 'CreatedAt'])) },
             { label: translate('hostRecentEvent'), value: firstValue(data, ['RecentEvent', 'LastEvent', 'Event']) },
@@ -515,8 +541,9 @@ class VMDetailPanel extends React.Component<Props> {
 
         const connectedResources: OverviewCardItem[] = [
             { label: translate('infrastructureHosts'), value: hostName ? '1' : '', icon: <DnsIcon />, nodeIDs: host ? [host.id] : [] },
-            { label: translate('hostNetworkCount'), value: topologyNetworkLayerNodes.length ? String(topologyNetworkLayerNodes.length) : '', icon: <DeviceHubIcon />, nodeIDs: topologyNetworkLayerNodes.map(item => item.id) },
-            { label: translate('vmNics'), value: networkEntries.length ? String(networkEntries.length) : (topologyNicNodes.length ? String(topologyNicNodes.length) : ''), icon: <RouterIcon />, nodeIDs: topologyNicNodes.map(item => item.id) }
+            { label: translate('vmNics'), value: topologyNicNodes.length ? String(topologyNicNodes.length) : '', icon: <RouterIcon />, nodeIDs: topologyNicNodes.map(item => item.id) },
+            { label: translate('host-bridges'), value: topologyHostBridgeNodes.length ? String(topologyHostBridgeNodes.length) : '', icon: <RouterIcon />, nodeIDs: topologyHostBridgeNodes.map(item => item.id) },
+            { label: translate('hostNetworkCount'), value: topologyNetworkLayerNodes.length ? String(topologyNetworkLayerNodes.length) : '', icon: <DeviceHubIcon />, nodeIDs: topologyNetworkLayerNodes.map(item => item.id) }
         ]
 
         const hasResourceMetrics = resourceMetrics.some(item => !isBlank(item.value))
@@ -524,7 +551,7 @@ class VMDetailPanel extends React.Component<Props> {
 
         return (
             <div className={classes.root}>
-                {this.renderSection(<InfoIcon />, translate('vmBasicInfo'), translate('vmOverviewDescription'), this.renderRows(basicRows))}
+                {this.renderSection(<InfoIcon />, translate('hostBasicInfo'), translate('vmOverviewDescription'), this.renderRows(basicRows))}
                 <HostResourceTrendPanel node={node} session={this.props.session} data={data} target="vm" />
                 {hasResourceMetrics && this.renderSection(<TimelineIcon />, translate('hostResourceUsage'), translate('vmResourceUsageDescription'), this.renderMetricGrid(resourceMetrics))}
                 {this.renderSection(<DeviceHubIcon />, translate('hostConnectedResources'), translate('vmConnectedResourcesDescription'), this.renderOverviewGrid(connectedResources))}
