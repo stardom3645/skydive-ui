@@ -32,6 +32,7 @@ import { AppState, session } from './Store'
 import { styles } from './SelectionPanelStyles'
 import ConfigReducer, { translate } from './Config'
 import HostDetailPanel from './DataPanels/HostDetailPanel'
+import VMDetailPanel from './DataPanels/VMDetailPanel'
 
 
 interface Props {
@@ -47,6 +48,8 @@ interface Props {
   moldInventory?: any
   infrastructureHostSummaries?: Record<string, any>
   kubernetesClusters?: any[]
+  vmNameMap?: Record<string, string>
+  vmNetworkMap?: Record<string, Array<{ networkName: string, macAddress: string, ipAddress: string }>>
 }
 
 interface State {
@@ -207,6 +210,14 @@ class SelectionPanel extends React.Component<Props, State> {
       })
     }
 
+    const isVMNode = (el: Node | Link): boolean => {
+      if (el.type !== 'node') return false
+      const data = el.data || {}
+      const type = String(data.Type || data.type || '').toLowerCase()
+      const name = String(data.Name || data.name || '')
+      return type === 'libvirt' || type === 'vm' || type === 'virtualmachine' || /^r-/.test(name) || /^(s-|v-)/.test(name) || name === 'ccvm' || name === 'scvm'
+    }
+
     return this.props.selection.map((el: Node | Link, i: number) => {
       if (this.state.tab !== i) {
         return null
@@ -237,6 +248,8 @@ class SelectionPanel extends React.Component<Props, State> {
           <TabPanel key={"tabpanel-" + el.id} value={this.state.tab} index={i}>
             {el.type === 'node' && String(el.data?.Type || '').toLowerCase() === 'host'
               ? <HostDetailPanel node={el as Node} session={this.props.session} moldInventory={this.props.moldInventory} infrastructureHostSummaries={this.props.infrastructureHostSummaries} kubernetesClusters={this.props.kubernetesClusters} />
+              : isVMNode(el)
+              ? <VMDetailPanel node={el as Node} moldInventory={this.props.moldInventory} vmNameMap={this.props.vmNameMap} vmNetworkMap={this.props.vmNetworkMap} />
               : renderDataPanels(el)
             }
           </TabPanel>
