@@ -50,6 +50,7 @@ interface Props {
   kubernetesClusters?: any[]
   vmNameMap?: Record<string, string>
   vmNetworkMap?: Record<string, Array<{ networkName: string, macAddress: string, ipAddress: string }>>
+  vmDetailMap?: Record<string, any>
 }
 
 interface State {
@@ -249,7 +250,7 @@ class SelectionPanel extends React.Component<Props, State> {
             {el.type === 'node' && String(el.data?.Type || '').toLowerCase() === 'host'
               ? <HostDetailPanel node={el as Node} session={this.props.session} moldInventory={this.props.moldInventory} infrastructureHostSummaries={this.props.infrastructureHostSummaries} kubernetesClusters={this.props.kubernetesClusters} />
               : isVMNode(el)
-              ? <VMDetailPanel node={el as Node} session={this.props.session} moldInventory={this.props.moldInventory} vmNameMap={this.props.vmNameMap} vmNetworkMap={this.props.vmNetworkMap} />
+              ? <VMDetailPanel node={el as Node} session={this.props.session} moldInventory={this.props.moldInventory} vmNameMap={this.props.vmNameMap} vmNetworkMap={this.props.vmNetworkMap} vmDetailMap={this.props.vmDetailMap} />
               : renderDataPanels(el)
             }
           </TabPanel>

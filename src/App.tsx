@@ -155,6 +155,7 @@ const getSavedNetdiveTheme = (): NetdiveTheme => {
 interface State {
   vmNameMap?: Record<string, string>
   vmNetworkMap?: Record<string, Array<{ networkName: string, macAddress: string, ipAddress: string }>>
+  vmDetailMap?: Record<string, any>
   moldInventory?: any
   isContextMenuOn: string
   contextMenuX: number
@@ -345,6 +346,7 @@ class App extends React.Component<Props, State> {
       language: "ko",
       vmNameMap: {},
       vmNetworkMap: {},
+      vmDetailMap: {},
       moldInventory: undefined,
       isVMConsoleOpening: false,
       isLinkTagsCollapsed: true,
@@ -443,12 +445,14 @@ class App extends React.Component<Props, State> {
     // Libvirt VM 이름 매핑 정보 불러오기 (초기 + 주기 갱신)
     this.refreshVmNameMap()
     this.refreshVmNetworkMap()
+    this.refreshVmDetailMap()
     this.refreshMoldInventory()
     this.refreshVMConsoleEnabled()
     this.refreshKubernetesClusters()
     this.vmNameMapRefreshID = window.setInterval(() => {
       this.refreshVmNameMap()
       this.refreshVmNetworkMap()
+      this.refreshVmDetailMap()
       this.refreshMoldInventory()
     }, 10000)
   }
@@ -533,6 +537,25 @@ class App extends React.Component<Props, State> {
       }
     }).catch((err) => {
       console.debug("Failed to refresh vmNetworkMap", err)
+    })
+  }
+
+  private refreshVmDetailMap() {
+    const ts = Date.now()
+    fetch(`/api/vm-detail-map?_=${ts}`, { cache: "no-store" }).then((resp) => {
+      if (!resp.ok) {
+        throw new Error(`vm-detail-map api failed: ${resp.status}`)
+      }
+      return resp.json()
+    }).then((data) => {
+      const prev = this.state.vmDetailMap || {}
+      const same = JSON.stringify(prev) === JSON.stringify(data)
+      if (!same) {
+        this.setState({ vmDetailMap: data })
+        this.refreshTopology()
+      }
+    }).catch((err) => {
+      console.debug("Failed to refresh vmDetailMap", err)
     })
   }
 
@@ -4003,7 +4026,7 @@ class App extends React.Component<Props, State> {
               {!this.state.isTimetravelOpen &&
                 <SelectionPanel onLocation={this.onSelectionLocation.bind(this)} onClose={this.onSelectionClose.bind(this)} config={this.config}
                   buttonsContent={this.actionButtons.bind(this)} panelsContent={this.dataPanels.bind(this)} moldInventory={this.state.moldInventory} infrastructureHostSummaries={infrastructureHostSummaries} kubernetesClusters={this.state.kubernetesClusters}
-                  vmNameMap={this.state.vmNameMap} vmNetworkMap={this.state.vmNetworkMap} />
+                  vmNameMap={this.state.vmNameMap} vmNetworkMap={this.state.vmNetworkMap} vmDetailMap={this.state.vmDetailMap} />
               }
               {this.state.isTimetravelOpen &&
                 <TimetravelPanel config={this.config} onNavigate={this.onNavigate.bind(this)} />

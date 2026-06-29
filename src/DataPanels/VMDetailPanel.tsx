@@ -24,12 +24,14 @@ interface Props {
     moldInventory?: any
     vmNameMap?: Record<string, string>
     vmNetworkMap?: Record<string, Array<{ networkName: string, macAddress: string, ipAddress: string }>>
+    vmDetailMap?: Record<string, any>
 }
 
 interface KeyValueRow {
     label: string
     value: any
     copy?: boolean
+    alwaysShow?: boolean
 }
 
 interface MetricItem {
@@ -46,6 +48,7 @@ interface OverviewCardItem {
     icon?: React.ReactNode
     nodeIDs?: string[]
     onClick?: () => void
+    alwaysShow?: boolean
 }
 
 const isBlank = (value: any): boolean => {
@@ -142,35 +145,57 @@ class VMDetailPanel extends React.Component<Props> {
     }
 
     private vmKeys(data: any = this.props.node.data || {}): string[] {
-        const libvirtName = firstValue(data, ['Name', 'name'])
+        const libvirtName = firstValue(data, ['Name', 'name', 'InstanceName', 'instanceName', 'instancename', 'instance_name'])
         return uniqueStrings([
             this.props.node.id,
             libvirtName,
             this.props.vmNameMap?.[libvirtName],
             firstValue(data, ['DisplayName', 'displayName', 'displayname']),
-            firstValue(data, ['InstanceName', 'instanceName', 'instancename']),
-            firstValue(data, ['UUID', 'uuid', 'ID', 'Id', 'id', 'ExtID', 'VirtualMachineID', 'virtualMachineId', 'vmid'])
+            firstValue(data, ['Name', 'name', 'VMName', 'vmName']),
+            firstValue(data, ['InstanceName', 'instanceName', 'instancename', 'instance_name']),
+            firstValue(data, ['UUID', 'uuid', 'ID', 'Id', 'id', 'ExtID', 'VirtualMachineID', 'virtualMachineId', 'vmid', 'vm_id'])
         ])
     }
 
     private inventoryVMDetail(): any | undefined {
         const localKeys = this.vmKeys().map(value => value.toLowerCase())
+        const detailMap = this.props.vmDetailMap || {}
+        for (const key of this.vmKeys()) {
+            const found = detailMap[key] || detailMap[key.toLowerCase()]
+            if (found) return found
+        }
         return this.inventoryVirtualMachines().find(vm => {
             const inventoryKeys = uniqueStrings([
-                firstValue(vm, ['ID', 'Id', 'id', 'UUID', 'uuid', 'VirtualMachineID', 'virtualMachineId']),
-                firstValue(vm, ['Name', 'name']),
+                firstValue(vm, ['ID', 'Id', 'id', 'UUID', 'uuid', 'VirtualMachineID', 'virtualMachineId', 'vmid', 'vm_id']),
+                firstValue(vm, ['Name', 'name', 'VMName', 'vmName']),
                 firstValue(vm, ['DisplayName', 'displayName', 'displayname']),
-                firstValue(vm, ['InstanceName', 'instanceName', 'instancename'])
+                firstValue(vm, ['InstanceName', 'instanceName', 'instancename', 'instance_name'])
             ]).map(value => value.toLowerCase())
             return inventoryKeys.some(key => localKeys.indexOf(key) >= 0)
         })
+    }
+
+    private normalizeMoldVM(vm: any): any {
+        return {
+            ...vm,
+            UUID: firstValue(vm, ['UUID', 'uuid', 'ID', 'Id', 'id', 'VirtualMachineID', 'virtualMachineId', 'vmid', 'vm_id']),
+            Name: firstValue(vm, ['Name', 'name', 'VMName', 'vmName']),
+            DisplayName: firstValue(vm, ['DisplayName', 'displayName', 'displayname']),
+            InstanceName: firstValue(vm, ['InstanceName', 'instanceName', 'instancename', 'instance_name']),
+            State: firstValue(vm, ['State', 'state', 'Status', 'status']),
+            HostName: firstValue(vm, ['HostName', 'hostName', 'hostname', 'Host', 'host']),
+            PrivateIpAddress: firstValue(vm, ['PrivateIpAddress', 'privateIpAddress', 'privateipaddress', 'IpAddress', 'ipAddress', 'ipaddress']),
+            GuestOS: firstValue(vm, ['GuestOS', 'guestOS', 'guestos', 'OsDisplayName', 'osDisplayName', 'osdisplayname', 'OS', 'os']),
+            CpuNumber: firstValue(vm, ['CpuNumber', 'cpuNumber', 'cpunumber', 'Cpus', 'cpus', 'CpuCount', 'cpuCount', 'cpucount']),
+            Memory: firstValue(vm, ['Memory', 'memory', 'MemoryTotal', 'memoryTotal', 'memorytotal', 'MaxMemory', 'maxMemory', 'maxmemory'])
+        }
     }
 
     private mergedData(): any {
         const inventoryVM = this.inventoryVMDetail()
         return {
             ...(this.props.node.data || {}),
-            ...(inventoryVM || {})
+            ...(inventoryVM ? this.normalizeMoldVM(inventoryVM) : {})
         }
     }
 
@@ -234,18 +259,29 @@ class VMDetailPanel extends React.Component<Props> {
         ]
         const seen = new Set<string>()
         const result: Node[] = []
+        const maybeAdd = (node: Node) => {
+            const type = String(node.data?.Type || '').toLowerCase()
+            if (networkTypes.indexOf(type) >= 0 && !seen.has(node.id)) {
+                seen.add(node.id)
+                result.push(node)
+            }
+        }
         const visit = (node: Node) => {
             const children = node.children || []
             children.forEach(child => {
-                const type = String(child.data?.Type || '').toLowerCase()
-                if (networkTypes.indexOf(type) >= 0 && !seen.has(child.id)) {
-                    seen.add(child.id)
-                    result.push(child)
-                }
+                maybeAdd(child)
                 visit(child)
             })
         }
         visit(this.props.node)
+        let parent = this.props.node.parent
+        while (parent) {
+            if (String(parent.data?.Type || '').toLowerCase() === 'host') {
+                break
+            }
+            maybeAdd(parent)
+            parent = parent.parent
+        }
         return result
     }
 
@@ -405,7 +441,7 @@ class VMDetailPanel extends React.Component<Props> {
 
     private renderRows(rows: KeyValueRow[], emptyText = translate('hostNoData')) {
         const { classes } = this.props
-        const visible = rows.filter(row => !isBlank(row.value))
+        const visible = rows.filter(row => row.alwaysShow || !isBlank(row.value))
         if (!visible.length) return <div className={classes.emptyState}>{emptyText}</div>
         return (
             <div className={classes.rowsCompact}>
@@ -462,7 +498,7 @@ class VMDetailPanel extends React.Component<Props> {
 
     private renderOverviewGrid(items: OverviewCardItem[], emptyText = translate('hostNoConnectedResources')) {
         const { classes } = this.props
-        const visible = items.filter(item => item.value)
+        const visible = items.filter(item => item.alwaysShow || item.value)
         if (!visible.length) return <div className={classes.emptyState}>{emptyText}</div>
         return (
             <div className={classes.connectedResourceGrid}>
@@ -513,15 +549,15 @@ class VMDetailPanel extends React.Component<Props> {
         const os = firstValue(data, ['OS', 'Os', 'OperatingSystem', 'osdisplayname', 'osDisplayName', 'GuestOS', 'guestOS'])
 
         const basicRows: KeyValueRow[] = [
-            { label: translate('vmName'), value: displayName, copy: true },
-            { label: translate('vmLibvirtName'), value: libvirtName !== displayName ? libvirtName : '', copy: true },
-            { label: translate('vmId'), value: firstValue(data, ['UUID', 'uuid', 'ID', 'Id', 'id', 'ExtID', 'VirtualMachineID', 'virtualMachineId']), copy: true },
-            { label: translate('hostOperationalStatus'), value: this.statusText() },
-            { label: 'Host', value: hostName, copy: true },
-            { label: translate('vmPrivateIp'), value: this.privateIp(), copy: true },
-            { label: 'Guest OS', value: os },
-            { label: translate('vmCpu'), value: cpuCount !== undefined ? `${cpuCount} vCPU` : '', copy: false },
-            { label: translate('vmMemory'), value: memory, copy: false }
+            { label: translate('vmName'), value: displayName, copy: true, alwaysShow: true },
+            { label: translate('vmLibvirtName'), value: libvirtName, copy: true, alwaysShow: true },
+            { label: translate('vmId'), value: firstValue(data, ['UUID', 'uuid', 'ID', 'Id', 'id', 'ExtID', 'VirtualMachineID', 'virtualMachineId']), copy: true, alwaysShow: true },
+            { label: translate('hostOperationalStatus'), value: this.statusText(), alwaysShow: true },
+            { label: 'Host', value: hostName, copy: true, alwaysShow: true },
+            { label: translate('vmPrivateIp'), value: this.privateIp(), copy: true, alwaysShow: true },
+            { label: 'Guest OS', value: os, alwaysShow: true },
+            { label: translate('vmCpu'), value: cpuCount !== undefined ? `${cpuCount} vCPU` : '', copy: false, alwaysShow: true },
+            { label: translate('vmMemory'), value: memory, copy: false, alwaysShow: true }
         ]
 
         const resourceMetrics: MetricItem[] = [
@@ -540,10 +576,10 @@ class VMDetailPanel extends React.Component<Props> {
         ]
 
         const connectedResources: OverviewCardItem[] = [
-            { label: translate('infrastructureHosts'), value: hostName ? '1' : '', icon: <DnsIcon />, nodeIDs: host ? [host.id] : [] },
-            { label: translate('vmNics'), value: topologyNicNodes.length ? String(topologyNicNodes.length) : '', icon: <RouterIcon />, nodeIDs: topologyNicNodes.map(item => item.id) },
-            { label: translate('host-bridges'), value: topologyHostBridgeNodes.length ? String(topologyHostBridgeNodes.length) : '', icon: <RouterIcon />, nodeIDs: topologyHostBridgeNodes.map(item => item.id) },
-            { label: translate('hostNetworkCount'), value: topologyNetworkLayerNodes.length ? String(topologyNetworkLayerNodes.length) : '', icon: <DeviceHubIcon />, nodeIDs: topologyNetworkLayerNodes.map(item => item.id) }
+            { label: translate('infrastructureHosts'), value: hostName ? '1' : '0', icon: <DnsIcon />, nodeIDs: host ? [host.id] : [], alwaysShow: true },
+            { label: translate('vmNics'), value: String(topologyNicNodes.length), icon: <RouterIcon />, nodeIDs: topologyNicNodes.map(item => item.id), alwaysShow: true },
+            { label: translate('host-bridges'), value: String(topologyHostBridgeNodes.length), icon: <RouterIcon />, nodeIDs: topologyHostBridgeNodes.map(item => item.id), alwaysShow: true },
+            { label: translate('hostNetworkCount'), value: String(topologyNetworkLayerNodes.length), icon: <DeviceHubIcon />, nodeIDs: topologyNetworkLayerNodes.map(item => item.id), alwaysShow: true }
         ]
 
         const hasResourceMetrics = resourceMetrics.some(item => !isBlank(item.value))
