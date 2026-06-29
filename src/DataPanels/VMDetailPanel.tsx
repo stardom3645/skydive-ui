@@ -13,11 +13,14 @@ import { withStyles } from '@material-ui/core/styles'
 
 import { Node } from '../Topology'
 import { translate } from '../Config'
+import { session } from '../Store'
 import { styles } from './HostDetailPanelStyles'
+import HostResourceTrendPanel from './HostResourceTrendPanel'
 
 interface Props {
     classes: any
     node: Node
+    session?: session
     moldInventory?: any
     vmNameMap?: Record<string, string>
     vmNetworkMap?: Record<string, Array<{ networkName: string, macAddress: string, ipAddress: string }>>
@@ -522,6 +525,7 @@ class VMDetailPanel extends React.Component<Props> {
         return (
             <div className={classes.root}>
                 {this.renderSection(<InfoIcon />, translate('vmBasicInfo'), translate('vmOverviewDescription'), this.renderRows(basicRows))}
+                <HostResourceTrendPanel node={node} session={this.props.session} data={data} target="vm" />
                 {hasResourceMetrics && this.renderSection(<TimelineIcon />, translate('hostResourceUsage'), translate('vmResourceUsageDescription'), this.renderMetricGrid(resourceMetrics))}
                 {this.renderSection(<DeviceHubIcon />, translate('hostConnectedResources'), translate('vmConnectedResourcesDescription'), this.renderOverviewGrid(connectedResources))}
                 {hasRecentSignals && this.renderSection(<InfoIcon />, translate('hostRecentSignals'), translate('hostRecentSignalsDescription'), this.renderRows(eventRows, translate('hostNoRecentSignals')))}

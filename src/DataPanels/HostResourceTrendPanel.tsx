@@ -11,6 +11,7 @@ interface Props {
     node: Node
     session?: session
     data?: any
+    target?: 'host' | 'vm'
 }
 
 interface State {
@@ -323,8 +324,8 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
     }
 
     componentDidUpdate(prevProps: Props) {
-        const prevKey = this.hostQueryKey(prevProps.node, prevProps.data)
-        const nextKey = this.hostQueryKey(this.props.node, this.props.data)
+        const prevKey = this.queryKey(prevProps.node, prevProps.data, prevProps.target)
+        const nextKey = this.queryKey(this.props.node, this.props.data, this.props.target)
 
         if (prevKey !== nextKey) {
             this.loadTrend()
@@ -346,6 +347,17 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         this.setState({ trendRange, trend: undefined, error: '', loading: true }, () => this.loadTrend())
     }
 
+    private isVMTarget(target = this.props.target): boolean {
+        return target === 'vm'
+    }
+
+    private queryKey(node = this.props.node, data = this.props.data, target = this.props.target): string {
+        if (this.isVMTarget(target)) {
+            return this.vmQueryKey(node, data)
+        }
+        return this.hostQueryKey(node, data)
+    }
+
     private hostQueryKey(node = this.props.node, data = this.props.data): string {
         const detail = data || node.data || {}
         const name = firstValue(detail, ['Name', 'Hostname', 'HostName']) || node.id
@@ -353,31 +365,59 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         return `${node.id}:${name}:${managementIp}`
     }
 
+    private vmQueryKey(node = this.props.node, data = this.props.data): string {
+        const detail = data || node.data || {}
+        const name = firstValue(detail, ['Name', 'name']) || node.id
+        const instanceName = firstValue(detail, ['InstanceName', 'instanceName', 'instancename'])
+        const uuid = firstValue(detail, ['UUID', 'uuid', 'ID', 'Id', 'id', 'ExtID', 'VirtualMachineID', 'virtualMachineId', 'vmid'])
+        const displayName = firstValue(detail, ['DisplayName', 'displayName', 'displayname'])
+        return `${node.id}:${name}:${instanceName}:${uuid}:${displayName}`
+    }
+
     private loadTrend() {
         const { node, data } = this.props
         const detail = data || node.data || {}
-        const name = firstValue(detail, ['Name', 'Hostname', 'HostName']) || node.id
-        const managementIp = firstAddressValue(detail, ['ManagementIP', 'ManagementIp', 'managementIp', 'IpAddress', 'ipaddress', 'IPV4', 'IPv4', 'ipv4', 'IfAddr'])
-        const host = firstValue(detail, ['Hostname', 'HostName', 'Name']) || name
         const trendRange = this.state.trendRange
-        const loadedFor = `${this.hostQueryKey(node, data)}:${trendRange}`
+        const target = this.props.target || 'host'
+        const loadedFor = `${target}:${this.queryKey(node, data, target)}:${trendRange}`
 
         const params = new URLSearchParams()
-        params.set('host', host)
-        params.set('name', name)
         params.set('range', trendRange)
         params.set('step', '60s')
         params.set('_', String(Date.now()))
-        params.set('job', 'cube')
-        params.set('port', '3003')
-        if (managementIp) {
-            params.set('managementIp', managementIp)
-            params.set('ip', managementIp)
+
+        let path = '/api/wall/hosts/trend'
+        if (this.isVMTarget(target)) {
+            path = '/api/wall/vms/trend'
+            const name = firstValue(detail, ['Name', 'name']) || node.id
+            const instanceName = firstValue(detail, ['InstanceName', 'instanceName', 'instancename'])
+            const uuid = firstValue(detail, ['UUID', 'uuid', 'ID', 'Id', 'id', 'ExtID', 'VirtualMachineID', 'virtualMachineId', 'vmid'])
+            const displayName = firstValue(detail, ['DisplayName', 'displayName', 'displayname'])
+            params.set('name', name)
+            params.set('domain', name)
+            if (instanceName) params.set('instanceName', instanceName)
+            if (uuid) {
+                params.set('uuid', uuid)
+                params.set('vmId', uuid)
+            }
+            if (displayName) params.set('displayName', displayName)
+        } else {
+            const name = firstValue(detail, ['Name', 'Hostname', 'HostName']) || node.id
+            const managementIp = firstAddressValue(detail, ['ManagementIP', 'ManagementIp', 'managementIp', 'IpAddress', 'ipaddress', 'IPV4', 'IPv4', 'ipv4', 'IfAddr'])
+            const host = firstValue(detail, ['Hostname', 'HostName', 'Name']) || name
+            params.set('host', host)
+            params.set('name', name)
+            params.set('job', 'cube')
+            params.set('port', '3003')
+            if (managementIp) {
+                params.set('managementIp', managementIp)
+                params.set('ip', managementIp)
+            }
         }
 
         this.setState({ loading: true, error: '', loadedFor })
 
-        fetch(`${this.endpoint()}/api/wall/hosts/trend?${params.toString()}`, {
+        fetch(`${this.endpoint()}${path}?${params.toString()}`, {
             cache: 'no-store',
             headers: this.props.session?.token ? { 'X-Auth-Token': this.props.session.token } : undefined
         }).then(resp => {
