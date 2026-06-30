@@ -47,6 +47,7 @@ interface OverviewCardItem {
     label: string
     value: string
     icon?: React.ReactNode
+    iconContainerClassName?: string
     nodeIDs?: string[]
     onClick?: () => void
     alwaysShow?: boolean
@@ -529,6 +530,7 @@ class VMDetailPanel extends React.Component<Props> {
             <div className={classes.connectedResourceGrid}>
                 {visible.map(item => {
                     const canFocus = !!item.onClick || (!!item.nodeIDs && item.nodeIDs.length > 0)
+                    const iconContainerClassName = `${classes.connectedResourceCardIcon}${item.iconContainerClassName ? ` ${item.iconContainerClassName}` : ''}`
                     return (
                         <button
                             type="button"
@@ -545,7 +547,7 @@ class VMDetailPanel extends React.Component<Props> {
                             aria-disabled={!canFocus}
                             tabIndex={canFocus ? 0 : -1}>
                             <span className={classes.connectedResourceCardMain}>
-                                <span className={classes.connectedResourceCardIcon}>{item.icon || <InfoIcon />}</span>
+                                <span className={iconContainerClassName}>{item.icon || <InfoIcon />}</span>
                                 <span>
                                     <strong>{item.label}</strong>
                                 </span>
@@ -602,10 +604,10 @@ class VMDetailPanel extends React.Component<Props> {
         ]
 
         const connectedResources: OverviewCardItem[] = [
-            { label: translate('infrastructureHosts'), value: hostName ? '1' : '0', icon: <DnsIcon />, nodeIDs: host ? [host.id] : [], alwaysShow: true },
-            { label: translate('vmNics'), value: String(topologyNicNodes.length), icon: <RouterIcon />, nodeIDs: topologyNicNodes.map(item => item.id), alwaysShow: true },
-            { label: translate('host-bridges'), value: String(topologyHostBridgeNodes.length), icon: <RouterIcon />, nodeIDs: topologyHostBridgeNodes.map(item => item.id), alwaysShow: true },
-            { label: translate('hostNetworkCount'), value: String(topologyNetworkLayerNodes.length), icon: <DeviceHubIcon />, nodeIDs: topologyNetworkLayerNodes.map(item => item.id), alwaysShow: true }
+            { label: translate('infrastructureHosts'), value: hostName ? '1' : '0', icon: <DnsIcon />, iconContainerClassName: classes.connectedResourceHostIcon, nodeIDs: host ? [host.id] : [], alwaysShow: true },
+            { label: translate('vmNics'), value: String(topologyNicNodes.length), icon: <RouterIcon />, iconContainerClassName: classes.connectedResourceNicIcon, nodeIDs: topologyNicNodes.map(item => item.id), alwaysShow: true },
+            { label: translate('host-bridges'), value: String(topologyHostBridgeNodes.length), icon: <RouterIcon />, iconContainerClassName: classes.connectedResourceBridgeIcon, nodeIDs: topologyHostBridgeNodes.map(item => item.id), alwaysShow: true },
+            { label: translate('hostNetworkCount'), value: String(topologyNetworkLayerNodes.length), icon: <DeviceHubIcon />, iconContainerClassName: classes.connectedResourceNetworkIcon, nodeIDs: topologyNetworkLayerNodes.map(item => item.id), alwaysShow: true }
         ]
 
         const hasResourceMetrics = resourceMetrics.some(item => !isBlank(item.value))

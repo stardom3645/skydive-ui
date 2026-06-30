@@ -98,27 +98,22 @@ export const styles = (theme: Theme) => createStyles({
         maxWidth: '100%',
         display: 'inline-flex',
         alignItems: 'center',
-        justifyContent: 'center',
-        gap: 5,
-        padding: '3px 8px',
-        borderRadius: 999,
-        border: '1px solid rgba(22, 163, 74, 0.22)',
-        background: 'rgba(220, 252, 231, 0.86)',
-        color: '#166534',
-        fontSize: 11.5,
+        justifyContent: 'flex-end',
+        gap: 6,
+        color: 'var(--netdive-detail-text)',
+        fontSize: 12.5,
         lineHeight: 1.2,
-        fontWeight: 800,
+        fontWeight: 520,
         overflow: 'hidden',
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap'
     },
     kvStatusDot: {
-        width: 6,
-        height: 6,
+        width: 8,
+        height: 8,
         borderRadius: '50%',
-        flex: '0 0 6px',
-        background: '#16a34a',
-        boxShadow: '0 0 0 2px rgba(22, 163, 74, 0.14)'
+        flex: '0 0 8px',
+        background: '#52c41a'
     },
     copyButton: {
         width: 24,
@@ -256,6 +251,26 @@ export const styles = (theme: Theme) => createStyles({
         '& svg': {
             fontSize: 16
         }
+    },
+    connectedResourceHostIcon: {
+        color: '#2563eb',
+        background: 'rgba(239, 246, 255, 0.96)',
+        boxShadow: 'inset 0 0 0 1px rgba(191, 219, 254, 0.9)'
+    },
+    connectedResourceNicIcon: {
+        color: '#0f766e',
+        background: 'rgba(240, 253, 250, 0.96)',
+        boxShadow: 'inset 0 0 0 1px rgba(153, 246, 228, 0.9)'
+    },
+    connectedResourceBridgeIcon: {
+        color: '#7c3aed',
+        background: 'rgba(245, 243, 255, 0.96)',
+        boxShadow: 'inset 0 0 0 1px rgba(221, 214, 254, 0.95)'
+    },
+    connectedResourceNetworkIcon: {
+        color: '#ea580c',
+        background: 'rgba(255, 247, 237, 0.96)',
+        boxShadow: 'inset 0 0 0 1px rgba(254, 215, 170, 0.92)'
     },
     connectedResourceNodeIcon: {
         color: '#2563eb',
