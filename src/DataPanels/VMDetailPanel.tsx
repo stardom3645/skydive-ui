@@ -5,7 +5,6 @@ import FileCopyIcon from '@material-ui/icons/FileCopy'
 import InfoIcon from '@material-ui/icons/Info'
 import TimelineIcon from '@material-ui/icons/Timeline'
 import DeviceHubIcon from '@material-ui/icons/DeviceHub'
-import RouterIcon from '@material-ui/icons/Router'
 import StorageIcon from '@material-ui/icons/Storage'
 import MemoryIcon from '@material-ui/icons/Memory'
 import DnsIcon from '@material-ui/icons/Dns'
@@ -437,6 +436,11 @@ class VMDetailPanel extends React.Component<Props> {
         }
     }
 
+    private layerIcon(glyph: string) {
+        const { classes } = this.props
+        return <span className={`${classes.connectedResourceFaIcon} fa fas fa-fw`}>{glyph}</span>
+    }
+
     private renderValue(row: KeyValueRow) {
         const { classes } = this.props
         const value = stringify(row.value)
@@ -604,10 +608,10 @@ class VMDetailPanel extends React.Component<Props> {
         ]
 
         const connectedResources: OverviewCardItem[] = [
-            { label: translate('infrastructureHosts'), value: hostName ? '1' : '0', icon: <DnsIcon />, iconContainerClassName: classes.connectedResourceHostIcon, nodeIDs: host ? [host.id] : [], alwaysShow: true },
-            { label: translate('vmNics'), value: String(topologyNicNodes.length), icon: <RouterIcon />, iconContainerClassName: classes.connectedResourceNicIcon, nodeIDs: topologyNicNodes.map(item => item.id), alwaysShow: true },
-            { label: translate('host-bridges'), value: String(topologyHostBridgeNodes.length), icon: <RouterIcon />, iconContainerClassName: classes.connectedResourceBridgeIcon, nodeIDs: topologyHostBridgeNodes.map(item => item.id), alwaysShow: true },
-            { label: translate('hostNetworkCount'), value: String(topologyNetworkLayerNodes.length), icon: <DeviceHubIcon />, iconContainerClassName: classes.connectedResourceNetworkIcon, nodeIDs: topologyNetworkLayerNodes.map(item => item.id), alwaysShow: true }
+            { label: translate('infrastructureHosts'), value: hostName ? '1' : '0', icon: this.layerIcon('\uf233'), iconContainerClassName: classes.connectedResourceHostIcon, nodeIDs: host ? [host.id] : [], alwaysShow: true },
+            { label: translate('vmNics'), value: String(topologyNicNodes.length), icon: this.layerIcon('\uf538'), iconContainerClassName: classes.connectedResourceNicIcon, nodeIDs: topologyNicNodes.map(item => item.id), alwaysShow: true },
+            { label: translate('host-bridges'), value: String(topologyHostBridgeNodes.length), icon: this.layerIcon('\uf542'), iconContainerClassName: classes.connectedResourceBridgeIcon, nodeIDs: topologyHostBridgeNodes.map(item => item.id), alwaysShow: true },
+            { label: translate('hostNetworkCount'), value: String(topologyNetworkLayerNodes.length), icon: this.layerIcon('\uf6ff'), iconContainerClassName: classes.connectedResourceNetworkIcon, nodeIDs: topologyNetworkLayerNodes.map(item => item.id), alwaysShow: true }
         ]
 
         const hasResourceMetrics = resourceMetrics.some(item => !isBlank(item.value))
