@@ -2971,7 +2971,6 @@ class App extends React.Component<Props, State> {
                       <span className={classes.recentViewedNodeName} title={item.name}>{item.name}</span>
                       <span className={classes.recentViewedNodeType}>{this.recentNodeTypeLabel(item)}</span>
                     </span>
-                    <ChevronRightIcon className={classes.recentViewedNodeChevron} />
                   </button>
                 ))}
               </div>
