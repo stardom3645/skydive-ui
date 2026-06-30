@@ -2997,7 +2997,7 @@ class App extends React.Component<Props, State> {
     const infrastructureTag = this.config.defaultNodeTag()
     const activeTag = this.activeNodeTagName()
     const activeLabel = activeTag === "kubernetes" ? "Kubernetes" : translate("infrastructureMenu")
-    const activeSummary = activeTag === "kubernetes" ? translate("kubernetesLayerSummary") : translate("infrastructureLayerSummary")
+    const activeSummary = activeLabel
     const activeIcon = activeTag === "kubernetes" ? this.kubernetesIcon() : <AccountTreeIcon fontSize="small" />
     const items = [
       {
@@ -3023,7 +3023,7 @@ class App extends React.Component<Props, State> {
             className={classes.layerFilterButton}>
             <span className={classes.layerFilterButtonIcon}>{activeIcon}</span>
             <span className={classes.layerFilterButtonText}>
-              <span className={classes.layerFilterButtonLabel}>{activeLabel}</span>
+              <span className={classes.layerFilterButtonLabel}>{translate("topologyLayer")}</span>
               <span className={classes.layerFilterButtonSummary}>{activeSummary}</span>
             </span>
             <span className={classes.layerFilterButtonChevron}><KeyboardArrowDown fontSize="small" /></span>
