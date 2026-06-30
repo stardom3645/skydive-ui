@@ -93,6 +93,33 @@ export const styles = (theme: Theme) => createStyles({
         fontWeight: 720,
         textAlign: 'right'
     },
+    kvStatusBadge: {
+        minWidth: 0,
+        maxWidth: '100%',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 5,
+        padding: '3px 8px',
+        borderRadius: 999,
+        border: '1px solid rgba(22, 163, 74, 0.22)',
+        background: 'rgba(220, 252, 231, 0.86)',
+        color: '#166534',
+        fontSize: 11.5,
+        lineHeight: 1.2,
+        fontWeight: 800,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap'
+    },
+    kvStatusDot: {
+        width: 6,
+        height: 6,
+        borderRadius: '50%',
+        flex: '0 0 6px',
+        background: '#16a34a',
+        boxShadow: '0 0 0 2px rgba(22, 163, 74, 0.14)'
+    },
     copyButton: {
         width: 24,
         height: 24,

@@ -32,6 +32,7 @@ interface KeyValueRow {
     value: any
     copy?: boolean
     alwaysShow?: boolean
+    variant?: 'status'
 }
 
 interface MetricItem {
@@ -99,6 +100,10 @@ const formatDate = (value: any): string => {
     const date = new Date(value)
     if (Number.isNaN(date.getTime())) return stringify(value)
     return date.toLocaleString()
+}
+
+const trimFixed = (value: number, digits = 1): string => {
+    return value.toFixed(digits).replace(/\.0$/, '')
 }
 
 const uniqueStrings = (values: any[]): string[] => {
@@ -405,6 +410,18 @@ class VMDetailPanel extends React.Component<Props> {
         return state
     }
 
+    private formatMemory(value: string): string {
+        const text = stringify(value)
+        if (!text) return ''
+        const match = text.replace(/,/g, '').match(/-?\d+(\.\d+)?/)
+        if (!match) return text
+
+        const mb = Number(match[0])
+        if (Number.isNaN(mb) || mb <= 0) return text
+        const gb = mb / 1024
+        return `${trimFixed(mb, mb >= 10 ? 0 : 1)} MB (${trimFixed(gb, gb >= 10 ? 0 : 1)} GB)`
+    }
+
     private vmKind(): string {
         const name = firstValue(this.mergedData(), ['Name', 'name']) || this.props.node.id
         if (/^r-/.test(name)) return translate('infrastructureRouters')
@@ -426,7 +443,15 @@ class VMDetailPanel extends React.Component<Props> {
         return (
             <div className={classes.kvValueWrap}>
                 <Tooltip title={displayValue} placement="top" arrow>
-                    <span className={classes.kvValue}>{displayValue}</span>
+                    {row.variant === 'status'
+                        ? (
+                            <span className={classes.kvStatusBadge}>
+                                <span className={classes.kvStatusDot} />
+                                <span>{displayValue}</span>
+                            </span>
+                        )
+                        : <span className={classes.kvValue}>{displayValue}</span>
+                    }
                 </Tooltip>
                 {row.copy && value && (
                     <Tooltip title={translate('copy')} placement="top" arrow>
@@ -536,9 +561,10 @@ class VMDetailPanel extends React.Component<Props> {
 
     render() {
         const { classes, node } = this.props
+        const nodeData = node.data || {}
         const data = this.mergedData()
-        const libvirtName = firstValue(data, ['Name', 'name']) || node.id
-        const displayName = this.props.vmNameMap?.[libvirtName] || firstValue(data, ['DisplayName', 'displayName', 'displayname']) || libvirtName
+        const libvirtName = firstValue(nodeData, ['Name', 'name', 'InstanceName', 'instanceName', 'instancename']) || node.id
+        const displayName = this.props.vmNameMap?.[libvirtName] || firstValue(data, ['DisplayName', 'displayName', 'displayname']) || firstValue(data, ['Name', 'name']) || libvirtName
         const host = this.topologyHost()
         const hostName = host ? firstValue(host.data, ['Name', 'Hostname', 'HostName']) || host.id : firstValue(data, ['HostName', 'hostname', 'hostName', 'Host', 'host'])
         const topologyNetworkLayerNodes = this.topologyNetworkLayerNodes()
@@ -550,14 +576,14 @@ class VMDetailPanel extends React.Component<Props> {
 
         const basicRows: KeyValueRow[] = [
             { label: translate('vmName'), value: displayName, copy: true, alwaysShow: true },
-            { label: translate('vmLibvirtName'), value: libvirtName, copy: true, alwaysShow: true },
-            { label: translate('vmId'), value: firstValue(data, ['UUID', 'uuid', 'ID', 'Id', 'id', 'ExtID', 'VirtualMachineID', 'virtualMachineId']), copy: true, alwaysShow: true },
-            { label: translate('hostOperationalStatus'), value: this.statusText(), alwaysShow: true },
             { label: 'Host', value: hostName, copy: true, alwaysShow: true },
+            { label: translate('hostOperationalStatus'), value: this.statusText(), alwaysShow: true, variant: 'status' },
             { label: translate('vmPrivateIp'), value: this.privateIp(), copy: true, alwaysShow: true },
+            { label: translate('vmLibvirtName'), value: libvirtName, copy: true, alwaysShow: true },
+            { label: 'UUID', value: firstValue(data, ['UUID', 'uuid', 'ID', 'Id', 'id', 'ExtID', 'VirtualMachineID', 'virtualMachineId']), copy: true, alwaysShow: true },
             { label: 'Guest OS', value: os, alwaysShow: true },
             { label: translate('vmCpu'), value: cpuCount !== undefined ? `${cpuCount} vCPU` : '', copy: false, alwaysShow: true },
-            { label: translate('vmMemory'), value: memory, copy: false, alwaysShow: true }
+            { label: translate('vmMemory'), value: this.formatMemory(memory), copy: false, alwaysShow: true }
         ]
 
         const resourceMetrics: MetricItem[] = [
