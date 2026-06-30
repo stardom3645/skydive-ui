@@ -1719,6 +1719,9 @@ export const styles = (theme: Theme) => createStyles({
   },
   recentViewedNodesPaper: {
     pointerEvents: 'auto',
+    display: 'flex',
+    flexDirection: 'column',
+    maxHeight: 360,
     borderRadius: 14,
     border: '1px solid var(--netdive-detail-border)',
     backgroundColor: 'var(--netdive-detail-bg)',
@@ -1764,10 +1767,24 @@ export const styles = (theme: Theme) => createStyles({
     lineHeight: 1,
   },
   recentViewedNodesBody: {
+    flex: '1 1 auto',
+    minHeight: 0,
+    overflowY: 'auto',
+    overscrollBehavior: 'contain',
     display: 'flex',
     flexDirection: 'column',
-    gap: theme.spacing(0.55),
-    padding: theme.spacing(0.9),
+    gap: theme.spacing(0.35),
+    padding: theme.spacing(0.7),
+    '&::-webkit-scrollbar': {
+      width: 6,
+    },
+    '&::-webkit-scrollbar-thumb': {
+      borderRadius: 999,
+      backgroundColor: 'rgba(100, 116, 139, 0.28)',
+    },
+    '&::-webkit-scrollbar-track': {
+      backgroundColor: 'transparent',
+    },
   },
   recentViewedNodesEmpty: {
     color: 'var(--netdive-detail-muted)',
@@ -1787,7 +1804,8 @@ export const styles = (theme: Theme) => createStyles({
     gridTemplateColumns: '28px minmax(0, 1fr) 18px',
     alignItems: 'center',
     gap: theme.spacing(0.9),
-    padding: theme.spacing(0.8, 0.85),
+    minHeight: 45,
+    padding: theme.spacing(0.55, 0.75),
     textAlign: 'left',
     transition: 'background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease',
     '&:hover': {
