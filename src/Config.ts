@@ -233,6 +233,9 @@ export const i18nMap = {
         "vmNoNicInfo": "No NIC information collected.",
 
         "networkLinkLayer": "Network Link Layer",
+        "connectionDisplay": "Connection Display",
+        "recentViewedNodes": "Recent Nodes",
+        "recentViewedNodesEmpty": "Recently viewed nodes will appear here.",
         "searchNodeByNameExample": "Search by node name (e.g., ccvm)",
         "searchKubernetesByNameExample": "Search by cluster, node, or pod name",
         "layerFilter": "Layer filter",
@@ -784,6 +787,9 @@ export const i18nMap = {
         "vmNoNicInfo": "수집된 NIC 정보가 없습니다.",
 
         "networkLinkLayer": "네트워크 링크 계층",
+        "connectionDisplay": "연결 표시",
+        "recentViewedNodes": "최근 본 노드",
+        "recentViewedNodesEmpty": "클릭한 노드가 여기에 표시됩니다.",
         "searchNodeByNameExample": "노드 이름(예: ccvm)으로 검색",
         "searchKubernetesByNameExample": "클러스터, 노드, 파드 이름으로 검색",
         "layerFilter": "레이어 필터",

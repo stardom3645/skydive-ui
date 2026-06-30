@@ -55,6 +55,7 @@ import Button from '@material-ui/core/Button'
 import Switch from '@material-ui/core/Switch'
 import Chip from '@material-ui/core/Chip'
 import Tooltip from '@material-ui/core/Tooltip'
+import Popover from '@material-ui/core/Popover'
 import UnfoldMoreIcon from '@material-ui/icons/UnfoldMore'
 import UnfoldLessIcon from '@material-ui/icons/UnfoldLess'
 import InfoIcon from '@material-ui/icons/Info'
@@ -146,10 +147,34 @@ type NetdiveTheme = "light" | "dark"
 type HelpSection = "menu" | "toolbar" | "topology"
 type InfrastructureFocusKey = "networkObjects" | "routers" | "userVMs" | "systemVMs" | "totalNodes"
 type InfrastructureViewMode = "all" | "hosts"
+type RecentNodeLayerTag = "kubernetes" | "infrastructure"
+
+interface RecentViewedNodeItem {
+  id: string
+  name: string
+  rawType: string
+  layerTag: RecentNodeLayerTag
+}
+
+const RECENT_VIEWED_NODES_STORAGE_KEY = "netdive-recent-viewed-nodes"
 
 const getSavedNetdiveTheme = (): NetdiveTheme => {
   const savedTheme = localStorage.getItem("netdive-theme")
   return savedTheme === "dark" ? "dark" : "light"
+}
+
+const getSavedRecentViewedNodes = (): RecentViewedNodeItem[] => {
+  try {
+    const raw = localStorage.getItem(RECENT_VIEWED_NODES_STORAGE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed
+      .filter((item) => item && typeof item.id === "string" && typeof item.name === "string")
+      .slice(0, 10)
+  } catch (e) {
+    return []
+  }
 }
 
 interface State {
@@ -207,6 +232,7 @@ interface State {
   kubernetesLastTests: Record<string, KubernetesLastTest>
   kubernetesCopiedClusterId: string
   moldIntegrationConnected: boolean
+  recentViewedNodes: RecentViewedNodeItem[]
 }
 
 interface VMConsoleResponse {
@@ -373,7 +399,8 @@ class App extends React.Component<Props, State> {
       kubernetesTestResults: [],
       kubernetesLastTests: {},
       kubernetesCopiedClusterId: "",
-      moldIntegrationConnected: false
+      moldIntegrationConnected: false,
+      recentViewedNodes: getSavedRecentViewedNodes()
     }
 
     this.synced = false
@@ -477,7 +504,7 @@ class App extends React.Component<Props, State> {
     if (!target || !target.closest) {
       return
     }
-    if (target.closest('[data-netdive-side-panel="true"], [data-netdive-link-tags="true"], [class*="kubernetesManagerPanel"], [class*="sideSettingsPanel"], [data-netdive-drawer="true"], .MuiDialog-root')) {
+    if (target.closest('[data-netdive-side-panel="true"], [data-netdive-link-tags="true"], [data-netdive-recent-nodes="true"], [class*="kubernetesManagerPanel"], [class*="sideSettingsPanel"], [data-netdive-drawer="true"], .MuiDialog-root')) {
       return
     }
     if (isLinkTagsExpanded) {
@@ -1376,6 +1403,7 @@ class App extends React.Component<Props, State> {
   onNodeSelected(node: Node, active: boolean) {
     if (active) {
       this.props.selectElement(node)
+      this.addRecentViewedNode(node)
       this.openSelection()
     } else {
       if (this.tc) {
@@ -1831,6 +1859,14 @@ class App extends React.Component<Props, State> {
       : "표시할 연결 계층과 트래픽 범위를 선택합니다."
   }
 
+  private connectionDisplaySummary(tags: string[]) {
+    const primaryTag = this.primaryCompactLinkTag(tags)
+    if (!primaryTag) {
+      return translate("loading")
+    }
+    return `${this.compactLinkLayerLabel(primaryTag)} · ${this.compactLinkRangeLabel(primaryTag)}`
+  }
+
   private selectCompactLinkTag(tag: string, tags: string[]) {
     if (!this.tc) {
       return
@@ -2042,6 +2078,152 @@ class App extends React.Component<Props, State> {
 
   private isKubernetesLayerActive(): boolean {
     return this.activeNodeTagName() === "kubernetes"
+  }
+
+  private saveRecentViewedNodes(items: RecentViewedNodeItem[]) {
+    localStorage.setItem(RECENT_VIEWED_NODES_STORAGE_KEY, JSON.stringify(items.slice(0, 10)))
+  }
+
+  private nodeDisplayName(node: Node): string {
+    const attrs = this.nodeAttrs(node)
+    return attrs.name || node.data?.Name || node.id
+  }
+
+  private nodePrimaryLayerTag(node: Node): RecentNodeLayerTag {
+    return node.tags.includes("kubernetes") ? "kubernetes" : "infrastructure"
+  }
+
+  private recentNodeRawType(node: Node): string {
+    return String(node.data?.Type || "").toLowerCase()
+  }
+
+  private addRecentViewedNode(node: Node) {
+    const item: RecentViewedNodeItem = {
+      id: node.id,
+      name: this.nodeDisplayName(node),
+      rawType: this.recentNodeRawType(node),
+      layerTag: this.nodePrimaryLayerTag(node)
+    }
+    const next = [item]
+      .concat(this.state.recentViewedNodes.filter((existing) => existing.id !== item.id))
+      .slice(0, 10)
+    this.saveRecentViewedNodes(next)
+    this.setState({ recentViewedNodes: next })
+  }
+
+  private recentNodeTypeLabel(item: RecentViewedNodeItem) {
+    const isKo = currentLanguage === "ko"
+    const type = item.rawType || ""
+
+    if (item.layerTag === "kubernetes") {
+      switch (type) {
+        case "cluster":
+          return isKo ? "쿠버네티스 클러스터" : "Kubernetes Cluster"
+        case "node":
+          return isKo ? "쿠버네티스 노드" : "Kubernetes Node"
+        case "namespace":
+          return isKo ? "쿠버네티스 네임스페이스" : "Kubernetes Namespace"
+        case "pod":
+          return isKo ? "쿠버네티스 파드" : "Kubernetes Pod"
+        case "service":
+          return isKo ? "쿠버네티스 서비스" : "Kubernetes Service"
+        default:
+          return isKo ? "쿠버네티스 리소스" : "Kubernetes Resource"
+      }
+    }
+
+    switch (type) {
+      case "host":
+        return isKo ? "호스트" : "Host"
+      case "switch":
+        return isKo ? "스위치" : "Switch"
+      case "bridge":
+        return isKo ? "브리지" : "Bridge"
+      case "switchport":
+      case "port":
+      case "patch":
+        return isKo ? "포트" : "Port"
+      case "libvirt":
+        return isKo ? "사용자 VM" : "User VM"
+      case "system":
+        return isKo ? "시스템 VM" : "System VM"
+      case "router":
+      case "vrouter":
+        return isKo ? "가상 라우터" : "Virtual Router"
+      case "device":
+        return isKo ? "네트워크 장치" : "Network Device"
+      default:
+        return type || (isKo ? "노드" : "Node")
+    }
+  }
+
+  private renderRecentNodeIcon(classes: any, item: RecentViewedNodeItem) {
+    if (item.layerTag === "kubernetes") {
+      return <span className={clsx(classes.recentViewedNodeIcon, classes.recentViewedNodeIconKubernetes)}>{this.kubernetesIcon()}</span>
+    }
+
+    let icon: React.ReactNode = <AccountTreeIcon fontSize="small" />
+    let toneClass = classes.recentViewedNodeIconNetwork
+    switch (item.rawType) {
+      case "host":
+        icon = <span className={clsx("fa", "fas", "fa-fw")}>{"\uf109"}</span>
+        toneClass = classes.recentViewedNodeIconHost
+        break
+      case "libvirt":
+        icon = <span className={clsx("fa", "fas", "fa-fw")}>{"\uf108"}</span>
+        toneClass = classes.recentViewedNodeIconUserVM
+        break
+      case "system":
+        icon = <span className={clsx("fa", "fas", "fa-fw")}>{"\uf085"}</span>
+        toneClass = classes.recentViewedNodeIconSystemVM
+        break
+      case "router":
+      case "vrouter":
+        icon = <span className={clsx("fa", "fas", "fa-fw")}>{"\uf4d7"}</span>
+        toneClass = classes.recentViewedNodeIconRouter
+        break
+      default:
+        icon = <span className={clsx("fa", "fas", "fa-fw")}>{"\uf6ff"}</span>
+        toneClass = classes.recentViewedNodeIconNetwork
+        break
+    }
+
+    return <span className={clsx(classes.recentViewedNodeIcon, toneClass)}>{icon}</span>
+  }
+
+  private focusRecentViewedNode(item: RecentViewedNodeItem) {
+    const focusNode = () => {
+      if (!this.tc) {
+        return
+      }
+      const node = this.tc.nodes.get(item.id)
+      if (!node) {
+        return
+      }
+      this.tc.selectNode(item.id, true)
+      this.tc.unpinNodes()
+      this.tc.pinNode(node, true)
+      this.openSelection()
+    }
+
+    if (item.layerTag === "kubernetes" && !this.isKubernetesLayerActive()) {
+      this.activeNodeTag("kubernetes")
+      window.setTimeout(focusNode, 0)
+      return
+    }
+
+    if (item.layerTag === "infrastructure" && this.isKubernetesLayerActive()) {
+      this.activeNodeTag(this.config.defaultNodeTag())
+      window.setTimeout(focusNode, 0)
+      return
+    }
+
+    focusNode()
+  }
+
+  private selectedNodeID(): string {
+    const selected = this.props.selection.find((element) => element.type === "node") as Node | undefined
+    return selected ? selected.id : ""
   }
 
   private searchPlaceholder(): string {
@@ -2632,140 +2814,99 @@ class App extends React.Component<Props, State> {
   }
 
   renderLinkTagButtons(classes: any) {
+    const selectedNodeID = this.selectedNodeID()
+    return (
+      <React.Fragment>
+        <Container className={classes.recentViewedNodesPanel} data-netdive-recent-nodes="true">
+          <Paper className={classes.recentViewedNodesPaper}>
+            <div className={classes.recentViewedNodesHeader}>
+              <div className={classes.recentViewedNodesHeaderTitle}>
+                <AccessTimeIcon className={classes.recentViewedNodesHeaderIcon} />
+                <span>{translate("recentViewedNodes")}</span>
+              </div>
+              {this.state.recentViewedNodes.length > 0 &&
+                <span className={classes.recentViewedNodesCount}>{this.state.recentViewedNodes.length}</span>
+              }
+            </div>
+            <div className={classes.recentViewedNodesBody}>
+              {this.state.recentViewedNodes.length === 0 &&
+                <div className={classes.recentViewedNodesEmpty}>{translate("recentViewedNodesEmpty")}</div>
+              }
+              {this.state.recentViewedNodes.map((item) => (
+                <button
+                  type="button"
+                  key={item.id}
+                  className={clsx(classes.recentViewedNodeItem, selectedNodeID === item.id && classes.recentViewedNodeItemActive)}
+                  onClick={() => this.focusRecentViewedNode(item)}>
+                  {this.renderRecentNodeIcon(classes, item)}
+                  <span className={classes.recentViewedNodeText}>
+                    <span className={classes.recentViewedNodeName} title={item.name}>{item.name}</span>
+                    <span className={classes.recentViewedNodeType}>{this.recentNodeTypeLabel(item)}</span>
+                  </span>
+                  <ChevronRightIcon className={classes.recentViewedNodeChevron} />
+                </button>
+              ))}
+            </div>
+          </Paper>
+        </Container>
+      </React.Fragment>
+    )
+  }
+
+  renderConnectionDisplayMenu(classes: any) {
     const tags = this.orderedLinkTagsForActiveLayer()
     const visibleTags = tags.filter((tag) => tag !== "ownership" && tag !== "vownership")
+    if (visibleTags.length === 0) {
+      return null
+    }
+
+    const activeIcon = this.isKubernetesLayerActive() ? this.kubernetesIcon() : <AccountTreeIcon fontSize="small" />
 
     return (
       <React.Fragment>
-        {visibleTags.length !== 0 &&
-          <Container className={classes.linkTagsPanel} data-netdive-link-tags="true">
-            {!this.state.isLinkTagsCollapsed &&
-              <Paper className={classes.linkTagsPanelPaper}>
-                <div className={classes.linkTagsHeader}>
-                  <div className={classes.linkTagsHeaderLeft}>
-                    <div className={classes.linkTagsTitleRow}>
-                      <Typography component="h6" className={classes.linkTagsTitle}>
-                        {translate("networkLinkLayer")}
-                      </Typography>
-                      <Tooltip title="표시할 네트워크 연결 범위와 트래픽 표시 방식을 선택합니다.">
-                        <InfoIcon className={classes.linkTagsInfoIcon} />
-                      </Tooltip>
-                    </div>
-                  </div>
-                  <div className={classes.linkTagsHeaderActions}>
-                    <IconButton
-                      size="small"
-                      className={classes.linkTagsCollapseButton}
-                      onClick={() => {
-                        this.state.isLinkTagsCollapsed = true
-                        this.setState(this.state)
-                        localStorage.setItem("netdive-link-tags-collapsed", "1")
-                      }}>
-                      <UnfoldLessIcon fontSize="small" />
-                    </IconButton>
-                  </div>
-                </div>
-                <div className={classes.linkLayerCards}>
-                  {visibleTags.map((key) => {
-                    const meta = this.linkTagMeta(key)
-                    const stateInfo = this.linkTagStateInfo(this.state.linkTagStates.get(key))
-                    const stateClass = stateInfo.className === "visible"
-                      ? classes.linkLayerCardVisible
-                      : stateInfo.className === "event"
-                        ? classes.linkLayerCardEvent
-                        : classes.linkLayerCardHidden
-                    return (
-                      <button
-                        type="button"
-                        key={key}
-                        className={clsx(classes.linkLayerCard, stateClass)}
-                        onClick={() => this.cycleLinkTagState(key)}
-                        title={`${meta.description} 현재 상태: ${stateInfo.label}`}>
-                        <div className={classes.linkLayerCardMain}>
-                          <span className={classes.linkLayerCardTop}>
-                            <span className={classes.linkLayerCardKey}>{meta.key}</span>
-                            {meta.badge && <span className={classes.linkLayerCardBadge}>{meta.badge}</span>}
-                          </span>
-                          <span className={classes.linkLayerCardName}>{meta.name}</span>
-                          <span className={classes.linkLayerCardSummary}>{meta.summary}</span>
-                        </div>
-                        <span className={clsx(classes.linkLayerStateIcon, classes[`linkLayerStateIcon${stateInfo.className}`])}>
-                          {stateInfo.icon}
-                        </span>
-                      </button>
-                    )
-                  })}
-                  {this.additionalLinkTagCount(visibleTags) > 0 &&
-                    <span className={classes.linkLayerMoreHint}>추가 {this.additionalLinkTagCount(visibleTags)}개는 가로로 스크롤해 확인</span>
-                  }
-                </div>
-                <div className={classes.linkTagsStateHelp}>
-                  <Typography component="strong" className={classes.linkTagsStateHelpTitle}>
-                    선택 상태에 따른 표시 범위
-                  </Typography>
-                  <div className={classes.linkTagsStateHelpItems}>
-                    {[LinkTagState.EventBased, LinkTagState.Visible, LinkTagState.Hidden].map((state) => {
-                      const stateInfo = this.linkTagStateInfo(state)
-                      return (
-                        <div key={stateInfo.className} className={classes.linkTagsStateHelpItem}>
-                          <span className={clsx(classes.linkLayerStateIcon, classes[`linkLayerStateIcon${stateInfo.className}`])}>
-                            {stateInfo.icon}
-                          </span>
-                          <span>
-                            <strong>{stateInfo.label}</strong>
-                            <em>{stateInfo.description}</em>
-                          </span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-                {this.renderLinkUsageExamples(classes)}
-                {this.isKubernetesLayerActive() &&
-                  <div className={classes.linkTagsNotice}>
-                    <InfoIcon fontSize="small" />
-                    <span>수집되는 자원에 따라 Service, Node, DaemonSet 외 추가 링크 계층이 표시될 수 있습니다.</span>
-                  </div>
-                }
-              </Paper>
+        <Tooltip title={translate("connectionDisplay")}>
+          <Button
+            aria-controls="connection-display-popover"
+            aria-haspopup="true"
+            onClick={(event: React.MouseEvent<HTMLElement>) => this.openMenu("connection-display", event)}
+            className={classes.layerFilterButton}>
+            <span className={classes.layerFilterButtonIcon}>{activeIcon}</span>
+            <span className={classes.layerFilterButtonText}>
+              <span className={classes.layerFilterButtonLabel}>{translate("connectionDisplay")}</span>
+              <span className={classes.layerFilterButtonSummary}>{this.connectionDisplaySummary(visibleTags)}</span>
+            </span>
+            <span className={classes.layerFilterButtonChevron}><KeyboardArrowDown fontSize="small" /></span>
+          </Button>
+        </Tooltip>
+        <Popover
+          id="connection-display-popover"
+          anchorEl={this.state.anchorEl.get("connection-display")}
+          open={Boolean(this.state.anchorEl.get("connection-display"))}
+          onClose={this.closeMenu.bind(this, "connection-display")}
+          anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+          transformOrigin={{ vertical: "top", horizontal: "left" }}
+          classes={{ paper: classes.connectionDisplayPopoverPaper }}>
+          <div className={classes.connectionDisplayPopoverContent}>
+            <div className={classes.linkTagsTitleRow}>
+              <Typography component="h6" className={classes.linkTagsTitle}>
+                {translate("connectionDisplay")}
+              </Typography>
+              <Tooltip title="표시할 네트워크 연결 범위와 트래픽 표시 방식을 선택합니다.">
+                <InfoIcon className={classes.linkTagsInfoIcon} />
+              </Tooltip>
+            </div>
+            <Typography component="p" className={classes.connectionDisplayDescription}>
+              {this.compactLinkLayerDescription()}
+            </Typography>
+            {this.renderCompactLinkTagControls(classes, visibleTags)}
+            {this.isKubernetesLayerActive() &&
+              <div className={classes.connectionDisplayNotice}>
+                <InfoIcon fontSize="small" />
+                <span>수집되는 자원에 따라 Service, Node, DaemonSet 외 추가 링크 계층이 표시될 수 있습니다.</span>
+              </div>
             }
-            {this.state.isLinkTagsCollapsed &&
-              <Paper
-                className={clsx(
-                  classes.linkTagsCollapsedTab,
-                  this.isKubernetesLayerActive() ? classes.linkTagsCollapsedTabKubernetes : classes.linkTagsCollapsedTabInfrastructure
-                )}>
-                <div className={classes.linkTagsCollapsedMain}>
-                  <button
-                    type="button"
-                    className={classes.linkTagsCollapsedHeader}
-                    onClick={() => {
-                      this.state.isLinkTagsCollapsed = false
-                      this.setState(this.state)
-                      localStorage.setItem("netdive-link-tags-collapsed", "0")
-                    }}>
-                    <span className={classes.linkTagsCollapsedHeaderLeft}>
-                      {this.isKubernetesLayerActive()
-                        ? this.kubernetesIcon(classes.linkTagsCollapsedHeaderIcon)
-                        : <AccountTreeIcon className={classes.linkTagsCollapsedHeaderIcon} />
-                      }
-                      <span>
-                        <Typography component="span" className={classes.linkTagsCollapsedTitle}>
-                          {translate("networkLinkLayer")}
-                        </Typography>
-                        <Typography component="span" className={classes.linkTagsCollapsedDescription}>
-                          {this.compactLinkLayerDescription()}
-                        </Typography>
-                      </span>
-                    </span>
-                    <UnfoldMoreIcon fontSize="small" className={classes.linkTagsCollapsedIcon} />
-                  </button>
-                  {this.renderCompactLinkTagControls(classes, visibleTags)}
-                </div>
-              </Paper>
-            }
-          </Container>
-        }
+          </div>
+        </Popover>
       </React.Fragment>
     )
   }
@@ -3948,6 +4089,7 @@ class App extends React.Component<Props, State> {
               <AutoCompleteInput placeholder={this.searchPlaceholder()} suggestions={this.state.suggestions} onChange={this.onSearchChange.bind(this)} />
             </div>
             {this.renderLayerFilterMenu(classes)}
+            {this.renderConnectionDisplayMenu(classes)}
             <div className={classes.toolbarActionGroup}>
               <Tooltip title={translate("expandAllNodes")}>
                 <IconButton
