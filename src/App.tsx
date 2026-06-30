@@ -2887,18 +2887,77 @@ class App extends React.Component<Props, State> {
           transformOrigin={{ vertical: "top", horizontal: "left" }}
           classes={{ paper: classes.connectionDisplayPopoverPaper }}>
           <div className={classes.connectionDisplayPopoverContent}>
-            <div className={classes.linkTagsTitleRow}>
-              <Typography component="h6" className={classes.linkTagsTitle}>
-                {translate("connectionDisplay")}
-              </Typography>
-              <Tooltip title="표시할 네트워크 연결 범위와 트래픽 표시 방식을 선택합니다.">
-                <InfoIcon className={classes.linkTagsInfoIcon} />
-              </Tooltip>
+            <div className={classes.linkTagsHeader}>
+              <div className={classes.linkTagsHeaderLeft}>
+                <div className={classes.linkTagsTitleRow}>
+                  <Typography component="h6" className={classes.linkTagsTitle}>
+                    {translate("connectionDisplay")}
+                  </Typography>
+                  <Tooltip title="표시할 네트워크 연결 범위와 트래픽 표시 방식을 선택합니다.">
+                    <InfoIcon className={classes.linkTagsInfoIcon} />
+                  </Tooltip>
+                </div>
+                <Typography component="p" className={classes.connectionDisplayDescription}>
+                  {this.compactLinkLayerDescription()}
+                </Typography>
+              </div>
             </div>
-            <Typography component="p" className={classes.connectionDisplayDescription}>
-              {this.compactLinkLayerDescription()}
-            </Typography>
-            {this.renderCompactLinkTagControls(classes, visibleTags)}
+            <div className={classes.linkLayerCards}>
+              {visibleTags.map((key) => {
+                const meta = this.linkTagMeta(key)
+                const stateInfo = this.linkTagStateInfo(this.state.linkTagStates.get(key))
+                const stateClass = stateInfo.className === "visible"
+                  ? classes.linkLayerCardVisible
+                  : stateInfo.className === "event"
+                    ? classes.linkLayerCardEvent
+                    : classes.linkLayerCardHidden
+                return (
+                  <button
+                    type="button"
+                    key={key}
+                    className={clsx(classes.linkLayerCard, stateClass)}
+                    onClick={() => this.cycleLinkTagState(key)}
+                    title={`${meta.description} 현재 상태: ${stateInfo.label}`}>
+                    <div className={classes.linkLayerCardMain}>
+                      <span className={classes.linkLayerCardTop}>
+                        <span className={classes.linkLayerCardKey}>{meta.key}</span>
+                        {meta.badge && <span className={classes.linkLayerCardBadge}>{meta.badge}</span>}
+                      </span>
+                      <span className={classes.linkLayerCardName}>{meta.name}</span>
+                      <span className={classes.linkLayerCardSummary}>{meta.summary}</span>
+                    </div>
+                    <span className={clsx(classes.linkLayerStateIcon, classes[`linkLayerStateIcon${stateInfo.className}`])}>
+                      {stateInfo.icon}
+                    </span>
+                  </button>
+                )
+              })}
+              {this.additionalLinkTagCount(visibleTags) > 0 &&
+                <span className={classes.linkLayerMoreHint}>추가 {this.additionalLinkTagCount(visibleTags)}개는 가로로 스크롤해 확인</span>
+              }
+            </div>
+            <div className={classes.linkTagsStateHelp}>
+              <Typography component="strong" className={classes.linkTagsStateHelpTitle}>
+                선택 상태에 따른 표시 범위
+              </Typography>
+              <div className={classes.linkTagsStateHelpItems}>
+                {[LinkTagState.EventBased, LinkTagState.Visible, LinkTagState.Hidden].map((state) => {
+                  const stateInfo = this.linkTagStateInfo(state)
+                  return (
+                    <div key={stateInfo.className} className={classes.linkTagsStateHelpItem}>
+                      <span className={clsx(classes.linkLayerStateIcon, classes[`linkLayerStateIcon${stateInfo.className}`])}>
+                        {stateInfo.icon}
+                      </span>
+                      <span>
+                        <strong>{stateInfo.label}</strong>
+                        <em>{stateInfo.description}</em>
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+            {this.renderLinkUsageExamples(classes)}
             {this.isKubernetesLayerActive() &&
               <div className={classes.connectionDisplayNotice}>
                 <InfoIcon fontSize="small" />
