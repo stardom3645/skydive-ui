@@ -1390,7 +1390,7 @@ class App extends React.Component<Props, State> {
     this.updateFilters()
 
     this.tc.zoomFit()
-    this.pruneRecentViewedNodesForActiveLayer()
+    this.pruneRecentViewedNodes()
   }
 
   nodeAttrs(node: Node): NodeAttrs {
@@ -1439,7 +1439,7 @@ class App extends React.Component<Props, State> {
   _refreshTopology() {
     if (this.tc) {
       this.tc.renderTree();
-      this.pruneRecentViewedNodesForActiveLayer()
+      this.pruneRecentViewedNodes()
     }
   }
 
@@ -2070,7 +2070,7 @@ class App extends React.Component<Props, State> {
 
     this.state.nodeTagStates = this.tc.nodeTagStates
     this.setState(this.state)
-    this.pruneRecentViewedNodesForActiveLayer()
+    this.pruneRecentViewedNodes()
 
     this.tc.zoomFit()
   }
@@ -2092,29 +2092,24 @@ class App extends React.Component<Props, State> {
     localStorage.setItem(RECENT_VIEWED_NODES_STORAGE_KEY, JSON.stringify(items.slice(0, 10)))
   }
 
-  private currentRecentLayerTag(): RecentNodeLayerTag {
-    return this.isKubernetesLayerActive() ? "kubernetes" : "infrastructure"
-  }
-
   private sameRecentViewedNodes(a: RecentViewedNodeItem[], b: RecentViewedNodeItem[]) {
     return a.length === b.length && a.every((item, index) => item.id === b[index].id)
   }
 
-  private recentViewedNodeExists(item: RecentViewedNodeItem, layerTag: RecentNodeLayerTag = this.currentRecentLayerTag()) {
+  private recentViewedNodeExists(item: RecentViewedNodeItem) {
     if (!this.tc) {
       return false
     }
     const node = this.tc.nodes.get(item.id)
-    return Boolean(node && this.nodePrimaryLayerTag(node) === layerTag)
+    return Boolean(node)
   }
 
-  private pruneRecentViewedNodesForActiveLayer() {
+  private pruneRecentViewedNodes() {
     if (!this.tc) {
       return
     }
-    const layerTag = this.currentRecentLayerTag()
     const next = this.state.recentViewedNodes
-      .filter((item) => this.recentViewedNodeExists(item, layerTag))
+      .filter((item) => this.recentViewedNodeExists(item))
       .slice(0, 10)
 
     if (this.sameRecentViewedNodes(this.state.recentViewedNodes, next)) {
