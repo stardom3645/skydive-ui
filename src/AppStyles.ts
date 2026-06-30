@@ -1728,6 +1728,9 @@ export const styles = (theme: Theme) => createStyles({
     boxShadow: 'var(--netdive-detail-shadow)',
     overflow: 'hidden',
   },
+  recentViewedNodesPaperCollapsed: {
+    maxHeight: 54,
+  },
   recentViewedNodesHeader: {
     display: 'flex',
     alignItems: 'center',
@@ -1765,6 +1768,28 @@ export const styles = (theme: Theme) => createStyles({
     fontSize: 11,
     fontWeight: 800,
     lineHeight: 1,
+  },
+  recentViewedNodesHeaderActions: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: theme.spacing(0.5),
+    flexShrink: 0,
+  },
+  recentViewedNodesCollapseButton: {
+    width: 26,
+    height: 26,
+    padding: 3,
+    borderRadius: 8,
+    border: '1px solid var(--netdive-detail-border)',
+    color: 'var(--netdive-detail-muted)',
+    backgroundColor: 'var(--netdive-detail-bg)',
+    '&:hover': {
+      color: '#1A73E8',
+      backgroundColor: '#F3F8FF',
+    },
+    '& svg': {
+      fontSize: 17,
+    }
   },
   recentViewedNodesBody: {
     flex: '1 1 auto',

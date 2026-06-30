@@ -234,6 +234,7 @@ interface State {
   kubernetesCopiedClusterId: string
   moldIntegrationConnected: boolean
   recentViewedNodes: RecentViewedNodeItem[]
+  isRecentViewedNodesCollapsed: boolean
 }
 
 interface VMConsoleResponse {
@@ -401,7 +402,8 @@ class App extends React.Component<Props, State> {
       kubernetesLastTests: {},
       kubernetesCopiedClusterId: "",
       moldIntegrationConnected: false,
-      recentViewedNodes: getSavedRecentViewedNodes()
+      recentViewedNodes: getSavedRecentViewedNodes(),
+      isRecentViewedNodesCollapsed: false
     }
 
     this.synced = false
@@ -2866,38 +2868,51 @@ class App extends React.Component<Props, State> {
 
   renderLinkTagButtons(classes: any) {
     const selectedNodeID = this.selectedNodeID()
+    const isCollapsed = this.state.isRecentViewedNodesCollapsed
     return (
       <React.Fragment>
         <Container className={classes.recentViewedNodesPanel} data-netdive-recent-nodes="true">
-          <Paper className={classes.recentViewedNodesPaper}>
+          <Paper className={clsx(classes.recentViewedNodesPaper, isCollapsed && classes.recentViewedNodesPaperCollapsed)}>
             <div className={classes.recentViewedNodesHeader}>
               <div className={classes.recentViewedNodesHeaderTitle}>
                 <AccessTimeIcon className={classes.recentViewedNodesHeaderIcon} />
                 <span>{translate("recentViewedNodes")}</span>
               </div>
-              {this.state.recentViewedNodes.length > 0 &&
-                <span className={classes.recentViewedNodesCount}>{this.state.recentViewedNodes.length}</span>
-              }
+              <div className={classes.recentViewedNodesHeaderActions}>
+                {this.state.recentViewedNodes.length > 0 &&
+                  <span className={classes.recentViewedNodesCount}>{this.state.recentViewedNodes.length}</span>
+                }
+                <Tooltip title={isCollapsed ? translate("expand") : translate("collapse")}>
+                  <IconButton
+                    size="small"
+                    className={classes.recentViewedNodesCollapseButton}
+                    onClick={() => this.setState({ isRecentViewedNodesCollapsed: !isCollapsed })}>
+                    {isCollapsed ? <KeyboardArrowDown fontSize="small" /> : <UnfoldLessIcon fontSize="small" />}
+                  </IconButton>
+                </Tooltip>
+              </div>
             </div>
-            <div className={classes.recentViewedNodesBody}>
-              {this.state.recentViewedNodes.length === 0 &&
-                <div className={classes.recentViewedNodesEmpty}>{translate("recentViewedNodesEmpty")}</div>
-              }
-              {this.state.recentViewedNodes.map((item) => (
-                <button
-                  type="button"
-                  key={item.id}
-                  className={clsx(classes.recentViewedNodeItem, selectedNodeID === item.id && classes.recentViewedNodeItemActive)}
-                  onClick={() => this.focusRecentViewedNode(item)}>
-                  {this.renderRecentNodeIcon(classes, item)}
-                  <span className={classes.recentViewedNodeText}>
-                    <span className={classes.recentViewedNodeName} title={item.name}>{item.name}</span>
-                    <span className={classes.recentViewedNodeType}>{this.recentNodeTypeLabel(item)}</span>
-                  </span>
-                  <ChevronRightIcon className={classes.recentViewedNodeChevron} />
-                </button>
-              ))}
-            </div>
+            {!isCollapsed &&
+              <div className={classes.recentViewedNodesBody}>
+                {this.state.recentViewedNodes.length === 0 &&
+                  <div className={classes.recentViewedNodesEmpty}>{translate("recentViewedNodesEmpty")}</div>
+                }
+                {this.state.recentViewedNodes.map((item) => (
+                  <button
+                    type="button"
+                    key={item.id}
+                    className={clsx(classes.recentViewedNodeItem, selectedNodeID === item.id && classes.recentViewedNodeItemActive)}
+                    onClick={() => this.focusRecentViewedNode(item)}>
+                    {this.renderRecentNodeIcon(classes, item)}
+                    <span className={classes.recentViewedNodeText}>
+                      <span className={classes.recentViewedNodeName} title={item.name}>{item.name}</span>
+                      <span className={classes.recentViewedNodeType}>{this.recentNodeTypeLabel(item)}</span>
+                    </span>
+                    <ChevronRightIcon className={classes.recentViewedNodeChevron} />
+                  </button>
+                ))}
+              </div>
+            }
           </Paper>
         </Container>
       </React.Fragment>
