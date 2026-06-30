@@ -2968,7 +2968,9 @@ class App extends React.Component<Props, State> {
                     onClick={() => this.focusRecentViewedNode(item)}>
                     {this.renderRecentNodeIcon(classes, item)}
                     <span className={classes.recentViewedNodeText}>
-                      <span className={classes.recentViewedNodeName} title={item.name}>{item.name}</span>
+                      <Tooltip title={item.name}>
+                        <span className={classes.recentViewedNodeName}>{item.name}</span>
+                      </Tooltip>
                       <span className={classes.recentViewedNodeType}>{this.recentNodeTypeLabel(item)}</span>
                     </span>
                   </button>
