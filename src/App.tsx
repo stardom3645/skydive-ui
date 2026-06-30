@@ -2938,7 +2938,7 @@ class App extends React.Component<Props, State> {
             </div>
             <div className={classes.linkTagsStateHelp}>
               <Typography component="strong" className={classes.linkTagsStateHelpTitle}>
-                선택 상태에 따른 표시 범위
+                표시 범위
               </Typography>
               <div className={classes.linkTagsStateHelpItems}>
                 {[LinkTagState.EventBased, LinkTagState.Visible, LinkTagState.Hidden].map((state) => {
