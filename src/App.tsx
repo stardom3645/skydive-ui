@@ -155,6 +155,8 @@ interface RecentViewedNodeItem {
   name: string
   rawType: string
   layerTag: RecentNodeLayerTag
+  iconGlyph?: string
+  iconTone?: string
 }
 
 const RECENT_VIEWED_NODES_STORAGE_KEY = "netdive-recent-viewed-nodes"
@@ -2145,6 +2147,84 @@ class App extends React.Component<Props, State> {
     return String(node.data?.Type || "").toLowerCase()
   }
 
+  private recentNodeIconTone(node: Node): string {
+    const type = this.recentNodeRawType(node)
+    if (node.tags.includes("kubernetes")) {
+      switch (type) {
+        case "node":
+          return "host"
+        case "pod":
+        case "deployment":
+        case "daemonset":
+        case "statefulset":
+        case "replicaset":
+          return "system-vm"
+        case "namespace":
+        case "cluster":
+        case "service":
+        default:
+          return "network"
+      }
+    }
+    switch (type) {
+      case "host":
+        return "host"
+      case "libvirt":
+        return "user-vm"
+      case "system":
+        return "system-vm"
+      case "router":
+      case "vrouter":
+        return "router"
+      default:
+        return "network"
+    }
+  }
+
+  private recentNodeFallbackIcon(item: RecentViewedNodeItem): { glyph: string, tone: string } {
+    const type = item.rawType || ""
+    if (item.layerTag === "kubernetes") {
+      switch (type) {
+        case "node":
+          return { glyph: "\uf233", tone: "host" }
+        case "namespace":
+          return { glyph: "\uf07b", tone: "network" }
+        case "pod":
+        case "deployment":
+        case "daemonset":
+        case "statefulset":
+        case "replicaset":
+          return { glyph: "\uf1b3", tone: "system-vm" }
+        case "service":
+          return { glyph: "\uf0e8", tone: "network" }
+        case "cluster":
+        default:
+          return { glyph: "\uf542", tone: "network" }
+      }
+    }
+    switch (type) {
+      case "host":
+        return { glyph: "\uf233", tone: "host" }
+      case "libvirt":
+        return { glyph: "\uf108", tone: "user-vm" }
+      case "system":
+        return { glyph: "\uf085", tone: "system-vm" }
+      case "router":
+      case "vrouter":
+        return { glyph: "\uf4d7", tone: "router" }
+      case "switchport":
+      case "port":
+      case "patch":
+        return { glyph: "\uf796", tone: "network" }
+      case "bridge":
+        return { glyph: "\uf542", tone: "network" }
+      case "bond":
+        return { glyph: "\uf0c1", tone: "network" }
+      default:
+        return { glyph: "\uf6ff", tone: "network" }
+    }
+  }
+
   private addRecentViewedNode(node: Node) {
     if (!this.tc || !this.tc.nodes.has(node.id)) {
       return
@@ -2153,7 +2233,9 @@ class App extends React.Component<Props, State> {
       id: node.id,
       name: this.nodeDisplayName(node),
       rawType: this.recentNodeRawType(node),
-      layerTag: this.nodePrimaryLayerTag(node)
+      layerTag: this.nodePrimaryLayerTag(node),
+      iconGlyph: this.nodeAttrs(node).icon,
+      iconTone: this.recentNodeIconTone(node)
     }
     const next = [item]
       .concat(this.state.recentViewedNodes.filter((existing) => existing.id !== item.id))
@@ -2209,37 +2291,23 @@ class App extends React.Component<Props, State> {
   }
 
   private renderRecentNodeIcon(classes: any, item: RecentViewedNodeItem) {
-    if (item.layerTag === "kubernetes") {
-      return <span className={clsx(classes.recentViewedNodeIcon, classes.recentViewedNodeIconKubernetes)}>{this.kubernetesIcon()}</span>
-    }
-
-    let icon: React.ReactNode = <AccountTreeIcon fontSize="small" />
-    let toneClass = classes.recentViewedNodeIconNetwork
-    switch (item.rawType) {
-      case "host":
-        icon = <span className={clsx("fa", "fas", "fa-fw")}>{"\uf109"}</span>
-        toneClass = classes.recentViewedNodeIconHost
-        break
-      case "libvirt":
-        icon = <span className={clsx("fa", "fas", "fa-fw")}>{"\uf108"}</span>
-        toneClass = classes.recentViewedNodeIconUserVM
-        break
-      case "system":
-        icon = <span className={clsx("fa", "fas", "fa-fw")}>{"\uf085"}</span>
-        toneClass = classes.recentViewedNodeIconSystemVM
-        break
-      case "router":
-      case "vrouter":
-        icon = <span className={clsx("fa", "fas", "fa-fw")}>{"\uf4d7"}</span>
-        toneClass = classes.recentViewedNodeIconRouter
-        break
-      default:
-        icon = <span className={clsx("fa", "fas", "fa-fw")}>{"\uf6ff"}</span>
-        toneClass = classes.recentViewedNodeIconNetwork
-        break
-    }
-
-    return <span className={clsx(classes.recentViewedNodeIcon, toneClass)}>{icon}</span>
+    const fallback = this.recentNodeFallbackIcon(item)
+    const glyph = item.iconGlyph || fallback.glyph
+    const tone = item.iconTone || fallback.tone
+    const toneClass = tone === "host"
+      ? classes.recentViewedNodeIconHost
+      : tone === "user-vm"
+        ? classes.recentViewedNodeIconUserVM
+        : tone === "system-vm"
+          ? classes.recentViewedNodeIconSystemVM
+          : tone === "router"
+            ? classes.recentViewedNodeIconRouter
+            : classes.recentViewedNodeIconNetwork
+    return (
+      <span className={clsx(classes.recentViewedNodeIcon, toneClass)}>
+        {this.infrastructureIcon(glyph, tone)}
+      </span>
+    )
   }
 
   private focusRecentViewedNode(item: RecentViewedNodeItem) {

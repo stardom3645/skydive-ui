@@ -1721,7 +1721,7 @@ export const styles = (theme: Theme) => createStyles({
     pointerEvents: 'auto',
     display: 'flex',
     flexDirection: 'column',
-    maxHeight: 360,
+    maxHeight: 292,
     borderRadius: 14,
     border: '1px solid var(--netdive-detail-border)',
     backgroundColor: 'var(--netdive-detail-bg)',
@@ -1855,7 +1855,7 @@ export const styles = (theme: Theme) => createStyles({
       fontSize: 15,
     },
     '& .fa': {
-      fontSize: 15,
+      fontSize: 14,
       lineHeight: 1,
     }
   },
