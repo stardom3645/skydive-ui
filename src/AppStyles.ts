@@ -2662,6 +2662,18 @@ export const styles = (theme: Theme) => createStyles({
     paddingRight: 24,
     gap: theme.spacing(1),
   },
+  toolbarSectionDivider: {
+    flex: '0 0 auto',
+    width: 1,
+    height: 36,
+    marginLeft: theme.spacing(0.5),
+    marginRight: theme.spacing(0.5),
+    backgroundColor: 'var(--netdive-action-btn-border)',
+    opacity: 0.9,
+    [theme.breakpoints.down('sm')]: {
+      display: 'none'
+    }
+  },
   toolbarActionGroup: {
     display: 'inline-flex',
     alignItems: 'center',

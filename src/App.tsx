@@ -67,6 +67,7 @@ import CheckCircleIcon from '@material-ui/icons/CheckCircle'
 import ErrorOutlineIcon from '@material-ui/icons/ErrorOutline'
 import RefreshIcon from '@material-ui/icons/Refresh'
 import AccountTreeIcon from '@material-ui/icons/AccountTree'
+import SettingsEthernetIcon from '@material-ui/icons/SettingsEthernet'
 import ChevronRightIcon from '@material-ui/icons/ChevronRight'
 import CheckIcon from '@material-ui/icons/Check'
 import LogoLight from '../assets/logo-ablestack.png'
@@ -2860,7 +2861,7 @@ class App extends React.Component<Props, State> {
       return null
     }
 
-    const activeIcon = this.isKubernetesLayerActive() ? this.kubernetesIcon() : <AccountTreeIcon fontSize="small" />
+    const activeIcon = <SettingsEthernetIcon fontSize="small" />
 
     return (
       <React.Fragment>
@@ -4147,8 +4148,10 @@ class App extends React.Component<Props, State> {
             <div className={classes.search}>
               <AutoCompleteInput placeholder={this.searchPlaceholder()} suggestions={this.state.suggestions} onChange={this.onSearchChange.bind(this)} />
             </div>
+            <span className={classes.toolbarSectionDivider} />
             {this.renderLayerFilterMenu(classes)}
             {this.renderConnectionDisplayMenu(classes)}
+            <span className={classes.toolbarSectionDivider} />
             <div className={classes.toolbarActionGroup}>
               <Tooltip title={translate("expandAllNodes")}>
                 <IconButton
