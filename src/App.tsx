@@ -1386,6 +1386,7 @@ class App extends React.Component<Props, State> {
     this.updateFilters()
 
     this.tc.zoomFit()
+    this.pruneRecentViewedNodesForActiveLayer()
   }
 
   nodeAttrs(node: Node): NodeAttrs {
@@ -1434,6 +1435,7 @@ class App extends React.Component<Props, State> {
   _refreshTopology() {
     if (this.tc) {
       this.tc.renderTree();
+      this.pruneRecentViewedNodesForActiveLayer()
     }
   }
 
@@ -2064,6 +2066,7 @@ class App extends React.Component<Props, State> {
 
     this.state.nodeTagStates = this.tc.nodeTagStates
     this.setState(this.state)
+    this.pruneRecentViewedNodesForActiveLayer()
 
     this.tc.zoomFit()
   }
@@ -2085,6 +2088,48 @@ class App extends React.Component<Props, State> {
     localStorage.setItem(RECENT_VIEWED_NODES_STORAGE_KEY, JSON.stringify(items.slice(0, 10)))
   }
 
+  private currentRecentLayerTag(): RecentNodeLayerTag {
+    return this.isKubernetesLayerActive() ? "kubernetes" : "infrastructure"
+  }
+
+  private sameRecentViewedNodes(a: RecentViewedNodeItem[], b: RecentViewedNodeItem[]) {
+    return a.length === b.length && a.every((item, index) => item.id === b[index].id)
+  }
+
+  private recentViewedNodeExists(item: RecentViewedNodeItem, layerTag: RecentNodeLayerTag = this.currentRecentLayerTag()) {
+    if (!this.tc) {
+      return false
+    }
+    const node = this.tc.nodes.get(item.id)
+    return Boolean(node && this.nodePrimaryLayerTag(node) === layerTag)
+  }
+
+  private pruneRecentViewedNodesForActiveLayer() {
+    if (!this.tc) {
+      return
+    }
+    const layerTag = this.currentRecentLayerTag()
+    const next = this.state.recentViewedNodes
+      .filter((item) => this.recentViewedNodeExists(item, layerTag))
+      .slice(0, 10)
+
+    if (this.sameRecentViewedNodes(this.state.recentViewedNodes, next)) {
+      return
+    }
+
+    this.saveRecentViewedNodes(next)
+    this.setState({ recentViewedNodes: next })
+  }
+
+  private removeRecentViewedNode(nodeID: string) {
+    const next = this.state.recentViewedNodes.filter((item) => item.id !== nodeID)
+    if (next.length === this.state.recentViewedNodes.length) {
+      return
+    }
+    this.saveRecentViewedNodes(next)
+    this.setState({ recentViewedNodes: next })
+  }
+
   private nodeDisplayName(node: Node): string {
     const attrs = this.nodeAttrs(node)
     return attrs.name || node.data?.Name || node.id
@@ -2099,6 +2144,9 @@ class App extends React.Component<Props, State> {
   }
 
   private addRecentViewedNode(node: Node) {
+    if (!this.tc || !this.tc.nodes.has(node.id)) {
+      return
+    }
     const item: RecentViewedNodeItem = {
       id: node.id,
       name: this.nodeDisplayName(node),
@@ -2198,7 +2246,9 @@ class App extends React.Component<Props, State> {
         return
       }
       const node = this.tc.nodes.get(item.id)
-      if (!node) {
+      if (!node || this.nodePrimaryLayerTag(node) !== item.layerTag) {
+        this.removeRecentViewedNode(item.id)
+        this.notify(translate("recentViewedNodeNotFound"), "info")
         return
       }
       this.tc.selectNode(item.id, true)
