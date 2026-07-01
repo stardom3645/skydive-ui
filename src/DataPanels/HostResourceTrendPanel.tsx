@@ -181,7 +181,7 @@ const styles = (theme: Theme) => createStyles({
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'flex-end',
-        gap: 10,
+        gap: 8,
         marginLeft: 'auto',
         whiteSpace: 'nowrap'
     },
@@ -195,14 +195,14 @@ const styles = (theme: Theme) => createStyles({
         whiteSpace: 'nowrap'
     },
     trendValueNumber: {
-        fontSize: 18,
-        fontWeight: 650,
+        fontSize: 14,
+        fontWeight: 700,
         color: '#111827',
         lineHeight: 1
     },
     trendValueUnit: {
-        fontSize: 11.5,
-        fontWeight: 650,
+        fontSize: 10,
+        fontWeight: 700,
         color: '#64748b',
         lineHeight: 1,
         letterSpacing: 0,
@@ -291,10 +291,10 @@ const styles = (theme: Theme) => createStyles({
         alignItems: 'center',
         justifyContent: 'flex-end',
         flexWrap: 'wrap',
-        gap: 12,
+        gap: 10,
         minWidth: 0,
         color: '#111827',
-        fontSize: 13,
+        fontSize: 14,
         lineHeight: 1.15,
         fontWeight: 700,
         whiteSpace: 'nowrap'
@@ -308,11 +308,11 @@ const styles = (theme: Theme) => createStyles({
     networkCurrentItem: {
         display: 'inline-flex',
         alignItems: 'center',
-        gap: 5,
+        gap: 4,
         whiteSpace: 'nowrap'
     },
     networkSeriesLabel: {
-        fontSize: 11.5,
+        fontSize: 11,
         fontWeight: 800
     },
     rxText: {
@@ -741,11 +741,10 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
                 <div className={classes.trendTop}>
                     <div className={classes.trendLabel}>{item.label}</div>
                     <div className={classes.trendHeaderRight}>
-                        {!isNetworkTraffic && this.renderMetricValue(item.value)}
+                        {isNetworkTraffic ? this.renderNetworkCurrentValues(item) : this.renderMetricValue(item.value)}
                         {this.renderInfoTooltip(item)}
                     </div>
                 </div>
-                {isNetworkTraffic && this.renderNetworkCurrentValues(item)}
             </div>
         )
     }
