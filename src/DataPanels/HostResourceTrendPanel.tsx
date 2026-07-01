@@ -50,7 +50,6 @@ interface TrendDisplayItem {
     label: string
     unit: string
     value: string
-    valueLines?: string[]
     series: TrendSeries[]
 }
 
@@ -140,84 +139,54 @@ const styles = (theme: Theme) => createStyles({
         minWidth: 0,
         border: '1px solid var(--netdive-detail-border-soft)',
         borderRadius: 12,
-        padding: '9px 10px',
+        padding: '14px 15px',
         background: 'var(--netdive-detail-soft-card, #fbfdff)',
-        display: 'grid',
-        gridTemplateColumns: 'minmax(0, 1fr) 96px',
-        gap: 7,
-        alignItems: 'stretch'
-    },
-    trendChartPane: {
-        minWidth: 0,
         display: 'flex',
-        flexDirection: 'column'
+        flexDirection: 'column',
+        gap: 10
     },
     trendTop: {
         display: 'flex',
         alignItems: 'flex-start',
         justifyContent: 'space-between',
         gap: 8,
-        marginBottom: 4
+        minWidth: 0
     },
     trendLabel: {
         minWidth: 0,
         color: 'var(--netdive-detail-title, #0f172a)',
-        fontSize: 12.4,
+        fontSize: 13.4,
         lineHeight: 1.2,
         fontWeight: 820,
         whiteSpace: 'nowrap'
     },
-    trendValue: {
-        flex: '0 0 auto',
-        color: 'var(--netdive-detail-title, #0f172a)',
-        fontSize: 12.8,
-        lineHeight: 1.15,
-        fontWeight: 760,
-        letterSpacing: '-0.01em',
-        whiteSpace: 'nowrap',
-        textAlign: 'right'
-    },
-    trendValueStack: {
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'flex-end',
-        gap: 2,
-        flex: '0 0 auto',
-        maxWidth: '62%'
-    },
-    trendValueLine: {
-        color: 'var(--netdive-detail-title, #0f172a)',
-        fontSize: 11.2,
-        lineHeight: 1.16,
-        fontWeight: 760,
-        letterSpacing: '-0.01em',
-        whiteSpace: 'nowrap'
-    },
-    summaryCard: {
+    summaryBar: {
         minWidth: 0,
-        border: '1px solid var(--netdive-detail-border-soft)',
-        borderRadius: 10,
-        background: 'var(--netdive-detail-card-bg, #ffffff)',
-        boxShadow: '0 6px 16px rgba(15, 23, 42, 0.035)',
-        padding: '7px 7px',
         display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        gap: 4
-    },
-    summaryLabel: {
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: '6px 12px',
         color: 'var(--netdive-detail-muted, #64748b)',
-        fontSize: 10.8,
-        lineHeight: 1.1,
-        fontWeight: 760
+        fontSize: 12,
+        lineHeight: 1.25,
+        fontWeight: 650
+    },
+    summaryNetworkBar: {
+        minWidth: 0,
+        display: 'grid',
+        gap: 4,
+        color: 'var(--netdive-detail-muted, #64748b)',
+        fontSize: 12,
+        lineHeight: 1.25,
+        fontWeight: 650
     },
     summaryCurrent: {
-        display: 'flex',
+        display: 'inline-flex',
         alignItems: 'center',
         gap: 6,
         minWidth: 0,
         color: 'var(--netdive-detail-title, #0f172a)',
-        fontSize: 18,
+        fontSize: 16,
         lineHeight: 1.05,
         fontWeight: 850,
         whiteSpace: 'nowrap'
@@ -231,25 +200,19 @@ const styles = (theme: Theme) => createStyles({
     },
     summaryMeta: {
         color: 'var(--netdive-detail-muted, #64748b)',
-        fontSize: 10.7,
+        fontSize: 12,
         lineHeight: 1.28,
-        fontWeight: 700,
+        fontWeight: 560,
         whiteSpace: 'nowrap'
-    },
-    summaryNetworkBlock: {
-        display: 'grid',
-        gap: 2
     },
     summaryNetworkLine: {
         color: 'var(--netdive-detail-title, #0f172a)',
-        fontSize: 11.3,
+        fontSize: 12,
         lineHeight: 1.2,
-        fontWeight: 820,
+        fontWeight: 650,
         whiteSpace: 'nowrap',
         '& strong': {
-            display: 'inline-block',
-            minWidth: 18,
-            marginRight: 3
+            fontWeight: 850
         }
     },
     rxText: {
@@ -262,8 +225,7 @@ const styles = (theme: Theme) => createStyles({
         display: 'flex',
         alignItems: 'center',
         gap: 8,
-        marginTop: -2,
-        marginBottom: 6,
+        marginTop: 1,
         color: 'var(--netdive-detail-muted, #64748b)',
         fontSize: 10.5,
         fontWeight: 700
@@ -285,7 +247,7 @@ const styles = (theme: Theme) => createStyles({
     },
     svg: {
         width: '100%',
-        height: 94,
+        height: 125,
         display: 'block',
         overflow: 'visible'
     },
@@ -604,14 +566,11 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         }
 
         if (this.hasValues(networkRx) || this.hasValues(networkTx)) {
-            const rxValue = this.formatValue(networkRx?.lastValue, 'bps')
-            const txValue = this.formatValue(networkTx?.lastValue, 'bps')
             items.push({
                 key: 'networkTraffic',
                 label: 'Network Traffic',
                 unit: 'bps',
                 value: '',
-                valueLines: [`RX ${rxValue}`, `TX ${txValue}`],
                 series: [networkRx, networkTx].filter(Boolean) as TrendSeries[]
             })
         }
@@ -683,21 +642,6 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         )
     }
 
-    private renderTrendValue(item: TrendDisplayItem) {
-        const { classes } = this.props
-        if (item.valueLines && item.valueLines.length > 0) {
-            return (
-                <div className={classes.trendValueStack}>
-                    {item.valueLines.map(line => (
-                        <div className={classes.trendValueLine} key={line}>{line}</div>
-                    ))}
-                </div>
-            )
-        }
-
-        return <div className={classes.trendValue}>{item.value}</div>
-    }
-
     private renderSummary(item: TrendDisplayItem) {
         const { classes } = this.props
         const primary = item.series[0]
@@ -706,34 +650,30 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
             const rx = this.seriesByKey(item.series, 'networkRx')
             const tx = this.seriesByKey(item.series, 'networkTx')
             return (
-                <aside className={classes.summaryCard}>
-                    <div className={classes.summaryLabel}>Current</div>
-                    <div className={classes.summaryNetworkBlock}>
-                        <div className={`${classes.summaryNetworkLine} ${classes.rxText}`}><strong>RX</strong>{this.formatValue(rx?.lastValue, 'bps')}</div>
-                        <div className={`${classes.summaryNetworkLine} ${classes.txText}`}><strong>TX</strong>{this.formatValue(tx?.lastValue, 'bps')}</div>
+                <div className={classes.summaryNetworkBar}>
+                    <div className={`${classes.summaryNetworkLine} ${classes.rxText}`}>
+                        <strong>RX Current {this.formatValue(rx?.lastValue, 'bps')}</strong>
+                        <span className={classes.summaryMeta}> · Avg RX {this.formatValue(this.averageValue(rx), 'bps')}</span>
                     </div>
-                    <div className={classes.summaryLabel}>평균</div>
-                    <div className={classes.summaryNetworkBlock}>
-                        <div className={classes.summaryMeta}><strong>RX</strong> {this.formatValue(this.averageValue(rx), 'bps')}</div>
-                        <div className={classes.summaryMeta}><strong>TX</strong> {this.formatValue(this.averageValue(tx), 'bps')}</div>
+                    <div className={`${classes.summaryNetworkLine} ${classes.txText}`}>
+                        <strong>TX Current {this.formatValue(tx?.lastValue, 'bps')}</strong>
+                        <span className={classes.summaryMeta}> · Avg TX {this.formatValue(this.averageValue(tx), 'bps')}</span>
                     </div>
-                </aside>
+                </div>
             )
         }
 
         const average = this.averageValue(primary)
         const max = this.maxValue(primary)
         return (
-            <aside className={classes.summaryCard}>
-                <div className={classes.summaryLabel}>Current</div>
+            <div className={classes.summaryBar}>
                 <div className={classes.summaryCurrent}>
                     <span className={classes.summaryDot} />
-                    <span>{item.value}</span>
+                    <span>Current {item.value}</span>
                 </div>
-                <div className={classes.summaryMeta}>
-                    평균 {this.formatValue(average, item.unit)} | 최대 {this.formatValue(max, item.unit)}
-                </div>
-            </aside>
+                <div className={classes.summaryMeta}>Avg {this.formatValue(average, item.unit)}</div>
+                <div className={classes.summaryMeta}>Max {this.formatValue(max, item.unit)}</div>
+            </div>
         )
     }
 
@@ -786,11 +726,11 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
     private renderSparkline(item: TrendDisplayItem, trend?: HostTrendResponse) {
         const { classes } = this.props
         const width = 430
-        const height = 94
+        const height = 125
         const left = 52
         const right = width - 8
         const top = 8
-        const bottom = height - 22
+        const bottom = height - 24
         const { min, max } = this.pointRange(item.series, item.unit)
         const range = max - min || 1
         const linePaths = item.series.map(series => {
@@ -882,14 +822,12 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
                         <div className={classes.grid}>
                             {displayItems.map(item => (
                                 <div className={classes.trendTile} key={`${item.key}-${this.state.trendRange}-${trend?.start || 0}-${trend?.end || 0}`}>
-                                    <div className={classes.trendChartPane}>
-                                        <div className={classes.trendTop}>
-                                            <div className={classes.trendLabel}>{item.label}</div>
-                                        </div>
+                                    <div className={classes.trendTop}>
+                                        <div className={classes.trendLabel}>{item.label}</div>
                                         {this.renderLegend(item)}
-                                        {this.renderSparkline(item, trend)}
                                     </div>
                                     {this.renderSummary(item)}
+                                    {this.renderSparkline(item, trend)}
                                 </div>
                             ))}
                         </div>
