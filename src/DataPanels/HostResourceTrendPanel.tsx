@@ -250,7 +250,7 @@ const styles = (theme: Theme) => createStyles({
     tooltipContent: {
         display: 'grid',
         gap: 6,
-        minWidth: 118,
+        minWidth: 104,
         padding: 0
     },
     tooltipRow: {
@@ -805,7 +805,6 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         const primary = item.series[0]
         return (
             <div className={classes.tooltipContent}>
-                {this.renderTooltipRow('현재', item.value)}
                 {this.renderTooltipRow('평균', this.formatValue(this.averageValue(primary), item.unit))}
                 {this.renderTooltipRow('최대', this.formatValue(this.maxValue(primary), item.unit))}
             </div>
@@ -817,7 +816,6 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         return (
             <div className={classes.tooltipSection}>
                 <div className={`${classes.tooltipSectionTitle} ${colorClassName}`}>{label}</div>
-                {this.renderTooltipRow('현재', this.formatValue(series?.lastValue, 'bps'))}
                 {this.renderTooltipRow('평균', this.formatValue(this.averageValue(series), 'bps'))}
                 {this.renderTooltipRow('최대', this.formatValue(this.maxValue(series), 'bps'))}
             </div>
