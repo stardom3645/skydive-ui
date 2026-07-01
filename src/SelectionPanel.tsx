@@ -227,7 +227,8 @@ class SelectionPanel extends React.Component<Props, State> {
       const name = String(data.Name || data.name || data.InterfaceName || data.IfName || '').toLowerCase()
       const interfaceType = String(data.InterfaceType || data.IfaceType || data.IfType || data.Kind || data.LinkType || data.TunType || data.TUNType || '').toLowerCase()
       const driver = String(data.Driver || data.driver || '').toLowerCase()
-      return type === 'device' && (/^vnet/.test(name) || /tap|tun|tuntap/.test(interfaceType) || /tap|tun|tuntap/.test(driver))
+      const isVirtualInterface = /^vnet/.test(name) || /tap|tun|tuntap/.test(type) || /tap|tun|tuntap/.test(interfaceType) || /tap|tun|tuntap/.test(driver)
+      return isVirtualInterface
     }
 
     return this.props.selection.map((el: Node | Link, i: number) => {
