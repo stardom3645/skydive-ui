@@ -141,11 +141,18 @@ const styles = (theme: Theme) => createStyles({
         minWidth: 0,
         border: '1px solid var(--netdive-detail-border-soft)',
         borderRadius: 12,
-        padding: '14px 15px',
+        padding: '13px 15px 12px',
         background: 'var(--netdive-detail-soft-card, #fbfdff)',
         display: 'flex',
         flexDirection: 'column',
-        gap: 10
+        gap: 9
+    },
+    trendHeaderBlock: {
+        display: 'grid',
+        gap: 8,
+        minWidth: 0,
+        paddingBottom: 10,
+        borderBottom: '1px solid rgba(226, 232, 240, 0.55)'
     },
     trendTop: {
         display: 'flex',
@@ -153,9 +160,7 @@ const styles = (theme: Theme) => createStyles({
         justifyContent: 'space-between',
         gap: 12,
         minWidth: 0,
-        minHeight: 32,
-        paddingBottom: 10,
-        borderBottom: '1px solid var(--netdive-detail-border-subtle, rgba(226, 232, 240, 0.72))'
+        minHeight: 26
     },
     trendLabel: {
         minWidth: 0,
@@ -176,42 +181,72 @@ const styles = (theme: Theme) => createStyles({
     },
     trendValue: {
         color: '#111827',
-        fontSize: 20,
-        lineHeight: 1,
+        fontSize: 18,
+        lineHeight: 1.1,
         fontWeight: 700,
-        letterSpacing: 0,
+        letterSpacing: '-0.01em',
         whiteSpace: 'nowrap'
+    },
+    trendInfoButton: {
+        width: 22,
+        height: 22,
+        border: 0,
+        padding: 0,
+        borderRadius: 7,
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'transparent',
+        color: 'var(--netdive-detail-muted, #64748b)',
+        cursor: 'help',
+        flex: '0 0 22px',
+        '&:hover': {
+            background: 'rgba(148, 163, 184, 0.12)',
+            color: 'var(--netdive-detail-title, #0f172a)'
+        }
     },
     trendInfoIcon: {
         width: 15,
         height: 15,
-        color: 'var(--netdive-detail-muted, #64748b)',
-        opacity: 0.72,
-        cursor: 'help',
-        flex: '0 0 15px',
-        '&:hover': {
-            opacity: 1,
-            color: 'var(--netdive-detail-title, #0f172a)'
-        }
+        color: 'currentColor',
+        opacity: 0.82
+    },
+    metricTooltip: {
+        backgroundColor: 'rgba(15, 23, 42, 0.94)',
+        color: '#f8fafc',
+        borderRadius: 10,
+        padding: '10px 12px',
+        boxShadow: '0 10px 24px rgba(15, 23, 42, 0.18)',
+        fontSize: 12,
+        lineHeight: 1.45,
+        maxWidth: 260
+    },
+    metricTooltipArrow: {
+        color: 'rgba(15, 23, 42, 0.94)'
     },
     tooltipContent: {
         display: 'grid',
-        gap: 5,
-        minWidth: 108,
-        padding: '2px 0'
+        gap: 6,
+        minWidth: 118,
+        padding: 0
     },
     tooltipRow: {
-        display: 'flex',
+        display: 'grid',
+        gridTemplateColumns: '42px max-content',
         alignItems: 'center',
         justifyContent: 'space-between',
-        gap: 14,
-        fontSize: 11,
-        lineHeight: 1.25,
+        columnGap: 14,
+        fontSize: 12,
+        lineHeight: 1.35,
         '& span': {
-            opacity: 0.78
+            color: '#cbd5e1',
+            opacity: 1
         },
         '& strong': {
-            fontWeight: 700
+            color: '#ffffff',
+            fontWeight: 700,
+            textAlign: 'right',
+            whiteSpace: 'nowrap'
         }
     },
     tooltipSection: {
@@ -219,19 +254,25 @@ const styles = (theme: Theme) => createStyles({
         gap: 4
     },
     tooltipSectionTitle: {
-        fontSize: 11,
+        fontSize: 12,
         lineHeight: 1.2,
         fontWeight: 800
+    },
+    tooltipSectionDivider: {
+        height: 1,
+        background: 'rgba(148, 163, 184, 0.28)',
+        margin: '2px 0'
     },
     networkCurrentBar: {
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'flex-end',
-        gap: 12,
+        justifyContent: 'flex-start',
+        flexWrap: 'wrap',
+        gap: 18,
         minWidth: 0,
         color: '#111827',
-        fontSize: 13.5,
-        lineHeight: 1.1,
+        fontSize: 13,
+        lineHeight: 1.15,
         fontWeight: 700,
         whiteSpace: 'nowrap'
     },
@@ -253,7 +294,7 @@ const styles = (theme: Theme) => createStyles({
     },
     svg: {
         width: '100%',
-        height: 100,
+        height: 98,
         display: 'block',
         overflow: 'visible'
     },
@@ -638,16 +679,35 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
 
     private renderTrendHeader(item: TrendDisplayItem) {
         const { classes } = this.props
+        const isNetworkTraffic = item.key === 'networkTraffic'
+
         return (
-            <div className={classes.trendTop}>
-                <div className={classes.trendLabel}>{item.label}</div>
-                <div className={classes.trendHeaderRight}>
-                    {item.key === 'networkTraffic' ? this.renderNetworkCurrentValues(item) : <div className={classes.trendValue}>{item.value}</div>}
-                    <Tooltip title={this.renderTooltipContent(item)} placement="top" arrow>
-                        <InfoIcon className={classes.trendInfoIcon} />
-                    </Tooltip>
+            <div className={classes.trendHeaderBlock}>
+                <div className={classes.trendTop}>
+                    <div className={classes.trendLabel}>{item.label}</div>
+                    <div className={classes.trendHeaderRight}>
+                        {!isNetworkTraffic && <div className={classes.trendValue}>{item.value}</div>}
+                        {this.renderInfoTooltip(item)}
+                    </div>
                 </div>
+                {isNetworkTraffic && this.renderNetworkCurrentValues(item)}
             </div>
+        )
+    }
+
+    private renderInfoTooltip(item: TrendDisplayItem) {
+        const { classes } = this.props
+        return (
+            <Tooltip
+                title={this.renderTooltipContent(item)}
+                placement="top"
+                arrow
+                classes={{ tooltip: classes.metricTooltip, arrow: classes.metricTooltipArrow }}
+            >
+                <button className={classes.trendInfoButton} type="button" aria-label={`${item.label} 상세 통계`}>
+                    <InfoIcon className={classes.trendInfoIcon} />
+                </button>
+            </Tooltip>
         )
     }
 
@@ -675,10 +735,14 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         if (item.key === 'networkTraffic') {
             const rx = this.seriesByKey(item.series, 'networkRx')
             const tx = this.seriesByKey(item.series, 'networkTx')
+            const hasRx = this.hasValues(rx)
+            const hasTx = this.hasValues(tx)
+
             return (
                 <div className={classes.tooltipContent}>
-                    {this.renderNetworkTooltipSection('RX', rx, classes.rxText)}
-                    {this.renderNetworkTooltipSection('TX', tx, classes.txText)}
+                    {hasRx && this.renderNetworkTooltipSection('RX', rx, classes.rxText)}
+                    {hasRx && hasTx && <div className={classes.tooltipSectionDivider} />}
+                    {hasTx && this.renderNetworkTooltipSection('TX', tx, classes.txText)}
                 </div>
             )
         }
@@ -764,24 +828,29 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
     private renderSparkline(item: TrendDisplayItem, trend?: HostTrendResponse) {
         const { classes } = this.props
         const width = 430
-        const height = 100
-        const left = 68
-        const right = width - 8
-        const top = 8
-        const bottom = height - 24
+        const height = 98
+        const leftGutter = 78
+        const rightPadding = 10
+        const topPadding = 8
+        const bottomPadding = 24
+        const plotLeft = leftGutter
+        const plotRight = width - rightPadding
+        const plotTop = topPadding
+        const plotBottom = height - bottomPadding
+        const yLabelX = plotLeft - 12
         const { min, max } = this.pointRange(item.series, item.unit)
         const range = max - min || 1
         const linePaths = item.series.map(series => {
             const valid = (series.values || []).filter(point => typeof point.value === 'number') as Array<TrendPoint & { value: number }>
             if (valid.length < 2) return ''
             return valid.map((point, index) => {
-                const x = left + ((right - left) * index) / Math.max(valid.length - 1, 1)
-                const y = bottom - ((point.value - min) / range) * (bottom - top)
+                const x = plotLeft + ((plotRight - plotLeft) * index) / Math.max(valid.length - 1, 1)
+                const y = plotBottom - ((point.value - min) / range) * (plotBottom - plotTop)
                 return `${index === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`
             }).join(' ')
         })
         const firstLinePath = linePaths[0] || ''
-        const fillPath = item.series.length === 1 && firstLinePath ? `${firstLinePath} L ${right} ${bottom} L ${left} ${bottom} Z` : ''
+        const fillPath = item.series.length === 1 && firstLinePath ? `${firstLinePath} L ${plotRight} ${plotBottom} L ${plotLeft} ${plotBottom} Z` : ''
         const mid = min + ((max - min) / 2)
         const axisLabels = this.timeAxisLabels(trend?.start, trend?.end)
 
@@ -791,16 +860,16 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
 
         return (
             <svg className={classes.svg} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="xMidYMid meet">
-                <line className={classes.guide} x1={left} y1={top} x2={right} y2={top} />
-                <line className={classes.guide} x1={left} y1={(top + bottom) / 2} x2={right} y2={(top + bottom) / 2} />
-                <line className={classes.axis} x1={left} y1={bottom} x2={right} y2={bottom} />
-                <line className={classes.axis} x1={left} y1={top} x2={left} y2={bottom} />
-                <text className={classes.axisLabel} x={left - 8} y={top + 4} textAnchor="end">{this.formatAxisValue(max, item.unit)}</text>
-                <text className={classes.axisLabel} x={left - 8} y={((top + bottom) / 2) + 3} textAnchor="end">{this.formatAxisValue(mid, item.unit)}</text>
-                <text className={classes.axisLabel} x={left - 8} y={bottom + 3} textAnchor="end">{this.formatAxisValue(min, item.unit)}</text>
-                <text className={classes.timeLabel} x={left} y={height - 4}>{axisLabels[0]}</text>
-                <text className={classes.timeLabel} x={(left + right) / 2} y={height - 4} textAnchor="middle">{axisLabels[1]}</text>
-                <text className={classes.timeLabel} x={right} y={height - 4} textAnchor="end">{axisLabels[2]}</text>
+                <line className={classes.guide} x1={plotLeft} y1={plotTop} x2={plotRight} y2={plotTop} />
+                <line className={classes.guide} x1={plotLeft} y1={(plotTop + plotBottom) / 2} x2={plotRight} y2={(plotTop + plotBottom) / 2} />
+                <line className={classes.axis} x1={plotLeft} y1={plotBottom} x2={plotRight} y2={plotBottom} />
+                <line className={classes.axis} x1={plotLeft} y1={plotTop} x2={plotLeft} y2={plotBottom} />
+                <text className={classes.axisLabel} x={yLabelX} y={plotTop + 4} textAnchor="end">{this.formatAxisValue(max, item.unit)}</text>
+                <text className={classes.axisLabel} x={yLabelX} y={((plotTop + plotBottom) / 2) + 3} textAnchor="end">{this.formatAxisValue(mid, item.unit)}</text>
+                <text className={classes.axisLabel} x={yLabelX} y={plotBottom + 3} textAnchor="end">{this.formatAxisValue(min, item.unit)}</text>
+                <text className={classes.timeLabel} x={plotLeft} y={height - 4}>{axisLabels[0]}</text>
+                <text className={classes.timeLabel} x={(plotLeft + plotRight) / 2} y={height - 4} textAnchor="middle">{axisLabels[1]}</text>
+                <text className={classes.timeLabel} x={plotRight} y={height - 4} textAnchor="end">{axisLabels[2]}</text>
                 {fillPath && <path className={classes.fill} d={fillPath} />}
                 {linePaths.map((path, index) => path && (
                     <path className={index === 0 ? classes.line : classes.lineSecondary} d={path} key={`${item.key}-${index}`} />
