@@ -1926,12 +1926,12 @@ class HostDetailPanel extends React.Component<Props, State> {
         )
     }
 
-    private renderOverviewGrid(items: OverviewCardItem[], emptyText = translate('hostNoConnectedResources')) {
+    private renderOverviewGrid(items: OverviewCardItem[], emptyText = translate('hostNoConnectedResources'), className = '') {
         const { classes } = this.props
         const visible = items.filter(item => item.value)
         if (!visible.length) return <div className={classes.emptyState}>{emptyText}</div>
         return (
-            <div className={classes.connectedResourceGrid}>
+            <div className={`${classes.connectedResourceGrid} ${className}`}>
                 {visible.map(item => {
                     const numericValue = Number(item.value)
                     const hasZeroValue = item.value !== '' && !Number.isNaN(numericValue) && numericValue === 0
@@ -1971,7 +1971,7 @@ class HostDetailPanel extends React.Component<Props, State> {
         )
     }
 
-    private renderConnectedResourceSubsection(icon: React.ReactNode, title: string, items: OverviewCardItem[], emptyText = translate('hostNoConnectedResources')) {
+    private renderConnectedResourceSubsection(icon: React.ReactNode, title: string, items: OverviewCardItem[], emptyText = translate('hostNoConnectedResources'), gridClassName = '') {
         const { classes } = this.props
         return (
             <div className={classes.connectedResourceSection}>
@@ -1979,7 +1979,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                     <span className={classes.connectedResourceSectionIcon}>{icon}</span>
                     <span className={classes.connectedResourceSectionTitle}>{title}</span>
                 </div>
-                {this.renderOverviewGrid(items, emptyText)}
+                {this.renderOverviewGrid(items, emptyText, gridClassName)}
             </div>
         )
     }
@@ -2170,7 +2170,8 @@ class HostDetailPanel extends React.Component<Props, State> {
                             <span className={classes.connectedResourceSectionKubernetesNodeIcon}>{this.kubernetesIcon()}</span>,
                             'Kubernetes',
                             kubernetesResources,
-                            translate('hostNoConnectedResources')
+                            translate('hostNoConnectedResources'),
+                            classes.connectedResourceGridSingle
                         )}
                     </div>
                 ))}

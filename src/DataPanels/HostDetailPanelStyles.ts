@@ -134,6 +134,9 @@ export const styles = (theme: Theme) => createStyles({
             gridTemplateColumns: '1fr'
         }
     },
+    connectedResourceGridSingle: {
+        gridTemplateColumns: '1fr'
+    },
     connectedResourceSectionStack: {
         display: 'flex',
         flexDirection: 'column',
