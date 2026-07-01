@@ -201,8 +201,8 @@ const styles = (theme: Theme) => createStyles({
         lineHeight: 1
     },
     trendValueUnit: {
-        fontSize: 10,
-        fontWeight: 700,
+        fontSize: 11.5,
+        fontWeight: 650,
         color: '#64748b',
         lineHeight: 1,
         letterSpacing: 0,
