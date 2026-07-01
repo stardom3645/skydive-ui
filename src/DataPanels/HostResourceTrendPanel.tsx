@@ -145,14 +145,20 @@ const styles = (theme: Theme) => createStyles({
         background: 'var(--netdive-detail-soft-card, #fbfdff)',
         display: 'flex',
         flexDirection: 'column',
-        gap: 9
+        gap: 9,
+        transition: 'border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease',
+        '&:hover': {
+            borderColor: 'rgba(148, 163, 184, 0.42)',
+            background: 'var(--netdive-detail-soft-card-hover, #ffffff)',
+            boxShadow: '0 8px 18px rgba(15, 23, 42, 0.045)'
+        }
     },
     trendHeaderBlock: {
         display: 'grid',
         gap: 8,
         minWidth: 0,
-        paddingBottom: 10,
-        borderBottom: '1px solid rgba(226, 232, 240, 0.46)'
+        padding: '0 5px 9px',
+        borderBottom: '1px solid rgba(226, 232, 240, 0.34)'
     },
     trendTop: {
         display: 'flex',
@@ -172,10 +178,10 @@ const styles = (theme: Theme) => createStyles({
     },
     trendHeaderRight: {
         minWidth: 0,
-        display: 'flex',
+        display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'flex-end',
-        gap: 12,
+        gap: 10,
         marginLeft: 'auto',
         whiteSpace: 'nowrap'
     },
@@ -183,21 +189,24 @@ const styles = (theme: Theme) => createStyles({
         color: '#111827',
         display: 'inline-flex',
         alignItems: 'baseline',
-        gap: 3,
-        lineHeight: 1.05,
+        gap: 4,
+        lineHeight: 1,
         letterSpacing: '-0.01em',
         whiteSpace: 'nowrap'
     },
     trendValueNumber: {
         fontSize: 18,
-        fontWeight: 760,
-        color: '#111827'
+        fontWeight: 650,
+        color: '#111827',
+        lineHeight: 1
     },
     trendValueUnit: {
         fontSize: 11.5,
-        fontWeight: 700,
+        fontWeight: 650,
         color: '#64748b',
-        letterSpacing: 0
+        lineHeight: 1,
+        letterSpacing: 0,
+        transform: 'translateY(-0.5px)'
     },
     trendInfoButton: {
         width: 22,
@@ -212,7 +221,10 @@ const styles = (theme: Theme) => createStyles({
         color: 'var(--netdive-detail-muted, #64748b)',
         cursor: 'help',
         flex: '0 0 22px',
+        opacity: 0.62,
+        transition: 'opacity 140ms ease, background-color 140ms ease, color 140ms ease',
         '&:hover': {
+            opacity: 1,
             background: 'rgba(148, 163, 184, 0.12)',
             color: 'var(--netdive-detail-title, #0f172a)'
         }
@@ -220,8 +232,7 @@ const styles = (theme: Theme) => createStyles({
     trendInfoIcon: {
         width: 15,
         height: 15,
-        color: 'currentColor',
-        opacity: 0.82
+        color: 'currentColor'
     },
     metricTooltip: {
         backgroundColor: 'rgba(15, 23, 42, 0.94)',
@@ -278,9 +289,9 @@ const styles = (theme: Theme) => createStyles({
     networkCurrentBar: {
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'flex-start',
+        justifyContent: 'flex-end',
         flexWrap: 'wrap',
-        gap: 14,
+        gap: 12,
         minWidth: 0,
         color: '#111827',
         fontSize: 13,
@@ -290,7 +301,7 @@ const styles = (theme: Theme) => createStyles({
     },
     networkCurrentDivider: {
         width: 1,
-        height: 14,
+        height: 15,
         background: 'rgba(148, 163, 184, 0.28)',
         flex: '0 0 1px'
     },
@@ -317,11 +328,11 @@ const styles = (theme: Theme) => createStyles({
         overflow: 'visible'
     },
     axis: {
-        stroke: 'rgba(148, 163, 184, 0.24)',
+        stroke: 'rgba(148, 163, 184, 0.18)',
         strokeWidth: 1
     },
     guide: {
-        stroke: 'rgba(148, 163, 184, 0.22)',
+        stroke: 'rgba(148, 163, 184, 0.16)',
         strokeWidth: 1,
         strokeDasharray: '3 3'
     },
@@ -340,20 +351,20 @@ const styles = (theme: Theme) => createStyles({
     line: {
         fill: 'none',
         stroke: 'var(--netdive-detail-accent, #1A73E8)',
-        strokeWidth: 1.65,
+        strokeWidth: 1.2,
         strokeLinecap: 'round',
         strokeLinejoin: 'round'
     },
     lineSecondary: {
         fill: 'none',
         stroke: '#f97316',
-        strokeWidth: 1.65,
+        strokeWidth: 1.2,
         strokeDasharray: '4 3',
         strokeLinecap: 'round',
         strokeLinejoin: 'round'
     },
     fill: {
-        fill: 'rgba(26, 115, 232, 0.06)'
+        fill: 'rgba(26, 115, 232, 0.045)'
     },
     empty: {
         padding: theme.spacing(1.35),
@@ -557,7 +568,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         }
 
         if (unit === 'count') {
-            return `${Math.floor(value)} 회`
+            return `${Math.round(value)} 회`
         }
 
         return String(Math.round(value))
@@ -583,7 +594,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
 
     private normalizePointValue(value: number, unit: string): number {
         if (unit === 'count') {
-            return Math.max(0, Math.floor(value))
+            return Math.max(0, Math.round(value))
         }
         return value
     }
@@ -715,8 +726,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
 
         if (unit === 'count') {
             const rounded = Math.max(1, Math.ceil(value))
-            if (rounded <= 4) return 4
-            return rounded
+            return rounded < 3 ? 3 : rounded
         }
 
         return nice * multiplier
