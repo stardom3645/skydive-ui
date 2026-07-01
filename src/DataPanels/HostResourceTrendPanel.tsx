@@ -150,53 +150,51 @@ const styles = (theme: Theme) => createStyles({
         alignItems: 'flex-start',
         justifyContent: 'space-between',
         gap: 8,
-        minWidth: 0
+        minWidth: 0,
+        paddingBottom: 8,
+        borderBottom: '1px solid var(--netdive-detail-border-subtle, rgba(226, 232, 240, 0.72))'
     },
     trendLabel: {
         minWidth: 0,
         color: 'var(--netdive-detail-title, #0f172a)',
-        fontSize: 13.4,
+        fontSize: 13.2,
         lineHeight: 1.2,
-        fontWeight: 820,
+        fontWeight: 760,
         whiteSpace: 'nowrap'
     },
     summaryBar: {
         minWidth: 0,
         display: 'flex',
         alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '6px 12px',
+        justifyContent: 'flex-end',
+        flexWrap: 'nowrap',
+        gap: 8,
         color: 'var(--netdive-detail-muted, #64748b)',
         fontSize: 12,
         lineHeight: 1.25,
-        fontWeight: 650
+        fontWeight: 520,
+        whiteSpace: 'nowrap'
     },
     summaryNetworkBar: {
         minWidth: 0,
         display: 'grid',
-        gap: 4,
+        gap: 3,
+        justifyItems: 'end',
         color: 'var(--netdive-detail-muted, #64748b)',
         fontSize: 12,
         lineHeight: 1.25,
-        fontWeight: 650
+        fontWeight: 520,
+        whiteSpace: 'nowrap'
     },
     summaryCurrent: {
         display: 'inline-flex',
         alignItems: 'center',
-        gap: 6,
         minWidth: 0,
-        color: 'var(--netdive-detail-title, #0f172a)',
-        fontSize: 16,
+        color: 'var(--netdive-detail-accent, #1A73E8)',
+        fontSize: 13.5,
         lineHeight: 1.05,
-        fontWeight: 850,
+        fontWeight: 780,
         whiteSpace: 'nowrap'
-    },
-    summaryDot: {
-        width: 9,
-        height: 9,
-        borderRadius: '50%',
-        flex: '0 0 9px',
-        background: '#52c41a'
     },
     summaryMeta: {
         color: 'var(--netdive-detail-muted, #64748b)',
@@ -209,11 +207,17 @@ const styles = (theme: Theme) => createStyles({
         color: 'var(--netdive-detail-title, #0f172a)',
         fontSize: 12,
         lineHeight: 1.2,
-        fontWeight: 650,
+        fontWeight: 520,
         whiteSpace: 'nowrap',
         '& strong': {
-            fontWeight: 850
+            fontWeight: 780
         }
+    },
+    summaryDivider: {
+        width: 1,
+        height: 14,
+        flex: '0 0 1px',
+        background: 'rgba(148, 163, 184, 0.35)'
     },
     rxText: {
         color: 'var(--netdive-detail-accent, #1A73E8)'
@@ -227,7 +231,7 @@ const styles = (theme: Theme) => createStyles({
         gap: 8,
         marginTop: 1,
         color: 'var(--netdive-detail-muted, #64748b)',
-        fontSize: 10.5,
+        fontSize: 12,
         fontWeight: 700
     },
     legendItem: {
@@ -236,18 +240,18 @@ const styles = (theme: Theme) => createStyles({
         gap: 4
     },
     legendLine: {
-        width: 14,
+        width: 18,
         height: 0,
         borderTop: '2px solid var(--netdive-detail-accent, #1A73E8)'
     },
     legendLineSecondary: {
-        width: 14,
+        width: 18,
         height: 0,
         borderTop: '2px dashed #f97316'
     },
     svg: {
         width: '100%',
-        height: 125,
+        height: 100,
         display: 'block',
         overflow: 'visible'
     },
@@ -261,15 +265,15 @@ const styles = (theme: Theme) => createStyles({
         strokeDasharray: '3 3'
     },
     axisLabel: {
-        fill: 'rgba(71, 85, 105, 0.86)',
-        fontSize: 8.8,
-        fontWeight: 560,
+        fill: '#64748b',
+        fontSize: 11,
+        fontWeight: 500,
         letterSpacing: 0
     },
     timeLabel: {
-        fill: 'rgba(71, 85, 105, 0.82)',
-        fontSize: 8.8,
-        fontWeight: 560,
+        fill: '#64748b',
+        fontSize: 11,
+        fontWeight: 500,
         letterSpacing: 0
     },
     line: {
@@ -652,12 +656,12 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
             return (
                 <div className={classes.summaryNetworkBar}>
                     <div className={`${classes.summaryNetworkLine} ${classes.rxText}`}>
-                        <strong>RX Current {this.formatValue(rx?.lastValue, 'bps')}</strong>
-                        <span className={classes.summaryMeta}> · Avg RX {this.formatValue(this.averageValue(rx), 'bps')}</span>
+                        <strong>RX 현재 {this.formatValue(rx?.lastValue, 'bps')}</strong>
+                        <span className={classes.summaryMeta}> | 평균 {this.formatValue(this.averageValue(rx), 'bps')} | 최대 {this.formatValue(this.maxValue(rx), 'bps')}</span>
                     </div>
                     <div className={`${classes.summaryNetworkLine} ${classes.txText}`}>
-                        <strong>TX Current {this.formatValue(tx?.lastValue, 'bps')}</strong>
-                        <span className={classes.summaryMeta}> · Avg TX {this.formatValue(this.averageValue(tx), 'bps')}</span>
+                        <strong>TX 현재 {this.formatValue(tx?.lastValue, 'bps')}</strong>
+                        <span className={classes.summaryMeta}> | 평균 {this.formatValue(this.averageValue(tx), 'bps')} | 최대 {this.formatValue(this.maxValue(tx), 'bps')}</span>
                     </div>
                 </div>
             )
@@ -667,12 +671,11 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         const max = this.maxValue(primary)
         return (
             <div className={classes.summaryBar}>
-                <div className={classes.summaryCurrent}>
-                    <span className={classes.summaryDot} />
-                    <span>Current {item.value}</span>
-                </div>
-                <div className={classes.summaryMeta}>Avg {this.formatValue(average, item.unit)}</div>
-                <div className={classes.summaryMeta}>Max {this.formatValue(max, item.unit)}</div>
+                <div className={classes.summaryCurrent}>현재 {item.value}</div>
+                <span className={classes.summaryDivider} />
+                <div className={classes.summaryMeta}>평균 {this.formatValue(average, item.unit)}</div>
+                <span className={classes.summaryDivider} />
+                <div className={classes.summaryMeta}>최대 {this.formatValue(max, item.unit)}</div>
             </div>
         )
     }
@@ -726,7 +729,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
     private renderSparkline(item: TrendDisplayItem, trend?: HostTrendResponse) {
         const { classes } = this.props
         const width = 430
-        const height = 125
+        const height = 100
         const left = 52
         const right = width - 8
         const top = 8
