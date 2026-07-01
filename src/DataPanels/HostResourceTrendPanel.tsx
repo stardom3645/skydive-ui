@@ -143,8 +143,8 @@ const styles = (theme: Theme) => createStyles({
         padding: '9px 10px',
         background: 'var(--netdive-detail-soft-card, #fbfdff)',
         display: 'grid',
-        gridTemplateColumns: 'minmax(0, 1fr) 116px',
-        gap: 9,
+        gridTemplateColumns: 'minmax(0, 1fr) 96px',
+        gap: 7,
         alignItems: 'stretch'
     },
     trendChartPane: {
@@ -199,15 +199,15 @@ const styles = (theme: Theme) => createStyles({
         borderRadius: 10,
         background: 'var(--netdive-detail-card-bg, #ffffff)',
         boxShadow: '0 6px 16px rgba(15, 23, 42, 0.035)',
-        padding: '8px 9px',
+        padding: '7px 7px',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'center',
-        gap: 5
+        gap: 4
     },
     summaryLabel: {
         color: 'var(--netdive-detail-muted, #64748b)',
-        fontSize: 10.5,
+        fontSize: 10.8,
         lineHeight: 1.1,
         fontWeight: 760
     },
@@ -217,7 +217,7 @@ const styles = (theme: Theme) => createStyles({
         gap: 6,
         minWidth: 0,
         color: 'var(--netdive-detail-title, #0f172a)',
-        fontSize: 20,
+        fontSize: 18,
         lineHeight: 1.05,
         fontWeight: 850,
         whiteSpace: 'nowrap'
@@ -231,7 +231,7 @@ const styles = (theme: Theme) => createStyles({
     },
     summaryMeta: {
         color: 'var(--netdive-detail-muted, #64748b)',
-        fontSize: 11.5,
+        fontSize: 10.7,
         lineHeight: 1.28,
         fontWeight: 700,
         whiteSpace: 'nowrap'
@@ -242,7 +242,7 @@ const styles = (theme: Theme) => createStyles({
     },
     summaryNetworkLine: {
         color: 'var(--netdive-detail-title, #0f172a)',
-        fontSize: 12.2,
+        fontSize: 11.3,
         lineHeight: 1.2,
         fontWeight: 820,
         whiteSpace: 'nowrap',
@@ -285,7 +285,7 @@ const styles = (theme: Theme) => createStyles({
     },
     svg: {
         width: '100%',
-        height: 74,
+        height: 94,
         display: 'block',
         overflow: 'visible'
     },
@@ -786,7 +786,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
     private renderSparkline(item: TrendDisplayItem, trend?: HostTrendResponse) {
         const { classes } = this.props
         const width = 430
-        const height = 74
+        const height = 94
         const left = 52
         const right = width - 8
         const top = 8
