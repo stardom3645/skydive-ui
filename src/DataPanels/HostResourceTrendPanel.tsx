@@ -149,119 +149,107 @@ const styles = (theme: Theme) => createStyles({
     },
     trendTop: {
         display: 'flex',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         justifyContent: 'space-between',
-        gap: 8,
+        gap: 12,
         minWidth: 0,
-        paddingBottom: 8,
+        minHeight: 32,
+        paddingBottom: 10,
         borderBottom: '1px solid var(--netdive-detail-border-subtle, rgba(226, 232, 240, 0.72))'
     },
     trendLabel: {
         minWidth: 0,
         color: 'var(--netdive-detail-title, #0f172a)',
-        fontSize: 13.2,
+        fontSize: 14,
         lineHeight: 1.2,
-        fontWeight: 760,
+        fontWeight: 700,
         whiteSpace: 'nowrap'
     },
-    summaryBar: {
+    trendHeaderRight: {
         minWidth: 0,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'flex-end',
-        flexWrap: 'nowrap',
-        gap: 7,
-        color: 'var(--netdive-detail-muted, #64748b)',
-        fontSize: 11,
-        lineHeight: 1.25,
-        fontWeight: 520,
+        gap: 9,
+        marginLeft: 'auto',
         whiteSpace: 'nowrap'
     },
-    summaryNetworkBar: {
-        minWidth: 0,
+    trendValue: {
+        color: '#111827',
+        fontSize: 20,
+        lineHeight: 1,
+        fontWeight: 700,
+        letterSpacing: 0,
+        whiteSpace: 'nowrap'
+    },
+    trendInfoIcon: {
+        width: 15,
+        height: 15,
+        color: 'var(--netdive-detail-muted, #64748b)',
+        opacity: 0.72,
+        cursor: 'help',
+        flex: '0 0 15px',
+        '&:hover': {
+            opacity: 1,
+            color: 'var(--netdive-detail-title, #0f172a)'
+        }
+    },
+    tooltipContent: {
         display: 'grid',
-        gap: 3,
-        justifyItems: 'end',
-        color: 'var(--netdive-detail-muted, #64748b)',
+        gap: 5,
+        minWidth: 108,
+        padding: '2px 0'
+    },
+    tooltipRow: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 14,
         fontSize: 11,
         lineHeight: 1.25,
-        fontWeight: 520,
+        '& span': {
+            opacity: 0.78
+        },
+        '& strong': {
+            fontWeight: 700
+        }
+    },
+    tooltipSection: {
+        display: 'grid',
+        gap: 4
+    },
+    tooltipSectionTitle: {
+        fontSize: 11,
+        lineHeight: 1.2,
+        fontWeight: 800
+    },
+    networkCurrentBar: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        gap: 12,
+        minWidth: 0,
+        color: '#111827',
+        fontSize: 13.5,
+        lineHeight: 1.1,
+        fontWeight: 700,
         whiteSpace: 'nowrap'
     },
-    summaryCurrentGroup: {
+    networkCurrentItem: {
         display: 'inline-flex',
         alignItems: 'center',
         gap: 5,
-        minWidth: 0
-    },
-    summaryCurrent: {
-        display: 'inline-flex',
-        alignItems: 'center',
-        minWidth: 0,
-        color: 'var(--netdive-detail-accent, #1A73E8)',
-        fontSize: 12.5,
-        lineHeight: 1.05,
-        fontWeight: 780,
         whiteSpace: 'nowrap'
     },
-    summaryMeta: {
-        color: 'var(--netdive-detail-muted, #64748b)',
-        fontSize: 11,
-        lineHeight: 1.28,
-        fontWeight: 560,
-        whiteSpace: 'nowrap'
-    },
-    summaryInfoIcon: {
-        width: 14,
-        height: 14,
-        color: 'var(--netdive-detail-muted, #64748b)',
-        opacity: 0.78,
-        cursor: 'help',
-        flex: '0 0 14px',
-        '&:hover': {
-            opacity: 1,
-            color: 'var(--netdive-detail-accent, #1A73E8)'
-        }
-    },
-    summaryNetworkLine: {
-        color: 'var(--netdive-detail-title, #0f172a)',
-        fontSize: 11,
-        lineHeight: 1.2,
-        fontWeight: 520,
-        whiteSpace: 'nowrap',
-        '& strong': {
-            fontWeight: 780
-        }
+    networkSeriesLabel: {
+        fontSize: 11.5,
+        fontWeight: 800
     },
     rxText: {
         color: 'var(--netdive-detail-accent, #1A73E8)'
     },
     txText: {
         color: '#f97316'
-    },
-    legend: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        marginTop: 1,
-        color: 'var(--netdive-detail-muted, #64748b)',
-        fontSize: 12,
-        fontWeight: 700
-    },
-    legendItem: {
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 4
-    },
-    legendLine: {
-        width: 18,
-        height: 0,
-        borderTop: '2px solid var(--netdive-detail-accent, #1A73E8)'
-    },
-    legendLineSecondary: {
-        width: 18,
-        height: 0,
-        borderTop: '2px dashed #f97316'
     },
     svg: {
         width: '100%',
@@ -648,57 +636,82 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         return nice * multiplier
     }
 
-    private renderLegend(item: TrendDisplayItem) {
+    private renderTrendHeader(item: TrendDisplayItem) {
         const { classes } = this.props
-        if (item.key !== 'networkTraffic') return null
-
         return (
-            <div className={classes.legend}>
-                <span className={classes.legendItem}><span className={classes.legendLine} />RX</span>
-                <span className={classes.legendItem}><span className={classes.legendLineSecondary} />TX</span>
+            <div className={classes.trendTop}>
+                <div className={classes.trendLabel}>{item.label}</div>
+                <div className={classes.trendHeaderRight}>
+                    {item.key === 'networkTraffic' ? this.renderNetworkCurrentValues(item) : <div className={classes.trendValue}>{item.value}</div>}
+                    <Tooltip title={this.renderTooltipContent(item)} placement="top" arrow>
+                        <InfoIcon className={classes.trendInfoIcon} />
+                    </Tooltip>
+                </div>
             </div>
         )
     }
 
-    private renderSummary(item: TrendDisplayItem) {
+    private renderNetworkCurrentValues(item: TrendDisplayItem) {
         const { classes } = this.props
-        const primary = item.series[0]
+        const rx = this.seriesByKey(item.series, 'networkRx')
+        const tx = this.seriesByKey(item.series, 'networkTx')
 
+        return (
+            <div className={classes.networkCurrentBar}>
+                <div className={classes.networkCurrentItem}>
+                    <span className={`${classes.networkSeriesLabel} ${classes.rxText}`}>RX</span>
+                    <strong>{this.formatValue(rx?.lastValue, 'bps')}</strong>
+                </div>
+                <div className={classes.networkCurrentItem}>
+                    <span className={`${classes.networkSeriesLabel} ${classes.txText}`}>TX</span>
+                    <strong>{this.formatValue(tx?.lastValue, 'bps')}</strong>
+                </div>
+            </div>
+        )
+    }
+
+    private renderTooltipContent(item: TrendDisplayItem) {
+        const { classes } = this.props
         if (item.key === 'networkTraffic') {
             const rx = this.seriesByKey(item.series, 'networkRx')
             const tx = this.seriesByKey(item.series, 'networkTx')
             return (
-                <div className={classes.summaryNetworkBar}>
-                    <div className={`${classes.summaryNetworkLine} ${classes.rxText}`}>
-                        <strong>RX 현재 {this.formatValue(rx?.lastValue, 'bps')}</strong>
-                        {this.renderSummaryInfo(`평균 ${this.formatValue(this.averageValue(rx), 'bps')} | 최대 ${this.formatValue(this.maxValue(rx), 'bps')}`)}
-                    </div>
-                    <div className={`${classes.summaryNetworkLine} ${classes.txText}`}>
-                        <strong>TX 현재 {this.formatValue(tx?.lastValue, 'bps')}</strong>
-                        {this.renderSummaryInfo(`평균 ${this.formatValue(this.averageValue(tx), 'bps')} | 최대 ${this.formatValue(this.maxValue(tx), 'bps')}`)}
-                    </div>
+                <div className={classes.tooltipContent}>
+                    {this.renderNetworkTooltipSection('RX', rx, classes.rxText)}
+                    {this.renderNetworkTooltipSection('TX', tx, classes.txText)}
                 </div>
             )
         }
 
-        const average = this.averageValue(primary)
-        const max = this.maxValue(primary)
+        const primary = item.series[0]
         return (
-            <div className={classes.summaryBar}>
-                <div className={classes.summaryCurrentGroup}>
-                    <div className={classes.summaryCurrent}>현재 {item.value}</div>
-                    {this.renderSummaryInfo(`평균 ${this.formatValue(average, item.unit)} | 최대 ${this.formatValue(max, item.unit)}`)}
-                </div>
+            <div className={classes.tooltipContent}>
+                {this.renderTooltipRow('현재', item.value)}
+                {this.renderTooltipRow('평균', this.formatValue(this.averageValue(primary), item.unit))}
+                {this.renderTooltipRow('최대', this.formatValue(this.maxValue(primary), item.unit))}
             </div>
         )
     }
 
-    private renderSummaryInfo(title: string) {
+    private renderNetworkTooltipSection(label: string, series: TrendSeries | undefined, colorClassName: string) {
         const { classes } = this.props
         return (
-            <Tooltip title={title} placement="top" arrow>
-                <InfoIcon className={classes.summaryInfoIcon} />
-            </Tooltip>
+            <div className={classes.tooltipSection}>
+                <div className={`${classes.tooltipSectionTitle} ${colorClassName}`}>{label}</div>
+                {this.renderTooltipRow('현재', this.formatValue(series?.lastValue, 'bps'))}
+                {this.renderTooltipRow('평균', this.formatValue(this.averageValue(series), 'bps'))}
+                {this.renderTooltipRow('최대', this.formatValue(this.maxValue(series), 'bps'))}
+            </div>
+        )
+    }
+
+    private renderTooltipRow(label: string, value: string) {
+        const { classes } = this.props
+        return (
+            <div className={classes.tooltipRow}>
+                <span>{label}</span>
+                <strong>{value}</strong>
+            </div>
         )
     }
 
@@ -847,11 +860,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
                         <div className={classes.grid}>
                             {displayItems.map(item => (
                                 <div className={classes.trendTile} key={`${item.key}-${this.state.trendRange}-${trend?.start || 0}-${trend?.end || 0}`}>
-                                    <div className={classes.trendTop}>
-                                        <div className={classes.trendLabel}>{item.label}</div>
-                                        {this.renderLegend(item)}
-                                    </div>
-                                    {this.renderSummary(item)}
+                                    {this.renderTrendHeader(item)}
                                     {this.renderSparkline(item, trend)}
                                 </div>
                             ))}
