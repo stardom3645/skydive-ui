@@ -460,7 +460,8 @@ export const styles = (theme: Theme) => createStyles({
     },
     socketServiceList: {
         display: 'grid',
-        gridTemplateColumns: '1fr'
+        gridTemplateColumns: '1fr',
+        paddingTop: 6
     },
     socketServiceRow: {
         display: 'grid',
@@ -476,6 +477,9 @@ export const styles = (theme: Theme) => createStyles({
         lineHeight: 1.2,
         fontWeight: 600,
         cursor: 'pointer',
+        '&:first-child': {
+            borderTop: 0
+        },
         '&:hover': {
             background: '#F8FAFC'
         }
@@ -506,7 +510,8 @@ export const styles = (theme: Theme) => createStyles({
     },
     socketProcessList: {
         display: 'grid',
-        gridTemplateColumns: '1fr'
+        gridTemplateColumns: '1fr',
+        paddingTop: 6
     },
     socketTableHeader: {
         display: 'grid',

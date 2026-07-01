@@ -13,11 +13,11 @@ import * as React from 'react'
 import IconButton from '@material-ui/core/IconButton'
 import Tooltip from '@material-ui/core/Tooltip'
 import Drawer from '@material-ui/core/Drawer'
+import SvgIcon from '@material-ui/core/SvgIcon'
 import FileCopyIcon from '@material-ui/icons/FileCopy'
 import InfoIcon from '@material-ui/icons/Info'
 import TimelineIcon from '@material-ui/icons/Timeline'
 import DeviceHubIcon from '@material-ui/icons/DeviceHub'
-import PowerIcon from '@material-ui/icons/Power'
 import SecurityIcon from '@material-ui/icons/Security'
 import RouterIcon from '@material-ui/icons/Router'
 import AccountTreeIcon from '@material-ui/icons/AccountTree'
@@ -108,6 +108,12 @@ interface KubernetesNodePickerItem {
     role: string
     version: string
 }
+
+const ShareNodesIcon = () => (
+    <SvgIcon viewBox="0 0 448 512">
+        <path d="M352 320c-22.608 0-43.387 7.819-59.79 20.895l-102.486-64.054a96.551 96.551 0 0 0 0-41.683l102.486-64.054C308.613 184.181 329.392 192 352 192c53.019 0 96-42.981 96-96S405.019 0 352 0s-96 42.981-96 96c0 7.158.79 14.13 2.276 20.841L155.79 180.895C139.387 167.819 118.608 160 96 160c-53.019 0-96 42.981-96 96s42.981 96 96 96c22.608 0 43.387-7.819 59.79-20.895l102.486 64.054A96.301 96.301 0 0 0 256 416c0 53.019 42.981 96 96 96s96-42.981 96-96-42.981-96-96-96z" />
+    </SvgIcon>
+)
 
 interface PillItem {
     label: string
@@ -1786,7 +1792,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                                 type="button"
                                 className={classes.socketMoreButton}
                                 onClick={() => this.setState({ showAllSocketProcesses: !this.state.showAllSocketProcesses })}>
-                                {this.state.showAllSocketProcesses ? translate('hostSocketCollapse') : `${hiddenProcessCount}개 더 보기 >`}
+                                {this.state.showAllSocketProcesses ? translate('hostSocketCollapse') : '전체 보기 >'}
                             </button>
                         )}
                     </div>
@@ -1822,7 +1828,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                                         ? Math.min(services.length, visibleServiceCount + 10)
                                         : undefined
                                 })}>
-                                {hiddenServiceCount > 0 ? `${hiddenServiceCount}개 더 보기 >` : translate('hostSocketCollapse')}
+                                {hiddenServiceCount > 0 ? '전체 보기 >' : translate('hostSocketCollapse')}
                             </button>
                         )}
                     </div>
@@ -2168,7 +2174,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                         )}
                     </div>
                 ))}
-                {this.renderSection(<PowerIcon />, translate('hostSocketsProcesses'), '수신 대기 서비스와 주요 소켓 프로세스를 요약합니다.', this.renderSocketProcessSummary())}
+                {this.renderSection(<ShareNodesIcon />, translate('hostSocketsProcesses'), '수신 대기 서비스와 주요 소켓 프로세스를 요약합니다.', this.renderSocketProcessSummary())}
                 {hasNetworkSummary && this.renderSection(<RouterIcon />, translate('hostNetworkSummary'), translate('hostNetworkSummaryDescription'), this.renderMetricGrid(networkMetrics, translate('hostNetworkDetailsMissing')))}
                 {hasRecentSignals && this.renderSection(<InfoIcon />, translate('hostRecentSignals'), translate('hostRecentSignalsDescription'), this.renderRows(eventRows, translate('hostNoRecentSignals')))}
 
