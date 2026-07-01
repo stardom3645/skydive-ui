@@ -152,7 +152,7 @@ const styles = (theme: Theme) => createStyles({
         gap: 8,
         minWidth: 0,
         paddingBottom: 10,
-        borderBottom: '1px solid rgba(226, 232, 240, 0.55)'
+        borderBottom: '1px solid rgba(226, 232, 240, 0.46)'
     },
     trendTop: {
         display: 'flex',
@@ -175,17 +175,29 @@ const styles = (theme: Theme) => createStyles({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'flex-end',
-        gap: 9,
+        gap: 12,
         marginLeft: 'auto',
         whiteSpace: 'nowrap'
     },
     trendValue: {
         color: '#111827',
-        fontSize: 18,
-        lineHeight: 1.1,
-        fontWeight: 700,
+        display: 'inline-flex',
+        alignItems: 'baseline',
+        gap: 3,
+        lineHeight: 1.05,
         letterSpacing: '-0.01em',
         whiteSpace: 'nowrap'
+    },
+    trendValueNumber: {
+        fontSize: 18,
+        fontWeight: 760,
+        color: '#111827'
+    },
+    trendValueUnit: {
+        fontSize: 11.5,
+        fontWeight: 700,
+        color: '#64748b',
+        letterSpacing: 0
     },
     trendInfoButton: {
         width: 22,
@@ -268,13 +280,19 @@ const styles = (theme: Theme) => createStyles({
         alignItems: 'center',
         justifyContent: 'flex-start',
         flexWrap: 'wrap',
-        gap: 18,
+        gap: 14,
         minWidth: 0,
         color: '#111827',
         fontSize: 13,
         lineHeight: 1.15,
         fontWeight: 700,
         whiteSpace: 'nowrap'
+    },
+    networkCurrentDivider: {
+        width: 1,
+        height: 14,
+        background: 'rgba(148, 163, 184, 0.28)',
+        flex: '0 0 1px'
     },
     networkCurrentItem: {
         display: 'inline-flex',
@@ -299,11 +317,11 @@ const styles = (theme: Theme) => createStyles({
         overflow: 'visible'
     },
     axis: {
-        stroke: 'rgba(148, 163, 184, 0.28)',
+        stroke: 'rgba(148, 163, 184, 0.24)',
         strokeWidth: 1
     },
     guide: {
-        stroke: 'rgba(148, 163, 184, 0.32)',
+        stroke: 'rgba(148, 163, 184, 0.22)',
         strokeWidth: 1,
         strokeDasharray: '3 3'
     },
@@ -322,20 +340,20 @@ const styles = (theme: Theme) => createStyles({
     line: {
         fill: 'none',
         stroke: 'var(--netdive-detail-accent, #1A73E8)',
-        strokeWidth: 2,
+        strokeWidth: 1.65,
         strokeLinecap: 'round',
         strokeLinejoin: 'round'
     },
     lineSecondary: {
         fill: 'none',
         stroke: '#f97316',
-        strokeWidth: 2,
+        strokeWidth: 1.65,
         strokeDasharray: '4 3',
         strokeLinecap: 'round',
         strokeLinejoin: 'round'
     },
     fill: {
-        fill: 'rgba(26, 115, 232, 0.08)'
+        fill: 'rgba(26, 115, 232, 0.06)'
     },
     empty: {
         padding: theme.spacing(1.35),
@@ -545,6 +563,31 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         return String(Math.round(value))
     }
 
+    private splitValueText(value: string): { number: string, unit: string } {
+        const text = value || 'N/A'
+        const match = text.match(/^([^\s]+)(?:\s+(.+))?$/)
+        if (!match) return { number: text, unit: '' }
+        return { number: match[1], unit: match[2] || '' }
+    }
+
+    private renderMetricValue(value: string) {
+        const { classes } = this.props
+        const parts = this.splitValueText(value)
+        return (
+            <span className={classes.trendValue}>
+                <span className={classes.trendValueNumber}>{parts.number}</span>
+                {parts.unit && <span className={classes.trendValueUnit}>{parts.unit}</span>}
+            </span>
+        )
+    }
+
+    private normalizePointValue(value: number, unit: string): number {
+        if (unit === 'count') {
+            return Math.max(0, Math.floor(value))
+        }
+        return value
+    }
+
     private seriesByKey(series: TrendSeries[], key: string): TrendSeries | undefined {
         return series.find(item => item.key === key)
     }
@@ -639,7 +682,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         const values = seriesList.reduce<number[]>((acc, series) => {
             const points = (series.values || [])
                 .filter(point => typeof point.value === 'number')
-                .map(point => Number(point.value))
+                .map(point => this.normalizePointValue(Number(point.value), unit))
             return acc.concat(points)
         }, [])
 
@@ -671,7 +714,9 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         }
 
         if (unit === 'count') {
-            return Math.max(1, Math.ceil(value))
+            const rounded = Math.max(1, Math.ceil(value))
+            if (rounded <= 4) return 4
+            return rounded
         }
 
         return nice * multiplier
@@ -686,7 +731,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
                 <div className={classes.trendTop}>
                     <div className={classes.trendLabel}>{item.label}</div>
                     <div className={classes.trendHeaderRight}>
-                        {!isNetworkTraffic && <div className={classes.trendValue}>{item.value}</div>}
+                        {!isNetworkTraffic && this.renderMetricValue(item.value)}
                         {this.renderInfoTooltip(item)}
                     </div>
                 </div>
@@ -720,11 +765,12 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
             <div className={classes.networkCurrentBar}>
                 <div className={classes.networkCurrentItem}>
                     <span className={`${classes.networkSeriesLabel} ${classes.rxText}`}>RX</span>
-                    <strong>{this.formatValue(rx?.lastValue, 'bps')}</strong>
+                    {this.renderMetricValue(this.formatValue(rx?.lastValue, 'bps'))}
                 </div>
+                <span className={classes.networkCurrentDivider} aria-hidden="true" />
                 <div className={classes.networkCurrentItem}>
                     <span className={`${classes.networkSeriesLabel} ${classes.txText}`}>TX</span>
-                    <strong>{this.formatValue(tx?.lastValue, 'bps')}</strong>
+                    {this.renderMetricValue(this.formatValue(tx?.lastValue, 'bps'))}
                 </div>
             </div>
         )
@@ -794,7 +840,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
             return `${Math.round(value)} IOPS`
         }
         if (unit === 'count') {
-            return `${Math.floor(value)} 회`
+            return `${Math.round(value)} 회`
         }
         return `${Math.round(value)}`
     }
@@ -841,7 +887,9 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         const { min, max } = this.pointRange(item.series, item.unit)
         const range = max - min || 1
         const linePaths = item.series.map(series => {
-            const valid = (series.values || []).filter(point => typeof point.value === 'number') as Array<TrendPoint & { value: number }>
+            const valid = (series.values || [])
+                .filter(point => typeof point.value === 'number')
+                .map(point => ({ ...point, value: this.normalizePointValue(Number(point.value), item.unit) }))
             if (valid.length < 2) return ''
             return valid.map((point, index) => {
                 const x = plotLeft + ((plotRight - plotLeft) * index) / Math.max(valid.length - 1, 1)
