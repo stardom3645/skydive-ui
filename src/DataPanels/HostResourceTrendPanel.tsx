@@ -1,5 +1,7 @@
 import * as React from 'react'
 import CircularProgress from '@material-ui/core/CircularProgress'
+import Tooltip from '@material-ui/core/Tooltip'
+import InfoIcon from '@material-ui/icons/Info'
 import TimelineIcon from '@material-ui/icons/Timeline'
 import { createStyles, Theme, withStyles } from '@material-ui/core/styles'
 
@@ -168,9 +170,9 @@ const styles = (theme: Theme) => createStyles({
         alignItems: 'center',
         justifyContent: 'flex-end',
         flexWrap: 'nowrap',
-        gap: 8,
+        gap: 7,
         color: 'var(--netdive-detail-muted, #64748b)',
-        fontSize: 12,
+        fontSize: 11,
         lineHeight: 1.25,
         fontWeight: 520,
         whiteSpace: 'nowrap'
@@ -181,43 +183,55 @@ const styles = (theme: Theme) => createStyles({
         gap: 3,
         justifyItems: 'end',
         color: 'var(--netdive-detail-muted, #64748b)',
-        fontSize: 12,
+        fontSize: 11,
         lineHeight: 1.25,
         fontWeight: 520,
         whiteSpace: 'nowrap'
+    },
+    summaryCurrentGroup: {
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 5,
+        minWidth: 0
     },
     summaryCurrent: {
         display: 'inline-flex',
         alignItems: 'center',
         minWidth: 0,
         color: 'var(--netdive-detail-accent, #1A73E8)',
-        fontSize: 13.5,
+        fontSize: 12.5,
         lineHeight: 1.05,
         fontWeight: 780,
         whiteSpace: 'nowrap'
     },
     summaryMeta: {
         color: 'var(--netdive-detail-muted, #64748b)',
-        fontSize: 12,
+        fontSize: 11,
         lineHeight: 1.28,
         fontWeight: 560,
         whiteSpace: 'nowrap'
     },
+    summaryInfoIcon: {
+        width: 14,
+        height: 14,
+        color: 'var(--netdive-detail-muted, #64748b)',
+        opacity: 0.78,
+        cursor: 'help',
+        flex: '0 0 14px',
+        '&:hover': {
+            opacity: 1,
+            color: 'var(--netdive-detail-accent, #1A73E8)'
+        }
+    },
     summaryNetworkLine: {
         color: 'var(--netdive-detail-title, #0f172a)',
-        fontSize: 12,
+        fontSize: 11,
         lineHeight: 1.2,
         fontWeight: 520,
         whiteSpace: 'nowrap',
         '& strong': {
             fontWeight: 780
         }
-    },
-    summaryDivider: {
-        width: 1,
-        height: 14,
-        flex: '0 0 1px',
-        background: 'rgba(148, 163, 184, 0.35)'
     },
     rxText: {
         color: 'var(--netdive-detail-accent, #1A73E8)'
@@ -542,7 +556,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         if (this.hasValues(cpu)) {
             items.push({
                 key: 'cpu',
-                label: 'CPU Usage',
+                label: 'CPU 사용 현황',
                 unit: 'percent',
                 value: this.formatValue(cpu?.lastValue, 'percent'),
                 series: [cpu as TrendSeries]
@@ -552,7 +566,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         if (this.hasValues(memory)) {
             items.push({
                 key: 'memory',
-                label: 'Memory Usage',
+                label: '메모리 사용 현황',
                 unit: 'percent',
                 value: this.formatValue(memory?.lastValue, 'percent'),
                 series: [memory as TrendSeries]
@@ -562,7 +576,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         if (this.hasValues(storageIops)) {
             items.push({
                 key: 'storageIops',
-                label: 'Storage IOPS',
+                label: '스토리지 IOPS',
                 unit: 'iops',
                 value: this.formatValue(storageIops?.lastValue, 'iops'),
                 series: [storageIops as TrendSeries]
@@ -572,7 +586,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         if (this.hasValues(networkRx) || this.hasValues(networkTx)) {
             items.push({
                 key: 'networkTraffic',
-                label: 'Network Traffic',
+                label: '네트워크 트래픽',
                 unit: 'bps',
                 value: '',
                 series: [networkRx, networkTx].filter(Boolean) as TrendSeries[]
@@ -582,7 +596,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         if (this.hasValues(networkDrops)) {
             items.push({
                 key: 'networkDrops',
-                label: 'Network Drops / Errors',
+                label: '네트워크 드롭 / 오류',
                 unit: 'count',
                 value: this.formatValue(networkDrops?.lastValue, 'count'),
                 series: [networkDrops as TrendSeries]
@@ -657,11 +671,11 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
                 <div className={classes.summaryNetworkBar}>
                     <div className={`${classes.summaryNetworkLine} ${classes.rxText}`}>
                         <strong>RX 현재 {this.formatValue(rx?.lastValue, 'bps')}</strong>
-                        <span className={classes.summaryMeta}> | 평균 {this.formatValue(this.averageValue(rx), 'bps')} | 최대 {this.formatValue(this.maxValue(rx), 'bps')}</span>
+                        {this.renderSummaryInfo(`평균 ${this.formatValue(this.averageValue(rx), 'bps')} | 최대 ${this.formatValue(this.maxValue(rx), 'bps')}`)}
                     </div>
                     <div className={`${classes.summaryNetworkLine} ${classes.txText}`}>
                         <strong>TX 현재 {this.formatValue(tx?.lastValue, 'bps')}</strong>
-                        <span className={classes.summaryMeta}> | 평균 {this.formatValue(this.averageValue(tx), 'bps')} | 최대 {this.formatValue(this.maxValue(tx), 'bps')}</span>
+                        {this.renderSummaryInfo(`평균 ${this.formatValue(this.averageValue(tx), 'bps')} | 최대 ${this.formatValue(this.maxValue(tx), 'bps')}`)}
                     </div>
                 </div>
             )
@@ -671,12 +685,20 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         const max = this.maxValue(primary)
         return (
             <div className={classes.summaryBar}>
-                <div className={classes.summaryCurrent}>현재 {item.value}</div>
-                <span className={classes.summaryDivider} />
-                <div className={classes.summaryMeta}>평균 {this.formatValue(average, item.unit)}</div>
-                <span className={classes.summaryDivider} />
-                <div className={classes.summaryMeta}>최대 {this.formatValue(max, item.unit)}</div>
+                <div className={classes.summaryCurrentGroup}>
+                    <div className={classes.summaryCurrent}>현재 {item.value}</div>
+                    {this.renderSummaryInfo(`평균 ${this.formatValue(average, item.unit)} | 최대 ${this.formatValue(max, item.unit)}`)}
+                </div>
             </div>
+        )
+    }
+
+    private renderSummaryInfo(title: string) {
+        const { classes } = this.props
+        return (
+            <Tooltip title={title} placement="top" arrow>
+                <InfoIcon className={classes.summaryInfoIcon} />
+            </Tooltip>
         )
     }
 
@@ -730,7 +752,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         const { classes } = this.props
         const width = 430
         const height = 100
-        const left = 52
+        const left = 68
         const right = width - 8
         const top = 8
         const bottom = height - 24
@@ -760,9 +782,9 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
                 <line className={classes.guide} x1={left} y1={(top + bottom) / 2} x2={right} y2={(top + bottom) / 2} />
                 <line className={classes.axis} x1={left} y1={bottom} x2={right} y2={bottom} />
                 <line className={classes.axis} x1={left} y1={top} x2={left} y2={bottom} />
-                <text className={classes.axisLabel} x="6" y={top + 4}>{this.formatAxisValue(max, item.unit)}</text>
-                <text className={classes.axisLabel} x="6" y={((top + bottom) / 2) + 3}>{this.formatAxisValue(mid, item.unit)}</text>
-                <text className={classes.axisLabel} x="6" y={bottom + 3}>{this.formatAxisValue(min, item.unit)}</text>
+                <text className={classes.axisLabel} x={left - 8} y={top + 4} textAnchor="end">{this.formatAxisValue(max, item.unit)}</text>
+                <text className={classes.axisLabel} x={left - 8} y={((top + bottom) / 2) + 3} textAnchor="end">{this.formatAxisValue(mid, item.unit)}</text>
+                <text className={classes.axisLabel} x={left - 8} y={bottom + 3} textAnchor="end">{this.formatAxisValue(min, item.unit)}</text>
                 <text className={classes.timeLabel} x={left} y={height - 4}>{axisLabels[0]}</text>
                 <text className={classes.timeLabel} x={(left + right) / 2} y={height - 4} textAnchor="middle">{axisLabels[1]}</text>
                 <text className={classes.timeLabel} x={right} y={height - 4} textAnchor="end">{axisLabels[2]}</text>
