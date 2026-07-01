@@ -1824,9 +1824,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                                 type="button"
                                 className={classes.socketMoreButton}
                                 onClick={() => this.setState({
-                                    listeningServicesVisibleCount: hiddenServiceCount > 0
-                                        ? Math.min(services.length, visibleServiceCount + 10)
-                                        : undefined
+                                    listeningServicesVisibleCount: hiddenServiceCount > 0 ? services.length : undefined
                                 })}>
                                 {hiddenServiceCount > 0 ? '전체 보기 >' : translate('hostSocketCollapse')}
                             </button>
@@ -1926,12 +1924,12 @@ class HostDetailPanel extends React.Component<Props, State> {
         )
     }
 
-    private renderOverviewGrid(items: OverviewCardItem[], emptyText = translate('hostNoConnectedResources'), className = '') {
+    private renderOverviewGrid(items: OverviewCardItem[], emptyText = translate('hostNoConnectedResources')) {
         const { classes } = this.props
         const visible = items.filter(item => item.value)
         if (!visible.length) return <div className={classes.emptyState}>{emptyText}</div>
         return (
-            <div className={`${classes.connectedResourceGrid} ${className}`}>
+            <div className={classes.connectedResourceGrid}>
                 {visible.map(item => {
                     const numericValue = Number(item.value)
                     const hasZeroValue = item.value !== '' && !Number.isNaN(numericValue) && numericValue === 0
@@ -1971,7 +1969,7 @@ class HostDetailPanel extends React.Component<Props, State> {
         )
     }
 
-    private renderConnectedResourceSubsection(icon: React.ReactNode, title: string, items: OverviewCardItem[], emptyText = translate('hostNoConnectedResources'), gridClassName = '') {
+    private renderConnectedResourceSubsection(icon: React.ReactNode, title: string, items: OverviewCardItem[], emptyText = translate('hostNoConnectedResources')) {
         const { classes } = this.props
         return (
             <div className={classes.connectedResourceSection}>
@@ -1979,7 +1977,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                     <span className={classes.connectedResourceSectionIcon}>{icon}</span>
                     <span className={classes.connectedResourceSectionTitle}>{title}</span>
                 </div>
-                {this.renderOverviewGrid(items, emptyText, gridClassName)}
+                {this.renderOverviewGrid(items, emptyText)}
             </div>
         )
     }
@@ -2170,8 +2168,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                             <span className={classes.connectedResourceSectionKubernetesNodeIcon}>{this.kubernetesIcon()}</span>,
                             'Kubernetes',
                             kubernetesResources,
-                            translate('hostNoConnectedResources'),
-                            classes.connectedResourceGridSingle
+                            translate('hostNoConnectedResources')
                         )}
                     </div>
                 ))}
