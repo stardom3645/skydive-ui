@@ -367,6 +367,152 @@ export const styles = (theme: Theme) => createStyles({
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap'
     },
+    detailSummaryGrid: {
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(132px, 1fr))',
+        gap: 8,
+        padding: theme.spacing(1.1, 1.25, 1.25)
+    },
+    detailSummaryTile: {
+        minWidth: 0,
+        minHeight: 64,
+        border: '1px solid var(--netdive-detail-border-soft)',
+        borderRadius: 10,
+        padding: '9px 11px',
+        background: 'var(--netdive-detail-soft-card, #fbfdff)'
+    },
+    detailSummaryLabel: {
+        color: 'var(--netdive-detail-muted, #64748b)',
+        fontSize: 11.2,
+        lineHeight: 1.2,
+        fontWeight: 700,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap'
+    },
+    detailSummaryValue: {
+        marginTop: 5,
+        color: 'var(--netdive-detail-title, #0f172a)',
+        fontSize: 13.5,
+        lineHeight: 1.2,
+        fontWeight: 820,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap'
+    },
+    detailBadge: {
+        display: 'inline-flex',
+        alignItems: 'center',
+        minHeight: 22,
+        maxWidth: '100%',
+        padding: '2px 8px',
+        borderRadius: 999,
+        border: '1px solid #d8e2ee',
+        background: '#f8fafc',
+        color: '#475569',
+        fontSize: 11.5,
+        lineHeight: 1.2,
+        fontWeight: 800,
+        whiteSpace: 'nowrap'
+    },
+    detailBadgeBlue: {
+        color: '#1d4ed8',
+        background: '#eff6ff',
+        borderColor: '#bfdbfe'
+    },
+    detailBadgeIndigo: {
+        color: '#5b21b6',
+        background: '#f5f3ff',
+        borderColor: '#ddd6fe'
+    },
+    detailBadgeGreen: {
+        color: '#047857',
+        background: '#ecfdf5',
+        borderColor: '#bbf7d0'
+    },
+    detailBadgeRed: {
+        color: '#b91c1c',
+        background: '#fef2f2',
+        borderColor: '#fecaca'
+    },
+    detailBadgeWarning: {
+        color: '#92400e',
+        background: '#fffbeb',
+        borderColor: '#fde68a'
+    },
+    detailHelperText: {
+        margin: '-4px 14px 10px',
+        color: 'var(--netdive-detail-muted, #64748b)',
+        fontSize: 11.5,
+        lineHeight: 1.45,
+        fontWeight: 550
+    },
+    collapsibleHeaderButton: {
+        width: '100%',
+        border: 0,
+        padding: 0,
+        margin: 0,
+        background: 'transparent',
+        textAlign: 'left',
+        cursor: 'pointer'
+    },
+    collapsibleHeaderInner: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: theme.spacing(0.9),
+        padding: theme.spacing(1.25, 1.35),
+        borderBottom: '1px solid var(--netdive-detail-border-subtle, rgba(226, 232, 240, 0.72))',
+        background: 'var(--netdive-detail-section-header, #f8fafc)'
+    },
+    collapsibleHeaderChevron: {
+        marginLeft: 'auto',
+        color: 'var(--netdive-detail-muted, #64748b)',
+        display: 'inline-flex',
+        alignItems: 'center',
+        '& svg': {
+            fontSize: 18
+        }
+    },
+    jsonBox: {
+        margin: theme.spacing(1.05, 1.25, 1.25),
+        padding: '10px 12px',
+        borderRadius: 10,
+        border: '1px solid var(--netdive-detail-border-soft)',
+        background: 'rgba(248, 250, 252, 0.82)',
+        color: 'var(--netdive-detail-text)',
+        fontSize: 11.5,
+        lineHeight: 1.45,
+        fontFamily: 'Menlo, Monaco, Consolas, "Liberation Mono", monospace',
+        overflow: 'auto',
+        whiteSpace: 'pre-wrap',
+        wordBreak: 'break-word'
+    },
+    featureTable: {
+        display: 'grid',
+        gridTemplateColumns: '1fr',
+        paddingTop: 4
+    },
+    featureRow: {
+        display: 'grid',
+        gridTemplateColumns: 'minmax(0, 1fr) auto',
+        alignItems: 'center',
+        gap: 10,
+        minHeight: 38,
+        padding: '0 14px',
+        borderTop: '1px solid var(--netdive-detail-border-subtle, rgba(226, 232, 240, 0.62))',
+        '&:first-child': {
+            borderTop: 0
+        }
+    },
+    featureName: {
+        minWidth: 0,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        color: 'var(--netdive-detail-text)',
+        fontSize: 12.5,
+        fontWeight: 680
+    },
     progressTrack: {
         height: 4,
         marginTop: 8,
