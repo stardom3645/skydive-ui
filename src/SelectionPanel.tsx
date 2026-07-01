@@ -260,7 +260,7 @@ class SelectionPanel extends React.Component<Props, State> {
           {this.props.panelsContent && this.props.panelsContent(el)}
           <TabPanel key={"tabpanel-" + el.id} value={this.state.tab} index={i}>
             {isVMNetworkNode(el)
-              ? <VMNetworkDetailPanel node={el as Node} />
+              ? <VMNetworkDetailPanel node={el as Node} moldInventory={this.props.moldInventory} vmNameMap={this.props.vmNameMap} vmNetworkMap={this.props.vmNetworkMap} vmDetailMap={this.props.vmDetailMap} />
               : el.type === 'node' && String(el.data?.Type || '').toLowerCase() === 'host'
               ? <HostDetailPanel node={el as Node} session={this.props.session} moldInventory={this.props.moldInventory} infrastructureHostSummaries={this.props.infrastructureHostSummaries} kubernetesClusters={this.props.kubernetesClusters} />
               : isVMNode(el)

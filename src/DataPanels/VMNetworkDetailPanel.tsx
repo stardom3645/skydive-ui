@@ -1,4 +1,5 @@
 import * as React from 'react'
+import Tooltip from '@material-ui/core/Tooltip'
 import DeviceHubIcon from '@material-ui/icons/DeviceHub'
 import InfoIcon from '@material-ui/icons/Info'
 import TimelineIcon from '@material-ui/icons/Timeline'
@@ -13,6 +14,10 @@ import { styles } from './HostDetailPanelStyles'
 interface Props {
     classes: any
     node: Node
+    moldInventory?: any
+    vmNameMap?: Record<string, string>
+    vmNetworkMap?: Record<string, Array<{ networkName: string, macAddress: string, ipAddress: string }>>
+    vmDetailMap?: Record<string, any>
 }
 
 interface State {
@@ -34,6 +39,14 @@ interface MetricItem {
 interface FeatureItem {
     name: string
     enabled: boolean
+}
+
+interface MatchedVMNetwork {
+    vmKey: string
+    vmName: string
+    networkName: string
+    macAddress: string
+    ipAddress: string
 }
 
 const isBlank = (value: any): boolean => {
@@ -186,6 +199,32 @@ class VMNetworkDetailPanel extends React.Component<Props, State> {
         return firstValue(this.data(), ['MAC', 'Mac', 'MacAddress', 'macAddress', 'HardwareAddr', 'LLAddr'])
     }
 
+    private ipAddress(): string {
+        return firstValue(this.data(), ['IpAddress', 'ipAddress', 'ipaddress', 'IP', 'IPv4', 'IPV4']) || this.ipv4Addresses()[0] || this.ipv6Addresses()[0]
+    }
+
+    private matchedVMNetwork(): MatchedVMNetwork | undefined {
+        const mac = this.mac().toLowerCase()
+        const ip = this.ipAddress()
+        const vmNetworkMap = this.props.vmNetworkMap || {}
+        for (const vmKey of Object.keys(vmNetworkMap)) {
+            for (const network of vmNetworkMap[vmKey] || []) {
+                const networkMac = String(network.macAddress || '').toLowerCase()
+                const networkIp = String(network.ipAddress || '')
+                if ((mac && networkMac && mac === networkMac) || (ip && networkIp && ip === networkIp)) {
+                    return {
+                        vmKey,
+                        vmName: this.props.vmNameMap?.[vmKey] || vmKey,
+                        networkName: network.networkName || '',
+                        macAddress: network.macAddress || '',
+                        ipAddress: network.ipAddress || ''
+                    }
+                }
+            }
+        }
+        return undefined
+    }
+
     private ipv4Addresses(): string[] {
         const data = this.data()
         return [
@@ -228,7 +267,12 @@ class VMNetworkDetailPanel extends React.Component<Props, State> {
     private renderValue(row: KeyValueRow) {
         const { classes } = this.props
         const value = stringify(row.value) || '-'
-        if (row.variant === 'networkType' || row.variant === 'state') {
+        if (row.variant === 'networkType') {
+            const description = this.networkTypeDescription(value)
+            const badge = <span className={this.badgeClass(row.variant, value)}>{value}</span>
+            return description ? <Tooltip title={description} placement="top" arrow>{badge}</Tooltip> : badge
+        }
+        if (row.variant === 'state') {
             return <span className={this.badgeClass(row.variant, value)}>{value}</span>
         }
         return <span className={classes.kvValue}>{value}</span>
@@ -270,37 +314,53 @@ class VMNetworkDetailPanel extends React.Component<Props, State> {
         )
     }
 
-    private renderSummary() {
-        const { classes } = this.props
+    private moldNetworkRows(): KeyValueRow[] {
+        const data = this.data()
+        const matched = this.matchedVMNetwork()
         const networkType = this.networkType()
-        const description = this.networkTypeDescription(networkType)
-        const items: KeyValueRow[] = [
-            { label: '인터페이스 이름', value: this.name() },
+        const virtualRouter = firstValue(data, ['VirtualRouterName', 'VirtualRouter', 'VirtualRouterId', 'RouterName', 'RouterID', 'RouterId'])
+        return [
+            { label: '연결된 VM 이름', value: matched?.vmName || firstValue(data, ['VMName', 'VmName', 'vmName', 'DisplayName', 'displayName']) },
+            { label: 'VM 인스턴스명', value: firstValue(data, ['InstanceName', 'instanceName', 'LibvirtName', 'Domain', 'domain']) },
+            { label: 'NIC 이름 / 디바이스 ID', value: firstValue(data, ['NicName', 'NICName', 'DeviceID', 'DeviceId', 'Device', 'IfName']) || this.name() },
+            { label: 'Mold 네트워크 이름', value: matched?.networkName || firstValue(data, ['MoldNetworkName', 'NetworkName', 'networkName', 'Network', 'network']) },
             { label: '네트워크 유형', value: networkType, variant: 'networkType' },
-            { label: '인터페이스 타입', value: this.interfaceType() },
-            { label: '상태', value: this.stateText(), variant: 'state' },
-            { label: 'MAC 주소', value: this.mac() },
-            { label: 'IPv6 주소', value: this.ipv6Addresses()[0] }
+            { label: '네트워크 Offering', value: firstValue(data, ['NetworkOffering', 'NetworkOfferingName', 'NetworkOfferingDisplayText', 'ServiceOffering']) },
+            { label: 'Traffic Type', value: firstValue(data, ['TrafficType', 'trafficType']) },
+            { label: 'Gateway', value: firstValue(data, ['Gateway', 'gateway']) },
+            { label: 'CIDR', value: firstValue(data, ['CIDR', 'Cidr', 'cidr', 'Netmask', 'Prefix']) },
+            { label: 'VLAN / Broadcast URI', value: firstValue(data, ['Vlan', 'VLAN', 'BroadcastURI', 'BroadcastUri', 'broadcastUri']) },
+            { label: 'IP 주소', value: matched?.ipAddress || this.ipAddress() },
+            { label: 'MAC 주소', value: matched?.macAddress || this.mac() },
+            { label: 'Primary NIC 여부', value: firstValue(data, ['IsDefault', 'isDefault', 'Primary', 'primary', 'DefaultNic', 'defaultNic']) },
+            ...(networkType.toLowerCase() === 'isolated' || virtualRouter ? [{ label: 'Virtual Router', value: virtualRouter }] : []),
+            { label: 'Zone / Pod / Cluster', value: firstValue(data, ['ZoneName', 'Zone', 'PodName', 'Pod', 'ClusterName', 'Cluster']) }
         ]
+    }
+
+    private connectionPath(): string {
+        const data = this.data()
+        const matched = this.matchedVMNetwork()
+        const networkType = this.networkType()
+        const vm = matched?.vmName || firstValue(data, ['VMName', 'VmName', 'InstanceName', 'Domain'])
+        const nic = firstValue(data, ['NicName', 'NICName', 'DeviceID', 'DeviceId']) || 'NIC'
+        const networkName = matched?.networkName || firstValue(data, ['NetworkName', 'networkName']) || `${networkType} Network`
+        const router = firstValue(data, ['VirtualRouterName', 'VirtualRouter', 'VirtualRouterId'])
+        const parts = [vm, nic, this.name(), networkName]
+        if (networkType.toLowerCase() === 'isolated' && router) parts.push(router)
+        return parts.filter(Boolean).join(' → ')
+    }
+
+    private renderMoldNetworkInfo() {
+        const { classes } = this.props
+        const description = this.networkTypeDescription()
+        const path = this.connectionPath()
         return (
-            <section className={classes.panelCard}>
-                <div className={classes.panelHeader}>
-                    <span className={classes.panelIcon}><DeviceHubIcon /></span>
-                    <div className={classes.panelTitleBlock}>
-                        <div className={classes.panelTitle}>네트워크 인터페이스</div>
-                        <div className={classes.panelDescription}>VM 네트워크 인터페이스 연결 상태와 주소 정보를 요약합니다.</div>
-                    </div>
-                </div>
-                <div className={classes.detailSummaryGrid}>
-                    {items.map(item => (
-                        <div className={classes.detailSummaryTile} key={item.label}>
-                            <div className={classes.detailSummaryLabel}>{item.label}</div>
-                            <div className={classes.detailSummaryValue}>{this.renderValue(item)}</div>
-                        </div>
-                    ))}
-                </div>
+            <React.Fragment>
+                {path && <div className={classes.detailPathText}>{path}</div>}
+                {this.renderRows(this.moldNetworkRows(), '-', true)}
                 {description && <div className={classes.detailHelperText}>{description}</div>}
-            </section>
+            </React.Fragment>
         )
     }
 
@@ -315,6 +375,9 @@ class VMNetworkDetailPanel extends React.Component<Props, State> {
             { label: '버스 정보', value: firstValue(data, ['BusInfo', 'busInfo', 'Bus', 'bus']) },
             { label: '캡슐화 타입', value: firstValue(data, ['EncapType', 'EncapsulationType', 'Encap', 'encap']) },
             { label: '인터페이스 인덱스', value: firstValue(data, ['IfIndex', 'Index', 'InterfaceIndex', 'ifindex']) },
+            { label: 'Peer 인터페이스 MAC 주소', value: firstValue(data, ['PeerMac', 'PeerMAC', 'PeerMacAddress', 'Peer.MAC']) },
+            { label: 'MTU', value: firstValue(data, ['MTU', 'Mtu', 'mtu']) },
+            { label: '속도', value: firstValue(data, ['Speed', 'speed', 'LinkSpeed']) },
             { label: '인터페이스 이름', value: firstValue(data, ['IfName', 'InterfaceName', 'Name', 'name']) }
         ]
     }
@@ -459,7 +522,7 @@ class VMNetworkDetailPanel extends React.Component<Props, State> {
         const { classes } = this.props
         return (
             <div className={classes.root}>
-                {this.renderSummary()}
+                {this.renderSection('mold', <DeviceHubIcon />, 'Mold 네트워크 정보', 'VM NIC가 Mold의 어떤 네트워크에 연결되어 있는지 표시합니다.', this.renderMoldNetworkInfo())}
                 {this.renderSection('basic', <InfoIcon />, '기본 정보', '인터페이스 식별 정보와 장치 속성입니다.', this.renderRows(this.basicRows(), '-', true))}
                 {this.renderSection('connection', <DeviceHubIcon />, '연결 정보', 'Libvirt 메타데이터와 링크 플래그입니다.', this.renderConnectionInfo())}
                 {this.renderSection('addresses', <SettingsInputComponentIcon />, '주소 정보', 'IPv4 / IPv6 주소를 분리해 표시합니다.', this.renderAddressInfo())}

@@ -447,6 +447,20 @@ export const styles = (theme: Theme) => createStyles({
         lineHeight: 1.45,
         fontWeight: 550
     },
+    detailPathText: {
+        margin: theme.spacing(1.05, 1.25, 0.2),
+        padding: '8px 10px',
+        borderRadius: 10,
+        border: '1px solid var(--netdive-detail-border-soft)',
+        background: 'rgba(248, 250, 252, 0.82)',
+        color: 'var(--netdive-detail-text)',
+        fontSize: 12,
+        lineHeight: 1.35,
+        fontWeight: 720,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap'
+    },
     collapsibleHeaderButton: {
         width: '100%',
         border: 0,
