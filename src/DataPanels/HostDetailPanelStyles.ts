@@ -390,23 +390,26 @@ export const styles = (theme: Theme) => createStyles({
         border: '1px solid var(--netdive-detail-border-soft)',
         borderRadius: 12,
         background: 'var(--netdive-detail-soft-card, #fbfdff)',
-        padding: theme.spacing(1, 1.05)
+        overflow: 'hidden',
+        padding: 0
     },
     socketBlockHeader: {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         gap: theme.spacing(1),
-        marginBottom: theme.spacing(0.7)
+        minHeight: 42,
+        padding: '10px 12px',
+        borderBottom: '1px solid #EEF2F7'
     },
     socketBlockTitle: {
         color: 'var(--netdive-detail-text)',
-        fontSize: 12.4,
+        fontSize: 13.5,
         lineHeight: 1.2,
-        fontWeight: 850,
+        fontWeight: 800,
         '& span': {
             color: 'var(--netdive-detail-muted, #64748b)',
-            fontSize: 11.2,
+            fontSize: 12,
             fontWeight: 700
         }
     },
@@ -421,10 +424,14 @@ export const styles = (theme: Theme) => createStyles({
         padding: 0,
         background: 'transparent',
         color: 'var(--topology-level-label-active-text)',
-        fontSize: 11,
+        fontSize: 12,
         lineHeight: 1.3,
-        fontWeight: 700,
-        cursor: 'pointer'
+        fontWeight: 760,
+        cursor: 'pointer',
+        whiteSpace: 'nowrap',
+        '&:hover': {
+            textDecoration: 'underline'
+        }
     },
     socketSummaryGrid: {
         display: 'grid',
@@ -452,35 +459,41 @@ export const styles = (theme: Theme) => createStyles({
         letterSpacing: '-0.02em'
     },
     socketServiceList: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 6
+        display: 'grid',
+        gridTemplateColumns: '1fr'
     },
     socketServiceRow: {
         display: 'grid',
-        gridTemplateColumns: '88px minmax(0, 1fr)',
+        gridTemplateColumns: 'minmax(0, 1fr) minmax(92px, auto)',
         alignItems: 'center',
-        gap: 10,
-        minHeight: 28,
+        gap: 12,
+        minHeight: 42,
         maxWidth: '100%',
-        color: 'var(--netdive-detail-text)',
-        fontSize: 11.4,
+        padding: '0 12px',
+        borderTop: '1px solid #EEF2F7',
+        color: '#111827',
+        fontSize: 13,
         lineHeight: 1.2,
-        fontWeight: 700
+        fontWeight: 600,
+        cursor: 'pointer',
+        '&:hover': {
+            background: '#F8FAFC'
+        }
     },
     socketServicePortBadge: {
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        minHeight: 24,
-        padding: '3px 8px',
+        justifySelf: 'end',
+        minHeight: 22,
+        padding: '2px 7px',
         borderRadius: 999,
-        border: '1px solid rgba(148, 163, 184, 0.24)',
+        border: '1px solid rgba(148, 163, 184, 0.28)',
         background: 'rgba(248, 250, 252, 0.96)',
-        color: 'var(--netdive-detail-title)',
-        fontWeight: 800,
+        color: '#111827',
+        fontWeight: 700,
         whiteSpace: 'nowrap',
-        fontSize: 10.6,
+        fontSize: 12,
         letterSpacing: '-0.01em'
     },
     socketServiceProcess: {
@@ -488,41 +501,91 @@ export const styles = (theme: Theme) => createStyles({
         overflow: 'hidden',
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap',
-        color: 'var(--netdive-detail-text)',
-        fontWeight: 700
+        color: '#111827',
+        fontWeight: 600
     },
     socketProcessList: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 6
+        display: 'grid',
+        gridTemplateColumns: '1fr'
+    },
+    socketTableHeader: {
+        display: 'grid',
+        alignItems: 'center',
+        minHeight: 34,
+        padding: '0 12px',
+        borderBottom: '1px solid #EEF2F7',
+        color: '#64748B',
+        fontSize: 12,
+        lineHeight: 1.2,
+        fontWeight: 600
+    },
+    socketProcessTableHeader: {
+        gridTemplateColumns: 'minmax(0, 1fr) 56px 126px',
+        gap: 10
+    },
+    socketServiceTableHeader: {
+        gridTemplateColumns: 'minmax(0, 1fr) minmax(92px, auto)',
+        gap: 12
+    },
+    socketTableHeaderRight: {
+        justifySelf: 'end',
+        textAlign: 'right'
     },
     socketProcessRow: {
         display: 'grid',
-        gridTemplateColumns: 'minmax(0, 1fr) 54px 110px',
+        gridTemplateColumns: 'minmax(0, 1fr) 56px 126px',
         alignItems: 'center',
-        gap: 8,
-        color: 'var(--netdive-detail-text)',
-        fontSize: 11.2,
-        fontWeight: 750
+        gap: 10,
+        minHeight: 42,
+        padding: '0 12px',
+        borderBottom: '1px solid #EEF2F7',
+        color: '#111827',
+        fontSize: 13,
+        fontWeight: 600,
+        cursor: 'pointer',
+        '&:last-child': {
+            borderBottom: 0
+        },
+        '&:hover': {
+            background: '#F8FAFC'
+        }
     },
     socketProcessName: {
         minWidth: 0,
         overflow: 'hidden',
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap',
-        color: 'var(--netdive-detail-text)',
-        fontWeight: 760
+        color: '#111827',
+        fontWeight: 600
+    },
+    socketProcessCount: {
+        color: '#111827',
+        fontWeight: 700,
+        justifySelf: 'end'
+    },
+    socketProcessPercentCell: {
+        display: 'grid',
+        gridTemplateColumns: '38px minmax(48px, 1fr)',
+        alignItems: 'center',
+        gap: 8,
+        minWidth: 0
+    },
+    socketProcessPercent: {
+        color: '#64748B',
+        fontSize: 12,
+        fontWeight: 600,
+        textAlign: 'right'
     },
     socketProcessBarTrack: {
-        height: 5,
+        height: 4,
         borderRadius: 999,
         overflow: 'hidden',
-        background: 'rgba(148, 163, 184, 0.15)'
+        background: '#EEF2F7'
     },
     socketProcessBarFill: {
         height: '100%',
         borderRadius: 999,
-        background: 'linear-gradient(90deg, rgba(59, 130, 246, 0.72), rgba(99, 102, 241, 0.62))'
+        background: 'var(--netdive-detail-accent, #1A73E8)'
     },
     pathRow: {
         display: 'flex',

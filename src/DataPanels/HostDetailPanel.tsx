@@ -1786,17 +1786,25 @@ class HostDetailPanel extends React.Component<Props, State> {
                                 type="button"
                                 className={classes.socketMoreButton}
                                 onClick={() => this.setState({ showAllSocketProcesses: !this.state.showAllSocketProcesses })}>
-                                {this.state.showAllSocketProcesses ? translate('hostSocketCollapse') : `+${hiddenProcessCount}${translate('hostSocketMoreItems')}`}
+                                {this.state.showAllSocketProcesses ? translate('hostSocketCollapse') : `${hiddenProcessCount}개 더 보기 >`}
                             </button>
                         )}
+                    </div>
+                    <div className={`${classes.socketTableHeader} ${classes.socketProcessTableHeader}`}>
+                        <span>프로세스</span>
+                        <span className={classes.socketTableHeaderRight}>개수</span>
+                        <span className={classes.socketTableHeaderRight}>비중</span>
                     </div>
                     <div className={classes.socketProcessList}>
                         {visibleProcesses.map(item => (
                             <div className={classes.socketProcessRow} key={item.process}>
                                 <span className={classes.socketProcessName}>{item.process}</span>
-                                <span>{item.count}</span>
-                                <div className={classes.socketProcessBarTrack}>
-                                    <div className={classes.socketProcessBarFill} style={{ width: `${Math.min(100, item.percent)}%` }} />
+                                <span className={classes.socketProcessCount}>{item.count}</span>
+                                <div className={classes.socketProcessPercentCell}>
+                                    <span className={classes.socketProcessPercent}>{Math.round(item.percent)}%</span>
+                                    <div className={classes.socketProcessBarTrack}>
+                                        <div className={classes.socketProcessBarFill} style={{ width: `${Math.min(100, item.percent)}%` }} />
+                                    </div>
                                 </div>
                             </div>
                         ))}
@@ -1814,15 +1822,19 @@ class HostDetailPanel extends React.Component<Props, State> {
                                         ? Math.min(services.length, visibleServiceCount + 10)
                                         : undefined
                                 })}>
-                                {hiddenServiceCount > 0 ? `+${hiddenServiceCount}${translate('hostSocketMoreItems')}` : translate('hostSocketCollapse')}
+                                {hiddenServiceCount > 0 ? `${hiddenServiceCount}개 더 보기 >` : translate('hostSocketCollapse')}
                             </button>
                         )}
+                    </div>
+                    <div className={`${classes.socketTableHeader} ${classes.socketServiceTableHeader}`}>
+                        <span>서비스</span>
+                        <span className={classes.socketTableHeaderRight}>포트 / 프로토콜</span>
                     </div>
                     <div className={classes.socketServiceList}>
                         {visibleServices.map(item => (
                             <div className={classes.socketServiceRow} key={`${item.port}-${item.protocol}-${item.process}`}>
-                                <span className={classes.socketServicePortBadge}>{item.port} / {item.protocol}</span>
                                 <span className={classes.socketServiceProcess}>{item.process}</span>
+                                <span className={classes.socketServicePortBadge}>{item.port} / {item.protocol}</span>
                             </div>
                         ))}
                     </div>
