@@ -16,7 +16,7 @@ interface Props {
     node: Node
     moldInventory?: any
     vmNameMap?: Record<string, string>
-    vmNetworkMap?: Record<string, Array<{ networkName: string, macAddress: string, ipAddress: string }>>
+    vmNetworkMap?: Record<string, Array<VMNetworkMapItem>>
     vmDetailMap?: Record<string, any>
 }
 
@@ -41,12 +41,32 @@ interface FeatureItem {
     enabled: boolean
 }
 
+interface VMNetworkMapItem {
+    networkName: string
+    macAddress: string
+    ipAddress: string
+    networkType?: string
+    trafficType?: string
+    gateway?: string
+    cidr?: string
+    broadcastUri?: string
+    isDefault?: string
+    networkOffering?: string
+}
+
 interface MatchedVMNetwork {
     vmKey: string
     vmName: string
     networkName: string
     macAddress: string
     ipAddress: string
+    networkType?: string
+    trafficType?: string
+    gateway?: string
+    cidr?: string
+    broadcastUri?: string
+    isDefault?: string
+    networkOffering?: string
 }
 
 const isBlank = (value: any): boolean => {
@@ -217,7 +237,14 @@ class VMNetworkDetailPanel extends React.Component<Props, State> {
                         vmName: this.props.vmNameMap?.[vmKey] || vmKey,
                         networkName: network.networkName || '',
                         macAddress: network.macAddress || '',
-                        ipAddress: network.ipAddress || ''
+                        ipAddress: network.ipAddress || '',
+                        networkType: network.networkType || '',
+                        trafficType: network.trafficType || '',
+                        gateway: network.gateway || '',
+                        cidr: network.cidr || '',
+                        broadcastUri: network.broadcastUri || '',
+                        isDefault: network.isDefault || '',
+                        networkOffering: network.networkOffering || ''
                     }
                 }
             }
@@ -314,71 +341,40 @@ class VMNetworkDetailPanel extends React.Component<Props, State> {
         )
     }
 
-    private moldNetworkRows(): KeyValueRow[] {
-        const data = this.data()
+    private networkName(): string {
         const matched = this.matchedVMNetwork()
-        const networkType = this.networkType()
-        const virtualRouter = firstValue(data, ['VirtualRouterName', 'VirtualRouter', 'VirtualRouterId', 'RouterName', 'RouterID', 'RouterId'])
-        return [
-            { label: '연결된 VM 이름', value: matched?.vmName || firstValue(data, ['VMName', 'VmName', 'vmName', 'DisplayName', 'displayName']) },
-            { label: 'VM 인스턴스명', value: firstValue(data, ['InstanceName', 'instanceName', 'LibvirtName', 'Domain', 'domain']) },
-            { label: 'NIC 이름 / 디바이스 ID', value: firstValue(data, ['NicName', 'NICName', 'DeviceID', 'DeviceId', 'Device', 'IfName']) || this.name() },
-            { label: 'Mold 네트워크 이름', value: matched?.networkName || firstValue(data, ['MoldNetworkName', 'NetworkName', 'networkName', 'Network', 'network']) },
-            { label: '네트워크 유형', value: networkType, variant: 'networkType' },
-            { label: '네트워크 Offering', value: firstValue(data, ['NetworkOffering', 'NetworkOfferingName', 'NetworkOfferingDisplayText', 'ServiceOffering']) },
-            { label: 'Traffic Type', value: firstValue(data, ['TrafficType', 'trafficType']) },
-            { label: 'Gateway', value: firstValue(data, ['Gateway', 'gateway']) },
-            { label: 'CIDR', value: firstValue(data, ['CIDR', 'Cidr', 'cidr', 'Netmask', 'Prefix']) },
-            { label: 'VLAN / Broadcast URI', value: firstValue(data, ['Vlan', 'VLAN', 'BroadcastURI', 'BroadcastUri', 'broadcastUri']) },
-            { label: 'IP 주소', value: matched?.ipAddress || this.ipAddress() },
-            { label: 'MAC 주소', value: matched?.macAddress || this.mac() },
-            { label: 'Primary NIC 여부', value: firstValue(data, ['IsDefault', 'isDefault', 'Primary', 'primary', 'DefaultNic', 'defaultNic']) },
-            ...(networkType.toLowerCase() === 'isolated' || virtualRouter ? [{ label: 'Virtual Router', value: virtualRouter }] : []),
-            { label: 'Zone / Pod / Cluster', value: firstValue(data, ['ZoneName', 'Zone', 'PodName', 'Pod', 'ClusterName', 'Cluster']) }
-        ]
+        return matched?.networkName || firstValue(this.data(), ['MoldNetworkName', 'NetworkName', 'networkName', 'Network', 'network'])
     }
 
-    private connectionPath(): string {
-        const data = this.data()
-        const matched = this.matchedVMNetwork()
-        const networkType = this.networkType()
-        const vm = matched?.vmName || firstValue(data, ['VMName', 'VmName', 'InstanceName', 'Domain'])
-        const nic = firstValue(data, ['NicName', 'NICName', 'DeviceID', 'DeviceId']) || 'NIC'
-        const networkName = matched?.networkName || firstValue(data, ['NetworkName', 'networkName']) || `${networkType} Network`
-        const router = firstValue(data, ['VirtualRouterName', 'VirtualRouter', 'VirtualRouterId'])
-        const parts = [vm, nic, this.name(), networkName]
-        if (networkType.toLowerCase() === 'isolated' && router) parts.push(router)
-        return parts.filter(Boolean).join(' → ')
+    private moldNetworkType(): string {
+        return this.matchedVMNetwork()?.networkType || this.networkType()
     }
 
-    private renderMoldNetworkInfo() {
-        const { classes } = this.props
-        const description = this.networkTypeDescription()
-        const path = this.connectionPath()
-        return (
-            <React.Fragment>
-                {path && <div className={classes.detailPathText}>{path}</div>}
-                {this.renderRows(this.moldNetworkRows(), '-', true)}
-                {description && <div className={classes.detailHelperText}>{description}</div>}
-            </React.Fragment>
-        )
+    private primaryNic(): string {
+        return this.matchedVMNetwork()?.isDefault || firstValue(this.data(), ['IsDefault', 'isDefault', 'Primary', 'primary', 'DefaultNic', 'defaultNic'])
+    }
+
+    private bridgeOrBusInfo(): string {
+        const data = this.data()
+        return firstValue(data, ['Bridge', 'BridgeName', 'bridge', 'Master', 'MasterName', 'BusInfo', 'busInfo', 'Bus', 'bus'])
     }
 
     private basicRows(): KeyValueRow[] {
         const data = this.data()
+        const matched = this.matchedVMNetwork()
         return [
             { label: '이름', value: this.name() },
-            { label: '타입', value: this.interfaceType() },
             { label: '상태', value: this.stateText(), variant: 'state' },
-            { label: 'MAC 주소', value: this.mac() },
+            { label: '네트워크 유형', value: this.moldNetworkType(), variant: 'networkType' },
+            { label: '네트워크 이름', value: this.networkName() },
+            { label: 'IP 주소', value: matched?.ipAddress || this.ipAddress() },
+            { label: 'MAC 주소', value: matched?.macAddress || this.mac() },
+            { label: 'Primary NIC 여부', value: this.primaryNic() },
+            { label: 'Gateway', value: matched?.gateway || firstValue(data, ['Gateway', 'gateway']) },
+            { label: '인터페이스 이름', value: firstValue(data, ['IfName', 'InterfaceName', 'Name', 'name']) },
             { label: '드라이버', value: firstValue(data, ['Driver', 'driver']) },
-            { label: '버스 정보', value: firstValue(data, ['BusInfo', 'busInfo', 'Bus', 'bus']) },
-            { label: '캡슐화 타입', value: firstValue(data, ['EncapType', 'EncapsulationType', 'Encap', 'encap']) },
-            { label: '인터페이스 인덱스', value: firstValue(data, ['IfIndex', 'Index', 'InterfaceIndex', 'ifindex']) },
-            { label: 'Peer 인터페이스 MAC 주소', value: firstValue(data, ['PeerMac', 'PeerMAC', 'PeerMacAddress', 'Peer.MAC']) },
-            { label: 'MTU', value: firstValue(data, ['MTU', 'Mtu', 'mtu']) },
-            { label: '속도', value: firstValue(data, ['Speed', 'speed', 'LinkSpeed']) },
-            { label: '인터페이스 이름', value: firstValue(data, ['IfName', 'InterfaceName', 'Name', 'name']) }
+            { label: '브리지 또는 버스 정보', value: this.bridgeOrBusInfo() },
+            { label: 'MTU', value: firstValue(data, ['MTU', 'Mtu', 'mtu']) }
         ]
     }
 
@@ -406,12 +402,10 @@ class VMNetworkDetailPanel extends React.Component<Props, State> {
     }
 
     private renderConnectionInfo() {
-        const libvirtRaw = firstRaw(this.data(), ['Libvirt', 'libvirt', 'Metadata', 'metadata'])
         const flags = this.linkFlags()
         return (
             <React.Fragment>
                 {this.renderRows(this.libvirtRows(), '-', true)}
-                {libvirtRaw && <pre className={this.props.classes.jsonBox}>{JSON.stringify(libvirtRaw, null, 2)}</pre>}
                 {this.renderRows([{ label: '링크 플래그', value: flags.join(', ') }])}
             </React.Fragment>
         )
@@ -504,6 +498,7 @@ class VMNetworkDetailPanel extends React.Component<Props, State> {
             ['포워딩 데이터베이스(FDB)', ['FDB', 'Fdb', 'fdb', 'ForwardingDatabase']],
             ['인접 장비 정보', ['Neighbors', 'neighbours', 'Neighbor', 'LLDP']],
             ['라우팅 테이블', ['RoutingTable', 'Routes', 'routes', 'Route']],
+            ['Libvirt Metadata', ['Libvirt', 'libvirt', 'Metadata', 'metadata']],
             ['기타 raw 데이터', ['Raw', 'raw']]
         ].forEach(([label, keys]) => {
             const value = firstRaw(data, keys as string[])
@@ -522,7 +517,6 @@ class VMNetworkDetailPanel extends React.Component<Props, State> {
         const { classes } = this.props
         return (
             <div className={classes.root}>
-                {this.renderSection('mold', <DeviceHubIcon />, 'Mold 네트워크 정보', 'VM NIC가 Mold의 어떤 네트워크에 연결되어 있는지 표시합니다.', this.renderMoldNetworkInfo())}
                 {this.renderSection('basic', <InfoIcon />, '기본 정보', '인터페이스 식별 정보와 장치 속성입니다.', this.renderRows(this.basicRows(), '-', true))}
                 {this.renderSection('connection', <DeviceHubIcon />, '연결 정보', 'Libvirt 메타데이터와 링크 플래그입니다.', this.renderConnectionInfo())}
                 {this.renderSection('addresses', <SettingsInputComponentIcon />, '주소 정보', 'IPv4 / IPv6 주소를 분리해 표시합니다.', this.renderAddressInfo())}
