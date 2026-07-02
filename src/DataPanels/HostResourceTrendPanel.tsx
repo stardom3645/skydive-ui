@@ -98,7 +98,7 @@ const styles = (theme: Theme) => createStyles({
     },
     title: {
         color: 'var(--netdive-detail-text)',
-        fontSize: 14,
+        fontSize: 12.5,
         lineHeight: 1.2,
         fontWeight: 800
     },
