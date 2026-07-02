@@ -1563,13 +1563,17 @@ class HostDetailPanel extends React.Component<Props, State> {
             const workerCount = items.length - controlPlaneCount
             if (items.length === 1) {
                 const role = roleLabel(items[0].role)
-                if (role === 'worker') return 'Worker Node 1'
-                if (role === 'control-plane') return 'Control Plane Node 1'
-                return `${role} Node 1`
+                if (role === 'worker') return translate('kubernetesNodeSelectorWorkerNodePattern').replace('{count}', '1')
+                if (role === 'control-plane') return translate('kubernetesNodeSelectorControlPlaneNodePattern').replace('{count}', '1')
+                return translate('kubernetesNodeSelectorRoleNodePattern').replace('{role}', role).replace('{count}', '1')
             }
-            if (controlPlaneCount > 0 && workerCount > 0) return `Control Plane ${controlPlaneCount} · Worker ${workerCount}`
-            if (controlPlaneCount > 0) return `Control Plane Node ${controlPlaneCount}`
-            return `Worker Node ${workerCount}`
+            if (controlPlaneCount > 0 && workerCount > 0) {
+                return translate('kubernetesNodeSelectorControlPlaneWorkerPattern')
+                    .replace('{controlPlane}', String(controlPlaneCount))
+                    .replace('{worker}', String(workerCount))
+            }
+            if (controlPlaneCount > 0) return translate('kubernetesNodeSelectorControlPlaneNodePattern').replace('{count}', String(controlPlaneCount))
+            return translate('kubernetesNodeSelectorWorkerNodePattern').replace('{count}', String(workerCount))
         }
 
         const statusDotClass = (status: string) => {
@@ -1601,9 +1605,9 @@ class HostDetailPanel extends React.Component<Props, State> {
                     <div className={`${classes.kubernetesNodePickerHeader} netdive-k8s-explorer-header`}>
                         {this.kubernetesIcon(`${classes.kubernetesNodePickerHeaderIcon} netdive-k8s-explorer-logo`)}
                         <div className={classes.kubernetesNodePickerHeaderBlock}>
-                            <div className={`${classes.kubernetesNodePickerTitle} netdive-k8s-explorer-title`}>Kubernetes 노드 탐색</div>
+                            <div className={`${classes.kubernetesNodePickerTitle} netdive-k8s-explorer-title`}>{translate('kubernetesNodeExplorerTitle')}</div>
                             <div className={`${classes.kubernetesNodePickerDescription} netdive-k8s-explorer-description`}>
-                                이 호스트({hostName})에 배치된 Kubernetes 노드 목록입니다.
+                                {translate('kubernetesNodeExplorerDescriptionPattern').replace('{host}', hostName)}
                             </div>
                         </div>
                         <IconButton
@@ -1627,8 +1631,8 @@ class HostDetailPanel extends React.Component<Props, State> {
                         <button
                             type="button"
                             className={`${classes.kubernetesNodePickerExpandAllButton} netdive-k8s-explorer-action netdive-k8s-explorer-action-secondary`}
-                            title={allExpanded ? '전체 클러스터 접기' : '전체 클러스터 펼치기'}
-                            aria-label={allExpanded ? '전체 클러스터 접기' : '전체 클러스터 펼치기'}
+                            title={allExpanded ? translate('kubernetesNodeSelectorCollapseAllClusters') : translate('kubernetesNodeSelectorExpandAllClusters')}
+                            aria-label={allExpanded ? translate('kubernetesNodeSelectorCollapseAllClusters') : translate('kubernetesNodeSelectorExpandAllClusters')}
                             onClick={() => {
                                 const nextState: Record<string, boolean> = {}
                                 Array.from(grouped.keys()).forEach((clusterId) => {
@@ -1636,7 +1640,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                                 })
                                 this.setState({ kubernetesNodePickerExpanded: nextState })
                             }}>
-                            {allExpanded ? '전체 접기' : translate('kubernetesNodeSelectorExpandAll')}
+                            {allExpanded ? translate('kubernetesNodeSelectorCollapseAll') : translate('kubernetesNodeSelectorExpandAll')}
                         </button>
                         <button
                             type="button"
@@ -1654,14 +1658,14 @@ class HostDetailPanel extends React.Component<Props, State> {
                         <div className={`${classes.kubernetesNodePickerSummaryItem} netdive-k8s-explorer-summary-card`}>
                             {this.kubernetesClusterIcon(`${classes.kubernetesNodePickerSummaryIcon} netdive-k8s-explorer-cluster-logo`)}
                             <span>
-                                <span className={`${classes.kubernetesNodePickerSummaryLabel} netdive-k8s-explorer-summary-label`}>Cluster</span>
+                                <span className={`${classes.kubernetesNodePickerSummaryLabel} netdive-k8s-explorer-summary-label`}>{translate('kubernetesNodeSelectorClusterLabel')}</span>
                                 <strong className="netdive-k8s-explorer-summary-count">{grouped.size}</strong>
                             </span>
                         </div>
                         <div className={`${classes.kubernetesNodePickerSummaryItem} netdive-k8s-explorer-summary-card`}>
                             {this.kubernetesNodeIcon(`${classes.kubernetesNodePickerSummaryIcon} netdive-k8s-explorer-node-icon`)}
                             <span>
-                                <span className={`${classes.kubernetesNodePickerSummaryLabel} netdive-k8s-explorer-summary-label`}>Node</span>
+                                <span className={`${classes.kubernetesNodePickerSummaryLabel} netdive-k8s-explorer-summary-label`}>{translate('kubernetesNodeSelectorNodeLabel')}</span>
                                 <strong className="netdive-k8s-explorer-summary-count">{options.length}</strong>
                             </span>
                         </div>
@@ -1727,7 +1731,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                                                             <span className="netdive-k8s-explorer-node-version">Kubernetes {item.version}</span>
                                                         </span>
                                                     </div>
-                                                    <span className="netdive-k8s-explorer-topology-hint">토폴로지에서 강조</span>
+                                                    <span className="netdive-k8s-explorer-topology-hint">{translate('kubernetesNodeSelectorTopologyHighlight')}</span>
                                                     <span className="netdive-k8s-explorer-node-chevron"><KeyboardArrowRightIcon /></span>
                                                 </div>
                                             ))}
@@ -1792,14 +1796,14 @@ class HostDetailPanel extends React.Component<Props, State> {
                                 type="button"
                                 className={classes.socketMoreButton}
                                 onClick={() => this.setState({ showAllSocketProcesses: !this.state.showAllSocketProcesses })}>
-                                {this.state.showAllSocketProcesses ? translate('hostSocketCollapse') : '전체 보기 >'}
+                                {this.state.showAllSocketProcesses ? translate('hostSocketCollapse') : translate('hostSocketViewAll')}
                             </button>
                         )}
                     </div>
                     <div className={`${classes.socketTableHeader} ${classes.socketProcessTableHeader}`}>
-                        <span>프로세스</span>
-                        <span className={classes.socketTableHeaderRight}>개수</span>
-                        <span className={classes.socketTableHeaderRight}>비중</span>
+                        <span>{translate('hostSocketProcessColumn')}</span>
+                        <span className={classes.socketTableHeaderRight}>{translate('hostSocketCountColumn')}</span>
+                        <span className={classes.socketTableHeaderRight}>{translate('hostSocketRatioColumn')}</span>
                     </div>
                     <div className={classes.socketProcessList}>
                         {visibleProcesses.map(item => (
@@ -1826,13 +1830,13 @@ class HostDetailPanel extends React.Component<Props, State> {
                                 onClick={() => this.setState({
                                     listeningServicesVisibleCount: hiddenServiceCount > 0 ? services.length : undefined
                                 })}>
-                                {hiddenServiceCount > 0 ? '전체 보기 >' : translate('hostSocketCollapse')}
+                                {hiddenServiceCount > 0 ? translate('hostSocketViewAll') : translate('hostSocketCollapse')}
                             </button>
                         )}
                     </div>
                     <div className={`${classes.socketTableHeader} ${classes.socketServiceTableHeader}`}>
-                        <span>서비스</span>
-                        <span className={classes.socketTableHeaderRight}>포트 / 프로토콜</span>
+                        <span>{translate('hostSocketServiceColumn')}</span>
+                        <span className={classes.socketTableHeaderRight}>{translate('hostSocketPortProtocolColumn')}</span>
                     </div>
                     <div className={classes.socketServiceList}>
                         {visibleServices.map(item => (
@@ -2104,7 +2108,7 @@ class HostDetailPanel extends React.Component<Props, State> {
             { label: translate('hostMoldHostId'), value: firstValue(data, ['MoldHostId', 'CloudStackHostId', 'HostId', 'HostID', 'UUID', 'uuid']), copy: true },
             { label: translate('hostManagementIp'), value: managementServer || representativeIp, copy: true },
             { label: translate('hostLocation'), value: locationText },
-            { label: '하이퍼바이저', value: virtualizationText },
+            { label: translate('hostHypervisor'), value: virtualizationText },
             { label: translate('Platform'), value: platformText },
             { label: translate('KernelVersion'), value: kernelVersion, copy: true }
         ]
@@ -2172,7 +2176,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                         )}
                     </div>
                 ))}
-                {this.renderSection(<ShareNodesIcon />, translate('hostSocketsProcesses'), '수신 대기 서비스와 주요 소켓 프로세스를 요약합니다.', this.renderSocketProcessSummary())}
+                {this.renderSection(<ShareNodesIcon />, translate('hostSocketsProcesses'), translate('hostSocketsProcessesDescription'), this.renderSocketProcessSummary())}
                 {hasNetworkSummary && this.renderSection(<RouterIcon />, translate('hostNetworkSummary'), translate('hostNetworkSummaryDescription'), this.renderMetricGrid(networkMetrics, translate('hostNetworkDetailsMissing')))}
                 {hasRecentSignals && this.renderSection(<InfoIcon />, translate('hostRecentSignals'), translate('hostRecentSignalsDescription'), this.renderRows(eventRows, translate('hostNoRecentSignals')))}
 

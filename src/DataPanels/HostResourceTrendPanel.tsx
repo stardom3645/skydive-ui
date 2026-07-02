@@ -5,6 +5,7 @@ import InfoIcon from '@material-ui/icons/Info'
 import TimelineIcon from '@material-ui/icons/Timeline'
 import { createStyles, Theme, withStyles } from '@material-ui/core/styles'
 
+import { translate } from '../Config'
 import { Node } from '../Topology'
 import { session } from '../Store'
 
@@ -56,10 +57,10 @@ interface TrendDisplayItem {
 }
 
 const trendRanges = [
-    { label: '1시간', value: '1h' },
-    { label: '3시간', value: '3h' },
-    { label: '6시간', value: '6h' },
-    { label: '12시간', value: '12h' }
+    { labelKey: 'resourceTrendRange1h', value: '1h' },
+    { labelKey: 'resourceTrendRange3h', value: '3h' },
+    { labelKey: 'resourceTrendRange6h', value: '6h' },
+    { labelKey: 'resourceTrendRange12h', value: '12h' }
 ]
 
 const styles = (theme: Theme) => createStyles({
@@ -98,7 +99,7 @@ const styles = (theme: Theme) => createStyles({
     },
     title: {
         color: 'var(--netdive-detail-text)',
-        fontSize: 12.5,
+        fontSize: 14,
         lineHeight: 1.2,
         fontWeight: 800
     },
@@ -171,7 +172,7 @@ const styles = (theme: Theme) => createStyles({
     trendLabel: {
         minWidth: 0,
         color: 'var(--netdive-detail-title, #0f172a)',
-        fontSize: 14,
+        fontSize: 12.5,
         lineHeight: 1.2,
         fontWeight: 700,
         whiteSpace: 'nowrap'
@@ -450,7 +451,11 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
 
     private rangeLabel(): string {
         const item = trendRanges.find(range => range.value === this.state.trendRange)
-        return item ? item.label : this.state.trendRange
+        return item ? translate(item.labelKey) : this.state.trendRange
+    }
+
+    private trendTitle(): string {
+        return translate('resourceTrendTitlePattern').replace('{range}', this.rangeLabel())
     }
 
     private handleRangeChange(event: React.ChangeEvent<HTMLSelectElement>) {
@@ -568,7 +573,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         }
 
         if (unit === 'count') {
-            return `${Math.round(value)} 회`
+            return `${Math.round(value)} ${translate('resourceTrendCountUnit')}`
         }
 
         return String(Math.round(value))
@@ -639,7 +644,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         if (this.hasValues(cpu)) {
             items.push({
                 key: 'cpu',
-                label: 'CPU 사용 현황',
+                label: translate('resourceTrendCpuUsage'),
                 unit: 'percent',
                 value: this.formatValue(cpu?.lastValue, 'percent'),
                 series: [cpu as TrendSeries]
@@ -649,7 +654,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         if (this.hasValues(memory)) {
             items.push({
                 key: 'memory',
-                label: '메모리 사용 현황',
+                label: translate('resourceTrendMemoryUsage'),
                 unit: 'percent',
                 value: this.formatValue(memory?.lastValue, 'percent'),
                 series: [memory as TrendSeries]
@@ -659,7 +664,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         if (this.hasValues(storageIops)) {
             items.push({
                 key: 'storageIops',
-                label: '스토리지 IOPS',
+                label: translate('resourceTrendStorageIops'),
                 unit: 'iops',
                 value: this.formatValue(storageIops?.lastValue, 'iops'),
                 series: [storageIops as TrendSeries]
@@ -669,7 +674,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         if (this.hasValues(networkRx) || this.hasValues(networkTx)) {
             items.push({
                 key: 'networkTraffic',
-                label: '네트워크 트래픽',
+                label: translate('resourceTrendNetworkTraffic'),
                 unit: 'bps',
                 value: '',
                 series: [networkRx, networkTx].filter(Boolean) as TrendSeries[]
@@ -679,7 +684,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         if (this.hasValues(networkDrops)) {
             items.push({
                 key: 'networkDrops',
-                label: '네트워크 드롭 / 오류',
+                label: translate('resourceTrendNetworkDropsErrors'),
                 unit: 'count',
                 value: this.formatValue(networkDrops?.lastValue, 'count'),
                 series: [networkDrops as TrendSeries]
@@ -758,7 +763,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
                 arrow
                 classes={{ tooltip: classes.metricTooltip, arrow: classes.metricTooltipArrow }}
             >
-                <button className={classes.trendInfoButton} type="button" aria-label={`${item.label} 상세 통계`}>
+                <button className={classes.trendInfoButton} type="button" aria-label={`${item.label} ${translate('resourceTrendDetailsAria')}`}>
                     <InfoIcon className={classes.trendInfoIcon} />
                 </button>
             </Tooltip>
@@ -805,8 +810,8 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         const primary = item.series[0]
         return (
             <div className={classes.tooltipContent}>
-                {this.renderTooltipRow('평균', this.formatValue(this.averageValue(primary), item.unit))}
-                {this.renderTooltipRow('최대', this.formatValue(this.maxValue(primary), item.unit))}
+                {this.renderTooltipRow(translate('resourceTrendAverage'), this.formatValue(this.averageValue(primary), item.unit))}
+                {this.renderTooltipRow(translate('resourceTrendMax'), this.formatValue(this.maxValue(primary), item.unit))}
             </div>
         )
     }
@@ -816,8 +821,8 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         return (
             <div className={classes.tooltipSection}>
                 <div className={`${classes.tooltipSectionTitle} ${colorClassName}`}>{label}</div>
-                {this.renderTooltipRow('평균', this.formatValue(this.averageValue(series), 'bps'))}
-                {this.renderTooltipRow('최대', this.formatValue(this.maxValue(series), 'bps'))}
+                {this.renderTooltipRow(translate('resourceTrendAverage'), this.formatValue(this.averageValue(series), 'bps'))}
+                {this.renderTooltipRow(translate('resourceTrendMax'), this.formatValue(this.maxValue(series), 'bps'))}
             </div>
         )
     }
@@ -847,7 +852,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
             return `${Math.round(value)} IOPS`
         }
         if (unit === 'count') {
-            return `${Math.round(value)} 회`
+            return `${Math.round(value)} ${translate('resourceTrendCountUnit')}`
         }
         return `${Math.round(value)}`
     }
@@ -910,7 +915,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         const axisLabels = this.timeAxisLabels(trend?.start, trend?.end)
 
         if (!linePaths.some(Boolean)) {
-            return <div className={classes.empty}>수집된 추이 데이터가 없습니다.</div>
+            return <div className={classes.empty}>{translate('resourceTrendSeriesEmpty')}</div>
         }
 
         return (
@@ -944,17 +949,17 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
                 <div className={classes.header}>
                     <span className={classes.icon}><TimelineIcon /></span>
                     <div className={classes.titleBlock}>
-                        <div className={classes.title}>리소스 {this.rangeLabel()} 추이</div>
+                        <div className={classes.title}>{this.trendTitle()}</div>
                     </div>
                     <div className={classes.headerActions}>
                         <select
                             className={classes.rangeSelect}
                             value={this.state.trendRange}
                             onChange={event => this.handleRangeChange(event)}
-                            aria-label="리소스 추이 시간 범위"
+                            aria-label={translate('resourceTrendRangeAria')}
                         >
                             {trendRanges.map(range => (
-                                <option value={range.value} key={range.value}>{range.label}</option>
+                                <option value={range.value} key={range.value}>{translate(range.labelKey)}</option>
                             ))}
                         </select>
                     </div>
@@ -964,20 +969,20 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
                     {loading && !hasTrend && (
                         <div className={classes.loading}>
                             <CircularProgress size={16} />
-                            <span>추이 데이터를 조회하는 중입니다.</span>
+                            <span>{translate('resourceTrendLoading')}</span>
                         </div>
                     )}
 
                     {loading && hasTrend && (
-                        <div className={classes.refreshing}>추이 데이터를 갱신하는 중입니다.</div>
+                        <div className={classes.refreshing}>{translate('resourceTrendRefreshing')}</div>
                     )}
 
                     {!loading && error && !hasTrend && (
-                        <div className={classes.empty}>Wall Prometheus 추이 데이터를 조회하지 못했습니다.</div>
+                        <div className={classes.empty}>{translate('resourceTrendUnavailable')}</div>
                     )}
 
                     {!loading && !error && !hasTrend && (
-                        <div className={classes.empty}>표시할 리소스 추이 데이터가 없습니다.</div>
+                        <div className={classes.empty}>{translate('resourceTrendEmpty')}</div>
                     )}
 
                     {hasTrend && (

@@ -1657,45 +1657,45 @@ class App extends React.Component<Props, State> {
     const meta: { [key: string]: { key: string, name: string, summary: string, description: string, badge?: string } } = {
       layer2: {
         key: "L2",
-        name: "물리 네트워크 계층",
+        name: translate("connectionDisplayLayer2Name"),
         summary: "Layer 2",
-        description: "스위치, 물리 네트워크 장비 간 실제 연결 링크를 표시합니다.",
-        badge: "물리"
+        description: translate("connectionDisplayLayer2Description"),
+        badge: translate("connectionDisplayPhysicalBadge")
       },
       vlayer2: {
         key: "vL2",
-        name: "가상 네트워크 계층",
+        name: translate("connectionDisplayVLayer2Name"),
         summary: "Virtual Layer 2",
-        description: "VM, 가상 스위치, 가상 네트워크 간 연결 링크를 표시합니다.",
-        badge: "가상"
+        description: translate("connectionDisplayVLayer2Description"),
+        badge: translate("connectionDisplayVirtualBadge")
       },
       service: {
         key: "Service",
-        name: "서비스",
-        summary: "관련 리소스 연결",
-        description: "Kubernetes Service와 관련 리소스 간 연결을 표시합니다.",
+        name: translate("connectionDisplayServiceName"),
+        summary: translate("connectionDisplayRelatedResourceSummary"),
+        description: translate("connectionDisplayServiceDescription"),
         badge: "K8s"
       },
       node: {
         key: "Node",
-        name: "노드",
-        summary: "관련 리소스 연결",
-        description: "Kubernetes Node와 관련 리소스 간 연결을 표시합니다.",
+        name: translate("connectionDisplayNodeName"),
+        summary: translate("connectionDisplayRelatedResourceSummary"),
+        description: translate("connectionDisplayNodeDescription"),
         badge: "K8s"
       },
       daemonset: {
         key: "DaemonSet",
-        name: "데몬셋",
-        summary: "파드/노드 연결",
-        description: "Kubernetes DaemonSet과 Pod/Node 간 연결을 표시합니다.",
+        name: translate("connectionDisplayDaemonSetName"),
+        summary: translate("connectionDisplayPodNodeSummary"),
+        description: translate("connectionDisplayDaemonSetDescription"),
         badge: "K8s"
       }
     }
     return meta[normalized] || {
       key: tag,
-      name: `${translate(tag)} 연결`,
-      summary: "추가 링크 계층",
-      description: "수집된 Graph 데이터에서 제공된 추가 링크 계층입니다."
+      name: translate("connectionDisplayGenericLayerNamePattern").replace("{name}", translate(tag)),
+      summary: translate("connectionDisplayAdditionalLayerSummary"),
+      description: translate("connectionDisplayAdditionalLayerDescription")
     }
   }
 
@@ -1737,22 +1737,22 @@ class App extends React.Component<Props, State> {
       case LinkTagState.Visible:
         return {
           icon: "V",
-          label: "모든 노드 링크 표시",
-          description: "모든 노드의 링크와 트래픽이 표시됩니다.",
+          label: translate("connectionDisplayVisibleLabel"),
+          description: translate("connectionDisplayVisibleDescription"),
           className: "visible"
         }
       case LinkTagState.EventBased:
         return {
           icon: "-",
-          label: "선택 노드와 관련된 링크만 표시",
-          description: "선택한 노드와 직접 연결되거나 관련된 링크와 트래픽/라인만 표시됩니다.",
+          label: translate("connectionDisplayRelatedLabel"),
+          description: translate("connectionDisplayRelatedDescription"),
           className: "event"
         }
       default:
         return {
           icon: "",
-          label: "계층 숨김",
-          description: "해당 링크 계층의 링크와 트래픽 표시를 숨깁니다.",
+          label: translate("connectionDisplayHiddenLabel"),
+          description: translate("connectionDisplayHiddenDescription"),
           className: "hidden"
         }
     }
@@ -1782,20 +1782,20 @@ class App extends React.Component<Props, State> {
       {
         mode: "event" as const,
         state: LinkTagState.EventBased,
-        title: "선택 노드와 관련된 링크만 표시",
-        points: ["관련 없는 링크를 줄여 가독성 향상", "대규모 환경에서 성능 부담 감소"]
+        title: translate("connectionDisplayUsageRelatedTitle"),
+        points: [translate("connectionDisplayUsageRelatedPoint1"), translate("connectionDisplayUsageRelatedPoint2")]
       },
       {
         mode: "visible" as const,
         state: LinkTagState.Visible,
-        title: "모든 노드 링크 표시",
-        points: ["전체 네트워크 흐름 파악에 유용", "네트워크 병목, 이상 현상 탐지에 도움"]
+        title: translate("connectionDisplayUsageVisibleTitle"),
+        points: [translate("connectionDisplayUsageVisiblePoint1"), translate("connectionDisplayUsageVisiblePoint2")]
       },
       {
         mode: "hidden" as const,
         state: LinkTagState.Hidden,
-        title: "계층 숨김",
-        points: ["현재 분석에 필요 없는 계층을 숨김", "토폴로지의 불필요한 링크 표시를 줄임"]
+        title: translate("connectionDisplayUsageHiddenTitle"),
+        points: [translate("connectionDisplayUsageHiddenPoint1"), translate("connectionDisplayUsageHiddenPoint2")]
       }
     ]
 
@@ -1805,7 +1805,7 @@ class App extends React.Component<Props, State> {
           type="button"
           className={classes.linkTagsUsageToggle}
           onClick={() => this.setState({ isLinkTagExamplesOpen: !this.state.isLinkTagExamplesOpen })}>
-          <span>사용 예시 보기</span>
+          <span>{translate("connectionDisplayUsageToggle")}</span>
           {this.state.isLinkTagExamplesOpen ? <UnfoldLessIcon fontSize="small" /> : <UnfoldMoreIcon fontSize="small" />}
         </button>
         {this.state.isLinkTagExamplesOpen &&
@@ -1840,30 +1840,30 @@ class App extends React.Component<Props, State> {
   private compactLinkRangeLabel(tag: string) {
     const state = this.state.linkTagStates.get(tag)
     if (state === LinkTagState.Visible) {
-      return "전체 링크"
+      return translate("connectionDisplayVisibleShort")
     }
     if (state === LinkTagState.EventBased) {
-      return "관련 링크"
+      return translate("connectionDisplayRelatedShort")
     }
-    return "숨김"
+    return translate("connectionDisplayHiddenShort")
   }
 
   private compactLinkLayerLabel(tag: string) {
     const meta = this.linkTagMeta(tag)
     const normalized = tag.toLowerCase()
     if (normalized === "layer2") {
-      return "L2 물리"
+      return "L2"
     }
     if (normalized === "vlayer2") {
-      return "vL2 가상"
+      return "vL2"
     }
     return meta.key
   }
 
   private compactLinkLayerDescription() {
     return this.isKubernetesLayerActive()
-      ? "Kubernetes 리소스 간 연결 표시 방식을 선택합니다."
-      : "표시할 연결 계층과 트래픽 범위를 선택합니다."
+      ? translate("connectionDisplayKubernetesDescription")
+      : translate("connectionDisplayInfrastructureDescription")
   }
 
   private connectionDisplaySummary(tags: string[]) {
@@ -1896,18 +1896,18 @@ class App extends React.Component<Props, State> {
     const rangeOptions = [
       {
         state: LinkTagState.EventBased,
-        label: "관련 링크",
-        tooltip: "선택한 노드와 직접 연결되거나 관련된 링크와 트래픽/라인만 표시합니다."
+        label: translate("connectionDisplayRelatedShort"),
+        tooltip: translate("connectionDisplayRelatedTooltip")
       },
       {
         state: LinkTagState.Visible,
-        label: "전체 링크",
-        tooltip: "모든 노드의 링크와 트래픽이 표시됩니다."
+        label: translate("connectionDisplayVisibleShort"),
+        tooltip: translate("connectionDisplayVisibleDescription")
       },
       {
         state: LinkTagState.Hidden,
-        label: "숨김",
-        tooltip: "해당 링크 계층의 링크와 트래픽 표시를 숨깁니다."
+        label: translate("connectionDisplayHiddenShort"),
+        tooltip: translate("connectionDisplayHiddenDescription")
       }
     ]
 
@@ -1937,7 +1937,7 @@ class App extends React.Component<Props, State> {
         </div>
         <div className={classes.linkTagsCompactDivider} />
         <div className={classes.linkTagsCompactRow}>
-          <span className={classes.linkTagsCompactRowLabel}>표시 범위</span>
+          <span className={classes.linkTagsCompactRowLabel}>{translate("connectionDisplayRangeTitle")}</span>
           <div className={classes.linkTagsCompactSegment}>
             {rangeOptions.map((option) => (
               <Tooltip key={option.label} title={option.tooltip}>
@@ -3023,7 +3023,7 @@ class App extends React.Component<Props, State> {
                   <Typography component="h6" className={classes.linkTagsTitle}>
                     {translate("connectionDisplay")}
                   </Typography>
-                  <Tooltip title="표시할 네트워크 연결 범위와 트래픽 표시 방식을 선택합니다.">
+                  <Tooltip title={translate("connectionDisplayInfoTooltip")}>
                     <InfoIcon className={classes.linkTagsInfoIcon} />
                   </Tooltip>
                 </div>
@@ -3047,7 +3047,7 @@ class App extends React.Component<Props, State> {
                     key={key}
                     className={clsx(classes.linkLayerCard, stateClass)}
                     onClick={() => this.cycleLinkTagState(key)}
-                    title={`${meta.description} 현재 상태: ${stateInfo.label}`}>
+                    title={`${meta.description} ${translate("connectionDisplayCurrentState")}: ${stateInfo.label}`}>
                     <div className={classes.linkLayerCardMain}>
                       <span className={classes.linkLayerCardTop}>
                         <span className={classes.linkLayerCardKey}>{meta.key}</span>
@@ -3063,12 +3063,12 @@ class App extends React.Component<Props, State> {
                 )
               })}
               {this.additionalLinkTagCount(visibleTags) > 0 &&
-                <span className={classes.linkLayerMoreHint}>추가 {this.additionalLinkTagCount(visibleTags)}개는 가로로 스크롤해 확인</span>
+                <span className={classes.linkLayerMoreHint}>{translate("connectionDisplayAdditionalHintPattern").replace("{count}", String(this.additionalLinkTagCount(visibleTags)))}</span>
               }
             </div>
             <div className={classes.linkTagsStateHelp}>
               <Typography component="strong" className={classes.linkTagsStateHelpTitle}>
-                표시 범위
+                {translate("connectionDisplayRangeTitle")}
               </Typography>
               <div className={classes.linkTagsStateHelpItems}>
                 {[LinkTagState.EventBased, LinkTagState.Visible, LinkTagState.Hidden].map((state) => {
@@ -3091,7 +3091,7 @@ class App extends React.Component<Props, State> {
             {this.isKubernetesLayerActive() &&
               <div className={classes.connectionDisplayNotice}>
                 <InfoIcon fontSize="small" />
-                <span>수집되는 자원에 따라 Service, Node, DaemonSet 외 추가 링크 계층이 표시될 수 있습니다.</span>
+                <span>{translate("connectionDisplayKubernetesNotice")}</span>
               </div>
             }
           </div>
