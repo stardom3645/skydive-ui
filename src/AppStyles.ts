@@ -2613,10 +2613,11 @@ export const styles = (theme: Theme) => createStyles({
     }
   },
   toolbarActionDivider: {
-    width: 1,
-    height: 26,
+    width: 13,
+    height: 44,
     margin: '0 2px',
-    backgroundColor: 'var(--netdive-action-btn-border)',
+    borderLeft: '0 !important',
+    background: 'linear-gradient(90deg, transparent 0 6px, #cbd5e1 6px 7px, transparent 7px 100%)',
     opacity: 0.95,
     flex: '0 0 auto'
   },
@@ -2805,10 +2806,10 @@ export const styles = (theme: Theme) => createStyles({
       borderLeft: '1px solid var(--netdive-action-btn-border)'
     },
     '& > $toolbarActionDivider': {
-      borderLeft: 0
+      borderLeft: '0 !important'
     },
     '& > $toolbarActionDivider + *': {
-      borderLeft: 0
+      borderLeft: '0 !important'
     },
     [theme.breakpoints.down('sm')]: {
       marginLeft: theme.spacing(0.5),

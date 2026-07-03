@@ -2530,6 +2530,7 @@ class App extends React.Component<Props, State> {
             </IconButton>
           </span>
         </Tooltip>
+        <span className={classes.toolbarActionDivider} />
         <Tooltip title={translate("topologyZoomReset")}>
           <IconButton
             color="inherit"
@@ -2548,6 +2549,7 @@ class App extends React.Component<Props, State> {
             <span>{translate("topologyZoomFitShort")}</span>
           </IconButton>
         </Tooltip>
+        <span className={classes.toolbarActionDivider} />
       </React.Fragment>
     )
   }
