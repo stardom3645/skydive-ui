@@ -2599,6 +2599,10 @@ export const styles = (theme: Theme) => createStyles({
   topologyZoomPercent: {
     width: 48,
     height: 44,
+    border: 0,
+    borderLeft: '1px solid var(--netdive-action-btn-border)',
+    borderRight: '1px solid var(--netdive-action-btn-border)',
+    padding: 0,
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2607,19 +2611,31 @@ export const styles = (theme: Theme) => createStyles({
     fontSize: 12,
     fontWeight: 800,
     lineHeight: 1,
+    cursor: 'pointer',
     userSelect: 'none',
+    transition: 'background-color 0.15s ease-out, color 0.15s ease-out',
+    '&:hover': {
+      color: 'var(--netdive-action-btn-text)',
+      backgroundColor: 'var(--netdive-action-btn-hover)'
+    },
+    '&:focus-visible': {
+      outline: '2px solid var(--netdive-action-btn-border-hover)',
+      outlineOffset: -2
+    },
     [theme.breakpoints.down('sm')]: {
       display: 'none'
     }
   },
-  toolbarActionDivider: {
-    width: 13,
-    height: 44,
-    margin: '0 2px',
-    borderLeft: '0 !important',
-    background: 'linear-gradient(90deg, transparent 0 6px, #cbd5e1 6px 7px, transparent 7px 100%)',
-    opacity: 0.95,
-    flex: '0 0 auto'
+  topologyStandaloneButton: {
+    width: 48,
+    height: 48,
+    border: '1px solid #d7e2f0',
+    borderRadius: 10,
+    backgroundColor: '#ffffff',
+    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.03)',
+    '&:hover': {
+      borderColor: '#bfdbfe'
+    }
   },
   layerFilterButton: {
     height: 48,
@@ -2791,11 +2807,21 @@ export const styles = (theme: Theme) => createStyles({
       display: 'none'
     }
   },
+  toolbarActionCluster: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: theme.spacing(1.05),
+    marginLeft: theme.spacing(1),
+    height: 48,
+    [theme.breakpoints.down('sm')]: {
+      gap: theme.spacing(0.55),
+      marginLeft: theme.spacing(0.5)
+    }
+  },
   toolbarActionGroup: {
     display: 'inline-flex',
     alignItems: 'center',
     gap: 0,
-    marginLeft: theme.spacing(1),
     height: 48,
     overflow: 'hidden',
     border: '1px solid #d7e2f0',
@@ -2805,18 +2831,22 @@ export const styles = (theme: Theme) => createStyles({
     '& > *:not(:first-child)': {
       borderLeft: '1px solid var(--netdive-action-btn-border)'
     },
-    '& > $toolbarActionDivider': {
-      borderLeft: '0 !important'
-    },
-    '& > $toolbarActionDivider + *': {
-      borderLeft: '0 !important'
-    },
     [theme.breakpoints.down('sm')]: {
-      marginLeft: theme.spacing(0.5),
       '& $topologyTextIconButton': {
         width: 40
       }
     }
+  },
+  toolbarZoomGroup: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 0,
+    height: 48,
+    overflow: 'hidden',
+    border: '1px solid #d7e2f0',
+    borderRadius: 10,
+    backgroundColor: '#ffffff',
+    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.03)'
   },
   title: {
     paddingTop: 15,

@@ -2503,8 +2503,7 @@ class App extends React.Component<Props, State> {
     const canZoomOut = zoom > 0.105
     const canZoomIn = zoom < 1.495
     return (
-      <React.Fragment>
-        <span className={classes.toolbarActionDivider} />
+      <div className={classes.toolbarZoomGroup}>
         <Tooltip title={translate("topologyZoomOut")}>
           <span>
             <IconButton
@@ -2517,7 +2516,15 @@ class App extends React.Component<Props, State> {
             </IconButton>
           </span>
         </Tooltip>
-        <span className={classes.topologyZoomPercent}>{zoomPercent}</span>
+        <Tooltip title={translate("topologyZoomReset")}>
+          <button
+            type="button"
+            className={classes.topologyZoomPercent}
+            onClick={this.resetTopologyZoom.bind(this)}
+          >
+            {zoomPercent}
+          </button>
+        </Tooltip>
         <Tooltip title={translate("topologyZoomIn")}>
           <span>
             <IconButton
@@ -2530,27 +2537,7 @@ class App extends React.Component<Props, State> {
             </IconButton>
           </span>
         </Tooltip>
-        <span className={classes.toolbarActionDivider} />
-        <Tooltip title={translate("topologyZoomReset")}>
-          <IconButton
-            color="inherit"
-            onClick={this.resetTopologyZoom.bind(this)}
-            className={clsx(classes.topologyIconButton, classes.topologyTextIconButton)}
-          >
-            <span>100%</span>
-          </IconButton>
-        </Tooltip>
-        <Tooltip title={translate("topologyZoomFit")}>
-          <IconButton
-            color="inherit"
-            onClick={this.fitTopology.bind(this)}
-            className={clsx(classes.topologyIconButton, classes.topologyTextIconButton)}
-          >
-            <span>{translate("topologyZoomFitShort")}</span>
-          </IconButton>
-        </Tooltip>
-        <span className={classes.toolbarActionDivider} />
-      </React.Fragment>
+      </div>
     )
   }
 
@@ -4370,31 +4357,42 @@ class App extends React.Component<Props, State> {
             {this.renderLayerFilterMenu(classes)}
             {this.renderConnectionDisplayMenu(classes)}
             <span className={classes.toolbarSectionDivider} />
-            <div className={classes.toolbarActionGroup}>
-              <Tooltip title={translate("expandAllNodes")}>
-                <IconButton
-                  color="inherit"
-                  onClick={this.expandAllNodes.bind(this)}
-                  className={classes.topologyIconButton}
-                >
-                  <UnfoldMoreIcon />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title={translate("collapseAllNodes")}>
-                <IconButton
-                  color="inherit"
-                  onClick={this.collapseAllNodes.bind(this)}
-                  className={classes.topologyIconButton}
-                >
-                  <UnfoldLessIcon />
-                </IconButton>
-              </Tooltip>
+            <div className={classes.toolbarActionCluster}>
+              <div className={classes.toolbarActionGroup}>
+                <Tooltip title={translate("expandAllNodes")}>
+                  <IconButton
+                    color="inherit"
+                    onClick={this.expandAllNodes.bind(this)}
+                    className={classes.topologyIconButton}
+                  >
+                    <UnfoldMoreIcon />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title={translate("collapseAllNodes")}>
+                  <IconButton
+                    color="inherit"
+                    onClick={this.collapseAllNodes.bind(this)}
+                    className={classes.topologyIconButton}
+                  >
+                    <UnfoldLessIcon />
+                  </IconButton>
+                </Tooltip>
+              </div>
               {this.renderTopologyZoomControls(classes)}
+              <Tooltip title={translate("topologyZoomFit")}>
+                <IconButton
+                  color="inherit"
+                  onClick={this.fitTopology.bind(this)}
+                  className={clsx(classes.topologyIconButton, classes.topologyTextIconButton, classes.topologyStandaloneButton)}
+                >
+                  <span>{translate("topologyZoomFitShort")}</span>
+                </IconButton>
+              </Tooltip>
               <Tooltip title={translate("refresh")}>
                 <IconButton
                   color="inherit"
                   onClick={this.sync.bind(this)}
-                  className={classes.topologyIconButton}>
+                  className={clsx(classes.topologyIconButton, classes.topologyStandaloneButton)}>
                   <RefreshIcon />
                 </IconButton>
               </Tooltip>
