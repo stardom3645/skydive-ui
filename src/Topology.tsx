@@ -233,6 +233,7 @@ interface Props {
     defaultLinkTagMode?: (tag: string) => LinkTagState
     vmNameMap?: Record<string, string>
     vmNetworkMap?: Record<string, Array<{ networkName: string, macAddress: string, ipAddress: string }>>
+    onZoomChange?: (zoom: number) => void
 }
 
 /**
@@ -439,6 +440,9 @@ export class Topology extends React.Component<Props, {}> {
 
                 this.absTransformX = event.transform.x * 1 / event.transform.k
                 this.absTransformY = event.transform.y * 1 / event.transform.k
+                if (this.props.onZoomChange) {
+                    this.props.onZoomChange(event.transform.k)
+                }
             })
             .on("end", () => {
                 if (this.showLevelLabelsTimeoutID) {
@@ -1507,6 +1511,39 @@ export class Topology extends React.Component<Props, {}> {
             .transition()
             .duration(animDuration)
             .call(this.zoom.transform, t)
+    }
+
+    currentZoom(): number {
+        if (!this.svg) {
+            return 1
+        }
+        const transform = (this.svg.node() as any).__zoom
+        return transform?.k || 1
+    }
+
+    setZoomLevel(scale: number) {
+        if (!this.svg || !this.g) {
+            return
+        }
+        const current = (this.svg.node() as any).__zoom || zoomIdentity
+        const viewSize = this.viewSize()
+        const nextScale = Math.max(0.1, Math.min(1.5, scale))
+        const centerX = viewSize.width / 2
+        const centerY = viewSize.height / 2
+        const sourceScale = current.k || 1
+        const sourceX = (centerX - current.x) / sourceScale
+        const sourceY = (centerY - current.y) / sourceScale
+        const nextTransform = zoomIdentity
+            .translate(centerX - sourceX * nextScale, centerY - sourceY * nextScale)
+            .scale(nextScale)
+        this.svg
+            .transition()
+            .duration(animDuration)
+            .call(this.zoom.transform, nextTransform)
+    }
+
+    resetZoom() {
+        this.setZoomLevel(1)
     }
 
     private showNodeContextMenu(d: D3Node) {

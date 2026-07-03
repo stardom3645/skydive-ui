@@ -2562,6 +2562,10 @@ export const styles = (theme: Theme) => createStyles({
       color: 'var(--netdive-action-btn-text)',
       backgroundColor: 'var(--netdive-action-btn-hover)'
     },
+    '&.Mui-disabled': {
+      color: 'rgba(100, 116, 139, 0.38)',
+      backgroundColor: 'transparent'
+    },
     '&:focus-visible': {
       outline: '2px solid var(--netdive-action-btn-border-hover)',
       outlineOffset: -2
@@ -2569,6 +2573,52 @@ export const styles = (theme: Theme) => createStyles({
     '& svg': {
       fontSize: 18
     }
+  },
+  topologyTextIconButton: {
+    width: 52,
+    '& span': {
+      color: 'inherit',
+      fontSize: 12,
+      fontWeight: 800,
+      lineHeight: 1,
+      whiteSpace: 'nowrap'
+    },
+    [theme.breakpoints.down('sm')]: {
+      width: 42,
+      '& span': {
+        fontSize: 11
+      }
+    }
+  },
+  topologyZoomButtonText: {
+    color: 'inherit',
+    fontSize: 18,
+    fontWeight: 800,
+    lineHeight: 1
+  },
+  topologyZoomPercent: {
+    width: 48,
+    height: 44,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: 'var(--netdive-detail-title)',
+    backgroundColor: '#fbfdff',
+    fontSize: 12,
+    fontWeight: 800,
+    lineHeight: 1,
+    userSelect: 'none',
+    [theme.breakpoints.down('sm')]: {
+      display: 'none'
+    }
+  },
+  toolbarActionDivider: {
+    width: 1,
+    height: 26,
+    margin: '0 2px',
+    backgroundColor: 'var(--netdive-action-btn-border)',
+    opacity: 0.95,
+    flex: '0 0 auto'
   },
   layerFilterButton: {
     height: 48,
@@ -2753,6 +2803,18 @@ export const styles = (theme: Theme) => createStyles({
     boxShadow: '0 1px 2px rgba(15, 23, 42, 0.03)',
     '& > *:not(:first-child)': {
       borderLeft: '1px solid var(--netdive-action-btn-border)'
+    },
+    '& > $toolbarActionDivider': {
+      borderLeft: 0
+    },
+    '& > $toolbarActionDivider + *': {
+      borderLeft: 0
+    },
+    [theme.breakpoints.down('sm')]: {
+      marginLeft: theme.spacing(0.5),
+      '& $topologyTextIconButton': {
+        width: 40
+      }
     }
   },
   title: {

@@ -237,6 +237,7 @@ interface State {
   moldIntegrationConnected: boolean
   recentViewedNodes: RecentViewedNodeItem[]
   isRecentViewedNodesCollapsed: boolean
+  topologyZoom: number
 }
 
 interface VMConsoleResponse {
@@ -405,7 +406,8 @@ class App extends React.Component<Props, State> {
       kubernetesCopiedClusterId: "",
       moldIntegrationConnected: false,
       recentViewedNodes: getSavedRecentViewedNodes(),
-      isRecentViewedNodesCollapsed: false
+      isRecentViewedNodesCollapsed: false,
+      topologyZoom: 1
     }
 
     this.synced = false
@@ -2465,6 +2467,91 @@ class App extends React.Component<Props, State> {
     this.tc.collapseAllNodes()
   }
 
+  onTopologyZoomChange(zoom: number) {
+    const normalized = Math.max(0.1, Math.min(1.5, zoom || 1))
+    if (Math.abs((this.state.topologyZoom || 1) - normalized) < 0.005) {
+      return
+    }
+    this.setState({ topologyZoom: normalized })
+  }
+
+  zoomTopology(delta: number) {
+    if (!this.tc) {
+      return
+    }
+    const current = this.tc.currentZoom ? this.tc.currentZoom() : this.state.topologyZoom
+    this.tc.setZoomLevel(current + delta)
+  }
+
+  resetTopologyZoom() {
+    if (!this.tc) {
+      return
+    }
+    this.tc.resetZoom()
+  }
+
+  fitTopology() {
+    if (!this.tc) {
+      return
+    }
+    this.tc.zoomFit()
+  }
+
+  renderTopologyZoomControls(classes: any) {
+    const zoom = this.state.topologyZoom || 1
+    const zoomPercent = `${Math.round(zoom * 100)}%`
+    const canZoomOut = zoom > 0.105
+    const canZoomIn = zoom < 1.495
+    return (
+      <React.Fragment>
+        <span className={classes.toolbarActionDivider} />
+        <Tooltip title={translate("topologyZoomOut")}>
+          <span>
+            <IconButton
+              color="inherit"
+              disabled={!canZoomOut}
+              onClick={() => this.zoomTopology(-0.1)}
+              className={classes.topologyIconButton}
+            >
+              <span className={classes.topologyZoomButtonText}>-</span>
+            </IconButton>
+          </span>
+        </Tooltip>
+        <span className={classes.topologyZoomPercent}>{zoomPercent}</span>
+        <Tooltip title={translate("topologyZoomIn")}>
+          <span>
+            <IconButton
+              color="inherit"
+              disabled={!canZoomIn}
+              onClick={() => this.zoomTopology(0.1)}
+              className={classes.topologyIconButton}
+            >
+              <span className={classes.topologyZoomButtonText}>+</span>
+            </IconButton>
+          </span>
+        </Tooltip>
+        <Tooltip title={translate("topologyZoomReset")}>
+          <IconButton
+            color="inherit"
+            onClick={this.resetTopologyZoom.bind(this)}
+            className={clsx(classes.topologyIconButton, classes.topologyTextIconButton)}
+          >
+            <span>100%</span>
+          </IconButton>
+        </Tooltip>
+        <Tooltip title={translate("topologyZoomFit")}>
+          <IconButton
+            color="inherit"
+            onClick={this.fitTopology.bind(this)}
+            className={clsx(classes.topologyIconButton, classes.topologyTextIconButton)}
+          >
+            <span>{translate("topologyZoomFitShort")}</span>
+          </IconButton>
+        </Tooltip>
+      </React.Fragment>
+    )
+  }
+
   renderSelectionMenuItem(classes: any) {
     return this.props.selection.map((el: Node | Link, i: number) => {
       var className = classes.menuItemIconFree
@@ -4300,6 +4387,7 @@ class App extends React.Component<Props, State> {
                   <UnfoldLessIcon />
                 </IconButton>
               </Tooltip>
+              {this.renderTopologyZoomControls(classes)}
               <Tooltip title={translate("refresh")}>
                 <IconButton
                   color="inherit"
@@ -4351,6 +4439,7 @@ class App extends React.Component<Props, State> {
               defaultLinkTagMode={this.config.defaultLinkTagMode.bind(this.config)}
               vmNameMap={this.state.vmNameMap}
               vmNetworkMap={this.state.vmNetworkMap}
+              onZoomChange={this.onTopologyZoomChange.bind(this)}
             />
           </Container>
           <Container className={classes.rightPanel}>

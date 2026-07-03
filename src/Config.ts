@@ -692,7 +692,12 @@ export const i18nMap = {
         "hostSocketNoProcess": "Unknown process",
         "hostSocketNoService": "No listening service",
         "hostSocketNoConnectionState": "No connection state",
-        "hostSocketCollapse": "Collapse"
+        "hostSocketCollapse": "Collapse",
+        "topologyZoomOut": "Zoom out",
+        "topologyZoomIn": "Zoom in",
+        "topologyZoomReset": "Reset to 100%",
+        "topologyZoomFit": "Fit to screen",
+        "topologyZoomFitShort": "Fit"
     },
     ko: {
         "k8s-Federations": "쿠버네티스 페더레이션",
@@ -1330,7 +1335,12 @@ export const i18nMap = {
         "hostSocketNoProcess": "알 수 없는 프로세스",
         "hostSocketNoService": "수신 대기 서비스 없음",
         "hostSocketNoConnectionState": "연결 상태 없음",
-        "hostSocketCollapse": "접기"
+        "hostSocketCollapse": "접기",
+        "topologyZoomOut": "축소",
+        "topologyZoomIn": "확대",
+        "topologyZoomReset": "100% 초기화",
+        "topologyZoomFit": "화면 맞춤",
+        "topologyZoomFitShort": "맞춤"
     }
 };
 
