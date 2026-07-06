@@ -1879,7 +1879,7 @@ class HostDetailPanel extends React.Component<Props, State> {
         const visible = rows.filter(row => !isBlank(row.value))
         if (!visible.length) return this.renderEmpty(emptyText)
         return (
-            <Descriptions className={classes.antDescriptions} bordered size="small" column={1}>
+            <Descriptions className={classes.antDescriptions} size="small" column={1}>
                 {visible.map(row => (
                     <Descriptions.Item label={row.label} key={row.label}>
                         {this.renderValue(row)}
@@ -1958,7 +1958,7 @@ class HostDetailPanel extends React.Component<Props, State> {
     private renderOverviewGrid(items: OverviewCardItem[], emptyText = translate('hostNoConnectedResources')) {
         const { classes } = this.props
         const visible = items.filter(item => item.value)
-        if (!visible.length) return <div className={classes.emptyState}>{emptyText}</div>
+        if (!visible.length) return this.renderEmpty(emptyText)
         return (
             <div className={classes.connectedResourceGrid}>
                 {visible.map(item => {
@@ -1971,29 +1971,33 @@ class HostDetailPanel extends React.Component<Props, State> {
                     const actionClassName = `${classes.connectedResourceCardAction} ${!canFocus ? classes.connectedResourceCardActionHidden : ''}`
                     const iconContainerClassName = `${classes.connectedResourceCardIcon}${item.iconContainerClassName ? ` ${item.iconContainerClassName}` : ''}`
                     return (
-                        <button
-                            type="button"
-                            className={`${classes.connectedResourceCard} ${canFocus ? classes.connectedResourceCardClickable : classes.connectedResourceCardStatic}`}
+                        <Card.Grid
+                            className={`${classes.connectedResourceCard} ${classes.antOverviewGridItem} ${canFocus ? classes.connectedResourceCardClickable : classes.connectedResourceCardStatic}`}
                             key={item.label}
-                            onClick={() => {
-                                if (!canFocus) return
-                                if (item.onClick) {
-                                    item.onClick()
-                                    return
-                                }
-                                this.focusConnectedResource(item.actionKey, item.nodeIDs)
-                            }}
-                            aria-disabled={!canFocus}
-                            tabIndex={canFocus ? 0 : -1}>
-                            <span className={classes.connectedResourceCardMain}>
-                                <span className={iconContainerClassName}>{item.icon || <InfoIcon />}</span>
-                                <span>
-                                    <strong>{item.label}</strong>
+                            hoverable={canFocus}>
+                            <button
+                                type="button"
+                                className={classes.antOverviewButton}
+                                onClick={() => {
+                                    if (!canFocus) return
+                                    if (item.onClick) {
+                                        item.onClick()
+                                        return
+                                    }
+                                    this.focusConnectedResource(item.actionKey, item.nodeIDs)
+                                }}
+                                aria-disabled={!canFocus}
+                                tabIndex={canFocus ? 0 : -1}>
+                                <span className={classes.connectedResourceCardMain}>
+                                    <span className={iconContainerClassName}>{item.icon || <InfoIcon />}</span>
+                                    <span>
+                                        <strong>{item.label}</strong>
+                                    </span>
                                 </span>
-                            </span>
-                            <span className={classes.connectedResourceCardValue}>{item.value}</span>
-                            <span className={actionClassName} aria-hidden={!canFocus}>›</span>
-                        </button>
+                                <span className={classes.connectedResourceCardValue}>{item.value}</span>
+                                <span className={actionClassName} aria-hidden={!canFocus}>›</span>
+                            </button>
+                        </Card.Grid>
                     )
                 })}
             </div>

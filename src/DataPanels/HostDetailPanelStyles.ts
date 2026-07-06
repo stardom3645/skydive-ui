@@ -75,34 +75,48 @@ export const styles = (theme: Theme) => createStyles({
         padding: theme.spacing(0.15, 1.35)
     },
     antDescriptions: {
-        margin: '0 !important',
-        '& .ant-descriptions-view': {
-            border: '0 !important',
-            borderRadius: '0 !important'
+        margin: '2px 0 0 !important',
+        padding: '8px 14px 10px',
+        '& .ant-descriptions-view, & .ant-descriptions-view table': {
+            width: '100%'
         },
-        '& .ant-descriptions-row:last-child > th, & .ant-descriptions-row:last-child > td': {
-            borderBottom: '0 !important'
+        '& .ant-descriptions-row > td': {
+            paddingBottom: '6px !important'
+        },
+        '& .ant-descriptions-row:last-child > td': {
+            paddingBottom: '0 !important'
+        },
+        '& .ant-descriptions-item': {
+            display: 'grid !important',
+            gridTemplateColumns: '96px minmax(0, 1fr)',
+            gap: '10px',
+            alignItems: 'center',
+            minHeight: 30,
+            padding: '0 !important'
+        },
+        '& .ant-descriptions-item-label, & .ant-descriptions-item-content': {
+            display: 'block !important',
+            minWidth: 0
         },
         '& .ant-descriptions-item-label': {
-            width: 112,
             color: 'var(--netdive-ant-muted, #64748b) !important',
-            background: '#fafafa !important',
-            borderColor: '#f0f0f0 !important',
-            padding: '8px 12px !important',
+            background: 'transparent !important',
+            padding: '0 !important',
             fontSize: '12px !important',
-            lineHeight: '1.35 !important',
+            lineHeight: '1.3 !important',
             fontWeight: '600 !important',
-            whiteSpace: 'nowrap'
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis'
         },
         '& .ant-descriptions-item-content': {
-            minWidth: 0,
             color: 'var(--netdive-ant-text, #0f172a) !important',
-            background: '#ffffff !important',
-            borderColor: '#f0f0f0 !important',
-            padding: '8px 12px !important',
+            background: 'transparent !important',
+            padding: '0 !important',
             fontSize: '12.5px !important',
             lineHeight: '1.35 !important',
-            fontWeight: '500 !important'
+            fontWeight: '500 !important',
+            overflow: 'hidden'
         }
     },
     kvRow: {
@@ -258,6 +272,7 @@ export const styles = (theme: Theme) => createStyles({
         backgroundColor: 'var(--netdive-detail-section-bg)',
         textAlign: 'left',
         transition: 'background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease',
+        boxShadow: 'none',
         '&:disabled': {
             cursor: 'default'
         },
@@ -364,6 +379,35 @@ export const styles = (theme: Theme) => createStyles({
     },
     connectedResourceCardActionHidden: {
         visibility: 'hidden'
+    },
+    antOverviewGridItem: {
+        float: 'none',
+        width: '100% !important',
+        margin: '0 !important',
+        padding: `${theme.spacing(0.9, 1)} !important`,
+        border: '1px solid var(--netdive-ant-border, #d9d9d9) !important',
+        borderRadius: '8px !important',
+        background: '#ffffff !important',
+        '&.ant-card-grid-hoverable:hover': {
+            borderColor: '#91caff !important',
+            boxShadow: '0 2px 8px rgba(22, 119, 255, 0.12) !important',
+            transform: 'translateY(-1px)'
+        }
+    },
+    antOverviewButton: {
+        width: '100%',
+        minHeight: 38,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: theme.spacing(0.85),
+        padding: 0,
+        border: 0,
+        background: 'transparent',
+        textAlign: 'left',
+        cursor: 'inherit',
+        color: 'inherit',
+        font: 'inherit'
     },
     metricGrid: {
         display: 'grid',
