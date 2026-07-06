@@ -99,14 +99,14 @@ export const styles = (theme: Theme) => createStyles({
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'flex-end',
-        gap: 6,
-        color: 'var(--netdive-detail-text)',
+        color: 'var(--netdive-detail-text) !important',
         fontSize: 12.5,
         lineHeight: 1.2,
         fontWeight: 520,
         overflow: 'hidden',
         textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap'
+        whiteSpace: 'nowrap',
+        marginRight: 0
     },
     kvStatusDot: {
         width: 8,
@@ -116,13 +116,16 @@ export const styles = (theme: Theme) => createStyles({
         background: '#52c41a'
     },
     copyButton: {
-        width: 24,
-        height: 24,
-        padding: 4,
+        width: '24px !important',
+        height: '24px !important',
+        minWidth: '24px !important',
+        padding: '4px !important',
         flex: '0 0 24px',
-        color: 'var(--netdive-detail-muted, #64748b)',
+        color: 'var(--netdive-detail-muted, #64748b) !important',
+        border: '0 !important',
+        background: 'transparent !important',
         '& svg': {
-            fontSize: 14
+            fontSize: '14px !important'
         }
     },
     connectedResourceGrid: {
@@ -540,6 +543,22 @@ export const styles = (theme: Theme) => createStyles({
         background: 'var(--netdive-detail-accent, #1A73E8)',
         opacity: 0.82
     },
+    antMetricProgress: {
+        marginTop: 8,
+        lineHeight: 1,
+        '& .ant-progress-outer': {
+            paddingRight: '0 !important'
+        },
+        '& .ant-progress-inner': {
+            height: '4px !important',
+            borderRadius: '999px !important',
+            verticalAlign: 'top'
+        },
+        '& .ant-progress-bg': {
+            height: '4px !important',
+            borderRadius: '999px !important'
+        }
+    },
     socketSection: {
         padding: theme.spacing(1, 1.15, 1.15),
         display: 'flex',
@@ -787,6 +806,19 @@ export const styles = (theme: Theme) => createStyles({
         fontSize: 12.5,
         lineHeight: 1.5,
         fontWeight: 600
+    },
+    antEmpty: {
+        padding: theme.spacing(1.15),
+        '& .ant-empty-image': {
+            height: 38,
+            marginBottom: 6
+        },
+        '& .ant-empty-description': {
+            color: 'var(--netdive-detail-muted, #64748b)',
+            fontSize: 12.5,
+            lineHeight: 1.5,
+            fontWeight: 600
+        }
     },
     pillList: {
         display: 'flex',

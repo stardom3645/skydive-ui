@@ -1,6 +1,5 @@
 import * as React from 'react'
-import IconButton from '@material-ui/core/IconButton'
-import Tooltip from '@material-ui/core/Tooltip'
+import { Button, Card, Empty, Progress, Tag, Tooltip as AntTooltip } from 'antd'
 import FileCopyIcon from '@material-ui/icons/FileCopy'
 import InfoIcon from '@material-ui/icons/Info'
 import TimelineIcon from '@material-ui/icons/Timeline'
@@ -447,23 +446,25 @@ class VMDetailPanel extends React.Component<Props> {
         const displayValue = value || 'N/A'
         return (
             <div className={classes.kvValueWrap}>
-                <Tooltip title={displayValue} placement="top" arrow>
+                <AntTooltip title={displayValue} placement="top">
                     {row.variant === 'status'
                         ? (
-                            <span className={classes.kvStatusBadge}>
-                                <span className={classes.kvStatusDot} />
-                                <span>{displayValue}</span>
-                            </span>
+                            <Tag color={displayValue === translate('hostStatusNormal') ? 'success' : 'default'} className={classes.kvStatusBadge}>
+                                {displayValue}
+                            </Tag>
                         )
                         : <span className={classes.kvValue}>{displayValue}</span>
                     }
-                </Tooltip>
+                </AntTooltip>
                 {row.copy && value && (
-                    <Tooltip title={translate('copy')} placement="top" arrow>
-                        <IconButton className={classes.copyButton} onClick={() => this.copyValue(value)}>
-                            <FileCopyIcon />
-                        </IconButton>
-                    </Tooltip>
+                    <AntTooltip title={translate('copy')} placement="top">
+                        <Button
+                            type="text"
+                            className={classes.copyButton}
+                            icon={<FileCopyIcon />}
+                            onClick={() => this.copyValue(value)}
+                        />
+                    </AntTooltip>
                 )}
             </div>
         )
@@ -472,7 +473,7 @@ class VMDetailPanel extends React.Component<Props> {
     private renderRows(rows: KeyValueRow[], emptyText = translate('hostNoData')) {
         const { classes } = this.props
         const visible = rows.filter(row => row.alwaysShow || !isBlank(row.value))
-        if (!visible.length) return <div className={classes.emptyState}>{emptyText}</div>
+        if (!visible.length) return this.renderEmpty(emptyText)
         return (
             <div className={classes.rowsCompact}>
                 {visible.map(row => (
@@ -488,7 +489,7 @@ class VMDetailPanel extends React.Component<Props> {
     private renderSection(icon: React.ReactNode, title: string, description: string, children: React.ReactNode) {
         const { classes } = this.props
         return (
-            <section className={classes.panelCard}>
+            <Card className={classes.panelCard} bordered={false} bodyStyle={{ padding: 0 }}>
                 <div className={classes.panelHeader}>
                     <span className={classes.panelIcon}>{icon}</span>
                     <div className={classes.panelTitleBlock}>
@@ -497,14 +498,25 @@ class VMDetailPanel extends React.Component<Props> {
                     </div>
                 </div>
                 {children}
-            </section>
+            </Card>
+        )
+    }
+
+    private renderEmpty(description: string) {
+        const { classes } = this.props
+        return (
+            <Empty
+                className={classes.antEmpty}
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                description={description}
+            />
         )
     }
 
     private renderMetricGrid(items: MetricItem[], emptyText = translate('hostNoResourceMetrics')) {
         const { classes } = this.props
         const visible = items.filter(item => item.value)
-        if (!visible.length) return <div className={classes.emptyState}>{emptyText}</div>
+        if (!visible.length) return this.renderEmpty(emptyText)
         return (
             <div className={classes.metricGrid}>
                 {visible.map(item => (
@@ -515,9 +527,13 @@ class VMDetailPanel extends React.Component<Props> {
                             <div className={classes.metricValue}>{item.value}</div>
                             {item.sub && <div className={classes.metricSub}>{item.sub}</div>}
                             {item.percent !== undefined && (
-                                <div className={classes.progressTrack}>
-                                    <div className={classes.progressFill} style={{ width: `${Math.max(0, Math.min(100, item.percent))}%` }} />
-                                </div>
+                                <Progress
+                                    className={classes.antMetricProgress}
+                                    percent={Math.max(0, Math.min(100, item.percent))}
+                                    showInfo={false}
+                                    strokeColor="var(--netdive-detail-accent, #1A73E8)"
+                                    trailColor="rgba(148, 163, 184, 0.18)"
+                                />
                             )}
                         </div>
                     </div>
@@ -529,7 +545,7 @@ class VMDetailPanel extends React.Component<Props> {
     private renderOverviewGrid(items: OverviewCardItem[], emptyText = translate('hostNoConnectedResources')) {
         const { classes } = this.props
         const visible = items.filter(item => item.alwaysShow || item.value)
-        if (!visible.length) return <div className={classes.emptyState}>{emptyText}</div>
+        if (!visible.length) return this.renderEmpty(emptyText)
         return (
             <div className={classes.connectedResourceGrid}>
                 {visible.map(item => {
