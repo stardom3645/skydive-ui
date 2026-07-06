@@ -13,29 +13,41 @@ export const styles = (theme: Theme) => createStyles({
         borderRadius: '8px !important',
         background: 'var(--netdive-ant-bg, #ffffff)',
         overflow: 'hidden',
-        boxShadow: '0 2px 8px rgba(15, 23, 42, 0.045)',
+        boxShadow: '0 1px 2px rgba(0, 0, 0, 0.03)',
         '&.ant-card': {
             color: 'var(--netdive-detail-text)',
             lineHeight: 1.45
+        },
+        '& .ant-card-head': {
+            minHeight: '52px !important',
+            padding: '0 14px !important',
+            borderBottom: '1px solid #f0f0f0 !important',
+            background: '#ffffff'
+        },
+        '& .ant-card-head-title': {
+            padding: '10px 0 !important'
+        },
+        '& .ant-card-body': {
+            background: '#ffffff'
         }
     },
     panelHeader: {
         display: 'flex',
         alignItems: 'center',
         gap: theme.spacing(0.9),
-        minHeight: 50,
-        padding: theme.spacing(1.05, 1.35),
-        borderBottom: '1px solid var(--netdive-ant-border, #d9d9d9)',
-        background: '#ffffff'
+        minHeight: 0,
+        padding: 0,
+        borderBottom: 0,
+        background: 'transparent'
     },
     panelIcon: {
-        width: 30,
-        height: 30,
-        borderRadius: 8,
+        width: 28,
+        height: 28,
+        borderRadius: 6,
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        flex: '0 0 30px',
+        flex: '0 0 28px',
         color: 'var(--netdive-ant-primary, #1677ff)',
         background: '#e6f4ff',
         border: '1px solid #bae0ff',
@@ -61,6 +73,37 @@ export const styles = (theme: Theme) => createStyles({
     },
     rowsCompact: {
         padding: theme.spacing(0.15, 1.35)
+    },
+    antDescriptions: {
+        margin: '0 !important',
+        '& .ant-descriptions-view': {
+            border: '0 !important',
+            borderRadius: '0 !important'
+        },
+        '& .ant-descriptions-row:last-child > th, & .ant-descriptions-row:last-child > td': {
+            borderBottom: '0 !important'
+        },
+        '& .ant-descriptions-item-label': {
+            width: 112,
+            color: 'var(--netdive-ant-muted, #64748b) !important',
+            background: '#fafafa !important',
+            borderColor: '#f0f0f0 !important',
+            padding: '8px 12px !important',
+            fontSize: '12px !important',
+            lineHeight: '1.35 !important',
+            fontWeight: '600 !important',
+            whiteSpace: 'nowrap'
+        },
+        '& .ant-descriptions-item-content': {
+            minWidth: 0,
+            color: 'var(--netdive-ant-text, #0f172a) !important',
+            background: '#ffffff !important',
+            borderColor: '#f0f0f0 !important',
+            padding: '8px 12px !important',
+            fontSize: '12.5px !important',
+            lineHeight: '1.35 !important',
+            fontWeight: '500 !important'
+        }
     },
     kvRow: {
         display: 'grid',
@@ -89,7 +132,7 @@ export const styles = (theme: Theme) => createStyles({
     kvValueWrap: {
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'flex-end',
+        justifyContent: 'flex-start',
         gap: 4,
         minWidth: 0
     },
@@ -101,14 +144,14 @@ export const styles = (theme: Theme) => createStyles({
         color: 'var(--netdive-detail-text)',
         fontSize: 12.5,
         fontWeight: 720,
-        textAlign: 'right'
+        textAlign: 'left'
     },
     kvStatusBadge: {
         minWidth: 0,
         maxWidth: '100%',
         display: 'inline-flex',
         alignItems: 'center',
-        justifyContent: 'flex-end',
+        justifyContent: 'flex-start',
         color: 'var(--netdive-detail-text) !important',
         fontSize: 12.5,
         lineHeight: 1.2,

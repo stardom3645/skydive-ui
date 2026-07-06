@@ -13,7 +13,7 @@ import * as React from 'react'
 import IconButton from '@material-ui/core/IconButton'
 import Drawer from '@material-ui/core/Drawer'
 import SvgIcon from '@material-ui/core/SvgIcon'
-import { Button, Card, Empty, Progress, Statistic, Tooltip as AntTooltip } from 'antd'
+import { Button, Card, Descriptions, Empty, Progress, Statistic, Tooltip as AntTooltip } from 'antd'
 import FileCopyIcon from '@material-ui/icons/FileCopy'
 import InfoIcon from '@material-ui/icons/Info'
 import TimelineIcon from '@material-ui/icons/Timeline'
@@ -1879,28 +1879,29 @@ class HostDetailPanel extends React.Component<Props, State> {
         const visible = rows.filter(row => !isBlank(row.value))
         if (!visible.length) return this.renderEmpty(emptyText)
         return (
-            <div className={classes.rowsCompact}>
+            <Descriptions className={classes.antDescriptions} bordered size="small" column={1}>
                 {visible.map(row => (
-                    <div className={classes.kvRow} key={row.label}>
-                        <div className={classes.kvLabel}>{row.label}</div>
+                    <Descriptions.Item label={row.label} key={row.label}>
                         {this.renderValue(row)}
-                    </div>
+                    </Descriptions.Item>
                 ))}
-            </div>
+            </Descriptions>
         )
     }
 
     private renderSection(icon: React.ReactNode, title: string, description: string, children: React.ReactNode, className = '') {
         const { classes } = this.props
-        return (
-            <Card className={`${classes.panelCard} ${className}`} bordered={false} bodyStyle={{ padding: 0 }}>
-                <div className={classes.panelHeader}>
-                    <span className={classes.panelIcon}>{icon}</span>
-                    <div className={classes.panelTitleBlock}>
-                        <div className={classes.panelTitle}>{title}</div>
-                        {description && <div className={classes.panelDescription}>{description}</div>}
-                    </div>
+        const sectionTitle = (
+            <div className={classes.panelHeader}>
+                <span className={classes.panelIcon}>{icon}</span>
+                <div className={classes.panelTitleBlock}>
+                    <div className={classes.panelTitle}>{title}</div>
+                    {description && <div className={classes.panelDescription}>{description}</div>}
                 </div>
+            </div>
+        )
+        return (
+            <Card className={`${classes.panelCard} ${className}`} bordered title={sectionTitle} bodyStyle={{ padding: 0 }}>
                 {children}
             </Card>
         )
