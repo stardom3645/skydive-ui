@@ -1,0 +1,56 @@
+.netdive-ant-theme {
+  --netdive-ant-primary: #1677ff;
+  --netdive-ant-border: #d7e2f0;
+  --netdive-ant-radius: 8px;
+  --netdive-ant-bg: #ffffff;
+  --netdive-ant-soft-bg: #fbfdff;
+  --netdive-ant-text: #0f172a;
+  --netdive-ant-muted: #64748b;
+  min-height: 100%;
+}
+
+.netdive-ant-theme .ant-card {
+  border-radius: var(--netdive-ant-radius);
+  background: var(--netdive-ant-bg);
+}
+
+.netdive-ant-theme .ant-card-bordered {
+  border-color: var(--netdive-ant-border);
+}
+
+.netdive-ant-theme .ant-btn {
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.netdive-ant-theme .ant-select {
+  color: var(--netdive-ant-text);
+  font-size: 12px;
+}
+
+.netdive-ant-theme .ant-select-selector,
+.netdive-ant-theme .ant-input,
+.netdive-ant-theme .ant-input-search .ant-input {
+  border-radius: 8px !important;
+  border-color: var(--netdive-ant-border) !important;
+}
+
+.netdive-ant-theme .ant-tag {
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.netdive-ant-theme .ant-progress-text {
+  color: var(--netdive-ant-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.netdive-ant-theme .ant-empty-description {
+  color: var(--netdive-ant-muted);
+  font-size: 12px;
+  font-weight: 600;
+}

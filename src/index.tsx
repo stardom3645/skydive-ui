@@ -18,6 +18,7 @@
 import * as React from 'react'
 import * as ReactDOM from 'react-dom'
 import 'roboto-fontface/css/roboto/roboto-fontface.css'
+import 'antd/dist/antd.css'
 import { SnackbarProvider } from 'notistack'
 import '@fortawesome/fontawesome-free/css/all.css'
 import { Provider, connect } from 'react-redux'
@@ -25,9 +26,11 @@ import { createBrowserHistory } from 'history'
 import { BrowserRouter, Route, Redirect, Switch, withRouter } from 'react-router-dom'
 
 import './index.css'
+import './antd-netdive.css'
 import { AppState, store } from './Store'
 import Login from './Login'
 import App from './App'
+import NetdiveAntdProvider from './NetdiveAntdProvider'
 import Logo from '../assets/logo-ablestack.png'
 
 const queryString = require('query-string')
@@ -71,18 +74,20 @@ class SkydiveApp extends React.Component<Props> {
 
 ReactDOM.render(
   <Provider store={store}>
-    <SnackbarProvider
-      iconVariant={{
-        error: <span className="snackbarErrorSquare">x</span>
-      }}
-    >
-      <BrowserRouter history={history} basename={baseURL}>
-        <Switch>
-          <PrivateRoute path="/" component={withRouter(SkydiveApp)} exact />
-          <Route path="/login" component={Login} />
-        </Switch>
-      </BrowserRouter>
-    </SnackbarProvider>
+    <NetdiveAntdProvider>
+      <SnackbarProvider
+        iconVariant={{
+          error: <span className="snackbarErrorSquare">x</span>
+        }}
+      >
+        <BrowserRouter history={history} basename={baseURL}>
+          <Switch>
+            <PrivateRoute path="/" component={withRouter(SkydiveApp)} exact />
+            <Route path="/login" component={Login} />
+          </Switch>
+        </BrowserRouter>
+      </SnackbarProvider>
+    </NetdiveAntdProvider>
   </Provider>,
   document.getElementById('index')
 )

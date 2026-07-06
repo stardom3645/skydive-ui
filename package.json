@@ -3,6 +3,8 @@
   "version": "0.1.8",
   "main": "y",
   "dependencies": {
+    "@ant-design/icons": "4.6.4",
+    "antd": "4.16.13",
     "redux": "^4.0.5"
   },
   "devDependencies": {

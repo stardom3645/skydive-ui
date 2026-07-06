@@ -1,6 +1,5 @@
 import * as React from 'react'
-import CircularProgress from '@material-ui/core/CircularProgress'
-import Tooltip from '@material-ui/core/Tooltip'
+import { Card, Empty, Select, Spin, Tooltip as AntTooltip } from 'antd'
 import InfoIcon from '@material-ui/icons/Info'
 import TimelineIcon from '@material-ui/icons/Timeline'
 import { createStyles, Theme, withStyles } from '@material-ui/core/styles'
@@ -119,16 +118,24 @@ const styles = (theme: Theme) => createStyles({
         flex: '0 0 auto'
     },
     rangeSelect: {
-        height: 30,
         minWidth: 78,
-        border: '1px solid var(--netdive-detail-border-soft)',
-        borderRadius: 9,
-        padding: '0 24px 0 9px',
-        color: 'var(--netdive-detail-text)',
-        background: 'var(--netdive-detail-soft-card, #fbfdff)',
-        fontSize: 11.5,
-        fontWeight: 750,
-        outline: 'none'
+        '& .ant-select-selector': {
+            height: '30px !important',
+            border: '1px solid var(--netdive-detail-border-soft) !important',
+            borderRadius: '9px !important',
+            background: 'var(--netdive-detail-soft-card, #fbfdff) !important',
+            boxShadow: 'none !important'
+        },
+        '& .ant-select-selection-item': {
+            color: 'var(--netdive-detail-text)',
+            fontSize: 11.5,
+            fontWeight: 750,
+            lineHeight: '28px !important'
+        },
+        '& .ant-select-arrow': {
+            color: 'var(--netdive-detail-muted, #64748b)',
+            fontSize: 10
+        }
     },
     body: {
         padding: theme.spacing(1.1, 1.25, 1.25)
@@ -374,6 +381,19 @@ const styles = (theme: Theme) => createStyles({
         lineHeight: 1.5,
         fontWeight: 600
     },
+    antEmpty: {
+        padding: theme.spacing(1.1, 0),
+        '& .ant-empty-image': {
+            height: 38,
+            marginBottom: 6
+        },
+        '& .ant-empty-description': {
+            color: 'var(--netdive-detail-muted, #64748b)',
+            fontSize: 12.5,
+            lineHeight: 1.5,
+            fontWeight: 600
+        }
+    },
     loading: {
         display: 'flex',
         alignItems: 'center',
@@ -458,8 +478,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         return translate('resourceTrendTitlePattern').replace('{range}', this.rangeLabel())
     }
 
-    private handleRangeChange(event: React.ChangeEvent<HTMLSelectElement>) {
-        const trendRange = event.target.value
+    private handleRangeChange(trendRange: string) {
         if (trendRange === this.state.trendRange) return
         this.setState({ trendRange, trend: undefined, error: '', loading: true }, () => this.loadTrend())
     }
@@ -757,16 +776,24 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
     private renderInfoTooltip(item: TrendDisplayItem) {
         const { classes } = this.props
         return (
-            <Tooltip
+            <AntTooltip
                 title={this.renderTooltipContent(item)}
                 placement="top"
-                arrow
-                classes={{ tooltip: classes.metricTooltip, arrow: classes.metricTooltipArrow }}
+                overlayInnerStyle={{
+                    backgroundColor: 'rgba(15, 23, 42, 0.94)',
+                    color: '#f8fafc',
+                    borderRadius: 10,
+                    padding: '10px 12px',
+                    boxShadow: '0 10px 24px rgba(15, 23, 42, 0.18)',
+                    fontSize: 12,
+                    lineHeight: 1.45,
+                    maxWidth: 260
+                }}
             >
                 <button className={classes.trendInfoButton} type="button" aria-label={`${item.label} ${translate('resourceTrendDetailsAria')}`}>
                     <InfoIcon className={classes.trendInfoIcon} />
                 </button>
-            </Tooltip>
+            </AntTooltip>
         )
     }
 
@@ -915,7 +942,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         const axisLabels = this.timeAxisLabels(trend?.start, trend?.end)
 
         if (!linePaths.some(Boolean)) {
-            return <div className={classes.empty}>{translate('resourceTrendSeriesEmpty')}</div>
+            return this.renderEmpty(translate('resourceTrendSeriesEmpty'))
         }
 
         return (
@@ -938,6 +965,17 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         )
     }
 
+    private renderEmpty(description: string) {
+        const { classes } = this.props
+        return (
+            <Empty
+                className={classes.antEmpty}
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                description={description}
+            />
+        )
+    }
+
     render() {
         const { classes } = this.props
         const { loading, error, trend } = this.state
@@ -945,30 +983,31 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         const hasTrend = displayItems.length > 0
 
         return (
-            <section className={classes.card}>
+            <Card className={classes.card} bordered={false} bodyStyle={{ padding: 0 }}>
                 <div className={classes.header}>
                     <span className={classes.icon}><TimelineIcon /></span>
                     <div className={classes.titleBlock}>
                         <div className={classes.title}>{this.trendTitle()}</div>
                     </div>
                     <div className={classes.headerActions}>
-                        <select
+                        <Select
                             className={classes.rangeSelect}
                             value={this.state.trendRange}
-                            onChange={event => this.handleRangeChange(event)}
+                            onChange={(value: string) => this.handleRangeChange(value)}
                             aria-label={translate('resourceTrendRangeAria')}
+                            dropdownMatchSelectWidth={false}
                         >
                             {trendRanges.map(range => (
-                                <option value={range.value} key={range.value}>{translate(range.labelKey)}</option>
+                                <Select.Option value={range.value} key={range.value}>{translate(range.labelKey)}</Select.Option>
                             ))}
-                        </select>
+                        </Select>
                     </div>
                 </div>
 
                 <div className={classes.body}>
                     {loading && !hasTrend && (
                         <div className={classes.loading}>
-                            <CircularProgress size={16} />
+                            <Spin size="small" />
                             <span>{translate('resourceTrendLoading')}</span>
                         </div>
                     )}
@@ -978,11 +1017,11 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
                     )}
 
                     {!loading && error && !hasTrend && (
-                        <div className={classes.empty}>{translate('resourceTrendUnavailable')}</div>
+                        this.renderEmpty(translate('resourceTrendUnavailable'))
                     )}
 
                     {!loading && !error && !hasTrend && (
-                        <div className={classes.empty}>{translate('resourceTrendEmpty')}</div>
+                        this.renderEmpty(translate('resourceTrendEmpty'))
                     )}
 
                     {hasTrend && (
@@ -996,7 +1035,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
                         </div>
                     )}
                 </div>
-            </section>
+            </Card>
         )
     }
 }
