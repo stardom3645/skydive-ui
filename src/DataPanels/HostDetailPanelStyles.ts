@@ -9,42 +9,48 @@ export const styles = (theme: Theme) => createStyles({
         paddingBottom: theme.spacing(1)
     },
     panelCard: {
-        border: '1px solid var(--netdive-detail-border-soft)',
-        borderRadius: 16,
-        background: 'var(--netdive-detail-card-bg, #ffffff)',
+        border: '1px solid var(--netdive-ant-border, #d9d9d9)',
+        borderRadius: '8px !important',
+        background: 'var(--netdive-ant-bg, #ffffff)',
         overflow: 'hidden',
-        boxShadow: '0 8px 22px rgba(15, 23, 42, 0.035)'
+        boxShadow: '0 2px 8px rgba(15, 23, 42, 0.045)',
+        '&.ant-card': {
+            color: 'var(--netdive-detail-text)',
+            lineHeight: 1.45
+        }
     },
     panelHeader: {
         display: 'flex',
         alignItems: 'center',
         gap: theme.spacing(0.9),
-        padding: theme.spacing(1.25, 1.35),
-        borderBottom: '1px solid var(--netdive-detail-border-subtle, rgba(226, 232, 240, 0.72))',
-        background: 'var(--netdive-detail-section-header, #f8fafc)'
+        minHeight: 50,
+        padding: theme.spacing(1.05, 1.35),
+        borderBottom: '1px solid var(--netdive-ant-border, #d9d9d9)',
+        background: '#ffffff'
     },
     panelIcon: {
-        width: 28,
-        height: 28,
-        borderRadius: 10,
+        width: 30,
+        height: 30,
+        borderRadius: 8,
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        flex: '0 0 28px',
-        color: 'var(--topology-level-label-active-text)',
-        background: 'rgba(232, 242, 255, 0.82)',
+        flex: '0 0 30px',
+        color: 'var(--netdive-ant-primary, #1677ff)',
+        background: '#e6f4ff',
+        border: '1px solid #bae0ff',
         '& svg': {
-            fontSize: 17
+            fontSize: 16
         }
     },
     panelTitleBlock: {
         minWidth: 0
     },
     panelTitle: {
-        color: 'var(--netdive-detail-text)',
+        color: 'var(--netdive-ant-text, #0f172a)',
         fontSize: 14,
         lineHeight: 1.2,
-        fontWeight: 800
+        fontWeight: 700
     },
     panelDescription: {
         marginTop: 3,
@@ -54,15 +60,19 @@ export const styles = (theme: Theme) => createStyles({
         fontWeight: 500
     },
     rowsCompact: {
-        padding: theme.spacing(0.25, 1.35)
+        padding: theme.spacing(0.15, 1.35)
     },
     kvRow: {
         display: 'grid',
         gridTemplateColumns: '92px minmax(0, 1fr)',
         gap: theme.spacing(1),
         alignItems: 'center',
-        minHeight: 34,
-        borderBottom: '1px solid var(--netdive-detail-border-subtle, rgba(226, 232, 240, 0.62))',
+        minHeight: 36,
+        borderBottom: '1px solid #f0f0f0',
+        transition: 'background-color 140ms ease',
+        '&:hover': {
+            background: '#fafafa'
+        },
         '&:last-child': {
             borderBottom: 0
         }
@@ -323,12 +333,16 @@ export const styles = (theme: Theme) => createStyles({
         flexDirection: 'column',
         justifyContent: 'center',
         gap: theme.spacing(0.35),
-        border: '1px solid var(--netdive-detail-border-soft)',
-        borderRadius: 10,
+        border: '1px solid var(--netdive-ant-border, #d9d9d9) !important',
+        borderRadius: '8px !important',
         padding: '10px 12px',
-        background: 'var(--netdive-detail-soft-card, #fbfdff)',
+        background: '#ffffff',
         minHeight: 64,
-        minWidth: 0
+        minWidth: 0,
+        boxShadow: '0 1px 2px rgba(15, 23, 42, 0.035)',
+        '& .ant-card-body': {
+            padding: '0 !important'
+        }
     },
     metricTileMuted: {
         background: 'rgba(248, 250, 252, 0.78)',
@@ -359,6 +373,31 @@ export const styles = (theme: Theme) => createStyles({
         lineHeight: 1.12,
         fontWeight: 850,
         overflowWrap: 'anywhere'
+    },
+    antStatistic: {
+        minWidth: 0,
+        '& .ant-statistic-title': {
+            marginBottom: 4,
+            color: 'var(--netdive-ant-muted, #64748b)',
+            fontSize: '11.5px !important',
+            lineHeight: '1.2 !important',
+            fontWeight: '600 !important',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap'
+        },
+        '& .ant-statistic-content': {
+            color: 'var(--netdive-ant-text, #0f172a)',
+            fontSize: '18px !important',
+            lineHeight: '1.12 !important',
+            fontWeight: '700 !important',
+            letterSpacing: '-0.01em',
+            overflowWrap: 'anywhere'
+        },
+        '& .ant-statistic-content-value': {
+            display: 'inline',
+            color: 'inherit'
+        }
     },
     metricSub: {
         marginTop: 2,

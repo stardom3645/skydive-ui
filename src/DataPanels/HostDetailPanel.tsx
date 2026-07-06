@@ -13,7 +13,7 @@ import * as React from 'react'
 import IconButton from '@material-ui/core/IconButton'
 import Drawer from '@material-ui/core/Drawer'
 import SvgIcon from '@material-ui/core/SvgIcon'
-import { Button, Card, Empty, Progress, Tooltip as AntTooltip } from 'antd'
+import { Button, Card, Empty, Progress, Statistic, Tooltip as AntTooltip } from 'antd'
 import FileCopyIcon from '@material-ui/icons/FileCopy'
 import InfoIcon from '@material-ui/icons/Info'
 import TimelineIcon from '@material-ui/icons/Timeline'
@@ -1924,11 +1924,19 @@ class HostDetailPanel extends React.Component<Props, State> {
         return (
             <div className={classes.metricGrid}>
                 {visible.map(item => (
-                    <div className={`${classes.metricTile} ${item.muted ? classes.metricTileMuted : ''}`} key={item.label}>
+                    <Card
+                        className={`${classes.metricTile} ${item.muted ? classes.metricTileMuted : ''}`}
+                        key={item.label}
+                        bordered
+                        bodyStyle={{ padding: 0 }}>
                         <span className={classes.metricIcon}>{item.icon || <InfoIcon />}</span>
                         <div className={classes.metricBody}>
-                            <div className={classes.metricLabel}>{item.label}</div>
-                            <div className={classes.metricValue}>{item.value}</div>
+                            <Statistic
+                                className={classes.antStatistic}
+                                title={item.label}
+                                value={item.value}
+                                valueStyle={{ color: 'var(--netdive-detail-text, #111827)' }}
+                            />
                             {item.sub && <div className={classes.metricSub}>{item.sub}</div>}
                             {item.percent !== undefined && (
                                 <Progress
@@ -1940,7 +1948,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                                 />
                             )}
                         </div>
-                    </div>
+                    </Card>
                 ))}
             </div>
         )

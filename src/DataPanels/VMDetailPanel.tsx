@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Button, Card, Empty, Progress, Tag, Tooltip as AntTooltip } from 'antd'
+import { Button, Card, Empty, Progress, Statistic, Tag, Tooltip as AntTooltip } from 'antd'
 import FileCopyIcon from '@material-ui/icons/FileCopy'
 import InfoIcon from '@material-ui/icons/Info'
 import TimelineIcon from '@material-ui/icons/Timeline'
@@ -520,11 +520,15 @@ class VMDetailPanel extends React.Component<Props> {
         return (
             <div className={classes.metricGrid}>
                 {visible.map(item => (
-                    <div className={classes.metricTile} key={item.label}>
+                    <Card className={classes.metricTile} key={item.label} bordered bodyStyle={{ padding: 0 }}>
                         <span className={classes.metricIcon}>{item.icon || <InfoIcon />}</span>
                         <div className={classes.metricBody}>
-                            <div className={classes.metricLabel}>{item.label}</div>
-                            <div className={classes.metricValue}>{item.value}</div>
+                            <Statistic
+                                className={classes.antStatistic}
+                                title={item.label}
+                                value={item.value}
+                                valueStyle={{ color: 'var(--netdive-detail-text, #111827)' }}
+                            />
                             {item.sub && <div className={classes.metricSub}>{item.sub}</div>}
                             {item.percent !== undefined && (
                                 <Progress
@@ -536,7 +540,7 @@ class VMDetailPanel extends React.Component<Props> {
                                 />
                             )}
                         </div>
-                    </div>
+                    </Card>
                 ))}
             </div>
         )
