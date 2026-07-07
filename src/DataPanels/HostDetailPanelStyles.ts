@@ -4,7 +4,7 @@ export const styles = (theme: Theme) => createStyles({
     root: {
         display: 'flex',
         flexDirection: 'column',
-        gap: theme.spacing(1.5),
+        gap: 12,
         color: 'var(--netdive-detail-text)',
         paddingBottom: theme.spacing(1)
     },
@@ -75,23 +75,23 @@ export const styles = (theme: Theme) => createStyles({
         padding: theme.spacing(0.15, 1.35)
     },
     antDescriptions: {
-        margin: '2px 0 0 !important',
-        padding: '8px 14px 10px',
+        margin: '0 !important',
+        padding: '10px 14px 12px',
         '& .ant-descriptions-view, & .ant-descriptions-view table': {
             width: '100%'
         },
         '& .ant-descriptions-row > td': {
-            paddingBottom: '6px !important'
+            paddingBottom: '8px !important'
         },
         '& .ant-descriptions-row:last-child > td': {
             paddingBottom: '0 !important'
         },
         '& .ant-descriptions-item': {
             display: 'grid !important',
-            gridTemplateColumns: '96px minmax(0, 1fr)',
-            gap: '10px',
-            alignItems: 'center',
-            minHeight: 30,
+            gridTemplateColumns: '92px minmax(0, 1fr)',
+            gap: '12px',
+            alignItems: 'start',
+            minHeight: 28,
             padding: '0 !important'
         },
         '& .ant-descriptions-item-label, & .ant-descriptions-item-content': {
@@ -116,7 +116,8 @@ export const styles = (theme: Theme) => createStyles({
             fontSize: '12.5px !important',
             lineHeight: '1.35 !important',
             fontWeight: '500 !important',
-            overflow: 'hidden'
+            overflow: 'visible',
+            wordBreak: 'break-word'
         }
     },
     kvRow: {
@@ -145,19 +146,21 @@ export const styles = (theme: Theme) => createStyles({
     },
     kvValueWrap: {
         display: 'flex',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         justifyContent: 'flex-start',
         gap: 4,
-        minWidth: 0
+        minWidth: 0,
+        width: '100%'
     },
     kvValue: {
         minWidth: 0,
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
+        overflow: 'visible',
+        textOverflow: 'clip',
+        whiteSpace: 'normal',
+        wordBreak: 'break-word',
         color: 'var(--netdive-detail-text)',
         fontSize: 12.5,
-        fontWeight: 720,
+        fontWeight: 600,
         textAlign: 'left'
     },
     kvStatusBadge: {
@@ -198,8 +201,8 @@ export const styles = (theme: Theme) => createStyles({
     connectedResourceGrid: {
         display: 'grid',
         gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-        gap: theme.spacing(0.85),
-        padding: theme.spacing(1, 1.15, 1.15),
+        gap: 8,
+        padding: '12px 14px 14px',
         [theme.breakpoints.down('sm')]: {
             gridTemplateColumns: '1fr'
         }
@@ -211,9 +214,9 @@ export const styles = (theme: Theme) => createStyles({
         padding: theme.spacing(1, 1.15, 1.15)
     },
     connectedResourceSection: {
-        border: '1px solid var(--netdive-detail-border-soft)',
-        borderRadius: 12,
-        background: 'var(--netdive-detail-soft-card, #fbfdff)',
+        border: '1px solid var(--netdive-ant-border, #d9d9d9)',
+        borderRadius: 8,
+        background: '#ffffff',
         overflow: 'hidden'
     },
     connectedResourceSectionHeader: {
@@ -221,13 +224,13 @@ export const styles = (theme: Theme) => createStyles({
         alignItems: 'center',
         gap: theme.spacing(0.75),
         padding: theme.spacing(0.8, 0.95),
-        borderBottom: '1px solid var(--netdive-detail-border-soft)',
-        background: 'rgba(248, 250, 252, 0.9)'
+        borderBottom: '1px solid #f0f0f0',
+        background: '#fafafa'
     },
     connectedResourceSectionIcon: {
         width: 24,
         height: 24,
-        borderRadius: 8,
+        borderRadius: 6,
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -254,9 +257,9 @@ export const styles = (theme: Theme) => createStyles({
         }
     },
     connectedResourceSectionTitle: {
-        color: 'var(--netdive-detail-title)',
+        color: 'var(--netdive-ant-text, #0f172a)',
         fontSize: 12.5,
-        fontWeight: 850
+        fontWeight: 600
     },
     connectedResourceCard: {
         position: 'relative',
@@ -686,17 +689,32 @@ export const styles = (theme: Theme) => createStyles({
         }
     },
     socketSection: {
-        padding: theme.spacing(1, 1.15, 1.15),
+        padding: '12px 14px 14px',
         display: 'flex',
         flexDirection: 'column',
-        gap: theme.spacing(1)
+        gap: 10
     },
     socketBlock: {
-        border: '1px solid var(--netdive-detail-border-soft)',
-        borderRadius: 12,
-        background: 'var(--netdive-detail-soft-card, #fbfdff)',
+        border: '1px solid var(--netdive-ant-border, #d9d9d9) !important',
+        borderRadius: '8px !important',
+        background: '#ffffff',
         overflow: 'hidden',
-        padding: 0
+        padding: 0,
+        boxShadow: 'none',
+        '& .ant-card-head': {
+            minHeight: '40px !important',
+            padding: '0 12px !important',
+            borderBottom: '1px solid #f0f0f0 !important'
+        },
+        '& .ant-card-head-title': {
+            padding: '9px 0 !important',
+            color: 'var(--netdive-ant-text, #0f172a)',
+            fontSize: '13px !important',
+            fontWeight: '600 !important'
+        },
+        '& .ant-card-extra': {
+            padding: '0 !important'
+        }
     },
     socketBlockHeader: {
         display: 'flex',
@@ -725,29 +743,26 @@ export const styles = (theme: Theme) => createStyles({
         whiteSpace: 'nowrap'
     },
     socketMoreButton: {
-        border: 0,
-        padding: 0,
-        background: 'transparent',
-        color: 'var(--topology-level-label-active-text)',
-        fontSize: 12,
-        lineHeight: 1.3,
-        fontWeight: 760,
-        cursor: 'pointer',
-        whiteSpace: 'nowrap',
-        '&:hover': {
-            textDecoration: 'underline'
-        }
+        height: '24px !important',
+        padding: '0 !important',
+        color: 'var(--netdive-ant-primary, #1677ff) !important',
+        fontSize: '12px !important',
+        fontWeight: 600
     },
     socketSummaryGrid: {
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
-        gap: 6
+        gap: 8
     },
     socketSummaryTile: {
-        borderRadius: 9,
-        border: '1px solid var(--netdive-detail-border-soft)',
-        background: 'rgba(248, 250, 252, 0.7)',
-        padding: '8px 10px'
+        border: '1px solid var(--netdive-ant-border, #d9d9d9) !important',
+        borderRadius: '8px !important',
+        background: '#ffffff !important',
+        padding: '10px 12px',
+        boxShadow: 'none',
+        '& .ant-card-body': {
+            padding: '0 !important'
+        }
     },
     socketSummaryLabel: {
         color: 'var(--netdive-detail-muted, #64748b)',
@@ -762,6 +777,76 @@ export const styles = (theme: Theme) => createStyles({
         lineHeight: 1.1,
         fontWeight: 800,
         letterSpacing: '-0.02em'
+    },
+    antDataTable: {
+        '& .ant-table': {
+            color: 'var(--netdive-ant-text, #0f172a)',
+            fontSize: '12.5px'
+        },
+        '& .ant-table-thead > tr > th': {
+            height: 34,
+            padding: '7px 12px !important',
+            color: 'var(--netdive-ant-muted, #64748b) !important',
+            background: '#fafafa !important',
+            borderBottom: '1px solid #f0f0f0 !important',
+            fontSize: '12px !important',
+            fontWeight: '600 !important'
+        },
+        '& .ant-table-tbody > tr > td': {
+            padding: '8px 12px !important',
+            borderBottom: '1px solid #f0f0f0 !important',
+            verticalAlign: 'middle'
+        },
+        '& .ant-table-tbody > tr:hover > td': {
+            background: '#fafafa !important'
+        },
+        '& .ant-table-tbody > tr:last-child > td': {
+            borderBottom: '0 !important'
+        }
+    },
+    antTablePrimaryText: {
+        display: 'block',
+        color: 'var(--netdive-ant-text, #0f172a)',
+        fontSize: 12.5,
+        lineHeight: 1.35,
+        fontWeight: 600,
+        wordBreak: 'break-word'
+    },
+    antTableStrongNumber: {
+        color: 'var(--netdive-ant-text, #0f172a)',
+        fontSize: 13,
+        fontWeight: 700
+    },
+    antTableProgressCell: {
+        display: 'grid',
+        gridTemplateColumns: '32px minmax(42px, 1fr)',
+        alignItems: 'center',
+        gap: 8,
+        color: 'var(--netdive-ant-muted, #64748b)',
+        fontSize: 12,
+        fontWeight: 600
+    },
+    antTableProgress: {
+        lineHeight: 1,
+        '& .ant-progress-outer': {
+            paddingRight: '0 !important'
+        },
+        '& .ant-progress-inner': {
+            height: '4px !important',
+            borderRadius: '999px !important'
+        },
+        '& .ant-progress-bg': {
+            height: '4px !important',
+            borderRadius: '999px !important'
+        }
+    },
+    antPortTag: {
+        marginRight: '0 !important',
+        color: 'var(--netdive-ant-text, #0f172a) !important',
+        background: '#fafafa !important',
+        borderColor: '#d9d9d9 !important',
+        fontSize: '12px !important',
+        fontWeight: 600
     },
     socketServiceList: {
         display: 'grid',

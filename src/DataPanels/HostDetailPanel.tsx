@@ -13,7 +13,7 @@ import * as React from 'react'
 import IconButton from '@material-ui/core/IconButton'
 import Drawer from '@material-ui/core/Drawer'
 import SvgIcon from '@material-ui/core/SvgIcon'
-import { Button, Card, Descriptions, Empty, Progress, Statistic, Tooltip as AntTooltip } from 'antd'
+import { Button, Card, Descriptions, Empty, Progress, Statistic, Table, Tag, Tooltip as AntTooltip } from 'antd'
 import FileCopyIcon from '@material-ui/icons/FileCopy'
 import InfoIcon from '@material-ui/icons/Info'
 import TimelineIcon from '@material-ui/icons/Timeline'
@@ -1770,83 +1770,115 @@ class HostDetailPanel extends React.Component<Props, State> {
         const hiddenServiceCount = Math.max(0, services.length - visibleServices.length)
         const hiddenProcessCount = Math.max(0, processes.length - visibleProcesses.length)
         if (!services.length && !processes.length) {
-            return <div className={classes.emptyState}>{translate('hostNoSocketInfo')}</div>
+            return this.renderEmpty(translate('hostNoSocketInfo'))
         }
+        const processColumns = [
+            {
+                title: translate('hostSocketProcessColumn'),
+                dataIndex: 'process',
+                key: 'process',
+                render: (value: string) => <span className={classes.antTablePrimaryText}>{value}</span>
+            },
+            {
+                title: translate('hostSocketCountColumn'),
+                dataIndex: 'count',
+                key: 'count',
+                align: 'right' as 'right',
+                width: 62,
+                render: (value: number) => <span className={classes.antTableStrongNumber}>{value}</span>
+            },
+            {
+                title: translate('hostSocketRatioColumn'),
+                dataIndex: 'percent',
+                key: 'percent',
+                width: 132,
+                render: (value: number) => (
+                    <div className={classes.antTableProgressCell}>
+                        <span>{Math.round(value)}%</span>
+                        <Progress
+                            className={classes.antTableProgress}
+                            percent={Math.min(100, value)}
+                            showInfo={false}
+                            strokeColor="var(--netdive-ant-primary, #1677ff)"
+                        />
+                    </div>
+                )
+            }
+        ]
+        const serviceColumns = [
+            {
+                title: translate('hostSocketServiceColumn'),
+                dataIndex: 'process',
+                key: 'process',
+                render: (value: string) => <span className={classes.antTablePrimaryText}>{value}</span>
+            },
+            {
+                title: translate('hostSocketPortProtocolColumn'),
+                key: 'portProtocol',
+                align: 'right' as 'right',
+                width: 118,
+                render: (_: any, record: SocketServiceItem) => <Tag className={classes.antPortTag}>{record.port} / {record.protocol}</Tag>
+            }
+        ]
         return (
             <div className={classes.socketSection}>
                 <div className={classes.socketSummaryGrid}>
-                    <div className={classes.socketSummaryTile}>
-                        <div className={classes.socketSummaryLabel}>{translate('hostListenPorts')}</div>
-                        <div className={classes.socketSummaryValue}>{socketStats.listen || 0}</div>
-                    </div>
-                    <div className={classes.socketSummaryTile}>
-                        <div className={classes.socketSummaryLabel}>{translate('hostExternalConnections')}</div>
-                        <div className={classes.socketSummaryValue}>{socketStats.external || 0}</div>
-                    </div>
-                    <div className={classes.socketSummaryTile}>
-                        <div className={classes.socketSummaryLabel}>{translate('hostTopSocketProcesses')}</div>
-                        <div className={classes.socketSummaryValue}>{processes.length}</div>
-                    </div>
+                    <Card className={classes.socketSummaryTile} bordered bodyStyle={{ padding: 0 }}>
+                        <Statistic className={classes.antStatistic} title={translate('hostListenPorts')} value={socketStats.listen || 0} />
+                    </Card>
+                    <Card className={classes.socketSummaryTile} bordered bodyStyle={{ padding: 0 }}>
+                        <Statistic className={classes.antStatistic} title={translate('hostExternalConnections')} value={socketStats.external || 0} />
+                    </Card>
+                    <Card className={classes.socketSummaryTile} bordered bodyStyle={{ padding: 0 }}>
+                        <Statistic className={classes.antStatistic} title={translate('hostTopSocketProcesses')} value={processes.length} />
+                    </Card>
                 </div>
-                <div className={classes.socketBlock}>
-                    <div className={classes.socketBlockHeader}>
-                        <strong className={classes.socketBlockTitle}>{translate('hostTopSocketProcesses')}</strong>
-                        {(hiddenProcessCount > 0 || this.state.showAllSocketProcesses) && (
-                            <button
-                                type="button"
-                                className={classes.socketMoreButton}
-                                onClick={() => this.setState({ showAllSocketProcesses: !this.state.showAllSocketProcesses })}>
-                                {this.state.showAllSocketProcesses ? translate('hostSocketCollapse') : translate('hostSocketViewAll')}
-                            </button>
-                        )}
-                    </div>
-                    <div className={`${classes.socketTableHeader} ${classes.socketProcessTableHeader}`}>
-                        <span>{translate('hostSocketProcessColumn')}</span>
-                        <span className={classes.socketTableHeaderRight}>{translate('hostSocketCountColumn')}</span>
-                        <span className={classes.socketTableHeaderRight}>{translate('hostSocketRatioColumn')}</span>
-                    </div>
-                    <div className={classes.socketProcessList}>
-                        {visibleProcesses.map(item => (
-                            <div className={classes.socketProcessRow} key={item.process}>
-                                <span className={classes.socketProcessName}>{item.process}</span>
-                                <span className={classes.socketProcessCount}>{item.count}</span>
-                                <div className={classes.socketProcessPercentCell}>
-                                    <span className={classes.socketProcessPercent}>{Math.round(item.percent)}%</span>
-                                    <div className={classes.socketProcessBarTrack}>
-                                        <div className={classes.socketProcessBarFill} style={{ width: `${Math.min(100, item.percent)}%` }} />
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-                <div className={classes.socketBlock}>
-                    <div className={classes.socketBlockHeader}>
-                        <strong className={classes.socketBlockTitle}>{translate('hostListeningServices')} <span>({socketStats.listen || 0})</span></strong>
-                        {(hiddenServiceCount > 0 || services.length > 5) && (
-                            <button
-                                type="button"
-                                className={classes.socketMoreButton}
-                                onClick={() => this.setState({
-                                    listeningServicesVisibleCount: hiddenServiceCount > 0 ? services.length : undefined
-                                })}>
-                                {hiddenServiceCount > 0 ? translate('hostSocketViewAll') : translate('hostSocketCollapse')}
-                            </button>
-                        )}
-                    </div>
-                    <div className={`${classes.socketTableHeader} ${classes.socketServiceTableHeader}`}>
-                        <span>{translate('hostSocketServiceColumn')}</span>
-                        <span className={classes.socketTableHeaderRight}>{translate('hostSocketPortProtocolColumn')}</span>
-                    </div>
-                    <div className={classes.socketServiceList}>
-                        {visibleServices.map(item => (
-                            <div className={classes.socketServiceRow} key={`${item.port}-${item.protocol}-${item.process}`}>
-                                <span className={classes.socketServiceProcess}>{item.process}</span>
-                                <span className={classes.socketServicePortBadge}>{item.port} / {item.protocol}</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
+                <Card
+                    className={classes.socketBlock}
+                    bordered
+                    title={translate('hostTopSocketProcesses')}
+                    extra={(hiddenProcessCount > 0 || this.state.showAllSocketProcesses) && (
+                        <Button
+                            type="link"
+                            size="small"
+                            className={classes.socketMoreButton}
+                            onClick={() => this.setState({ showAllSocketProcesses: !this.state.showAllSocketProcesses })}>
+                            {this.state.showAllSocketProcesses ? translate('hostSocketCollapse') : translate('hostSocketViewAll')}
+                        </Button>
+                    )}
+                    bodyStyle={{ padding: 0 }}>
+                    <Table
+                        className={classes.antDataTable}
+                        columns={processColumns}
+                        dataSource={visibleProcesses.map(item => ({ ...item, key: item.process }))}
+                        pagination={false}
+                        size="small"
+                    />
+                </Card>
+                <Card
+                    className={classes.socketBlock}
+                    bordered
+                    title={`${translate('hostListeningServices')} (${socketStats.listen || 0})`}
+                    extra={(hiddenServiceCount > 0 || services.length > 5) && (
+                        <Button
+                            type="link"
+                            size="small"
+                            className={classes.socketMoreButton}
+                            onClick={() => this.setState({
+                                listeningServicesVisibleCount: hiddenServiceCount > 0 ? services.length : undefined
+                            })}>
+                            {hiddenServiceCount > 0 ? translate('hostSocketViewAll') : translate('hostSocketCollapse')}
+                        </Button>
+                    )}
+                    bodyStyle={{ padding: 0 }}>
+                    <Table
+                        className={classes.antDataTable}
+                        columns={serviceColumns}
+                        dataSource={visibleServices.map(item => ({ ...item, key: `${item.port}-${item.protocol}-${item.process}` }))}
+                        pagination={false}
+                        size="small"
+                    />
+                </Card>
             </div>
         )
     }
@@ -1854,7 +1886,7 @@ class HostDetailPanel extends React.Component<Props, State> {
     private renderValue(row: KeyValueRow) {
         const { classes } = this.props
         const value = stringify(row.value) || 'N/A'
-        const displayValue = row.label === translate('KernelVersion') && value.length > 22 ? `${value.slice(0, 13)}...${value.slice(-8)}` : value
+        const displayValue = value
         return (
             <div className={classes.kvValueWrap}>
                 <AntTooltip title={value} placement="top">
