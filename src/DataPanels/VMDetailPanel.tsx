@@ -1,8 +1,7 @@
 import * as React from 'react'
-import { Button, Card, Descriptions, Empty, Progress, Statistic, Tag, Tooltip as AntTooltip } from 'antd'
+import { Button, Card, Empty, Progress, Statistic, Tag, Tooltip as AntTooltip } from 'antd'
 import FileCopyIcon from '@material-ui/icons/FileCopy'
 import InfoIcon from '@material-ui/icons/Info'
-import TimelineIcon from '@material-ui/icons/Timeline'
 import DeviceHubIcon from '@material-ui/icons/DeviceHub'
 import StorageIcon from '@material-ui/icons/Storage'
 import MemoryIcon from '@material-ui/icons/Memory'
@@ -12,7 +11,7 @@ import { withStyles } from '@material-ui/core/styles'
 import { Node } from '../Topology'
 import { translate } from '../Config'
 import { session } from '../Store'
-import { styles } from './HostDetailPanelStyles'
+import { styles } from './VMDetailPanelStyles'
 import HostResourceTrendPanel from './HostResourceTrendPanel'
 
 interface Props {
@@ -475,24 +474,24 @@ class VMDetailPanel extends React.Component<Props> {
         const visible = rows.filter(row => row.alwaysShow || !isBlank(row.value))
         if (!visible.length) return this.renderEmpty(emptyText)
         return (
-            <Descriptions className={classes.antDescriptions} size="small" column={1}>
+            <div className={classes.antInfoList}>
                 {visible.map(row => (
-                    <Descriptions.Item label={row.label} key={row.label}>
-                        {this.renderValue(row)}
-                    </Descriptions.Item>
+                    <div className={classes.antInfoRow} key={row.label}>
+                        <div className={classes.antInfoLabel}>{row.label}</div>
+                        <div className={classes.antInfoValue}>{this.renderValue(row)}</div>
+                    </div>
                 ))}
-            </Descriptions>
+            </div>
         )
     }
 
-    private renderSection(icon: React.ReactNode, title: string, description: string, children: React.ReactNode) {
+    private renderSection(icon: React.ReactNode, title: string, children: React.ReactNode) {
         const { classes } = this.props
         const sectionTitle = (
             <div className={classes.panelHeader}>
                 <span className={classes.panelIcon}>{icon}</span>
                 <div className={classes.panelTitleBlock}>
                     <div className={classes.panelTitle}>{title}</div>
-                    {description && <div className={classes.panelDescription}>{description}</div>}
                 </div>
             </div>
         )
@@ -557,10 +556,9 @@ class VMDetailPanel extends React.Component<Props> {
                     const canFocus = !!item.onClick || (!!item.nodeIDs && item.nodeIDs.length > 0)
                     const iconContainerClassName = `${classes.connectedResourceCardIcon}${item.iconContainerClassName ? ` ${item.iconContainerClassName}` : ''}`
                     return (
-                        <Card.Grid
-                            className={`${classes.connectedResourceCard} ${classes.antOverviewGridItem} ${canFocus ? classes.connectedResourceCardClickable : classes.connectedResourceCardStatic}`}
-                            key={item.label}
-                            hoverable={canFocus}>
+                        <div
+                            className={`${classes.connectedResourceCard} ${canFocus ? classes.connectedResourceCardClickable : classes.connectedResourceCardStatic}`}
+                            key={item.label}>
                             <button
                                 type="button"
                                 className={classes.antOverviewButton}
@@ -583,7 +581,7 @@ class VMDetailPanel extends React.Component<Props> {
                                 <span className={classes.connectedResourceCardValue}>{item.value}</span>
                                 <span className={`${classes.connectedResourceCardAction} ${!canFocus ? classes.connectedResourceCardActionHidden : ''}`} aria-hidden={!canFocus}>›</span>
                             </button>
-                        </Card.Grid>
+                        </div>
                     )
                 })}
             </div>
@@ -607,10 +605,10 @@ class VMDetailPanel extends React.Component<Props> {
 
         const basicRows: KeyValueRow[] = [
             { label: translate('vmName'), value: displayName, copy: true, alwaysShow: true },
+            { label: translate('vmLibvirtName'), value: libvirtName, copy: true, alwaysShow: true },
             { label: 'Host', value: hostName, copy: true, alwaysShow: true },
             { label: translate('hostOperationalStatus'), value: this.statusText(), alwaysShow: true, variant: 'status' },
             { label: translate('vmPrivateIp'), value: this.privateIp(), copy: true, alwaysShow: true },
-            { label: translate('vmLibvirtName'), value: libvirtName, copy: true, alwaysShow: true },
             { label: 'UUID', value: firstValue(data, ['UUID', 'uuid', 'ID', 'Id', 'id', 'ExtID', 'VirtualMachineID', 'virtualMachineId']), copy: true, alwaysShow: true },
             { label: 'Guest OS', value: os, alwaysShow: true },
             { label: translate('vmCpu'), value: cpuCount !== undefined ? `${cpuCount} vCPU` : '', copy: false, alwaysShow: true },
@@ -644,14 +642,11 @@ class VMDetailPanel extends React.Component<Props> {
 
         return (
             <div className={classes.root}>
-                {this.renderSection(<InfoIcon />, translate('hostBasicInfo'), translate('vmOverviewDescription'), this.renderRows(basicRows))}
+                {this.renderSection(<InfoIcon />, translate('hostBasicInfo'), this.renderRows(basicRows))}
+                {this.renderSection(<DeviceHubIcon />, translate('hostConnectedResources'), this.renderOverviewGrid(connectedResources))}
                 <HostResourceTrendPanel node={node} session={this.props.session} data={data} target="vm" />
-                {hasResourceMetrics && this.renderSection(<TimelineIcon />, translate('hostResourceUsage'), translate('vmResourceUsageDescription'), this.renderMetricGrid(resourceMetrics))}
-                {this.renderSection(<DeviceHubIcon />, translate('hostConnectedResources'), translate('vmConnectedResourcesDescription'), this.renderOverviewGrid(connectedResources))}
-                {hasRecentSignals && this.renderSection(<InfoIcon />, translate('hostRecentSignals'), translate('hostRecentSignalsDescription'), this.renderRows(eventRows, translate('hostNoRecentSignals')))}
-                {this.renderSection(<InfoIcon />, translate('hostRawInfo'), '', (
-                    <pre className={classes.codeBlock}>{JSON.stringify(data, null, 2)}</pre>
-                ))}
+                {hasResourceMetrics && this.renderSection(<DnsIcon />, translate('hostResourceUsage'), this.renderMetricGrid(resourceMetrics))}
+                {hasRecentSignals && this.renderSection(<InfoIcon />, translate('hostRecentSignals'), this.renderRows(eventRows, translate('hostNoRecentSignals')))}
             </div>
         )
     }

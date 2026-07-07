@@ -19,10 +19,10 @@ import { createStyles, Theme } from '@material-ui/core'
 
 export const styles = (theme: Theme) => createStyles({
   rightPanelPaperContent: {
-    paddingTop: theme.spacing(1.75),
+    paddingTop: 12,
     paddingBottom: theme.spacing(2.5),
-    paddingLeft: theme.spacing(2.5),
-    paddingRight: theme.spacing(3.25),
+    paddingLeft: 18,
+    paddingRight: 22,
     width: `100%`,
     height: `100%`,
     maxHeight: 'calc(100% - 70px)',
@@ -58,7 +58,8 @@ export const styles = (theme: Theme) => createStyles({
     height: `100%`,
     backgroundColor: 'var(--netdive-detail-bg)',
     '& .MuiTabs-indicator': {
-      backgroundColor: 'var(--netdive-detail-accent)'
+      height: 2,
+      backgroundColor: '#1677ff'
     },
     '& .MuiTab-wrapper': {
       width: '100%'
@@ -67,11 +68,11 @@ export const styles = (theme: Theme) => createStyles({
   tabRoot: {
     minWidth: 210,
     maxWidth: 320,
-    paddingLeft: theme.spacing(1.25),
-    paddingRight: theme.spacing(1.25),
+    paddingLeft: 12,
+    paddingRight: 12,
     overflow: 'hidden',
     '&.MuiTab-labelIcon': {
-      minHeight: 54
+      minHeight: 48
     },
     '& .MuiTab-wrapper': {
       width: '100%',
@@ -95,23 +96,24 @@ export const styles = (theme: Theme) => createStyles({
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
-    fontSize: 18,
+    fontSize: 15,
     lineHeight: 1.18,
-    fontWeight: 700,
-    color: 'var(--netdive-detail-text)',
+    fontWeight: 600,
+    color: '#101828',
     cursor: 'help'
   },
   tabSubtitle: {
     display: 'block',
     maxWidth: '100%',
-    marginTop: 3,
+    marginTop: 2,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
     color: 'var(--netdive-detail-muted, #64748b)',
-    fontSize: 12.5,
+    fontSize: 11.5,
     lineHeight: 1.25,
-    fontWeight: 600
+    fontWeight: 600,
+    letterSpacing: 0.1
   },
   tabTitleMulti: {
     whiteSpace: 'pre-line',
@@ -125,9 +127,18 @@ export const styles = (theme: Theme) => createStyles({
   tabActions: {
     display: 'flex',
     flexDirection: 'row-reverse',
-    marginBottom: theme.spacing(1.15),
-    borderBottom: '1px solid rgba(226, 232, 240, 0.92)',
-    paddingBottom: theme.spacing(0.85)
+    marginBottom: 10,
+    borderBottom: '1px solid #eef0f4',
+    paddingBottom: 8,
+    '& .MuiIconButton-root': {
+      width: 34,
+      height: 34,
+      padding: 7,
+      color: '#101828'
+    },
+    '& .MuiSvgIcon-root': {
+      fontSize: 19
+    }
   },
   gremlinExpr: {
     fontSize: '16px',
@@ -144,17 +155,17 @@ export const styles = (theme: Theme) => createStyles({
   tabIconFree: {
     fontFamily: `"Font Awesome 5 Free" !important`,
     fontWeight: 900,
-    fontSize: 32,
+    fontSize: 26,
     marginBottom: `0 !important`,
     flex: '0 0 auto',
-    color: 'var(--topology-level-label-active-text)'
+    color: '#1677ff'
   },
   tabIconBrands: {
     fontFamily: `"Font Awesome 5 Brands" !important`,
     fontWeight: 900,
-    fontSize: 32,
+    fontSize: 26,
     marginBottom: `0 !important`,
     flex: '0 0 auto',
-    color: 'var(--topology-level-label-active-text)'
+    color: '#1677ff'
   }
 })

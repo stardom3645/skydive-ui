@@ -64,30 +64,30 @@ const trendRanges = [
 
 const styles = (theme: Theme) => createStyles({
     card: {
-        border: '1px solid var(--netdive-detail-border-soft)',
-        borderRadius: 16,
-        background: 'var(--netdive-detail-card-bg, #ffffff)',
+        border: '1px solid #eef0f4',
+        borderRadius: 10,
+        background: '#ffffff',
         overflow: 'hidden',
-        boxShadow: '0 8px 22px rgba(15, 23, 42, 0.035)'
+        boxShadow: '0 1px 2px rgba(16, 24, 40, 0.04)'
     },
     header: {
         display: 'flex',
         alignItems: 'center',
         gap: theme.spacing(0.9),
-        padding: theme.spacing(1.25, 1.35),
-        borderBottom: '1px solid var(--netdive-detail-border-subtle, rgba(226, 232, 240, 0.72))',
-        background: 'var(--netdive-detail-section-header, #f8fafc)'
+        padding: '10px 16px',
+        borderBottom: '1px solid #f5f5f5',
+        background: '#ffffff'
     },
     icon: {
         width: 28,
         height: 28,
-        borderRadius: 10,
+        borderRadius: 7,
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
         flex: '0 0 28px',
-        color: 'var(--topology-level-label-active-text)',
-        background: 'rgba(232, 242, 255, 0.82)',
+        color: '#1677ff',
+        background: '#f0f7ff',
         '& svg': {
             fontSize: 17
         }
@@ -97,10 +97,10 @@ const styles = (theme: Theme) => createStyles({
         flex: '1 1 auto'
     },
     title: {
-        color: 'var(--netdive-detail-text)',
-        fontSize: 14,
+        color: '#101828',
+        fontSize: 14.5,
         lineHeight: 1.2,
-        fontWeight: 800
+        fontWeight: 600
     },
     description: {
         marginTop: 3,
@@ -138,7 +138,10 @@ const styles = (theme: Theme) => createStyles({
         }
     },
     body: {
-        padding: theme.spacing(1.1, 1.25, 1.25)
+        padding: '12px 14px 14px'
+    },
+    bodyEmpty: {
+        padding: '8px 14px 14px'
     },
     grid: {
         display: 'grid',
@@ -147,18 +150,18 @@ const styles = (theme: Theme) => createStyles({
     },
     trendTile: {
         minWidth: 0,
-        border: '1px solid var(--netdive-detail-border-soft)',
-        borderRadius: 12,
+        border: '1px solid #eef0f4',
+        borderRadius: 10,
         padding: '13px 15px 12px',
-        background: 'var(--netdive-detail-soft-card, #fbfdff)',
+        background: '#ffffff',
         display: 'flex',
         flexDirection: 'column',
         gap: 9,
         transition: 'border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease',
         '&:hover': {
             borderColor: 'rgba(148, 163, 184, 0.42)',
-            background: 'var(--netdive-detail-soft-card-hover, #ffffff)',
-            boxShadow: '0 8px 18px rgba(15, 23, 42, 0.045)'
+            background: '#ffffff',
+            boxShadow: '0 4px 12px rgba(16, 24, 40, 0.05)'
         }
     },
     trendHeaderBlock: {
@@ -178,10 +181,10 @@ const styles = (theme: Theme) => createStyles({
     },
     trendLabel: {
         minWidth: 0,
-        color: 'var(--netdive-detail-title, #0f172a)',
+        color: '#101828',
         fontSize: 12.5,
         lineHeight: 1.2,
-        fontWeight: 700,
+        fontWeight: 600,
         whiteSpace: 'nowrap'
     },
     trendHeaderRight: {
@@ -204,7 +207,7 @@ const styles = (theme: Theme) => createStyles({
     },
     trendValueNumber: {
         fontSize: 14,
-        fontWeight: 700,
+        fontWeight: 600,
         color: '#111827',
         lineHeight: 1
     },
@@ -382,16 +385,16 @@ const styles = (theme: Theme) => createStyles({
         fontWeight: 600
     },
     antEmpty: {
-        padding: theme.spacing(1.1, 0),
+        padding: '10px 0 12px',
         '& .ant-empty-image': {
-            height: 38,
-            marginBottom: 6
+            height: 30,
+            marginBottom: 4
         },
         '& .ant-empty-description': {
             color: 'var(--netdive-detail-muted, #64748b)',
-            fontSize: 12.5,
+            fontSize: 12,
             lineHeight: 1.5,
-            fontWeight: 600
+            fontWeight: 500
         }
     },
     loading: {
@@ -1004,7 +1007,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
                     </div>
                 </div>
 
-                <div className={classes.body}>
+                <div className={`${classes.body} ${!hasTrend ? classes.bodyEmpty : ''}`}>
                     {loading && !hasTrend && (
                         <div className={classes.loading}>
                             <Spin size="small" />

@@ -13,7 +13,7 @@ import * as React from 'react'
 import IconButton from '@material-ui/core/IconButton'
 import Drawer from '@material-ui/core/Drawer'
 import SvgIcon from '@material-ui/core/SvgIcon'
-import { Button, Card, Descriptions, Empty, Progress, Statistic, Table, Tag, Tooltip as AntTooltip } from 'antd'
+import { Button, Card, Empty, Progress, Statistic, Table, Tooltip as AntTooltip } from 'antd'
 import FileCopyIcon from '@material-ui/icons/FileCopy'
 import InfoIcon from '@material-ui/icons/Info'
 import TimelineIcon from '@material-ui/icons/Timeline'
@@ -1817,7 +1817,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                 key: 'portProtocol',
                 align: 'right' as 'right',
                 width: 118,
-                render: (_: any, record: SocketServiceItem) => <Tag className={classes.antPortTag}>{record.port} / {record.protocol}</Tag>
+                render: (_: any, record: SocketServiceItem) => <span className={classes.antPortText}>{record.port} / {record.protocol}</span>
             }
         ]
         return (
@@ -1911,13 +1911,14 @@ class HostDetailPanel extends React.Component<Props, State> {
         const visible = rows.filter(row => !isBlank(row.value))
         if (!visible.length) return this.renderEmpty(emptyText)
         return (
-            <Descriptions className={classes.antDescriptions} size="small" column={1}>
+            <div className={classes.antInfoList}>
                 {visible.map(row => (
-                    <Descriptions.Item label={row.label} key={row.label}>
-                        {this.renderValue(row)}
-                    </Descriptions.Item>
+                    <div className={classes.antInfoRow} key={row.label}>
+                        <div className={classes.antInfoLabel}>{row.label}</div>
+                        <div className={classes.antInfoValue}>{this.renderValue(row)}</div>
+                    </div>
                 ))}
-            </Descriptions>
+            </div>
         )
     }
 
@@ -2003,10 +2004,9 @@ class HostDetailPanel extends React.Component<Props, State> {
                     const actionClassName = `${classes.connectedResourceCardAction} ${!canFocus ? classes.connectedResourceCardActionHidden : ''}`
                     const iconContainerClassName = `${classes.connectedResourceCardIcon}${item.iconContainerClassName ? ` ${item.iconContainerClassName}` : ''}`
                     return (
-                        <Card.Grid
-                            className={`${classes.connectedResourceCard} ${classes.antOverviewGridItem} ${canFocus ? classes.connectedResourceCardClickable : classes.connectedResourceCardStatic}`}
-                            key={item.label}
-                            hoverable={canFocus}>
+                        <div
+                            className={`${classes.connectedResourceCard} ${canFocus ? classes.connectedResourceCardClickable : classes.connectedResourceCardStatic}`}
+                            key={item.label}>
                             <button
                                 type="button"
                                 className={classes.antOverviewButton}
@@ -2029,7 +2029,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                                 <span className={classes.connectedResourceCardValue}>{item.value}</span>
                                 <span className={actionClassName} aria-hidden={!canFocus}>›</span>
                             </button>
-                        </Card.Grid>
+                        </div>
                     )
                 })}
             </div>
@@ -2167,12 +2167,12 @@ class HostDetailPanel extends React.Component<Props, State> {
         ].filter(Boolean)
 
         const basicRows: KeyValueRow[] = [
-            { label: translate('Hostname'), value: name },
+            { label: translate('hostName'), value: name, copy: true },
             { label: translate('hostMoldHostId'), value: firstValue(data, ['MoldHostId', 'CloudStackHostId', 'HostId', 'HostID', 'UUID', 'uuid']), copy: true },
             { label: translate('hostManagementIp'), value: managementServer || representativeIp, copy: true },
             { label: translate('hostLocation'), value: locationText },
             { label: translate('hostHypervisor'), value: virtualizationText },
-            { label: translate('Platform'), value: platformText },
+            { label: translate('hostOsPlatform'), value: platformText },
             { label: translate('KernelVersion'), value: kernelVersion, copy: true }
         ]
 
@@ -2222,26 +2222,19 @@ class HostDetailPanel extends React.Component<Props, State> {
 
         return (
             <div className={classes.root}>
-                {this.renderSection(<InfoIcon />, translate('hostBasicInfo'), translate('hostOverviewDescription'), this.renderRows(basicRows))}
+                {this.renderSection(<InfoIcon />, translate('hostBasicInfo'), '', this.renderRows(basicRows))}
+                {hasConnectedMetrics && this.renderSection(<DeviceHubIcon />, translate('hostConnectedResources'), '', this.renderOverviewGrid(
+                    connectedResources.concat(kubernetesResources),
+                    translate('hostNoConnectedResources')
+                ))}
                 <HostResourceTrendPanel
                     node={node}
                     session={this.props.session}
                     data={data}
                 />
-                {hasConnectedMetrics && this.renderSection(<DeviceHubIcon />, translate('hostConnectedResources'), translate('hostConnectedResourcesDescription'), (
-                    <div className={classes.connectedResourceSectionStack}>
-                        {this.renderConnectedResourceSubsection(<AccountTreeIcon />, translate('infrastructureMenu'), connectedResources, translate('hostNoConnectedResources'))}
-                        {this.renderConnectedResourceSubsection(
-                            <span className={classes.connectedResourceSectionKubernetesNodeIcon}>{this.kubernetesIcon()}</span>,
-                            'Kubernetes',
-                            kubernetesResources,
-                            translate('hostNoConnectedResources')
-                        )}
-                    </div>
-                ))}
-                {this.renderSection(<ShareNodesIcon />, translate('hostSocketsProcesses'), translate('hostSocketsProcessesDescription'), this.renderSocketProcessSummary())}
-                {hasNetworkSummary && this.renderSection(<RouterIcon />, translate('hostNetworkSummary'), translate('hostNetworkSummaryDescription'), this.renderMetricGrid(networkMetrics, translate('hostNetworkDetailsMissing')))}
-                {hasRecentSignals && this.renderSection(<InfoIcon />, translate('hostRecentSignals'), translate('hostRecentSignalsDescription'), this.renderRows(eventRows, translate('hostNoRecentSignals')))}
+                {this.renderSection(<ShareNodesIcon />, translate('hostSocketsProcesses'), '', this.renderSocketProcessSummary())}
+                {hasNetworkSummary && this.renderSection(<RouterIcon />, translate('hostNetworkSummary'), '', this.renderMetricGrid(networkMetrics, translate('hostNetworkDetailsMissing')))}
+                {hasRecentSignals && this.renderSection(<InfoIcon />, translate('hostRecentSignals'), '', this.renderRows(eventRows, translate('hostNoRecentSignals')))}
 
                 {!hasMoldRows && (
                     <div className={classes.noticeCard}>
