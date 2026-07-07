@@ -1852,48 +1852,20 @@ class HostDetailPanel extends React.Component<Props, State> {
     }
 
     private renderValue(row: KeyValueRow) {
+        const { classes } = this.props
         const value = stringify(row.value) || 'N/A'
-        const isKernel = row.label === translate('KernelVersion')
-        const displayValue = isKernel && value.length > 30 ? `${value.slice(0, 16)}...${value.slice(-10)}` : value
+        const displayValue = row.label === translate('KernelVersion') && value.length > 22 ? `${value.slice(0, 13)}...${value.slice(-8)}` : value
         return (
-            <div
-                style={{
-                    minWidth: 0,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'flex-end',
-                    gap: 6
-                }}>
+            <div className={classes.kvValueWrap}>
                 <AntTooltip title={value} placement="top">
-                    <span
-                        style={{
-                            minWidth: 0,
-                            maxWidth: '100%',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            color: 'var(--netdive-detail-text, #111827)',
-                            fontSize: 12.5,
-                            fontWeight: 700,
-                            lineHeight: 1.35
-                        }}>
-                        {displayValue}
-                    </span>
+                    <span className={classes.kvValue}>{displayValue}</span>
                 </AntTooltip>
                 {row.copy && value !== 'N/A' && (
                     <AntTooltip title={translate('copy')} placement="top">
                         <Button
                             type="text"
-                            size="small"
-                            style={{
-                                width: 22,
-                                height: 22,
-                                minWidth: 22,
-                                padding: 0,
-                                flexShrink: 0,
-                                color: 'var(--netdive-detail-muted, #64748b)'
-                            }}
-                            icon={<FileCopyIcon style={{ fontSize: 15 }} />}
+                            className={classes.copyButton}
+                            icon={<FileCopyIcon />}
                             onClick={() => this.copyValue(value)}
                         />
                     </AntTooltip>
@@ -1903,42 +1875,17 @@ class HostDetailPanel extends React.Component<Props, State> {
     }
 
     private renderRows(rows: KeyValueRow[], emptyText = translate('hostNoData')) {
+        const { classes } = this.props
         const visible = rows.filter(row => !isBlank(row.value))
         if (!visible.length) return this.renderEmpty(emptyText)
         return (
-            <div
-                style={{
-                    padding: '4px 0',
-                    background: '#fff'
-                }}>
+            <Descriptions className={classes.antDescriptions} size="small" column={1}>
                 {visible.map(row => (
-                    <div
-                        key={row.label}
-                        style={{
-                            display: 'grid',
-                            gridTemplateColumns: '92px minmax(0, 1fr)',
-                            alignItems: 'center',
-                            gap: 10,
-                            minHeight: 34,
-                            padding: '7px 12px',
-                            borderBottom: '1px solid rgba(226, 232, 240, 0.82)'
-                        }}>
-                        <span
-                            style={{
-                                minWidth: 0,
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                                color: 'var(--netdive-detail-muted, #64748b)',
-                                fontSize: 12,
-                                fontWeight: 650
-                            }}>
-                            {row.label}
-                        </span>
+                    <Descriptions.Item label={row.label} key={row.label}>
                         {this.renderValue(row)}
-                    </div>
+                    </Descriptions.Item>
                 ))}
-            </div>
+            </Descriptions>
         )
     }
 
@@ -2244,6 +2191,11 @@ class HostDetailPanel extends React.Component<Props, State> {
         return (
             <div className={classes.root}>
                 {this.renderSection(<InfoIcon />, translate('hostBasicInfo'), translate('hostOverviewDescription'), this.renderRows(basicRows))}
+                <HostResourceTrendPanel
+                    node={node}
+                    session={this.props.session}
+                    data={data}
+                />
                 {hasConnectedMetrics && this.renderSection(<DeviceHubIcon />, translate('hostConnectedResources'), translate('hostConnectedResourcesDescription'), (
                     <div className={classes.connectedResourceSectionStack}>
                         {this.renderConnectedResourceSubsection(<AccountTreeIcon />, translate('infrastructureMenu'), connectedResources, translate('hostNoConnectedResources'))}
@@ -2255,11 +2207,6 @@ class HostDetailPanel extends React.Component<Props, State> {
                         )}
                     </div>
                 ))}
-                <HostResourceTrendPanel
-                    node={node}
-                    session={this.props.session}
-                    data={data}
-                />
                 {this.renderSection(<ShareNodesIcon />, translate('hostSocketsProcesses'), translate('hostSocketsProcessesDescription'), this.renderSocketProcessSummary())}
                 {hasNetworkSummary && this.renderSection(<RouterIcon />, translate('hostNetworkSummary'), translate('hostNetworkSummaryDescription'), this.renderMetricGrid(networkMetrics, translate('hostNetworkDetailsMissing')))}
                 {hasRecentSignals && this.renderSection(<InfoIcon />, translate('hostRecentSignals'), translate('hostRecentSignalsDescription'), this.renderRows(eventRows, translate('hostNoRecentSignals')))}
