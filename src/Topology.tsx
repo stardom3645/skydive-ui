@@ -31,15 +31,114 @@ const animDuration = 500
 const defaultGroupSize = 6
 const defaultMaxExpandSize = 100
 
-const nodeWidth = 170
+const nodeWidth = 240
 const nodeHeight = 280
-const userVmHorizontalGapBoost = 170
+const topologyCardWidth = 220
+const topologyVmCardWidth = 300
+const topologyCardHeight = 86
+const groupContainerWidth = 420
+const groupContainerHeaderHeight = 64
+const groupMiniCardGap = 8
+const groupMiniCardLimit = 24
+const userVmHorizontalGapBoost = 200
 const userVmVerticalGapBoost = 60
 const userVmNameWidthBoost = 130
 const kubernetesClusterHorizontalGapBoost = 180
 const kubernetesNodeHorizontalGapBoost = 110
 const kubernetesNodeLabelWidthBoost = 95
 const kubernetesNamespaceHorizontalGapBoost = 120
+
+const isTopologyInterfaceData = (data?: any): boolean => {
+    if (!data) {
+        return false
+    }
+    const type = String(data.Type || '').toLowerCase()
+    const driver = String(data.Driver || '').toLowerCase()
+    return type === 'tuntap' || driver === 'tuntap'
+}
+
+const topologyNodeStatus = (node: any): { label: string, className: string, kind: "ok" | "bad" | "warning" | "unknown" } => {
+    const data = node?.data || {}
+    const raw = String(data.State || data.Status || data.state || data.status || "").toLowerCase()
+    if (/running|up|active|정상/.test(raw)) {
+        return { label: "Running", className: "is-ok", kind: "ok" }
+    }
+    if (/warning|warn|degraded|주의|경고/.test(raw)) {
+        return { label: "Warning", className: "is-warning", kind: "warning" }
+    }
+    if (/down|stopped|error|fail|disabled|비정상|중지/.test(raw)) {
+        return { label: raw.includes("stop") || /중지/.test(raw) ? "Stopped" : "Error", className: "is-bad", kind: "bad" }
+    }
+    return { label: "Unknown", className: "is-unknown", kind: "unknown" }
+}
+
+const groupStatusSummary = (children: any[]): string => {
+    let ok = 0
+    let warning = 0
+    let bad = 0
+    children.forEach(child => {
+        const status = topologyNodeStatus(child)
+        if (status.kind === "ok") ok++
+        if (status.kind === "warning") warning++
+        if (status.kind === "bad") bad++
+    })
+    const parts = new Array<string>()
+    if (ok) parts.push(`Running ${ok}`)
+    if (warning) parts.push(`Warning ${warning}`)
+    if (bad) parts.push(`Error ${bad}`)
+    return parts.join(" · ")
+}
+
+const groupContainerVisibleCount = (count: number): number => Math.min(count, groupMiniCardLimit)
+
+const groupMiniCardSize = (node: any): { width: number, height: number } => {
+    const data = node?.data || {}
+    const type = String(data.Type || '').toLowerCase()
+    const manager = String(data.Manager || '').toLowerCase()
+    if (type === 'libvirt' || type === 'host' || (manager === 'k8s' && type === 'node')) {
+        return { width: 132, height: 44 }
+    }
+    if (type === 'device' || type === 'bridge' || type === 'ovsbridge' || type === 'openvswitch' || type === 'port') {
+        return { width: 88, height: 38 }
+    }
+    return { width: 106, height: 40 }
+}
+
+const groupContainerLayout = (children: any[]): { items: Array<{ node: any, x: number, y: number, width: number, height: number }>, height: number, more: number } => {
+    const visible = children.slice(0, groupMiniCardLimit)
+    const maxContentWidth = groupContainerWidth - 32
+    const items = new Array<{ node: any, x: number, y: number, width: number, height: number }>()
+    let x = 0
+    let y = 0
+    let rowHeight = 0
+
+    visible.forEach(child => {
+        const size = groupMiniCardSize(child)
+        if (x > 0 && x + size.width > maxContentWidth) {
+            x = 0
+            y += rowHeight + groupMiniCardGap
+            rowHeight = 0
+        }
+        items.push({ node: child, x, y, width: size.width, height: size.height })
+        x += size.width + groupMiniCardGap
+        rowHeight = Math.max(rowHeight, size.height)
+    })
+
+    const gridHeight = items.length ? y + rowHeight : 0
+    const more = Math.max(0, children.length - groupMiniCardLimit)
+    return { items, height: gridHeight, more }
+}
+
+const groupContainerHeight = (count: number): number => {
+    const placeholder = new Array(groupContainerVisibleCount(count)).fill(null).map(() => ({ data: { Type: 'device' } }))
+    const layout = groupContainerLayout(placeholder)
+    return groupContainerHeaderHeight + layout.height + (count > groupMiniCardLimit ? 24 : 0) + 18
+}
+
+const groupContainerHeightForChildren = (children: any[]): number => {
+    const layout = groupContainerLayout(children)
+    return groupContainerHeaderHeight + layout.height + (layout.more > 0 ? 24 : 0) + 18
+}
 
 export enum LinkTagState {
     Hidden = 1,
@@ -155,11 +254,12 @@ class NodeWrapper {
             this.size = [50, nodeHeight]
         } else {
             const isUserVmNode = node?.data?.Type === "libvirt"
+            const isVmInterfaceNode = isTopologyInterfaceData(node?.data)
             const isKubernetesCluster = node?.data?.Manager === "k8s" && node?.data?.Type === "cluster"
             const isKubernetesNode = node?.data?.Manager === "k8s" && node?.data?.Type === "node"
             const isKubernetesNamespace = node?.data?.Manager === "k8s" && node?.data?.Type === "namespace"
             this.size = [
-                isUserVmNode
+                isUserVmNode || isVmInterfaceNode
                     ? nodeWidth + userVmHorizontalGapBoost
                     : isKubernetesCluster
                         ? nodeWidth + kubernetesClusterHorizontalGapBoost
@@ -168,7 +268,7 @@ class NodeWrapper {
                         : isKubernetesNamespace
                             ? nodeWidth + kubernetesNamespaceHorizontalGapBoost
                         : nodeWidth,
-                isUserVmNode ? nodeHeight + userVmVerticalGapBoost : nodeHeight
+                isUserVmNode || isVmInterfaceNode ? nodeHeight + userVmVerticalGapBoost : nodeHeight
             ]
         }
     }
@@ -278,6 +378,7 @@ export class Topology extends React.Component<Props, {}> {
     private visibleLinksCache: Array<Link> | undefined
     private lastVmNameMapRef: Record<string, string> | undefined
     private lastVmNetworkMapRef: Record<string, Array<{ networkName: string, macAddress: string, ipAddress: string }>> | undefined
+    private pinnedContainerMiniNodeID: string
 
     root: Node
     nodes: Map<string, Node>
@@ -303,6 +404,7 @@ export class Topology extends React.Component<Props, {}> {
         this.nodeClickedID = 0
         this.showLevelLabelsTimeoutID = 0
         this.raisedLinkLabelID = ""
+        this.pinnedContainerMiniNodeID = ""
     }
     componentDidMount() {
         select("body")
@@ -894,16 +996,15 @@ export class Topology extends React.Component<Props, {}> {
             var wrapper = groups.get(gid)
             var groupSize = this.props.groupSize || defaultGroupSize
             if (wrapper && wrapper.wrapped.children.length > groupSize) {
-                children.push(wrapper)
                 if (wrapper.wrapped.state.expanded) {
-                    if (wrapper.wrapped.state.groupFullSize) {
-                        children = children.concat(wrapper.children)
-                    } else {
-                        children = children.concat(
-                            wrapper.children.splice(wrapper.wrapped.state.groupOffset, groupSize)
-                        )
-                    }
+                    wrapper.size = [
+                        groupContainerWidth + nodeWidth * 0.5,
+                        groupContainerHeightForChildren(wrapper.wrapped.children) + nodeHeight * 0.35
+                    ]
+                } else {
+                    wrapper.size = [nodeWidth, nodeHeight]
                 }
+                children.push(wrapper)
                 wrapper.wrapped.children.forEach(child => {
                     if (wrapper) {
                         this.nodeGroup.set(child.id, wrapper)
@@ -925,6 +1026,19 @@ export class Topology extends React.Component<Props, {}> {
 
     // clone using wrapped node
     private cloneTree(node: Node, parent: NodeWrapper | null): [NodeWrapper | null, Array<NodeWrapper> | null] {
+        if (isTopologyInterfaceData(node.data)) {
+            var interfaceChildren = new Array<NodeWrapper>()
+            node.children.forEach(child => {
+                let [subCloned, subChildren] = this.cloneTree(child, parent)
+                if (subCloned) {
+                    interfaceChildren.push(subCloned)
+                } else if (subChildren) {
+                    subChildren.forEach(subChild => interfaceChildren.push(subChild))
+                }
+            })
+            return [null, interfaceChildren]
+        }
+
         var cloned = new NodeWrapper(node.id, WrapperType.Normal, node, parent)
 
         var matchTags = node.tags.some(tag => this.nodeTagStates.get(tag))
@@ -1120,7 +1234,11 @@ export class Topology extends React.Component<Props, {}> {
 
                 // at least one tag is present
                 if (link.tags.some(tag => this.linkTagStates.get(tag) !== LinkTagState.Hidden)) {
-                    links.push(new Link(link.id, link.tags, source, target, link.data, link.state))
+                    links.push(new Link(link.id, link.tags, source, target, {
+                        ...link.data,
+                        __sourceNodeID: link.source.id,
+                        __targetNodeID: link.target.id
+                    }, link.state))
                 }
             }
         })
@@ -1323,11 +1441,12 @@ export class Topology extends React.Component<Props, {}> {
 
         selectAll("path.link-overlay").each(function (d: Link) {
             const overlayVisible = d.state.selected || self.isLinkNodeSelected(d) || self.isLinkNodeMouseOver(d)
-            select(this).style("opacity", overlayVisible ? 1 : 0)
+            const displayOpacity = self.linkDisplayOpacity(d)
+            select(this).style("opacity", displayOpacity > 0 && (overlayVisible || self.isActiveContainerMiniLink(d)) ? 1 : 0)
         })
 
         selectAll("path.link").each(function (d: Link) {
-            select(this).style("opacity", self.isLinkVisible(d) ? 1 : 0)
+            select(this).style("opacity", self.linkDisplayOpacity(d))
         })
 
         selectAll("g.link-label").each(function (d: Link) {
@@ -1379,12 +1498,24 @@ export class Topology extends React.Component<Props, {}> {
         if (!n) {
             return
         }
+        const group = this.nodeGroup.get(id)
+        if (active && group) {
+            group.wrapped.state.expanded = true
+            this.pinnedContainerMiniNodeID = id
+            this.renderTree()
+        } else if (active) {
+            this.pinnedContainerMiniNodeID = ""
+        }
+        const visibleID = this.visibleNodeIDForID(id)
         n.state.selected = active
+        if (group) {
+            group.wrapped.state.selected = false
+        }
 
-        select("#node-" + id).classed("node-selected", active)
+        select("#node-" + visibleID).classed("node-selected", active)
         if (active) {
             // Keep selected node (including its name label) above overlapping nodes.
-            select("#node-" + id).raise()
+            select("#node-" + visibleID).raise()
         }
 
         if (this.props.onNodeSelected) {
@@ -1394,10 +1525,12 @@ export class Topology extends React.Component<Props, {}> {
             }
         }
 
-        var d = this.d3nodes.get(id)
+        var d = this.d3nodes.get(visibleID)
         if (d) {
             this.highlightNeighborLinks(d, active)
         }
+        this.syncContainerMiniCardActiveClass()
+        this.syncContainerMiniLinkVisibility()
         this.hideLinks()
         this.updateLevelLabelActiveClass()
     }
@@ -1654,6 +1787,11 @@ export class Topology extends React.Component<Props, {}> {
             this.nodeClickedID = 0
         }
 
+        if (d.data.type === WrapperType.Group) {
+            this.expand(d.data.wrapped)
+            return
+        }
+
         if (this.props.onNodeDblClicked) {
             this.props.onNodeDblClicked(d.data.wrapped)
         }
@@ -1672,6 +1810,20 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     private showNode(node: Node) {
+        const directGroup = this.nodeGroup.get(node.id)
+        if (directGroup) {
+            directGroup.wrapped.state.expanded = true
+            this.pinnedContainerMiniNodeID = node.id
+            this.renderTree()
+            const groupNode = this.d3nodes.get(directGroup.id)
+            if (groupNode) {
+                this.moveTo(groupNode.x, groupNode.y)
+            }
+            this.syncContainerMiniCardActiveClass()
+            this.syncContainerMiniLinkVisibility()
+            return
+        }
+
         // find next node to expand, can be either a parent of a group
         const nextId = () => {
             var id = "", gid = "", parent: Node | null = node
@@ -1750,7 +1902,13 @@ export class Topology extends React.Component<Props, {}> {
         this.gLinkOverlays.selectAll("path.link-overlay")
             .classed("infra-focus-dim", false)
             .classed("infra-focus-hit", false)
-            .style("opacity", (d: Link) => d.state.selected || this.isLinkNodeSelected(d) || this.isLinkNodeMouseOver(d) ? 1 : 0)
+            .style("opacity", (d: Link) => {
+                const displayOpacity = this.linkDisplayOpacity(d)
+                if (displayOpacity === 0) {
+                    return 0
+                }
+                return d.state.selected || this.isLinkNodeSelected(d) || this.isLinkNodeMouseOver(d) || this.isActiveContainerMiniLink(d) ? 1 : 0
+            })
         this.gLinkLabels.selectAll("g.link-label")
             .classed("infra-focus-dim", false)
             .classed("infra-focus-hit", false)
@@ -1766,21 +1924,49 @@ export class Topology extends React.Component<Props, {}> {
             return
         }
 
+        const visibleTargetIDs = new Set<string>()
+        const groupsToExpand = new Map<string, NodeWrapper>()
+        let expandedContainerGroup = false
+        if (targets.size > 1) {
+            this.pinnedContainerMiniNodeID = ""
+        }
         targets.forEach((id) => {
             const node = this.nodes.get(id)
             if (node) {
-                this.showNode(node)
+                const group = this.nodeGroup.get(id)
+                if (group) {
+                    groupsToExpand.set(group.id, group)
+                    visibleTargetIDs.add(group.id)
+                    if (targets.size === 1) {
+                        this.pinnedContainerMiniNodeID = id
+                    }
+                } else {
+                    visibleTargetIDs.add(id)
+                    this.showNode(node)
+                }
             }
         })
 
-        targets.forEach((id) => {
+        groupsToExpand.forEach((group) => {
+            group.wrapped.state.expanded = true
+            expandedContainerGroup = true
+        })
+
+        if (expandedContainerGroup || this.pinnedContainerMiniNodeID) {
+            this.renderTree()
+        }
+
+        visibleTargetIDs.forEach((id) => {
             select("#node-pinned-" + id).style("opacity", 1)
         })
 
-        const bounds = this.infrastructureLayerBounds(Array.from(targets)) || this.focusBounds(Array.from(targets))
+        const visibleTargets = Array.from(visibleTargetIDs)
+        const bounds = this.infrastructureLayerBounds(visibleTargets) || this.focusBounds(visibleTargets)
         if (bounds) {
             this.fitBounds(bounds)
         }
+        this.syncContainerMiniCardActiveClass()
+        this.syncContainerMiniLinkVisibility()
     }
 
     private infrastructureLayerBounds(nodeIDs: string[]): DOMRect | null {
@@ -1905,25 +2091,103 @@ export class Topology extends React.Component<Props, {}> {
         return link.source.state.mouseover || link.target.state.mouseover
     }
 
+    private activeContainerNodeID(): string {
+        return this.pinnedContainerMiniNodeID
+    }
+
+    private linkOriginalSourceID(link: Link): string {
+        return link.data?.__sourceNodeID || link.source.id
+    }
+
+    private linkOriginalTargetID(link: Link): string {
+        return link.data?.__targetNodeID || link.target.id
+    }
+
+    private isContainerProxyLink(link: Link): boolean {
+        return this.linkOriginalSourceID(link) !== link.source.id || this.linkOriginalTargetID(link) !== link.target.id
+    }
+
+    private isActiveContainerMiniLink(link: Link): boolean {
+        const activeID = this.activeContainerNodeID()
+        return !!activeID && (this.linkOriginalSourceID(link) === activeID || this.linkOriginalTargetID(link) === activeID)
+    }
+
+    private linkDisplayOpacity(link: Link): number {
+        if (!this.isLinkVisible(link)) {
+            return 0
+        }
+
+        const activeID = this.activeContainerNodeID()
+        if (activeID) {
+            return this.isActiveContainerMiniLink(link) ? 1 : 0
+        }
+
+        return this.isContainerProxyLink(link) ? 0 : 1
+    }
+
+    private syncContainerMiniCardActiveClass() {
+        const activeID = this.activeContainerNodeID()
+        selectAll("g.node-container-mini-card")
+            .classed("node-container-mini-card-active", function (d: Node) {
+                return !!activeID && d.id === activeID
+            })
+    }
+
+    private syncContainerMiniLinkVisibility() {
+        this.gLinks.selectAll("path.link")
+            .interrupt()
+            .style("opacity", (d: Link) => this.linkDisplayOpacity(d))
+
+        this.gLinkOverlays.selectAll("path.link-overlay")
+            .interrupt()
+            .style("opacity", (d: Link) => {
+                const displayOpacity = this.linkDisplayOpacity(d)
+                if (displayOpacity === 0) {
+                    return 0
+                }
+                return d.state.selected || this.isLinkNodeSelected(d) || this.isLinkNodeMouseOver(d) || this.isActiveContainerMiniLink(d) ? 1 : 0
+            })
+
+        this.gLinkLabels.selectAll("g.link-label")
+            .interrupt()
+            .style("opacity", (d: Link) => this.linkLabelOpacity(d))
+
+        this.gLinkWraps.selectAll("path.link-wrap")
+            .style("pointer-events", "auto")
+    }
+
+    private visibleNodeIDForID(id: string): string {
+        if (this.d3nodes.get(id)) {
+            return id
+        }
+        const group = this.nodeGroup.get(id)
+        if (group && this.d3nodes.get(group.id)) {
+            return group.id
+        }
+        return id
+    }
+
     private hasSelectedLinkNode(): boolean {
         return this.visibleLinks().some((link: Link) => this.isLinkNodeSelected(link))
     }
 
     private linkLabelOpacity(link: Link): number {
-        if (!this.isLinkVisible(link)) {
+        const displayOpacity = this.linkDisplayOpacity(link)
+        if (displayOpacity === 0) {
             return 0
         }
         if (this.isLinkNodeSelected(link)) {
             return 1
         }
-        return this.hasSelectedLinkNode() ? 0.28 : 1
+        return this.hasSelectedLinkNode() ? 0.28 : displayOpacity
     }
 
     private highlightNeighborLinks(d: D3Node, active: boolean) {
         var opacity = active ? 1 : 0
 
         const isVisible = (d: Link) => {
-            return this.isLinkVisible(d) ? 1 : opacity
+            const displayOpacity = this.linkDisplayOpacity(d)
+            return displayOpacity > 0 ? displayOpacity : opacity
         }
 
         var links = this.neighborLinks(d.data, this.visibleLinks())
@@ -1948,6 +2212,10 @@ export class Topology extends React.Component<Props, {}> {
         d.data.wrapped.state.mouseover = active
 
         var opacity = active ? 1 : 0
+
+        if (active) {
+            select("#node-" + id).raise()
+        }
 
         select("#node-overlay-" + id)
             .style("opacity", opacity)
@@ -2284,8 +2552,6 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     private renderGroups() {
-        var self = this
-
         var group = this.gGroups.selectAll('g.group')
             .interrupt()
             .data(Array.from(this.groups.values()), (d: NodeWrapper) => d.id)
@@ -2425,189 +2691,9 @@ export class Topology extends React.Component<Props, {}> {
         groupEnter.each(function (d: NodeWrapper) { handleBraces(select(this), d, false) })
         group.each(function (d: NodeWrapper) { handleBraces(select(this), d, true) })
 
-        const handleIcon = (gIcon: any, d: NodeWrapper, dy: number, disabled: boolean) => {
-            let d3node = this.d3nodes.get(d.id)
-            if (!d3node) {
-                return
-            }
-
-            var y = d3node.y - nodeWidth / 2
-
-            var text = gIcon.select("text")
-            var bb = text.node().getBBox()
-
-            gIcon.select("rect")
-                .attr("x", bb.x + 2)
-                .attr("y", bb.y + 2)
-                .attr("width", bb.width - 4)
-                .attr("height", bb.height - 4)
-
-            gIcon = gIcon.transition()
-                .duration(animDuration)
-
-            var opacity = 0
-            if (d.wrapped.state.expanded) {
-                opacity = disabled ? 0.5 : 1
-            }
-
-            gIcon
-                .style("opacity", opacity)
-                .attr("transform", (d: D3Node) => d3node ? `translate(${d3node.x + nodeWidth / 2},${y + dy})` : ``)
-        }
-
-        const handleOffset = (gIcon: any, d: NodeWrapper, dy: number, offset: number, disabled: boolean) => {
-            let d3node = this.d3nodes.get(d.id)
-            if (!d3node) {
-                return
-            }
-
-            var y = d3node.y - nodeWidth / 2
-
-            var text = gIcon.select("text")
-            text.text(offset)
-            text
-                .attr("dx", 6)
-                .attr("dy", 1)
-
-            var bb = text.node().getBBox()
-            gIcon.select("rect")
-                .attr("x", bb.x - 6)
-                .attr("y", bb.y - 1)
-                .attr("width", bb.width + 12)
-                .attr("height", 21)
-
-            var opacity = 0
-            if (d.wrapped.state.expanded) {
-                opacity = disabled ? 0.5 : 1
-            }
-
-            gIcon = gIcon.transition()
-                .duration(animDuration)
-                .style("opacity", opacity)
-                .attr("transform", (d: D3Node) => d3node ? `translate(${d3node.x + nodeWidth / 2},${y + dy})` : ``)
-        }
-
-        var groupButton = this.gGroupButtons.selectAll('g.group-button')
+        this.gGroupButtons.selectAll('g.group-button')
             .interrupt()
-            .data(Array.from(this.groups.values()), (d: NodeWrapper) => d.id)
-        var groupButtonEnter = groupButton.enter()
-            .append("g")
-            .attr("class", "group-button")
-            .attr("id", (d: Group) => d.id)
-        groupButton.exit().remove()
-
-        var offsetIcon = groupButtonEnter.append("g")
-            .attr("class", "brace-offset")
-            .style("opacity", 1)
-        offsetIcon.append("rect")
-            .attr("rx", 2)
-            .attr("ry", 2)
-        offsetIcon.append("text")
-
-        var leftIcon = groupButtonEnter.append("g")
-            .attr("class", "brace-icon brace-left-icon")
-            .style("opacity", 0)
-        leftIcon.append("rect")
-            .attr("rx", 5)
-            .attr("ry", 5)
-        leftIcon.append("text")
-            .text("\uf191")
-            .on("click", (d: NodeWrapper) => {
-                if (!d.wrapped.state.expanded) {
-                    return
-                }
-
-                if (d.wrapped.state.groupOffset > 0) {
-                    d.wrapped.state.groupOffset--
-                    self.resetCacheAndRenderTree()
-                }
-            })
-
-        var rightIcon = groupButtonEnter.append("g")
-            .attr("class", "brace-icon brace-right-icon")
-            .style("opacity", 0)
-        rightIcon.append("rect")
-            .attr("rx", 5)
-            .attr("ry", 5)
-        rightIcon.append("text")
-            .text("\uf152")
-            .on("click", (d: NodeWrapper) => {
-                if (!d.wrapped.state.expanded) {
-                    return
-                }
-
-                var size = this.props.groupSize || defaultGroupSize
-                if (d.wrapped.state.groupOffset + size < d.wrapped.children.length) {
-                    d.wrapped.state.groupOffset++
-                    self.resetCacheAndRenderTree()
-                }
-            })
-
-        var fullIcon = groupButtonEnter.append("g")
-            .attr("class", "brace-icon brace-full-icon")
-            .style("opacity", 0)
-        fullIcon.append("rect")
-            .attr("rx", 5)
-            .attr("ry", 5)
-        fullIcon.append("text")
-            .text("\uf0fe")
-            .on("click", function (d: NodeWrapper) {
-                if (d.wrapped.state.groupFullSize) {
-                    d.wrapped.state.groupFullSize = false
-                    select(this).text("\uf0fe")
-                } else {
-                    d.wrapped.state.groupFullSize = true
-                    select(this).text("\uf146")
-                }
-
-                self.resetCacheAndRenderTree()
-            })
-
-            const handleIcons = (g: any, d: NodeWrapper) => {
-                var size = this.props.groupSize || defaultGroupSize
-
-                // 오프셋 숫자 뱃지
-                handleOffset(
-                    g.select("g.brace-offset"),
-                    d,
-                    25,
-                    d.wrapped.state.groupOffset,
-                    d.wrapped.state.groupFullSize
-                )
-
-                // 좌/우 화살표 아이콘
-                handleIcon(
-                    g.select("g.brace-left-icon"),
-                    d,
-                    80,
-                    d.wrapped.state.groupFullSize || d.wrapped.state.groupOffset === 0
-                )
-                handleIcon(
-                    g.select("g.brace-right-icon"),
-                    d,
-                    55,
-                    d.wrapped.state.groupFullSize || d.wrapped.state.groupOffset + size >= d.wrapped.children.length
-                )
-
-                // 전체 펼치기/접기 아이콘 (+ / -) 처리
-                if (d.wrapped.children.length <= defaultMaxExpandSize) {
-                    const fullIconGroup = g.select("g.brace-full-icon")
-
-                    // 위치/투명도 등 기본 렌더링
-                    handleIcon(fullIconGroup, d, 105, false)
-
-                    // 여기서 groupFullSize 값에 맞춰 + / - 아이콘 문자 동기화
-                    const fullIconText = fullIconGroup.select("text")
-                    if (!fullIconText.empty()) {
-                        // true 면 '-' (minus-square), false 면 '+' (plus-square)
-                        fullIconText.text(d.wrapped.state.groupFullSize ? "\uf146" : "\uf0fe")
-                    }
-                }
-
-            }
-
-        groupButtonEnter.each(function (d: NodeWrapper) { handleIcons(select(this), d) })
-        groupButton.each(function (d: NodeWrapper) { handleIcons(select(this), d) })
+            .remove()
     }
 
     private renderNodes(root: any) {
@@ -2618,6 +2704,8 @@ export class Topology extends React.Component<Props, {}> {
             .data(root.descendants(), (d: D3Node) => d.data.id)
 
         const nodeClass = (d: D3Node) => new Array<string>().concat("node",
+            d.data.type === WrapperType.Group ? "node-group-card" : "",
+            d.data.type === WrapperType.Group && d.data.wrapped.state.expanded ? "node-group-expanded" : "",
             this.props.nodeAttrs(d.data.wrapped).classes,
             d.data.wrapped.state.selected ? "node-selected" : "").join(" ")
 
@@ -2667,7 +2755,43 @@ export class Topology extends React.Component<Props, {}> {
             .attr("r", hexSize + 16)
         highlight.append("text")
             .text("\uf3c5")
-            .attr("dy", -60)
+            .attr("dy", -58)
+
+        const isVmCardNode = (d: D3Node) => {
+            const data = d.data.wrapped.data || {}
+            const type = String(data.Type || '').toLowerCase()
+            return type === 'libvirt' || isTopologyInterfaceData(data)
+        }
+
+        const isGroupCardNode = (d: D3Node) => d.data.type === WrapperType.Group
+        const isGroupContainerNode = (d: D3Node) => isGroupCardNode(d) && d.data.wrapped.state.expanded
+        const cardWidthForNode = (d: D3Node) => isGroupContainerNode(d) ? groupContainerWidth : isVmCardNode(d) ? topologyVmCardWidth : topologyCardWidth
+        const cardIconX = (d: D3Node) => -cardWidthForNode(d) / 2 + 38
+        const cardTextX = (d: D3Node) => cardIconX(d) + 43
+        const cardHeightForNode = (d: D3Node) => isGroupContainerNode(d) ? groupContainerHeightForChildren(d.data.wrapped.children) : topologyCardHeight
+        const cardTopY = -topologyCardHeight / 2
+
+        var card = nodeEnter.append("g")
+            .attr("class", "node-card")
+            .attr("pointer-events", "all")
+
+        card.append("rect")
+            .attr("class", "node-card-bg")
+            .attr("x", (d: D3Node) => -cardWidthForNode(d) / 2)
+            .attr("y", cardTopY)
+            .attr("width", (d: D3Node) => cardWidthForNode(d))
+            .attr("height", (d: D3Node) => cardHeightForNode(d))
+            .attr("rx", 12)
+            .attr("ry", 12)
+            .attr("pointer-events", "all")
+            .append("title")
+            .text((d: D3Node) => isGroupCardNode(d) ? "클릭하여 모든 노드 보기" : this.props.nodeAttrs(d.data.wrapped).name)
+
+        card.append("circle")
+            .attr("class", "node-card-icon-bg")
+            .attr("cx", (d: D3Node) => cardIconX(d))
+            .attr("cy", 0)
+            .attr("r", 27)
 
         nodeEnter.append("circle")
             .attr("class", "node-circle")
@@ -2697,14 +2821,15 @@ export class Topology extends React.Component<Props, {}> {
             if (isImgIcon(d)) {
                 el.append("image")
                     .attr("class", (d: D3Node) => "node-icon " + attrs.iconClass)
-                    .attr("transform", "translate(-16,-16)")
+                    .attr("transform", (d: D3Node) => `translate(${cardIconX(d) - 16},-16)`)
                     .attr("width", 32)
-                    .attr("heigh", 32)
+                    .attr("height", 32)
                     .attr("xlink:href", (d: D3Node) => attrs.href)
                     .attr("pointer-events", "none")
             } else {
                 el.append("text")
                     .attr("class", (d: D3Node) => "node-icon " + attrs.iconClass)
+                    .attr("x", (d: D3Node) => cardIconX(d))
                     .attr("dy", 9)
                     .text((d: D3Node) => attrs.icon)
                     .attr("pointer-events", "none")
@@ -3033,21 +3158,65 @@ export class Topology extends React.Component<Props, {}> {
             return vmNameMap[attrsName] || attrsName
         }
 
-        nodeEnter.append("g")
-            .append("text")
-            .attr("class", "node-name")
-            .attr("dy", ".35em")
-            .attr("y", 85)
-            .text((d: D3Node) => getNodeDisplayName(d))
+        const getNodeTypeLabel = (d: D3Node) => {
+            const data = d.data.wrapped.data || {}
+            const manager = String(data.Manager || '').toLowerCase()
+            const type = String(data.Type || '').toLowerCase()
+            if (isGroupCardNode(d)) {
+                const summary = groupStatusSummary(d.data.wrapped.children)
+                return `${d.data.wrapped.children.length}개${summary ? ` · ${summary}` : ""}`
+            }
+            if (manager === 'k8s' && type === 'node') return 'Kubernetes Node'
+            if (type === 'host') return 'Host'
+            if (type === 'libvirt') return 'Virtual Machine'
+            if (type === 'device') return 'NIC'
+            if (type === 'bridge' || type === 'ovsbridge' || type === 'openvswitch') return 'Bridge'
+            if (type === 'switch') return 'Network'
+            if (type === 'tuntap' || type === 'tun' || type === 'tap') return 'Interface'
+            return data.Type || data.Manager || ''
+        }
+
+        const trimNodeTitle = (value: string, d?: D3Node) => {
+            if (!value) return ''
+            const hasBadge = d ? d.data.wrapped.children.length > 0 || this.props.nodeAttrs(d.data.wrapped).badges.length > 0 : false
+            const maxLength = d && isVmCardNode(d) ? (hasBadge ? 30 : 34) : (hasBadge ? 16 : 20)
+            return value.length > maxLength ? `${value.substring(0, Math.max(1, maxLength - 3))}...` : value
+        }
+
+        const cardTextEnter = nodeEnter.append("g")
+            .attr("class", "node-card-text")
             .attr("pointer-events", "none")
-            .call(wrapText, 1.15, nodeWidth + 38)
+
+        cardTextEnter.append("text")
+            .attr("class", "node-card-title")
+            .attr("x", (d: D3Node) => cardTextX(d))
+            .attr("y", -5)
+            .text((d: D3Node) => trimNodeTitle(getNodeDisplayName(d), d))
+            .append("title")
+            .text((d: D3Node) => getNodeDisplayName(d))
+
+        cardTextEnter.append("text")
+            .attr("class", "node-card-type")
+            .attr("x", (d: D3Node) => cardTextX(d))
+            .attr("y", 16)
+            .text((d: D3Node) => getNodeTypeLabel(d))
+
+        const clusterPreview = nodeEnter.append("g")
+            .attr("class", "node-container-grid")
+            .attr("pointer-events", "auto")
+            .style("opacity", (d: D3Node) => isGroupCardNode(d) ? 1 : 0)
+
+        clusterPreview.append("text")
+            .attr("class", "node-container-more")
+            .attr("x", (d: D3Node) => cardTextX(d) + 104)
+            .attr("y", 33)
 
         // Update names only when vmNameMap changed to reduce long-running render overhead.
         if (this.lastVmNameMapRef !== this.props.vmNameMap || this.lastVmNetworkMapRef !== this.props.vmNetworkMap) {
-            node.selectAll<SVGRectElement, D3Node>("rect.node-name-wrap").remove()
-            node.select("text.node-name")
+            node.select("text.node-card-title")
+                .text((d: D3Node) => trimNodeTitle(getNodeDisplayName(d), d))
+            node.select("text.node-card-title title")
                 .text((d: D3Node) => getNodeDisplayName(d))
-                .call(wrapText, 1.15, nodeWidth + 38)
             this.lastVmNameMapRef = this.props.vmNameMap
             this.lastVmNetworkMapRef = this.props.vmNetworkMap
         }
@@ -3073,19 +3242,19 @@ export class Topology extends React.Component<Props, {}> {
 
             badgeMerged
                 .select("rect")
-                .attr("x", (d: BadgeAttrs, i: number) => 38 - i * 28)
-                .attr("y", -60)
+                .attr("x", (d: BadgeAttrs, i: number) => 66 - i * 28)
+                .attr("y", -41)
                 .attr("width", 24)
                 .attr("height", 24)
-                .attr("rx", 5)
-                .attr("ry", 5)
+                .attr("rx", 12)
+                .attr("ry", 12)
                 .attr("fill", (d: BadgeAttrs) => d.fill ? d.fill : "#6975a9")
 
             badgeMerged
                 .select("text")
                 .attr("class", (d: BadgeAttrs) => d.iconClass ? d.iconClass : "")
-                .attr("dx", (d: BadgeAttrs, i: number) => 50 - i * 28)
-                .attr("dy", -41)
+                .attr("dx", (d: BadgeAttrs, i: number) => 78 - i * 28)
+                .attr("dy", -23)
                 .text((d: BadgeAttrs) => d.text)
                 .attr("pointer-events", "none")
                 .attr("fill", (d: BadgeAttrs) => d.stroke ? d.stroke : "var(--topology-node-name-wrap-fill)")
@@ -3097,7 +3266,152 @@ export class Topology extends React.Component<Props, {}> {
             .attr("pointer-events", "none")
             .each(renderNodeBadge)
 
+        node = node.merge(nodeEnter as any)
+
         node.each(renderNodeBadge)
+
+        node.select("rect.node-card-bg")
+            .transition()
+            .duration(animDuration)
+            .attr("x", (d: D3Node) => -cardWidthForNode(d) / 2)
+            .attr("width", (d: D3Node) => cardWidthForNode(d))
+            .attr("height", (d: D3Node) => cardHeightForNode(d))
+
+        node.select("circle.node-card-icon-bg")
+            .attr("cx", (d: D3Node) => cardIconX(d))
+
+        node.select("image.node-icon")
+            .attr("transform", (d: D3Node) => `translate(${cardIconX(d) - 16},-16)`)
+
+        node.select("text.node-icon")
+            .attr("x", (d: D3Node) => cardIconX(d))
+
+        node.select("text.node-card-title")
+            .attr("x", (d: D3Node) => cardTextX(d))
+
+        node.select("text.node-card-type")
+            .attr("x", (d: D3Node) => cardTextX(d))
+            .text((d: D3Node) => getNodeTypeLabel(d))
+
+        node.select("rect.node-card-bg title")
+            .text((d: D3Node) => isGroupCardNode(d) ? (d.data.wrapped.state.expanded ? "더블클릭하여 접기" : "클릭하여 모든 노드 보기") : this.props.nodeAttrs(d.data.wrapped).name)
+
+        node.select("text.node-container-more")
+            .attr("x", (d: D3Node) => cardTextX(d) + 104)
+            .text("")
+
+        const miniCardName = (node: Node) => {
+            const name = self.props.nodeAttrs(node).name || node.data?.Name || node.id
+            const type = String(node.data?.Type || "").toLowerCase()
+            const maxLength = type === "libvirt" || type === "host" ? 18 : 11
+            return name.length > maxLength ? `${name.substring(0, Math.max(1, maxLength - 3))}...` : name
+        }
+
+        const miniCardStatus = (node: Node) => {
+            return topologyNodeStatus(node)
+        }
+
+        const miniCardTooltip = (node: Node) => {
+            const attrs = self.props.nodeAttrs(node)
+            const status = miniCardStatus(node)
+            const data = node.data || {}
+            const details = [
+                attrs.name || data.Name || node.id,
+                `상태: ${status.label}`,
+                data.IP || data.IPV4 || data.Address || data.MgtAddr ? `IP: ${data.IP || data.IPV4 || data.Address || data.MgtAddr}` : "",
+                data.CPU || data.CPUNumber ? `CPU: ${data.CPU || data.CPUNumber}` : "",
+                data.Memory || data.MemorySize ? `Memory: ${data.Memory || data.MemorySize}` : "",
+                "Click → 상세 보기"
+            ].filter(Boolean)
+            return details.join("\n")
+        }
+
+        const renderContainerGrid = function (this: SVGGElement, d: D3Node) {
+            const g = select(this)
+            const expanded = isGroupContainerNode(d)
+            const layout = expanded ? groupContainerLayout(d.data.wrapped.children) : { items: [], height: 0, more: 0 }
+            var cards = g.selectAll<SVGGElement, Node>("g.node-container-mini-card")
+                .data(layout.items.map(item => item.node), (child: Node) => child.id)
+
+            cards.exit().remove()
+
+            const cardsEnter = cards.enter()
+                .append("g")
+                .attr("class", "node-container-mini-card")
+                .attr("pointer-events", "all")
+                .on("click", (child: Node) => {
+                    event.stopPropagation()
+                    self.hideNodeContextMenu()
+                    const isSameSelection = self.pinnedContainerMiniNodeID === child.id
+                    self.pinnedContainerMiniNodeID = isSameSelection ? "" : child.id
+                    self.syncContainerMiniCardActiveClass()
+                    self.syncContainerMiniLinkVisibility()
+                    if (self.props.onNodeSelected) {
+                        self.props.onNodeSelected(child, !isSameSelection)
+                    }
+                })
+
+            cardsEnter.append("rect")
+                .attr("class", "node-container-mini-card-bg")
+                .attr("rx", 8)
+                .attr("ry", 8)
+
+            cardsEnter.append("text")
+                .attr("class", "node-container-mini-card-title")
+
+            cardsEnter.append("circle")
+                .attr("class", "node-container-mini-card-status-dot")
+                .attr("r", 3.5)
+
+            cardsEnter.append("text")
+                .attr("class", "node-container-mini-card-status")
+
+            cardsEnter.append("title")
+
+            cards = cardsEnter.merge(cards as any)
+            cards
+                .transition()
+                .duration(animDuration)
+                .attr("transform", (_: Node, i: number) => {
+                    const item = layout.items[i]
+                    const x = -groupContainerWidth / 2 + 16 + item.x
+                    const y = 32 + item.y
+                    return `translate(${x},${y})`
+                })
+
+            cards.select("rect.node-container-mini-card-bg")
+                .transition()
+                .duration(animDuration)
+                .attr("width", (child: Node) => groupMiniCardSize(child).width)
+                .attr("height", (child: Node) => groupMiniCardSize(child).height)
+
+            cards.select("text.node-container-mini-card-title")
+                .attr("x", 10)
+                .attr("y", 16)
+                .text((child: Node) => miniCardName(child))
+
+            cards.select("circle.node-container-mini-card-status-dot")
+                .attr("cx", 11)
+                .attr("cy", 30)
+                .attr("class", (child: Node) => `node-container-mini-card-status-dot ${miniCardStatus(child).className}`)
+
+            cards.select("text.node-container-mini-card-status")
+                .attr("x", 20)
+                .attr("y", 34)
+                .attr("class", (child: Node) => `node-container-mini-card-status ${miniCardStatus(child).className}`)
+                .text((child: Node) => miniCardStatus(child).label)
+
+            cards.select("title")
+                .text((child: Node) => miniCardTooltip(child))
+
+            g.select("text.node-container-more")
+                .attr("x", -groupContainerWidth / 2 + 16)
+                .attr("y", cardHeightForNode(d) - topologyCardHeight / 2 - 12)
+                .text(layout.more > 0 ? `+${layout.more}개 더 있음` : "")
+        }
+
+        node.select("g.node-container-grid")
+            .each(renderContainerGrid)
 
         var exco = nodeEnter
             .append("g")
@@ -3107,36 +3421,33 @@ export class Topology extends React.Component<Props, {}> {
 
         exco.append("circle")
             .attr("class", "node-exco-circle")
-            .attr("cx", hexSize + 10)
-            .attr("cy", hexSize)
-            .attr("r", 18)
+            .attr("cx", (d: D3Node) => cardWidthForNode(d) / 2 - 12)
+            .attr("cy", -topologyCardHeight / 2 + 12)
+            .attr("r", 15)
 
         const num = (node: NodeWrapper) => {
             var n = 0
-            if (node.type == WrapperType.Group && node.wrapped.state.expanded) {
-                if (!node.wrapped.state.groupFullSize) {
-                    var size = this.props.groupSize || defaultGroupSize
-                    n = node.wrapped.children.length - size
-                }
-            } else {
-                n = node.wrapped.children.length
-            }
+            n = node.wrapped.children.length
             return n > 99 ? "+99" : n
         }
 
         exco.append("text")
             .attr("id", (d: D3Node) => "exco-" + d.data.id)
             .attr("class", "node-exco-children")
-            .attr("x", hexSize + 10)
-            .attr("y", hexSize + 6)
+            .attr("x", (d: D3Node) => cardWidthForNode(d) / 2 - 12)
+            .attr("y", -topologyCardHeight / 2 + 17)
             .text((d: D3Node) => num(d.data))
 
         node.select("g.node-exco")
             .filter((d: D3Node) => d.data.wrapped.children.length > 0)
-            .style('opacity', 1)
+            .style('opacity', (d: D3Node) => isGroupContainerNode(d) ? 0 : 1)
+
+        node.select("circle.node-exco-circle")
+            .attr("cx", (d: D3Node) => cardWidthForNode(d) / 2 - 12)
 
         node.select("text.node-exco-children")
             .filter((d: D3Node) => d.data.wrapped.children.length > 0)
+            .attr("x", (d: D3Node) => cardWidthForNode(d) / 2 - 12)
             .text((d: D3Node) => num(d.data))
 
         node.transition()
@@ -3144,6 +3455,10 @@ export class Topology extends React.Component<Props, {}> {
             .style("opacity", 1)
             .attr("transform", (d: D3Node) => `translate(${d.x},${d.y})`)
             .attr("class", nodeClass)
+
+        node
+            .filter((d: D3Node) => d.data.wrapped.state.selected || d.data.wrapped.state.mouseover)
+            .raise()
     }
 
     private linkClass(d: Link) {
@@ -3173,6 +3488,33 @@ export class Topology extends React.Component<Props, {}> {
     private renderLinks() {
         var linkerCache = new Map<string, any>()
         var visibleCache = new Map<string, any>()
+
+        const resolveEndpoint = (link: Link, side: "source" | "target") => {
+            const visibleNode = side === "source" ? link.source : link.target
+            const originalID = side === "source" ? link.data?.__sourceNodeID : link.data?.__targetNodeID
+            const d3node = this.d3nodes.get(visibleNode.id)
+            if (!d3node) {
+                return null
+            }
+
+            const group = originalID ? this.nodeGroup.get(originalID) : undefined
+            if (!group || group.id !== visibleNode.id || !group.wrapped.state.expanded) {
+                return { x: d3node.x, y: d3node.y, node: visibleNode, embedded: false }
+            }
+
+            const layout = groupContainerLayout(group.wrapped.children)
+            const item = layout.items.find(item => item.node.id === originalID)
+            if (!item) {
+                return { x: d3node.x, y: d3node.y, node: visibleNode, embedded: false }
+            }
+
+            return {
+                x: d3node.x - groupContainerWidth / 2 + 16 + item.x + item.width / 2,
+                y: d3node.y + 32 + item.y + item.height / 2,
+                node: visibleNode,
+                embedded: true
+            }
+        }
 
         const isVisible = (d: any) => {
             let ok = visibleCache.has(d.id)
@@ -3219,8 +3561,8 @@ export class Topology extends React.Component<Props, {}> {
         }
 
         var wrapperLink = (d: Link, margin: number) => {
-            var dSource = this.d3nodes.get(d.source.id)
-            var dTarget = this.d3nodes.get(d.target.id)
+            var dSource = resolveEndpoint(d, "source")
+            var dTarget = resolveEndpoint(d, "target")
 
             if (!dSource || !dTarget) {
                 return
@@ -3231,6 +3573,8 @@ export class Topology extends React.Component<Props, {}> {
                 return line
             }
 
+            let endpointMargin = dSource.embedded || dTarget.embedded ? 22 : margin
+
             let source = dSource
             let target = dTarget
             if (dSource.y === dTarget.y) {
@@ -3239,8 +3583,8 @@ export class Topology extends React.Component<Props, {}> {
                 }
 
                 line = hLinker({
-                    source: { x: source.x + margin, y: source.y, node: d.source },
-                    target: { x: target.x - margin, y: target.y, node: d.target }
+                    source: { x: source.x + endpointMargin, y: source.y, node: d.source },
+                    target: { x: target.x - endpointMargin, y: target.y, node: d.target }
                 })
 
                 linkerCache.set(d.id, line)
@@ -3253,12 +3597,12 @@ export class Topology extends React.Component<Props, {}> {
             }
 
             if (source.y > target.y) {
-                margin *= -1
+                endpointMargin *= -1
             }
 
             line = vLinker({
-                source: { x: source.x, y: source.y + margin, node: d.source },
-                target: { x: target.x, y: target.y - margin, node: d.target }
+                source: { x: source.x, y: source.y + endpointMargin, node: d.source },
+                target: { x: target.x, y: target.y - endpointMargin, node: d.target }
             })
 
             linkerCache.set(d.id, line)
@@ -3287,7 +3631,13 @@ export class Topology extends React.Component<Props, {}> {
         linkOverlay
             .transition()
             .duration(animDuration)
-            .style("opacity", (d: Link) => d.state.selected || this.isLinkNodeSelected(d) || this.isLinkNodeMouseOver(d) ? 1 : 0)
+            .style("opacity", (d: Link) => {
+                const displayOpacity = this.linkDisplayOpacity(d)
+                if (displayOpacity === 0) {
+                    return 0
+                }
+                return d.state.selected || this.isLinkNodeSelected(d) || this.isLinkNodeMouseOver(d) || this.isActiveContainerMiniLink(d) ? 1 : 0
+            })
             .attr("d", linker)
 
         var link = this.gLinks.selectAll('path.link')
@@ -3306,15 +3656,15 @@ export class Topology extends React.Component<Props, {}> {
             .attr("class", (d: Link) => isVisible(d) ? this.linkClass(d) : 'link')
             .transition()
             .duration(animDuration)
-            .style("opacity", (d: Link) => isVisible(d) ? 1 : 0)
+            .style("opacity", (d: Link) => this.linkDisplayOpacity(d))
             .attr("d", linker)
 
         const linkLabelClass = (d: Link) => new Array<string>().concat("link-label",
             this.isLinkNodeSelected(d) ? "link-label-priority" : "").join(" ")
 
         const linkLabelPosition = (d: Link) => {
-            const dSource = this.d3nodes.get(d.source.id)
-            const dTarget = this.d3nodes.get(d.target.id)
+            const dSource = resolveEndpoint(d, "source")
+            const dTarget = resolveEndpoint(d, "target")
 
             if (!dSource || !dTarget) {
                 return { x: 0, y: 0 }
@@ -3363,9 +3713,9 @@ export class Topology extends React.Component<Props, {}> {
                         continue
                     }
 
-                    const overlapsNodeIcon = intersects(x, y, labelWidth, labelHeight, node.x, node.y, 118, 118)
-                    const overlapsNodeName = intersects(x, y, labelWidth, labelHeight, node.x, node.y + 88, nodeWidth + 96, 96)
-                    if (overlapsNodeIcon || overlapsNodeName) {
+                    const nodeCardWidth = node.data.wrapped.data?.Type === "libvirt" || node.data.wrapped.data?.Type === "tuntap" || node.data.wrapped.data?.Type === "tun" || node.data.wrapped.data?.Type === "tap" ? topologyVmCardWidth : topologyCardWidth
+                    const overlapsNodeCard = intersects(x, y, labelWidth, labelHeight, node.x, node.y, nodeCardWidth + 16, topologyCardHeight + 16)
+                    if (overlapsNodeCard) {
                         count++
                     }
                 }
@@ -3482,9 +3832,12 @@ export class Topology extends React.Component<Props, {}> {
 
         linkWrap = linkWrap.merge(linkWrapEnter)
         linkWrap
+            .style("pointer-events", "auto")
             .transition()
             .duration(animDuration)
             .attr("d", linker)
+
+        this.syncContainerMiniCardActiveClass()
     }
 
     renderTree() {

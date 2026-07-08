@@ -9,6 +9,7 @@
     <script type="text/javascript">
         var baseURL = "<< .BaseURL >>";
         if (baseURL == "<" + "< .BaseURL >" + ">") baseURL = "";
+        if (!baseURL && window.location.pathname.indexOf("/ui_v2/") === 0) baseURL = "/ui_v2/";
 
         if (baseURL) document.write("<base href='" + baseURL + "' />");
     </script>

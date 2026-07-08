@@ -19,13 +19,17 @@ export const styles = (theme: Theme) => createStyles({
             lineHeight: 1.45
         },
         '& .ant-card-head': {
-            minHeight: '40px !important',
-            padding: '0 18px !important',
-            borderBottom: '0 !important',
+            minHeight: '44px !important',
+            padding: '0 16px !important',
+            borderBottom: '1px solid #f0f0f0 !important',
             background: '#ffffff'
         },
         '& .ant-card-head-title': {
-            padding: '10px 0 4px !important'
+            padding: '11px 0 !important',
+            minWidth: 0
+        },
+        '& .ant-card-extra': {
+            padding: '8px 0 !important'
         },
         '& .ant-card-body': {
             background: '#ffffff'
@@ -34,11 +38,27 @@ export const styles = (theme: Theme) => createStyles({
     panelHeader: {
         display: 'flex',
         alignItems: 'center',
-        gap: theme.spacing(0.6),
-        minHeight: 0,
+        justifyContent: 'space-between',
+        gap: theme.spacing(1),
+        minHeight: 22,
+        width: '100%',
         padding: 0,
         borderBottom: 0,
         background: 'transparent'
+    },
+    panelHeaderMain: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: theme.spacing(0.75),
+        minWidth: 0
+    },
+    panelHeaderActions: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        gap: theme.spacing(0.75),
+        minWidth: 0,
+        marginLeft: 'auto'
     },
     panelIcon: {
         width: 18,
@@ -118,10 +138,10 @@ export const styles = (theme: Theme) => createStyles({
         }
     },
     rowsCompact: {
-        padding: theme.spacing(0.15, 1.35)
+        padding: '6px 14px 10px'
     },
     antInfoList: {
-        padding: '0 18px 10px',
+        padding: '6px 18px 10px',
         background: '#ffffff'
     },
     antInfoRow: {
@@ -288,7 +308,7 @@ export const styles = (theme: Theme) => createStyles({
         display: 'grid',
         gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
         gap: 10,
-        padding: '4px 16px 16px',
+        padding: '12px 16px 16px',
         [theme.breakpoints.down('sm')]: {
             gridTemplateColumns: '1fr'
         }
@@ -685,19 +705,21 @@ export const styles = (theme: Theme) => createStyles({
     collapsibleHeaderButton: {
         width: '100%',
         border: 0,
-        padding: 0,
+        padding: '0 16px',
         margin: 0,
-        background: 'transparent',
+        background: '#ffffff',
         textAlign: 'left',
-        cursor: 'pointer'
+        cursor: 'pointer',
+        borderBottom: '1px solid #f0f0f0'
     },
     collapsibleHeaderInner: {
         display: 'flex',
         alignItems: 'center',
-        gap: theme.spacing(0.9),
-        padding: theme.spacing(1.25, 1.35),
-        borderBottom: '1px solid var(--netdive-detail-border-subtle, rgba(226, 232, 240, 0.72))',
-        background: 'var(--netdive-detail-section-header, #f8fafc)'
+        justifyContent: 'space-between',
+        gap: theme.spacing(1),
+        minHeight: 44,
+        padding: 0,
+        background: '#ffffff'
     },
     collapsibleHeaderChevron: {
         marginLeft: 'auto',

@@ -485,14 +485,17 @@ class VMDetailPanel extends React.Component<Props> {
         )
     }
 
-    private renderSection(icon: React.ReactNode, title: string, children: React.ReactNode) {
+    private renderSection(icon: React.ReactNode, title: string, children: React.ReactNode, action?: React.ReactNode) {
         const { classes } = this.props
         const sectionTitle = (
             <div className={classes.panelHeader}>
-                <span className={classes.panelIcon}>{icon}</span>
-                <div className={classes.panelTitleBlock}>
-                    <div className={classes.panelTitle}>{title}</div>
+                <div className={classes.panelHeaderMain}>
+                    <span className={classes.panelIcon}>{icon}</span>
+                    <div className={classes.panelTitleBlock}>
+                        <div className={classes.panelTitle}>{title}</div>
+                    </div>
                 </div>
+                <div className={classes.panelHeaderActions}>{action}</div>
             </div>
         )
         return (

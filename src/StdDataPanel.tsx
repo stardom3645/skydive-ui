@@ -197,19 +197,23 @@ class DataPanel extends React.Component<Props, State> {
           }
           return (
             <Accordion
+              className={classes.panelCard}
               defaultExpanded={this.props.defaultExpanded}
               onChange={this.onExpandChange.bind(this)}
               TransitionProps={{ unmountOnExit: true }}
             >
               <AccordionSummary
+                className={classes.panelHeader}
                 expandIcon={<ExpandMoreIcon />}
                 aria-controls="panel1a-content"
                 id="panel1a-header"
               >
-                <Typography className={iconClass}>{this.props.icon}</Typography>
-                <Typography>{this.props.title}</Typography>
+                <div className={classes.panelHeaderMain}>
+                  <Typography className={iconClass}>{this.props.icon}</Typography>
+                  <Typography className={classes.panelTitle}>{this.props.title}</Typography>
+                </div>
               </AccordionSummary>
-              <AccordionDetails>
+              <AccordionDetails className={classes.panelBody}>
                 {details}
               </AccordionDetails>
             </Accordion>

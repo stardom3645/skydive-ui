@@ -3,6 +3,9 @@ const CopyWebPackPlugin = require('copy-webpack-plugin');
 
 var path = require('path');
 
+const devBackend = process.env.NETDIVE_DEV_BACKEND || 'http://10.10.254.191:8082';
+const devPort = Number(process.env.NETDIVE_DEV_PORT || 8080);
+
 const htmlPlugin = new HtmlWebPackPlugin({
     template: "./src/index.html",
     filename: "./index.html"
@@ -15,7 +18,10 @@ module.exports = {
         publicPath: '/ui_v2/'
     },
     resolve: {
-        extensions: [".ts", ".tsx", ".js", ".jsx"]
+        extensions: [".ts", ".tsx", ".js", ".jsx"],
+        fallback: {
+            url: require.resolve('url/')
+        }
     },
     module: {
         rules: [
@@ -57,10 +63,49 @@ module.exports = {
     },
 
     devServer: {
-        historyApiFallback: true,
-        contentBase: path.join(__dirname, 'dist'),
+        historyApiFallback: {
+            rewrites: [
+                { from: /^\/ui_v2\/.*$/, to: '/index.html' }
+            ]
+        },
+        static: {
+            directory: path.join(__dirname, 'dist'),
+            publicPath: '/ui_v2/'
+        },
         compress: true,
-        port: 8080
+        port: devPort,
+        allowedHosts: 'all',
+        client: {
+            overlay: {
+                errors: true,
+                warnings: false
+            },
+            webSocketURL: {
+                pathname: '/netdive-dev-ws'
+            }
+        },
+        webSocketServer: {
+            type: 'ws',
+            options: {
+                path: '/netdive-dev-ws'
+            }
+        },
+        devMiddleware: {
+            publicPath: '/ui_v2/'
+        },
+        proxy: {
+            '/api': {
+                target: devBackend,
+                changeOrigin: true,
+                secure: false
+            },
+            '/ws': {
+                target: devBackend,
+                changeOrigin: true,
+                secure: false,
+                ws: true
+            }
+        }
     },
 
     devtool: "source-map",

@@ -1922,15 +1922,18 @@ class HostDetailPanel extends React.Component<Props, State> {
         )
     }
 
-    private renderSection(icon: React.ReactNode, title: string, description: string, children: React.ReactNode, className = '') {
+    private renderSection(icon: React.ReactNode, title: string, description: string, children: React.ReactNode, className = '', action?: React.ReactNode) {
         const { classes } = this.props
         const sectionTitle = (
             <div className={classes.panelHeader}>
-                <span className={classes.panelIcon}>{icon}</span>
-                <div className={classes.panelTitleBlock}>
-                    <div className={classes.panelTitle}>{title}</div>
-                    {description && <div className={classes.panelDescription}>{description}</div>}
+                <div className={classes.panelHeaderMain}>
+                    <span className={classes.panelIcon}>{icon}</span>
+                    <div className={classes.panelTitleBlock}>
+                        <div className={classes.panelTitle}>{title}</div>
+                        {description && <div className={classes.panelDescription}>{description}</div>}
+                    </div>
                 </div>
+                <div className={classes.panelHeaderActions}>{action}</div>
             </div>
         )
         return (

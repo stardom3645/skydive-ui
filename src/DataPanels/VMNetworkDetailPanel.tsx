@@ -321,19 +321,22 @@ class VMNetworkDetailPanel extends React.Component<Props, State> {
         )
     }
 
-    private renderSection(key: string, icon: React.ReactNode, title: string, description: string, children: React.ReactNode, defaultCollapsed = false) {
+    private renderSection(key: string, icon: React.ReactNode, title: string, _description: string, children: React.ReactNode, defaultCollapsed = false) {
         const { classes } = this.props
         const collapsed = this.state.collapsed[key] !== undefined ? this.state.collapsed[key] : defaultCollapsed
         return (
             <section className={classes.panelCard}>
                 <button type="button" className={classes.collapsibleHeaderButton} onClick={() => this.toggleSection(key)}>
                     <div className={classes.collapsibleHeaderInner}>
-                        <span className={classes.panelIcon}>{icon}</span>
-                        <div className={classes.panelTitleBlock}>
-                            <div className={classes.panelTitle}>{title}</div>
-                            {description && <div className={classes.panelDescription}>{description}</div>}
+                        <div className={classes.panelHeaderMain}>
+                            <span className={classes.panelIcon}>{icon}</span>
+                            <div className={classes.panelTitleBlock}>
+                                <div className={classes.panelTitle}>{title}</div>
+                            </div>
                         </div>
-                        <span className={classes.collapsibleHeaderChevron}>{collapsed ? <KeyboardArrowRightIcon /> : <KeyboardArrowDownIcon />}</span>
+                        <div className={classes.panelHeaderActions}>
+                            <span className={classes.collapsibleHeaderChevron}>{collapsed ? <KeyboardArrowRightIcon /> : <KeyboardArrowDownIcon />}</span>
+                        </div>
                     </div>
                 </button>
                 {!collapsed && children}

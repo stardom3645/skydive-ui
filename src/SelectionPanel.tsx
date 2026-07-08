@@ -58,6 +58,7 @@ interface State {
   tab: number
   gremlin: string
   captureForm: boolean
+  selectionKey: string
 }
 
 class SelectionPanel extends React.Component<Props, State> {
@@ -70,11 +71,20 @@ class SelectionPanel extends React.Component<Props, State> {
     this.state = {
       tab: 0,
       gremlin: "",
-      captureForm: false
+      captureForm: false,
+      selectionKey: ""
     }
   }
 
   static getDerivedStateFromProps(props, state) {
+    const selectionKey = props.selection.map((el: Node | Link) => el.id).join("|")
+    if (selectionKey !== state.selectionKey) {
+      return {
+        tab: props.selection.length > 0 ? props.selection.length - 1 : 0,
+        selectionKey: selectionKey
+      }
+    }
+
     var tab = state.tab
     if (tab >= props.selection.length) {
       tab = props.selection.length - 1
@@ -83,7 +93,8 @@ class SelectionPanel extends React.Component<Props, State> {
       tab = 0
     }
     return {
-      tab: tab
+      tab: tab,
+      selectionKey: selectionKey
     }
   }
 

@@ -1,4 +1,5 @@
 .netdive-ant-theme {
+  font-family: var(--netdive-font-family);
   --netdive-ant-primary: #1677ff;
   --netdive-ant-border: #d7e2f0;
   --netdive-ant-radius: 8px;
@@ -7,6 +8,17 @@
   --netdive-ant-text: #0f172a;
   --netdive-ant-muted: #64748b;
   min-height: 100%;
+}
+
+.netdive-ant-theme .ant-card,
+.netdive-ant-theme .ant-btn,
+.netdive-ant-theme .ant-select,
+.netdive-ant-theme .ant-input,
+.netdive-ant-theme .ant-table,
+.netdive-ant-theme .ant-tag,
+.netdive-ant-theme .ant-empty,
+.netdive-ant-theme .ant-statistic {
+  font-family: var(--netdive-font-family);
 }
 
 .netdive-ant-theme .ant-card {

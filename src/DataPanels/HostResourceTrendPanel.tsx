@@ -64,32 +64,34 @@ const trendRanges = [
 
 const styles = (theme: Theme) => createStyles({
     card: {
-        border: '1px solid #eef0f4',
+        border: '1px solid #f0f0f0',
         borderRadius: 10,
         background: '#ffffff',
         overflow: 'hidden',
-        boxShadow: '0 1px 2px rgba(16, 24, 40, 0.04)'
+        boxShadow: '0 1px 3px rgba(16, 24, 40, 0.035)'
     },
     header: {
         display: 'flex',
         alignItems: 'center',
-        gap: theme.spacing(0.9),
-        padding: '10px 16px',
-        borderBottom: '1px solid #f5f5f5',
+        justifyContent: 'space-between',
+        gap: theme.spacing(1),
+        minHeight: 44,
+        padding: '0 16px',
+        borderBottom: '1px solid #f0f0f0',
         background: '#ffffff'
     },
     icon: {
-        width: 28,
-        height: 28,
-        borderRadius: 7,
+        width: 18,
+        height: 18,
+        borderRadius: 0,
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        flex: '0 0 28px',
+        flex: '0 0 18px',
         color: '#1677ff',
-        background: '#f0f7ff',
+        background: 'transparent',
         '& svg': {
-            fontSize: 17
+            fontSize: 15
         }
     },
     titleBlock: {
@@ -98,7 +100,7 @@ const styles = (theme: Theme) => createStyles({
     },
     title: {
         color: '#101828',
-        fontSize: 14.5,
+        fontSize: 14,
         lineHeight: 1.2,
         fontWeight: 600
     },

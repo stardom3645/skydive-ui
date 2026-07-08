@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap');
-
 svg {
     cursor: default;
 }
@@ -26,7 +24,7 @@ svg {
 
 .level-label text {
     fill: var(--topology-level-label-text);
-    font-family: 'Noto Sans KR';
+    font-family: var(--netdive-font-family);
     font-weight: 700;
     font-size: 24px;
 }
@@ -79,6 +77,7 @@ svg {
     stroke-width: 16;
     marker-start: url(#link-overlay-marker);
     marker-end: url(#link-overlay-marker);
+    pointer-events: none;
 }
 
 .link-overlay-selected {
@@ -105,6 +104,7 @@ svg {
     stroke-width: 1.5;
     marker-start: url(#link-marker);
     marker-end: url(#link-marker);
+    pointer-events: none;
 }
 
 .links .directed {
@@ -150,10 +150,11 @@ svg {
     stroke-width: 30;
     opacity: 0;
     fill: none;
+    pointer-events: auto;
 }
 
 .link-label {
-    font-family: 'Noto Sans KR', sans-serif;
+    font-family: var(--netdive-font-family);
     cursor: pointer;
     pointer-events: auto;
 }
@@ -216,10 +217,7 @@ svg {
 }
 
 .node-circle {
-    fill: var(--topology-node-circle-fill);
-    stroke-width: 1.8;
-    stroke: var(--topology-node-circle-stroke);
-    filter: drop-shadow(0 5px 12px rgba(15, 23, 42, 0.12));
+    display: none;
 }
 
 .node-overlay {
@@ -231,33 +229,148 @@ svg {
 }
 
 .node-disc {
-    stroke: none;
-    fill: var(--topology-node-disc);
+    display: none;
 }
 
 .node-selected .node-circle {
-    fill: var(--topology-node-selected-fill);
-    stroke: var(--topology-node-selected-stroke);
-    stroke-width: 4.2;
-    filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0)) drop-shadow(0 0 6px rgba(68, 95, 143, 0.35));
+    display: none;
 }
 
 .node-selected .node-disc {
-    fill: var(--topology-node-selected-disc);
+    display: none;
 }
 
 .node-hexagon {
-    stroke: #455f6b;
-    stroke-dasharray: 5, 5;
-    fill: #C9ADA7;
+    display: none;
+}
+
+.node-card-bg {
+    fill: #ffffff;
+    stroke: rgba(208, 213, 221, 0.92);
+    stroke-width: 1.2px;
+    filter: drop-shadow(0 8px 18px rgba(15, 23, 42, 0.12));
+}
+
+.node:hover .node-card-bg {
+    stroke: rgba(22, 119, 255, 0.48);
+    filter: drop-shadow(0 10px 24px rgba(15, 23, 42, 0.16));
+}
+
+.node-selected .node-card-bg {
+    stroke: #1677ff;
+    stroke-width: 2px;
+    filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0)) drop-shadow(0 0 8px rgba(22, 119, 255, 0.28));
+}
+
+.node-card-icon-bg {
+    fill: #eef4fb;
+    stroke: rgba(203, 213, 225, 0.98);
+    stroke-width: 1px;
 }
 
 .node-icon {
-    font-size: 25px;
+    font-size: 26px;
     text-anchor: middle;
     font-family: 'Font Awesome 5 Free' !important;
-    fill: var(--topology-node-icon);
+    fill: #334155;
     font-weight: 900;
+}
+
+.node-card-title {
+    font-family: var(--netdive-font-family);
+    font-size: 14px;
+    font-weight: 650;
+    fill: #101828;
+}
+
+.node-card-type {
+    font-family: var(--netdive-font-family);
+    font-size: 12px;
+    font-weight: 500;
+    fill: #667085;
+}
+
+.node-group-card {
+    cursor: pointer;
+}
+
+.node-group-card .node-card-bg {
+    stroke-dasharray: none;
+    fill: #ffffff;
+}
+
+.node-group-expanded .node-card-bg {
+    stroke: #1677ff;
+    stroke-width: 2px;
+    fill: #f8fbff;
+}
+
+.node-group-expanded .node-card-type {
+    fill: #1677ff;
+    font-weight: 600;
+}
+
+.node-container-mini-card {
+    cursor: pointer;
+}
+
+.node-container-mini-card-bg {
+    fill: #ffffff;
+    stroke: #e5e7eb;
+    stroke-width: 1px;
+}
+
+.node-container-mini-card:hover .node-container-mini-card-bg {
+    stroke: #1677ff;
+    fill: #f8fbff;
+}
+
+.node-container-mini-card-active .node-container-mini-card-bg {
+    stroke: #1677ff;
+    stroke-width: 1.6px;
+    fill: #f0f7ff;
+}
+
+.node-container-mini-card-title {
+    font-family: var(--netdive-font-family);
+    font-size: 11px;
+    font-weight: 650;
+    fill: #101828;
+    letter-spacing: 0;
+}
+
+.node-container-mini-card-status {
+    font-family: var(--netdive-font-family);
+    font-size: 10px;
+    font-weight: 600;
+    fill: #667085;
+}
+
+.node-container-mini-card-status-dot.is-ok,
+.node-container-mini-card-status.is-ok {
+    fill: #16a34a;
+}
+
+.node-container-mini-card-status-dot.is-bad,
+.node-container-mini-card-status.is-bad {
+    fill: #ef4444;
+}
+
+.node-container-mini-card-status-dot.is-warning,
+.node-container-mini-card-status.is-warning {
+    fill: #f59e0b;
+}
+
+.node-container-mini-card-status-dot.is-unknown,
+.node-container-mini-card-status.is-unknown {
+    fill: #94a3b8;
+}
+
+.node-container-more {
+    font-family: var(--netdive-font-family);
+    font-size: 10px;
+    font-weight: 700;
+    fill: #64748b;
 }
 
 .node-badge text {
@@ -293,7 +406,7 @@ svg {
     font-size: 24px;
     text-anchor: middle;
     font-weight: 500;
-    font-family: 'Noto Sans KR', sans-serif;
+    font-family: var(--netdive-font-family);
     fill: var(--topology-node-name);
 }
 
@@ -321,7 +434,7 @@ svg {
     fill: #fff;
     text-anchor: middle;
     font-weight: bold;
-    font-family: sans-serif;
+    font-family: var(--netdive-font-family);
 }
 
 .group .group-brace {
@@ -345,33 +458,6 @@ svg {
     stroke: var(--topology-group-rect-selected-stroke);
     stroke-width: 2px;
     opacity: 0.92;
-}
-
-.group-button .brace-icon text {
-    font-family: 'Font Awesome 5 Free' !important;
-    fill: #1e3a8a;
-    font-weight: 900;
-    font-size: 24px;
-}
-
-.group-button .brace-icon rect {
-    stroke: none;
-    fill: #f1f5f9;
-}
-
-.group-button .brace-offset text {
-    fill: #ffffff;
-    font-size: 16px;
-    font-weight: bold;
-}
-
-.group-button .brace-offset rect {
-    stroke: none;
-    fill: #334155;
-}
-
-.group-button .brace-icon:disabled {
-    fill: #bbb;
 }
 
 .context-menu {
