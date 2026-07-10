@@ -491,6 +491,12 @@ class App extends React.Component<Props, State> {
     }, 10000)
   }
 
+  componentDidUpdate(prevProps: Props) {
+    if (prevProps.selection.length !== this.props.selection.length && this.props.selection.length === 0 && this.state.isSelectionOpen) {
+      this.setState({ isSelectionOpen: false })
+    }
+  }
+
   componentWillUnmount() {
     document.removeEventListener("mousedown", this.documentMouseDown, true)
     if (this.checkAuthID) {
@@ -2133,7 +2139,37 @@ class App extends React.Component<Props, State> {
 
   private nodeDisplayName(node: Node): string {
     const attrs = this.nodeAttrs(node)
-    return attrs.name || node.data?.Name || node.id
+    const attrsName = attrs.name || node.data?.Name || node.id
+    if (String(node.data?.Type || "").toLowerCase() !== "libvirt") {
+      return attrsName
+    }
+
+    const vmNameMap = this.state.vmNameMap || {}
+    const candidates = [
+      attrsName,
+      node.data?.Name,
+      node.data?.LibvirtName,
+      node.data?.UUID,
+      node.data?.ID,
+      node.data?.ExtID,
+      node.data?.VirtualMachineID,
+      node.data?.instanceName
+    ]
+      .map((value) => typeof value === "string" ? value.trim() : "")
+      .filter((value, index, array) => !!value && array.indexOf(value) === index)
+
+    for (const key of candidates) {
+      if (vmNameMap[key]) {
+        return vmNameMap[key]
+      }
+    }
+
+    return attrsName
+  }
+
+  private recentViewedNodeDisplayName(item: RecentViewedNodeItem): string {
+    const node = this.tc && this.tc.nodes.get(item.id)
+    return node ? this.nodeDisplayName(node) : item.name
   }
 
   private nodePrimaryLayerTag(node: Node): RecentNodeLayerTag {
@@ -3036,21 +3072,24 @@ class App extends React.Component<Props, State> {
                 {this.state.recentViewedNodes.length === 0 &&
                   <div className={classes.recentViewedNodesEmpty}>{translate("recentViewedNodesEmpty")}</div>
                 }
-                {this.state.recentViewedNodes.map((item) => (
-                  <button
-                    type="button"
-                    key={item.id}
-                    className={clsx(classes.recentViewedNodeItem, selectedNodeID === item.id && classes.recentViewedNodeItemActive)}
-                    onClick={() => this.focusRecentViewedNode(item)}>
-                    {this.renderRecentNodeIcon(classes, item)}
-                    <span className={classes.recentViewedNodeText}>
-                      <Tooltip title={item.name}>
-                        <span className={classes.recentViewedNodeName}>{item.name}</span>
-                      </Tooltip>
-                      <span className={classes.recentViewedNodeType}>{this.recentNodeTypeLabel(item)}</span>
-                    </span>
-                  </button>
-                ))}
+                {this.state.recentViewedNodes.map((item) => {
+                  const displayName = this.recentViewedNodeDisplayName(item)
+                  return (
+                    <button
+                      type="button"
+                      key={item.id}
+                      className={clsx(classes.recentViewedNodeItem, selectedNodeID === item.id && classes.recentViewedNodeItemActive)}
+                      onClick={() => this.focusRecentViewedNode(item)}>
+                      {this.renderRecentNodeIcon(classes, item)}
+                      <span className={classes.recentViewedNodeText}>
+                        <Tooltip title={displayName}>
+                          <span className={classes.recentViewedNodeName}>{displayName}</span>
+                        </Tooltip>
+                        <span className={classes.recentViewedNodeType}>{this.recentNodeTypeLabel(item)}</span>
+                      </span>
+                    </button>
+                  )
+                })}
               </div>
             }
           </Paper>
@@ -3658,17 +3697,16 @@ class App extends React.Component<Props, State> {
       return
     }
     const nodeIDs = this.infrastructureFocusNodeIDs(summary, key)
-    this.syncTopologyNodeTagForNodes(nodeIDs)
-    this.tc.focusInfrastructureNodes(nodeIDs)
+    this.focusInfrastructureNodeIDs(nodeIDs)
     this.setState({ infrastructureFocus: key })
   }
 
-  private focusInfrastructureNodeIDs(nodeIDs: string[]) {
+  private focusInfrastructureNodeIDs(nodeIDs: string[], anchorNodeID?: string) {
     if (!this.tc) {
       return
     }
     this.syncTopologyNodeTagForNodes(nodeIDs)
-    this.tc.focusInfrastructureNodes(nodeIDs)
+    this.tc.focusInfrastructureNodes(nodeIDs, anchorNodeID)
   }
 
   private selectInfrastructureNodeID(nodeID: string) {
@@ -3718,14 +3756,30 @@ class App extends React.Component<Props, State> {
     return <img src={src} alt={alt} />
   }
 
-  private renderInfrastructureSummaryCard(classes: any, icon: React.ReactNode, label: string, value: number) {
-    return (
-      <div className={classes.infrastructureSummaryCard}>
+  private renderInfrastructureSummaryCard(classes: any, icon: React.ReactNode, label: string, value: number, nodeIDs: string[] = []) {
+    const clickable = nodeIDs.length > 0
+    const content = (
+      <>
         <span className={classes.infrastructureCardIcon}>{icon}</span>
         <span>
           <small>{label}</small>
           <strong>{value}</strong>
         </span>
+      </>
+    )
+    if (clickable) {
+      return (
+        <button
+          type="button"
+          className={classes.infrastructureSummaryCard}
+          onClick={() => this.focusInfrastructureNodeIDs(nodeIDs)}>
+          {content}
+        </button>
+      )
+    }
+    return (
+      <div className={classes.infrastructureSummaryCard}>
+        {content}
       </div>
     )
   }
@@ -3768,12 +3822,12 @@ class App extends React.Component<Props, State> {
     )
   }
 
-  private renderInfrastructureHostOverviewCard(classes: any, icon: React.ReactNode, label: string, description: string, count: number, nodeIDs: string[]) {
+  private renderInfrastructureHostOverviewCard(classes: any, icon: React.ReactNode, label: string, description: string, count: number, nodeIDs: string[], anchorNodeID?: string) {
     return (
       <button
         type="button"
         className={clsx(classes.infrastructureOverviewCard, classes.infrastructureHostOverviewCardCompact)}
-        onClick={() => this.focusInfrastructureNodeIDs(nodeIDs)}
+        onClick={() => this.focusInfrastructureNodeIDs(nodeIDs, anchorNodeID)}
         disabled={nodeIDs.length === 0}>
         <span className={classes.infrastructureOverviewCardMain}>
           <span className={classes.infrastructureCardIcon}>{icon}</span>
@@ -3795,10 +3849,10 @@ class App extends React.Component<Props, State> {
       <div className={classes.infrastructureHostCard} key={host.id}>
         <div className={classes.infrastructureHostName}>{host.name}</div>
         <div className={classes.infrastructureHostOverviewGrid}>
-          {this.renderInfrastructureHostOverviewCard(classes, this.infrastructureIcon("\uf108", "user-vm"), translate("infrastructureUserVMs"), translate("infrastructureUserVMsDescription"), host.userVMs, host.userVMNodeIDs)}
-          {this.renderInfrastructureHostOverviewCard(classes, this.infrastructureIcon("\uf085", "system-vm"), translate("infrastructureSystemVMs"), translate("infrastructureSystemVMsDescription"), host.systemVMs, host.systemVMNodeIDs)}
-          {this.renderInfrastructureHostOverviewCard(classes, this.infrastructureIcon("\uf4d7", "router"), translate("infrastructureRouters"), translate("infrastructureRoutersDescription"), host.routers, host.routerNodeIDs)}
-          {this.renderInfrastructureHostOverviewCard(classes, this.infrastructureIcon("\uf6ff", "network"), translate("infrastructureNetworkObjects"), translate("infrastructureNetworkObjectsDescription"), host.networkObjects, host.networkObjectNodeIDs)}
+          {this.renderInfrastructureHostOverviewCard(classes, this.infrastructureIcon("\uf108", "user-vm"), translate("infrastructureUserVMs"), translate("infrastructureUserVMsDescription"), host.userVMs, host.userVMNodeIDs, host.id)}
+          {this.renderInfrastructureHostOverviewCard(classes, this.infrastructureIcon("\uf085", "system-vm"), translate("infrastructureSystemVMs"), translate("infrastructureSystemVMsDescription"), host.systemVMs, host.systemVMNodeIDs, host.id)}
+          {this.renderInfrastructureHostOverviewCard(classes, this.infrastructureIcon("\uf4d7", "router"), translate("infrastructureRouters"), translate("infrastructureRoutersDescription"), host.routers, host.routerNodeIDs, host.id)}
+          {this.renderInfrastructureHostOverviewCard(classes, this.infrastructureIcon("\uf6ff", "network"), translate("infrastructureNetworkObjects"), translate("infrastructureNetworkObjectsDescription"), host.networkObjects, host.networkObjectNodeIDs, host.id)}
         </div>
       </div>
     )
@@ -3844,9 +3898,9 @@ class App extends React.Component<Props, State> {
           </IconButton>
         </div>
         <div className={classes.kubernetesSummaryGrid}>
-          {this.renderInfrastructureSummaryCard(classes, this.infrastructureIcon("\uf233", "host"), translate("infrastructureHosts"), summary.hosts)}
-          {this.renderInfrastructureSummaryCard(classes, this.infrastructureIcon("\uf108", "user-vm"), translate("infrastructureUserVMs"), summary.userVMs)}
-          {this.renderInfrastructureSummaryCard(classes, this.infrastructureIcon("\uf085", "system-vm"), translate("infrastructureSystemVMs"), summary.systemVMs)}
+          {this.renderInfrastructureSummaryCard(classes, this.infrastructureIcon("\uf233", "host"), translate("infrastructureHosts"), summary.hosts, summary.hostNodeIDs)}
+          {this.renderInfrastructureSummaryCard(classes, this.infrastructureIcon("\uf108", "user-vm"), translate("infrastructureUserVMs"), summary.userVMs, summary.userVMNodeIDs)}
+          {this.renderInfrastructureSummaryCard(classes, this.infrastructureIcon("\uf085", "system-vm"), translate("infrastructureSystemVMs"), summary.systemVMs, summary.systemVMNodeIDs)}
           {this.renderInfrastructureSummaryCard(classes, this.infrastructureIcon("\uf0e8", "network"), translate("infrastructureNetworkLinks"), summary.links)}
         </div>
         <div className={classes.kubernetesTableHeader}>

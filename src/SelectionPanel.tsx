@@ -290,6 +290,9 @@ class SelectionPanel extends React.Component<Props, State> {
 
   render() {
     const { classes } = this.props
+    if (this.props.selection.length === 0) {
+      return null
+    }
 
     return (
       <div className={classes.tabs}>

@@ -269,7 +269,7 @@ svg {
 }
 
 .node-icon {
-    font-size: 26px;
+    font-size: 31px;
     text-anchor: middle;
     font-family: 'Font Awesome 5 Free' !important;
     fill: #334155;
@@ -278,16 +278,9 @@ svg {
 
 .node-card-title {
     font-family: var(--netdive-font-family);
-    font-size: 14px;
+    font-size: 20px;
     font-weight: 650;
     fill: #101828;
-}
-
-.node-card-type {
-    font-family: var(--netdive-font-family);
-    font-size: 12px;
-    font-weight: 500;
-    fill: #667085;
 }
 
 .node-group-card {
@@ -299,15 +292,430 @@ svg {
     fill: #ffffff;
 }
 
-.node-group-expanded .node-card-bg {
-    stroke: #1677ff;
-    stroke-width: 2px;
-    fill: #f8fbff;
+.node-group-list-row {
+    cursor: pointer;
 }
 
-.node-group-expanded .node-card-type {
+.node-group-list-row-bg {
+    fill: #ffffff;
+    stroke: #e5e7eb;
+    stroke-width: 1px;
+    filter: drop-shadow(0 4px 10px rgba(15, 23, 42, 0.06));
+}
+
+.node-group-list-row:hover .node-group-list-row-bg {
+    fill: #f8fbff;
+    stroke: #93c5fd;
+}
+
+.node-group-list-row.is-selected .node-group-list-row-bg {
+    fill: #eff6ff;
+    stroke: #1677ff;
+    stroke-width: 1.4px;
+}
+
+.node-group-list-title {
+    font-family: var(--netdive-font-family);
+    font-size: 19px;
+    font-weight: 650;
+    fill: #101828;
+    letter-spacing: 0;
+}
+
+.node-group-list-action {
+    font-family: var(--netdive-font-family);
+    font-size: 24px;
+    font-weight: 700;
+    fill: #94a3b8;
+}
+
+.node-group-list-row.is-selected .node-group-list-action {
     fill: #1677ff;
+}
+
+.node-group-list-status-dot.is-ok {
+    fill: #16a34a;
+}
+
+.node-group-list-status-dot.is-bad {
+    fill: #ef4444;
+}
+
+.node-group-list-status-dot.is-warning {
+    fill: #f59e0b;
+}
+
+.node-group-list-status-dot.is-unknown {
+    fill: #94a3b8;
+}
+
+.node-group-list-more {
+    cursor: pointer;
+}
+
+.node-group-list-more-bg {
+    fill: #eff6ff;
+    stroke: #bfdbfe;
+    stroke-width: 1px;
+}
+
+.node-group-list-more:hover .node-group-list-more-bg {
+    fill: #dbeafe;
+    stroke: #60a5fa;
+}
+
+.node-group-list-more-text {
+    font-family: var(--netdive-font-family);
+    font-size: 17px;
+    font-weight: 700;
+    fill: #1677ff;
+    letter-spacing: 0;
+}
+
+.node-group-navigator {
+    overflow: visible;
+}
+
+.node-group-navigator-root {
+    width: 100%;
+    height: 100%;
+}
+
+.topology-vm-navigator-card.ant-card {
+    width: 100%;
+    height: auto;
+    border: 1px solid #d6e4ff;
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.10);
+    font-family: var(--netdive-font-family);
+    overflow: hidden;
+}
+
+.topology-vm-navigator-card .ant-card-body {
+    height: auto;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.topology-vm-navigator-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 292px;
+    gap: 16px;
+    align-items: center;
+    min-height: 64px;
+    padding: 12px 14px;
+    border-bottom: 1px solid #f0f3f8;
+    background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+}
+
+.topology-vm-navigator-title-area {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.topology-vm-navigator-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    background: #f3f7ff;
+    border: 1px solid #d6e4ff;
+    color: #1d4ed8;
+    font-size: 20px;
+}
+
+.topology-vm-navigator-icon-glyph {
+    font-family: 'Font Awesome 5 Free';
+    font-weight: 900;
+    line-height: 1;
+}
+
+.topology-vm-navigator-heading {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.topology-vm-navigator-title.ant-typography {
+    display: block;
+    max-width: 190px;
+    margin-bottom: 0;
+    color: #101828;
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.topology-vm-navigator-summary {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #667085;
+    font-size: 12px;
     font-weight: 600;
+}
+
+.topology-vm-navigator-tools {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    align-items: center;
+}
+
+.topology-vm-navigator-actions {
+    display: inline-flex;
+    gap: 4px;
+    flex: 0 0 auto;
+}
+
+.topology-vm-navigator-actions .ant-btn {
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border-radius: 8px;
+    color: #475467;
+    border-color: #d9e2ef;
+    background: #ffffff;
+}
+
+.topology-vm-navigator-tools .ant-input-affix-wrapper {
+    width: 200px;
+}
+
+.topology-vm-navigator-tools .ant-input-affix-wrapper {
+    height: 36px !important;
+    border-radius: 8px !important;
+    align-items: center;
+    border-color: #d9e2ef;
+    box-shadow: none;
+}
+
+.topology-vm-navigator-tools .ant-input {
+    font-size: 13px;
+}
+
+.topology-vm-navigator-tools .ant-input-prefix {
+    color: #94a3b8;
+    margin-right: 7px;
+}
+
+.topology-vm-navigator-scroll {
+    flex: 0 0 auto;
+    min-height: 0;
+    max-height: 426px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 10px 12px 4px;
+    background: #ffffff;
+}
+
+.topology-vm-navigator-scroll::-webkit-scrollbar {
+    width: 6px;
+}
+
+.topology-vm-navigator-scroll::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: #d0d7e2;
+}
+
+.topology-vm-navigator-list.ant-list {
+    background: transparent;
+}
+
+.topology-vm-navigator-list .ant-list-items {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.topology-vm-navigator-item.ant-list-item {
+    height: 62px;
+    padding: 10px 12px;
+    margin-bottom: 0;
+    border: 1px solid #e8edf5;
+    border-radius: 10px;
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.035);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+
+.topology-vm-navigator-item.ant-list-item.is-selected {
+    border-color: #1677ff;
+    background: #f0f7ff;
+    box-shadow: inset 3px 0 0 #1677ff, 0 4px 12px rgba(22, 119, 255, 0.13);
+}
+
+.topology-vm-navigator-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #94a3b8;
+    flex: 0 0 auto;
+}
+
+.topology-vm-navigator-dot.is-ok {
+    background: #16a34a;
+}
+
+.topology-vm-navigator-dot.is-bad {
+    background: #ef4444;
+}
+
+.topology-vm-navigator-dot.is-warning {
+    background: #f59e0b;
+}
+
+.topology-vm-navigator-node-avatar.ant-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 9px;
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #16a34a;
+    font-size: 18px;
+}
+
+.topology-vm-navigator-node-avatar.is-unknown.ant-avatar {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+    color: #64748b;
+}
+
+.topology-vm-navigator-node-avatar.is-bad.ant-avatar {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #dc2626;
+}
+
+.topology-vm-navigator-node-avatar.is-warning.ant-avatar {
+    background: #fffbeb;
+    border-color: #fed7aa;
+    color: #d97706;
+}
+
+.topology-vm-navigator-item.is-selected .topology-vm-navigator-node-avatar.ant-avatar {
+    background: #eaf2ff;
+    border-color: #bfdbfe;
+    color: #1677ff;
+}
+
+.topology-vm-navigator-main {
+    min-width: 0;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.topology-vm-navigator-name {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #101828;
+    font-size: 15.5px;
+    font-weight: 700;
+    line-height: 1.15;
+}
+
+.topology-vm-navigator-item.is-selected .topology-vm-navigator-name {
+    color: #1677ff;
+}
+
+.topology-vm-navigator-meta {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    color: #667085;
+    font-size: 12px;
+    line-height: 18px;
+}
+
+.topology-vm-navigator-status-tag.ant-tag {
+    margin-right: 6px;
+    border-radius: 999px;
+    line-height: 18px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.topology-vm-navigator-status-tag.is-ok.ant-tag {
+    color: #15803d;
+    border-color: #bbf7d0;
+    background: #f0fdf4;
+}
+
+.topology-vm-navigator-status-tag.is-bad.ant-tag {
+    color: #b42318;
+    border-color: #fecaca;
+    background: #fef2f2;
+}
+
+.topology-vm-navigator-status-tag.is-warning.ant-tag {
+    color: #b45309;
+    border-color: #fed7aa;
+    background: #fffbeb;
+}
+
+.topology-vm-navigator-ip {
+    min-width: 0;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.topology-vm-navigator-arrow {
+    flex: 0 0 auto;
+    color: #94a3b8;
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.topology-vm-navigator-item.is-selected .topology-vm-navigator-arrow {
+    color: #1677ff;
+}
+
+.node-group-expanded .node-card-bg {
+    fill: transparent;
+    stroke: transparent;
+    stroke-width: 0;
+    stroke-dasharray: none;
+    filter: none;
+}
+
+.node-group-expanded:hover .node-card-bg,
+.node-group-expanded.node-selected .node-card-bg {
+    fill: transparent;
+    stroke: transparent;
+    stroke-width: 0;
+    filter: none;
+}
+
+.node-group-expanded .node-card-icon-bg,
+.node-group-expanded .node-icon,
+.node-group-expanded .node-card-text,
+.node-group-expanded .node-badges,
+.node-group-expanded .node-pinned {
+    display: none;
 }
 
 .node-container-mini-card {
@@ -333,7 +741,7 @@ svg {
 
 .node-container-mini-card-title {
     font-family: var(--netdive-font-family);
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 650;
     fill: #101828;
     letter-spacing: 0;
@@ -341,7 +749,7 @@ svg {
 
 .node-container-mini-card-status {
     font-family: var(--netdive-font-family);
-    font-size: 10px;
+    font-size: 10.5px;
     font-weight: 600;
     fill: #667085;
 }
@@ -364,6 +772,31 @@ svg {
 .node-container-mini-card-status-dot.is-unknown,
 .node-container-mini-card-status.is-unknown {
     fill: #94a3b8;
+}
+
+.node-container-network-mini {
+    cursor: pointer;
+}
+
+.node-container-network-mini-bg {
+    fill: #f8fafc;
+    stroke: #dbeafe;
+    stroke-width: 1px;
+}
+
+.node-container-network-mini:hover .node-container-network-mini-bg,
+.node-container-network-mini-active .node-container-network-mini-bg {
+    fill: #eff6ff;
+    stroke: #1677ff;
+    stroke-width: 1.4px;
+}
+
+.node-container-network-mini-title {
+    font-family: var(--netdive-font-family);
+    font-size: 12px;
+    font-weight: 650;
+    fill: #334155;
+    letter-spacing: 0;
 }
 
 .node-container-more {
@@ -449,7 +882,7 @@ svg {
     stroke: var(--topology-group-rect-stroke);
     stroke-width: 2.6px;
     stroke-dasharray: 10, 6;
-    opacity: 0.95;
+    opacity: 0;
 }
 
 .group .group-brace-owner-bg,
@@ -457,7 +890,7 @@ svg {
     fill: var(--topology-group-rect-selected-fill);
     stroke: var(--topology-group-rect-selected-stroke);
     stroke-width: 2px;
-    opacity: 0.92;
+    opacity: 0;
 }
 
 .context-menu {

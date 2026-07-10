@@ -1101,7 +1101,7 @@ class HostDetailPanel extends React.Component<Props, State> {
         const app = (window as any).App
         const ids = nodeIDs.length ? nodeIDs : this.hostInfrastructureNodeIDs(actionKey)
         if (app && typeof app.focusInfrastructureNodeIDs === 'function' && ids.length > 0) {
-            app.focusInfrastructureNodeIDs(ids)
+            app.focusInfrastructureNodeIDs(ids, this.props.node.id)
         }
     }
 

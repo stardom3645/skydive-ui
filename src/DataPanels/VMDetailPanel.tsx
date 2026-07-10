@@ -430,7 +430,7 @@ class VMDetailPanel extends React.Component<Props> {
     private focusNodeIDs(nodeIDs: string[]) {
         const app = (window as any).App
         if (app && typeof app.focusInfrastructureNodeIDs === 'function' && nodeIDs.length > 0) {
-            app.focusInfrastructureNodeIDs(nodeIDs)
+            app.focusInfrastructureNodeIDs(nodeIDs, this.props.node.id)
         }
     }
 

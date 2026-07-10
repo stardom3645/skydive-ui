@@ -953,6 +953,7 @@ export const styles = (theme: Theme) => createStyles({
   },
   infrastructureSummaryCard: {
     minHeight: 104,
+    width: '100%',
     display: 'flex',
     alignItems: 'center',
     gap: theme.spacing(1.5),
@@ -960,6 +961,18 @@ export const styles = (theme: Theme) => createStyles({
     borderRadius: 14,
     border: '1px solid var(--netdive-detail-border)',
     backgroundColor: 'var(--netdive-detail-section-bg)',
+    color: 'inherit',
+    font: 'inherit',
+    textAlign: 'left',
+    cursor: 'default',
+    transition: 'background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease',
+    '&:not(div)': {
+      cursor: 'pointer'
+    },
+    '&:not(div):hover': {
+      borderColor: 'rgba(26, 115, 232, 0.28)',
+      backgroundColor: 'var(--netdive-menu-active)'
+    },
     '& small': {
       display: 'block',
       color: 'var(--netdive-detail-muted)',
