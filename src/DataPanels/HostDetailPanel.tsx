@@ -13,8 +13,7 @@ import * as React from 'react'
 import IconButton from '@material-ui/core/IconButton'
 import Drawer from '@material-ui/core/Drawer'
 import SvgIcon from '@material-ui/core/SvgIcon'
-import { Button, Card, Empty, Progress, Statistic, Table, Tooltip as AntTooltip } from 'antd'
-import FileCopyIcon from '@material-ui/icons/FileCopy'
+import { Button, Card, Progress, Statistic, Table, Tooltip as AntTooltip } from 'antd'
 import InfoIcon from '@material-ui/icons/Info'
 import TimelineIcon from '@material-ui/icons/Timeline'
 import DeviceHubIcon from '@material-ui/icons/DeviceHub'
@@ -33,6 +32,13 @@ import { translate } from '../Config'
 import { styles } from './HostDetailPanelStyles'
 
 import HostResourceTrendPanel from './HostResourceTrendPanel'
+import {
+    DetailEmpty,
+    DetailKeyValueList,
+    DetailResourceCard,
+    DetailResourceGrid,
+    DetailSection
+} from './common'
 
 interface Props {
     classes: any
@@ -128,63 +134,64 @@ const kubernetesNodeExplorerStyles = `
     top: 22px !important;
     height: auto !important;
     max-height: calc(100vh - 56px) !important;
-    border-radius: 14px !important;
+    border-radius: 10px !important;
     overflow: hidden !important;
     background: #ffffff !important;
-    box-shadow: 0 18px 42px rgba(15, 23, 42, 0.18) !important;
-    border: 1px solid rgba(203, 213, 225, 0.78) !important;
+    box-shadow: 0 10px 28px rgba(16, 24, 40, 0.12), 0 1px 3px rgba(16, 24, 40, 0.04) !important;
+    border: 1px solid #f0f0f0 !important;
 }
 .netdive-k8s-explorer {
     box-sizing: border-box;
     max-height: calc(100vh - 56px);
-    padding: 12px 12px 14px;
-    background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+    padding: 10px 12px 12px;
+    background: #ffffff;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
 }
 .netdive-k8s-explorer-header {
     display: grid;
-    grid-template-columns: 30px minmax(0, 1fr) 24px;
+    grid-template-columns: 26px minmax(0, 1fr) 24px;
     gap: 8px;
-    align-items: start;
+    align-items: center;
 }
 .netdive-k8s-explorer-logo {
-    width: 30px;
-    height: 30px;
-    border-radius: 9px;
+    width: 26px;
+    height: 26px;
+    border-radius: 7px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
-    color: #ffffff;
-    box-shadow: 0 6px 14px rgba(37, 99, 235, 0.18);
+    background: #f0f6ff;
+    color: #1677ff;
+    border: 1px solid #d6e4ff;
+    box-shadow: none;
 }
 .netdive-k8s-explorer-logo svg {
-    font-size: 17px !important;
+    font-size: 15px !important;
 }
 .netdive-k8s-explorer-title {
     color: #0f172a;
-    font-size: 15px;
+    font-size: 14px;
     line-height: 1.18;
-    font-weight: 850;
-    letter-spacing: -0.02em;
+    font-weight: 700;
+    letter-spacing: 0;
 }
 .netdive-k8s-explorer-description {
-    margin-top: 4px;
-    color: #64748b;
-    font-size: 11px;
-    line-height: 1.32;
-    font-weight: 550;
+    margin-top: 2px;
+    color: #667085;
+    font-size: 10.5px;
+    line-height: 1.25;
+    font-weight: 500;
 }
 .netdive-k8s-explorer-close {
-    width: 26px !important;
-    height: 26px !important;
+    width: 24px !important;
+    height: 24px !important;
     padding: 4px !important;
     color: #475569 !important;
 }
 .netdive-k8s-explorer-close svg {
-    font-size: 18px !important;
+    font-size: 16px !important;
 }
 .netdive-k8s-explorer-toolbar {
     display: grid;
@@ -261,8 +268,8 @@ const kubernetesNodeExplorerStyles = `
     gap: 8px;
 }
 .netdive-k8s-explorer-summary-card {
-    min-height: 40px;
-    border: 1px solid #e2e8f0;
+    min-height: 38px;
+    border: 1px solid #eef0f4;
     border-radius: 10px;
     background: #ffffff;
     display: grid;
@@ -270,17 +277,17 @@ const kubernetesNodeExplorerStyles = `
     gap: 7px;
     align-items: center;
     padding: 6px 9px;
-    box-shadow: 0 5px 14px rgba(15, 23, 42, 0.028);
+    box-shadow: 0 2px 6px rgba(16, 24, 40, 0.035);
 }
 .netdive-k8s-explorer-summary-card:nth-child(1) .netdive-k8s-explorer-summary-icon {
-    color: #2563eb;
-    background: linear-gradient(180deg, rgba(239, 246, 255, 0.94) 0%, rgba(248, 250, 252, 0.98) 100%);
-    box-shadow: inset 0 0 0 1px rgba(147, 197, 253, 0.34);
+    color: #3f6fb5;
+    background: #f3f7fc;
+    box-shadow: inset 0 0 0 1px #e3eaf3;
 }
 .netdive-k8s-explorer-summary-card:nth-child(2) .netdive-k8s-explorer-summary-icon {
     color: #64748b;
-    background: linear-gradient(180deg, rgba(248, 250, 252, 0.96) 0%, rgba(255, 255, 255, 0.98) 100%);
-    box-shadow: inset 0 0 0 1px rgba(203, 213, 225, 0.72);
+    background: #f7f8fa;
+    box-shadow: inset 0 0 0 1px #e7eaf0;
 }
 .netdive-k8s-explorer-summary-icon {
     width: 24px;
@@ -304,7 +311,7 @@ const kubernetesNodeExplorerStyles = `
     color: #64748b;
     font-size: 13px;
     line-height: 1.12;
-    font-weight: 800;
+    font-weight: 600;
 }
 .netdive-k8s-explorer-summary-count {
     display: block;
@@ -312,8 +319,8 @@ const kubernetesNodeExplorerStyles = `
     color: #0f172a;
     font-size: 15px;
     line-height: 1;
-    font-weight: 900;
-    letter-spacing: -0.02em;
+    font-weight: 700;
+    letter-spacing: 0;
 }
 .netdive-k8s-explorer-body {
     min-height: 0;
@@ -324,11 +331,11 @@ const kubernetesNodeExplorerStyles = `
     gap: 8px;
 }
 .netdive-k8s-explorer-cluster {
-    border: 1px solid #e2e8f0;
-    border-radius: 11px;
+    border: 1px solid #f0f0f0;
+    border-radius: 10px;
     background: #ffffff;
     overflow: hidden;
-    box-shadow: 0 5px 14px rgba(15, 23, 42, 0.028);
+    box-shadow: 0 1px 3px rgba(16, 24, 40, 0.035);
 }
 .netdive-k8s-explorer-cluster-header {
     display: grid;
@@ -338,11 +345,12 @@ const kubernetesNodeExplorerStyles = `
     min-height: 44px;
     padding: 7px 9px;
     background: #ffffff;
+    border-left: 0 !important;
     cursor: pointer;
     user-select: none;
 }
 .netdive-k8s-explorer-cluster-header:hover {
-    background: #f8fbff;
+    background: #fafafa;
 }
 .netdive-k8s-explorer-cluster-toggle,
 .netdive-k8s-explorer-cluster-chevron {
@@ -364,7 +372,7 @@ const kubernetesNodeExplorerStyles = `
 }
 .netdive-k8s-explorer-cluster-header:hover .netdive-k8s-explorer-cluster-chevron,
 .netdive-k8s-explorer-cluster-header:hover .netdive-k8s-explorer-cluster-toggle {
-    color: #2563eb;
+    color: #475467;
 }
 .netdive-k8s-explorer-cluster-logo {
     width: 24px;
@@ -373,15 +381,16 @@ const kubernetesNodeExplorerStyles = `
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    color: #ffffff;
-    background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
-    box-shadow: 0 5px 12px rgba(37, 99, 235, 0.14);
+    color: #52657d;
+    background: #f4f6f8;
+    border: 1px solid #e4e7ec;
+    box-shadow: none;
 }
 .netdive-k8s-explorer-cluster-logo svg {
     font-size: 14px !important;
 }
 .netdive-k8s-explorer-cluster-logo .netdive-k8s-explorer-fa-icon {
-    color: #ffffff;
+    color: #52657d;
     font-size: 15px;
 }
 .netdive-k8s-explorer-cluster-name {
@@ -428,8 +437,8 @@ const kubernetesNodeExplorerStyles = `
 .netdive-k8s-explorer-node-row:focus {
     outline: none;
     cursor: pointer;
-    background-color: #f3f8ff;
-    box-shadow: inset 2px 0 0 #3b82f6;
+    background-color: #fafafa;
+    box-shadow: none;
 }
 .netdive-k8s-explorer-node-dot {
     width: 8px;
@@ -457,9 +466,9 @@ const kubernetesNodeExplorerStyles = `
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    color: #2563eb;
-    background: #eff6ff;
-    border: 1px solid #dbeafe;
+    color: #5f7390;
+    background: #f5f7fa;
+    border: 1px solid #e4e7ec;
     flex: 0 0 auto;
 }
 .netdive-k8s-explorer-node-icon svg {
@@ -523,24 +532,24 @@ const kubernetesNodeExplorerStyles = `
     min-height: 16px;
     padding: 0 6px;
     border-radius: 999px;
-    background: #e8eef7;
-    color: #1f2937;
-    border: 1px solid #d5deeb;
+    background: #f4f5f7;
+    color: #475467;
+    border: 1px solid #e4e7ec;
     font-size: 11px;
     line-height: 1.1;
     font-weight: 800;
     vertical-align: middle;
 }
 .netdive-k8s-explorer-node-meta-pill-worker {
-    background: #ecfdf5;
-    color: #065f46;
-    border-color: #bbf7d0;
+    background: #f0f9f4;
+    color: #287a52;
+    border-color: #d1eadc;
 }
 .netdive-k8s-explorer-node-meta-pill-control-plane,
 .netdive-k8s-explorer-node-meta-pill-master {
-    background: #eff6ff;
-    color: #1e3a8a;
-    border-color: #bfdbfe;
+    background: #f3f5f9;
+    color: #53657d;
+    border-color: #dfe4ec;
 }
 
 .netdive-k8s-explorer-node-meta-text {
@@ -1883,75 +1892,37 @@ class HostDetailPanel extends React.Component<Props, State> {
         )
     }
 
-    private renderValue(row: KeyValueRow) {
-        const { classes } = this.props
-        const value = stringify(row.value) || 'N/A'
-        const displayValue = value
-        return (
-            <div className={classes.kvValueWrap}>
-                <AntTooltip title={value} placement="top">
-                    <span className={classes.kvValue}>{displayValue}</span>
-                </AntTooltip>
-                {row.copy && value !== 'N/A' && (
-                    <AntTooltip title={translate('copy')} placement="top">
-                        <Button
-                            type="text"
-                            className={classes.copyButton}
-                            icon={<FileCopyIcon />}
-                            onClick={() => this.copyValue(value)}
-                        />
-                    </AntTooltip>
-                )}
-            </div>
-        )
-    }
-
     private renderRows(rows: KeyValueRow[], emptyText = translate('hostNoData')) {
-        const { classes } = this.props
         const visible = rows.filter(row => !isBlank(row.value))
-        if (!visible.length) return this.renderEmpty(emptyText)
         return (
-            <div className={classes.antInfoList}>
-                {visible.map(row => (
-                    <div className={classes.antInfoRow} key={row.label}>
-                        <div className={classes.antInfoLabel}>{row.label}</div>
-                        <div className={classes.antInfoValue}>{this.renderValue(row)}</div>
-                    </div>
-                ))}
-            </div>
+            <DetailKeyValueList
+                rows={visible.map(row => {
+                    const value = stringify(row.value) || 'N/A'
+                    return {
+                        key: row.label,
+                        label: row.label,
+                        value,
+                        textValue: value,
+                        copyText: row.copy && value !== 'N/A' ? value : undefined
+                    }
+                })}
+                emptyText={emptyText}
+                copyTooltip={translate('copy')}
+                onCopy={value => this.copyValue(value)}
+            />
         )
     }
 
     private renderSection(icon: React.ReactNode, title: string, description: string, children: React.ReactNode, className = '', action?: React.ReactNode) {
-        const { classes } = this.props
-        const sectionTitle = (
-            <div className={classes.panelHeader}>
-                <div className={classes.panelHeaderMain}>
-                    <span className={classes.panelIcon}>{icon}</span>
-                    <div className={classes.panelTitleBlock}>
-                        <div className={classes.panelTitle}>{title}</div>
-                        {description && <div className={classes.panelDescription}>{description}</div>}
-                    </div>
-                </div>
-                <div className={classes.panelHeaderActions}>{action}</div>
-            </div>
-        )
         return (
-            <Card className={`${classes.panelCard} ${className}`} bordered title={sectionTitle} bodyStyle={{ padding: 0 }}>
+            <DetailSection icon={icon} title={title} description={description} action={action} className={className}>
                 {children}
-            </Card>
+            </DetailSection>
         )
     }
 
     private renderEmpty(description: string) {
-        const { classes } = this.props
-        return (
-            <Empty
-                className={classes.antEmpty}
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description={description}
-            />
-        )
+        return <DetailEmpty description={description} />
     }
 
     private renderMetricGrid(items: MetricItem[], emptyText = translate('hostNoResourceMetrics')) {
@@ -1991,12 +1962,11 @@ class HostDetailPanel extends React.Component<Props, State> {
         )
     }
 
-    private renderOverviewGrid(items: OverviewCardItem[], emptyText = translate('hostNoConnectedResources')) {
-        const { classes } = this.props
+    private renderOverviewGrid(items: OverviewCardItem[], emptyText = translate('hostNoConnectedResources'), compact = false) {
         const visible = items.filter(item => item.value)
         if (!visible.length) return this.renderEmpty(emptyText)
         return (
-            <div className={classes.connectedResourceGrid}>
+            <DetailResourceGrid compact={compact}>
                 {visible.map(item => {
                     const numericValue = Number(item.value)
                     const hasZeroValue = item.value !== '' && !Number.isNaN(numericValue) && numericValue === 0
@@ -2004,38 +1974,25 @@ class HostDetailPanel extends React.Component<Props, State> {
                         (!!item.onClick)
                         || (!!item.actionKey && !!item.nodeIDs && item.nodeIDs.length > 0)
                     )
-                    const actionClassName = `${classes.connectedResourceCardAction} ${!canFocus ? classes.connectedResourceCardActionHidden : ''}`
-                    const iconContainerClassName = `${classes.connectedResourceCardIcon}${item.iconContainerClassName ? ` ${item.iconContainerClassName}` : ''}`
                     return (
-                        <div
-                            className={`${classes.connectedResourceCard} ${canFocus ? classes.connectedResourceCardClickable : classes.connectedResourceCardStatic}`}
-                            key={item.label}>
-                            <button
-                                type="button"
-                                className={classes.antOverviewButton}
-                                onClick={() => {
-                                    if (!canFocus) return
-                                    if (item.onClick) {
-                                        item.onClick()
-                                        return
-                                    }
-                                    this.focusConnectedResource(item.actionKey, item.nodeIDs)
-                                }}
-                                aria-disabled={!canFocus}
-                                tabIndex={canFocus ? 0 : -1}>
-                                <span className={classes.connectedResourceCardMain}>
-                                    <span className={iconContainerClassName}>{item.icon || <InfoIcon />}</span>
-                                    <span>
-                                        <strong>{item.label}</strong>
-                                    </span>
-                                </span>
-                                <span className={classes.connectedResourceCardValue}>{item.value}</span>
-                                <span className={actionClassName} aria-hidden={!canFocus}>›</span>
-                            </button>
-                        </div>
+                        <DetailResourceCard
+                            key={item.label}
+                            label={item.label}
+                            value={item.value}
+                            icon={item.icon || <InfoIcon />}
+                            iconClassName={item.iconContainerClassName}
+                            interactive={canFocus}
+                            onClick={() => {
+                                if (item.onClick) {
+                                    item.onClick()
+                                    return
+                                }
+                                this.focusConnectedResource(item.actionKey, item.nodeIDs)
+                            }}
+                        />
                     )
                 })}
-            </div>
+            </DetailResourceGrid>
         )
     }
 
@@ -2047,7 +2004,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                     <span className={classes.connectedResourceSectionIcon}>{icon}</span>
                     <span className={classes.connectedResourceSectionTitle}>{title}</span>
                 </div>
-                {this.renderOverviewGrid(items, emptyText)}
+                {this.renderOverviewGrid(items, emptyText, true)}
             </div>
         )
     }
@@ -2226,10 +2183,25 @@ class HostDetailPanel extends React.Component<Props, State> {
         return (
             <div className={classes.root}>
                 {this.renderSection(<InfoIcon />, translate('hostBasicInfo'), '', this.renderRows(basicRows))}
-                {hasConnectedMetrics && this.renderSection(<DeviceHubIcon />, translate('hostConnectedResources'), '', this.renderOverviewGrid(
-                    connectedResources.concat(kubernetesResources),
-                    translate('hostNoConnectedResources')
-                ))}
+                {hasConnectedMetrics && this.renderSection(
+                    <DeviceHubIcon />,
+                    translate('hostConnectedResources'),
+                    '',
+                    <div className={classes.connectedResourceSectionStack}>
+                        {this.renderConnectedResourceSubsection(
+                            <AccountTreeIcon />,
+                            translate('hostInfrastructureResources'),
+                            connectedResources,
+                            translate('hostNoConnectedResources')
+                        )}
+                        {this.renderConnectedResourceSubsection(
+                            this.kubernetesNodeIcon(),
+                            translate('kubernetesCollectionMenu'),
+                            kubernetesResources,
+                            translate('kubernetesNodeSelectorEmpty')
+                        )}
+                    </div>
+                )}
                 <HostResourceTrendPanel
                     node={node}
                     session={this.props.session}

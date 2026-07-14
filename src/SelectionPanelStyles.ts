@@ -127,18 +127,11 @@ export const styles = (theme: Theme) => createStyles({
   tabActions: {
     display: 'flex',
     flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 4,
     marginBottom: 10,
     borderBottom: '1px solid #eef0f4',
-    paddingBottom: 8,
-    '& .MuiIconButton-root': {
-      width: 34,
-      height: 34,
-      padding: 7,
-      color: '#101828'
-    },
-    '& .MuiSvgIcon-root': {
-      fontSize: 19
-    }
+    paddingBottom: 8
   },
   gremlinExpr: {
     fontSize: '16px',

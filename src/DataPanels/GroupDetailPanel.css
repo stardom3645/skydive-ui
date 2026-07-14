@@ -1,0 +1,225 @@
+.netdive-group-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.netdive-group-detail-content {
+    padding: 8px 12px 10px;
+}
+
+.netdive-group-detail-toolbar {
+    margin-bottom: 7px;
+}
+
+.netdive-group-detail-toolbar .ant-input-affix-wrapper {
+    height: 34px;
+    border-radius: 8px;
+    border-color: #eaecf0;
+    box-shadow: none;
+    transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.netdive-group-detail-toolbar .ant-input-affix-wrapper:hover {
+    border-color: #d7dde6;
+}
+
+.netdive-group-detail-toolbar .ant-input-affix-wrapper-focused {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.08);
+}
+
+.netdive-group-detail-toolbar .ant-input-prefix {
+    color: #98a2b3;
+}
+
+.netdive-group-detail-toolbar .ant-input::placeholder {
+    color: #98a2b3;
+}
+
+.netdive-group-detail-list .ant-list-items {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    border-top: 1px solid #f7f8fa;
+}
+
+.netdive-group-detail-item.ant-list-item {
+    min-height: 50px;
+    padding: 7px 14px;
+    border: 0;
+    border-bottom: 1px solid #f7f8fa;
+    border-radius: 0;
+    background: #ffffff;
+    box-shadow: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    transition: background 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease;
+}
+
+.netdive-group-detail-item.ant-list-item:hover {
+    background: #fbfcfe;
+    border-bottom-color: #f1f4f8;
+    box-shadow: none;
+}
+
+.netdive-group-detail-item.ant-list-item.is-selected {
+    background: #f8fbff;
+    border-bottom-color: #f0f6ff;
+    border-radius: 0;
+    margin: 0;
+    padding: 7px 14px;
+    box-shadow: inset 3px 0 0 #69a9ff;
+}
+
+.netdive-group-detail-nodeAvatar.ant-avatar {
+    width: 22px;
+    height: 22px;
+    border-radius: 0;
+    flex: 0 0 auto;
+    background: transparent;
+    border: 0;
+    color: #667085;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.netdive-group-detail-nodeAvatar.is-unknown.ant-avatar {
+    background: transparent;
+    border: 0;
+    color: #667085;
+}
+
+.netdive-group-detail-nodeAvatar.is-bad.ant-avatar {
+    background: transparent;
+    border: 0;
+    color: #667085;
+}
+
+.netdive-group-detail-nodeAvatar.is-warning.ant-avatar {
+    background: transparent;
+    border: 0;
+    color: #667085;
+}
+
+.netdive-group-detail-item:hover .netdive-group-detail-nodeAvatar.ant-avatar,
+.netdive-group-detail-item.is-selected .netdive-group-detail-nodeAvatar.ant-avatar {
+    color: #2563eb;
+}
+
+.netdive-group-detail-nodeAvatar .fa,
+.netdive-group-detail-nodeAvatar .fas {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    line-height: 1;
+    opacity: 0.9;
+    transform: scale(0.94) translateY(0.5px);
+    transform-origin: center center;
+}
+
+.netdive-group-detail-main {
+    min-width: 0;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.netdive-group-detail-name.ant-typography {
+    max-width: 100%;
+    color: #344054;
+    font-size: 12.8px;
+    font-weight: 500;
+    line-height: 17px;
+}
+
+.netdive-group-detail-item.is-selected .netdive-group-detail-name.ant-typography {
+    color: #344054;
+}
+
+.netdive-group-detail-meta {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    color: #667085;
+    font-size: 10.8px;
+    line-height: 16px;
+}
+
+.netdive-group-detail-tag.ant-tag {
+    margin-right: 6px;
+    border-radius: 999px;
+    font-size: 9.8px;
+    font-weight: 500;
+    line-height: 14px;
+    padding: 0 5px;
+    border-color: #e4e7ec !important;
+    background: #f2f4f7 !important;
+    color: #667085 !important;
+}
+
+.netdive-group-detail-tag.is-ok.ant-tag {
+    border-color: #a7f3d0 !important;
+    background: #ecfdf3 !important;
+    color: #027a48 !important;
+}
+
+.netdive-group-detail-tag.is-bad.ant-tag {
+    border-color: #f4c7c7 !important;
+    background: #fff5f5 !important;
+    color: #b91c1c !important;
+}
+
+.netdive-group-detail-tag.is-warning.ant-tag {
+    border-color: #fef0c7 !important;
+    background: #fffbeb !important;
+    color: #b54708 !important;
+}
+
+.netdive-group-detail-ip.ant-typography {
+    min-width: 0;
+    max-width: 190px;
+    color: #667085;
+}
+
+.netdive-group-detail-networkTooltip {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-width: 260px;
+}
+
+.netdive-group-detail-networkTooltipRow {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.netdive-group-detail-networkTooltipIp {
+    font-weight: 600;
+}
+
+.netdive-group-detail-networkTooltipName {
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 11px;
+}
+
+.netdive-group-detail-arrow {
+    color: #98a2b3;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1;
+    opacity: 0.55;
+    transition: color 0.14s ease, opacity 0.14s ease;
+}
+
+.netdive-group-detail-item:hover .netdive-group-detail-arrow,
+.netdive-group-detail-item.is-selected .netdive-group-detail-arrow {
+    color: #475467;
+    opacity: 1;
+}

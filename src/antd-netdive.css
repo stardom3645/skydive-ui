@@ -66,3 +66,54 @@
   font-size: 12px;
   font-weight: 600;
 }
+
+.netdive-ant-theme .ant-tooltip-inner,
+.ant-tooltip .ant-tooltip-inner {
+  min-height: 28px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: rgba(15, 23, 42, 0.92);
+  color: #ffffff;
+  font-family: var(--netdive-font-family);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.45;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.18);
+}
+
+.netdive-ant-theme .ant-tooltip-arrow-content,
+.ant-tooltip .ant-tooltip-arrow-content {
+  background: rgba(15, 23, 42, 0.92);
+}
+
+.netdive-ant-theme .netdive-action-icon-button.ant-btn {
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #101828;
+  box-shadow: none;
+}
+
+.netdive-ant-theme .netdive-action-icon-button.ant-btn:hover,
+.netdive-ant-theme .netdive-action-icon-button.ant-btn:focus {
+  background: #f0f6ff;
+  color: #1677ff;
+}
+
+.netdive-ant-theme .netdive-action-icon-button.ant-btn[disabled],
+.netdive-ant-theme .netdive-action-icon-button.ant-btn[disabled]:hover {
+  background: transparent;
+  color: #b8c0cc;
+}
+
+.netdive-ant-theme .netdive-action-icon-button .anticon {
+  font-size: 18px;
+  line-height: 1;
+}

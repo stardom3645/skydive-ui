@@ -1,15 +1,14 @@
 import * as React from 'react'
-import Tooltip from '@material-ui/core/Tooltip'
+import { Tooltip } from 'antd'
 import DeviceHubIcon from '@material-ui/icons/DeviceHub'
 import InfoIcon from '@material-ui/icons/Info'
 import TimelineIcon from '@material-ui/icons/Timeline'
 import SettingsInputComponentIcon from '@material-ui/icons/SettingsInputComponent'
-import KeyboardArrowRightIcon from '@material-ui/icons/KeyboardArrowRight'
-import KeyboardArrowDownIcon from '@material-ui/icons/KeyboardArrowDown'
 import { withStyles } from '@material-ui/core/styles'
 
 import { Node } from '../Topology'
 import { styles } from './HostDetailPanelStyles'
+import { DetailBadge, DetailBadgeTone, DetailEmpty, DetailKeyValueList, DetailSection } from './common'
 
 interface Props {
     classes: any
@@ -276,71 +275,56 @@ class VMNetworkDetailPanel extends React.Component<Props, State> {
         ].map(stringify).filter(value => value && value.indexOf(':') >= 0)
     }
 
-    private badgeClass(kind: 'networkType' | 'state', value: string): string {
-        const { classes } = this.props
+    private badgeTone(kind: 'networkType' | 'state', value: string): DetailBadgeTone {
         const normalized = String(value || '').toLowerCase()
         if (kind === 'networkType') {
-            if (normalized === 'l2') return `${classes.detailBadge} ${classes.detailBadgeBlue}`
-            if (normalized === 'isolated') return `${classes.detailBadge} ${classes.detailBadgeIndigo}`
-            if (normalized === 'shared') return `${classes.detailBadge} ${classes.detailBadgeGreen}`
-            return classes.detailBadge
+            if (normalized === 'l2' || normalized === 'isolated') return 'info'
+            if (normalized === 'shared') return 'success'
+            return 'default'
         }
-        if (normalized === 'up' || normalized === 'running') return `${classes.detailBadge} ${classes.detailBadgeGreen}`
-        if (normalized === 'down' || normalized === 'failed') return `${classes.detailBadge} ${classes.detailBadgeRed}`
-        if (normalized === 'unknown') return `${classes.detailBadge} ${classes.detailBadgeWarning}`
-        return classes.detailBadge
+        if (normalized === 'up' || normalized === 'running') return 'success'
+        if (normalized === 'down' || normalized === 'failed') return 'danger'
+        if (normalized === 'unknown') return 'warning'
+        return 'default'
     }
 
     private renderValue(row: KeyValueRow) {
-        const { classes } = this.props
         const value = stringify(row.value) || '-'
         if (row.variant === 'networkType') {
             const description = this.networkTypeDescription(value)
-            const badge = <span className={this.badgeClass(row.variant, value)}>{value}</span>
-            return description ? <Tooltip title={description} placement="top" arrow>{badge}</Tooltip> : badge
+            const badge = <DetailBadge tone={this.badgeTone(row.variant, value)}>{value}</DetailBadge>
+            return description ? <Tooltip title={description} placement="top">{badge}</Tooltip> : badge
         }
         if (row.variant === 'state') {
-            return <span className={this.badgeClass(row.variant, value)}>{value}</span>
+            return <DetailBadge tone={this.badgeTone(row.variant, value)}>{value}</DetailBadge>
         }
-        return <span className={classes.kvValue}>{value}</span>
+        return value
     }
 
     private renderRows(rows: KeyValueRow[], emptyText = '-', showBlankRows = false) {
-        const { classes } = this.props
         const visible = showBlankRows ? rows : rows.filter(row => !isBlank(row.value))
-        if (!visible.length) return <div className={classes.emptyState}>{emptyText}</div>
+        if (!visible.length) return <DetailEmpty description={emptyText} compact />
         return (
-            <div className={classes.rowsCompact}>
-                {visible.map(row => (
-                    <div className={classes.kvRow} key={row.label}>
-                        <div className={classes.kvLabel}>{row.label}</div>
-                        <div className={classes.kvValueWrap}>{this.renderValue(row)}</div>
-                    </div>
-                ))}
-            </div>
+            <DetailKeyValueList rows={visible.map(row => ({
+                key: row.label,
+                label: row.label,
+                value: this.renderValue(row),
+                textValue: stringify(row.value) || '-'
+            }))} />
         )
     }
 
     private renderSection(key: string, icon: React.ReactNode, title: string, _description: string, children: React.ReactNode, defaultCollapsed = false) {
-        const { classes } = this.props
         const collapsed = this.state.collapsed[key] !== undefined ? this.state.collapsed[key] : defaultCollapsed
         return (
-            <section className={classes.panelCard}>
-                <button type="button" className={classes.collapsibleHeaderButton} onClick={() => this.toggleSection(key)}>
-                    <div className={classes.collapsibleHeaderInner}>
-                        <div className={classes.panelHeaderMain}>
-                            <span className={classes.panelIcon}>{icon}</span>
-                            <div className={classes.panelTitleBlock}>
-                                <div className={classes.panelTitle}>{title}</div>
-                            </div>
-                        </div>
-                        <div className={classes.panelHeaderActions}>
-                            <span className={classes.collapsibleHeaderChevron}>{collapsed ? <KeyboardArrowRightIcon /> : <KeyboardArrowDownIcon />}</span>
-                        </div>
-                    </div>
-                </button>
-                {!collapsed && children}
-            </section>
+            <DetailSection
+                icon={icon}
+                title={title}
+                collapsible
+                collapsed={collapsed}
+                onToggle={() => this.toggleSection(key)}>
+                {children}
+            </DetailSection>
         )
     }
 
@@ -417,7 +401,7 @@ class VMNetworkDetailPanel extends React.Component<Props, State> {
     private renderAddressInfo() {
         const ipv4 = this.ipv4Addresses()
         const ipv6 = this.ipv6Addresses()
-        if (!ipv4.length && !ipv6.length) return <div className={this.props.classes.emptyState}>주소 정보 없음</div>
+        if (!ipv4.length && !ipv6.length) return <DetailEmpty description="주소 정보 없음" compact />
         return this.renderRows([
             { label: 'IPv4', value: ipv4.join(', ') },
             { label: 'IPv6', value: ipv6.join(', ') }
@@ -433,7 +417,7 @@ class VMNetworkDetailPanel extends React.Component<Props, State> {
     private renderMetricGrid(items: MetricItem[]) {
         const { classes } = this.props
         const visible = items.filter(item => !isBlank(item.value))
-        if (!visible.length) return <div className={classes.emptyState}>수집 지표 없음</div>
+        if (!visible.length) return <DetailEmpty description="수집 지표 없음" compact />
         return (
             <div className={classes.metricGrid}>
                 {visible.map(item => (
@@ -481,13 +465,13 @@ class VMNetworkDetailPanel extends React.Component<Props, State> {
     private renderFeatures() {
         const { classes } = this.props
         const items = this.featureItems()
-        if (!items.length) return <div className={classes.emptyState}>장비 기능 정보 없음</div>
+        if (!items.length) return <DetailEmpty description="장비 기능 정보 없음" compact />
         return (
             <div className={classes.featureTable}>
                 {items.map(item => (
                     <div className={classes.featureRow} key={item.name}>
                         <span className={classes.featureName}>{item.name}</span>
-                        <span className={`${classes.detailBadge} ${item.enabled ? classes.detailBadgeGreen : ''}`}>{item.enabled ? 'true' : 'false'}</span>
+                        <DetailBadge tone={item.enabled ? 'success' : 'default'}>{item.enabled ? 'true' : 'false'}</DetailBadge>
                     </div>
                 ))}
             </div>
@@ -512,7 +496,7 @@ class VMNetworkDetailPanel extends React.Component<Props, State> {
 
     private renderAdvanced() {
         const advanced = this.advancedInfo()
-        if (!Object.keys(advanced).length) return <div className={this.props.classes.emptyState}>고급 정보 없음</div>
+        if (!Object.keys(advanced).length) return <DetailEmpty description="고급 정보 없음" compact />
         return <pre className={this.props.classes.jsonBox}>{JSON.stringify(advanced, null, 2)}</pre>
     }
 

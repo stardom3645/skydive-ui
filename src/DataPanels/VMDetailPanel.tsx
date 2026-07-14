@@ -1,6 +1,5 @@
 import * as React from 'react'
-import { Button, Card, Empty, Progress, Statistic, Tag, Tooltip as AntTooltip } from 'antd'
-import FileCopyIcon from '@material-ui/icons/FileCopy'
+import { Card, Progress, Statistic } from 'antd'
 import InfoIcon from '@material-ui/icons/Info'
 import DeviceHubIcon from '@material-ui/icons/DeviceHub'
 import StorageIcon from '@material-ui/icons/Storage'
@@ -13,6 +12,14 @@ import { translate } from '../Config'
 import { session } from '../Store'
 import { styles } from './VMDetailPanelStyles'
 import HostResourceTrendPanel from './HostResourceTrendPanel'
+import {
+    DetailBadge,
+    DetailEmpty,
+    DetailKeyValueList,
+    DetailResourceCard,
+    DetailResourceGrid,
+    DetailSection
+} from './common'
 
 interface Props {
     classes: any
@@ -439,81 +446,40 @@ class VMDetailPanel extends React.Component<Props> {
         return <span className={`${classes.connectedResourceFaIcon} fa fas fa-fw`}>{glyph}</span>
     }
 
-    private renderValue(row: KeyValueRow) {
-        const { classes } = this.props
-        const value = stringify(row.value)
-        const displayValue = value || 'N/A'
-        return (
-            <div className={classes.kvValueWrap}>
-                <AntTooltip title={displayValue} placement="top">
-                    {row.variant === 'status'
-                        ? (
-                            <Tag color={displayValue === translate('hostStatusNormal') ? 'success' : 'default'} className={classes.kvStatusBadge}>
-                                {displayValue}
-                            </Tag>
-                        )
-                        : <span className={classes.kvValue}>{displayValue}</span>
-                    }
-                </AntTooltip>
-                {row.copy && value && (
-                    <AntTooltip title={translate('copy')} placement="top">
-                        <Button
-                            type="text"
-                            className={classes.copyButton}
-                            icon={<FileCopyIcon />}
-                            onClick={() => this.copyValue(value)}
-                        />
-                    </AntTooltip>
-                )}
-            </div>
-        )
-    }
-
     private renderRows(rows: KeyValueRow[], emptyText = translate('hostNoData')) {
-        const { classes } = this.props
         const visible = rows.filter(row => row.alwaysShow || !isBlank(row.value))
         if (!visible.length) return this.renderEmpty(emptyText)
         return (
-            <div className={classes.antInfoList}>
-                {visible.map(row => (
-                    <div className={classes.antInfoRow} key={row.label}>
-                        <div className={classes.antInfoLabel}>{row.label}</div>
-                        <div className={classes.antInfoValue}>{this.renderValue(row)}</div>
-                    </div>
-                ))}
-            </div>
+            <DetailKeyValueList
+                rows={visible.map(row => {
+                    const value = stringify(row.value)
+                    const displayValue = value || 'N/A'
+                    return {
+                        key: row.label,
+                        label: row.label,
+                        value: row.variant === 'status'
+                            ? <DetailBadge tone={displayValue === translate('hostStatusNormal') ? 'success' : 'default'}>{displayValue}</DetailBadge>
+                            : displayValue,
+                        textValue: displayValue,
+                        copyText: row.copy && value ? value : undefined
+                    }
+                })}
+                copyTooltip={translate('copy')}
+                onCopy={value => this.copyValue(value)}
+            />
         )
     }
 
     private renderSection(icon: React.ReactNode, title: string, children: React.ReactNode, action?: React.ReactNode) {
-        const { classes } = this.props
-        const sectionTitle = (
-            <div className={classes.panelHeader}>
-                <div className={classes.panelHeaderMain}>
-                    <span className={classes.panelIcon}>{icon}</span>
-                    <div className={classes.panelTitleBlock}>
-                        <div className={classes.panelTitle}>{title}</div>
-                    </div>
-                </div>
-                <div className={classes.panelHeaderActions}>{action}</div>
-            </div>
-        )
         return (
-            <Card className={classes.panelCard} bordered title={sectionTitle} bodyStyle={{ padding: 0 }}>
+            <DetailSection icon={icon} title={title} action={action}>
                 {children}
-            </Card>
+            </DetailSection>
         )
     }
 
     private renderEmpty(description: string) {
-        const { classes } = this.props
-        return (
-            <Empty
-                className={classes.antEmpty}
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description={description}
-            />
-        )
+        return <DetailEmpty description={description} />
     }
 
     private renderMetricGrid(items: MetricItem[], emptyText = translate('hostNoResourceMetrics')) {
@@ -554,40 +520,28 @@ class VMDetailPanel extends React.Component<Props> {
         const visible = items.filter(item => item.alwaysShow || item.value)
         if (!visible.length) return this.renderEmpty(emptyText)
         return (
-            <div className={classes.connectedResourceGrid}>
+            <DetailResourceGrid>
                 {visible.map(item => {
                     const canFocus = !!item.onClick || (!!item.nodeIDs && item.nodeIDs.length > 0)
-                    const iconContainerClassName = `${classes.connectedResourceCardIcon}${item.iconContainerClassName ? ` ${item.iconContainerClassName}` : ''}`
                     return (
-                        <div
-                            className={`${classes.connectedResourceCard} ${canFocus ? classes.connectedResourceCardClickable : classes.connectedResourceCardStatic}`}
-                            key={item.label}>
-                            <button
-                                type="button"
-                                className={classes.antOverviewButton}
-                                onClick={() => {
-                                    if (!canFocus) return
-                                    if (item.onClick) {
-                                        item.onClick()
-                                        return
-                                    }
-                                    this.focusNodeIDs(item.nodeIDs || [])
-                                }}
-                                aria-disabled={!canFocus}
-                                tabIndex={canFocus ? 0 : -1}>
-                                <span className={classes.connectedResourceCardMain}>
-                                    <span className={iconContainerClassName}>{item.icon || <InfoIcon />}</span>
-                                    <span>
-                                        <strong>{item.label}</strong>
-                                    </span>
-                                </span>
-                                <span className={classes.connectedResourceCardValue}>{item.value}</span>
-                                <span className={`${classes.connectedResourceCardAction} ${!canFocus ? classes.connectedResourceCardActionHidden : ''}`} aria-hidden={!canFocus}>›</span>
-                            </button>
-                        </div>
+                        <DetailResourceCard
+                            key={item.label}
+                            label={item.label}
+                            value={item.value}
+                            icon={item.icon || <InfoIcon />}
+                            iconClassName={item.iconContainerClassName}
+                            interactive={canFocus}
+                            onClick={() => {
+                                if (item.onClick) {
+                                    item.onClick()
+                                    return
+                                }
+                                this.focusNodeIDs(item.nodeIDs || [])
+                            }}
+                        />
                     )
                 })}
-            </div>
+            </DetailResourceGrid>
         )
     }
 

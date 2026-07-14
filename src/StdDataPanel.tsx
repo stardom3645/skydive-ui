@@ -16,18 +16,14 @@
  */
 
 import * as React from "react"
-import Accordion from '@material-ui/core/Accordion'
-import AccordionSummary from '@material-ui/core/AccordionSummary'
-import AccordionDetails from '@material-ui/core/AccordionDetails'
-import ExpandMoreIcon from '@material-ui/icons/ExpandMore'
-import Typography from '@material-ui/core/Typography'
+import { Spin } from 'antd'
 import { withStyles } from '@material-ui/core/styles'
 
 import { DataViewer } from './StdDataViewer'
 import { DataNormalizer, Result, Graph } from './StdDataNormalizer'
 import { styles } from './StdDataPanelStyles'
-import './StdDataPanel.css'
 import { translate } from "./Config"
+import { DetailEmpty, DetailSection } from './DataPanels/common'
 
 interface Props {
     title: string
@@ -56,6 +52,7 @@ interface State {
     filterKeys?: Array<string>
     columns?: Array<string>
     error?: string
+    expanded: boolean
 }
 
 class DataPanel extends React.Component<Props, State> {
@@ -70,6 +67,7 @@ class DataPanel extends React.Component<Props, State> {
         this.state = {
             data: props.data,
             columns: props.columns,
+            expanded: !!props.defaultExpanded
         }
     }
 
@@ -156,10 +154,11 @@ class DataPanel extends React.Component<Props, State> {
         } 
     }
 
-    private onExpandChange(event: object, expanded: boolean) {
+    private onExpandChange(expanded: boolean) {
         if (expanded) {
             this.refreshData()
         }
+        this.setState({ expanded })
     }
 
     private onFilterReset() {
@@ -171,12 +170,12 @@ class DataPanel extends React.Component<Props, State> {
 
         const iconClass = this.props.iconClass === "font-brands" ? classes.panelIconBrands : classes.panelIconFree
 
-        var details = <Typography>Loading...</Typography>
+        var details: React.ReactNode = <div className={classes.loadingState}><Spin size="small" /></div>
         if (this.state.error) {
-            details = <Typography>{this.state.error}</Typography>
+            details = <DetailEmpty description={this.state.error} compact />
           } else if (this.state.result) {
             if (this.state.result.rows.length === 0) {
-              details = <Typography>  {translate("no-data-check-filter-or-capture")}</Typography>
+              details = <DetailEmpty description={translate("no-data-check-filter-or-capture")} compact />
             } else {
               details = (
                 <DataViewer
@@ -196,27 +195,15 @@ class DataPanel extends React.Component<Props, State> {
             }
           }
           return (
-            <Accordion
-              className={classes.panelCard}
-              defaultExpanded={this.props.defaultExpanded}
-              onChange={this.onExpandChange.bind(this)}
-              TransitionProps={{ unmountOnExit: true }}
-            >
-              <AccordionSummary
-                className={classes.panelHeader}
-                expandIcon={<ExpandMoreIcon />}
-                aria-controls="panel1a-content"
-                id="panel1a-header"
-              >
-                <div className={classes.panelHeaderMain}>
-                  <Typography className={iconClass}>{this.props.icon}</Typography>
-                  <Typography className={classes.panelTitle}>{this.props.title}</Typography>
-                </div>
-              </AccordionSummary>
-              <AccordionDetails className={classes.panelBody}>
+            <DetailSection
+              icon={this.props.icon ? <span className={iconClass}>{this.props.icon}</span> : undefined}
+              title={this.props.title}
+              collapsible
+              collapsed={!this.state.expanded}
+              onToggle={() => this.onExpandChange(!this.state.expanded)}
+              bodyClassName={classes.panelBody}>
                 {details}
-              </AccordionDetails>
-            </Accordion>
+            </DetailSection>
           )
         }
     }

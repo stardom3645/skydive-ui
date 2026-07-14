@@ -54,7 +54,6 @@ import DialogActions from '@material-ui/core/DialogActions'
 import Button from '@material-ui/core/Button'
 import Switch from '@material-ui/core/Switch'
 import Chip from '@material-ui/core/Chip'
-import Tooltip from '@material-ui/core/Tooltip'
 import Popover from '@material-ui/core/Popover'
 import UnfoldMoreIcon from '@material-ui/icons/UnfoldMore'
 import UnfoldLessIcon from '@material-ui/icons/UnfoldLess'
@@ -70,6 +69,7 @@ import AccountTreeIcon from '@material-ui/icons/AccountTree'
 import SettingsEthernetIcon from '@material-ui/icons/SettingsEthernet'
 import ChevronRightIcon from '@material-ui/icons/ChevronRight'
 import CheckIcon from '@material-ui/icons/Check'
+import { Tooltip } from 'antd'
 import LogoLight from '../assets/logo-ablestack.png'
 import LogoDark from '../assets/ablestack-logo.png'
 
@@ -238,6 +238,7 @@ interface State {
   recentViewedNodes: RecentViewedNodeItem[]
   isRecentViewedNodesCollapsed: boolean
   topologyZoom: number
+  groupVisibleNodeIDs: Set<string>
 }
 
 interface VMConsoleResponse {
@@ -407,7 +408,8 @@ class App extends React.Component<Props, State> {
       moldIntegrationConnected: false,
       recentViewedNodes: getSavedRecentViewedNodes(),
       isRecentViewedNodesCollapsed: false,
-      topologyZoom: 1
+      topologyZoom: 1,
+      groupVisibleNodeIDs: new Set<string>()
     }
 
     this.synced = false
@@ -1419,11 +1421,13 @@ class App extends React.Component<Props, State> {
       this.props.selectElement(node)
       this.addRecentViewedNode(node)
       this.openSelection()
+      this.syncGroupVisibleNodeIDs()
     } else {
       if (this.tc) {
         this.tc.pinNode(node, false)
       }
       this.props.unselectElement(node)
+      this.syncGroupVisibleNodeIDs()
     }
   }
 
@@ -2442,6 +2446,29 @@ class App extends React.Component<Props, State> {
 
   onSelectionClose(el: Node | Link) {
     this.selectionClose(el)
+  }
+
+  syncGroupVisibleNodeIDs() {
+    if (!this.tc || !this.tc.groupVisibleNodeIDs) {
+      return
+    }
+    this.setState({ groupVisibleNodeIDs: this.tc.groupVisibleNodeIDs() })
+  }
+
+  toggleGroupChildDisplayFromPanel(node: Node) {
+    if (!this.tc || !node) {
+      return
+    }
+    this.tc.toggleGroupChildDisplay(node)
+    this.syncGroupVisibleNodeIDs()
+  }
+
+  setGroupChildrenDisplayFromPanel(nodes: Node[], visible: boolean) {
+    if (!this.tc || !nodes || nodes.length === 0) {
+      return
+    }
+    this.tc.setGroupChildrenDisplay(nodes, visible)
+    this.syncGroupVisibleNodeIDs()
   }
 
   selectionClose(el: Node | Link) {
@@ -4502,7 +4529,11 @@ class App extends React.Component<Props, State> {
               {!this.state.isTimetravelOpen &&
                 <SelectionPanel onLocation={this.onSelectionLocation.bind(this)} onClose={this.onSelectionClose.bind(this)} config={this.config}
                   buttonsContent={this.actionButtons.bind(this)} panelsContent={this.dataPanels.bind(this)} moldInventory={this.state.moldInventory} infrastructureHostSummaries={infrastructureHostSummaries} kubernetesClusters={this.state.kubernetesClusters}
-                  vmNameMap={this.state.vmNameMap} vmNetworkMap={this.state.vmNetworkMap} vmDetailMap={this.state.vmDetailMap} />
+                  vmNameMap={this.state.vmNameMap} vmNetworkMap={this.state.vmNetworkMap} vmDetailMap={this.state.vmDetailMap}
+                  groupVisibleNodeIDs={this.state.groupVisibleNodeIDs}
+                  nodeDisplayName={this.nodeDisplayName.bind(this)}
+                  onGroupChildToggle={this.toggleGroupChildDisplayFromPanel.bind(this)}
+                  onGroupChildrenDisplayChange={this.setGroupChildrenDisplayFromPanel.bind(this)} />
               }
               {this.state.isTimetravelOpen &&
                 <TimetravelPanel config={this.config} onNavigate={this.onNavigate.bind(this)} />

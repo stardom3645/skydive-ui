@@ -17,6 +17,7 @@
 
 import { Node, Link, NodeAttrs, LinkAttrs, LinkTagState } from './Topology'
 import Tools from './Tools'
+import { switchDisplayName } from './SwitchNodeUtils'
 
 const SHOW_DEBUG = false
 
@@ -141,6 +142,7 @@ export const i18nMap = {
         "hostOverviewDescription": "Identity, virtualization, and Mold inventory signals.",
         "hostConnectedResources": "Connected resources",
         "hostConnectedResourcesDescription": "VM, router, and network resources associated with this host.",
+        "hostInfrastructureResources": "Infrastructure resources",
         "hostNoConnectedResources": "No connected resource summary has been collected yet.",
         "hostRecentSignals": "Recent signals",
         "hostRecentSignalsDescription": "Recent update, event, capture, and state-change signals.",
@@ -179,6 +181,17 @@ export const i18nMap = {
         "hostMonitoringPeriod": "Monitoring period",
         "hostLocation": "Location",
         "hostBasicInfo": "Basic information",
+        "switchBasicInfo": "Basic information",
+        "switchName": "Name",
+        "switchManagementIp": "Management IP",
+        "switchType": "Type",
+        "switchProbe": "Collection probe",
+        "switchLldpInfo": "LLDP information",
+        "switchChassisId": "Chassis ID",
+        "switchChassisIdType": "Chassis ID type",
+        "switchSystemDescription": "System description",
+        "switchManagementAddress": "Management address",
+        "switchNoLldp": "No LLDP information has been collected.",
         "hostBasicInfoDescription": "Host identity and virtualization metadata.",
         "hostVirtualizationRole": "Virtualization role",
         "hostVirtualizationSystem": "Virtualization system",
@@ -787,6 +800,7 @@ export const i18nMap = {
         "hostOverviewDescription": "식별 정보, 가상화 정보, Mold 인벤토리 신호입니다.",
         "hostConnectedResources": "연결 자원",
         "hostConnectedResourcesDescription": "이 호스트와 연결된 VM, 라우터, 네트워크 자원입니다.",
+        "hostInfrastructureResources": "인프라 자원",
         "hostNoConnectedResources": "연결 자원 정보가 아직 수집되지 않았습니다.",
         "hostRecentSignals": "최근 신호",
         "hostRecentSignalsDescription": "최근 업데이트, 이벤트, 캡처, 상태 변경 신호입니다.",
@@ -825,6 +839,17 @@ export const i18nMap = {
         "hostMonitoringPeriod": "모니터링 기간",
         "hostLocation": "위치",
         "hostBasicInfo": "기본 정보",
+        "switchBasicInfo": "기본 정보",
+        "switchName": "이름",
+        "switchManagementIp": "관리 IP",
+        "switchType": "타입",
+        "switchProbe": "수집 Probe",
+        "switchLldpInfo": "LLDP 정보",
+        "switchChassisId": "Chassis ID",
+        "switchChassisIdType": "Chassis ID 유형",
+        "switchSystemDescription": "시스템 설명",
+        "switchManagementAddress": "관리 주소",
+        "switchNoLldp": "수집된 LLDP 정보가 없습니다.",
         "hostBasicInfoDescription": "호스트 식별 정보와 가상화 메타데이터입니다.",
         "hostVirtualizationRole": "가상화 역할",
         "hostVirtualizationSystem": "가상화 시스템",
@@ -1784,10 +1809,14 @@ class DefaultConfig {
         }
     }
     private newAttrs(node: Node): NodeAttrs {
-        var name = node.data.Name
+        var name = String(node.data.Name || node.id || '')
         var ifName = node.data.IfName
 
-        if (name.length > 24) {
+        if (String(node.data.Type || '').toLowerCase() === 'switch') {
+            name = switchDisplayName(node.data, name)
+        }
+
+        if (String(node.data.Type || '').toLowerCase() !== 'switch' && name.length > 24) {
             name = node.data.Name.substring(0, 24) + "."
         }
 
@@ -2090,6 +2119,9 @@ class DefaultConfig {
             case WEIGHT_PHY_NIC:
                 attrs.icon = "\uf538"
                 break
+            case WEIGHT_PHY_NET:
+                attrs.icon = "\uf538"
+                break
             case WEIGHT_PHY_BOND:
                 attrs.icon = "\uf0c1"
                 break
@@ -2113,6 +2145,15 @@ class DefaultConfig {
                 break
             case WEIGHT_VIRT_PORTS:
                 attrs.icon = "\uf796"
+                break
+            case WEIGHT_VIRT_NET:
+                attrs.icon = "\uf538"
+                break
+            case WEIGHT_PHY_PORTS:
+                attrs.icon = "\uf796"
+                break
+            case WEIGHT_NONE:
+                attrs.icon = "\uf538"
                 break
         }
 
@@ -2358,6 +2399,9 @@ class DefaultConfig {
 
     nodeTabTitle(node: Node): string {
         const name = node?.data?.Name
+        if (String(node?.data?.Type || '').toLowerCase() === 'switch') {
+            return switchDisplayName(node.data, typeof name === 'string' ? name : node.id)
+        }
         if (!name || typeof name !== "string") {
             return ""
         }

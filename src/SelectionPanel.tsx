@@ -19,11 +19,9 @@ import * as React from "react"
 import Tabs from '@material-ui/core/Tabs'
 import Tab from '@material-ui/core/Tab'
 import { connect } from 'react-redux'
-import IconButton from '@material-ui/core/IconButton'
-import LocationOnIcon from '@material-ui/icons/LocationOn'
-import CancelIcon from '@material-ui/icons/Cancel'
-import Tooltip from '@material-ui/core/Tooltip'
 import { withStyles } from '@material-ui/core/styles'
+import { Button, Tooltip } from 'antd'
+import { CloseOutlined, EnvironmentOutlined } from '@ant-design/icons'
 
 import { Node, Link } from './Topology'
 import DataPanel from './StdDataPanel'
@@ -34,6 +32,8 @@ import ConfigReducer, { translate } from './Config'
 import HostDetailPanel from './DataPanels/HostDetailPanel'
 import VMDetailPanel from './DataPanels/VMDetailPanel'
 import VMNetworkDetailPanel from './DataPanels/VMNetworkDetailPanel'
+import GroupDetailPanel from './DataPanels/GroupDetailPanel'
+import SwitchDetailPanel from './DataPanels/SwitchDetailPanel'
 
 
 interface Props {
@@ -52,6 +52,10 @@ interface Props {
   vmNameMap?: Record<string, string>
   vmNetworkMap?: Record<string, Array<{ networkName: string, macAddress: string, ipAddress: string }>>
   vmDetailMap?: Record<string, any>
+  groupVisibleNodeIDs?: Set<string>
+  nodeDisplayName?: (node: Node) => string
+  onGroupChildToggle?: (node: Node) => void
+  onGroupChildrenDisplayChange?: (nodes: Node[], visible: boolean) => void
 }
 
 interface State {
@@ -59,6 +63,7 @@ interface State {
   gremlin: string
   captureForm: boolean
   selectionKey: string
+  preferredTabID: string
 }
 
 class SelectionPanel extends React.Component<Props, State> {
@@ -72,16 +77,21 @@ class SelectionPanel extends React.Component<Props, State> {
       tab: 0,
       gremlin: "",
       captureForm: false,
-      selectionKey: ""
+      selectionKey: "",
+      preferredTabID: ""
     }
   }
 
   static getDerivedStateFromProps(props, state) {
     const selectionKey = props.selection.map((el: Node | Link) => el.id).join("|")
     if (selectionKey !== state.selectionKey) {
+      const preferredIndex = state.preferredTabID
+        ? props.selection.findIndex((el: Node | Link) => el.id === state.preferredTabID)
+        : -1
       return {
-        tab: props.selection.length > 0 ? props.selection.length - 1 : 0,
-        selectionKey: selectionKey
+        tab: preferredIndex >= 0 ? preferredIndex : (props.selection.length > 0 ? props.selection.length - 1 : 0),
+        selectionKey: selectionKey,
+        preferredTabID: ""
       }
     }
 
@@ -139,7 +149,7 @@ class SelectionPanel extends React.Component<Props, State> {
         <Tab className={classes.tabRoot} icon={<span className={className}>{iconRender()}</span>}
           key={"tab-" + i}
           label={
-            <Tooltip title={title} placement="bottom" arrow classes={{ tooltip: classes.tabTitleTooltip }}>
+            <Tooltip title={title} placement="bottom">
               <span className={classes.tabLabelBlock}>
                 <span className={`${classes.tabTitle} ${title.includes("\n") ? classes.tabTitleMulti : ""}`} title={title}>{title}</span>
                 {subtitle && <span className={classes.tabSubtitle} title={subtitle}>{subtitle}</span>}
@@ -242,6 +252,15 @@ class SelectionPanel extends React.Component<Props, State> {
       return isVirtualInterface
     }
 
+    const isTopologyGroupNode = (el: Node | Link): boolean => {
+      if (el.type !== 'node') return false
+      return !!el.data?.IsTopologyGroup
+    }
+
+    const isSwitchNode = (el: Node | Link): boolean => {
+      return el.type === 'node' && String(el.data?.Type || el.data?.type || '').toLowerCase() === 'switch'
+    }
+
     return this.props.selection.map((el: Node | Link, i: number) => {
       if (this.state.tab !== i) {
         return null
@@ -250,32 +269,55 @@ class SelectionPanel extends React.Component<Props, State> {
       return (
         <React.Fragment key={el.id}>
           <div className={classes.tabActions}>
-            <Tooltip title={translate("removeFromSelection")} aria-label={translate("removeFromSelection")}>
-              <IconButton
+            <Tooltip title={translate("removeFromSelection")}>
+              <Button
+                type="text"
+                shape="circle"
+                className="netdive-action-icon-button"
+                icon={<CloseOutlined />}
                 onClick={() => this.props.onClose && this.props.onClose(el)}
-                color="inherit"
-                aria-label={translate("removeFromSelection")}>
-                <CancelIcon />
-              </IconButton>
+                aria-label={translate("removeFromSelection")} />
             </Tooltip>
-            <Tooltip title={translate("pinNode")} aria-label={translate("pinNode")}>
-              <IconButton
+            <Tooltip title={translate("pinNode")}>
+              <Button
+                type="text"
+                shape="circle"
+                className="netdive-action-icon-button"
+                icon={<EnvironmentOutlined />}
                 onClick={() => this.props.onLocation && this.props.onLocation(el)}
-                color="inherit"
-                aria-label={translate("pinNode")}>
-                <LocationOnIcon />
-              </IconButton>
+                aria-label={translate("pinNode")} />
             </Tooltip>
             {this.props.buttonsContent && this.props.buttonsContent(el)}
           </div>
           {this.props.panelsContent && this.props.panelsContent(el)}
           <TabPanel key={"tabpanel-" + el.id} value={this.state.tab} index={i}>
-            {isVMNetworkNode(el)
+            {isTopologyGroupNode(el)
+              ? <GroupDetailPanel
+                  node={el as Node}
+                  visibleNodeIDs={this.props.groupVisibleNodeIDs || new Set<string>()}
+                  nodeAttrs={(node: Node) => this.props.config.nodeAttrs(node)}
+                  nodeDisplayName={this.props.nodeDisplayName}
+                  vmNetworkMap={this.props.vmNetworkMap}
+                  onNodeSelect={(node: Node) => {
+                    this.setState({ preferredTabID: el.id })
+                    this.props.onGroupChildToggle && this.props.onGroupChildToggle(node)
+                  }}
+                  onNodesSelect={(nodes: Node[]) => {
+                    this.setState({ preferredTabID: el.id })
+                    this.props.onGroupChildrenDisplayChange && this.props.onGroupChildrenDisplayChange(nodes, true)
+                  }}
+                  onNodeDeselect={(node: Node) => {
+                    this.setState({ preferredTabID: el.id })
+                    this.props.onGroupChildrenDisplayChange && this.props.onGroupChildrenDisplayChange([node], false)
+                  }} />
+              : isVMNetworkNode(el)
               ? <VMNetworkDetailPanel node={el as Node} moldInventory={this.props.moldInventory} vmNameMap={this.props.vmNameMap} vmNetworkMap={this.props.vmNetworkMap} vmDetailMap={this.props.vmDetailMap} />
               : el.type === 'node' && String(el.data?.Type || '').toLowerCase() === 'host'
               ? <HostDetailPanel node={el as Node} session={this.props.session} moldInventory={this.props.moldInventory} infrastructureHostSummaries={this.props.infrastructureHostSummaries} kubernetesClusters={this.props.kubernetesClusters} />
               : isVMNode(el)
               ? <VMDetailPanel node={el as Node} session={this.props.session} moldInventory={this.props.moldInventory} vmNameMap={this.props.vmNameMap} vmNetworkMap={this.props.vmNetworkMap} vmDetailMap={this.props.vmDetailMap} />
+              : isSwitchNode(el)
+              ? <SwitchDetailPanel node={el as Node} />
               : renderDataPanels(el)
             }
           </TabPanel>
@@ -285,7 +327,7 @@ class SelectionPanel extends React.Component<Props, State> {
   }
 
   onTabChange(event: React.ChangeEvent<{}>, value: number) {
-    this.setState({ tab: value, gremlin: "" })
+    this.setState({ tab: value, gremlin: "", preferredTabID: "" })
   }
 
   render() {

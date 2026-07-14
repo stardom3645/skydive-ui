@@ -20,7 +20,6 @@ import { connect } from 'react-redux'
 import { withStyles } from '@material-ui/core/styles'
 
 import DataPanel from '../StdDataPanel'
-import '../StdDataPanel.css'
 import { AppState, session } from '../Store'
 import { Configuration } from '../api/configuration'
 import { TopologyApi } from '../api'

@@ -1,7 +1,8 @@
 // src/components/HelpIconWithDialog.tsx
 
 import * as React from 'react'
-import { IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogContentText } from '@material-ui/core'
+import { IconButton, Dialog, DialogTitle, DialogContent, DialogContentText } from '@material-ui/core'
+import { Tooltip } from 'antd'
 import HelpOutlineIcon from '@material-ui/icons/HelpOutline'
 import { translate } from "../Config"
 
@@ -66,7 +67,7 @@ export default function HelpIconWithDialog({ topic }: Props) {
 
   return (
     <>
-      <Tooltip title={translate(`${topic}-tooltip`)} arrow>
+      <Tooltip title={translate(`${topic}-tooltip`)}>
         <IconButton
           size="small"
           onClick={handleOpen}

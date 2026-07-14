@@ -23,8 +23,8 @@ import { Chart } from 'react-google-charts'
 import JSONTree from 'react-json-tree'
 import FilterNoneIcon from '@material-ui/icons/FilterNone'
 import IconButton from '@material-ui/core/IconButton'
-import Tooltip from '@material-ui/core/Tooltip'
 import DeleteIcon from '@material-ui/icons/Delete'
+import { Tooltip } from 'antd'
 
 import { Column, Graph } from './StdDataNormalizer'
 import './StdDataViewer.css'
@@ -109,7 +109,7 @@ export class DataViewer extends React.Component<Props, State> {
             customToolbar: () => {
                 return (
                     <React.Fragment>
-                        <Tooltip title="Apply default filters" aria-label="Apply default filters">
+                        <Tooltip title="Apply default filters">
                             <IconButton onClick={this.resetFilter.bind(this)}>
                                 <FilterNoneIcon />
                             </IconButton>
@@ -195,7 +195,7 @@ export class DataViewer extends React.Component<Props, State> {
                 });
 
                 return (
-                    <Tooltip title="Delete selection" aria-label="Delete selection">
+                    <Tooltip title="Delete selection">
                         <IconButton onClick={() => this.props.onDelete && this.props.onDelete(data)}>
                             <DeleteIcon />
                         </IconButton>

@@ -1,8 +1,7 @@
 import * as React from 'react'
 import { withStyles } from '@material-ui/core/styles'
-import Tooltip from '@material-ui/core/Tooltip'
-import IconButton from '@material-ui/core/IconButton'
-import DesktopWindowsIcon from '@material-ui/icons/DesktopWindows'
+import { Button, Tooltip } from 'antd'
+import { DesktopOutlined } from '@ant-design/icons'
 
 import { styles } from '../DataPanels/PanelStyles'
 import { Node } from '../Topology'
@@ -17,15 +16,16 @@ interface Props {
 export class VMConsoleButton extends React.Component<Props> {
   render() {
     return (
-      <Tooltip title={translate("openConsole")} aria-label={translate("openConsole")}>
+      <Tooltip title={translate("openConsole")}>
         <span>
-          <IconButton
+          <Button
+            type="text"
+            shape="circle"
+            className="netdive-action-icon-button"
             aria-label={translate("openConsole")}
+            icon={<DesktopOutlined />}
             onClick={() => this.props.onClick(this.props.el)}
-            color="inherit"
-            disabled={this.props.disabled === true}>
-            <DesktopWindowsIcon />
-          </IconButton>
+            disabled={this.props.disabled === true} />
         </span>
       </Tooltip>
     )

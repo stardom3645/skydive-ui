@@ -44,14 +44,12 @@ const nodeHeight = 250
 const topologyCardWidth = 280
 // 중간 길이 이름 노드의 카드 너비입니다.
 const topologyMediumCardWidth = 360
-// VM/인터페이스처럼 긴 이름이 많은 노드의 카드 너비입니다.
-const topologyVmCardWidth = 440
-// 노드 카드가 이름 길이에 따라 커질 때 허용하는 최대 너비입니다.
-const topologyMaxCardWidth = 440
 // 노드 카드에서 아이콘/배지 영역을 제외한 텍스트 계산 여백입니다.
 const topologyCardTextPadding = 104
 // 일반 토폴로지 노드 카드의 높이입니다.
 const topologyCardHeight = 92
+// 2줄 노드 이름의 줄 간격입니다.
+const topologyCardTitleLineGap = 20
 // 컨테이너형 그룹 UI의 전체 너비입니다.
 const groupContainerWidth = 620
 // 컨테이너형 그룹 UI의 헤더 높이입니다.
@@ -325,6 +323,8 @@ class VMGroupNavigator extends React.PureComponent<VMGroupNavigatorProps> {
                 className="topology-vm-navigator-card"
                 bordered={true}
                 onMouseDown={(event) => this.stopTopologyEvent(event)}
+                onMouseOver={(event) => this.stopTopologyEvent(event)}
+                onMouseOut={(event) => this.stopTopologyEvent(event)}
                 onClick={(event) => this.stopTopologyEvent(event)}
                 onWheel={(event) => this.stopTopologyEvent(event)}>
                 <div className="topology-vm-navigator-header">
@@ -353,7 +353,6 @@ class VMGroupNavigator extends React.PureComponent<VMGroupNavigatorProps> {
                                 icon={<span className="fa fas fa-times" />} />
                         </span>
                         <Input
-                            allowClear={true}
                             prefix={<span className="fa fas fa-search" />}
                             placeholder="VM 검색"
                             value={this.props.search}
@@ -573,7 +572,6 @@ export class Topology extends React.Component<Props, {}> {
     private selectedGroupListNodeIDs: Set<string>
     private groupNavigatorFilters: Map<string, GroupNavigatorFilter>
     private groupNavigatorRenderKeys: Map<string, string>
-    private groupNavigatorScrollTops: Map<string, number>
 
     root: Node
     nodes: Map<string, Node>
@@ -604,7 +602,6 @@ export class Topology extends React.Component<Props, {}> {
         this.selectedGroupListNodeIDs = new Set<string>()
         this.groupNavigatorFilters = new Map<string, GroupNavigatorFilter>()
         this.groupNavigatorRenderKeys = new Map<string, string>()
-        this.groupNavigatorScrollTops = new Map<string, number>()
     }
     componentDidMount() {
         select("body")
@@ -697,100 +694,23 @@ export class Topology extends React.Component<Props, {}> {
         })
     }
 
-    private isGroupNavigatorScrollDebugEnabled(): boolean {
-        try {
-            return !!window.localStorage && window.localStorage.getItem("netdive.debugVmGroupScroll") === "1"
-        } catch (_) {
-            return false
-        }
-    }
-
-    private debugGroupNavigatorScroll(label: string, groupID: string, data?: any, trace = false) {
-        if (!this.isGroupNavigatorScrollDebugEnabled()) {
-            return
-        }
-        const payload = Object.assign({ groupID }, data || {})
-        console.log(`[VMGroupScroll] ${label}`, payload)
-        if (trace && console.trace) {
-            console.trace(`[VMGroupScroll] ${label}`)
-        }
-    }
-
-    private bindGroupNavigatorScrollDebug(groupID: string, rootElement: HTMLElement) {
-        const scrollElement = rootElement.querySelector(".topology-vm-navigator-scroll") as HTMLElement | null
-        if (!scrollElement) {
-            return
-        }
-        if ((scrollElement as any).__netdiveScrollDebugHandler) {
-            scrollElement.removeEventListener("scroll", (scrollElement as any).__netdiveScrollDebugHandler)
-        }
-        ;(scrollElement as any).__netdiveLastScrollTop = scrollElement.scrollTop
-        const handler = () => {
-            if (!this.isGroupNavigatorScrollDebugEnabled()) {
-                ;(scrollElement as any).__netdiveLastScrollTop = scrollElement.scrollTop
-                return
-            }
-            const previousTop = (scrollElement as any).__netdiveLastScrollTop || 0
-            const nextTop = scrollElement.scrollTop
-            const activeElement = document.activeElement as HTMLElement | null
-            this.debugGroupNavigatorScroll("scroll event", groupID, {
-                previousTop,
-                nextTop,
-                activeElement: activeElement ? `${activeElement.tagName}.${activeElement.className}` : ""
-            }, previousTop > 0 && nextTop === 0)
-            ;(scrollElement as any).__netdiveLastScrollTop = nextTop
-        }
-        ;(scrollElement as any).__netdiveScrollDebugHandler = handler
-        scrollElement.addEventListener("scroll", handler)
-    }
-
-    private rememberGroupNavigatorScroll(groupID: string, rootElement: HTMLElement) {
-        const scrollElement = rootElement.querySelector(".topology-vm-navigator-scroll") as HTMLElement | null
-        if (scrollElement) {
-            this.groupNavigatorScrollTops.set(groupID, scrollElement.scrollTop)
-            this.debugGroupNavigatorScroll("remember", groupID, {
-                scrollTop: scrollElement.scrollTop
-            })
-        }
-    }
-
     private toggleGroupListNode(child: Node) {
         const group = this.nodeGroup.get(child.id)
-        this.debugGroupNavigatorScroll("toggle start", group ? group.wrapped.id : "", {
-            childID: child.id,
-            wasSelected: this.selectedGroupListNodeIDs.has(child.id),
-            savedScrollTop: group ? this.groupNavigatorScrollTops.get(group.wrapped.id) : undefined
-        })
         this.hideNodeContextMenu()
         if (group) {
             group.wrapped.state.expanded = true
-            group.wrapped.state.groupFullSize = true
+            group.wrapped.state.groupFullSize = false
             group.wrapped.state.groupOffset = 0
         }
         const selected = this.selectedGroupListNodeIDs.has(child.id)
         if (selected) {
             this.selectedGroupListNodeIDs.delete(child.id)
             child.state.selected = false
-            if (this.props.onNodeSelected) {
-                this.props.onNodeSelected(child, false)
-            }
         } else {
             this.selectedGroupListNodeIDs.add(child.id)
             child.state.selected = true
-            if (this.props.onNodeSelected) {
-                this.props.onNodeSelected(child, true)
-            }
         }
-        this.debugGroupNavigatorScroll("before renderTree after toggle", group ? group.wrapped.id : "", {
-            childID: child.id,
-            isSelected: this.selectedGroupListNodeIDs.has(child.id),
-            savedScrollTop: group ? this.groupNavigatorScrollTops.get(group.wrapped.id) : undefined
-        })
         this.renderTree()
-        this.debugGroupNavigatorScroll("after renderTree after toggle", group ? group.wrapped.id : "", {
-            childID: child.id,
-            savedScrollTop: group ? this.groupNavigatorScrollTops.get(group.wrapped.id) : undefined
-        })
         this.hideLinks()
     }
 
@@ -800,27 +720,40 @@ export class Topology extends React.Component<Props, {}> {
             const group = this.nodeGroup.get(child.id)
             if (group) {
                 group.wrapped.state.expanded = true
-                group.wrapped.state.groupFullSize = true
+                group.wrapped.state.groupFullSize = false
                 group.wrapped.state.groupOffset = 0
             }
             const alreadySelected = this.selectedGroupListNodeIDs.has(child.id)
             if (selected && !alreadySelected) {
                 this.selectedGroupListNodeIDs.add(child.id)
                 child.state.selected = true
-                if (this.props.onNodeSelected) {
-                    this.props.onNodeSelected(child, true)
-                }
             }
             if (!selected && alreadySelected) {
                 this.selectedGroupListNodeIDs.delete(child.id)
                 child.state.selected = false
-                if (this.props.onNodeSelected) {
-                    this.props.onNodeSelected(child, false)
-                }
             }
         })
         this.renderTree()
         this.hideLinks()
+    }
+
+    toggleGroupChildDisplay(child: Node) {
+        this.toggleGroupListNode(child)
+    }
+
+    setGroupChildrenDisplay(children: Node[], visible: boolean) {
+        this.setGroupListNodes(children, visible)
+    }
+
+    groupVisibleNodeIDs(): Set<string> {
+        const ids = new Set(this.selectedGroupListNodeIDs)
+        this.groups.forEach((group) => {
+            if (!group.wrapped.state.expanded || !group.wrapped.state.groupFullSize) {
+                return
+            }
+            group.children.forEach((child) => ids.add(child.wrapped.id))
+        })
+        return ids
     }
 
     private createSVG() {
@@ -1321,7 +1254,7 @@ export class Topology extends React.Component<Props, {}> {
 
                 var name = this.props.groupName ? this.props.groupName(child.wrapped) : nodeType + '(s)'
 
-                const groupData: any = { Name: name, Type: nodeType }
+                const groupData: any = { Name: name, Type: nodeType, IsTopologyGroup: true }
                 if (child.wrapped.data.Manager === "k8s") {
                     groupData.Manager = child.wrapped.data.Manager
                     groupData.Type = child.wrapped.data.Type || nodeType
@@ -1368,18 +1301,13 @@ export class Topology extends React.Component<Props, {}> {
             if (wrapper && wrapper.wrapped.children.length > groupSize) {
                 children.push(wrapper)
                 if (wrapper.wrapped.state.expanded) {
-                    const selectedChildren = wrapper.children.filter(child => this.selectedGroupListNodeIDs.has(child.wrapped.id))
-                    children = children.concat(selectedChildren)
-                    wrapper.wrapped.state.groupFullSize = true
+                    const visibleChildren = wrapper.wrapped.state.groupFullSize
+                        ? wrapper.children
+                        : wrapper.children.filter(child => this.selectedGroupListNodeIDs.has(child.wrapped.id))
+                    children = children.concat(visibleChildren)
                     wrapper.wrapped.state.groupOffset = 0
-                    const listWidth = isCompactGroupListType(wrapper.wrapped.data?.GroupType || wrapper.wrapped.data?.Type) ? compactGroupListWidth : groupListWidth
-                    wrapper.size = [
-                        listWidth + groupListSelectedNodeGap * 2,
-                        nodeHeight
-                    ]
-                } else {
-                    wrapper.size = [nodeWidth, nodeHeight]
                 }
+                wrapper.size = [nodeWidth, nodeHeight]
                 wrapper.wrapped.children.forEach(child => {
                     if (wrapper) {
                         this.nodeGroup.set(child.id, wrapper)
@@ -1857,8 +1785,8 @@ export class Topology extends React.Component<Props, {}> {
         }
     }
 
-    selectNode(id: string, active: boolean = true) {
-        if (!this.isCtrlPressed && active) {
+    selectNode(id: string, active: boolean = true, keepExisting: boolean = false) {
+        if (!this.isCtrlPressed && active && !keepExisting) {
             this.unselectAllNodes()
             this.unselectAllLinks()
         }
@@ -1887,10 +1815,7 @@ export class Topology extends React.Component<Props, {}> {
         }
 
         if (this.props.onNodeSelected) {
-            let n = this.nodes.get(id)
-            if (n) {
-                this.props.onNodeSelected(n, active)
-            }
+            this.props.onNodeSelected(n, active)
         }
 
         var d = this.d3nodes.get(visibleID)
@@ -2156,7 +2081,9 @@ export class Topology extends React.Component<Props, {}> {
         }
 
         if (d.data.type === WrapperType.Group) {
-            this.expand(d.data.wrapped)
+            if (this.props.onNodeClicked) {
+                this.props.onNodeClicked(d.data.wrapped)
+            }
             return
         }
 
@@ -2634,7 +2561,10 @@ export class Topology extends React.Component<Props, {}> {
 
     private groupListHeight(count: number): number {
         const rows = Math.min(count, groupListVisibleCount)
-        return groupListHeaderHeight + rows * groupListRowHeight
+        const rowGaps = rows > 0 ? rows - 1 : 0
+        const scrollVerticalPadding = 14
+        const cardBorderAllowance = 2
+        return groupListHeaderHeight + rows * groupListRowHeight + rowGaps * 8 + scrollVerticalPadding + cardBorderAllowance
     }
 
     private linkDisplayOpacity(link: Link): number {
@@ -2919,6 +2849,9 @@ export class Topology extends React.Component<Props, {}> {
         if (/switch port|스위치 포트/i.test(title)) {
             return "\uf796"
         }
+        if (/virtual port|가상 포트|physical port|포트/i.test(title)) {
+            return "\uf796"
+        }
         if (/switch|스위치/i.test(title)) {
             return "\uf6ff"
         }
@@ -2934,6 +2867,9 @@ export class Topology extends React.Component<Props, {}> {
         if (/nic/i.test(title)) {
             return "\uf538"
         }
+        if (/virtual network|가상 네트워크|physical network|네트워크/i.test(title)) {
+            return "\uf538"
+        }
         if (/bond|본딩/i.test(title)) {
             return "\uf0c1"
         }
@@ -2946,7 +2882,10 @@ export class Topology extends React.Component<Props, {}> {
         if (/vm|가상머신/i.test(title)) {
             return "\uf108"
         }
-        return "\uf1b2"
+        if (/not classified|분류되지 않음/i.test(title)) {
+            return "\uf538"
+        }
+        return "\uf538"
     }
 
     private levelLabelBadgeIcon(title: string): string {
@@ -3315,10 +3254,22 @@ export class Topology extends React.Component<Props, {}> {
             const type = String(data.Type || '').toLowerCase()
             return type === 'libvirt' || isTopologyInterfaceData(data)
         }
+        const isUserVmNode = (d: D3Node) => {
+            const data = d.data.wrapped.data || {}
+            if (String(data.Type || '').toLowerCase() !== 'libvirt') {
+                return false
+            }
+            const name = String(data.Name || self.props.nodeAttrs(d.data.wrapped).name || '').trim().toLowerCase()
+            return !!name && !/^r-/.test(name) && name !== 'ccvm' && name !== 'scvm' && !/^s-/.test(name)
+        }
+        const isSwitchNode = (d: D3Node) => {
+            const data = d.data.wrapped.data || {}
+            return String(data.Type || '').toLowerCase() === 'switch'
+        }
 
         const isGroupCardNode = (d: D3Node) => d.data.type === WrapperType.Group
         const isGroupContainerNode = (_: D3Node) => false
-        const isGroupListNode = (d: D3Node) => isGroupCardNode(d) && d.data.wrapped.state.expanded
+        const isGroupListNode = (_: D3Node) => false
         const groupListWidthForNode = (node: Node) => isCompactGroupListType(node.data?.GroupType || node.data?.Type) ? compactGroupListWidth : groupListWidth
         const cardWidthForNode = (d: D3Node) => {
             if (isGroupListNode(d)) {
@@ -3328,23 +3279,10 @@ export class Topology extends React.Component<Props, {}> {
                 return groupContainerWidth
             }
             const displayName = getNodeDisplayName(d)
-            if (displayName.length <= 12) {
-                return topologyCardWidth
-            }
-            if (displayName.length <= 24) {
-                return topologyMediumCardWidth
-            }
-            return topologyVmCardWidth
+            return displayName.length <= 14 ? topologyCardWidth : topologyMediumCardWidth
         }
         const cardIconX = (d: D3Node) => -cardWidthForNode(d) / 2 + 38
         const cardTextX = (d: D3Node) => cardIconX(d) + 43
-        const isShortNodeTitle = (d: D3Node) => {
-            if (isGroupCardNode(d)) {
-                return false
-            }
-            const displayName = getNodeDisplayName(d)
-            return displayName.indexOf("\n") < 0 && displayName.length <= 6
-        }
         const cardTextRightPadding = (d: D3Node) => {
             const hasBadge = d.data.wrapped.children.length > 0 || self.props.nodeAttrs(d.data.wrapped).badges.length > 0
             return hasBadge ? 50 : 18
@@ -3352,7 +3290,7 @@ export class Topology extends React.Component<Props, {}> {
         const cardTextAvailableWidth = (d: D3Node) => Math.max(72, cardWidthForNode(d) / 2 - cardTextX(d) - cardTextRightPadding(d))
         const cardTitleX = (d: D3Node) => {
             const left = cardTextX(d)
-            return isShortNodeTitle(d) ? left + cardTextAvailableWidth(d) / 2 : left
+            return left + cardTextAvailableWidth(d) / 2
         }
         const cardHeightForNode = (d: D3Node) => {
             if (isGroupListNode(d)) {
@@ -3362,10 +3300,34 @@ export class Topology extends React.Component<Props, {}> {
             return isGroupContainerNode(d) ? this.groupContainerHeightForGroup(d.data.wrapped.children) : topologyCardHeight
         }
         const cardTopY = -topologyCardHeight / 2
+        // 그룹 카드의 가까운 백플레이트가 앞 카드에서 분리되는 오른쪽/아래 간격입니다.
+        const groupBackplateNearOffset = { x: 6, y: 5 }
+        // 그룹 카드의 먼 백플레이트가 계층 깊이를 드러내는 오른쪽/아래 간격입니다.
+        const groupBackplateFarOffset = { x: 13, y: 10.5 }
 
         var card = nodeEnter.append("g")
             .attr("class", "node-card")
             .attr("pointer-events", "all")
+
+        card.append("rect")
+            .attr("class", "node-group-backplate node-group-backplate-2")
+            .attr("x", (d: D3Node) => -cardWidthForNode(d) / 2 + groupBackplateFarOffset.x)
+            .attr("y", cardTopY + groupBackplateFarOffset.y)
+            .attr("width", (d: D3Node) => cardWidthForNode(d))
+            .attr("height", (d: D3Node) => topologyCardHeight)
+            .attr("rx", 12)
+            .attr("ry", 12)
+            .attr("pointer-events", "none")
+
+        card.append("rect")
+            .attr("class", "node-group-backplate node-group-backplate-1")
+            .attr("x", (d: D3Node) => -cardWidthForNode(d) / 2 + groupBackplateNearOffset.x)
+            .attr("y", cardTopY + groupBackplateNearOffset.y)
+            .attr("width", (d: D3Node) => cardWidthForNode(d))
+            .attr("height", (d: D3Node) => topologyCardHeight)
+            .attr("rx", 12)
+            .attr("ry", 12)
+            .attr("pointer-events", "none")
 
         card.append("rect")
             .attr("class", "node-card-bg")
@@ -3660,6 +3622,43 @@ export class Topology extends React.Component<Props, {}> {
 
                 const fallbackNic = matchedNic || (nicList.length === 1 ? nicList[0] : undefined)
                 const ip = pickText(fallbackNic, ["ipAddress", "ip", "ip_address", "fixedIp", "fixed_ip"])
+                const interfaceFromNic = pickText(fallbackNic, [
+                    "interfaceName",
+                    "ifName",
+                    "guestInterface",
+                    "guestInterfaceName",
+                    "guestDeviceName",
+                    "guestDevice",
+                    "deviceName",
+                    "device_name",
+                    "device",
+                    "iface",
+                    "interface"
+                ])
+                const interfaceFromNode = pickText(nodeData, [
+                    "GuestInterface",
+                    "GuestInterfaceName",
+                    "GuestDeviceName",
+                    "GuestDevice",
+                    "IfName",
+                    "PeerIfName",
+                    "Interface",
+                    "Name"
+                ])
+                const pickInterfaceName = (...values: string[]): string => {
+                    const tokens = values.reduce((acc: string[], value) => {
+                        acc.push(...collectIfTokens(value))
+                        return acc
+                    }, [] as string[])
+                        .filter((token, index, array) => !!token && array.indexOf(token) === index)
+                    const guestToken = tokens.find((token) => /^(eth|ens|eno|enp)\d/i.test(token))
+                    if (guestToken) {
+                        return guestToken
+                    }
+                    const nonTapToken = tokens.find((token) => !/^(vnet|tap|tun|tuntap)/i.test(token))
+                    return nonTapToken || tokens[0] || ""
+                }
+                const interfaceName = pickInterfaceName(interfaceFromNic, interfaceFromNode)
                 const rawNetworkName = pickText(fallbackNic, ["networkName", "network", "network_name", "name"])
                 const toText = (value: any): string => {
                     if (value === undefined || value === null) {
@@ -3726,11 +3725,14 @@ export class Topology extends React.Component<Props, {}> {
 
                 const displayIP = ip || fallbackNodeIP
 
-                if (displayIP && networkName) {
-                    return `${displayIP}\n${networkName}`
+                if (displayIP && interfaceName) {
+                    return `${displayIP}\n${interfaceName}`
                 }
                 if (displayIP) {
                     return displayIP
+                }
+                if (interfaceName) {
+                    return interfaceName
                 }
                 if (networkName && vlanId) {
                     return `${networkName}\nVLAN ${vlanId}`
@@ -3764,16 +3766,19 @@ export class Topology extends React.Component<Props, {}> {
                 const fullText = getNodeDisplayName(d)
                 const availableWidth = cardTextAvailableWidth(d)
                 const textNode = this as SVGTextElement
+                const textX = cardTitleX(d)
 
-                title.attr("text-anchor", isShortNodeTitle(d) ? "middle" : "start")
-                title.text(fullText)
-                if (textNode.getComputedTextLength() > availableWidth) {
+                const fitLine = (value: string): string => {
+                    title.text(value)
+                    if (textNode.getComputedTextLength() <= availableWidth) {
+                        return value
+                    }
                     let low = 1
-                    let high = fullText.length
+                    let high = value.length
                     let best = ""
                     while (low <= high) {
                         const mid = Math.floor((low + high) / 2)
-                        const candidate = `${fullText.substring(0, mid)}...`
+                        const candidate = `${value.substring(0, mid)}...`
                         title.text(candidate)
                         if (textNode.getComputedTextLength() <= availableWidth) {
                             best = candidate
@@ -3782,8 +3787,50 @@ export class Topology extends React.Component<Props, {}> {
                             high = mid - 1
                         }
                     }
-                    title.text(best || "...")
+                    return best || "..."
                 }
+
+                title.attr("text-anchor", "middle")
+                title.text(null)
+
+                let targetLines: string[]
+                if ((isUserVmNode(d) || isSwitchNode(d)) && fullText.indexOf("\n") < 0) {
+                    title.text(fullText)
+                    const fitsOneLine = textNode.getComputedTextLength() <= availableWidth
+                    title.text(null)
+                    if (fitsOneLine) {
+                        targetLines = [fullText]
+                    } else {
+                        const midpoint = Math.ceil(fullText.length / 2)
+                        let splitIndex = fullText.lastIndexOf("-", midpoint)
+                        if (splitIndex < Math.max(6, midpoint - 12)) {
+                            splitIndex = fullText.lastIndexOf("_", midpoint)
+                        }
+                        if (splitIndex < Math.max(6, midpoint - 12)) {
+                            splitIndex = fullText.indexOf("-", midpoint)
+                        }
+                        if (splitIndex < 6) {
+                            splitIndex = midpoint
+                        }
+                        const first = fullText.substring(0, splitIndex).replace(/[-_\s]+$/, "")
+                        const second = fullText.substring(splitIndex).replace(/^[-_\s]+/, "")
+                        targetLines = (second ? [first, second] : [fullText]).slice(0, 2)
+                    }
+                } else {
+                    const lines = fullText.split("\n").filter((line) => line.length > 0)
+                    targetLines = lines.length > 1 ? lines.slice(0, 2) : [fullText]
+                }
+
+                const fittedLines = targetLines.map((line) => fitLine(line))
+                const titleY = fittedLines.length > 1 ? -4 : 7
+                title.attr("y", titleY)
+                title.text(null)
+                fittedLines.forEach((line, index) => {
+                    title.append("tspan")
+                        .attr("x", textX)
+                        .attr("dy", index === 0 ? 0 : topologyCardTitleLineGap)
+                        .text(line)
+                })
 
                 title.selectAll("title").remove()
                 title.append("title").text(fullText)
@@ -3873,6 +3920,8 @@ export class Topology extends React.Component<Props, {}> {
 
         node = node.merge(nodeEnter as any)
 
+        node.attr("class", nodeClass)
+
         node.each(renderNodeBadge)
 
         node.select("rect.node-card-bg")
@@ -3882,6 +3931,20 @@ export class Topology extends React.Component<Props, {}> {
             .attr("width", (d: D3Node) => cardWidthForNode(d))
             .attr("height", (d: D3Node) => cardHeightForNode(d))
 
+        node.select("rect.node-group-backplate-1")
+            .interrupt()
+            .attr("x", (d: D3Node) => -cardWidthForNode(d) / 2 + groupBackplateNearOffset.x)
+            .attr("y", cardTopY + groupBackplateNearOffset.y)
+            .attr("width", (d: D3Node) => cardWidthForNode(d))
+            .attr("height", topologyCardHeight)
+
+        node.select("rect.node-group-backplate-2")
+            .interrupt()
+            .attr("x", (d: D3Node) => -cardWidthForNode(d) / 2 + groupBackplateFarOffset.x)
+            .attr("y", cardTopY + groupBackplateFarOffset.y)
+            .attr("width", (d: D3Node) => cardWidthForNode(d))
+            .attr("height", topologyCardHeight)
+
         node.select("rect.node-card-bg")
             .style("display", (d: D3Node) => isGroupListNode(d) ? "none" : null)
 
@@ -3889,10 +3952,20 @@ export class Topology extends React.Component<Props, {}> {
             .attr("cx", (d: D3Node) => cardIconX(d))
 
         node.select("image.node-icon")
+            .attr("class", (d: D3Node) => {
+                const attrs = self.props.nodeAttrs(d.data.wrapped)
+                return "node-icon " + attrs.iconClass
+            })
             .attr("transform", (d: D3Node) => `translate(${cardIconX(d) - 17},-17)`)
+            .attr("xlink:href", (d: D3Node) => self.props.nodeAttrs(d.data.wrapped).href)
 
         node.select("text.node-icon")
+            .attr("class", (d: D3Node) => {
+                const attrs = self.props.nodeAttrs(d.data.wrapped)
+                return "node-icon " + attrs.iconClass
+            })
             .attr("x", (d: D3Node) => cardIconX(d))
+            .text((d: D3Node) => self.props.nodeAttrs(d.data.wrapped).icon)
 
         node.select("text.node-card-title")
             .attr("x", (d: D3Node) => cardTitleX(d))
@@ -3939,7 +4012,7 @@ export class Topology extends React.Component<Props, {}> {
 
         const renderGroupList = function (this: SVGGElement, d: D3Node) {
             const g = select(this)
-            const data = isGroupListNode(d) ? [d] : []
+            const data: D3Node[] = []
             var navigator = g.selectAll<SVGForeignObjectElement, D3Node>("foreignObject.node-group-navigator")
                 .data(data, (d: D3Node) => d.data.wrapped.id)
 
@@ -3964,11 +4037,22 @@ export class Topology extends React.Component<Props, {}> {
 
             navigator = navigatorEnter.merge(navigator as any)
             navigator
-                .attr("x", (d: D3Node) => -groupListWidthForNode(d.data.wrapped) / 2)
-                .attr("y", (d: D3Node) => -self.groupListHeight(self.filteredGroupNavigatorNodes(d.data.wrapped.children as Node[], d.data.wrapped.id).length) / 2)
-                .attr("width", (d: D3Node) => groupListWidthForNode(d.data.wrapped))
-                .attr("height", (d: D3Node) => self.groupListHeight(self.filteredGroupNavigatorNodes(d.data.wrapped.children as Node[], d.data.wrapped.id).length))
                 .each(function (d: D3Node) {
+                    const navigatorElement = this as SVGForeignObjectElement
+                    const navigatorWidth = groupListWidthForNode(d.data.wrapped)
+                    const navigatorHeight = self.groupListHeight(self.filteredGroupNavigatorNodes(d.data.wrapped.children as Node[], d.data.wrapped.id).length)
+                    const navigatorAttrs: { [key: string]: number } = {
+                        x: -navigatorWidth / 2,
+                        y: -navigatorHeight / 2,
+                        width: navigatorWidth,
+                        height: navigatorHeight
+                    }
+                    Object.keys(navigatorAttrs).forEach((key) => {
+                        const nextValue = String(navigatorAttrs[key])
+                        if (navigatorElement.getAttribute(key) !== nextValue) {
+                            navigatorElement.setAttribute(key, nextValue)
+                        }
+                    })
                     const root = select(this).select("div.node-group-navigator-root").node()
                     if (!root) {
                         return
@@ -3977,19 +4061,10 @@ export class Topology extends React.Component<Props, {}> {
                     const groupID = d.data.wrapped.id
                     const filter = self.groupNavigatorFilter(groupID)
                     const children = d.data.wrapped.children as Node[]
-                    const nodeKey = children
-                        .map((node: Node) => `${node.id}:${miniCardDisplayName(node)}:${miniCardStatus(node).label}`)
-                        .join("|")
+                    // Navigator must stay mounted across name/status refreshes so its internal scroll position is not reset.
+                    const nodeKey = children.map((node: Node) => node.id).join("|")
                     const renderKey = `${groupID}|${filter.search}|${nodeKey}`
-                    self.debugGroupNavigatorScroll("renderGroupList", groupID, {
-                        renderKeyChanged: self.groupNavigatorRenderKeys.get(groupID) !== renderKey,
-                        savedScrollTop: self.groupNavigatorScrollTops.get(groupID),
-                        childCount: children.length
-                    })
                     if (self.groupNavigatorRenderKeys.get(groupID) !== renderKey) {
-                        self.debugGroupNavigatorScroll("ReactDOM.render start", groupID, {
-                            savedScrollTop: self.groupNavigatorScrollTops.get(groupID)
-                        })
                         ReactDOM.render(
                             <VMGroupNavigator
                                 title={self.props.nodeAttrs(d.data.wrapped).name || d.data.wrapped.data?.Name || "VM 그룹"}
@@ -4002,31 +4077,12 @@ export class Topology extends React.Component<Props, {}> {
                             root as Element
                         )
                         self.groupNavigatorRenderKeys.set(groupID, renderKey)
-                        self.debugGroupNavigatorScroll("ReactDOM.render end", groupID, {
-                            savedScrollTop: self.groupNavigatorScrollTops.get(groupID)
-                        })
                     }
                     rootElement.querySelectorAll(".topology-vm-navigator-item").forEach((rowElement: Element) => {
                         const row = rowElement as HTMLElement
                         const nodeID = row.getAttribute("data-node-id")
                         row.classList.toggle("is-selected", !!nodeID && self.selectedGroupListNodeIDs.has(nodeID))
                     })
-                    const restoreScrollTop = self.groupNavigatorScrollTops.get(groupID)
-                    if (restoreScrollTop !== undefined) {
-                        const scrollElement = rootElement.querySelector(".topology-vm-navigator-scroll") as HTMLElement | null
-                        if (scrollElement) {
-                            self.debugGroupNavigatorScroll("restore scrollTop", groupID, {
-                                before: scrollElement.scrollTop,
-                                restoreScrollTop
-                            }, scrollElement.scrollTop > 0 && restoreScrollTop === 0)
-                            scrollElement.scrollTop = restoreScrollTop
-                            self.debugGroupNavigatorScroll("restore scrollTop done", groupID, {
-                                after: scrollElement.scrollTop,
-                                restoreScrollTop
-                            })
-                        }
-                    }
-                    self.bindGroupNavigatorScrollDebug(groupID, rootElement)
                     const wheelGuard = (domEvent: WheelEvent) => {
                         domEvent.stopPropagation()
                         if (typeof (domEvent as any).stopImmediatePropagation === "function") {
@@ -4041,6 +4097,12 @@ export class Topology extends React.Component<Props, {}> {
                     rootElement.onmousedown = (domEvent: MouseEvent) => {
                         domEvent.stopPropagation()
                     }
+                    rootElement.onmouseover = (domEvent: MouseEvent) => {
+                        domEvent.stopPropagation()
+                    }
+                    rootElement.onmouseout = (domEvent: MouseEvent) => {
+                        domEvent.stopPropagation()
+                    }
                     rootElement.onclick = (domEvent: MouseEvent) => {
                         const target = domEvent.target as HTMLElement | null
                         if (!target) {
@@ -4053,10 +4115,6 @@ export class Topology extends React.Component<Props, {}> {
                         const action = target.closest("[data-group-action]") as HTMLElement | null
                         if (action) {
                             const actionType = action.getAttribute("data-group-action")
-                            self.debugGroupNavigatorScroll("click action", groupID, {
-                                actionType
-                            })
-                            self.rememberGroupNavigatorScroll(groupID, rootElement)
                             domEvent.preventDefault()
                             domEvent.stopPropagation()
                             if (actionType === "select-all") {
@@ -4078,11 +4136,6 @@ export class Topology extends React.Component<Props, {}> {
                         if (!child) {
                             return
                         }
-                        self.debugGroupNavigatorScroll("click row", groupID, {
-                            nodeID,
-                            currentSavedScrollTop: self.groupNavigatorScrollTops.get(groupID)
-                        })
-                        self.rememberGroupNavigatorScroll(groupID, rootElement)
                         domEvent.preventDefault()
                         domEvent.stopPropagation()
                         self.toggleGroupListNode(child)
@@ -4595,7 +4648,7 @@ export class Topology extends React.Component<Props, {}> {
                         continue
                     }
 
-                    const nodeCardWidth = node.data.wrapped.data?.Type === "libvirt" || node.data.wrapped.data?.Type === "tuntap" || node.data.wrapped.data?.Type === "tun" || node.data.wrapped.data?.Type === "tap" ? topologyVmCardWidth : topologyCardWidth
+                    const nodeCardWidth = node.data.wrapped.data?.Type === "libvirt" || node.data.wrapped.data?.Type === "tuntap" || node.data.wrapped.data?.Type === "tun" || node.data.wrapped.data?.Type === "tap" ? topologyMediumCardWidth : topologyCardWidth
                     const overlapsNodeCard = intersects(x, y, labelWidth, labelHeight, node.x, node.y, nodeCardWidth + 16, topologyCardHeight + 16)
                     if (overlapsNodeCard) {
                         count++

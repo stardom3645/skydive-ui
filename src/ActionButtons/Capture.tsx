@@ -17,9 +17,8 @@
 
 import * as React from 'react'
 import { withStyles } from '@material-ui/core/styles'
-import Tooltip from '@material-ui/core/Tooltip'
-import IconButton from '@material-ui/core/IconButton'
-import VideocamIcon from '@material-ui/icons/Videocam'
+import { Button, Tooltip } from 'antd'
+import { VideoCameraOutlined } from '@ant-design/icons'
 
 import { styles } from '../DataPanels/PanelStyles'
 import { Node, Link } from '../Topology'
@@ -41,13 +40,15 @@ export class CapturePanel extends React.Component<Props> {
             <React.Fragment>
                 {
                     this.props.el.type === 'node' &&
-                    <Tooltip title={translate("Packet capture")} aria-label={translate("Packet capture")}>
-                        <IconButton
+                    <Tooltip title={translate("Packet capture")}>
+                        <Button
+                            type="text"
+                            shape="circle"
+                            className="netdive-action-icon-button"
                             aria-label={translate("Packet capture")}
+                            icon={<VideoCameraOutlined />}
                             onClick={() => this.props.onClick(this.props.el)}
-                            color="inherit">
-                            <VideocamIcon />
-                        </IconButton>
+                        />
                     </Tooltip>
                 }
             </React.Fragment>

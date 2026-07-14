@@ -1530,7 +1530,7 @@ export const styles = (theme: Theme) => createStyles({
         padding: theme.spacing(0.9, 1),
         borderBottom: '1px solid rgba(226, 232, 240, 0.74)',
         background: 'linear-gradient(180deg, rgba(248, 250, 252, 0.98) 0%, rgba(255, 255, 255, 0.98) 100%)',
-        borderLeft: '3px solid rgba(37, 99, 235, 0.70)',
+        borderLeft: 0,
         [theme.breakpoints.down('sm')]: {
             alignItems: 'flex-start',
             flexDirection: 'column'

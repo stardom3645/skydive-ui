@@ -17,9 +17,8 @@
 
 import * as React from 'react'
 import { withStyles } from '@material-ui/core/styles'
-import Tooltip from '@material-ui/core/Tooltip'
-import IconButton from '@material-ui/core/IconButton'
-import CodeIcon from '@material-ui/icons/Code'
+import { Button, Tooltip } from 'antd'
+import { CodeOutlined } from '@ant-design/icons'
 
 import { styles } from '../DataPanels/PanelStyles'
 import { Node, Link } from '../Topology'
@@ -37,13 +36,15 @@ export class GremlinButton extends React.Component<Props> {
 
     render() {
         return (
-            <Tooltip title="Gremlin expression" aria-label="Gremlin expression">
-                <IconButton
+            <Tooltip title="Gremlin expression">
+                <Button
+                    type="text"
+                    shape="circle"
+                    className="netdive-action-icon-button"
                     aria-label="Show gremlin expression"
+                    icon={<CodeOutlined />}
                     onClick={() => this.props.onClick(this.props.el)}
-                    color="inherit">
-                    <CodeIcon />
-                </IconButton>
+                />
             </Tooltip>
         )
     }
