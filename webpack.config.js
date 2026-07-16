@@ -4,7 +4,7 @@ const CopyWebPackPlugin = require('copy-webpack-plugin');
 var path = require('path');
 
 const devBackend = process.env.NETDIVE_DEV_BACKEND || 'http://10.10.254.191:8082';
-const devPort = Number(process.env.NETDIVE_DEV_PORT || 8080);
+const devPort = Number(process.env.NETDIVE_DEV_PORT || 8082);
 
 const htmlPlugin = new HtmlWebPackPlugin({
     template: "./src/index.html",

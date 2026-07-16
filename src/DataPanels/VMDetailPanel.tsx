@@ -18,6 +18,7 @@ import {
     DetailKeyValueList,
     DetailResourceCard,
     DetailResourceGrid,
+    DetailResourceIconTone,
     DetailSection
 } from './common'
 
@@ -29,6 +30,8 @@ interface Props {
     vmNameMap?: Record<string, string>
     vmNetworkMap?: Record<string, Array<{ networkName: string, macAddress: string, ipAddress: string }>>
     vmDetailMap?: Record<string, any>
+    systemVM?: boolean
+    managementServers?: any[]
 }
 
 interface KeyValueRow {
@@ -51,7 +54,7 @@ interface OverviewCardItem {
     label: string
     value: string
     icon?: React.ReactNode
-    iconContainerClassName?: string
+    iconTone?: DetailResourceIconTone
     nodeIDs?: string[]
     onClick?: () => void
     alwaysShow?: boolean
@@ -60,7 +63,10 @@ interface OverviewCardItem {
 const isBlank = (value: any): boolean => {
     if (value === undefined || value === null) return true
     if (Array.isArray(value)) return value.length === 0
-    if (typeof value === 'string') return value.trim() === ''
+    if (typeof value === 'string') {
+        const normalized = value.trim().toLowerCase()
+        return normalized === '' || normalized === '-' || normalized === 'n/a'
+    }
     return false
 }
 
@@ -88,6 +94,14 @@ const firstValue = (data: any, keys: string[]): string => {
         if (value) return value
     }
     return ''
+}
+
+const firstRawValue = (data: any, keys: string[]): any => {
+    for (const key of keys) {
+        const value = data?.[key]
+        if (!isBlank(value)) return value
+    }
+    return undefined
 }
 
 const numberValue = (data: any, keys: string[]): number | undefined => {
@@ -168,6 +182,9 @@ class VMDetailPanel extends React.Component<Props> {
     }
 
     private inventoryVMDetail(): any | undefined {
+        const topologyName = firstValue(this.props.node.data || {}, ['Name', 'name']).toLowerCase()
+        if (topologyName === 'ccvm' || topologyName === 'scvm') return undefined
+
         const localKeys = this.vmKeys().map(value => value.toLowerCase())
         const detailMap = this.props.vmDetailMap || {}
         for (const key of this.vmKeys()) {
@@ -434,6 +451,87 @@ class VMDetailPanel extends React.Component<Props> {
         return translate('infrastructureUserVMs')
     }
 
+    private managementServerDetail(): any | undefined {
+        const nodeData = this.props.node.data || {}
+        if (firstValue(nodeData, ['Name', 'name']).toLowerCase() !== 'ccvm') return undefined
+
+        const inventory = this.props.moldInventory
+        const candidates = [
+            this.props.managementServers,
+            inventory?.managementServers,
+            inventory?.managementservers,
+            inventory?.data?.managementServers,
+            inventory?.data?.managementservers,
+            inventory?.inventory?.managementServers,
+            inventory?.inventory?.managementservers,
+            inventory?.listmanagementserversmetricsresponse?.managementserver,
+            inventory?.listmanagementserversresponse?.managementserver
+        ]
+        const servers = candidates.find(candidate => Array.isArray(candidate)) || []
+        const nodeName = firstValue(nodeData, ['Name', 'name']).toLowerCase()
+        const nodeIPs = [
+            ...asArray(nodeData.IPV4),
+            ...asArray(nodeData.IPV6),
+            ...asArray(nodeData.IP)
+        ].map(value => stringify(value).split('/')[0].toLowerCase()).filter(Boolean)
+
+        return servers.find(server => {
+            const serverName = firstValue(server, ['name']).toLowerCase()
+            const serviceIP = firstValue(server, ['serviceip']).split('/')[0].toLowerCase()
+            return serverName === nodeName || (!!serviceIP && nodeIPs.includes(serviceIP))
+        })
+    }
+
+    private managementValue(data: any, key: string, date = false): string {
+        const value = firstRawValue(data, [key])
+        if (isBlank(value)) return ''
+        if (date) return formatDate(value)
+        if (Array.isArray(value)) return `[ ${value.map(item => stringify(item)).join(', ')} ]`
+        return stringify(value)
+    }
+
+    private managementRows(data: any): KeyValueRow[] {
+        return [
+            { label: translate('managementCollectionTime'), value: this.managementValue(data, 'collectiontime', true) },
+            { label: translate('managementUsageLocal'), value: this.managementValue(data, 'usageislocal') },
+            { label: translate('managementDbLocal'), value: this.managementValue(data, 'dbislocal') },
+            { label: translate('managementLastStart'), value: this.managementValue(data, 'lastserverstart', true) },
+            { label: translate('managementLastStop'), value: this.managementValue(data, 'lastserverstop', true) },
+            { label: translate('managementLastBoot'), value: this.managementValue(data, 'lastboottime', true) },
+            { label: translate('version'), value: this.managementValue(data, 'version') }
+        ]
+    }
+
+    private managementResourceRows(data: any): KeyValueRow[] {
+        return [
+            { label: translate('managementSystemCpu'), value: this.managementValue(data, 'systemtotalcpucycles') },
+            { label: translate('managementLoadAverages'), value: this.managementValue(data, 'systemloadaverages') },
+            { label: translate('managementCycleUsage'), value: this.managementValue(data, 'systemcycleusage') },
+            { label: translate('managementSystemMemoryTotal'), value: this.managementValue(data, 'systemmemorytotal') },
+            { label: translate('managementSystemMemoryFree'), value: this.managementValue(data, 'systemmemoryfree') },
+            { label: translate('managementVirtualMemory'), value: this.managementValue(data, 'systemmemoryvirtualsize') },
+            { label: translate('managementAvailableProcessors'), value: this.managementValue(data, 'availableprocessors') },
+            { label: translate('managementOsDistribution'), value: this.managementValue(data, 'osdistribution') },
+            { label: translate('managementKernelVersion'), value: this.managementValue(data, 'kernelversion') }
+        ]
+    }
+
+    private managementJvmRows(data: any): KeyValueRow[] {
+        return [
+            { label: translate('managementJavaDistribution'), value: this.managementValue(data, 'javadistribution') },
+            { label: translate('managementJavaVersion'), value: this.managementValue(data, 'javaversion') },
+            { label: translate('managementAgentCount'), value: this.managementValue(data, 'agentcount') },
+            { label: translate('managementSessions'), value: this.managementValue(data, 'sessions') },
+            { label: translate('managementHeapUsed'), value: this.managementValue(data, 'heapmemoryused') },
+            { label: translate('managementHeapTotal'), value: this.managementValue(data, 'heapmemorytotal') },
+            { label: translate('managementThreadsBlocked'), value: this.managementValue(data, 'threadsblockedcount') },
+            { label: translate('managementThreadsRunnable'), value: this.managementValue(data, 'threadsrunnablecount') },
+            { label: translate('managementThreadsTotal'), value: this.managementValue(data, 'threadstotalcount') },
+            { label: translate('managementThreadsWaiting'), value: this.managementValue(data, 'threadswaitingcount') },
+            { label: translate('managementLogInfo'), value: this.managementValue(data, 'loginfo') }
+        ]
+    }
+
     private focusNodeIDs(nodeIDs: string[]) {
         const app = (window as any).App
         if (app && typeof app.focusInfrastructureNodeIDs === 'function' && nodeIDs.length > 0) {
@@ -529,7 +627,7 @@ class VMDetailPanel extends React.Component<Props> {
                             label={item.label}
                             value={item.value}
                             icon={item.icon || <InfoIcon />}
-                            iconClassName={item.iconContainerClassName}
+                            iconTone={item.iconTone}
                             interactive={canFocus}
                             onClick={() => {
                                 if (item.onClick) {
@@ -560,17 +658,24 @@ class VMDetailPanel extends React.Component<Props> {
         const memoryPercent = numberValue(data, ['MemoryPercent', 'memoryPercent', 'MemoryUsagePercent', 'memoryUsagePercent'])
         const os = firstValue(data, ['OS', 'Os', 'OperatingSystem', 'osdisplayname', 'osDisplayName', 'GuestOS', 'guestOS'])
 
+        const systemVM = !!this.props.systemVM
+        const rawState = firstValue(data, ['State', 'state', 'Status', 'status', 'PowerState', 'powerState'])
         const basicRows: KeyValueRow[] = [
-            { label: translate('vmName'), value: displayName, copy: true, alwaysShow: true },
-            { label: translate('vmLibvirtName'), value: libvirtName, copy: true, alwaysShow: true },
-            { label: 'Host', value: hostName, copy: true, alwaysShow: true },
-            { label: translate('hostOperationalStatus'), value: this.statusText(), alwaysShow: true, variant: 'status' },
-            { label: translate('vmPrivateIp'), value: this.privateIp(), copy: true, alwaysShow: true },
-            { label: 'UUID', value: firstValue(data, ['UUID', 'uuid', 'ID', 'Id', 'id', 'ExtID', 'VirtualMachineID', 'virtualMachineId']), copy: true, alwaysShow: true },
-            { label: 'Guest OS', value: os, alwaysShow: true },
-            { label: translate('vmCpu'), value: cpuCount !== undefined ? `${cpuCount} vCPU` : '', copy: false, alwaysShow: true },
-            { label: translate('vmMemory'), value: this.formatMemory(memory), copy: false, alwaysShow: true }
+            { label: translate('vmName'), value: displayName, copy: true, alwaysShow: !systemVM },
+            { label: translate('vmLibvirtName'), value: libvirtName, copy: true, alwaysShow: !systemVM },
+            { label: 'Host', value: hostName, copy: true, alwaysShow: !systemVM },
+            { label: translate('hostOperationalStatus'), value: systemVM ? (rawState ? this.statusText() : '') : this.statusText(), alwaysShow: !systemVM, variant: 'status' },
+            { label: translate('vmPrivateIp'), value: this.privateIp(), copy: true, alwaysShow: !systemVM },
+            { label: 'UUID', value: firstValue(data, ['UUID', 'uuid', 'ID', 'Id', 'id', 'ExtID', 'VirtualMachineID', 'virtualMachineId']), copy: true, alwaysShow: !systemVM },
+            { label: 'Guest OS', value: os, alwaysShow: !systemVM },
+            { label: translate('vmCpu'), value: cpuCount !== undefined ? `${cpuCount} vCPU` : '', copy: false, alwaysShow: !systemVM },
+            { label: translate('vmMemory'), value: this.formatMemory(memory), copy: false, alwaysShow: !systemVM }
         ]
+
+        const managementServer = systemVM ? this.managementServerDetail() : undefined
+        const managementRows = managementServer ? this.managementRows(managementServer) : []
+        const managementResourceRows = managementServer ? this.managementResourceRows(managementServer) : []
+        const managementJvmRows = managementServer ? this.managementJvmRows(managementServer) : []
 
         const resourceMetrics: MetricItem[] = [
             { label: translate('hostCpuUsage'), value: cpuPercent !== undefined ? `${cpuPercent}%` : (cpuCount !== undefined ? String(cpuCount) : ''), sub: cpuCount !== undefined ? `${cpuCount} vCPU` : undefined, percent: cpuPercent, icon: <DnsIcon /> },
@@ -588,10 +693,10 @@ class VMDetailPanel extends React.Component<Props> {
         ]
 
         const connectedResources: OverviewCardItem[] = [
-            { label: translate('infrastructureHosts'), value: hostName ? '1' : '0', icon: this.layerIcon('\uf233'), iconContainerClassName: classes.connectedResourceHostIcon, nodeIDs: host ? [host.id] : [], alwaysShow: true },
-            { label: translate('vmNics'), value: String(topologyNicNodes.length), icon: this.layerIcon('\uf538'), iconContainerClassName: classes.connectedResourceNicIcon, nodeIDs: topologyNicNodes.map(item => item.id), alwaysShow: true },
-            { label: translate('host-bridges'), value: String(topologyHostBridgeNodes.length), icon: this.layerIcon('\uf542'), iconContainerClassName: classes.connectedResourceBridgeIcon, nodeIDs: topologyHostBridgeNodes.map(item => item.id), alwaysShow: true },
-            { label: translate('hostNetworkCount'), value: String(topologyNetworkLayerNodes.length), icon: this.layerIcon('\uf6ff'), iconContainerClassName: classes.connectedResourceNetworkIcon, nodeIDs: topologyNetworkLayerNodes.map(item => item.id), alwaysShow: true }
+            { label: translate('infrastructureHosts'), value: hostName ? '1' : '0', icon: this.layerIcon('\uf233'), iconTone: 'host', nodeIDs: host ? [host.id] : [], alwaysShow: true },
+            { label: translate('vmNics'), value: String(topologyNicNodes.length), icon: this.layerIcon('\uf538'), iconTone: 'interface', nodeIDs: topologyNicNodes.map(item => item.id), alwaysShow: true },
+            { label: translate('host-bridges'), value: String(topologyHostBridgeNodes.length), icon: this.layerIcon('\uf542'), iconTone: 'bridge', nodeIDs: topologyHostBridgeNodes.map(item => item.id), alwaysShow: true },
+            { label: translate('hostNetworkCount'), value: String(topologyNetworkLayerNodes.length), icon: this.layerIcon('\uf6ff'), iconTone: 'network', nodeIDs: topologyNetworkLayerNodes.map(item => item.id), alwaysShow: true }
         ]
 
         const hasResourceMetrics = resourceMetrics.some(item => !isBlank(item.value))
@@ -600,6 +705,9 @@ class VMDetailPanel extends React.Component<Props> {
         return (
             <div className={classes.root}>
                 {this.renderSection(<InfoIcon />, translate('hostBasicInfo'), this.renderRows(basicRows))}
+                {managementRows.some(row => !isBlank(row.value)) && this.renderSection(<InfoIcon />, translate('managementServerInfo'), this.renderRows(managementRows))}
+                {managementResourceRows.some(row => !isBlank(row.value)) && this.renderSection(<DnsIcon />, translate('managementServerResources'), this.renderRows(managementResourceRows))}
+                {managementJvmRows.some(row => !isBlank(row.value)) && this.renderSection(<MemoryIcon />, translate('managementServerJvm'), this.renderRows(managementJvmRows))}
                 {this.renderSection(<DeviceHubIcon />, translate('hostConnectedResources'), this.renderOverviewGrid(connectedResources))}
                 <HostResourceTrendPanel node={node} session={this.props.session} data={data} target="vm" />
                 {hasResourceMetrics && this.renderSection(<DnsIcon />, translate('hostResourceUsage'), this.renderMetricGrid(resourceMetrics))}

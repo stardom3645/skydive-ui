@@ -17,7 +17,7 @@
 
 import { createStyles, Theme } from '@material-ui/core'
 
-const drawerWidth = 220
+const drawerWidth = 60
 const topologyLevelMenuWidth = 188
 
 export const styles = (theme: Theme) => createStyles({
@@ -35,6 +35,7 @@ export const styles = (theme: Theme) => createStyles({
     '--netdive-menu-icon': '#52617a',
     '--netdive-menu-hover': '#f3f8ff',
     '--netdive-menu-active': '#e8f2ff',
+    '--netdive-menu-active-soft': 'rgba(26, 115, 232, 0.08)',
     '--netdive-menu-active-text': '#1A73E8',
     '--netdive-menu-shadow': '0 18px 36px rgba(15, 23, 42, 0.10)',
     '--netdive-content-bg': '#f8fbff',
@@ -62,6 +63,12 @@ export const styles = (theme: Theme) => createStyles({
     '--netdive-detail-section-bg': '#f8fbff',
     '--netdive-detail-accent': '#2bbbe6',
     '--netdive-detail-shadow': '0 10px 24px rgba(15, 23, 42, 0.08)',
+    '--netdive-recent-glass-bg': 'rgba(255, 255, 255, 0.70)',
+    '--netdive-recent-glass-hover': 'rgba(255, 255, 255, 0.98)',
+    '--netdive-recent-glass-header': 'rgba(248, 250, 252, 0.76)',
+    '--netdive-recent-glass-header-hover': 'rgba(248, 250, 252, 0.94)',
+    '--netdive-ant-border': 'rgba(5, 5, 5, 0.06)',
+    '--netdive-ant-shadow': '0 6px 16px 0 rgba(0, 0, 0, 0.08), 0 3px 6px -4px rgba(0, 0, 0, 0.12)',
     '--topology-bg': '#f8fbff',
     '--topology-level-zone-stroke': '#c8d1de',
     '--topology-level-zone-fill': '#fcfdff',
@@ -108,6 +115,7 @@ export const styles = (theme: Theme) => createStyles({
     '--netdive-menu-icon': '#a7b4c8',
     '--netdive-menu-hover': '#22314a',
     '--netdive-menu-active': '#18345a',
+    '--netdive-menu-active-soft': 'rgba(115, 167, 255, 0.12)',
     '--netdive-menu-active-text': '#73a7ff',
     '--netdive-menu-shadow': '0 18px 42px rgba(0, 0, 0, 0.28)',
     '--netdive-content-bg': '#0f1624',
@@ -135,6 +143,12 @@ export const styles = (theme: Theme) => createStyles({
     '--netdive-detail-section-bg': '#1f2a3c',
     '--netdive-detail-accent': '#5bc0ff',
     '--netdive-detail-shadow': '0 20px 38px rgba(0, 0, 0, 0.35)',
+    '--netdive-recent-glass-bg': 'rgba(24, 33, 48, 0.70)',
+    '--netdive-recent-glass-hover': 'rgba(24, 33, 48, 0.98)',
+    '--netdive-recent-glass-header': 'rgba(31, 42, 60, 0.76)',
+    '--netdive-recent-glass-header-hover': 'rgba(31, 42, 60, 0.94)',
+    '--netdive-ant-border': 'rgba(255, 255, 255, 0.10)',
+    '--netdive-ant-shadow': '0 6px 16px 0 rgba(0, 0, 0, 0.24), 0 3px 6px -4px rgba(0, 0, 0, 0.32)',
     '--topology-bg': '#101826',
     '--topology-level-zone-stroke': '#334760',
     '--topology-level-zone-fill': '#131e2d',
@@ -188,6 +202,7 @@ export const styles = (theme: Theme) => createStyles({
   appBar: {
     top: 0,
     right: 0,
+    height: 64,
     backgroundColor: 'var(--netdive-appbar-bg)',
     color: 'var(--netdive-appbar-text)',
     borderBottom: '1px solid var(--netdive-appbar-border)',
@@ -239,15 +254,12 @@ export const styles = (theme: Theme) => createStyles({
     whiteSpace: 'nowrap',
     width: drawerWidth,
     background: 'var(--netdive-menu-card)',
-    borderRight: '1px solid var(--netdive-menu-border-soft)',
+    borderRight: '1px solid var(--netdive-appbar-border)',
     boxShadow: 'none',
     padding: 0,
     boxSizing: 'border-box',
     zIndex: theme.zIndex.drawer,
-    transition: theme.transitions.create('width', {
-      easing: theme.transitions.easing.sharp,
-      duration: theme.transitions.duration.enteringScreen,
-    }),
+    overflow: 'visible',
   },
   drawerPaperClose: {
     overflowX: 'hidden',
@@ -269,22 +281,26 @@ export const styles = (theme: Theme) => createStyles({
     border: 'none',
     borderRadius: 0,
     boxShadow: 'none',
-    overflow: 'hidden',
+    overflow: 'visible',
     color: 'var(--netdive-menu-text)'
   },
   drawerMenu: {
     display: 'flex',
     flexDirection: 'column',
-    gap: theme.spacing(0.55),
-    padding: theme.spacing(0, 1.25, 1.25),
-    overflowY: 'auto',
-    overflowX: 'hidden'
+    alignItems: 'center',
+    gap: theme.spacing(1),
+    padding: theme.spacing(0, 0.75, 1),
+    overflow: 'visible'
   },
   drawerMenuHeader: {
     display: 'flex',
     alignItems: 'center',
     height: 64,
-    padding: '0 16px',
+    minHeight: 64,
+    flex: '0 0 64px',
+    justifyContent: 'center',
+    width: '100%',
+    padding: 0,
     borderBottom: '1px solid var(--netdive-appbar-border)',
     boxSizing: 'border-box',
     color: 'var(--netdive-menu-text)',
@@ -292,15 +308,9 @@ export const styles = (theme: Theme) => createStyles({
   },
   drawerBrandLogo: {
     display: 'block',
-    width: 188,
-    maxWidth: 'calc(100% - 0px)',
-    height: 'auto',
-    objectFit: 'contain',
-    objectPosition: 'left center'
-  },
-  drawerBrandLogoDark: {
-    width: 186,
-    height: 'auto'
+    width: 56,
+    height: 34,
+    objectFit: 'contain'
   },
   drawerMenuSection: {
     display: 'flex',
@@ -320,15 +330,16 @@ export const styles = (theme: Theme) => createStyles({
     opacity: 0.85
   },
   drawerMenuItem: {
-    width: '100%',
-    minHeight: 54,
-    display: 'grid',
-    gridTemplateColumns: '32px 1fr',
+    position: 'relative',
+    width: 48,
+    height: 48,
+    minHeight: 48,
+    display: 'flex',
     alignItems: 'center',
-    gap: theme.spacing(0.75),
+    justifyContent: 'center',
     border: '1px solid transparent',
     borderRadius: 12,
-    padding: theme.spacing(0.75, 0.75),
+    padding: 0,
     backgroundColor: 'transparent',
     color: 'var(--netdive-menu-text)',
     cursor: 'pointer',
@@ -354,16 +365,26 @@ export const styles = (theme: Theme) => createStyles({
     color: 'var(--netdive-menu-text)'
   },
   drawerMenuItemActive: {
-    backgroundColor: 'var(--netdive-menu-active)',
-    borderColor: 'var(--netdive-menu-border)',
+    backgroundColor: 'var(--netdive-menu-active-soft)',
+    borderColor: 'transparent',
     color: 'var(--netdive-menu-active-text)',
     '& $drawerMenuIcon, & $drawerMenuAux': {
       color: 'var(--netdive-menu-active-text)'
+    },
+    '&:before': {
+      content: '""',
+      position: 'absolute',
+      left: -6,
+      top: 9,
+      bottom: 9,
+      width: 2,
+      borderRadius: '0 2px 2px 0',
+      backgroundColor: 'var(--netdive-menu-active-text)'
     }
   },
   drawerMenuIcon: {
-    width: 32,
-    height: 32,
+    width: 38,
+    height: 38,
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -371,8 +392,54 @@ export const styles = (theme: Theme) => createStyles({
     borderRadius: 10,
     backgroundColor: 'transparent',
     '& svg': {
-      fontSize: 20
+      fontSize: 24
     }
+  },
+  drawerMenuGroup: {
+    position: 'relative',
+    width: 48,
+    '&:hover $drawerFlyout': {
+      opacity: 1,
+      visibility: 'visible',
+      pointerEvents: 'auto',
+      transform: 'translateX(0)'
+    }
+  },
+  drawerFlyout: {
+    position: 'absolute',
+    left: 'calc(100% + 10px)',
+    top: 0,
+    width: 238,
+    padding: theme.spacing(1),
+    border: '1px solid var(--netdive-menu-border)',
+    borderRadius: 14,
+    backgroundColor: 'var(--netdive-menu-card)',
+    boxShadow: 'var(--netdive-menu-shadow)',
+    opacity: 0,
+    visibility: 'hidden',
+    pointerEvents: 'none',
+    transform: 'translateX(-4px)',
+    transition: 'opacity 140ms ease, transform 140ms ease, visibility 140ms ease',
+    zIndex: theme.zIndex.drawer + 2,
+    '&:before': {
+      content: '""',
+      position: 'absolute',
+      left: -11,
+      top: 0,
+      bottom: 0,
+      width: 12
+    }
+  },
+  drawerFlyoutTitle: {
+    padding: theme.spacing(0.5, 0.75, 0.75),
+    color: 'var(--netdive-menu-muted)',
+    fontSize: 11,
+    fontWeight: 800
+  },
+  drawerFlyoutItems: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: theme.spacing(0.5)
   },
   drawerMenuLabel: {
     minWidth: 0,
@@ -628,6 +695,7 @@ export const styles = (theme: Theme) => createStyles({
     color: 'var(--netdive-menu-text)',
     cursor: 'pointer',
     textAlign: 'left',
+    position: 'relative',
     transition: 'background-color 180ms ease, border-color 180ms ease, color 180ms ease',
     '&:hover': {
       backgroundColor: 'var(--netdive-menu-hover)',
@@ -1714,8 +1782,8 @@ export const styles = (theme: Theme) => createStyles({
     position: 'fixed',
     left: drawerWidth + 24,
     bottom: 40,
-    width: `min(340px, calc(100vw - ${drawerWidth}px - 72px))`,
-    maxWidth: `min(340px, calc(100vw - ${drawerWidth}px - 520px - 72px))`,
+    width: `min(289px, calc(100vw - ${drawerWidth}px - 72px))`,
+    maxWidth: `min(289px, calc(100vw - ${drawerWidth}px - 520px - 72px))`,
     paddingTop: 0,
     paddingBottom: 0,
     paddingLeft: 0,
@@ -1734,66 +1802,83 @@ export const styles = (theme: Theme) => createStyles({
     pointerEvents: 'auto',
     display: 'flex',
     flexDirection: 'column',
-    maxHeight: 292,
-    borderRadius: 14,
-    border: '1px solid var(--netdive-detail-border)',
+    maxHeight: 248,
+    borderRadius: 8,
+    border: '1px solid var(--netdive-ant-border)',
     backgroundColor: 'var(--netdive-detail-bg)',
-    boxShadow: 'var(--netdive-detail-shadow)',
+    boxShadow: 'var(--netdive-ant-shadow)',
     overflow: 'hidden',
   },
   recentViewedNodesPaperCollapsed: {
-    maxHeight: 54,
+    maxHeight: 46,
+  },
+  recentViewedNodesPaperExpanded: {
+    backgroundColor: 'var(--netdive-recent-glass-bg)',
+    WebkitBackdropFilter: 'blur(8px)',
+    backdropFilter: 'blur(8px)',
+    boxShadow: 'var(--netdive-ant-shadow)',
+    transition: 'background-color 180ms ease',
+    '& $recentViewedNodesHeader': {
+      background: 'var(--netdive-recent-glass-header)',
+    },
+    '&:hover': {
+      backgroundColor: 'var(--netdive-recent-glass-hover)',
+    },
+    '&:hover $recentViewedNodesHeader': {
+      background: 'var(--netdive-recent-glass-header-hover)',
+    },
   },
   recentViewedNodesHeader: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: theme.spacing(1),
-    padding: theme.spacing(1, 1.1),
-    borderBottom: '1px solid var(--netdive-detail-border-soft)',
+    gap: 7,
+    minHeight: 45,
+    padding: '7px 8px',
+    borderBottom: '1px solid var(--netdive-ant-border)',
     background: 'rgba(248, 250, 252, 0.9)',
   },
   recentViewedNodesHeaderTitle: {
     display: 'inline-flex',
     alignItems: 'center',
-    gap: theme.spacing(0.75),
+    gap: 5,
     minWidth: 0,
     color: 'var(--netdive-detail-title)',
-    fontSize: 13.2,
-    fontWeight: 800,
+    fontSize: 12,
+    fontWeight: 600,
   },
   recentViewedNodesHeaderIcon: {
     color: '#1A73E8',
-    fontSize: 18,
+    fontSize: 15,
     flexShrink: 0,
   },
   recentViewedNodesCount: {
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 22,
-    height: 22,
-    padding: '0 7px',
+    minWidth: 19,
+    height: 19,
+    padding: '0 6px',
     borderRadius: 999,
     border: '1px solid #dbeafe',
     background: '#eff6ff',
     color: '#1d4ed8',
-    fontSize: 11,
-    fontWeight: 800,
+    fontSize: 10,
+    fontWeight: 600,
     lineHeight: 1,
   },
   recentViewedNodesHeaderActions: {
     display: 'inline-flex',
     alignItems: 'center',
-    gap: theme.spacing(0.5),
+    gap: 3,
     flexShrink: 0,
   },
   recentViewedNodesCollapseButton: {
-    width: 26,
-    height: 26,
-    padding: 3,
-    borderRadius: 8,
-    border: '1px solid var(--netdive-detail-border)',
+    width: 22,
+    height: 22,
+    padding: 2,
+    borderRadius: 6,
+    border: '1px solid var(--netdive-ant-border)',
     color: 'var(--netdive-detail-muted)',
     backgroundColor: 'var(--netdive-detail-bg)',
     '&:hover': {
@@ -1801,7 +1886,7 @@ export const styles = (theme: Theme) => createStyles({
       backgroundColor: '#F3F8FF',
     },
     '& svg': {
-      fontSize: 17,
+      fontSize: 14,
     }
   },
   recentViewedNodesBody: {
@@ -1811,10 +1896,10 @@ export const styles = (theme: Theme) => createStyles({
     overscrollBehavior: 'contain',
     display: 'flex',
     flexDirection: 'column',
-    gap: theme.spacing(0.35),
-    padding: theme.spacing(0.7),
+    gap: 2,
+    padding: 5,
     '&::-webkit-scrollbar': {
-      width: 6,
+      width: 5,
     },
     '&::-webkit-scrollbar-thumb': {
       borderRadius: 999,
@@ -1826,54 +1911,54 @@ export const styles = (theme: Theme) => createStyles({
   },
   recentViewedNodesEmpty: {
     color: 'var(--netdive-detail-muted)',
-    fontSize: 12,
+    fontSize: 10,
     lineHeight: 1.5,
-    padding: theme.spacing(1.1, 0.8),
+    padding: '7px 5px',
   },
   recentViewedNodeItem: {
     appearance: 'none',
     width: '100%',
     border: '1px solid transparent',
-    borderRadius: 11,
+    borderRadius: 8,
     background: 'transparent',
     color: 'var(--netdive-detail-text)',
     cursor: 'pointer',
     display: 'grid',
-    gridTemplateColumns: '28px minmax(0, 1fr)',
+    gridTemplateColumns: '24px minmax(0, 1fr)',
     alignItems: 'center',
-    gap: theme.spacing(1.3),
-    minHeight: 45,
-    padding: theme.spacing(0.55, 0.75),
+    gap: 9,
+    minHeight: 38,
+    padding: '4px 5px',
     textAlign: 'left',
     transition: 'background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease',
     '&:hover': {
       background: '#fbfdff',
       borderColor: '#dbeafe',
-      boxShadow: '0 4px 12px rgba(37, 99, 235, 0.06)',
-      transform: 'translateX(2px)',
+      boxShadow: 'none',
+      transform: 'translateX(1px)',
     },
   },
   recentViewedNodeItemActive: {
     background: '#F8FBFF',
     borderColor: '#bfdbfe',
-    boxShadow: '0 5px 14px rgba(37, 99, 235, 0.08)',
+    boxShadow: 'none',
     '& $recentViewedNodeName': {
       color: '#2563EB',
     },
   },
   recentViewedNodeIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 9,
+    width: 24,
+    height: 24,
+    borderRadius: 6,
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
     '& svg': {
-      fontSize: 15,
+      fontSize: 13,
     },
     '& .fa': {
-      fontSize: 14,
+      fontSize: 12,
       lineHeight: 1,
     }
   },
@@ -1911,11 +1996,11 @@ export const styles = (theme: Theme) => createStyles({
     minWidth: 0,
     display: 'flex',
     flexDirection: 'column',
-    gap: 2,
+    gap: 1,
   },
   recentViewedNodeName: {
     color: 'var(--netdive-detail-title)',
-    fontSize: 12.8,
+    fontSize: 11,
     lineHeight: 1.3,
     fontWeight: 700,
     overflow: 'hidden',
@@ -1924,7 +2009,7 @@ export const styles = (theme: Theme) => createStyles({
   },
   recentViewedNodeType: {
     color: '#94A3B8',
-    fontSize: 11,
+    fontSize: 9.5,
     lineHeight: 1.35,
     fontWeight: 500,
     overflow: 'hidden',
@@ -2803,7 +2888,9 @@ export const styles = (theme: Theme) => createStyles({
     }
   },
   toolbar: {
+    height: 64,
     minHeight: 64,
+    boxSizing: 'border-box',
     paddingLeft: 24,
     paddingRight: 24,
     gap: theme.spacing(1),

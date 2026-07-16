@@ -316,23 +316,28 @@ export const styles = (theme: Theme) => createStyles({
     connectedResourceSectionStack: {
         display: 'flex',
         flexDirection: 'column',
-        gap: 14,
+        gap: 10,
         padding: '12px 14px 14px'
     },
     connectedResourceSection: {
-        border: 0,
-        borderRadius: 0,
-        background: '#ffffff',
-        overflow: 'visible',
+        padding: '0 10px 10px',
+        border: '1px solid #eef1f5',
+        borderRadius: 10,
+        background: '#fbfcfe',
+        overflow: 'hidden',
         boxShadow: 'none'
+    },
+    connectedResourceSectionKubernetes: {
+        borderColor: '#eef1f5',
+        background: '#fbfcfe'
     },
     connectedResourceSectionHeader: {
         display: 'flex',
         alignItems: 'center',
         gap: theme.spacing(0.75),
-        padding: '0 2px 8px',
+        padding: '10px 2px 8px',
         borderBottom: 0,
-        background: '#ffffff'
+        background: 'transparent'
     },
     connectedResourceSectionIcon: {
         width: 22,
@@ -363,10 +368,33 @@ export const styles = (theme: Theme) => createStyles({
             display: 'block'
         }
     },
+    connectedResourceSectionKubernetesIcon: {
+        width: 24,
+        height: 24,
+        borderRadius: 7,
+        background: '#eef5ff',
+        boxShadow: 'inset 0 0 0 1px #dbeafe',
+        '& img': {
+            display: 'block',
+            width: 17,
+            height: 17,
+            objectFit: 'contain'
+        }
+    },
     connectedResourceSectionTitle: {
         color: '#101828',
         fontSize: 13,
         fontWeight: 600
+    },
+    connectedResourceSectionKubernetesTitle: {
+        color: '#101828',
+        fontWeight: 600
+    },
+    connectedResourceCompactCard: {
+        '&.ant-btn': {
+            height: '55px !important',
+            minHeight: '55px !important'
+        }
     },
     connectedResourceCard: {
         position: 'relative',
@@ -419,49 +447,6 @@ export const styles = (theme: Theme) => createStyles({
             display: 'flex',
             flexDirection: 'column',
             gap: 2
-        }
-    },
-    connectedResourceCardIcon: {
-        flexShrink: 0,
-        width: 30,
-        height: 30,
-        borderRadius: 8,
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'rgba(248, 250, 252, 0.96)',
-        '& svg': {
-            fontSize: 16
-        }
-    },
-    connectedResourceHostIcon: {
-        color: '#2563eb',
-        background: 'rgba(239, 246, 255, 0.96)',
-        boxShadow: 'inset 0 0 0 1px rgba(191, 219, 254, 0.9)'
-    },
-    connectedResourceNicIcon: {
-        color: '#0f766e',
-        background: 'rgba(240, 253, 250, 0.96)',
-        boxShadow: 'inset 0 0 0 1px rgba(153, 246, 228, 0.9)'
-    },
-    connectedResourceBridgeIcon: {
-        color: '#7c3aed',
-        background: 'rgba(245, 243, 255, 0.96)',
-        boxShadow: 'inset 0 0 0 1px rgba(221, 214, 254, 0.95)'
-    },
-    connectedResourceNetworkIcon: {
-        color: '#ea580c',
-        background: 'rgba(255, 247, 237, 0.96)',
-        boxShadow: 'inset 0 0 0 1px rgba(254, 215, 170, 0.92)'
-    },
-    connectedResourceNodeIcon: {
-        color: '#2563eb',
-        background: '#eff6ff',
-        border: '1px solid #dbeafe',
-        '& svg': {
-            width: 14,
-            height: 14,
-            display: 'block'
         }
     },
     connectedResourceFaIcon: {

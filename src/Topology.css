@@ -14,7 +14,7 @@ svg {
     opacity: 1;
 }
 
-.level-label rect {
+.level-label > rect {
     fill: var(--topology-level-label-fill);
     stroke: var(--topology-level-label-stroke);
     stroke-width: 1;
@@ -36,6 +36,29 @@ svg {
     font-weight: 900;
 }
 
+.level-label .level-label-switch-icon {
+    display: none;
+    pointer-events: none;
+}
+
+.level-label.level-label-switch .level-label-icon {
+    display: none;
+}
+
+.level-label.level-label-switch .level-label-switch-icon {
+    display: block;
+}
+
+.level-label .level-label-switch-icon__body {
+    fill: none;
+    stroke: var(--topology-level-label-icon);
+    stroke-width: 3px;
+}
+
+.level-label .level-label-switch-icon__detail {
+    fill: var(--topology-level-label-icon);
+}
+
 .level-label .level-label-badge {
     fill: var(--topology-level-label-icon);
     font-family: 'Font Awesome 5 Free' !important;
@@ -50,11 +73,20 @@ svg {
     text-decoration: none;
 }
 
-.level-label:hover rect {
+.level-label:hover > rect {
     fill: var(--topology-level-label-hover);
 }
 
-.level-label.level-label-active rect {
+.level-label:hover .level-label-switch-icon__body {
+    fill: none;
+    stroke: var(--topology-level-label-icon);
+}
+
+.level-label:hover .level-label-switch-icon__detail {
+    fill: var(--topology-level-label-icon);
+}
+
+.level-label.level-label-active > rect {
     fill: var(--topology-level-label-active-fill);
     stroke: var(--topology-level-label-active-stroke);
 }
@@ -62,6 +94,15 @@ svg {
 .level-label.level-label-active .level-label-icon,
 .level-label.level-label-active .level-label-badge,
 .level-label.level-label-active .level-label-title {
+    fill: var(--topology-level-label-active-text);
+}
+
+.level-label.level-label-active .level-label-switch-icon__body {
+    fill: none;
+    stroke: var(--topology-level-label-active-text);
+}
+
+.level-label.level-label-active .level-label-switch-icon__detail {
     fill: var(--topology-level-label-active-text);
 }
 

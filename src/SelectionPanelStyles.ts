@@ -68,11 +68,13 @@ export const styles = (theme: Theme) => createStyles({
   tabRoot: {
     minWidth: 210,
     maxWidth: 320,
+    minHeight: 60,
+    height: 60,
     paddingLeft: 12,
     paddingRight: 12,
     overflow: 'hidden',
     '&.MuiTab-labelIcon': {
-      minHeight: 48
+      minHeight: 60
     },
     '& .MuiTab-wrapper': {
       width: '100%',
@@ -140,10 +142,25 @@ export const styles = (theme: Theme) => createStyles({
   actionPanel: {
     marginBottom: 16
   },
-  iconImg: {
-    maxWidth: 30,
-    maxHeight: 30,
-    verticalAlign: 'middle'
+  tabIconImage: {
+    display: 'block',
+    flex: '0 0 30px',
+    width: 30,
+    height: 30,
+    marginBottom: `0 !important`,
+    objectFit: 'contain' as 'contain'
+  },
+  tabSwitchIcon: {
+    display: 'block',
+    flex: '0 0 36px',
+    width: 36,
+    height: 36,
+    marginBottom: `0 !important`,
+    backgroundColor: '#1677ff',
+    WebkitMask: 'url(assets/icons/network-switch.svg) center / contain no-repeat',
+    mask: 'url(assets/icons/network-switch.svg) center / contain no-repeat',
+    transform: 'scaleY(1.1)',
+    transformOrigin: 'center'
   },
   tabIconFree: {
     fontFamily: `"Font Awesome 5 Free" !important`,

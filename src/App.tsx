@@ -70,8 +70,6 @@ import SettingsEthernetIcon from '@material-ui/icons/SettingsEthernet'
 import ChevronRightIcon from '@material-ui/icons/ChevronRight'
 import CheckIcon from '@material-ui/icons/Check'
 import { Tooltip } from 'antd'
-import LogoLight from '../assets/logo-ablestack.png'
-import LogoDark from '../assets/ablestack-logo.png'
 
 import { styles } from './AppStyles'
 import { Topology, Node, NodeAttrs, LinkAttrs, LinkTagState, Link } from './Topology'
@@ -185,10 +183,10 @@ interface State {
   vmNetworkMap?: Record<string, Array<{ networkName: string, macAddress: string, ipAddress: string }>>
   vmDetailMap?: Record<string, any>
   moldInventory?: any
+  managementServers?: any[]
   isContextMenuOn: string
   contextMenuX: number
   contextMenuY: number
-  isNavOpen: boolean
   nodeTagStates: Map<string, boolean>
   linkTagStates: Map<string, LinkTagState>
   filters: Array<Filter>
@@ -355,7 +353,6 @@ class App extends React.Component<Props, State> {
       isContextMenuOn: "none",
       contextMenuX: 0,
       contextMenuY: 0,
-      isNavOpen: true,
       nodeTagStates: new Map<string, boolean>(),
       linkTagStates: new Map<string, LinkTagState>(),
       filters: new Array<Filter>(),
@@ -380,6 +377,7 @@ class App extends React.Component<Props, State> {
       vmNetworkMap: {},
       vmDetailMap: {},
       moldInventory: undefined,
+      managementServers: [],
       isVMConsoleOpening: false,
       isLinkTagsCollapsed: true,
       isLinkTagExamplesOpen: false,
@@ -407,7 +405,7 @@ class App extends React.Component<Props, State> {
       kubernetesCopiedClusterId: "",
       moldIntegrationConnected: false,
       recentViewedNodes: getSavedRecentViewedNodes(),
-      isRecentViewedNodesCollapsed: false,
+      isRecentViewedNodesCollapsed: true,
       topologyZoom: 1,
       groupVisibleNodeIDs: new Set<string>()
     }
@@ -483,6 +481,7 @@ class App extends React.Component<Props, State> {
     this.refreshVmNetworkMap()
     this.refreshVmDetailMap()
     this.refreshMoldInventory()
+    this.refreshManagementServers()
     this.refreshVMConsoleEnabled()
     this.refreshKubernetesClusters()
     this.vmNameMapRefreshID = window.setInterval(() => {
@@ -490,6 +489,7 @@ class App extends React.Component<Props, State> {
       this.refreshVmNetworkMap()
       this.refreshVmDetailMap()
       this.refreshMoldInventory()
+      this.refreshManagementServers()
     }, 10000)
   }
 
@@ -528,9 +528,8 @@ class App extends React.Component<Props, State> {
     this.closeSidePanels({ isLinkTagsCollapsed: isLinkTagsExpanded ? true : undefined })
   }
 
-  private closeSidePanels(extraState: { isNavOpen?: boolean, isSelectionOpen?: boolean, isTimetravelOpen?: boolean, isLinkTagsCollapsed?: boolean } = {}) {
+  private closeSidePanels(extraState: { isSelectionOpen?: boolean, isTimetravelOpen?: boolean, isLinkTagsCollapsed?: boolean } = {}) {
     this.setState({
-      isNavOpen: extraState.isNavOpen !== undefined ? extraState.isNavOpen : this.state.isNavOpen,
       isSelectionOpen: extraState.isSelectionOpen !== undefined ? extraState.isSelectionOpen : this.state.isSelectionOpen,
       isTimetravelOpen: extraState.isTimetravelOpen !== undefined ? extraState.isTimetravelOpen : this.state.isTimetravelOpen,
       isLinkTagsCollapsed: extraState.isLinkTagsCollapsed !== undefined ? extraState.isLinkTagsCollapsed : this.state.isLinkTagsCollapsed,
@@ -626,6 +625,24 @@ class App extends React.Component<Props, State> {
         console.debug("Failed to refresh moldInventory", err)
         this.moldInventoryFailureLogged = true
       }
+    })
+  }
+
+  private refreshManagementServers() {
+    const ts = Date.now()
+    fetch(`/api/mold/management-servers?_=${ts}`, { cache: "no-store" }).then((resp) => {
+      if (!resp.ok) {
+        throw new Error(`mold management servers api failed: ${resp.status}`)
+      }
+      return resp.json()
+    }).then((data) => {
+      const managementServers = Array.isArray(data?.managementservers) ? data.managementservers : []
+      const prev = this.state.managementServers || []
+      if (JSON.stringify(prev) !== JSON.stringify(managementServers)) {
+        this.setState({ managementServers })
+      }
+    }).catch((err) => {
+      console.debug("Failed to refresh Mold management servers", err)
     })
   }
 
@@ -1631,15 +1648,6 @@ class App extends React.Component<Props, State> {
         horizontal: 'right',
       }
     })
-  }
-
-  openDrawer() {
-    this.state.isNavOpen = !this.state.isNavOpen
-    this.setState(this.state)
-  }
-
-  closeDrawer() {
-    this.closeSidePanels({ isNavOpen: false })
   }
 
   onLinkTagStateChange(event) {
@@ -3074,7 +3082,10 @@ class App extends React.Component<Props, State> {
     return (
       <React.Fragment>
         <Container className={classes.recentViewedNodesPanel} data-netdive-recent-nodes="true">
-          <Paper className={clsx(classes.recentViewedNodesPaper, isCollapsed && classes.recentViewedNodesPaperCollapsed)}>
+          <Paper className={clsx(
+            classes.recentViewedNodesPaper,
+            isCollapsed ? classes.recentViewedNodesPaperCollapsed : classes.recentViewedNodesPaperExpanded
+          )}>
             <div className={classes.recentViewedNodesHeader}>
               <div className={classes.recentViewedNodesHeaderTitle}>
                 <AccessTimeIcon className={classes.recentViewedNodesHeaderIcon} />
@@ -3463,13 +3474,15 @@ class App extends React.Component<Props, State> {
 
   private renderDrawerMenuItem(classes: any, icon: React.ReactNode, label: string, onClick?: () => void, active?: boolean) {
     return (
-      <button
-        type="button"
-        className={clsx(classes.drawerMenuItem, active && classes.drawerMenuItemActive)}
-        onClick={onClick}>
-        <span className={classes.drawerMenuIcon}>{icon}</span>
-        <span className={classes.drawerMenuLabel}>{label}</span>
-      </button>
+      <Tooltip title={label} placement="right">
+        <button
+          type="button"
+          aria-label={label}
+          className={clsx(classes.drawerMenuItem, active && classes.drawerMenuItemActive)}
+          onClick={onClick}>
+          <span className={classes.drawerMenuIcon}>{icon}</span>
+        </button>
+      </Tooltip>
     )
   }
 
@@ -3477,6 +3490,7 @@ class App extends React.Component<Props, State> {
     return (
       <button
         type="button"
+        role="menuitem"
         className={clsx(classes.drawerIntegrationItem, active && classes.drawerMenuItemActive)}
         onClick={onClick}>
         <span className={classes.drawerMenuIcon}>{icon}</span>
@@ -3485,6 +3499,24 @@ class App extends React.Component<Props, State> {
           {summary && <span className={classes.drawerIntegrationSummary}>{summary}</span>}
         </span>
       </button>
+    )
+  }
+
+  private renderDrawerMenuGroup(classes: any, icon: React.ReactNode, label: string, items: React.ReactNode, active?: boolean) {
+    return (
+      <div className={classes.drawerMenuGroup}>
+        <button
+          type="button"
+          aria-label={label}
+          aria-haspopup="menu"
+          className={clsx(classes.drawerMenuItem, active && classes.drawerMenuItemActive)}>
+          <span className={classes.drawerMenuIcon}>{icon}</span>
+        </button>
+        <div className={classes.drawerFlyout} role="menu" aria-label={label}>
+          <div className={classes.drawerFlyoutTitle}>{label}</div>
+          <div className={classes.drawerFlyoutItems}>{items}</div>
+        </div>
+      </div>
     )
   }
 
@@ -4387,24 +4419,36 @@ class App extends React.Component<Props, State> {
   }
 
   private renderDrawerMenu(classes: any) {
-    const isDark = this.state.netdiveTheme === "dark"
     return (
       <div className={classes.drawerMenu}>
         <div className={classes.drawerMenuHeader}>
           <img
-            src={isDark ? LogoDark : LogoLight}
+            src="assets/mini-logo-ablestack.png"
             alt="ABLESTACK"
-            className={clsx(classes.drawerBrandLogo, isDark && classes.drawerBrandLogoDark)}
+            className={classes.drawerBrandLogo}
           />
         </div>
-        <div className={classes.drawerMenuSectionTitle}>{translate("collectionSection")}</div>
-        {this.renderDrawerIntegrationItem(classes, <AccountTreeIcon />, translate("infrastructureMenu"), translate("infrastructureMenuSummary"), () => this.openInfrastructureTopology(), this.state.isInfrastructurePanelOpen)}
-        {this.renderDrawerIntegrationItem(classes, this.kubernetesIcon(), translate("kubernetesCollectionMenu"), translate("kubernetesMenuSummary"), () => this.openKubernetesManager(), this.state.isKubernetesManagerOpen)}
-        <div className={classes.drawerMenuSectionTitle}>{translate("viewSettingsSection")}</div>
+        {this.renderDrawerMenuGroup(
+          classes,
+          <AccountTreeIcon />,
+          translate("collectionSection"),
+          <React.Fragment>
+            {this.renderDrawerIntegrationItem(classes, <AccountTreeIcon />, translate("infrastructureMenu"), translate("infrastructureMenuSummary"), () => this.openInfrastructureTopology(), this.state.isInfrastructurePanelOpen)}
+            {this.renderDrawerIntegrationItem(classes, this.kubernetesIcon(), translate("kubernetesCollectionMenu"), translate("kubernetesMenuSummary"), () => this.openKubernetesManager(), this.state.isKubernetesManagerOpen)}
+          </React.Fragment>,
+          this.state.isInfrastructurePanelOpen || this.state.isKubernetesManagerOpen
+        )}
         {this.renderDrawerMenuItem(classes, <Brightness4Icon />, translate("preferences"), () => this.openPreferencesPanel(), this.state.isPreferencesPanelOpen)}
-        <div className={classes.drawerMenuSectionTitle}>{translate("helpSection")}</div>
-        {this.renderDrawerMenuItem(classes, <LibraryBooksIcon />, "Help", this.openHelpDialog.bind(this), this.state.isHelpOpen)}
-        {this.renderDrawerMenuItem(classes, <InfoIcon />, "About", this.openAboutDialog.bind(this), this.state.isAboutOpen)}
+        {this.renderDrawerMenuGroup(
+          classes,
+          <LibraryBooksIcon />,
+          translate("helpSection"),
+          <React.Fragment>
+            {this.renderDrawerIntegrationItem(classes, <LibraryBooksIcon />, "Help", "", this.openHelpDialog.bind(this), this.state.isHelpOpen)}
+            {this.renderDrawerIntegrationItem(classes, <InfoIcon />, "About", "", this.openAboutDialog.bind(this), this.state.isAboutOpen)}
+          </React.Fragment>,
+          this.state.isHelpOpen || this.state.isAboutOpen
+        )}
       </div>
     )
   }
@@ -4529,7 +4573,7 @@ class App extends React.Component<Props, State> {
               {!this.state.isTimetravelOpen &&
                 <SelectionPanel onLocation={this.onSelectionLocation.bind(this)} onClose={this.onSelectionClose.bind(this)} config={this.config}
                   buttonsContent={this.actionButtons.bind(this)} panelsContent={this.dataPanels.bind(this)} moldInventory={this.state.moldInventory} infrastructureHostSummaries={infrastructureHostSummaries} kubernetesClusters={this.state.kubernetesClusters}
-                  vmNameMap={this.state.vmNameMap} vmNetworkMap={this.state.vmNetworkMap} vmDetailMap={this.state.vmDetailMap}
+                  vmNameMap={this.state.vmNameMap} vmNetworkMap={this.state.vmNetworkMap} vmDetailMap={this.state.vmDetailMap} managementServers={this.state.managementServers}
                   groupVisibleNodeIDs={this.state.groupVisibleNodeIDs}
                   nodeDisplayName={this.nodeDisplayName.bind(this)}
                   onGroupChildToggle={this.toggleGroupChildDisplayFromPanel.bind(this)}

@@ -208,9 +208,11 @@ export interface DetailResourceCardProps {
     description?: React.ReactNode
     interactive?: boolean
     onClick?: () => void
-    iconClassName?: string
+    iconTone?: DetailResourceIconTone
     className?: string
 }
+
+export type DetailResourceIconTone = 'host' | 'user-vm' | 'system-vm' | 'router' | 'network' | 'interface' | 'bridge' | 'switch' | 'kubernetes'
 
 export const DetailResourceCard = ({
     label,
@@ -219,7 +221,7 @@ export const DetailResourceCard = ({
     description,
     interactive = false,
     onClick,
-    iconClassName,
+    iconTone,
     className
 }: DetailResourceCardProps) => (
     <Button
@@ -233,7 +235,12 @@ export const DetailResourceCard = ({
         )}
         onClick={interactive ? onClick : undefined}>
         <span className="netdive-detail-resource__main">
-            {icon && <span className={joinClassNames('netdive-detail-resource__icon', iconClassName)}>{icon}</span>}
+            {icon && (
+                <span className={joinClassNames(
+                    'netdive-detail-resource__icon',
+                    iconTone && `netdive-detail-resource__icon--${iconTone}`
+                )}>{icon}</span>
+            )}
             <span className="netdive-detail-resource__text">
                 <Tooltip title={typeof label === 'string' ? label : undefined} placement="top">
                     <Typography.Text className="netdive-detail-resource__label">{label}</Typography.Text>

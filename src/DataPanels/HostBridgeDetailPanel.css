@@ -1,0 +1,57 @@
+.netdive-host-bridge-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding-bottom: 8px;
+}
+
+.netdive-host-bridge-detail__members {
+    padding: 4px 18px 12px;
+}
+
+.netdive-host-bridge-detail__member {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    min-height: 42px;
+    padding: 8px 10px;
+    border: 0;
+    border-bottom: 1px solid #f2f4f7;
+    color: #101828;
+    text-align: left;
+    background: #fff;
+    cursor: pointer;
+}
+
+.netdive-host-bridge-detail__member:last-child {
+    border-bottom: 0;
+}
+
+.netdive-host-bridge-detail__member:hover,
+.netdive-host-bridge-detail__member:focus-visible {
+    border-radius: 6px;
+    background: #f8fbff;
+    outline: none;
+}
+
+.netdive-host-bridge-detail__member-name {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 13px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.netdive-host-bridge-detail__member-main {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+}
+
+.netdive-host-bridge-detail__member-main .netdive-detail-badge {
+    flex: 0 0 auto;
+}

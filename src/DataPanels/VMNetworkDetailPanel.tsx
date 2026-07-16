@@ -29,12 +29,6 @@ interface KeyValueRow {
     variant?: 'networkType' | 'state'
 }
 
-interface MetricItem {
-    label: string
-    value: string
-    sub?: string
-}
-
 interface FeatureItem {
     name: string
     enabled: boolean
@@ -194,7 +188,7 @@ class VMNetworkDetailPanel extends React.Component<Props, State> {
         if (normalized === 'l2' || normalized.indexOf('l2') >= 0) return 'L2'
         if (normalized.indexOf('isolated') >= 0) return 'Isolated'
         if (normalized.indexOf('shared') >= 0) return 'Shared'
-        return value || 'Unknown'
+        return value
     }
 
     private networkTypeDescription(type = this.networkType()): string {
@@ -211,7 +205,7 @@ class VMNetworkDetailPanel extends React.Component<Props, State> {
     }
 
     private stateText(): string {
-        return firstValue(this.data(), ['State', 'state', 'Status', 'status', 'OperState', 'operstate', 'LinkState']) || 'UNKNOWN'
+        return firstValue(this.data(), ['State', 'state', 'Status', 'status', 'OperState', 'operstate', 'LinkState'])
     }
 
     private mac(): string {
@@ -390,12 +384,10 @@ class VMNetworkDetailPanel extends React.Component<Props, State> {
 
     private renderConnectionInfo() {
         const flags = this.linkFlags()
-        return (
-            <React.Fragment>
-                {this.renderRows(this.libvirtRows(), '-', true)}
-                {this.renderRows([{ label: '링크 플래그', value: flags.join(', ') }])}
-            </React.Fragment>
-        )
+        return this.renderRows([
+            ...this.libvirtRows(),
+            { label: '링크 플래그', value: flags.join(', ') }
+        ])
     }
 
     private renderAddressInfo() {
@@ -408,50 +400,28 @@ class VMNetworkDetailPanel extends React.Component<Props, State> {
         ])
     }
 
-    private metricValue(keys: string[], formatter?: (value: any) => string): string {
-        const value = firstRaw(this.data(), keys)
-        if (isBlank(value)) return ''
-        return formatter ? formatter(value) : stringify(value)
+    private metricData(field: 'LastUpdateMetric' | 'Metric'): any {
+        return firstRaw(this.data(), [field, `Ovs.${field}`])
     }
 
-    private renderMetricGrid(items: MetricItem[]) {
-        const { classes } = this.props
-        const visible = items.filter(item => !isBlank(item.value))
-        if (!visible.length) return <DetailEmpty description="수집 지표 없음" compact />
-        return (
-            <div className={classes.metricGrid}>
-                {visible.map(item => (
-                    <div className={classes.metricTile} key={item.label}>
-                        <div className={classes.metricBody}>
-                            <div className={classes.metricLabel}>{item.label}</div>
-                            <div className={classes.metricValue}>{item.value}</div>
-                            {item.sub && <div className={classes.metricSub}>{item.sub}</div>}
-                        </div>
-                    </div>
-                ))}
-            </div>
-        )
+    private hasTrafficMetric(metric: any): boolean {
+        if (!metric || typeof metric !== 'object') return false
+        return ['RxPackets', 'RxBytes', 'TxPackets', 'TxBytes'].some(key => metric[key] !== undefined && metric[key] !== null)
     }
 
-    private recentMetrics(): MetricItem[] {
-        return [
-            { label: '송신 바이트 수', value: this.metricValue(['Last.TXBytes', 'LastUpdateMetric.ABBytes', 'Last.ABBytes', 'TXBytes', 'TxBytes'], formatBytes) },
-            { label: '송신 패킷 수', value: this.metricValue(['Last.TXPackets', 'LastUpdateMetric.ABPackets', 'Last.ABPackets', 'TXPackets', 'TxPackets']) },
-            { label: '수신 바이트 수', value: this.metricValue(['Last.RXBytes', 'LastUpdateMetric.BABytes', 'Last.BABytes', 'RXBytes', 'RxBytes'], formatBytes) },
-            { label: '수신 패킷 수', value: this.metricValue(['Last.RXPackets', 'LastUpdateMetric.BAPackets', 'Last.BAPackets', 'RXPackets', 'RxPackets']) },
-            { label: '최종 수집 시간', value: this.metricValue(['LastUpdate', 'LastSeen', 'UpdatedAt', '@UpdatedAt'], formatDate) },
-            { label: '캡처 시작 시간', value: this.metricValue(['Capture.Start', 'CaptureStartedAt', 'StartedAt', 'CreatedAt'], formatDate) }
+    private metricRows(metric: any, recent: boolean): KeyValueRow[] {
+        if (!this.hasTrafficMetric(metric)) return []
+        const rows: Array<{ key: string, label: string, format: (value: any) => string }> = [
+            { key: 'RxPackets', label: '수신 패킷 수', format: value => Number(value).toLocaleString() },
+            { key: 'RxBytes', label: '수신 바이트 수', format: formatBytes },
+            { key: 'TxPackets', label: '송신 패킷 수', format: value => Number(value).toLocaleString() },
+            { key: 'TxBytes', label: '송신 바이트 수', format: formatBytes }
         ]
-    }
-
-    private accumulatedMetrics(): MetricItem[] {
-        return [
-            { label: '송신 바이트 수', value: this.metricValue(['Metric.ABBytes', 'ABBytes', 'TotalTXBytes', 'TotalTxBytes'], formatBytes) },
-            { label: '송신 패킷 수', value: this.metricValue(['Metric.ABPackets', 'ABPackets', 'TotalTXPackets', 'TotalTxPackets']) },
-            { label: '수신 바이트 수', value: this.metricValue(['Metric.BABytes', 'BABytes', 'TotalRXBytes', 'TotalRxBytes'], formatBytes) },
-            { label: '수신 패킷 수', value: this.metricValue(['Metric.BAPackets', 'BAPackets', 'TotalRXPackets', 'TotalRxPackets']) },
-            { label: '최종 수집 시간', value: this.metricValue(['Metric.Last', 'Last', 'LastUpdate', 'UpdatedAt', '@UpdatedAt'], formatDate) }
-        ]
+        if (recent) rows.push({ key: 'Start', label: '수집 시작 시간', format: formatDate })
+        rows.push({ key: 'Last', label: '최종 수집 시간', format: formatDate })
+        return rows
+            .filter(row => metric[row.key] !== undefined && metric[row.key] !== null)
+            .map(row => ({ label: row.label, value: row.format(metric[row.key]) }))
     }
 
     private featureItems(): FeatureItem[] {
@@ -502,15 +472,21 @@ class VMNetworkDetailPanel extends React.Component<Props, State> {
 
     render() {
         const { classes } = this.props
+        const recentMetricRows = this.metricRows(this.metricData('LastUpdateMetric'), true)
+        const accumulatedMetricRows = this.metricRows(this.metricData('Metric'), false)
+        const hasConnectionInfo = this.libvirtRows().some(row => !isBlank(row.value)) || this.linkFlags().length > 0
+        const hasAddresses = this.ipv4Addresses().length > 0 || this.ipv6Addresses().length > 0
+        const hasFeatures = this.featureItems().length > 0
+        const hasAdvanced = Object.keys(this.advancedInfo()).length > 0
         return (
             <div className={classes.root}>
-                {this.renderSection('basic', <InfoIcon />, '기본 정보', '인터페이스 식별 정보와 장치 속성입니다.', this.renderRows(this.basicRows(), '-', true))}
-                {this.renderSection('connection', <DeviceHubIcon />, '연결 정보', 'Libvirt 메타데이터와 링크 플래그입니다.', this.renderConnectionInfo())}
-                {this.renderSection('addresses', <SettingsInputComponentIcon />, '주소 정보', 'IPv4 / IPv6 주소를 분리해 표시합니다.', this.renderAddressInfo())}
-                {this.renderSection('recent', <TimelineIcon />, '최근 수집 지표', '최근 수집된 트래픽 지표입니다.', this.renderMetricGrid(this.recentMetrics()))}
-                {this.renderSection('accumulated', <TimelineIcon />, '누적 수집 지표', '누적 트래픽 카운터입니다.', this.renderMetricGrid(this.accumulatedMetrics()))}
-                {this.renderSection('features', <SettingsInputComponentIcon />, '장비 기능', 'Offload 기능 목록입니다. true 항목을 먼저 표시합니다.', this.renderFeatures(), true)}
-                {this.renderSection('advanced', <InfoIcon />, '고급 정보', 'FDB, 인접 장비, 라우팅 테이블과 raw 데이터입니다.', this.renderAdvanced(), true)}
+                {this.renderSection('basic', <InfoIcon />, '기본 정보', '인터페이스 식별 정보와 장치 속성입니다.', this.renderRows(this.basicRows()))}
+                {hasConnectionInfo && this.renderSection('connection', <DeviceHubIcon />, '연결 정보', 'Libvirt 메타데이터와 링크 플래그입니다.', this.renderConnectionInfo())}
+                {hasAddresses && this.renderSection('addresses', <SettingsInputComponentIcon />, '주소 정보', 'IPv4 / IPv6 주소를 분리해 표시합니다.', this.renderAddressInfo())}
+                {recentMetricRows.length > 0 && this.renderSection('recent', <TimelineIcon />, '최근 수집 지표', '최근 수집된 트래픽 지표입니다.', <DetailKeyValueList rows={recentMetricRows} />)}
+                {accumulatedMetricRows.length > 0 && this.renderSection('accumulated', <TimelineIcon />, '누적 수집 지표', '누적 트래픽 카운터입니다.', <DetailKeyValueList rows={accumulatedMetricRows} />)}
+                {hasFeatures && this.renderSection('features', <SettingsInputComponentIcon />, '장비 기능', 'Offload 기능 목록입니다. true 항목을 먼저 표시합니다.', this.renderFeatures(), true)}
+                {hasAdvanced && this.renderSection('advanced', <InfoIcon />, '고급 정보', 'FDB, 인접 장비, 라우팅 테이블과 raw 데이터입니다.', this.renderAdvanced(), true)}
             </div>
         )
     }

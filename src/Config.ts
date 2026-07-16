@@ -36,14 +36,14 @@ const WEIGHT_SWITCH_PORTS = 5018
 const WEIGHT_PHY_HOST = 5020
 const WEIGHT_PHY_NIC = 5030
 const WEIGHT_PHY_BOND = 5032
-const WEIGHT_BRIDGES = 5035
+export const WEIGHT_BRIDGES = 5035
 const WEIGHT_VLAN = 5040
 const WEIGHT_PHY_NET = 5050
 const WEIGHT_PHY_PORTS = 5060
 
 const WEIGHT_VIRT_NAMESPACE = 7010
 const WEIGHT_VIRT_CONTAINERS = 7030
-const WEIGHT_VIRT_BRIDGES = 7040
+export const WEIGHT_VIRT_BRIDGES = 7040
 const WEIGHT_VIRT_NET = 7050
 const WEIGHT_SYSTEM_VMS = 7060
 const WEIGHT_VIRT_ROUTERS = 7070
@@ -90,12 +90,14 @@ export const i18nMap = {
         "device(s)-network": "Network Device Group",
         "libvirt(s)": "VM Group",
         "switchport(s)": "Switch Port Group",
-        "virt-router(s)": "Virtual Routers",
-        "system-vm(s)": "System VMs",
-        "virt-bridge(s)": "Virtual Bridges",
-        "host-bridge(s)": "Host Bridges",
-        "bridge(s)": "Bridges",
-        "bond(s)": "Bond Interfaces",
+        "virt-router(s)": "Virtual Router Group",
+        "system-vm(s)": "System VM Group",
+        "virt-bridge(s)": "Virtual Bridge Group",
+        "host-bridge(s)": "Host Bridge Group",
+        "bridge(s)": "Bridge Group",
+        "bond(s)": "Bond Interface Group",
+        "vlan(s)": "VLAN Group",
+        "groupSuffix": "Group",
         "k8s-cluster-group": "Kubernetes Cluster Group",
         "k8s-node-group": "Kubernetes Node Group",
         "k8s-namespace-group": "Kubernetes Namespace Group",
@@ -192,6 +194,69 @@ export const i18nMap = {
         "switchSystemDescription": "System description",
         "switchManagementAddress": "Management address",
         "switchNoLldp": "No LLDP information has been collected.",
+        "switchPortConnectedNodes": "Connected nodes",
+        "switchPortPortId": "Port ID",
+        "switchPortPortIdType": "Port ID type",
+        "switchPortDescription": "Port description",
+        "switchPortRemoteSystem": "Remote system",
+        "switchPortRemotePort": "Remote port",
+        "switchPortRemoteDescription": "Remote port description",
+        "bondMode": "Bond mode",
+        "bondConfiguration": "Bond configuration",
+        "bondSlaveInterface": "Slave interface",
+        "bondSlaveInterfaces": "Slave interfaces",
+        "bondNoData": "No information has been collected.",
+        "nicConnectedNodes": "Connected nodes",
+        "nicLinkStatus": "Link status",
+        "nicDuplex": "Duplex",
+        "nicAutoNegotiation": "Auto negotiation",
+        "nicCarrier": "Carrier",
+        "nicLldpNeighbor": "LLDP neighbor",
+        "detailAdvancedInfo": "Advanced information",
+        "nicNetlinkInfo": "Netlink information",
+        "nicNoData": "No information has been collected.",
+        "bridgeMemberInterfaces": "Member interfaces",
+        "bridgeConfiguration": "Bridge configuration",
+        "bridgeNetworkAddresses": "Network addresses",
+        "bridgeInterfaceInfo": "Interface information",
+        "bridgeUplink": "Uplink",
+        "bridgeNoData": "No information has been collected.",
+        "vlanConfiguration": "VLAN configuration",
+        "vlanId": "VLAN ID",
+        "vlanParentInterface": "Parent interface",
+        "vlanConnectedInterfaces": "Connected interfaces",
+        "vlanProtocol": "VLAN protocol",
+        "vlanInterfaceInfo": "Interface information",
+        "vlanNoData": "No information has been collected.",
+        "managementServerInfo": "Mold management server",
+        "managementServerResources": "Management server resources",
+        "managementServerJvm": "JVM status",
+        "managementCollectionTime": "Collection time",
+        "managementUsageLocal": "Usage server installed locally",
+        "managementDbLocal": "Database running locally",
+        "managementLastStart": "Last management server start",
+        "managementLastStop": "Last management server stop",
+        "managementLastBoot": "Management server system boot time",
+        "managementLogInfo": "Log file information",
+        "managementSystemCpu": "Total CPU capacity across all cores (MHz)",
+        "managementLoadAverages": "1, 5, 15 minute load averages",
+        "managementCycleUsage": "User, system, and idle cycles",
+        "managementSystemMemoryTotal": "Total system memory",
+        "managementSystemMemoryFree": "Available system memory",
+        "managementVirtualMemory": "Total virtual process size",
+        "managementAvailableProcessors": "Available processor cores",
+        "managementJavaDistribution": "Java Runtime distribution",
+        "managementJavaVersion": "Java Runtime version",
+        "managementOsDistribution": "OS distribution",
+        "managementKernelVersion": "Kernel version",
+        "managementAgentCount": "Connected agents",
+        "managementSessions": "Active client sessions",
+        "managementHeapUsed": "Used heap memory",
+        "managementHeapTotal": "Available heap memory",
+        "managementThreadsBlocked": "Blocked threads",
+        "managementThreadsRunnable": "Runnable threads",
+        "managementThreadsTotal": "Total threads",
+        "managementThreadsWaiting": "Waiting threads",
         "hostBasicInfoDescription": "Host identity and virtualization metadata.",
         "hostVirtualizationRole": "Virtualization role",
         "hostVirtualizationSystem": "Virtualization system",
@@ -748,12 +813,14 @@ export const i18nMap = {
         "device(s)-network": "네트워크 장치 그룹",
         "libvirt(s)": "VM 그룹",
         "switchport(s)": "스위치 포트 그룹",
-        "virt-router(s)": "가상 라우터",
-        "system-vm(s)": "시스템 가상머신",
-        "virt-bridge(s)": "가상 브릿지",
-        "host-bridge(s)": "호스트 브릿지",
-        "bridge(s)": "브릿지",
-        "bond(s)": "본딩 인터페이스",
+        "virt-router(s)": "가상 라우터 그룹",
+        "system-vm(s)": "시스템 가상머신 그룹",
+        "virt-bridge(s)": "가상 브릿지 그룹",
+        "host-bridge(s)": "호스트 브릿지 그룹",
+        "bridge(s)": "브릿지 그룹",
+        "bond(s)": "본딩 인터페이스 그룹",
+        "vlan(s)": "VLAN 그룹",
+        "groupSuffix": "그룹",
         "k8s-cluster-group": "클러스터 그룹",
         "k8s-node-group": "노드 그룹",
         "k8s-namespace-group": "네임스페이스 그룹",
@@ -850,6 +917,69 @@ export const i18nMap = {
         "switchSystemDescription": "시스템 설명",
         "switchManagementAddress": "관리 주소",
         "switchNoLldp": "수집된 LLDP 정보가 없습니다.",
+        "switchPortConnectedNodes": "연결 노드",
+        "switchPortPortId": "포트 ID",
+        "switchPortPortIdType": "포트 ID 유형",
+        "switchPortDescription": "포트 설명",
+        "switchPortRemoteSystem": "원격 시스템",
+        "switchPortRemotePort": "원격 포트",
+        "switchPortRemoteDescription": "원격 포트 설명",
+        "bondMode": "본딩 모드",
+        "bondConfiguration": "Bond 구성",
+        "bondSlaveInterface": "Slave 인터페이스",
+        "bondSlaveInterfaces": "Slave 인터페이스",
+        "bondNoData": "수집된 정보가 없습니다.",
+        "nicConnectedNodes": "연결 노드",
+        "nicLinkStatus": "Link 상태",
+        "nicDuplex": "Duplex",
+        "nicAutoNegotiation": "Auto Negotiation",
+        "nicCarrier": "Carrier",
+        "nicLldpNeighbor": "LLDP Neighbor",
+        "detailAdvancedInfo": "고급 정보",
+        "nicNetlinkInfo": "Netlink 정보",
+        "nicNoData": "수집된 정보가 없습니다.",
+        "bridgeMemberInterfaces": "멤버 인터페이스",
+        "bridgeConfiguration": "Bridge 구성",
+        "bridgeNetworkAddresses": "네트워크 주소",
+        "bridgeInterfaceInfo": "인터페이스 정보",
+        "bridgeUplink": "업링크",
+        "bridgeNoData": "수집된 정보가 없습니다.",
+        "vlanConfiguration": "VLAN 구성",
+        "vlanId": "VLAN ID",
+        "vlanParentInterface": "부모 인터페이스",
+        "vlanConnectedInterfaces": "연결 인터페이스",
+        "vlanProtocol": "VLAN 프로토콜",
+        "vlanInterfaceInfo": "인터페이스 정보",
+        "vlanNoData": "수집된 정보가 없습니다.",
+        "managementServerInfo": "Mold 관리 서버",
+        "managementServerResources": "관리 서버 리소스",
+        "managementServerJvm": "JVM 상태",
+        "managementCollectionTime": "수집 시간",
+        "managementUsageLocal": "사용 서버가 로컬에 설치됨",
+        "managementDbLocal": "DB가 로컬에서 실행",
+        "managementLastStart": "관리서버의 마지막 시작 시간",
+        "managementLastStop": "관리서버의 마지막 정지 시간",
+        "managementLastBoot": "관리서버 시스템의 부팅 시간",
+        "managementLogInfo": "로그 파일 정보",
+        "managementSystemCpu": "모든 코어의 전체 CPU 용량(MHz)",
+        "managementLoadAverages": "1, 5, 15분 로드 평균",
+        "managementCycleUsage": "사용자, 시스템 및 Idle 주기",
+        "managementSystemMemoryTotal": "전체 시스템 메모리",
+        "managementSystemMemoryFree": "사용 가능한 시스템 메모리",
+        "managementVirtualMemory": "가상 전체 프로세스 크기",
+        "managementAvailableProcessors": "사용 가능한 프로세서 코어",
+        "managementJavaDistribution": "Java Runtime 배포",
+        "managementJavaVersion": "Java Runtime Version",
+        "managementOsDistribution": "OS 배포",
+        "managementKernelVersion": "Kernel Version",
+        "managementAgentCount": "연결된 에이전트 수",
+        "managementSessions": "Active 클라이언트 세션",
+        "managementHeapUsed": "사용 Heap-memory",
+        "managementHeapTotal": "사용가능 Heap-memory",
+        "managementThreadsBlocked": "차단된 스레드",
+        "managementThreadsRunnable": "실행 가능한 스레드",
+        "managementThreadsTotal": "전체 스레드 수",
+        "managementThreadsWaiting": "대기 중인 스레드",
         "hostBasicInfoDescription": "호스트 식별 정보와 가상화 메타데이터입니다.",
         "hostVirtualizationRole": "가상화 역할",
         "hostVirtualizationSystem": "가상화 시스템",
@@ -1975,6 +2105,8 @@ class DefaultConfig {
                 break
             case "switch":
                 attrs.icon = "\uf6ff"
+                attrs.href = "assets/icons/network-switch.svg"
+                attrs.iconClass = "network-switch-icon"
                 attrs.weight = WEIGHT_SWITCH
                 break
             case "bridge":
@@ -2173,6 +2305,7 @@ class DefaultConfig {
 
     nodeDblClicked(node: Node): void {
         window.App.tc.expand(node)
+        window.App.syncGroupVisibleNodeIDs()
     }
 
     nodeMenu(node: Node): Array<MenuItem> {
@@ -2449,31 +2582,36 @@ class DefaultConfig {
     }
 
     groupName(node: Node): string | undefined {
+        const withGroupSuffix = (name: string): string => {
+            const trimmed = name.trim()
+            return /(?:group|그룹)$/i.test(trimmed) ? trimmed : `${trimmed} ${translate("groupSuffix")}`
+        }
+
         if (node.data.K8s) {
             var labels = node.data.K8s.Labels
             if (labels) {
                 var app = labels["k8s-app"] || labels["app"]
                 if (app) {
-                    return app
+                    return withGroupSuffix(app)
                 }
             }
 
             switch (node.data.Type) {
                 case "cluster":
-                    return translate("k8s-cluster-group")
+                    return withGroupSuffix(translate("k8s-cluster-group"))
                 case "node":
-                    return translate("k8s-node-group")
+                    return withGroupSuffix(translate("k8s-node-group"))
                 case "namespace":
-                    return translate("k8s-namespace-group")
+                    return withGroupSuffix(translate("k8s-namespace-group"))
                 case "pod":
-                    return translate("k8s-pod-group")
+                    return withGroupSuffix(translate("k8s-pod-group"))
                 case "service":
                 case "endpoints":
                 case "ingress":
                 case "networkpolicy":
-                    return translate("k8s-service-group")
+                    return withGroupSuffix(translate("k8s-service-group"))
                 default:
-                    return translate("k8s-app-group")
+                    return withGroupSuffix(translate("k8s-app-group"))
             }
         }
 
@@ -2483,8 +2621,7 @@ class DefaultConfig {
         }
 
         var regexpVirtRouter: RegExp = /^r-/
-        var regexpSystemVm: RegExp = /^[s-]^[v-]/
-        var regexpVirtBridge: RegExp = /^brenp/
+        var regexpSystemVm: RegExp = /^(s-|v-)/
 
         if (regexpVirtRouter.test(node.data.Name)) {
             nodeType = "virt-router"
@@ -2492,17 +2629,17 @@ class DefaultConfig {
             nodeType = "system-vm"
         }
 
-        if (regexpVirtBridge.test(node.data.Name) && node.data.Type === "bridge") {
-            nodeType = "virt-bridge"
-        }else if (node.data.Type === "bridge"){
-            nodeType = "host-bridge"
+        if (node.data.Type === "bridge") {
+            nodeType = node.getWeight() === WEIGHT_VIRT_BRIDGES ? "virt-bridge" : "host-bridge"
         }
 
-        const groupKey = nodeType + "(s)"
+        const groupKey = nodeType.toLowerCase() + "(s)"
         if (groupKey === "device(s)") {
-            return translate(node.getWeight() === WEIGHT_PHY_NIC ? "device(s)-nic" : "device(s)-network")
+            return withGroupSuffix(translate(node.getWeight() === WEIGHT_PHY_NIC ? "device(s)-nic" : "device(s)-network"))
         }
-        return translate(groupKey)
+        const translated = translate(groupKey)
+        const groupName = translated === groupKey ? nodeType.replace(/\(s\)$/i, '') : translated
+        return withGroupSuffix(groupName)
     }
 
     weightTitles(): Map<number, string> {

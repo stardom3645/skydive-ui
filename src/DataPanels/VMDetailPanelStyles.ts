@@ -421,49 +421,6 @@ export const styles = (theme: Theme) => createStyles({
             gap: 2
         }
     },
-    connectedResourceCardIcon: {
-        flexShrink: 0,
-        width: 30,
-        height: 30,
-        borderRadius: 8,
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'rgba(248, 250, 252, 0.96)',
-        '& svg': {
-            fontSize: 16
-        }
-    },
-    connectedResourceHostIcon: {
-        color: '#2563eb',
-        background: 'rgba(239, 246, 255, 0.96)',
-        boxShadow: 'inset 0 0 0 1px rgba(191, 219, 254, 0.9)'
-    },
-    connectedResourceNicIcon: {
-        color: '#0f766e',
-        background: 'rgba(240, 253, 250, 0.96)',
-        boxShadow: 'inset 0 0 0 1px rgba(153, 246, 228, 0.9)'
-    },
-    connectedResourceBridgeIcon: {
-        color: '#7c3aed',
-        background: 'rgba(245, 243, 255, 0.96)',
-        boxShadow: 'inset 0 0 0 1px rgba(221, 214, 254, 0.95)'
-    },
-    connectedResourceNetworkIcon: {
-        color: '#ea580c',
-        background: 'rgba(255, 247, 237, 0.96)',
-        boxShadow: 'inset 0 0 0 1px rgba(254, 215, 170, 0.92)'
-    },
-    connectedResourceNodeIcon: {
-        color: '#2563eb',
-        background: '#eff6ff',
-        border: '1px solid #dbeafe',
-        '& svg': {
-            width: 14,
-            height: 14,
-            display: 'block'
-        }
-    },
     connectedResourceFaIcon: {
         fontFamily: '"Font Awesome 5 Free"',
         fontSize: 17,

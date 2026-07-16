@@ -16,6 +16,7 @@ export type {
     DetailKeyValueListProps,
     DetailKeyValueRow,
     DetailResourceCardProps,
+    DetailResourceIconTone,
     DetailResourceGridProps,
     DetailSectionProps
 } from './DetailComponents'

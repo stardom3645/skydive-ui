@@ -37,6 +37,7 @@ import {
     DetailKeyValueList,
     DetailResourceCard,
     DetailResourceGrid,
+    DetailResourceIconTone,
     DetailSection
 } from './common'
 
@@ -81,7 +82,7 @@ interface OverviewCardItem {
     description: string
     value: string
     icon?: React.ReactNode
-    iconContainerClassName?: string
+    iconTone?: DetailResourceIconTone
     actionKey?: InfrastructureFocusKey
     nodeIDs?: string[]
     onClick?: () => void
@@ -1963,6 +1964,7 @@ class HostDetailPanel extends React.Component<Props, State> {
     }
 
     private renderOverviewGrid(items: OverviewCardItem[], emptyText = translate('hostNoConnectedResources'), compact = false) {
+        const { classes } = this.props
         const visible = items.filter(item => item.value)
         if (!visible.length) return this.renderEmpty(emptyText)
         return (
@@ -1980,7 +1982,8 @@ class HostDetailPanel extends React.Component<Props, State> {
                             label={item.label}
                             value={item.value}
                             icon={item.icon || <InfoIcon />}
-                            iconClassName={item.iconContainerClassName}
+                            iconTone={item.iconTone}
+                            className={classes.connectedResourceCompactCard}
                             interactive={canFocus}
                             onClick={() => {
                                 if (item.onClick) {
@@ -1996,29 +1999,23 @@ class HostDetailPanel extends React.Component<Props, State> {
         )
     }
 
-    private renderConnectedResourceSubsection(icon: React.ReactNode, title: string, items: OverviewCardItem[], emptyText = translate('hostNoConnectedResources')) {
+    private renderConnectedResourceSubsection(icon: React.ReactNode, title: string, items: OverviewCardItem[], emptyText = translate('hostNoConnectedResources'), kubernetes = false) {
         const { classes } = this.props
         return (
-            <div className={classes.connectedResourceSection}>
+            <div className={`${classes.connectedResourceSection} ${kubernetes ? classes.connectedResourceSectionKubernetes : ''}`}>
                 <div className={classes.connectedResourceSectionHeader}>
-                    <span className={classes.connectedResourceSectionIcon}>{icon}</span>
-                    <span className={classes.connectedResourceSectionTitle}>{title}</span>
+                    <span className={`${classes.connectedResourceSectionIcon} ${kubernetes ? classes.connectedResourceSectionKubernetesIcon : ''}`}>{icon}</span>
+                    <span className={`${classes.connectedResourceSectionTitle} ${kubernetes ? classes.connectedResourceSectionKubernetesTitle : ''}`}>{title}</span>
                 </div>
                 {this.renderOverviewGrid(items, emptyText, true)}
             </div>
         )
     }
 
-    private infrastructureIcon(glyph: string, tone: string) {
+    private infrastructureIcon(glyph: string) {
         const { classes } = this.props
-        const colors: Record<string, string> = {
-            network: '#3f7ee8',
-            'user-vm': '#41a878',
-            'system-vm': '#6d4bd8',
-            router: '#7c4bd3'
-        }
         return (
-            <span className={`${classes.connectedResourceFaIcon} fa fas fa-fw`} style={{ color: colors[tone] || colors.network }}>
+            <span className={`${classes.connectedResourceFaIcon} fa fas fa-fw`}>
                 {glyph}
             </span>
         )
@@ -2144,10 +2141,10 @@ class HostDetailPanel extends React.Component<Props, State> {
         ]
 
         const connectedResources: OverviewCardItem[] = [
-            { label: translate('infrastructureUserVMs'), description: translate('infrastructureUserVMsDescription'), value: vmCount !== undefined ? String(vmCount) : '', icon: this.infrastructureIcon('\uf108', 'user-vm'), actionKey: 'userVMs', nodeIDs: this.hostInfrastructureNodeIDs('userVMs') },
-            { label: translate('infrastructureSystemVMs'), description: translate('infrastructureSystemVMsDescription'), value: systemVmCount !== undefined ? String(systemVmCount) : '', icon: this.infrastructureIcon('\uf085', 'system-vm'), actionKey: 'systemVMs', nodeIDs: this.hostInfrastructureNodeIDs('systemVMs') },
-            { label: translate('infrastructureRouters'), description: translate('infrastructureRoutersDescription'), value: virtualRouterCount !== undefined ? String(virtualRouterCount) : '', icon: this.infrastructureIcon('\uf4d7', 'router'), actionKey: 'routers', nodeIDs: this.hostInfrastructureNodeIDs('routers') },
-            { label: translate('infrastructureNetworkObjects'), description: translate('infrastructureNetworkObjectsDescription'), value: networkCount !== undefined ? String(networkCount) : '', icon: this.infrastructureIcon('\uf6ff', 'network'), actionKey: 'networkObjects', nodeIDs: this.hostInfrastructureNodeIDs('networkObjects') }
+            { label: translate('infrastructureUserVMs'), description: translate('infrastructureUserVMsDescription'), value: vmCount !== undefined ? String(vmCount) : '', icon: this.infrastructureIcon('\uf108'), iconTone: 'user-vm', actionKey: 'userVMs', nodeIDs: this.hostInfrastructureNodeIDs('userVMs') },
+            { label: translate('infrastructureSystemVMs'), description: translate('infrastructureSystemVMsDescription'), value: systemVmCount !== undefined ? String(systemVmCount) : '', icon: this.infrastructureIcon('\uf085'), iconTone: 'system-vm', actionKey: 'systemVMs', nodeIDs: this.hostInfrastructureNodeIDs('systemVMs') },
+            { label: translate('infrastructureRouters'), description: translate('infrastructureRoutersDescription'), value: virtualRouterCount !== undefined ? String(virtualRouterCount) : '', icon: this.infrastructureIcon('\uf4d7'), iconTone: 'router', actionKey: 'routers', nodeIDs: this.hostInfrastructureNodeIDs('routers') },
+            { label: translate('infrastructureNetworkObjects'), description: translate('infrastructureNetworkObjectsDescription'), value: networkCount !== undefined ? String(networkCount) : '', icon: this.infrastructureIcon('\uf6ff'), iconTone: 'network', actionKey: 'networkObjects', nodeIDs: this.hostInfrastructureNodeIDs('networkObjects') }
         ]
         const kubernetesNodes = this.hostKubernetesNodes()
         const kubernetesClusters = this.hostKubernetesClusters(kubernetesNodes)
@@ -2158,7 +2155,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                 description: kubernetesClusterNames.length > 0 ? kubernetesClusterNames.join(', ') : '',
                 value: String(kubernetesNodes.length),
                 icon: this.kubernetesNodeIcon(),
-                iconContainerClassName: `${classes.connectedResourceNodeIcon} netdive-k8s-explorer-node-icon`,
+                iconTone: 'kubernetes',
                 nodeIDs: kubernetesNodes.map(item => item.id),
                 onClick: () => this.openKubernetesNodePicker()
             }
@@ -2195,10 +2192,11 @@ class HostDetailPanel extends React.Component<Props, State> {
                             translate('hostNoConnectedResources')
                         )}
                         {this.renderConnectedResourceSubsection(
-                            this.kubernetesNodeIcon(),
+                            <img src="assets/icons/k8s.png" alt="" />,
                             translate('kubernetesCollectionMenu'),
                             kubernetesResources,
-                            translate('kubernetesNodeSelectorEmpty')
+                            translate('kubernetesNodeSelectorEmpty'),
+                            true
                         )}
                     </div>
                 )}

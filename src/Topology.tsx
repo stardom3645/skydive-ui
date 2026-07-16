@@ -39,7 +39,7 @@ const defaultMaxExpandSize = 100
 // 기본 트리 레이아웃에서 노드가 차지하는 가로 간격입니다.
 const nodeWidth = 320
 // 기본 트리 레이아웃에서 계층 간 세로 간격입니다.
-const nodeHeight = 250
+const nodeHeight = 200
 // 짧은 이름 노드의 기본 카드 너비입니다.
 const topologyCardWidth = 280
 // 중간 길이 이름 노드의 카드 너비입니다.
@@ -79,7 +79,7 @@ const groupListSelectedNodeGap = 26
 // 사용자 VM 계층에서 노드 간 가로 간격을 추가로 넓히는 값입니다.
 const userVmHorizontalGapBoost = 100
 // 사용자 VM 계층에서 노드 간 세로 간격을 추가로 넓히는 값입니다.
-const userVmVerticalGapBoost = 44
+const userVmVerticalGapBoost = 35
 // 사용자 VM 이름 표시 영역을 추가로 넓히는 값입니다.
 const userVmNameWidthBoost = 130
 // Kubernetes 클러스터 계층에서 노드 간 가로 간격을 추가로 넓히는 값입니다.
@@ -90,6 +90,11 @@ const kubernetesNodeHorizontalGapBoost = 150
 const kubernetesNodeLabelWidthBoost = 95
 // Kubernetes 네임스페이스 계층에서 노드 간 가로 간격을 추가로 넓히는 값입니다.
 const kubernetesNamespaceHorizontalGapBoost = 160
+// 시스템 VM / 가상 라우터 compact 레이아웃의 카드 및 그룹 최소 간격입니다.
+const compactVmNodeGap = 24
+const compactVmGroupGap = 64
+// 서로 다른 호스트 서브트리 경계 사이에 유지할 최소 여백입니다.
+const compactHostSubtreeGap = 80
 
 const isTopologyInterfaceData = (data?: any): boolean => {
     if (!data) {
@@ -464,6 +469,7 @@ interface D3Node {
     x: number
     y: number
     children: Array<D3Node>
+    parent?: D3Node
 }
 
 interface Group {
@@ -549,7 +555,6 @@ export class Topology extends React.Component<Props, {}> {
     private gContextMenu: Selection<SVGGraphicsElement, {}, null, undefined>
     private zoom: zoom
     private liner: line
-    private nodeClickedID: number
     private showLevelLabelsTimeoutID: number
     private raisedLinkLabelID: string
     private d3nodes: Map<string, D3Node>
@@ -594,7 +599,6 @@ export class Topology extends React.Component<Props, {}> {
         this.initTree()
 
         this.isCtrlPressed = false
-        this.nodeClickedID = 0
         this.showLevelLabelsTimeoutID = 0
         this.raisedLinkLabelID = ""
         this.pinnedContainerMiniNodeID = ""
@@ -624,10 +628,6 @@ export class Topology extends React.Component<Props, {}> {
             .on("keydown.topology", null)
             .on("keyup.topology", null)
 
-        if (this.nodeClickedID) {
-            window.clearTimeout(this.nodeClickedID)
-            this.nodeClickedID = 0
-        }
         if (this.showLevelLabelsTimeoutID) {
             window.clearTimeout(this.showLevelLabelsTimeoutID)
             this.showLevelLabelsTimeoutID = 0
@@ -977,10 +977,12 @@ export class Topology extends React.Component<Props, {}> {
 
         // 2차: 이제 groupStates 안에 새로 생성된 그룹 상태까지 모두 들어왔으므로
         //      여기에서 "완전 펼침" 설정을 일괄 적용합니다.
-        this.groupStates.forEach(state => {
+        this.groupStates.forEach((state, groupID) => {
             state.expanded = true
             state.groupFullSize = true
             state.groupOffset = 0
+            const group = this.groups.get(groupID)
+            if (group) this.setFullGroupSelection(group.wrapped, true)
         })
 
         // 3차: 그룹 상태 변경을 반영해서 다시 한 번 전체 토폴로지를 렌더링합니다.
@@ -1014,6 +1016,11 @@ export class Topology extends React.Component<Props, {}> {
             state.groupFullSize = false
             state.groupOffset = 0
         })
+        this.selectedGroupListNodeIDs.forEach(nodeID => {
+            const node = this.nodes.get(nodeID)
+            if (node) node.state.selected = false
+        })
+        this.selectedGroupListNodeIDs.clear()
 
         // 3) 전체 토폴로지 다시 그리기
         this.invalidated = true
@@ -1453,16 +1460,30 @@ export class Topology extends React.Component<Props, {}> {
         node.children.forEach((child: Node) => this.collapse(child))
     }
 
+    private setFullGroupSelection(groupNode: Node, selected: boolean) {
+        groupNode.children.forEach(child => {
+            child.state.selected = selected
+            if (selected) {
+                this.selectedGroupListNodeIDs.add(child.id)
+            } else {
+                this.selectedGroupListNodeIDs.delete(child.id)
+            }
+        })
+    }
+
     expand(node: Node) {
-        if (node.state.expanded) {
+        const isGroup = this.groupStates.has(node.id)
+        if (node.state.expanded && (!isGroup || node.state.groupFullSize)) {
+            this.setFullGroupSelection(node, false)
             this.collapse(node)
             node.state.groupFullSize = false
             node.state.groupOffset = 0
         } else {
             node.state.expanded = true
-            if (this.groupStates.has(node.id)) {
+            if (isGroup) {
                 node.state.groupFullSize = true
                 node.state.groupOffset = 0
+                this.setFullGroupSelection(node, true)
             }
         }
 
@@ -1689,6 +1710,211 @@ export class Topology extends React.Component<Props, {}> {
         return levels
     }
 
+    private compactVmLayerKind(node: D3Node): 'system' | 'router' | undefined {
+        const title = this.weightTitles.get(node.data.wrapped.getWeight()) || ''
+        if (/system vm|시스템 가상머신/i.test(title)) return 'system'
+        if (/virtual router|가상 라우터/i.test(title)) return 'router'
+        return undefined
+    }
+
+    private topologyLayoutCardWidth(node: D3Node): number {
+        const wrapped = node.data.wrapped
+        const attrsName = String(this.props.nodeAttrs(wrapped).name || wrapped.data?.Name || '')
+        const displayName = this.props.vmNameMap?.[attrsName] || attrsName
+        return displayName.length <= 14 ? topologyCardWidth : topologyMediumCardWidth
+    }
+
+    private shiftHierarchySubtreeX(node: D3Node, delta: number) {
+        if (!delta) return
+        node.x += delta
+        ;(node.children || []).forEach(child => this.shiftHierarchySubtreeX(child, delta))
+    }
+
+    /**
+     * System VM and virtual-router layers are compacted by their nearest visible
+     * parent. The wider of the two child bundles determines the parent slot, so
+     * sparse groups no longer inherit an equal share of the full layer width.
+     */
+    private compactSystemVmRouterLayout(root: any) {
+        type LayerKind = 'system' | 'router'
+        interface Bundle {
+            kind: LayerKind
+            parent?: D3Node
+            items: D3Node[]
+            width: number
+        }
+        interface Slot {
+            parent?: D3Node
+            bundles: Map<LayerKind, Bundle>
+            width: number
+            desiredCenter: number
+            center: number
+        }
+
+        const descendants = root.descendants() as D3Node[]
+        const bundles = new Map<string, Map<LayerKind, Bundle>>()
+        const nearestVisibleParent = (node: D3Node): D3Node | undefined => {
+            let parent = node.parent
+            while (parent && (parent.data.type === WrapperType.Hidden || parent.data.wrapped === this.root)) {
+                if (parent.data.wrapped === this.root) return undefined
+                parent = parent.parent
+            }
+            return parent
+        }
+
+        descendants.forEach(node => {
+            if (node.data.type === WrapperType.Hidden || node.data.wrapped === this.root) return
+            const kind = this.compactVmLayerKind(node)
+            if (!kind) return
+            const parent = nearestVisibleParent(node)
+            const parentKey = parent?.data.id || '__root__'
+            let parentBundles = bundles.get(parentKey)
+            if (!parentBundles) {
+                parentBundles = new Map<LayerKind, Bundle>()
+                bundles.set(parentKey, parentBundles)
+            }
+            let bundle = parentBundles.get(kind)
+            if (!bundle) {
+                bundle = { kind, parent, items: [], width: 0 }
+                parentBundles.set(kind, bundle)
+            }
+            bundle.items.push(node)
+        })
+
+        const slots = new Array<Slot>()
+        bundles.forEach(parentBundles => {
+            let parent: D3Node | undefined
+            let width = 0
+            let itemCenterTotal = 0
+            let itemCount = 0
+            parentBundles.forEach(bundle => {
+                bundle.items.sort((a, b) => a.x - b.x)
+                bundle.width = bundle.items.reduce((total, item, index) => (
+                    total + this.topologyLayoutCardWidth(item) + (index > 0 ? compactVmNodeGap : 0)
+                ), 0)
+                parent = parent || bundle.parent
+                width = Math.max(width, bundle.width)
+                bundle.items.forEach(item => {
+                    itemCenterTotal += item.x
+                    itemCount += 1
+                })
+            })
+            if (parent) width = Math.max(width, this.topologyLayoutCardWidth(parent))
+            const desiredCenter = parent?.x ?? (itemCount ? itemCenterTotal / itemCount : 0)
+            slots.push({ parent, bundles: parentBundles, width, desiredCenter, center: desiredCenter })
+        })
+
+        if (!slots.length) return
+        slots.sort((a, b) => a.desiredCenter - b.desiredCenter)
+        const totalWidth = slots.reduce((total, slot, index) => (
+            total + slot.width + (index > 0 ? compactVmGroupGap : 0)
+        ), 0)
+        const layoutCenter = (slots[0].desiredCenter + slots[slots.length - 1].desiredCenter) / 2
+        let slotCursor = layoutCenter - totalWidth / 2
+
+        slots.forEach(slot => {
+            slot.center = slotCursor + slot.width / 2
+            slotCursor += slot.width + compactVmGroupGap
+
+            slot.bundles.forEach(bundle => {
+                let itemCursor = slot.center - bundle.width / 2
+                bundle.items.forEach(item => {
+                    const cardWidth = this.topologyLayoutCardWidth(item)
+                    const nextX = itemCursor + cardWidth / 2
+                    this.shiftHierarchySubtreeX(item, nextX - item.x)
+                    itemCursor += cardWidth + compactVmNodeGap
+
+                    let ancestor = item.parent
+                    while (ancestor && ancestor !== slot.parent) {
+                        if (ancestor.data.type === WrapperType.Hidden) ancestor.x = slot.center
+                        ancestor = ancestor.parent
+                    }
+                })
+            })
+
+            if (slot.parent) slot.parent.x = slot.center
+        })
+    }
+
+    private isHostSubtreeRoot(node: D3Node): boolean {
+        const data = node.data.wrapped.data || {}
+        return node.data.type !== WrapperType.Hidden
+            && !data.IsTopologyGroup
+            && String(data.Type || '').toLowerCase() === 'host'
+    }
+
+    private visibleHostSubtreeNodes(host: D3Node): D3Node[] {
+        const nodes = new Array<D3Node>()
+        const visit = (node: D3Node) => {
+            if (node !== host && this.isHostSubtreeRoot(node)) return
+            if (node.data.type !== WrapperType.Hidden) nodes.push(node)
+            ;(node.children || []).forEach(visit)
+        }
+        visit(host)
+        return nodes
+    }
+
+    private horizontalNodeBounds(nodes: D3Node[]): { left: number, right: number } | undefined {
+        if (!nodes.length) return undefined
+        let left = Number.POSITIVE_INFINITY
+        let right = Number.NEGATIVE_INFINITY
+        nodes.forEach(node => {
+            const halfWidth = this.topologyLayoutCardWidth(node) / 2
+            left = Math.min(left, node.x - halfWidth)
+            right = Math.max(right, node.x + halfWidth)
+        })
+        return Number.isFinite(left) && Number.isFinite(right) ? { left, right } : undefined
+    }
+
+    /**
+     * Treat every visible physical host as an independent subtree root. Host
+     * bounds are packed using their real card extents, never a screen-wide or
+     * equal-width slot, and the host card remains centered above its children.
+     */
+    private compactHostSubtreeLayout(root: any) {
+        interface HostSubtree {
+            host: D3Node
+            left: number
+            width: number
+            center: number
+        }
+
+        // Keep the hierarchy traversal order produced by sortNodesFnc. Sorting
+        // again by the post-layout x coordinate makes a render capable of
+        // swapping host slots, even when the render was triggered by selection.
+        const hostSubtrees = (root.descendants() as D3Node[])
+            .filter(node => this.isHostSubtreeRoot(node))
+            .map(host => {
+                const nodes = this.visibleHostSubtreeNodes(host)
+                const childBounds = this.horizontalNodeBounds(nodes.filter(node => node !== host))
+                if (childBounds) host.x = (childBounds.left + childBounds.right) / 2
+                const bounds = this.horizontalNodeBounds(nodes)
+                if (!bounds) return undefined
+                return {
+                    host,
+                    left: bounds.left,
+                    width: bounds.right - bounds.left,
+                    center: (bounds.left + bounds.right) / 2
+                }
+            })
+            .filter((subtree): subtree is HostSubtree => !!subtree)
+
+        if (!hostSubtrees.length) return
+        const totalWidth = hostSubtrees.reduce((total, subtree, index) => (
+            total + subtree.width + (index > 0 ? compactHostSubtreeGap : 0)
+        ), 0)
+        const currentLeft = Math.min(...hostSubtrees.map(subtree => subtree.left))
+        const currentRight = Math.max(...hostSubtrees.map(subtree => subtree.left + subtree.width))
+        const layoutCenter = (currentLeft + currentRight) / 2
+        let cursor = layoutCenter - totalWidth / 2
+
+        hostSubtrees.forEach(subtree => {
+            const targetLeft = cursor
+            this.shiftHierarchySubtreeX(subtree.host, targetLeft - subtree.left)
+            cursor += subtree.width + compactHostSubtreeGap
+        })
+    }
+
     private nodeByID(id: string): Node | undefined {
         let n = this.nodes.get(id)
         if (!n) {
@@ -1701,35 +1927,41 @@ export class Topology extends React.Component<Props, {}> {
         return n
     }
 
-    private unselectAllNodes() {
+    private unselectAllNodes(exceptVisibleID?: string, notify: boolean = true): Node[] {
         var self = this
+        const unselectedNodes: Node[] = []
 
         this.gNodes.selectAll(".node-selected").each(function () {
             var node = select(this)
             if (!node) {
                 return
             }
-            node.classed("node-selected", false)
 
             var id = node.attr("id")
             if (!id) {
                 return
             }
             id = id.replace(/^node-/, '')
+            if (id === exceptVisibleID) {
+                return
+            }
+            node.classed("node-selected", false)
 
             let n = self.nodeByID(id)
             if (!n) {
                 return
             }
             n.state.selected = false
+            unselectedNodes.push(n)
 
-            if (self.props.onNodeSelected) {
+            if (notify && self.props.onNodeSelected) {
                 self.props.onNodeSelected(n, false)
             }
         })
 
         this.hideLinks()
         this.updateLevelLabelActiveClass()
+        return unselectedNodes
     }
 
     private hideLinks() {
@@ -1786,23 +2018,32 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     selectNode(id: string, active: boolean = true, keepExisting: boolean = false) {
-        if (!this.isCtrlPressed && active && !keepExisting) {
-            this.unselectAllNodes()
-            this.unselectAllLinks()
-        }
         let n = this.nodeByID(id)
         if (!n) {
             return
         }
+        const currentVisibleID = this.visibleNodeIDForID(id)
+        let unselectedNodes: Node[] = []
+        let shouldUnselectLinks = false
+        if (!this.isCtrlPressed && active && !keepExisting) {
+            unselectedNodes = this.unselectAllNodes(currentVisibleID, false)
+            shouldUnselectLinks = true
+        }
         const group = this.nodeGroup.get(id)
         if (active && group) {
+            const shouldRenderExpandedGroup = !group.wrapped.state.expanded
             group.wrapped.state.expanded = true
             this.pinnedContainerMiniNodeID = id
-            this.renderTree()
+            // Clicking an already visible child is selection-only. Rebuilding
+            // the entire tree here can unnecessarily recalculate node slots.
+            if (shouldRenderExpandedGroup) {
+                this.renderTree()
+            }
         } else if (active) {
             this.pinnedContainerMiniNodeID = ""
         }
         const visibleID = this.visibleNodeIDForID(id)
+        const selectionChanged = n.state.selected !== active
         n.state.selected = active
         if (group) {
             group.wrapped.state.selected = false
@@ -1814,8 +2055,16 @@ export class Topology extends React.Component<Props, {}> {
             select("#node-" + visibleID).raise()
         }
 
-        if (this.props.onNodeSelected) {
+        // Re-clicking the selected node should reopen the panel without first
+        // dispatching an unselect that briefly empties the selection.
+        if ((selectionChanged || active) && this.props.onNodeSelected) {
             this.props.onNodeSelected(n, active)
+        }
+        if (this.props.onNodeSelected) {
+            unselectedNodes.forEach((node) => this.props.onNodeSelected!(node, false))
+        }
+        if (shouldUnselectLinks) {
+            this.unselectAllLinks()
         }
 
         var d = this.d3nodes.get(visibleID)
@@ -2057,35 +2306,15 @@ export class Topology extends React.Component<Props, {}> {
     private nodeClicked(d: D3Node) {
         event.stopPropagation()
         this.clearRaisedLinkLabel()
+        this.hideNodeContextMenu()
 
-        if (this.nodeClickedID) {
-            return
+        if (this.props.onNodeClicked) {
+            this.props.onNodeClicked(d.data.wrapped)
         }
-
-        this.nodeClickedID = window.setTimeout(() => {
-            this.nodeClickedID = 0
-
-            this.hideNodeContextMenu()
-
-            if (this.props.onNodeClicked) {
-                this.props.onNodeClicked(d.data.wrapped)
-            }
-        }, 170)
     }
 
     private nodeDoubleClicked(d: D3Node) {
-        // it's a dbl click then stop click handler
-        if (this.nodeClickedID) {
-            clearTimeout(this.nodeClickedID)
-            this.nodeClickedID = 0
-        }
-
-        if (d.data.type === WrapperType.Group) {
-            if (this.props.onNodeClicked) {
-                this.props.onNodeClicked(d.data.wrapped)
-            }
-            return
-        }
+        event.stopPropagation()
 
         if (this.props.onNodeDblClicked) {
             this.props.onNodeDblClicked(d.data.wrapped)
@@ -2749,13 +2978,16 @@ export class Topology extends React.Component<Props, {}> {
             .select("rect")
             .attr("height", d.bb.height - 4)
 
-        var text = label.select("text")
-            .attr("style", "")
+        var text = label.select("text.level-label-title")
         var element = text.node()
         if (element) {
             const bbox = (element as SVGTextElement).getBBox()
             const centerY = d.bb.height / 2 + bbox.height / 4
             label.select("text.level-label-icon").attr("y", centerY - 32)
+            const switchIconScale = 1.68
+            const switchIconOffset = (1.4 - switchIconScale) * 32
+            label.select("g.level-label-switch-icon")
+                .attr("transform", `translate(${((localStorage.getItem("language") || "ko") === "en" ? 75 : 65) + switchIconOffset},${centerY - 86 + switchIconOffset}) scale(${switchIconScale})`)
             label.select("text.level-label-badge").attr("y", centerY - 32)
             const titleLines = label.select("text.level-label-title").selectAll("tspan").size()
             label.select("text.level-label-title").attr("y", centerY + (titleLines > 1 ? 32 : 44))
@@ -2888,6 +3120,11 @@ export class Topology extends React.Component<Props, {}> {
         return "\uf538"
     }
 
+    private isSwitchLevelLabel(title: string): boolean {
+        const isSwitchPort = /switch port|스위치 포트/i.test(title)
+        return !isSwitchPort && /switch|스위치/i.test(title)
+    }
+
     private levelLabelBadgeIcon(title: string): string {
         return /system vm|시스템 가상머신/i.test(title) ? "\uf013" : ""
     }
@@ -2954,6 +3191,30 @@ export class Topology extends React.Component<Props, {}> {
             .attr("text-anchor", "middle")
             .attr("x", lang === "en" ? 120 : 110)
             .text((d: LevelRect) => self.levelLabelIcon(self.weightTitles.get(d.weight) || 'Level ' + d.weight))
+        const switchIcon = levelLabelEnter.append("g")
+            .attr("class", "level-label-switch-icon")
+        switchIcon.append("rect")
+            .attr("class", "level-label-switch-icon__body")
+            .attr("x", 9)
+            .attr("y", 21.5)
+            .attr("width", 46)
+            .attr("height", 21)
+            .attr("rx", 3)
+            .attr("ry", 3)
+        const switchPortXs = [17, 21.7, 26.4, 31.1, 35.8, 40.5, 45.2]
+        switchPortXs.forEach((x) => {
+            switchIcon.append("rect")
+                .attr("class", "level-label-switch-icon__detail")
+                .attr("x", x)
+                .attr("y", 29)
+                .attr("width", 4)
+                .attr("height", 6)
+                .attr("rx", 0.6)
+                .attr("ry", 0.6)
+        })
+        switchIcon.append("path")
+            .attr("class", "level-label-switch-icon__detail")
+            .attr("d", "M13.5 30.75a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 1 0 0-2.5M50.7 31.2a.8.8 0 1 0 0 1.6.8.8 0 1 0 0-1.6M52.8 31.2a.8.8 0 1 0 0 1.6.8.8 0 1 0 0-1.6")
         levelLabelEnter.append("text")
             .attr("class", "level-label-badge")
             .attr("text-anchor", "middle")
@@ -2965,6 +3226,8 @@ export class Topology extends React.Component<Props, {}> {
             .attr("x", lang === "en" ? 120 : 110)
         this.updateLevelLabelTitleText(levelLabelEnter.select("text.level-label-title"))
         this.updateLevelLabelTitleText(levelLabel.select("text.level-label-title"))
+        const allLevelLabels = levelLabelEnter.merge(levelLabel)
+        allLevelLabels.classed("level-label-switch", (d: LevelRect) => self.isSwitchLevelLabel(self.weightTitles.get(d.weight) || 'Level ' + d.weight))
         levelLabel.exit().remove()
 
         this.updateLevelLabelActiveClass()
@@ -3188,6 +3451,10 @@ export class Topology extends React.Component<Props, {}> {
             .remove()
     }
 
+    private isGroupContainerNode(_: D3Node): boolean {
+        return false
+    }
+
     private renderNodes(root: any) {
         var self = this
 
@@ -3268,7 +3535,7 @@ export class Topology extends React.Component<Props, {}> {
         }
 
         const isGroupCardNode = (d: D3Node) => d.data.type === WrapperType.Group
-        const isGroupContainerNode = (_: D3Node) => false
+        const isGroupContainerNode = (d: D3Node) => this.isGroupContainerNode(d)
         const isGroupListNode = (_: D3Node) => false
         const groupListWidthForNode = (node: Node) => isCompactGroupListType(node.data?.GroupType || node.data?.Type) ? compactGroupListWidth : groupListWidth
         const cardWidthForNode = (d: D3Node) => {
@@ -3368,6 +3635,12 @@ export class Topology extends React.Component<Props, {}> {
             return false
         }
 
+        const imageIconDimensions = (d: D3Node): { width: number, height: number } => {
+            return this.props.nodeAttrs(d.data.wrapped).iconClass === "network-switch-icon"
+                ? { width: 48, height: 62 }
+                : { width: 34, height: 34 }
+        }
+
         nodeEnter.each(function (d: D3Node) {
             var el = select(this)
             var attrs = self.props.nodeAttrs(d.data.wrapped)
@@ -3375,9 +3648,13 @@ export class Topology extends React.Component<Props, {}> {
             if (isImgIcon(d)) {
                 el.append("image")
                     .attr("class", (d: D3Node) => "node-icon " + attrs.iconClass)
-                    .attr("transform", (d: D3Node) => `translate(${cardIconX(d) - 17},-17)`)
-                    .attr("width", 34)
-                    .attr("height", 34)
+                    .attr("transform", (d: D3Node) => {
+                        const dimensions = imageIconDimensions(d)
+                        return `translate(${cardIconX(d) - dimensions.width / 2},${-dimensions.height / 2})`
+                    })
+                    .attr("width", (d: D3Node) => imageIconDimensions(d).width)
+                    .attr("height", (d: D3Node) => imageIconDimensions(d).height)
+                    .attr("preserveAspectRatio", (d: D3Node) => attrs.iconClass === "network-switch-icon" ? "none" : "xMidYMid meet")
                     .attr("xlink:href", (d: D3Node) => attrs.href)
                     .attr("pointer-events", "none")
             } else {
@@ -3956,7 +4233,13 @@ export class Topology extends React.Component<Props, {}> {
                 const attrs = self.props.nodeAttrs(d.data.wrapped)
                 return "node-icon " + attrs.iconClass
             })
-            .attr("transform", (d: D3Node) => `translate(${cardIconX(d) - 17},-17)`)
+            .attr("transform", (d: D3Node) => {
+                const dimensions = imageIconDimensions(d)
+                return `translate(${cardIconX(d) - dimensions.width / 2},${-dimensions.height / 2})`
+            })
+            .attr("width", (d: D3Node) => imageIconDimensions(d).width)
+            .attr("height", (d: D3Node) => imageIconDimensions(d).height)
+            .attr("preserveAspectRatio", (d: D3Node) => self.props.nodeAttrs(d.data.wrapped).iconClass === "network-switch-icon" ? "none" : "xMidYMid meet")
             .attr("xlink:href", (d: D3Node) => self.props.nodeAttrs(d.data.wrapped).href)
 
         node.select("text.node-icon")
@@ -4415,7 +4698,7 @@ export class Topology extends React.Component<Props, {}> {
                     originalNode = originalNode.parent || undefined
                 }
             }
-            if (!group || group.id !== visibleNode.id || !group.wrapped.state.expanded) {
+            if (!group || group.id !== visibleNode.id || !group.wrapped.state.expanded || !this.isGroupContainerNode(d3node)) {
                 return { x: d3node.x, y: d3node.y, node: visibleNode, embedded: false }
             }
 
@@ -4776,10 +5059,16 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     renderTree() {
+        // Group expansion can replace a proxy group endpoint with an individual
+        // child node, so visible links must follow the newly rendered tree.
+        this.visibleLinksCache = undefined
+
         var normRoot = this.normalizeTree(this.root)
 
         var root = hierarchy(normRoot)
         this.tree(root)
+        this.compactSystemVmRouterLayout(root)
+        this.compactHostSubtreeLayout(root)
 
         // update d3nodes cache
         this.d3nodes = new Map<string, D3Node>()

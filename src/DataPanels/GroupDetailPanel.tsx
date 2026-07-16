@@ -43,7 +43,7 @@ interface NetworkSummary {
     tooltip: React.ReactNode
 }
 
-class GroupDetailPanel extends React.PureComponent<Props, State> {
+class GroupDetailPanel extends React.Component<Props, State> {
     state: State = {
         search: ''
     }
@@ -70,6 +70,10 @@ class GroupDetailPanel extends React.PureComponent<Props, State> {
 
     private groupTitle(): string {
         return this.props.nodeAttrs(this.props.node).name || this.props.node.data?.Name || '그룹'
+    }
+
+    private isNodeVisible(node: Node): boolean {
+        return this.props.visibleNodeIDs.has(node.id) || !!node.state?.selected
     }
 
     private vmNetworkSummary(node: Node): NetworkSummary | undefined {
@@ -128,7 +132,7 @@ class GroupDetailPanel extends React.PureComponent<Props, State> {
     render() {
         const children = this.children()
         const filtered = this.filteredChildren()
-        const visibleCount = children.filter((node) => this.props.visibleNodeIDs.has(node.id)).length
+        const visibleCount = children.filter((node) => this.isNodeVisible(node)).length
 
         return (
             <div className="netdive-group-detail">
@@ -168,10 +172,11 @@ class GroupDetailPanel extends React.PureComponent<Props, State> {
                                 const status = statusOf(node)
                                 const networkSummary = this.vmNetworkSummary(node)
                                 const ip = networkSummary ? networkSummary.text : ipOf(node)
-                                const visible = this.props.visibleNodeIDs.has(node.id)
+                                const visible = this.isNodeVisible(node)
                                 return (
                                     <List.Item
                                         className={`netdive-group-detail-item ${visible ? 'is-selected' : ''}`}
+                                        aria-selected={visible}
                                         onClick={() => this.props.onNodeSelect(node)}>
                                         <Avatar
                                             className={`netdive-group-detail-nodeAvatar ${status.className}`}

@@ -28,12 +28,19 @@ import DataPanel from './StdDataPanel'
 import { a11yProps, TabPanel } from './Tabs'
 import { AppState, session } from './Store'
 import { styles } from './SelectionPanelStyles'
-import ConfigReducer, { translate } from './Config'
+import ConfigReducer, { translate, WEIGHT_BRIDGES, WEIGHT_VIRT_BRIDGES } from './Config'
 import HostDetailPanel from './DataPanels/HostDetailPanel'
 import VMDetailPanel from './DataPanels/VMDetailPanel'
+import SystemVMDetailPanel from './DataPanels/SystemVMDetailPanel'
 import VMNetworkDetailPanel from './DataPanels/VMNetworkDetailPanel'
 import GroupDetailPanel from './DataPanels/GroupDetailPanel'
 import SwitchDetailPanel from './DataPanels/SwitchDetailPanel'
+import SwitchPortDetailPanel from './DataPanels/SwitchPortDetailPanel'
+import BondDetailPanel from './DataPanels/BondDetailPanel'
+import NicDetailPanel from './DataPanels/NicDetailPanel'
+import HostBridgeDetailPanel from './DataPanels/HostBridgeDetailPanel'
+import VirtualBridgeDetailPanel from './DataPanels/VirtualBridgeDetailPanel'
+import VlanDetailPanel from './DataPanels/VlanDetailPanel'
 
 
 interface Props {
@@ -52,6 +59,7 @@ interface Props {
   vmNameMap?: Record<string, string>
   vmNetworkMap?: Record<string, Array<{ networkName: string, macAddress: string, ipAddress: string }>>
   vmDetailMap?: Record<string, any>
+  managementServers?: any[]
   groupVisibleNodeIDs?: Set<string>
   nodeDisplayName?: (node: Node) => string
   onGroupChildToggle?: (node: Node) => void
@@ -134,19 +142,16 @@ class SelectionPanel extends React.Component<Props, State> {
         var title = this.props.config.linkTabTitle(el)
       }
 
-      const iconRender = () => {
-        if (href) {
-          return (
-            <img src={href} className={classes.iconImg} />
-          )
-        }
-        return icon
-      }
-
       const subtitle = this.tabSubtitle(el)
+      const isSwitchIcon = el.type === 'node' && String(el.data?.Type || el.data?.type || '').toLowerCase() === 'switch'
+      const tabIcon = isSwitchIcon
+        ? <span className={classes.tabSwitchIcon} aria-hidden="true" />
+        : href
+        ? <img src={href} className={classes.tabIconImage} alt="" />
+        : <span className={className}>{icon}</span>
 
       return (
-        <Tab className={classes.tabRoot} icon={<span className={className}>{iconRender()}</span>}
+        <Tab className={classes.tabRoot} icon={tabIcon}
           key={"tab-" + i}
           label={
             <Tooltip title={title} placement="bottom">
@@ -241,6 +246,12 @@ class SelectionPanel extends React.Component<Props, State> {
       return type === 'libvirt' || type === 'vm' || type === 'virtualmachine' || /^r-/.test(name) || /^(s-|v-)/.test(name) || name === 'ccvm' || name === 'scvm'
     }
 
+    const isSystemVMNode = (el: Node | Link): boolean => {
+      if (el.type !== 'node') return false
+      const name = String(el.data?.Name || el.data?.name || '').toLowerCase()
+      return /^(s-|v-)/.test(name) || name === 'ccvm' || name === 'scvm'
+    }
+
     const isVMNetworkNode = (el: Node | Link): boolean => {
       if (el.type !== 'node') return false
       const data = el.data || {}
@@ -259,6 +270,42 @@ class SelectionPanel extends React.Component<Props, State> {
 
     const isSwitchNode = (el: Node | Link): boolean => {
       return el.type === 'node' && String(el.data?.Type || el.data?.type || '').toLowerCase() === 'switch'
+    }
+
+    const isSwitchPortNode = (el: Node | Link): boolean => {
+      return el.type === 'node' && String(el.data?.Type || el.data?.type || '').toLowerCase() === 'switchport'
+    }
+
+    const isBondNode = (el: Node | Link): boolean => {
+      if (el.type !== 'node') return false
+      const type = String(el.data?.Type || el.data?.type || '').toLowerCase()
+      const driver = String(el.data?.Driver || el.data?.driver || '').toLowerCase()
+      return type === 'bond' || driver === 'bonding'
+    }
+
+    const isNicNode = (el: Node | Link): boolean => {
+      if (el.type !== 'node') return false
+      const type = String(el.data?.Type || el.data?.type || '').toLowerCase()
+      const probe = String(el.data?.Probe || el.data?.probe || '').toLowerCase()
+      return type === 'device' && probe !== 'fabric'
+    }
+
+    const isVlanNode = (el: Node | Link): boolean => {
+      return el.type === 'node' && String(el.data?.Type || el.data?.type || '').toLowerCase() === 'vlan'
+    }
+
+    const isHostBridgeNode = (el: Node | Link): boolean => {
+      if (el.type !== 'node') return false
+      const data = el.data || {}
+      const type = String(data.Type || data.type || '').toLowerCase()
+      return type === 'bridge' && this.props.config.nodeAttrs(el).weight === WEIGHT_BRIDGES
+    }
+
+    const isVirtualBridgeNode = (el: Node | Link): boolean => {
+      if (el.type !== 'node') return false
+      const data = el.data || {}
+      const type = String(data.Type || data.type || '').toLowerCase()
+      return type === 'bridge' && this.props.config.nodeAttrs(el).weight === WEIGHT_VIRT_BRIDGES
     }
 
     return this.props.selection.map((el: Node | Link, i: number) => {
@@ -310,10 +357,24 @@ class SelectionPanel extends React.Component<Props, State> {
                     this.setState({ preferredTabID: el.id })
                     this.props.onGroupChildrenDisplayChange && this.props.onGroupChildrenDisplayChange([node], false)
                   }} />
+              : isSwitchPortNode(el)
+              ? <SwitchPortDetailPanel node={el as Node} />
+              : isBondNode(el)
+              ? <BondDetailPanel node={el as Node} />
+              : isVlanNode(el)
+              ? <VlanDetailPanel node={el as Node} />
+              : isNicNode(el)
+              ? <NicDetailPanel node={el as Node} />
+              : isHostBridgeNode(el)
+              ? <HostBridgeDetailPanel node={el as Node} nodeDisplayName={this.props.nodeDisplayName} />
+              : isVirtualBridgeNode(el)
+              ? <VirtualBridgeDetailPanel node={el as Node} nodeDisplayName={this.props.nodeDisplayName} />
               : isVMNetworkNode(el)
               ? <VMNetworkDetailPanel node={el as Node} moldInventory={this.props.moldInventory} vmNameMap={this.props.vmNameMap} vmNetworkMap={this.props.vmNetworkMap} vmDetailMap={this.props.vmDetailMap} />
               : el.type === 'node' && String(el.data?.Type || '').toLowerCase() === 'host'
               ? <HostDetailPanel node={el as Node} session={this.props.session} moldInventory={this.props.moldInventory} infrastructureHostSummaries={this.props.infrastructureHostSummaries} kubernetesClusters={this.props.kubernetesClusters} />
+              : isSystemVMNode(el)
+              ? <SystemVMDetailPanel node={el as Node} session={this.props.session} moldInventory={this.props.moldInventory} vmNameMap={this.props.vmNameMap} vmNetworkMap={this.props.vmNetworkMap} vmDetailMap={this.props.vmDetailMap} managementServers={this.props.managementServers} />
               : isVMNode(el)
               ? <VMDetailPanel node={el as Node} session={this.props.session} moldInventory={this.props.moldInventory} vmNameMap={this.props.vmNameMap} vmNetworkMap={this.props.vmNetworkMap} vmDetailMap={this.props.vmDetailMap} />
               : isSwitchNode(el)
