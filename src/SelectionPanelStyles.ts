@@ -162,6 +162,26 @@ export const styles = (theme: Theme) => createStyles({
     transform: 'scaleY(1.1)',
     transformOrigin: 'center'
   },
+  tabDeploymentIcon: {
+    display: 'block',
+    flex: '0 0 30px',
+    width: 30,
+    height: 30,
+    marginBottom: `0 !important`,
+    backgroundColor: '#1677ff',
+    WebkitMask: 'url(assets/icons/deployment-controller.svg) center / contain no-repeat',
+    mask: 'url(assets/icons/deployment-controller.svg) center / contain no-repeat'
+  },
+  tabDaemonSetIcon: {
+    display: 'block',
+    flex: '0 0 30px',
+    width: 30,
+    height: 30,
+    marginBottom: `0 !important`,
+    backgroundColor: '#1677ff',
+    WebkitMask: 'url(assets/icons/daemonset-controller.svg) center / contain no-repeat',
+    mask: 'url(assets/icons/daemonset-controller.svg) center / contain no-repeat'
+  },
   tabIconFree: {
     fontFamily: `"Font Awesome 5 Free" !important`,
     fontWeight: 900,

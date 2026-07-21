@@ -72,6 +72,10 @@ class GroupDetailPanel extends React.Component<Props, State> {
         return this.props.nodeAttrs(this.props.node).name || this.props.node.data?.Name || '그룹'
     }
 
+    private groupScope(): string {
+        return String(this.props.node.data?.GroupScopeLabel || '').trim()
+    }
+
     private isNodeVisible(node: Node): boolean {
         return this.props.visibleNodeIDs.has(node.id) || !!node.state?.selected
     }
@@ -133,6 +137,8 @@ class GroupDetailPanel extends React.Component<Props, State> {
         const children = this.children()
         const filtered = this.filteredChildren()
         const visibleCount = children.filter((node) => this.isNodeVisible(node)).length
+        const groupScope = this.groupScope()
+        const groupCountDescription = `${children.length}개 노드${visibleCount > 0 ? ` · 표시 ${visibleCount}` : ''}`
 
         return (
             <div className="netdive-group-detail">
@@ -141,7 +147,7 @@ class GroupDetailPanel extends React.Component<Props, State> {
                     bodyClassName="netdive-group-detail-content"
                     icon={<span className="fa fas fa-layer-group" />}
                     title={this.groupTitle()}
-                    description={`${children.length}개 노드${visibleCount > 0 ? ` · 표시 ${visibleCount}` : ''}`}
+                    description={groupScope ? `${groupScope} · ${groupCountDescription}` : groupCountDescription}
                     action={
                         <Space size={6}>
                             <Button type="primary" onClick={() => this.props.onNodesSelect(filtered)} disabled={filtered.length === 0}>

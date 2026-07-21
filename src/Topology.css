@@ -367,6 +367,22 @@ svg {
     fill: #101828;
 }
 
+.node.deployment .node-card-title tspan:last-of-type,
+.node.statefulset .node-card-title tspan:last-of-type,
+.node.daemonset .node-card-title tspan:last-of-type,
+.node.job .node-card-title tspan:last-of-type,
+.node.cronjob .node-card-title tspan:last-of-type {
+    fill: #475467;
+    font-size: 17px;
+    font-weight: 600;
+}
+
+.node-group-card .node-card-title tspan:nth-child(2) {
+    fill: #667085;
+    font-size: 15px;
+    font-weight: 500;
+}
+
 .node-group-card {
     cursor: pointer;
 }

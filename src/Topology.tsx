@@ -46,6 +46,8 @@ const topologyCardWidth = 280
 const topologyMediumCardWidth = 360
 // 노드 카드에서 아이콘/배지 영역을 제외한 텍스트 계산 여백입니다.
 const topologyCardTextPadding = 104
+// 같은 계층의 카드 경계 사이에 유지할 최소 가로 여백입니다.
+const topologySiblingCardGap = 36
 // 일반 토폴로지 노드 카드의 높이입니다.
 const topologyCardHeight = 92
 // 2줄 노드 이름의 줄 간격입니다.
@@ -90,6 +92,10 @@ const kubernetesNodeHorizontalGapBoost = 150
 const kubernetesNodeLabelWidthBoost = 95
 // Kubernetes 네임스페이스 계층에서 노드 간 가로 간격을 추가로 넓히는 값입니다.
 const kubernetesNamespaceHorizontalGapBoost = 160
+// Kubernetes 워크로드에서 파드 계층으로 내려갈 때 추가할 세로 여백입니다.
+const kubernetesWorkloadVerticalGapBoost = 16
+// 고정된 좌측 계층 라벨과 토폴로지 카드 사이의 화면 안전 영역입니다.
+const topologyLevelLabelSafeInset = 200
 // 시스템 VM / 가상 라우터 compact 레이아웃의 카드 및 그룹 최소 간격입니다.
 const compactVmNodeGap = 24
 const compactVmGroupGap = 64
@@ -448,6 +454,12 @@ class NodeWrapper {
             const isKubernetesCluster = node?.data?.Manager === "k8s" && node?.data?.Type === "cluster"
             const isKubernetesNode = node?.data?.Manager === "k8s" && node?.data?.Type === "node"
             const isKubernetesNamespace = node?.data?.Manager === "k8s" && node?.data?.Type === "namespace"
+            const kubernetesType = node?.data?.Manager === "k8s" ? String(node?.data?.Type || "").toLowerCase() : ""
+            const isKubernetesWorkload = ["deployment", "statefulset", "daemonset", "job", "cronjob"].indexOf(kubernetesType) >= 0
+            const isKubernetesDenseLayer = isKubernetesWorkload || kubernetesType === "pod" || kubernetesType === "service"
+            const kubernetesName = String(node?.data?.Name || "")
+            const kubernetesCardWidth = kubernetesName.length <= 14 ? topologyCardWidth : topologyMediumCardWidth
+            const kubernetesDenseLayerWidth = Math.max(nodeWidth, kubernetesCardWidth + topologySiblingCardGap)
             this.size = [
                 isUserVmNode || isVmInterfaceNode
                     ? nodeWidth + userVmHorizontalGapBoost
@@ -457,8 +469,14 @@ class NodeWrapper {
                         ? nodeWidth + kubernetesNodeHorizontalGapBoost
                         : isKubernetesNamespace
                             ? nodeWidth + kubernetesNamespaceHorizontalGapBoost
+                        : isKubernetesDenseLayer
+                            ? kubernetesDenseLayerWidth
                         : nodeWidth,
-                isUserVmNode || isVmInterfaceNode ? nodeHeight + userVmVerticalGapBoost : nodeHeight
+                isUserVmNode || isVmInterfaceNode
+                    ? nodeHeight + userVmVerticalGapBoost
+                    : isKubernetesWorkload
+                        ? nodeHeight + kubernetesWorkloadVerticalGapBoost
+                        : nodeHeight
             ]
         }
     }
@@ -514,8 +532,10 @@ interface Props {
     linkAttrs: (link: Link) => LinkAttrs
     weightTitles?: Map<number, string>
     groupType?: (node: Node) => string
-    groupName?: (node: Node) => string
-    groupSize?: number
+    groupName?: (node: Node, count?: number) => string
+    groupSize?: number | ((node: Node) => number)
+    groupThreshold?: number | ((node: Node) => number)
+    nodeVisible?: (node: Node) => boolean
     onLinkSelected: (link: Link, isSelected: boolean) => void
     onLinkTagChange: (tags: Map<string, LinkTagState>) => void
     onNodeClicked: (node: Node) => void
@@ -1236,12 +1256,66 @@ export class Topology extends React.Component<Props, {}> {
     private groupify(node: NodeWrapper): Map<string, NodeWrapper> {
         var groups = new Map<string, NodeWrapper>()
 
+        const primitiveScopeValue = (value: any): string => typeof value === "string" ? value.trim() : ""
+        const kubernetesGroupScope = (child: Node, groupParent?: Node): { label: string, clusterName: string, namespaceName: string, workloadName: string } => {
+            const collectedClusterName = primitiveScopeValue(child.data?.ClusterName || child.data?.clusterName || child.data?.K8s?.ClusterName || child.data?.Cluster)
+            const collectedNamespaceName = primitiveScopeValue(child.data?.Namespace || child.data?.K8s?.Namespace || child.data?.K8s?.Extra?.ObjectMeta?.Namespace)
+            let clusterName = ""
+            let namespaceName = ""
+            let workloadName = ""
+            // A topology group is created under `groupParent`. Prefer that
+            // rendered hierarchy over the source node's parent, which can point
+            // to an intermediate or stale object after the tree is cloned.
+            let parent: Node | null | undefined = groupParent || child.parent
+            while (parent) {
+                const parentType = String(parent.data?.Type || "").toLowerCase()
+                const parentName = primitiveScopeValue(parent.data?.Name)
+                if (!clusterName && parentType === "cluster") clusterName = parentName
+                if (!namespaceName && parentType === "namespace") namespaceName = parentName
+                if (!workloadName && ["deployment", "statefulset", "daemonset", "job", "cronjob"].indexOf(parentType) >= 0) {
+                    workloadName = parentName
+                }
+                parent = parent.parent
+            }
+
+            clusterName = clusterName || collectedClusterName
+            namespaceName = namespaceName || collectedNamespaceName
+
+            const childType = String(child.data?.Type || "").toLowerCase()
+            let label = ""
+            if (childType === "cluster") {
+                label = ""
+            } else if (childType === "node" || childType === "namespace") {
+                label = clusterName
+            } else if (childType === "pod") {
+                label = workloadName || namespaceName || clusterName
+            } else {
+                label = namespaceName || clusterName
+            }
+            return { label, clusterName, namespaceName, workloadName }
+        }
+        const kubernetesServiceScope = (child: Node): string => {
+            let clusterName = primitiveScopeValue(child.data?.ClusterName || child.data?.clusterName || child.data?.K8s?.ClusterName || child.data?.Cluster)
+            let namespaceName = primitiveScopeValue(child.data?.Namespace || child.data?.K8s?.Namespace || child.data?.K8s?.Extra?.ObjectMeta?.Namespace)
+            let parent = child.parent
+            while (parent && (!clusterName || !namespaceName)) {
+                const parentType = String(parent.data?.Type || "").toLowerCase()
+                if (!namespaceName && parentType === "namespace") namespaceName = primitiveScopeValue(parent.data?.Name)
+                if (!clusterName && parentType === "cluster") clusterName = primitiveScopeValue(parent.data?.Name)
+                parent = parent.parent
+            }
+            return [clusterName, namespaceName].filter(Boolean).map(value => encodeURIComponent(value)).join("_") || "unscoped"
+        }
+
         var nodeTypeGID = (node: Node, child: Node): [string, string] | undefined => {
             var nodeType = this.props.groupType ? this.props.groupType(child) : child.data.Type
             if (!nodeType) {
                 return
             }
-            var gid = node.id + "_" + nodeType + "_" + child.getWeight()
+            const serviceScope = child.data?.Manager === "k8s" && String(child.data?.Type || "").toLowerCase() === "service"
+                ? "_" + kubernetesServiceScope(child)
+                : ""
+            var gid = node.id + "_" + nodeType + "_" + child.getWeight() + serviceScope
 
             return [nodeType, gid]
         }
@@ -1266,6 +1340,11 @@ export class Topology extends React.Component<Props, {}> {
                     groupData.Manager = child.wrapped.data.Manager
                     groupData.Type = child.wrapped.data.Type || nodeType
                     groupData.GroupType = nodeType
+                    const scope = kubernetesGroupScope(child.wrapped, node.wrapped)
+                    groupData.GroupScopeLabel = scope.label
+                    groupData.GroupClusterName = scope.clusterName
+                    groupData.GroupNamespaceName = scope.namespaceName
+                    groupData.GroupWorkloadName = scope.workloadName
                 }
 
                 var wrapped = new Node(gid, [], groupData, state, () => { return child.wrapped.getWeight() })
@@ -1282,6 +1361,13 @@ export class Topology extends React.Component<Props, {}> {
             wrapper.children.push(child)
 
             groups.set(gid, wrapper)
+        })
+
+        groups.forEach(wrapper => {
+            const firstChild = wrapper.wrapped.children[0]
+            if (firstChild && this.props.groupName) {
+                wrapper.wrapped.data.Name = this.props.groupName(firstChild, wrapper.wrapped.children.length)
+            }
         })
 
         var pushed = new Set<string>()
@@ -1304,7 +1390,8 @@ export class Topology extends React.Component<Props, {}> {
             }
 
             var wrapper = groups.get(gid)
-            var groupSize = this.props.groupSize || defaultGroupSize
+            const configuredGroupSize = this.props.groupThreshold === undefined ? this.props.groupSize : this.props.groupThreshold
+            var groupSize = typeof configuredGroupSize === 'function' ? configuredGroupSize(child.wrapped) : configuredGroupSize || defaultGroupSize
             if (wrapper && wrapper.wrapped.children.length > groupSize) {
                 children.push(wrapper)
                 if (wrapper.wrapped.state.expanded) {
@@ -1356,6 +1443,10 @@ export class Topology extends React.Component<Props, {}> {
         })
         if (this.props.sortNodesFnc) {
             cloned.children.sort((a, b) => this.props.sortNodesFnc(a.wrapped, b.wrapped))
+        }
+
+        if (node.id !== "root" && this.props.nodeVisible && !this.props.nodeVisible(node)) {
+            return [null, cloned.children]
         }
 
         if (node.id === "root" || matchTags) {
@@ -1721,7 +1812,8 @@ export class Topology extends React.Component<Props, {}> {
         const wrapped = node.data.wrapped
         const attrsName = String(this.props.nodeAttrs(wrapped).name || wrapped.data?.Name || '')
         const displayName = this.props.vmNameMap?.[attrsName] || attrsName
-        return displayName.length <= 14 ? topologyCardWidth : topologyMediumCardWidth
+        const longestLineLength = displayName.split("\n").reduce((length, line) => Math.max(length, line.length), 0)
+        return longestLineLength <= 14 ? topologyCardWidth : topologyMediumCardWidth
     }
 
     private shiftHierarchySubtreeX(node: D3Node, delta: number) {
@@ -2171,12 +2263,13 @@ export class Topology extends React.Component<Props, {}> {
         }
         var midX = bounds.x + width / 2, midY = bounds.y + height / 2
 
-        var scale = 0.65 / Math.max(width / viewSize.width, height / viewSize.height)
+        const usableWidth = Math.max(320, viewSize.width - topologyLevelLabelSafeInset)
+        var scale = 0.65 / Math.max(width / usableWidth, height / viewSize.height)
         if (scale > 1) {
             scale = 1
         }
 
-        this.absTransformX = viewSize.width / 2 - midX * scale
+        this.absTransformX = topologyLevelLabelSafeInset + usableWidth / 2 - midX * scale
         this.absTransformY = viewSize.height / 2 - midY * scale
 
         var t = zoomIdentity
@@ -2376,7 +2469,8 @@ export class Topology extends React.Component<Props, {}> {
                 if (group) {
                     let offset = group.wrapped.children.findIndex(child => child.id === id)
                     if (offset >= 0) {
-                        let size = this.props.groupSize || defaultGroupSize
+                        const configuredGroupSize = this.props.groupSize
+                        let size = typeof configuredGroupSize === 'function' ? configuredGroupSize(group.wrapped.children[0] || group.wrapped) : configuredGroupSize || defaultGroupSize
                         if (offset + size > group.wrapped.children.length) {
                             offset = group.wrapped.children.length - size
                         }
@@ -2576,7 +2670,8 @@ export class Topology extends React.Component<Props, {}> {
             return
         }
         var midX = bounds.x + bounds.width / 2, midY = bounds.y + bounds.height / 2
-        var scale = 0.72 / Math.max(width / viewSize.width, height / viewSize.height)
+        const usableWidth = Math.max(320, viewSize.width - topologyLevelLabelSafeInset)
+        var scale = 0.72 / Math.max(width / usableWidth, height / viewSize.height)
         if (scale > 1) {
             scale = 1
         }
@@ -2584,7 +2679,7 @@ export class Topology extends React.Component<Props, {}> {
             scale = 0.18
         }
 
-        this.absTransformX = viewSize.width / 2 - midX * scale
+        this.absTransformX = topologyLevelLabelSafeInset + usableWidth / 2 - midX * scale
         this.absTransformY = viewSize.height / 2 - midY * scale
 
         var t = zoomIdentity
@@ -3001,8 +3096,12 @@ export class Topology extends React.Component<Props, {}> {
         switch (title) {
             case "쿠버네티스 네임스페이스":
                 return ["쿠버네티스", "네임스페이스"]
+            case "쿠버네티스 워크로드 컨트롤러":
+                return ["쿠버네티스", "워크로드 컨트롤러"]
             case "Kubernetes Namespaces":
                 return ["Kubernetes", "Namespaces"]
+            case "Kubernetes Workload Controllers":
+                return ["Kubernetes", "Workload Controllers"]
             default:
                 return [title]
         }
@@ -3057,6 +3156,9 @@ export class Topology extends React.Component<Props, {}> {
         if (/kubernetes.*node|쿠버네티스.*노드/i.test(title)) {
             return "\uf233"
         }
+        if (/kubernetes.*workload|쿠버네티스.*워크로드/i.test(title)) {
+            return "\uf5fd"
+        }
         if (/kubernetes.*namespace|쿠버네티스.*네임스페이스/i.test(title)) {
             return "\uf07b"
         }
@@ -3067,7 +3169,7 @@ export class Topology extends React.Component<Props, {}> {
             return "\uf4b7"
         }
         if (/kubernetes.*service|쿠버네티스.*서비스/i.test(title)) {
-            return "\uf0e8"
+            return "\uf1e0"
         }
         if (/other kubernetes|기타 쿠버네티스/i.test(title)) {
             return "\uf542"
@@ -3533,8 +3635,34 @@ export class Topology extends React.Component<Props, {}> {
             const data = d.data.wrapped.data || {}
             return String(data.Type || '').toLowerCase() === 'switch'
         }
+        const isKubernetesNameWrapNode = (d: D3Node) => {
+            const data = d.data.wrapped.data || {}
+            const type = String(data.Type || '').toLowerCase()
+            return d.data.type !== WrapperType.Group
+                && String(data.Manager || '').toLowerCase() === 'k8s'
+                && ["node", "namespace", "pod", "service"].indexOf(type) >= 0
+        }
 
         const isGroupCardNode = (d: D3Node) => d.data.type === WrapperType.Group
+        const groupCardScope = (d: D3Node) => {
+            const data = d.data.wrapped.data || {}
+            const storedScope = String(data.GroupScopeLabel || '').trim()
+            if (storedScope) return storedScope
+            if (String(data.Manager || '').toLowerCase() !== 'k8s') return ''
+
+            const parentData = d.parent?.data?.wrapped?.data || {}
+            const parentType = String(parentData.Type || '').toLowerCase()
+            if (["cluster", "namespace", "deployment", "statefulset", "daemonset", "job", "cronjob"].indexOf(parentType) < 0) {
+                return ''
+            }
+            return String(parentData.Name || '').trim()
+        }
+        const groupCardTooltip = (d: D3Node) => {
+            const groupName = String(self.props.nodeAttrs(d.data.wrapped).name || d.data.wrapped.data?.Name || '')
+            const scope = groupCardScope(d)
+            const scopedName = scope ? `${scope} / ${groupName}` : groupName
+            return `${scopedName}\n${d.data.wrapped.state.expanded ? "더블클릭하여 접기" : "클릭하여 모든 노드 보기"}`
+        }
         const isGroupContainerNode = (d: D3Node) => this.isGroupContainerNode(d)
         const isGroupListNode = (_: D3Node) => false
         const groupListWidthForNode = (node: Node) => isCompactGroupListType(node.data?.GroupType || node.data?.Type) ? compactGroupListWidth : groupListWidth
@@ -3546,7 +3674,8 @@ export class Topology extends React.Component<Props, {}> {
                 return groupContainerWidth
             }
             const displayName = getNodeDisplayName(d)
-            return displayName.length <= 14 ? topologyCardWidth : topologyMediumCardWidth
+            const longestLineLength = displayName.split("\n").reduce((length, line) => Math.max(length, line.length), 0)
+            return longestLineLength <= 14 ? topologyCardWidth : topologyMediumCardWidth
         }
         const cardIconX = (d: D3Node) => -cardWidthForNode(d) / 2 + 38
         const cardTextX = (d: D3Node) => cardIconX(d) + 43
@@ -3606,7 +3735,7 @@ export class Topology extends React.Component<Props, {}> {
             .attr("ry", 12)
             .attr("pointer-events", "all")
             .append("title")
-            .text((d: D3Node) => isGroupCardNode(d) ? "클릭하여 모든 노드 보기" : getNodeDisplayName(d))
+            .text((d: D3Node) => isGroupCardNode(d) ? groupCardTooltip(d) : getNodeDisplayName(d))
 
         card.append("circle")
             .attr("class", "node-card-icon-bg")
@@ -3759,6 +3888,13 @@ export class Topology extends React.Component<Props, {}> {
             const nodeData = d.data.wrapped.data || {}
             const vmNameMap = self.props.vmNameMap || {}
             const vmNetworkMap = self.props.vmNetworkMap || {}
+
+            if (d.data.type === WrapperType.Group) {
+                const scope = groupCardScope(d)
+                if (scope) {
+                    return `${attrsName}\n${scope}`
+                }
+            }
 
             // For VM child NIC nodes, prefer operator-facing label:
             // IP > Mold network name > existing interface name.
@@ -4045,9 +4181,16 @@ export class Topology extends React.Component<Props, {}> {
                 const textNode = this as SVGTextElement
                 const textX = cardTitleX(d)
 
-                const fitLine = (value: string): string => {
+                const workloadTypes = new Set(["deployment", "statefulset", "daemonset", "job", "cronjob"])
+                const isWorkloadCard = d.data.wrapped.data?.Manager === "k8s" && workloadTypes.has(String(d.data.wrapped.data?.Type || "").toLowerCase())
+                const isScopedGroupCard = d.data.type === WrapperType.Group && !!String(d.data.wrapped.data?.GroupScopeLabel || '').trim()
+                const fitLine = (value: string, fontSize?: number): string => {
+                    if (fontSize) {
+                        title.style("font-size", `${fontSize}px`)
+                    }
                     title.text(value)
                     if (textNode.getComputedTextLength() <= availableWidth) {
+                        if (fontSize) title.style("font-size", null)
                         return value
                     }
                     let low = 1
@@ -4064,6 +4207,7 @@ export class Topology extends React.Component<Props, {}> {
                             high = mid - 1
                         }
                     }
+                    if (fontSize) title.style("font-size", null)
                     return best || "..."
                 }
 
@@ -4071,35 +4215,49 @@ export class Topology extends React.Component<Props, {}> {
                 title.text(null)
 
                 let targetLines: string[]
-                if ((isUserVmNode(d) || isSwitchNode(d)) && fullText.indexOf("\n") < 0) {
-                    title.text(fullText)
+                const splitLongName = (value: string): string[] => {
+                    title.text(value)
                     const fitsOneLine = textNode.getComputedTextLength() <= availableWidth
                     title.text(null)
                     if (fitsOneLine) {
-                        targetLines = [fullText]
-                    } else {
-                        const midpoint = Math.ceil(fullText.length / 2)
-                        let splitIndex = fullText.lastIndexOf("-", midpoint)
-                        if (splitIndex < Math.max(6, midpoint - 12)) {
-                            splitIndex = fullText.lastIndexOf("_", midpoint)
-                        }
-                        if (splitIndex < Math.max(6, midpoint - 12)) {
-                            splitIndex = fullText.indexOf("-", midpoint)
-                        }
-                        if (splitIndex < 6) {
-                            splitIndex = midpoint
-                        }
-                        const first = fullText.substring(0, splitIndex).replace(/[-_\s]+$/, "")
-                        const second = fullText.substring(splitIndex).replace(/^[-_\s]+/, "")
-                        targetLines = (second ? [first, second] : [fullText]).slice(0, 2)
+                        return [value]
                     }
-                } else {
-                    const lines = fullText.split("\n").filter((line) => line.length > 0)
-                    targetLines = lines.length > 1 ? lines.slice(0, 2) : [fullText]
+
+                    const midpoint = Math.ceil(value.length / 2)
+                    let splitIndex = value.lastIndexOf("-", midpoint)
+                    if (splitIndex < Math.max(6, midpoint - 12)) {
+                        splitIndex = value.lastIndexOf("_", midpoint)
+                    }
+                    if (splitIndex < Math.max(6, midpoint - 12)) {
+                        splitIndex = value.indexOf("-", midpoint)
+                    }
+                    if (splitIndex < 6) {
+                        splitIndex = midpoint
+                    }
+                    const first = value.substring(0, splitIndex).replace(/[-_\s]+$/, "")
+                    const second = value.substring(splitIndex).replace(/^[-_\s]+/, "")
+                    return (second ? [first, second] : [value]).slice(0, 2)
                 }
 
-                const fittedLines = targetLines.map((line) => fitLine(line))
-                const titleY = fittedLines.length > 1 ? -4 : 7
+                const explicitLines = fullText.split("\n").filter((line) => line.length > 0)
+                if (isWorkloadCard && explicitLines.length > 1) {
+                    targetLines = [...splitLongName(explicitLines[0]), explicitLines[1]].slice(0, 3)
+                } else if ((isUserVmNode(d) || isSwitchNode(d) || isKubernetesNameWrapNode(d)) && fullText.indexOf("\n") < 0) {
+                    targetLines = splitLongName(fullText)
+                } else {
+                    targetLines = explicitLines.length > 1 ? explicitLines.slice(0, 2) : [fullText]
+                }
+
+                const fittedLines = targetLines.map((line, index) => {
+                    const isLastWorkloadLine = isWorkloadCard && index === targetLines.length - 1
+                    const secondaryFontSize = isLastWorkloadLine
+                        ? 17
+                        : index === 1 && isScopedGroupCard
+                            ? 15
+                        : undefined
+                    return fitLine(line, secondaryFontSize)
+                })
+                const titleY = fittedLines.length > 2 ? -18 : fittedLines.length > 1 ? -4 : 7
                 title.attr("y", titleY)
                 title.text(null)
                 fittedLines.forEach((line, index) => {
@@ -4257,7 +4415,7 @@ export class Topology extends React.Component<Props, {}> {
             })
 
         node.select("rect.node-card-bg title")
-            .text((d: D3Node) => isGroupCardNode(d) ? (d.data.wrapped.state.expanded ? "더블클릭하여 접기" : "클릭하여 모든 노드 보기") : getNodeDisplayName(d))
+            .text((d: D3Node) => isGroupCardNode(d) ? groupCardTooltip(d) : getNodeDisplayName(d))
 
         node.select("text.node-container-more")
             .attr("x", (d: D3Node) => cardTextX(d) + 104)

@@ -25,6 +25,7 @@ const WEIGHT_K8S_FEDERATION = 3000
 const WEIGHT_K8S_CLUSTER = 3010
 const WEIGHT_K8S_NODE = 3020
 const WEIGHT_K8S_NAMESPACE = 3030
+const WEIGHT_K8S_WORKLOAD = 3035
 const WEIGHT_K8S_POD = 3040
 const WEIGHT_K8S_CONTAINER = 3050
 const WEIGHT_K8S_SERVICE = 3060
@@ -60,6 +61,7 @@ export const i18nMap = {
         "k8s-clusters": "Kubernetes Clusters",
         "k8s-nodes": "Kubernetes Nodes",
         "k8s-namespaces": "Kubernetes Namespaces",
+        "k8s-workloads": "Kubernetes Workload Controllers",
         "k8s-pods": "Kubernetes Pods",
         "k8s-containers": "Kubernetes Containers",
         "k8s-services": "Kubernetes Services",
@@ -418,11 +420,363 @@ export const i18nMap = {
         "kubernetesTestFailed": "Kubernetes connection test failed.",
         "kubernetesManagerTitle": "Kubernetes Topology",
         "kubernetesManagerDescription": "Summary of currently loaded Kubernetes topology resources.",
+        "kubernetesWorkloadTypeFilter": "Workload type",
+        "kubernetesWorkloadTypeFilterDescription": "Filters Workload Controller nodes without hiding their Pods.",
         "kubernetesTopologyClusters": "Clusters",
         "kubernetesTopologyNodes": "Nodes",
         "kubernetesTopologyNamespaces": "Namespaces",
+        "kubernetesTopologyWorkloadControllers": "Workload Controllers",
         "kubernetesTopologyPods": "Pods",
         "kubernetesTopologyServices": "Services",
+        "kubernetesClusterBasicInfo": "Cluster basic information",
+        "kubernetesClusterStatus": "Cluster status",
+        "kubernetesClusterActive": "Active",
+        "kubernetesClusterUid": "Cluster UID",
+        "kubernetesVersion": "Kubernetes version",
+        "kubernetesApiConnectionStatus": "API connection status",
+        "kubernetesNodeOperationalStatus": "Node operational status",
+        "kubernetesNodeReady": "Ready",
+        "kubernetesNodeNotReady": "NotReady",
+        "kubernetesNodeNoCurrentImpact": "No current workload impact",
+        "kubernetesNodeUnavailableConclusion": "Workloads on this node may be affected",
+        "kubernetesNodeStatusUnavailable": "Not enough data to determine node status",
+        "kubernetesNodeServiceImpact": "{count} services affected",
+        "kubernetesPlacedPods": "Assigned Pods",
+        "kubernetesProblemPods": "Problem Pods",
+        "kubernetesSchedulingShort": "Scheduling",
+        "kubernetesAllowed": "Allowed",
+        "kubernetesBlocked": "Blocked",
+        "kubernetesNodeConditions": "Node Conditions",
+        "kubernetesNodeConditionsUnavailable": "Node Condition data has not been collected.",
+        "kubernetesNoReason": "No reason provided",
+        "kubernetesSchedulingAndTaints": "Scheduling and Taints",
+        "kubernetesScheduling": "Scheduling status",
+        "kubernetesSchedulingAllowed": "Scheduling allowed",
+        "kubernetesNone": "None",
+        "kubernetesMaxPodCount": "Maximum Pods",
+        "kubernetesCapacityAllocatable": "Capacity and Allocatable",
+        "kubernetesCapacity": "Capacity",
+        "kubernetesNodeCapacityUnavailable": "Capacity data has not been collected.",
+        "kubernetesNodeWorkloads": "Node workloads and impact",
+        "kubernetesRunningPods": "Running Pods",
+        "kubernetesRestartedPods": "Restarted Pods",
+        "kubernetesImpactedPods": "Impacted Pods",
+        "kubernetesSingleReplicaWorkloads": "Single-replica workloads",
+        "kubernetesLocalStorageWorkloads": "Local-storage workloads",
+        "kubernetesInfrastructureRelationship": "Infrastructure relationship",
+        "kubernetesPhysicalHost": "Physical host",
+        "kubernetesRelationshipConfidence": "Relationship confidence",
+        "kubernetesRelationshipUnknown": "Relationship not identified",
+        "kubernetesNodeBasicInfo": "Node basic information",
+        "kubernetesNodeName": "Node name",
+        "kubernetesNodeRoles": "Roles",
+        "kubernetesKernelVersion": "Kernel version",
+        "kubernetesArchitecture": "Architecture",
+        "kubernetesContainerRuntime": "Container runtime",
+        "kubernetesNodeDetailFallback": "Live node details could not be collected. Available topology data is shown instead.",
+        "kubernetesNamespaceOperationalStatus": "Namespace operational status",
+        "kubernetesNamespaceNoCurrentImpact": "No current workload impact",
+        "kubernetesNamespaceStatusUnavailable": "Insufficient data to determine namespace status",
+        "kubernetesNamespaceTerminatingConclusion": "Namespace deletion is in progress",
+        "kubernetesNamespaceEndpointImpact": "{count} services have no available endpoints",
+        "kubernetesNamespaceProblemConclusion": "{count} Pods require attention",
+        "kubernetesNamespaceWorkloads": "Workloads and services",
+        "kubernetesNamespaceAvailability": "Placement and availability",
+        "kubernetesScheduledNodes": "Scheduled nodes",
+        "kubernetesEndpointUnavailableServices": "Services without endpoints",
+        "kubernetesNamespacePlacement": "Pod placement",
+        "kubernetesNamespaceResourcePolicy": "Resource requests and limits",
+        "kubernetesCpuRequests": "CPU Requests",
+        "kubernetesCpuLimits": "CPU Limits",
+        "kubernetesMemoryRequests": "Memory Requests",
+        "kubernetesMemoryLimits": "Memory Limits",
+        "kubernetesNamespaceBasicInfo": "Namespace basic information",
+        "kubernetesNamespaceName": "Namespace name",
+        "kubernetesNamespacePhase": "Phase",
+        "kubernetesNamespaceDetailFallback": "Live namespace details could not be collected. Available topology data is shown instead.",
+        "kubernetesPodOperationalStatus": "Pod operational status",
+        "kubernetesPodNoCurrentImpact": "All containers are running normally",
+        "kubernetesPodWarningConclusion": "One or more containers require attention",
+        "kubernetesPodCriticalConclusion": "A failed or terminated container was detected",
+        "kubernetesPodStatusUnavailable": "Insufficient data to determine Pod status",
+        "kubernetesContainers": "Containers",
+        "kubernetesRestarts": "Restarts",
+        "kubernetesConnectedServices": "Connected services",
+        "kubernetesContainerStatus": "Container status",
+        "kubernetesPodContainersUnavailable": "No container status has been collected.",
+        "kubernetesResourceConfigurationNone": "No resource requests or limits",
+        "kubernetesConfiguredProbes": "Probes",
+        "kubernetesPodConditions": "Pod Conditions",
+        "kubernetesPodConditionsUnavailable": "No Pod Condition information has been collected.",
+        "kubernetesSchedulingRelationships": "Scheduling and relationships",
+        "kubernetesScheduledNode": "Scheduled node",
+        "kubernetesOwner": "Owner",
+        "kubernetesSelectedByServices": "Selected by services",
+        "kubernetesStorageAndQos": "Storage and QoS",
+        "kubernetesVolumes": "Volumes",
+        "kubernetesPodBasicInfo": "Pod basic information",
+        "kubernetesPodName": "Pod name",
+        "kubernetesStartedAt": "Started at",
+        "kubernetesPodDetailFallback": "Live Pod details could not be collected. Available topology data is shown instead.",
+        "kubernetesServiceOperationalStatus": "Service operational status",
+        "kubernetesServiceEndpointsAvailable": "Ready Endpoints are serving traffic",
+        "kubernetesServiceNoReadyEndpoints": "All ready Endpoints are unavailable",
+        "kubernetesServicePartialEndpoints": "Some Endpoints require attention",
+        "kubernetesServiceStatusUnavailable": "Endpoint availability has not been collected",
+        "kubernetesServiceExternalNameConfigured": "ExternalName routing is configured",
+        "kubernetesServicePodsReadyInferred": "Connected Pods are Ready (topology inference)",
+        "kubernetesServicePodsProblemInferred": "A connected Pod requires attention (topology inference)",
+        "kubernetesPorts": "Ports",
+        "kubernetesServicePortsAndRouting": "Ports and routing",
+        "kubernetesServicePortsUnavailable": "No Service port information has been collected.",
+        "kubernetesPortName": "Name",
+        "kubernetesServicePort": "Service port",
+        "kubernetesServiceEndpointsUnavailable": "EndpointSlice data is unavailable and no connected Pods were identified.",
+        "kubernetesServiceNetworkExposure": "Network exposure",
+        "kubernetesExternalTrafficPolicy": "External traffic policy",
+        "kubernetesInternalTrafficPolicy": "Internal traffic policy",
+        "kubernetesSessionAffinity": "Session affinity",
+        "kubernetesNotApplicable": "Not applicable",
+        "kubernetesServiceSelectionAndResilience": "Selection and resilience",
+        "kubernetesRelationshipSource": "Relationship source",
+        "kubernetesEndpointData": "Endpoint data",
+        "kubernetesCollected": "Collected",
+        "kubernetesEndpointNodeDistribution": "Endpoint node distribution",
+        "kubernetesSingleNodeConcentration": "All ready Endpoints are on one node",
+        "kubernetesDistributedOrSingleEndpoint": "No multi-Endpoint single-node concentration detected",
+        "kubernetesEvaluationUnavailable": "Unable to evaluate",
+        "kubernetesPublishNotReadyAddresses": "Publish NotReady addresses",
+        "kubernetesServiceBasicInfo": "Service basic information",
+        "kubernetesServiceName": "Service name",
+        "kubernetesServiceDetailFallback": "Live EndpointSlice details could not be collected. Available Service and topology relationship data is shown instead.",
+        "kubernetesOperationalStatusShort": "operational status",
+        "kubernetesWorkloadNormalConclusion": "Desired workload capacity is available",
+        "kubernetesWorkloadWarningConclusion": "Replica or Pod availability requires attention",
+        "kubernetesWorkloadFailedConclusion": "The workload has failed executions",
+        "kubernetesDesiredReplicas": "Desired",
+        "kubernetesAvailableReplicas": "Available",
+        "kubernetesUpdatedReplicas": "Updated",
+        "kubernetesUnavailableReplicas": "Unavailable",
+        "kubernetesReadyReplicas": "Ready",
+        "kubernetesCurrentReplicas": "Current",
+        "kubernetesDesiredNodes": "Desired nodes",
+        "kubernetesReadyNodes": "Ready nodes",
+        "kubernetesAvailableNodes": "Available nodes",
+        "kubernetesMisscheduledNodes": "Misscheduled",
+        "kubernetesCurrentNodes": "Current nodes",
+        "kubernetesUpdatedNodes": "Updated nodes",
+        "kubernetesUnavailableNodes": "Unavailable nodes",
+        "kubernetesParallelism": "Parallelism",
+        "kubernetesSchedule": "Schedule",
+        "kubernetesSuspend": "Suspend",
+        "kubernetesActiveJobs": "Active Jobs",
+        "kubernetesLastSchedule": "Last schedule",
+        "kubernetesLastSuccessful": "Last successful",
+        "kubernetesDeploymentStrategy": "Deployment strategy",
+        "kubernetesUpdateStrategy": "Update strategy",
+        "kubernetesProgress": "Rollout status",
+        "kubernetesInProgress": "In progress",
+        "kubernetesStable": "Stable",
+        "kubernetesCompletionMode": "Completion mode",
+        "kubernetesWorkloadConfiguration": "Workload configuration",
+        "kubernetesConnectedPods": "Connected Pods",
+        "kubernetesNoConnectedPods": "No connected Pods were identified.",
+        "kubernetesSinglePod": "Single Pod",
+        "kubernetesPlacementAndRelations": "Placement and relationships",
+        "kubernetesPlacementNodes": "Placement nodes",
+        "kubernetesPodDistribution": "Pod distribution",
+        "kubernetesPodOwners": "Pod owners",
+        "kubernetesWorkloadConditions": "Workload Conditions",
+        "kubernetesNoConditions": "No Conditions have been collected.",
+        "kubernetesWorkloadBasicInfo": "Workload basic information",
+        "kubernetesWorkloadName": "Workload name",
+        "yes": "Yes",
+        "no": "No",
+        "kubernetesCreatedAt": "Created at",
+        "kubernetesClusterResources": "Cluster resources",
+        "kubernetesClusterResourcesDescription": "Resources observed in this cluster topology by Netdive.",
+        "kubernetesClusterNodeDescription": "Compute nodes",
+        "kubernetesClusterNamespaceDescription": "Workload scopes",
+        "kubernetesClusterPodDescription": "Running workload units",
+        "kubernetesClusterServiceDescription": "Service endpoints",
+        "kubernetesNetdiveObservation": "Netdive observation",
+        "kubernetesNetdiveObservationDescription": "Collection source and topology update information.",
+        "kubernetesCollector": "Collector",
+        "kubernetesTopologyOrigin": "Topology origin",
+        "kubernetesTopologyRevision": "Topology revision",
+        "kubernetesMetadata": "Kubernetes metadata",
+        "kubernetesLabels": "Labels",
+        "kubernetesAnnotations": "Annotations",
+        "kubernetesNoLabels": "No labels have been collected.",
+        "kubernetesNoAnnotations": "No annotations have been collected.",
+        "kubernetesClusterMoldMissing": "This topology cluster is not matched with the current Mold cluster inventory.",
+        "kubernetesClusterHealth": "Cluster health overview",
+        "kubernetesClusterHealthDescription": "Live Kubernetes health combined with the Mold inventory.",
+        "kubernetesControlPlaneStatus": "Control Plane status",
+        "kubernetesNodeStatus": "Node status",
+        "kubernetesPodStatus": "Pod status",
+        "kubernetesDataCollectionStatus": "Data collection status",
+        "kubernetesNoCollectionRecord": "No collection record",
+        "kubernetesLastCollected": "Last collected",
+        "kubernetesResourceStatus": "Resource status",
+        "kubernetesResourceStatusDescription": "Current node, namespace, Pod, and service state.",
+        "kubernetesWorkloadScopes": "Workload scopes",
+        "kubernetesServiceEndpoints": "Service endpoints",
+        "kubernetesResourceCapacity": "Resource capacity",
+        "kubernetesResourceCapacityDescription": "Usage, requests, limits, and remaining allocatable capacity.",
+        "kubernetesCpuUsage": "CPU usage",
+        "kubernetesMemoryUsage": "Memory usage",
+        "kubernetesMetricsUnavailable": "Metrics unavailable",
+        "kubernetesResourceRequests": "Total Requests",
+        "kubernetesResourceLimits": "Total Limits",
+        "kubernetesResourceHeadroom": "Request headroom",
+        "kubernetesMoldProvisioned": "Mold provisioned capacity",
+        "kubernetesMajorRisks": "Operational alerts and infrastructure risks",
+        "kubernetesRiskResilience": "Risk and resilience",
+        "kubernetesControlPlaneResilience": "Control Plane resilience",
+        "kubernetesSingleConfiguration": "Single configuration",
+        "kubernetesMultipleConfiguration": "Multiple configuration",
+        "kubernetesRiskNotReadyNodes": "NotReady nodes",
+        "kubernetesRiskNotReadyNodesDescription": "One or more nodes are not Ready.",
+        "kubernetesRiskFailedPods": "Failed Pods",
+        "kubernetesRiskFailedPodsDescription": "One or more Pods have failed.",
+        "kubernetesRiskPendingPods": "Pending Pods",
+        "kubernetesRiskPendingPodsDescription": "One or more Pods are waiting to be scheduled or started.",
+        "kubernetesAffectedServices": "Affected services",
+        "kubernetesAffectedServicesDescription": "Services are affected by a failed node or Pod.",
+        "kubernetesNoMajorRisks": "No major risks detected.",
+        "kubernetesNetdiveImpact": "Netdive impact analysis",
+        "kubernetesNetdiveImpactDescription": "Correlates Kubernetes resources with physical hosts and network paths.",
+        "kubernetesPhysicalHostConcentration": "Physical host concentration",
+        "kubernetesSwitchConcentration": "Same-switch concentration",
+        "kubernetesExternalPaths": "External connection paths",
+        "kubernetesClusterImpact": "Cluster impact score",
+        "kubernetesPlacementUnknown": "Unmapped",
+        "kubernetesRecentChanges": "Recent state changes",
+        "kubernetesNoRecentChanges": "No state changes were detected in the last 24 hours.",
+        "kubernetesZone": "Mold zone",
+        "kubernetesNetwork": "Mold network",
+        "kubernetesServiceOffering": "Service offering",
+        "kubernetesSummaryFallback": "Some live metrics could not be collected, so the panel is based on currently available topology and Mold inventory data.",
+        "kubernetesOperationalStatus": "Cluster operational status",
+        "kubernetesStatus": "Kubernetes status",
+        "kubernetesHealthNormal": "Normal",
+        "kubernetesHealthWarning": "Caution",
+        "kubernetesHealthCritical": "Critical",
+        "kubernetesHealthUnknown": "Unknown",
+        "kubernetesMetricsCollection": "Metrics collection",
+        "kubernetesMetricsNormal": "Normal",
+        "kubernetesMetricsNormalDescription": "CPU and memory metrics are being collected normally.",
+        "kubernetesMetricsPreparing": "Preparing",
+        "kubernetesMetricsPreparingDescription": "Cluster resource metrics are being prepared.",
+        "kubernetesMetricsApiUnavailable": "API unavailable",
+        "kubernetesMetricsApiUnavailableDescription": "Check Prometheus integration or Federation status.",
+        "kubernetesMetricsNotConfigured": "Not configured",
+        "kubernetesMetricsNotConfiguredDescription": "Metrics integration is not configured or metrics-server data is unavailable.",
+        "kubernetesMetricsCannotCollect": "Cluster resource metrics cannot be collected.",
+        "kubernetesCollectedJustNow": "just now",
+        "kubernetesMinutesAgo": " minutes ago",
+        "kubernetesHoursAgo": " hours ago",
+        "kubernetesOperationalHealthyDescription": "All {control} Control Plane and {worker} Worker Nodes are healthy, with no failed or pending Pods.",
+        "kubernetesOperationalUnknownDescription": "There is not enough collected data to determine the current Kubernetes operational status.",
+        "kubernetesWorkerNode": "Worker Node",
+        "kubernetesUnitNode": "",
+        "kubernetesUnitItem": "",
+        "kubernetesDetectedSuffix": " detected.",
+        "kubernetesServiceImpactSentence": "Up to {count} services may be affected.",
+        "kubernetesRiskAvailability": "Availability",
+        "kubernetesRiskWorkload": "Workload",
+        "kubernetesRiskResource": "Resources",
+        "kubernetesRiskNetwork": "Network",
+        "kubernetesRiskStorage": "Storage",
+        "kubernetesRiskInfrastructure": "Infrastructure",
+        "kubernetesRiskChecksDescription": "Node state, Pod failures, resource shortages, service endpoints, physical hosts, and network path concentration were checked.",
+        "kubernetesHostConcentrationRisk": "Physical host concentration",
+        "kubernetesHostConcentrationRiskDescription": "All mapped Kubernetes nodes are concentrated on one physical host.",
+        "kubernetesSwitchConcentrationRisk": "Network path concentration",
+        "kubernetesSwitchConcentrationRiskDescription": "All mapped Kubernetes nodes use the same switch path.",
+        "kubernetesCurrentAffectedServices": "Currently affected services",
+        "kubernetesPhysicalHostDistribution": "Physical host distribution",
+        "kubernetesNetworkPathDistribution": "Network path distribution",
+        "kubernetesDistributionGood": "Good",
+        "kubernetesDistributionCaution": "Caution",
+        "kubernetesKnownHostBasis": "Based on mapped physical hosts, ",
+        "kubernetesKnownNetworkBasis": "Based on identified network paths, ",
+        "kubernetesHostDistributionGoodDescription": "{nodes} Kubernetes nodes are distributed across {targets} physical hosts.",
+        "kubernetesHostDistributionCautionDescription": "{percent}% of mapped Kubernetes nodes are concentrated on one physical host.",
+        "kubernetesNetworkDistributionGoodDescription": "{nodes} Kubernetes nodes are distributed across {targets} switch paths.",
+        "kubernetesNetworkDistributionCautionDescription": "{percent}% of mapped Kubernetes nodes use the same switch path.",
+        "kubernetesHostPlacementUnknown": "Physical host mapping data has not been collected.",
+        "kubernetesNetworkPlacementUnknown": "Network path mapping data has not been collected.",
+        "kubernetesImpactDetected": "Impact detected",
+        "kubernetesImpactNone": "No current impact",
+        "kubernetesAffectedServiceDetectedDescription": "{count} services may currently be affected by node or Pod failures.",
+        "kubernetesAffectedServiceNormalDescription": "No services are currently identified as affected by node or Pod failures.",
+        "kubernetesExternalPathUnknownDescription": "External path data cannot be verified from the currently collected data.",
+        "kubernetesExternalPathSingleDescription": "Only one identified external connection path exists.",
+        "kubernetesExternalPathMultipleDescription": "{count} external connection paths have been identified.",
+        "kubernetesExternalPathNoneDescription": "No exposed external connection path has been identified.",
+        "kubernetesCurrentFailureImpact": "Current failure impact",
+        "kubernetesPotentialInfrastructureRisk": "Potential infrastructure risk",
+        "kubernetesCurrentFailureImpactTooltip": "Calculated from NotReady nodes, abnormal Pods, and currently affected services.",
+        "kubernetesPotentialInfrastructureRiskTooltip": "Calculated separately from operational status using only evaluated physical-host concentration, switch-path concentration, single Control Plane, and single external paths.",
+        "kubernetesImpactLow": "Low",
+        "kubernetesImpactCaution": "Caution",
+        "kubernetesImpactHigh": "High",
+        "kubernetesImpactCritical": "Critical",
+        "kubernetesFocusNodes": "Show only this cluster's nodes in the topology",
+        "kubernetesFocusNamespaces": "Show only this cluster's namespaces in the topology",
+        "kubernetesFocusPods": "Show only this cluster's Pods in the topology",
+        "kubernetesFocusServices": "Show only this cluster's services in the topology",
+        "kubernetesCurrentUsage": "Current usage",
+        "kubernetesRequestRate": "Request rate",
+        "kubernetesReservable": "Reservable",
+        "kubernetesMemory": "Memory",
+        "kubernetesMoldVmAllocation": "Mold VM allocation",
+        "kubernetesUnknown": "Unknown",
+        "kubernetesNotCollected": "Not collected",
+        "kubernetesNoConnectionInfo": "No connection information",
+        "kubernetesMoldDeploymentStatus": "Mold deployment status",
+        "kubernetesSummaryFallbackDetail": "CPU and memory usage and the latest collection time may not be displayed.",
+        "kubernetesSingleHost": "Single host",
+        "kubernetesSingleSwitch": "Single switch",
+        "kubernetesRiskReview": "Review",
+        "kubernetesHeroControlPlaneFailure": "{count} Control Plane node unavailable",
+        "kubernetesHeroWorkerFailure": "{count} Worker Node unavailable",
+        "kubernetesHeroPodFailure": "{count} failed Pods",
+        "kubernetesHeroServiceImpact": "{count} services affected",
+        "kubernetesHeroNetworkConcentration": "Network path concentration",
+        "kubernetesHeroHostConcentration": "Physical host concentration",
+        "kubernetesHeroPendingPods": "{count} pending Pods",
+        "kubernetesHeroNoImpact": "No current impact",
+        "kubernetesAffectedServiceKpi": "Affected services",
+        "kubernetesPotentialRiskKpi": "Potential risk",
+        "kubernetesCurrentState": "Current state",
+        "kubernetesPlacementRisk": "Placement risk",
+        "kubernetesHostDistributionShort": "Host distribution",
+        "kubernetesNetworkPathShort": "Network path",
+        "kubernetesConcentrated": "Concentrated",
+        "kubernetesDistributed": "Distributed",
+        "kubernetesCurrentAlerts": "Current alerts",
+        "kubernetesNoCurrentAlerts": "No operational alerts detected",
+        "kubernetesPotentialRisks": "Potential risks",
+        "kubernetesNoPotentialRisks": "No evaluable potential risks detected",
+        "kubernetesResilienceGood": "Good",
+        "kubernetesResilienceRecommended": "Improvement recommended",
+        "kubernetesResilienceVulnerable": "Vulnerable",
+        "kubernetesResilienceVeryVulnerable": "Highly vulnerable",
+        "kubernetesResilienceUnavailable": "Not evaluated",
+        "kubernetesSingleControlPlaneRisk": "Single Control Plane",
+        "kubernetesSingleControlPlaneRiskDescription": "Only one Control Plane node has been identified.",
+        "kubernetesSingleExternalPathRisk": "Single external path",
+        "kubernetesSingleExternalPathRiskDescription": "Only one currently identified external connection path exists.",
+        "kubernetesSinglePath": "Single path",
+        "kubernetesMultiplePaths": "Multiple paths",
+        "kubernetesNoExternalExposure": "No external exposure identified",
+        "kubernetesAnalysisConfidence": "Analysis confidence",
+        "kubernetesConfidenceLimited": "Limited",
+        "kubernetesConfidenceSufficient": "Sufficient",
+        "kubernetesConfidenceLimitedDescription": "All redundant physical-host or network paths may not have been collected.",
         "kubernetesNodeSelectorSearchPlaceholder": "Search by node or cluster name",
         "kubernetesNodeSelectorHighlightAll": "Highlight all nodes",
         "kubernetesNodeSelectorEmpty": "No Kubernetes nodes are associated with this host.",
@@ -454,6 +808,9 @@ export const i18nMap = {
         "kubernetesCollectionManagementSection": "Kubernetes Collection Management",
         "kubernetesClusterList": "Cluster List",
         "kubernetesClusterListDescription": "Check Kubernetes connection tests and Netdive collection status.",
+        "kubernetesAutoCollectionStarting": "Starting collection for newly discovered Mold clusters...",
+        "kubernetesAutoCollectionStarted": "Collection started automatically for newly discovered Mold clusters.",
+        "kubernetesAutoCollectionFailed": "Failed to start collection automatically for a newly discovered Mold cluster.",
         "kubernetesCollectionPolicy": "Collection Policy",
         "kubernetesCollectionPolicyDescription": "Resource scope collected by Netdive to build the Kubernetes topology.",
         "kubernetesCollectionPolicyNotice": "secret and configmap are excluded by default to reduce exposure of sensitive information and configuration data.",
@@ -783,6 +1140,7 @@ export const i18nMap = {
         "k8s-clusters": "쿠버네티스 클러스터",
         "k8s-nodes": "쿠버네티스 노드",
         "k8s-namespaces": "쿠버네티스 네임스페이스",
+        "k8s-workloads": "쿠버네티스 워크로드 컨트롤러",
         "k8s-pods": "쿠버네티스 파드",
         "k8s-containers": "쿠버네티스 컨테이너",
         "k8s-services": "쿠버네티스 서비스",
@@ -1141,11 +1499,363 @@ export const i18nMap = {
         "kubernetesTestFailed": "Kubernetes 연결 테스트에 실패했습니다.",
         "kubernetesManagerTitle": "Kubernetes 토폴로지",
         "kubernetesManagerDescription": "현재 로드된 Kubernetes 토폴로지 리소스 요약입니다.",
+        "kubernetesWorkloadTypeFilter": "워크로드 타입",
+        "kubernetesWorkloadTypeFilterDescription": "파드는 유지하고 Workload Controller 노드만 필터링합니다.",
         "kubernetesTopologyClusters": "클러스터",
         "kubernetesTopologyNodes": "노드",
         "kubernetesTopologyNamespaces": "네임스페이스",
+        "kubernetesTopologyWorkloadControllers": "워크로드 컨트롤러",
         "kubernetesTopologyPods": "파드",
         "kubernetesTopologyServices": "서비스",
+        "kubernetesClusterBasicInfo": "클러스터 기본 정보",
+        "kubernetesClusterStatus": "클러스터 상태",
+        "kubernetesClusterActive": "활성",
+        "kubernetesClusterUid": "클러스터 UID",
+        "kubernetesVersion": "쿠버네티스 버전",
+        "kubernetesApiConnectionStatus": "API 연결 상태",
+        "kubernetesNodeOperationalStatus": "노드 운영 상태",
+        "kubernetesNodeReady": "Ready",
+        "kubernetesNodeNotReady": "NotReady",
+        "kubernetesNodeNoCurrentImpact": "현재 워크로드 영향 없음",
+        "kubernetesNodeUnavailableConclusion": "이 노드에 배치된 워크로드가 영향을 받을 수 있습니다",
+        "kubernetesNodeStatusUnavailable": "노드 상태를 판단할 수집 정보가 부족합니다",
+        "kubernetesNodeServiceImpact": "서비스 {count}개 영향",
+        "kubernetesPlacedPods": "배치 파드",
+        "kubernetesProblemPods": "문제 파드",
+        "kubernetesSchedulingShort": "스케줄링",
+        "kubernetesAllowed": "허용",
+        "kubernetesBlocked": "차단",
+        "kubernetesNodeConditions": "노드 Condition",
+        "kubernetesNodeConditionsUnavailable": "수집된 노드 Condition 정보가 없습니다.",
+        "kubernetesNoReason": "확인된 사유 없음",
+        "kubernetesSchedulingAndTaints": "스케줄링 및 Taint",
+        "kubernetesScheduling": "스케줄링 상태",
+        "kubernetesSchedulingAllowed": "스케줄링 허용",
+        "kubernetesNone": "없음",
+        "kubernetesMaxPodCount": "최대 파드 수",
+        "kubernetesCapacityAllocatable": "Capacity 및 Allocatable",
+        "kubernetesCapacity": "Capacity",
+        "kubernetesNodeCapacityUnavailable": "수집된 노드 자원 정보가 없습니다.",
+        "kubernetesNodeWorkloads": "노드 워크로드 및 영향",
+        "kubernetesRunningPods": "Running 파드",
+        "kubernetesRestartedPods": "재시작 파드",
+        "kubernetesImpactedPods": "영향 파드",
+        "kubernetesSingleReplicaWorkloads": "단일 Replica 워크로드",
+        "kubernetesLocalStorageWorkloads": "로컬 스토리지 의존 워크로드",
+        "kubernetesInfrastructureRelationship": "인프라 연결 관계",
+        "kubernetesPhysicalHost": "물리 호스트",
+        "kubernetesRelationshipConfidence": "관계 신뢰도",
+        "kubernetesRelationshipUnknown": "연결 관계 미확인",
+        "kubernetesNodeBasicInfo": "노드 기본 정보",
+        "kubernetesNodeName": "노드 이름",
+        "kubernetesNodeRoles": "역할",
+        "kubernetesKernelVersion": "커널 버전",
+        "kubernetesArchitecture": "아키텍처",
+        "kubernetesContainerRuntime": "컨테이너 런타임",
+        "kubernetesNodeDetailFallback": "실시간 노드 상세 정보를 수집하지 못해 확인 가능한 토폴로지 정보를 표시합니다.",
+        "kubernetesNamespaceOperationalStatus": "네임스페이스 운영 상태",
+        "kubernetesNamespaceNoCurrentImpact": "현재 워크로드 영향 없음",
+        "kubernetesNamespaceStatusUnavailable": "네임스페이스 상태를 판단할 수집 정보가 부족합니다",
+        "kubernetesNamespaceTerminatingConclusion": "네임스페이스 삭제가 진행 중입니다",
+        "kubernetesNamespaceEndpointImpact": "사용 가능한 Endpoint가 없는 서비스 {count}개",
+        "kubernetesNamespaceProblemConclusion": "확인이 필요한 파드 {count}개",
+        "kubernetesNamespaceWorkloads": "워크로드 및 서비스",
+        "kubernetesNamespaceAvailability": "배치 및 가용성",
+        "kubernetesScheduledNodes": "배치 노드",
+        "kubernetesEndpointUnavailableServices": "Endpoint 없는 서비스",
+        "kubernetesNamespacePlacement": "파드 배치",
+        "kubernetesNamespaceResourcePolicy": "자원 Requests 및 Limits",
+        "kubernetesCpuRequests": "CPU Requests",
+        "kubernetesCpuLimits": "CPU Limits",
+        "kubernetesMemoryRequests": "메모리 Requests",
+        "kubernetesMemoryLimits": "메모리 Limits",
+        "kubernetesNamespaceBasicInfo": "네임스페이스 기본 정보",
+        "kubernetesNamespaceName": "네임스페이스 이름",
+        "kubernetesNamespacePhase": "Phase",
+        "kubernetesNamespaceDetailFallback": "실시간 네임스페이스 상세 정보를 수집하지 못해 확인 가능한 토폴로지 정보를 표시합니다.",
+        "kubernetesPodOperationalStatus": "파드 운영 상태",
+        "kubernetesPodNoCurrentImpact": "모든 컨테이너가 정상 실행 중입니다",
+        "kubernetesPodWarningConclusion": "확인이 필요한 컨테이너가 있습니다",
+        "kubernetesPodCriticalConclusion": "실패 또는 종료된 컨테이너가 감지되었습니다",
+        "kubernetesPodStatusUnavailable": "파드 상태를 판단할 수집 정보가 부족합니다",
+        "kubernetesContainers": "컨테이너",
+        "kubernetesRestarts": "재시작",
+        "kubernetesConnectedServices": "연결 서비스",
+        "kubernetesContainerStatus": "컨테이너 상태",
+        "kubernetesPodContainersUnavailable": "수집된 컨테이너 상태 정보가 없습니다.",
+        "kubernetesResourceConfigurationNone": "자원 Requests 및 Limits 없음",
+        "kubernetesConfiguredProbes": "Probe",
+        "kubernetesPodConditions": "파드 Condition",
+        "kubernetesPodConditionsUnavailable": "수집된 파드 Condition 정보가 없습니다.",
+        "kubernetesSchedulingRelationships": "스케줄링 및 연결 관계",
+        "kubernetesScheduledNode": "배치 노드",
+        "kubernetesOwner": "소유 워크로드",
+        "kubernetesSelectedByServices": "연결 서비스",
+        "kubernetesStorageAndQos": "스토리지 및 QoS",
+        "kubernetesVolumes": "볼륨",
+        "kubernetesPodBasicInfo": "파드 기본 정보",
+        "kubernetesPodName": "파드 이름",
+        "kubernetesStartedAt": "시작 시간",
+        "kubernetesPodDetailFallback": "실시간 파드 상세 정보를 수집하지 못해 확인 가능한 토폴로지 정보를 표시합니다.",
+        "kubernetesServiceOperationalStatus": "서비스 운영 상태",
+        "kubernetesServiceEndpointsAvailable": "Ready Endpoint가 트래픽을 제공 중입니다",
+        "kubernetesServiceNoReadyEndpoints": "Ready Endpoint가 모두 손실되었습니다",
+        "kubernetesServicePartialEndpoints": "확인이 필요한 Endpoint가 있습니다",
+        "kubernetesServiceStatusUnavailable": "Endpoint 가용성 정보가 수집되지 않았습니다",
+        "kubernetesServiceExternalNameConfigured": "ExternalName 라우팅이 구성되어 있습니다",
+        "kubernetesServicePodsReadyInferred": "연결 파드가 Ready입니다 (토폴로지 추론)",
+        "kubernetesServicePodsProblemInferred": "확인이 필요한 연결 파드가 있습니다 (토폴로지 추론)",
+        "kubernetesPorts": "포트",
+        "kubernetesServicePortsAndRouting": "포트 및 라우팅",
+        "kubernetesServicePortsUnavailable": "수집된 서비스 포트 정보가 없습니다.",
+        "kubernetesPortName": "이름",
+        "kubernetesServicePort": "서비스 포트",
+        "kubernetesServiceEndpointsUnavailable": "EndpointSlice가 수집되지 않았고 연결 파드도 확인할 수 없습니다.",
+        "kubernetesServiceNetworkExposure": "네트워크 노출",
+        "kubernetesExternalTrafficPolicy": "외부 트래픽 정책",
+        "kubernetesInternalTrafficPolicy": "내부 트래픽 정책",
+        "kubernetesSessionAffinity": "세션 어피니티",
+        "kubernetesNotApplicable": "해당 없음",
+        "kubernetesServiceSelectionAndResilience": "선택 및 복원력",
+        "kubernetesRelationshipSource": "관계 확인 소스",
+        "kubernetesEndpointData": "Endpoint 데이터",
+        "kubernetesCollected": "수집됨",
+        "kubernetesEndpointNodeDistribution": "Endpoint 노드 분산",
+        "kubernetesSingleNodeConcentration": "모든 Ready Endpoint가 단일 노드에 집중",
+        "kubernetesDistributedOrSingleEndpoint": "다중 Endpoint의 단일 노드 집중 없음",
+        "kubernetesEvaluationUnavailable": "평가 불가",
+        "kubernetesPublishNotReadyAddresses": "NotReady 주소 게시",
+        "kubernetesServiceBasicInfo": "서비스 기본 정보",
+        "kubernetesServiceName": "서비스 이름",
+        "kubernetesServiceDetailFallback": "실시간 EndpointSlice 상세 정보를 수집하지 못해 확인 가능한 서비스 및 토폴로지 관계 정보를 표시합니다.",
+        "kubernetesOperationalStatusShort": "운영 상태",
+        "kubernetesWorkloadNormalConclusion": "요구된 워크로드 용량이 정상 제공 중입니다",
+        "kubernetesWorkloadWarningConclusion": "Replica 또는 파드 가용성 확인이 필요합니다",
+        "kubernetesWorkloadFailedConclusion": "실패한 워크로드 실행이 있습니다",
+        "kubernetesDesiredReplicas": "Desired",
+        "kubernetesAvailableReplicas": "Available",
+        "kubernetesUpdatedReplicas": "Updated",
+        "kubernetesUnavailableReplicas": "Unavailable",
+        "kubernetesReadyReplicas": "Ready",
+        "kubernetesCurrentReplicas": "Current",
+        "kubernetesDesiredNodes": "Desired 노드",
+        "kubernetesReadyNodes": "Ready 노드",
+        "kubernetesAvailableNodes": "Available 노드",
+        "kubernetesMisscheduledNodes": "잘못 배치됨",
+        "kubernetesCurrentNodes": "Current 노드",
+        "kubernetesUpdatedNodes": "Updated 노드",
+        "kubernetesUnavailableNodes": "Unavailable 노드",
+        "kubernetesParallelism": "병렬 실행 수",
+        "kubernetesSchedule": "스케줄",
+        "kubernetesSuspend": "일시 중지",
+        "kubernetesActiveJobs": "Active Job",
+        "kubernetesLastSchedule": "최근 스케줄",
+        "kubernetesLastSuccessful": "최근 성공",
+        "kubernetesDeploymentStrategy": "배포 전략",
+        "kubernetesUpdateStrategy": "업데이트 전략",
+        "kubernetesProgress": "Rolling Update 상태",
+        "kubernetesInProgress": "진행 중",
+        "kubernetesStable": "안정",
+        "kubernetesCompletionMode": "완료 모드",
+        "kubernetesWorkloadConfiguration": "워크로드 구성",
+        "kubernetesConnectedPods": "연결 Pod",
+        "kubernetesNoConnectedPods": "연결된 Pod를 확인할 수 없습니다.",
+        "kubernetesSinglePod": "단일 Pod",
+        "kubernetesPlacementAndRelations": "배치 및 연결 관계",
+        "kubernetesPlacementNodes": "배치 노드",
+        "kubernetesPodDistribution": "Pod 분산",
+        "kubernetesPodOwners": "파드 Owner",
+        "kubernetesWorkloadConditions": "워크로드 Condition",
+        "kubernetesNoConditions": "수집된 Condition 정보가 없습니다.",
+        "kubernetesWorkloadBasicInfo": "워크로드 기본 정보",
+        "kubernetesWorkloadName": "워크로드 이름",
+        "yes": "예",
+        "no": "아니요",
+        "kubernetesCreatedAt": "생성 시간",
+        "kubernetesClusterResources": "클러스터 리소스",
+        "kubernetesClusterResourcesDescription": "넷다이브가 이 클러스터 토폴로지에서 관측한 리소스입니다.",
+        "kubernetesClusterNodeDescription": "클러스터 컴퓨트 노드",
+        "kubernetesClusterNamespaceDescription": "워크로드 격리 범위",
+        "kubernetesClusterPodDescription": "실행 중인 워크로드 단위",
+        "kubernetesClusterServiceDescription": "서비스 연결 지점",
+        "kubernetesNetdiveObservation": "넷다이브 관측 정보",
+        "kubernetesNetdiveObservationDescription": "수집 소스와 토폴로지 갱신 정보입니다.",
+        "kubernetesCollector": "수집기",
+        "kubernetesTopologyOrigin": "토폴로지 원본",
+        "kubernetesTopologyRevision": "토폴로지 리비전",
+        "kubernetesMetadata": "쿠버네티스 메타데이터",
+        "kubernetesLabels": "레이블",
+        "kubernetesAnnotations": "어노테이션",
+        "kubernetesNoLabels": "수집된 레이블이 없습니다.",
+        "kubernetesNoAnnotations": "수집된 어노테이션이 없습니다.",
+        "kubernetesClusterMoldMissing": "현재 Mold 클러스터 인벤토리와 일치하는 항목이 없습니다.",
+        "kubernetesClusterHealth": "클러스터 상태 요약",
+        "kubernetesClusterHealthDescription": "실시간 Kubernetes 상태와 Mold 인벤토리를 함께 표시합니다.",
+        "kubernetesControlPlaneStatus": "Control Plane 상태",
+        "kubernetesNodeStatus": "노드 상태",
+        "kubernetesPodStatus": "파드 상태",
+        "kubernetesDataCollectionStatus": "데이터 수집 상태",
+        "kubernetesNoCollectionRecord": "최근 수집 기록 없음",
+        "kubernetesLastCollected": "최근 수집 시간",
+        "kubernetesResourceStatus": "리소스 현황",
+        "kubernetesResourceStatusDescription": "노드, 네임스페이스, 파드, 서비스의 현재 상태입니다.",
+        "kubernetesWorkloadScopes": "워크로드 격리 범위",
+        "kubernetesServiceEndpoints": "서비스 연결 지점",
+        "kubernetesResourceCapacity": "클러스터 자원 현황",
+        "kubernetesResourceCapacityDescription": "사용률, Requests, Limits와 할당 가능 여유량입니다.",
+        "kubernetesCpuUsage": "CPU 사용률",
+        "kubernetesMemoryUsage": "메모리 사용률",
+        "kubernetesMetricsUnavailable": "사용률 미수집",
+        "kubernetesResourceRequests": "전체 Requests",
+        "kubernetesResourceLimits": "전체 Limits",
+        "kubernetesResourceHeadroom": "Requests 기준 여유량",
+        "kubernetesMoldProvisioned": "Mold 프로비저닝 자원",
+        "kubernetesMajorRisks": "운영 경보 및 인프라 위험",
+        "kubernetesRiskResilience": "위험 및 복원력",
+        "kubernetesControlPlaneResilience": "Control Plane 복원력",
+        "kubernetesSingleConfiguration": "단일 구성",
+        "kubernetesMultipleConfiguration": "다중 구성",
+        "kubernetesRiskNotReadyNodes": "NotReady 노드",
+        "kubernetesRiskNotReadyNodesDescription": "Ready 상태가 아닌 노드가 있습니다.",
+        "kubernetesRiskFailedPods": "Failed 파드",
+        "kubernetesRiskFailedPodsDescription": "실패 상태의 파드가 있습니다.",
+        "kubernetesRiskPendingPods": "Pending 파드",
+        "kubernetesRiskPendingPodsDescription": "스케줄링 또는 시작을 기다리는 파드가 있습니다.",
+        "kubernetesAffectedServices": "영향받는 서비스",
+        "kubernetesAffectedServicesDescription": "장애 노드 또는 파드가 서비스에 영향을 줍니다.",
+        "kubernetesNoMajorRisks": "감지된 주요 위험이 없습니다.",
+        "kubernetesNetdiveImpact": "Netdive 영향도 분석",
+        "kubernetesNetdiveImpactDescription": "Kubernetes 리소스를 물리 호스트 및 네트워크 경로와 연계해 분석합니다.",
+        "kubernetesPhysicalHostConcentration": "물리 호스트 집중도",
+        "kubernetesSwitchConcentration": "동일 스위치 집중도",
+        "kubernetesExternalPaths": "클러스터 외부 연결 경로",
+        "kubernetesClusterImpact": "클러스터 전체 영향도",
+        "kubernetesPlacementUnknown": "매핑 미확인",
+        "kubernetesRecentChanges": "최근 상태 변화",
+        "kubernetesNoRecentChanges": "최근 24시간 동안 감지된 상태 변화가 없습니다.",
+        "kubernetesZone": "Mold 존",
+        "kubernetesNetwork": "Mold 네트워크",
+        "kubernetesServiceOffering": "서비스 오퍼링",
+        "kubernetesSummaryFallback": "일부 실시간 메트릭을 수집할 수 없어 현재 확인 가능한 토폴로지 및 Mold 인벤토리 정보를 기준으로 표시합니다.",
+        "kubernetesOperationalStatus": "클러스터 운영 상태",
+        "kubernetesStatus": "Kubernetes 상태",
+        "kubernetesHealthNormal": "정상",
+        "kubernetesHealthWarning": "주의",
+        "kubernetesHealthCritical": "심각",
+        "kubernetesHealthUnknown": "확인 불가",
+        "kubernetesMetricsCollection": "메트릭 수집",
+        "kubernetesMetricsNormal": "정상",
+        "kubernetesMetricsNormalDescription": "CPU·메모리 메트릭을 정상적으로 수집하고 있습니다.",
+        "kubernetesMetricsPreparing": "수집 준비 중",
+        "kubernetesMetricsPreparingDescription": "클러스터 자원 메트릭 수집을 준비하고 있습니다.",
+        "kubernetesMetricsApiUnavailable": "API 접근 불가",
+        "kubernetesMetricsApiUnavailableDescription": "Prometheus 연동 또는 Federation 상태를 확인해 주세요.",
+        "kubernetesMetricsNotConfigured": "메트릭 연동 미설정",
+        "kubernetesMetricsNotConfiguredDescription": "메트릭 연동이 설정되지 않았거나 metrics-server 데이터를 사용할 수 없습니다.",
+        "kubernetesMetricsCannotCollect": "클러스터 자원 메트릭을 수집할 수 없습니다.",
+        "kubernetesCollectedJustNow": "방금 전",
+        "kubernetesMinutesAgo": "분 전",
+        "kubernetesHoursAgo": "시간 전",
+        "kubernetesOperationalHealthyDescription": "Control Plane {control}대와 Worker Node {worker}대가 모두 정상이며, 실행 실패 또는 대기 중인 파드가 없습니다.",
+        "kubernetesOperationalUnknownDescription": "현재 Kubernetes 운영 상태를 판단하기 위한 수집 데이터가 충분하지 않습니다.",
+        "kubernetesWorkerNode": "Worker Node",
+        "kubernetesUnitNode": "대",
+        "kubernetesUnitItem": "개",
+        "kubernetesDetectedSuffix": " 상태가 감지되었습니다.",
+        "kubernetesServiceImpactSentence": "서비스 {count}개가 영향을 받을 수 있습니다.",
+        "kubernetesRiskAvailability": "가용성",
+        "kubernetesRiskWorkload": "워크로드",
+        "kubernetesRiskResource": "자원",
+        "kubernetesRiskNetwork": "네트워크",
+        "kubernetesRiskStorage": "스토리지",
+        "kubernetesRiskInfrastructure": "인프라",
+        "kubernetesRiskChecksDescription": "노드 상태, 파드 실패, 자원 부족, 서비스 Endpoint, 물리 호스트 및 네트워크 경로 집중도를 확인했습니다.",
+        "kubernetesHostConcentrationRisk": "물리 호스트 집중",
+        "kubernetesHostConcentrationRiskDescription": "확인된 모든 Kubernetes 노드가 하나의 물리 호스트에 집중되어 있습니다.",
+        "kubernetesSwitchConcentrationRisk": "네트워크 경로 집중",
+        "kubernetesSwitchConcentrationRiskDescription": "확인된 모든 Kubernetes 노드가 동일 스위치 경로에 집중되어 있습니다.",
+        "kubernetesCurrentAffectedServices": "현재 영향받는 서비스",
+        "kubernetesPhysicalHostDistribution": "물리 호스트 분산 상태",
+        "kubernetesNetworkPathDistribution": "네트워크 경로 분산 상태",
+        "kubernetesDistributionGood": "양호",
+        "kubernetesDistributionCaution": "주의",
+        "kubernetesKnownHostBasis": "확인된 물리 호스트 기준으로 ",
+        "kubernetesKnownNetworkBasis": "확인된 네트워크 경로 기준으로 ",
+        "kubernetesHostDistributionGoodDescription": "Kubernetes 노드 {nodes}개가 서로 다른 물리 호스트 {targets}개에 분산되어 있습니다.",
+        "kubernetesHostDistributionCautionDescription": "Kubernetes 노드의 {percent}%가 하나의 물리 호스트에 집중되어 있습니다.",
+        "kubernetesNetworkDistributionGoodDescription": "Kubernetes 노드 {nodes}개가 서로 다른 스위치 경로 {targets}개에 분산되어 있습니다.",
+        "kubernetesNetworkDistributionCautionDescription": "Kubernetes 노드의 {percent}%가 동일 스위치 경로에 연결되어 있습니다.",
+        "kubernetesHostPlacementUnknown": "수집된 물리 호스트 매핑 정보가 없습니다.",
+        "kubernetesNetworkPlacementUnknown": "수집된 네트워크 경로 매핑 정보가 없습니다.",
+        "kubernetesImpactDetected": "영향 감지",
+        "kubernetesImpactNone": "현재 영향 없음",
+        "kubernetesAffectedServiceDetectedDescription": "노드 또는 파드 장애로 현재 서비스 {count}개가 영향을 받을 수 있습니다.",
+        "kubernetesAffectedServiceNormalDescription": "노드 또는 파드 장애로 현재 영향을 받는 것으로 확인된 서비스가 없습니다.",
+        "kubernetesExternalPathUnknownDescription": "현재 수집 데이터에서 외부 연결 경로를 확인할 수 없습니다.",
+        "kubernetesExternalPathSingleDescription": "확인된 외부 연결 경로가 하나뿐입니다.",
+        "kubernetesExternalPathMultipleDescription": "외부 연결 경로 {count}개가 확인되었습니다.",
+        "kubernetesExternalPathNoneDescription": "외부에 노출된 연결 경로가 확인되지 않았습니다.",
+        "kubernetesCurrentFailureImpact": "현재 장애 영향도",
+        "kubernetesPotentialInfrastructureRisk": "잠재 인프라 위험도",
+        "kubernetesCurrentFailureImpactTooltip": "NotReady 노드, 비정상 파드, 현재 영향받는 서비스를 기준으로 계산합니다.",
+        "kubernetesPotentialInfrastructureRiskTooltip": "운영 상태와 분리하여 평가된 물리 호스트 집중, 스위치 경로 집중, 단일 Control Plane, 단일 외부 연결 경로만으로 계산합니다.",
+        "kubernetesImpactLow": "낮음",
+        "kubernetesImpactCaution": "주의",
+        "kubernetesImpactHigh": "높음",
+        "kubernetesImpactCritical": "심각",
+        "kubernetesFocusNodes": "이 클러스터의 노드만 토폴로지에 표시",
+        "kubernetesFocusNamespaces": "이 클러스터의 네임스페이스만 토폴로지에 표시",
+        "kubernetesFocusPods": "이 클러스터의 파드만 토폴로지에 표시",
+        "kubernetesFocusServices": "이 클러스터의 서비스만 토폴로지에 표시",
+        "kubernetesCurrentUsage": "현재 사용량",
+        "kubernetesRequestRate": "요청률",
+        "kubernetesReservable": "예약 가능량",
+        "kubernetesMemory": "메모리",
+        "kubernetesMoldVmAllocation": "Mold VM 할당량",
+        "kubernetesUnknown": "확인 불가",
+        "kubernetesNotCollected": "수집되지 않음",
+        "kubernetesNoConnectionInfo": "연결 정보 없음",
+        "kubernetesMoldDeploymentStatus": "Mold 배포 상태",
+        "kubernetesSummaryFallbackDetail": "CPU·메모리 사용률과 최근 수집 시각은 표시되지 않을 수 있습니다.",
+        "kubernetesSingleHost": "단일 호스트",
+        "kubernetesSingleSwitch": "단일 스위치",
+        "kubernetesRiskReview": "확인",
+        "kubernetesHeroControlPlaneFailure": "Control Plane {count}대 장애",
+        "kubernetesHeroWorkerFailure": "Worker Node {count}대 장애",
+        "kubernetesHeroPodFailure": "Failed 파드 {count}개",
+        "kubernetesHeroServiceImpact": "서비스 {count}개 영향",
+        "kubernetesHeroNetworkConcentration": "네트워크 경로 집중",
+        "kubernetesHeroHostConcentration": "물리 호스트 집중",
+        "kubernetesHeroPendingPods": "Pending 파드 {count}개",
+        "kubernetesHeroNoImpact": "현재 영향 없음",
+        "kubernetesAffectedServiceKpi": "영향 서비스",
+        "kubernetesPotentialRiskKpi": "잠재 위험",
+        "kubernetesCurrentState": "현재 상태",
+        "kubernetesPlacementRisk": "배치 위험",
+        "kubernetesHostDistributionShort": "호스트 분산",
+        "kubernetesNetworkPathShort": "네트워크 경로",
+        "kubernetesConcentrated": "집중",
+        "kubernetesDistributed": "분산",
+        "kubernetesCurrentAlerts": "현재 경보",
+        "kubernetesNoCurrentAlerts": "감지된 운영 경보 없음",
+        "kubernetesPotentialRisks": "잠재 위험",
+        "kubernetesNoPotentialRisks": "평가 가능한 잠재 위험이 감지되지 않음",
+        "kubernetesResilienceGood": "양호",
+        "kubernetesResilienceRecommended": "보완 권장",
+        "kubernetesResilienceVulnerable": "취약",
+        "kubernetesResilienceVeryVulnerable": "매우 취약",
+        "kubernetesResilienceUnavailable": "평가 불가",
+        "kubernetesSingleControlPlaneRisk": "단일 Control Plane 구성",
+        "kubernetesSingleControlPlaneRiskDescription": "확인된 Control Plane 노드가 1대뿐입니다.",
+        "kubernetesSingleExternalPathRisk": "단일 외부 연결 경로",
+        "kubernetesSingleExternalPathRiskDescription": "현재 확인된 외부 연결 경로가 하나뿐입니다.",
+        "kubernetesSinglePath": "단일 경로",
+        "kubernetesMultiplePaths": "다중 경로",
+        "kubernetesNoExternalExposure": "외부 노출 미확인",
+        "kubernetesAnalysisConfidence": "분석 신뢰도",
+        "kubernetesConfidenceLimited": "제한적",
+        "kubernetesConfidenceSufficient": "충분",
+        "kubernetesConfidenceLimitedDescription": "전체 물리 호스트 또는 네트워크 이중화 경로가 수집되지 않았을 수 있습니다.",
         "kubernetesNodeSelectorSearchPlaceholder": "노드명 또는 클러스터명 검색",
         "kubernetesNodeSelectorHighlightAll": "전체 노드 강조",
         "kubernetesNodeSelectorEmpty": "이 호스트와 연결된 Kubernetes 노드가 없습니다.",
@@ -1177,6 +1887,9 @@ export const i18nMap = {
         "kubernetesCollectionManagementSection": "Kubernetes 수집 관리",
         "kubernetesClusterList": "클러스터 목록",
         "kubernetesClusterListDescription": "Kubernetes 연결 테스트와 Netdive 수집 상태를 확인합니다.",
+        "kubernetesAutoCollectionStarting": "Mold에서 새로 발견한 클러스터의 수집을 자동으로 시작하는 중입니다...",
+        "kubernetesAutoCollectionStarted": "Mold에서 새로 발견한 클러스터의 수집을 자동으로 시작했습니다.",
+        "kubernetesAutoCollectionFailed": "Mold에서 새로 발견한 클러스터의 수집을 자동으로 시작하지 못했습니다.",
         "kubernetesCollectionPolicy": "수집 정책",
         "kubernetesCollectionPolicyDescription": "Netdive가 Kubernetes 토폴로지 구성을 위해 수집하는 리소스 범위입니다.",
         "kubernetesCollectionPolicyNotice": "secret, configmap은 민감정보와 설정 데이터 노출을 줄이기 위해 기본 제외됩니다.",
@@ -1565,9 +2278,10 @@ export interface Config {
     defaultNodeTag?(): string
     nodeTabTitle?(node: Node): string
 
-    groupSize?(): number
+    groupSize?(node?: Node): number
+    groupThreshold?(node?: Node): number
     groupType?(node: Node): string | undefined
-    groupName?(node: Node): string | undefined
+    groupName?(node: Node, count?: number): string | undefined
     weightTitles?(): Map<number, string>
 
     suggestions?(): Array<string>
@@ -1764,14 +2478,24 @@ export default class ConfigReducer {
         return nodeTabTitle
     }
 
-    groupSize(): number {
-        var size = this.default.groupSize()
+    groupSize(node?: Node): number {
+        var size = this.default.groupSize(node)
         for (let c of this.configs) {
             if (c.config.groupSize) {
-                size = c.config.groupSize()
+                size = c.config.groupSize(node)
             }
         }
         return size
+    }
+
+    groupThreshold(node?: Node): number {
+        var threshold = this.default.groupThreshold(node)
+        for (let c of this.configs) {
+            if (c.config.groupThreshold) {
+                threshold = c.config.groupThreshold(node)
+            }
+        }
+        return threshold
     }
 
     groupType(node: Node): string | undefined {
@@ -1784,11 +2508,11 @@ export default class ConfigReducer {
         return groupType
     }
 
-    groupName(node: Node): string | undefined {
-        var groupName = this.default.groupName(node)
+    groupName(node: Node, count?: number): string | undefined {
+        var groupName = this.default.groupName(node, count)
         for (let c of this.configs) {
             if (c.config.groupName) {
-                groupName = c.config.groupName(node)
+                groupName = c.config.groupName(node, count)
             }
         }
         return groupName
@@ -1946,7 +2670,9 @@ class DefaultConfig {
             name = switchDisplayName(node.data, name)
         }
 
-        if (String(node.data.Type || '').toLowerCase() !== 'switch' && name.length > 24) {
+        const isKubernetesNode = String(node.data.Manager || '').toLowerCase() === 'k8s'
+            && String(node.data.Type || '').toLowerCase() === 'node'
+        if (String(node.data.Type || '').toLowerCase() !== 'switch' && !isKubernetesNode && name.length > 24) {
             name = node.data.Name.substring(0, 24) + "."
         }
 
@@ -2057,21 +2783,56 @@ class DefaultConfig {
                 break
             case "daemonset":
             case "deployment":
-            case "replicaset":
-            case "replicationcontroller":
             case "statefulset":
             case "job":
             case "cronjob":
-                attrs.icon = "\uf1b3"
-                attrs.weight = WEIGHT_K8S_POD
+                const workloadType = String(node.data.Type || '').toLowerCase()
+                const workloadIcons: Record<string, string> = {
+                    deployment: "assets/icons/deployment-controller.svg",
+                    daemonset: "assets/icons/daemonset-controller.svg",
+                    job: "assets/icons/job.png",
+                    cronjob: "assets/icons/cronjob.png"
+                }
+                const workloadGlyphs: Record<string, string> = {
+                    // StatefulSet represents persistent, stateful workloads. Use the
+                    // Font Awesome database glyph instead of the castle-like legacy PNG.
+                    statefulset: "\uf1c0"
+                }
+                if (workloadGlyphs[workloadType]) {
+                    attrs.icon = workloadGlyphs[workloadType]
+                } else {
+                    attrs.href = workloadIcons[workloadType] || `assets/icons/${workloadType}.png`
+                }
+                attrs.iconClass = `k8s-workload-icon k8s-${workloadType}-icon`
+                attrs.weight = WEIGHT_K8S_WORKLOAD
+                const workloadStatus = node.data?.K8s?.Extra?.Status || {}
+                const desired = Number(node.data?.K8s?.Extra?.Spec?.Replicas ?? workloadStatus.DesiredNumberScheduled ?? 0)
+                const ready = Number(workloadStatus.AvailableReplicas ?? workloadStatus.ReadyReplicas ?? workloadStatus.NumberAvailable ?? workloadStatus.NumberReady ?? workloadStatus.Succeeded ?? 0)
+                const failed = Number(workloadStatus.UnavailableReplicas ?? workloadStatus.NumberUnavailable ?? workloadStatus.NumberMisscheduled ?? workloadStatus.Failed ?? 0)
+                const active = Number(workloadStatus.Active ?? 0)
+                const healthy = failed === 0 && (desired === 0 || ready >= desired || active > 0)
+                const kindLabels: Record<string, string> = { deployment: "Deployment", statefulset: "StatefulSet", daemonset: "DaemonSet", job: "Job", cronjob: "CronJob" }
+                const kindLabel = kindLabels[workloadType] || String(node.data.Type || '')
+                const workloadSummary = healthy
+                    ? kindLabel
+                    : `${kindLabel} · ${translate("kubernetesHealthWarning")}`
+                attrs.name = `${String(node.data.Name || node.id)}\n${workloadSummary}`
+                break
+            case "replicaset":
+                attrs.href = "assets/icons/replicaset.png"
+                attrs.weight = WEIGHT_K8S_WORKLOAD
                 break
             case "ingress":
                 attrs.icon = "\uf0ac"
-                attrs.weight = WEIGHT_K8S_POD
+                attrs.weight = WEIGHT_K8S_OTHER
                 break
             case "networkpolicy":
                 attrs.icon = "\uf3ed"
-                attrs.weight = WEIGHT_K8S_POD
+                attrs.weight = WEIGHT_K8S_OTHER
+                break
+            case "replicationcontroller":
+                attrs.href = "assets/icons/replicationcontroller.png"
+                attrs.weight = WEIGHT_K8S_OTHER
                 break
             case "pod":
                 attrs.icon = "\uf1b3"
@@ -2082,8 +2843,9 @@ class DefaultConfig {
                 attrs.weight = WEIGHT_K8S_CONTAINER
                 break
             case "service":
-                attrs.icon = "\uf0e8"
+                attrs.icon = "\uf1e0"
                 attrs.weight = WEIGHT_K8S_SERVICE
+                if (node.data?.IsTopologyGroup) attrs.name = String(node.data.Name || attrs.name)
                 break
             default:
                 attrs.icon = "\uf542"
@@ -2548,8 +3310,22 @@ class DefaultConfig {
         return name
     }
 
-    groupSize(): number {
-        return 3
+    groupSize(node?: Node): number {
+        const workloadTypes = new Set(["deployment", "statefulset", "daemonset", "job", "cronjob"])
+        const nodeType = String(node?.data?.Type || '').toLowerCase()
+        return node && node.data?.Manager === "k8s" && (workloadTypes.has(nodeType) || nodeType === "service") ? 10 : 3
+    }
+
+    groupThreshold(node?: Node): number {
+        const workloadTypes = new Set(["deployment", "statefulset", "daemonset", "job", "cronjob"])
+        if (!node || node.data?.Manager !== "k8s") return 3
+        const nodeType = String(node.data?.Type || '').toLowerCase()
+        // Service nodes remain directly visible for small clusters. Grouping at the
+        // legacy threshold of three created one identically named group per cluster.
+        if (nodeType === "service") return 10
+        if (!workloadTypes.has(nodeType)) return 3
+        const controllerCount = (node.parent?.children || []).filter(child => child.data?.Manager === "k8s" && workloadTypes.has(String(child.data?.Type || '').toLowerCase())).length
+        return controllerCount > 10 ? 0 : 10
     }
 
     groupType(node: Node): string | undefined {
@@ -2563,9 +3339,11 @@ class DefaultConfig {
             case "cronjob":
             case "daemonset":
             case "deployment":
+            case "statefulset":
+            case "job":
+                return nodeType
             case "endpoints":
             case "ingress":
-            case "job":
             case "persistentvolume":
             case "persistentvolumeclaim":
             case "pod":
@@ -2573,26 +3351,39 @@ class DefaultConfig {
             case "replicaset":
             case "replicationcontroller":
             case "secret":
-            case "service":
-            case "statefulset":
                 return "app"
+            case "service":
+                return "service"
             default:
                 return nodeType
         }
     }
 
-    groupName(node: Node): string | undefined {
-        const withGroupSuffix = (name: string): string => {
-            const trimmed = name.trim()
-            return /(?:group|그룹)$/i.test(trimmed) ? trimmed : `${trimmed} ${translate("groupSuffix")}`
+    groupName(node: Node, count?: number): string | undefined {
+        const primitiveGroupName = (value: any): string => {
+            if (typeof value === "string") return value.trim()
+            if (typeof value === "number" || typeof value === "boolean") return String(value)
+            return ""
+        }
+        const withGroupSuffix = (name: any, fallback = "Resource"): string => {
+            const trimmed = primitiveGroupName(name) || fallback
+            const suffix = primitiveGroupName(translate("groupSuffix")) || "Group"
+            return /(?:group|그룹)$/i.test(trimmed) ? trimmed : `${trimmed} ${suffix}`
         }
 
         if (node.data.K8s) {
+            const workloadTypes = new Set(["deployment", "statefulset", "daemonset", "job", "cronjob"])
+            if (workloadTypes.has(String(node.data.Type || '').toLowerCase())) {
+                const kindLabels: Record<string, string> = { deployment: "Deployment", statefulset: "StatefulSet", daemonset: "DaemonSet", job: "Job", cronjob: "CronJob" }
+                const kind = kindLabels[String(node.data.Type || '').toLowerCase()] || String(node.data.Type)
+                return withGroupSuffix(kind)
+            }
             var labels = node.data.K8s.Labels
             if (labels) {
                 var app = labels["k8s-app"] || labels["app"]
-                if (app) {
-                    return withGroupSuffix(app)
+                const appGroupName = primitiveGroupName(app)
+                if (appGroupName) {
+                    return withGroupSuffix(appGroupName)
                 }
             }
 
@@ -2605,7 +3396,22 @@ class DefaultConfig {
                     return withGroupSuffix(translate("k8s-namespace-group"))
                 case "pod":
                     return withGroupSuffix(translate("k8s-pod-group"))
-                case "service":
+                case "service": {
+                    let clusterName = primitiveGroupName(node.data.ClusterName || node.data.clusterName || node.data.K8s?.ClusterName || node.data.Cluster)
+                    let namespaceName = primitiveGroupName(node.data.Namespace || node.data.K8s?.Namespace || node.data.K8s?.Extra?.ObjectMeta?.Namespace)
+                    let parent = node.parent
+                    while (parent && (!clusterName || !namespaceName)) {
+                        const parentType = primitiveGroupName(parent.data?.Type).toLowerCase()
+                        if (!namespaceName && parentType === "namespace") namespaceName = primitiveGroupName(parent.data?.Name)
+                        if (!clusterName && parentType === "cluster") clusterName = primitiveGroupName(parent.data?.Name)
+                        parent = parent.parent
+                    }
+                    const scopeName = clusterName && namespaceName ? `${clusterName} / ${namespaceName}` : namespaceName || clusterName
+                    if (scopeName && count !== undefined) {
+                        return `${scopeName}\n${translate("kubernetesTopologyServices")} · ${count}`
+                    }
+                    return withGroupSuffix(translate("k8s-service-group"))
+                }
                 case "endpoints":
                 case "ingress":
                 case "networkpolicy":
@@ -2633,12 +3439,13 @@ class DefaultConfig {
             nodeType = node.getWeight() === WEIGHT_VIRT_BRIDGES ? "virt-bridge" : "host-bridge"
         }
 
-        const groupKey = nodeType.toLowerCase() + "(s)"
+        const normalizedNodeType = primitiveGroupName(nodeType) || "resource"
+        const groupKey = normalizedNodeType.toLowerCase() + "(s)"
         if (groupKey === "device(s)") {
             return withGroupSuffix(translate(node.getWeight() === WEIGHT_PHY_NIC ? "device(s)-nic" : "device(s)-network"))
         }
         const translated = translate(groupKey)
-        const groupName = translated === groupKey ? nodeType.replace(/\(s\)$/i, '') : translated
+        const groupName = translated === groupKey ? normalizedNodeType.replace(/\(s\)$/i, '') : translated
         return withGroupSuffix(groupName)
     }
 
@@ -2650,6 +3457,7 @@ class DefaultConfig {
         wt.set(WEIGHT_K8S_CLUSTER, translate("k8s-clusters"))
         wt.set(WEIGHT_K8S_NODE, translate("k8s-nodes"))
         wt.set(WEIGHT_K8S_NAMESPACE, translate("k8s-namespaces"))
+        wt.set(WEIGHT_K8S_WORKLOAD, translate("k8s-workloads"))
         wt.set(WEIGHT_K8S_POD, translate("k8s-pods"))
         wt.set(WEIGHT_K8S_CONTAINER, translate("k8s-containers"))
         wt.set(WEIGHT_K8S_SERVICE, translate("k8s-services"))

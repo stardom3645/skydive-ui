@@ -157,7 +157,19 @@ interface RecentViewedNodeItem {
   iconTone?: string
 }
 
+type KubernetesWorkloadKind = "all" | "deployment" | "statefulset" | "daemonset" | "job" | "cronjob"
+const KUBERNETES_WORKLOAD_KINDS: KubernetesWorkloadKind[] = ["all", "deployment", "statefulset", "daemonset", "job", "cronjob"]
+const KUBERNETES_WORKLOAD_TYPES = new Set<string>(KUBERNETES_WORKLOAD_KINDS.filter(kind => kind !== "all"))
+const KUBERNETES_WORKLOAD_KIND_LABELS: Record<Exclude<KubernetesWorkloadKind, "all">, string> = {
+  deployment: "Deployment",
+  statefulset: "StatefulSet",
+  daemonset: "DaemonSet",
+  job: "Job",
+  cronjob: "CronJob"
+}
+
 const RECENT_VIEWED_NODES_STORAGE_KEY = "netdive-recent-viewed-nodes"
+const KUBERNETES_MANUALLY_DISABLED_STORAGE_KEY = "netdive-kubernetes-manually-disabled-clusters"
 
 const getSavedNetdiveTheme = (): NetdiveTheme => {
   const savedTheme = localStorage.getItem("netdive-theme")
@@ -176,6 +188,20 @@ const getSavedRecentViewedNodes = (): RecentViewedNodeItem[] => {
   } catch (e) {
     return []
   }
+}
+
+const getManuallyDisabledKubernetesClusterIDs = (): Set<string> => {
+  try {
+    const raw = localStorage.getItem(KUBERNETES_MANUALLY_DISABLED_STORAGE_KEY)
+    const parsed = raw ? JSON.parse(raw) : []
+    return new Set<string>(Array.isArray(parsed) ? parsed.filter((id) => typeof id === "string" && id.trim()) : [])
+  } catch (e) {
+    return new Set<string>()
+  }
+}
+
+const saveManuallyDisabledKubernetesClusterIDs = (ids: Set<string>) => {
+  localStorage.setItem(KUBERNETES_MANUALLY_DISABLED_STORAGE_KEY, JSON.stringify(Array.from(ids)))
 }
 
 interface State {
@@ -232,6 +258,7 @@ interface State {
   kubernetesTestResults: KubernetesCheckResult[]
   kubernetesLastTests: Record<string, KubernetesLastTest>
   kubernetesCopiedClusterId: string
+  kubernetesWorkloadKind: KubernetesWorkloadKind
   moldIntegrationConnected: boolean
   recentViewedNodes: RecentViewedNodeItem[]
   isRecentViewedNodesCollapsed: boolean
@@ -252,6 +279,20 @@ interface MoldKubernetesCluster {
   name: string
   state: string
   apiServer: string
+  description?: string
+  zoneName?: string
+  version?: string
+  controlNodes?: number
+  workerNodes?: number
+  cores?: number
+  memoryMb?: number
+  networkName?: string
+  serviceOffering?: string
+  ipAddress?: string
+  autoscaling?: boolean
+  minSize?: number
+  maxSize?: number
+  created?: string
   collectionEnabled: boolean
   collectionRunning: boolean
 }
@@ -276,11 +317,13 @@ interface KubernetesTopologySummary {
   clusters: number
   nodes: number
   namespaces: number
+  workloads: number
   pods: number
   services: number
   clusterNodeIDs: string[]
   nodeNodeIDs: string[]
   namespaceNodeIDs: string[]
+  workloadNodeIDs: string[]
   podNodeIDs: string[]
   serviceNodeIDs: string[]
 }
@@ -342,6 +385,7 @@ class App extends React.Component<Props, State> {
   private kubernetesRequestSeq: number
   private kubernetesTestRequestSeq: number
   private kubernetesTestProgressTimers: number[]
+  private kubernetesAutoEnableAttemptedIds: Set<string>
   private kubernetesCheckListRef: React.RefObject<HTMLDivElement>
   private moldInventoryFailureLogged: boolean
   private moldInventoryUnavailable: boolean
@@ -403,6 +447,7 @@ class App extends React.Component<Props, State> {
       kubernetesTestResults: [],
       kubernetesLastTests: {},
       kubernetesCopiedClusterId: "",
+      kubernetesWorkloadKind: "all",
       moldIntegrationConnected: false,
       recentViewedNodes: getSavedRecentViewedNodes(),
       isRecentViewedNodesCollapsed: true,
@@ -417,8 +462,13 @@ class App extends React.Component<Props, State> {
     // we will refresh info each 1s
     this.bumpRevision = debounce(1000, this.props.bumpRevision.bind(this))
 
-    // debounce version of setState
-    this.debSetState = debounce(200, this.setState.bind(this))
+    // Several topology update paths mutate the current state before requesting
+    // one debounced render. Do not retain the state object passed at request
+    // time: applying that stale snapshot later can roll back UI-only state
+    // changed in the meantime (for example, the recent-node panel toggle).
+    this.debSetState = debounce(200, () => {
+      this.setState((currentState) => ({ ...currentState }))
+    })
 
     // debounce updateFilters
     this.debUpdateFilters = debounce(5000, this.updateFilters.bind(this))
@@ -437,6 +487,7 @@ class App extends React.Component<Props, State> {
     this.kubernetesRequestSeq = 0
     this.kubernetesTestRequestSeq = 0
     this.kubernetesTestProgressTimers = []
+    this.kubernetesAutoEnableAttemptedIds = new Set<string>()
     this.kubernetesCheckListRef = React.createRef()
     this.moldInventoryFailureLogged = false
     this.moldInventoryUnavailable = false
@@ -698,10 +749,55 @@ class App extends React.Component<Props, State> {
       if (requestSeq !== this.kubernetesRequestSeq) {
         return
       }
-      const clusters = data.clusters || []
-      const selectedIds = Array.isArray(data.selectedIds)
+      const clusters: MoldKubernetesCluster[] = (data.clusters || []).map((cluster: MoldKubernetesCluster) => ({
+        ...cluster,
+        id: String(cluster.id || '').trim(),
+        name: String(cluster.name || '').trim(),
+        apiServer: String(cluster.apiServer || '').trim()
+      }))
+      const selectedIds: string[] = Array.isArray(data.selectedIds)
         ? data.selectedIds
         : (data.selectedId ? [data.selectedId] : clusters.filter((cluster: MoldKubernetesCluster) => cluster.collectionEnabled).map((cluster: MoldKubernetesCluster) => cluster.id))
+      const manuallyDisabledIds = getManuallyDisabledKubernetesClusterIDs()
+      const autoEnableIds = clusters
+        .map((cluster: MoldKubernetesCluster) => cluster.id)
+        .filter((id: string) => id && !selectedIds.includes(id) && !manuallyDisabledIds.has(id) && !this.kubernetesAutoEnableAttemptedIds.has(id))
+
+      if (autoEnableIds.length > 0) {
+        autoEnableIds.forEach((id) => this.kubernetesAutoEnableAttemptedIds.add(id))
+        const desiredSelectedIds = Array.from(new Set([...selectedIds, ...autoEnableIds]))
+        this.setState({
+          kubernetesClusters: clusters.map((cluster: MoldKubernetesCluster) => ({
+            ...cluster,
+            collectionEnabled: desiredSelectedIds.includes(cluster.id)
+          })),
+          kubernetesSelectedIds: desiredSelectedIds,
+          kubernetesLoading: true,
+          kubernetesMessage: translate("kubernetesAutoCollectionStarting"),
+          moldIntegrationConnected: true
+        })
+        this.fetchKubernetesAPI("/api/mold/kubernetes-clusters/select", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: autoEnableIds[0], ids: desiredSelectedIds })
+        }).then(() => {
+          if (requestSeq !== this.kubernetesRequestSeq) return
+          this.setState({ kubernetesMessage: translate("kubernetesAutoCollectionStarted") })
+          this.refreshKubernetesClusters()
+          window.setTimeout(() => this.sync(), 500)
+        }).catch((err) => {
+          if (requestSeq !== this.kubernetesRequestSeq) return
+          this.setState({
+            kubernetesClusters: clusters,
+            kubernetesSelectedIds: selectedIds,
+            kubernetesLoading: false,
+            kubernetesMessage: translate("kubernetesAutoCollectionFailed"),
+            moldIntegrationConnected: true
+          })
+          console.debug("Failed to auto-enable kubernetes clusters", err)
+        })
+        return
+      }
       this.setState({
         kubernetesClusters: clusters,
         kubernetesSelectedIds: selectedIds,
@@ -769,11 +865,21 @@ class App extends React.Component<Props, State> {
     if (!clusterID) {
       return
     }
+    const manuallyDisabledIds = getManuallyDisabledKubernetesClusterIDs()
+    manuallyDisabledIds.delete(clusterID)
+    saveManuallyDisabledKubernetesClusterIDs(manuallyDisabledIds)
     const selectedIds = Array.from(new Set([...this.state.kubernetesSelectedIds, clusterID]))
     this.saveKubernetesClusterSelection(selectedIds, clusterID)
   }
 
   private disableKubernetesCollection(clusterID?: string) {
+    const manuallyDisabledIds = getManuallyDisabledKubernetesClusterIDs()
+    if (clusterID) {
+      manuallyDisabledIds.add(clusterID)
+    } else {
+      this.state.kubernetesClusters.forEach((cluster) => manuallyDisabledIds.add(cluster.id))
+    }
+    saveManuallyDisabledKubernetesClusterIDs(manuallyDisabledIds)
     const selectedIds = clusterID
       ? this.state.kubernetesSelectedIds.filter((id) => id !== clusterID)
       : []
@@ -1026,11 +1132,13 @@ class App extends React.Component<Props, State> {
       clusters: 0,
       nodes: 0,
       namespaces: 0,
+      workloads: 0,
       pods: 0,
       services: 0,
       clusterNodeIDs: [],
       nodeNodeIDs: [],
       namespaceNodeIDs: [],
+      workloadNodeIDs: [],
       podNodeIDs: [],
       serviceNodeIDs: []
     }
@@ -1053,6 +1161,14 @@ class App extends React.Component<Props, State> {
         case "namespace":
           summary.namespaces += 1
           summary.namespaceNodeIDs.push(node.id)
+          break
+        case "deployment":
+        case "statefulset":
+        case "daemonset":
+        case "job":
+        case "cronjob":
+          summary.workloads += 1
+          summary.workloadNodeIDs.push(node.id)
           break
         case "pod":
           summary.pods += 1
@@ -1353,6 +1469,67 @@ class App extends React.Component<Props, State> {
     return true
   }
 
+  private reconcileKubernetesWorkloadHierarchy() {
+    if (!this.tc) return
+    const nodes = Array.from(this.tc.nodes.values())
+    const workloads = nodes.filter(node => node.data?.Manager === "k8s" && KUBERNETES_WORKLOAD_TYPES.has(String(node.data?.Type || "").toLowerCase()))
+    const namespaces = nodes.filter(node => node.data?.Manager === "k8s" && String(node.data?.Type || "").toLowerCase() === "namespace")
+    const pods = nodes.filter(node => node.data?.Manager === "k8s" && String(node.data?.Type || "").toLowerCase() === "pod")
+    const clusterName = (node: Node) => String(node.data?.ClusterName || node.data?.K8s?.ClusterName || "")
+    const namespaceName = (node: Node) => String(node.data?.K8s?.Namespace || node.data?.Namespace || node.data?.K8s?.Extra?.ObjectMeta?.Namespace || "")
+    const uid = (node: Node) => String(node.data?.K8s?.Extra?.ObjectMeta?.UID || node.id)
+    const owners = (node: Node): any[] => {
+      const value = node.data?.K8s?.Extra?.ObjectMeta?.OwnerReferences
+      return Array.isArray(value) ? value : []
+    }
+    const labels = (node: Node): Record<string, any> => node.data?.K8s?.Labels || node.data?.K8s?.Extra?.ObjectMeta?.Labels || {}
+    const selector = (node: Node): Record<string, any> => node.data?.K8s?.Extra?.Spec?.Selector?.MatchLabels || node.data?.K8s?.Extra?.Spec?.Selector || {}
+    const sameScope = (left: Node, right: Node) => clusterName(left) === clusterName(right) && namespaceName(left) === namespaceName(right)
+    const selectorMatches = (workload: Node, pod: Node) => {
+      const matchLabels = selector(workload)
+      const podLabels = labels(pod)
+      const keys = Object.keys(matchLabels)
+      return keys.length > 0 && keys.every(key => String(podLabels[key]) === String(matchLabels[key]))
+    }
+    const setParent = (child: Node, parent?: Node) => {
+      if (parent && child.parent !== parent) this.tc!.setParent(child, parent)
+    }
+
+    // Controllers are presented as one flat Namespace layer. Owner chains such as
+    // CronJob -> Job and Deployment -> ReplicaSet remain source metadata used for
+    // relation calculation instead of becoming extra topology depth.
+    workloads.forEach(workload => {
+      const namespace = namespaces.find(item => clusterName(item) === clusterName(workload) && String(item.data?.Name || item.data?.K8s?.Name || "") === namespaceName(workload))
+      setParent(workload, namespace)
+    })
+
+    pods.forEach(pod => {
+      const namespace = namespaces.find(item => clusterName(item) === clusterName(pod) && String(item.data?.Name || item.data?.K8s?.Name || "") === namespaceName(pod))
+      const podOwners = owners(pod)
+      let workload = workloads.find(item => sameScope(item, pod) && podOwners.some(owner => String(owner?.UID || "") === uid(item)))
+      if (!workload) {
+        const matching = workloads.filter(item => sameScope(item, pod) && selectorMatches(item, pod))
+        matching.sort((left, right) => Object.keys(selector(right)).length - Object.keys(selector(left)).length || String(right.data?.Name || "").length - String(left.data?.Name || "").length)
+        workload = matching[0]
+      }
+      setParent(pod, workload || namespace)
+    })
+  }
+
+  private kubernetesTopologyNodeVisible(node: Node): boolean {
+    if (node.data?.Manager !== "k8s") return true
+    const type = String(node.data?.Type || "").toLowerCase()
+    if (type === "replicaset" || type === "endpointslice" || type === "endpoints") return false
+    if (!KUBERNETES_WORKLOAD_TYPES.has(type) || this.state.kubernetesWorkloadKind === "all") return true
+    return type === this.state.kubernetesWorkloadKind
+  }
+
+  private setKubernetesWorkloadKind(kind: KubernetesWorkloadKind) {
+    this.setState({ kubernetesWorkloadKind: kind }, () => {
+      if (this.tc) this.tc.renderTree()
+    })
+  }
+
   updatedEdge(edge: any): boolean {
     if (!this.tc) {
       return false
@@ -1403,6 +1580,8 @@ class App extends React.Component<Props, State> {
         }
       }
     }
+
+    this.reconcileKubernetesWorkloadHierarchy()
 
     if (this.nextTag) {
       this.tc.activeNodeTag(this.nextTag)
@@ -1467,6 +1646,7 @@ class App extends React.Component<Props, State> {
 
   _refreshTopology() {
     if (this.tc) {
+      this.reconcileKubernetesWorkloadHierarchy()
       this.tc.renderTree();
       this.pruneRecentViewedNodes()
     }
@@ -2234,14 +2414,16 @@ class App extends React.Component<Props, State> {
           return { glyph: "\uf233", tone: "host" }
         case "namespace":
           return { glyph: "\uf07b", tone: "network" }
-        case "pod":
         case "deployment":
         case "daemonset":
-        case "statefulset":
         case "replicaset":
+          return { glyph: "\uf5fd", tone: "system-vm" }
+        case "statefulset":
+          return { glyph: "\uf1c0", tone: "system-vm" }
+        case "pod":
           return { glyph: "\uf1b3", tone: "system-vm" }
         case "service":
-          return { glyph: "\uf0e8", tone: "network" }
+          return { glyph: "\uf1e0", tone: "network" }
         case "cluster":
         default:
           return { glyph: "\uf542", tone: "network" }
@@ -3098,8 +3280,11 @@ class App extends React.Component<Props, State> {
                 <Tooltip title={isCollapsed ? translate("expand") : translate("collapse")}>
                   <IconButton
                     size="small"
+                    aria-label={isCollapsed ? translate("expand") : translate("collapse")}
                     className={classes.recentViewedNodesCollapseButton}
-                    onClick={() => this.setState({ isRecentViewedNodesCollapsed: !isCollapsed })}>
+                    onClick={() => this.setState((currentState) => ({
+                      isRecentViewedNodesCollapsed: !currentState.isRecentViewedNodesCollapsed
+                    }))}>
                     {isCollapsed ? <KeyboardArrowDown fontSize="small" /> : <UnfoldLessIcon fontSize="small" />}
                   </IconButton>
                 </Tooltip>
@@ -4224,8 +4409,22 @@ class App extends React.Component<Props, State> {
           {this.renderKubernetesTopologySummaryCard(classes, this.infrastructureIcon("\uf542", "network"), translate("kubernetesTopologyClusters"), summary.clusters, summary.clusterNodeIDs)}
           {this.renderKubernetesTopologySummaryCard(classes, this.infrastructureIcon("\uf233", "host"), translate("kubernetesTopologyNodes"), summary.nodes, summary.nodeNodeIDs)}
           {this.renderKubernetesTopologySummaryCard(classes, this.infrastructureIcon("\uf07b", "network"), translate("kubernetesTopologyNamespaces"), summary.namespaces, summary.namespaceNodeIDs)}
+          {this.renderKubernetesTopologySummaryCard(classes, this.infrastructureIcon("\uf5fd", "system-vm"), translate("kubernetesTopologyWorkloadControllers"), summary.workloads, summary.workloadNodeIDs)}
           {this.renderKubernetesTopologySummaryCard(classes, this.infrastructureIcon("\uf1b3", "network"), translate("kubernetesTopologyPods"), summary.pods, summary.podNodeIDs)}
-          {this.renderKubernetesTopologySummaryCard(classes, this.infrastructureIcon("\uf0e8", "network"), translate("kubernetesTopologyServices"), summary.services, summary.serviceNodeIDs)}
+          {this.renderKubernetesTopologySummaryCard(classes, this.infrastructureIcon("\uf1e0", "network"), translate("kubernetesTopologyServices"), summary.services, summary.serviceNodeIDs)}
+        </div>
+        <div className={classes.kubernetesWorkloadFilter}>
+          <div>
+            <strong>{translate("kubernetesWorkloadTypeFilter")}</strong>
+            <small>{translate("kubernetesWorkloadTypeFilterDescription")}</small>
+          </div>
+          <ToggleButtonGroup
+            value={this.state.kubernetesWorkloadKind}
+            exclusive
+            onChange={(event: React.MouseEvent<HTMLElement>, kind: KubernetesWorkloadKind | null) => kind && this.setKubernetesWorkloadKind(kind)}
+            aria-label={translate("kubernetesWorkloadTypeFilter")}>
+            {KUBERNETES_WORKLOAD_KINDS.map(kind => <ToggleButton value={kind} key={kind}>{kind === "all" ? translate("all") : KUBERNETES_WORKLOAD_KIND_LABELS[kind]}</ToggleButton>)}
+          </ToggleButtonGroup>
         </div>
         <div className={classes.kubernetesTableHeader}>
           <div className={classes.kubernetesSectionTitleArea}>
@@ -4438,7 +4637,28 @@ class App extends React.Component<Props, State> {
           </React.Fragment>,
           this.state.isInfrastructurePanelOpen || this.state.isKubernetesManagerOpen
         )}
-        {this.renderDrawerMenuItem(classes, <Brightness4Icon />, translate("preferences"), () => this.openPreferencesPanel(), this.state.isPreferencesPanelOpen)}
+        {this.renderDrawerMenuGroup(
+          classes,
+          <Brightness4Icon />,
+          translate("preferences"),
+          <React.Fragment>
+            <div className={classes.drawerLanguagePanel}>
+              <div className={classes.drawerMenuSectionTitle}>{translate("language")}</div>
+              <LanguageToggle />
+            </div>
+            <div className={classes.drawerThemePanel}>
+              <div className={classes.drawerMenuSectionTitle}>{translate("themeSetting")}</div>
+              <ToggleButtonGroup
+                value={this.state.netdiveTheme}
+                exclusive
+                onChange={this.onThemeToggleChange.bind(this)}
+                aria-label="Theme selection">
+                <ToggleButton value="light" aria-label="Light">Light</ToggleButton>
+                <ToggleButton value="dark" aria-label="Dark">Dark</ToggleButton>
+              </ToggleButtonGroup>
+            </div>
+          </React.Fragment>
+        )}
         {this.renderDrawerMenuGroup(
           classes,
           <LibraryBooksIcon />,
@@ -4552,9 +4772,11 @@ class App extends React.Component<Props, State> {
               sortNodesFnc={this.sortNodesFnc.bind(this)}
               onShowNodeContextMenu={this.onShowNodeContextMenu.bind(this)}
               weightTitles={this.config.weightTitles()}
-              groupSize={this.config.groupSize()}
+              groupSize={this.config.groupSize.bind(this.config)}
+              groupThreshold={this.config.groupThreshold.bind(this.config)}
               groupType={this.config.groupType.bind(this.config)}
               groupName={this.config.groupName.bind(this.config)}
+              nodeVisible={this.kubernetesTopologyNodeVisible.bind(this)}
               onClick={this.onTopologyClick.bind(this)}
               onLinkSelected={this.onLinkSelected.bind(this)}
               onLinkTagChange={this.onLinkTagChange.bind(this)}

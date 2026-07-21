@@ -258,7 +258,9 @@ export const styles = (theme: Theme) => createStyles({
     boxShadow: 'none',
     padding: 0,
     boxSizing: 'border-box',
-    zIndex: theme.zIndex.drawer,
+    // Keep the navigation rail and its flyouts above Netdive side panels
+    // (1250), while leaving real Material UI dialogs (1300) modal.
+    zIndex: theme.zIndex.modal - 10,
     overflow: 'visible',
   },
   drawerPaperClose: {
@@ -420,7 +422,7 @@ export const styles = (theme: Theme) => createStyles({
     pointerEvents: 'none',
     transform: 'translateX(-4px)',
     transition: 'opacity 140ms ease, transform 140ms ease, visibility 140ms ease',
-    zIndex: theme.zIndex.drawer + 2,
+    zIndex: theme.zIndex.modal - 5,
     '&:before': {
       content: '""',
       position: 'absolute',
@@ -1014,9 +1016,53 @@ export const styles = (theme: Theme) => createStyles({
     }
   },
   kubernetesTopologySummaryGrid: {
-    gridTemplateColumns: 'repeat(5, minmax(0, 1fr))',
+    gridTemplateColumns: 'repeat(6, minmax(0, 1fr))',
     [theme.breakpoints.down('md')]: {
       gridTemplateColumns: 'repeat(2, minmax(0, 1fr))'
+    }
+  },
+  kubernetesWorkloadFilter: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing(1.5),
+    padding: theme.spacing(1.25, 1.5),
+    border: '1px solid var(--netdive-detail-border)',
+    borderRadius: 12,
+    backgroundColor: 'var(--netdive-detail-section-bg)',
+    '& > div:first-child': {
+      display: 'flex',
+      minWidth: 0,
+      flexDirection: 'column'
+    },
+    '& strong': {
+      color: 'var(--netdive-detail-title)',
+      fontSize: 13,
+      fontWeight: 800
+    },
+    '& small': {
+      color: 'var(--netdive-detail-muted)',
+      fontSize: 11
+    },
+    '& .MuiToggleButtonGroup-root': {
+      flexWrap: 'wrap',
+      justifyContent: 'flex-end'
+    },
+    '& .MuiToggleButton-root': {
+      padding: theme.spacing(0.55, 1),
+      color: 'var(--netdive-detail-muted)',
+      fontSize: 10.5,
+      lineHeight: 1.2,
+      textTransform: 'none'
+    },
+    '& .Mui-selected': {
+      color: '#1677ff !important',
+      backgroundColor: '#eff6ff !important'
+    },
+    [theme.breakpoints.down('sm')]: {
+      alignItems: 'flex-start',
+      flexDirection: 'column',
+      '& .MuiToggleButtonGroup-root': { justifyContent: 'flex-start' }
     }
   },
   infrastructureSummaryCard: {

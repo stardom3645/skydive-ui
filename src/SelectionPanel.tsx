@@ -41,6 +41,13 @@ import NicDetailPanel from './DataPanels/NicDetailPanel'
 import HostBridgeDetailPanel from './DataPanels/HostBridgeDetailPanel'
 import VirtualBridgeDetailPanel from './DataPanels/VirtualBridgeDetailPanel'
 import VlanDetailPanel from './DataPanels/VlanDetailPanel'
+import KubernetesClusterDetailPanel from './DataPanels/KubernetesClusterDetailPanel'
+import KubernetesNodeDetailPanel from './DataPanels/KubernetesNodeDetailPanel'
+import KubernetesNamespaceDetailPanel from './DataPanels/KubernetesNamespaceDetailPanel'
+import KubernetesPodDetailPanel from './DataPanels/KubernetesPodDetailPanel'
+import KubernetesWorkloadDetailPanel from './DataPanels/KubernetesWorkloadDetailPanel'
+import KubernetesServiceDetailPanel from './DataPanels/KubernetesServiceDetailPanel'
+import NodeContextBreadcrumb, { NodeContextIcon, NodeContextItem } from './DataPanels/common/NodeContextBreadcrumb'
 
 
 interface Props {
@@ -124,6 +131,7 @@ class SelectionPanel extends React.Component<Props, State> {
         let attrs = this.props.config.nodeAttrs(el)
         var icon: string = attrs.icon
         var href: string = attrs.href
+        var iconClass: string = attrs.iconClass || ""
 
         if (attrs.iconClass === "font-brands") {
           className = classes.tabIconBrands
@@ -134,6 +142,7 @@ class SelectionPanel extends React.Component<Props, State> {
         let attrs = this.props.config.linkAttrs(el)
         var icon: string = attrs.icon
         var href: string = attrs.href
+        var iconClass: string = attrs.iconClass || ""
 
         if (attrs.iconClass === "font-brands") {
           className = classes.tabIconBrands
@@ -144,8 +153,14 @@ class SelectionPanel extends React.Component<Props, State> {
 
       const subtitle = this.tabSubtitle(el)
       const isSwitchIcon = el.type === 'node' && String(el.data?.Type || el.data?.type || '').toLowerCase() === 'switch'
+      const isDeploymentIcon = iconClass.split(/\s+/).indexOf('k8s-deployment-icon') >= 0
+      const isDaemonSetIcon = iconClass.split(/\s+/).indexOf('k8s-daemonset-icon') >= 0
       const tabIcon = isSwitchIcon
         ? <span className={classes.tabSwitchIcon} aria-hidden="true" />
+        : isDeploymentIcon
+        ? <span className={classes.tabDeploymentIcon} aria-hidden="true" />
+        : isDaemonSetIcon
+        ? <span className={classes.tabDaemonSetIcon} aria-hidden="true" />
         : href
         ? <img src={href} className={classes.tabIconImage} alt="" />
         : <span className={className}>{icon}</span>
@@ -189,6 +204,174 @@ class SelectionPanel extends React.Component<Props, State> {
     } else {
       return this.props.config.linkDataFields()
     }
+  }
+
+  private topologyNodes(): Node[] {
+    const nodes = (window as any).App?.tc?.nodes
+    if (nodes instanceof Map) return Array.from(nodes.values())
+    return Array.isArray(nodes) ? nodes : []
+  }
+
+  private contextNodeName(node: Node): string {
+    const displayName = this.props.nodeDisplayName ? this.props.nodeDisplayName(node) : this.props.config.nodeTabTitle(node)
+    return String(displayName || node.data?.Name || node.id).replace(/\s*\n\s*/g, ' ').trim()
+  }
+
+  private nodeAncestors(node: Node): Node[] {
+    const ancestors: Node[] = []
+    const visited = new Set<string>()
+    let current: Node | null | undefined = node
+    while (current && current.id !== 'root' && !visited.has(current.id)) {
+      ancestors.unshift(current)
+      visited.add(current.id)
+      current = current.parent
+    }
+    return ancestors
+  }
+
+  private contextTypeLabel(node: Node): string {
+    const data = node.data || {}
+    const type = String(data.Type || data.type || '').toLowerCase()
+    const name = String(data.Name || data.name || '').toLowerCase()
+    if (String(data.Manager || '').toLowerCase() === 'k8s') {
+      const labels: Record<string, string> = {
+        cluster: 'Cluster', node: 'Node', namespace: 'Namespace', deployment: 'Deployment', statefulset: 'StatefulSet',
+        daemonset: 'DaemonSet', job: 'Job', cronjob: 'CronJob', pod: 'Pod', service: 'Service'
+      }
+      return labels[type] || (type ? type.charAt(0).toUpperCase() + type.slice(1) : 'Kubernetes')
+    }
+    if (type === 'host') return 'Host'
+    if (type === 'libvirt') {
+      if (/^(s-|v-)/.test(name) || name === 'ccvm' || name === 'scvm') return 'System VM'
+      if (/^r-/.test(name)) return 'Virtual Router'
+      return 'User VM'
+    }
+    if (type === 'bridge') {
+      return this.props.config.nodeAttrs(node).weight === WEIGHT_VIRT_BRIDGES ? 'Virtual Bridge' : 'Host Bridge'
+    }
+    const labels: Record<string, string> = {
+      bond: 'Bond Interface', device: 'NIC', internal: 'Interface', interface: 'Interface', tuntap: 'VM Interface',
+      tun: 'VM Interface', tap: 'VM Interface', veth: 'Virtual Ethernet', ovsbridge: 'Virtual Bridge',
+      openvswitch: 'Virtual Bridge', ovsport: 'Virtual Port', patch: 'Patch Port', port: 'Port', switchport: 'Switch Port',
+      erspan: 'ERSPAN', geneve: 'Geneve', vxlan: 'VXLAN', gre: 'GRE', gretap: 'GRE Tap', switch: 'Switch',
+      vlan: 'VLAN', netns: 'Network Namespace', namespace: 'Namespace', container: 'Container'
+    }
+    return labels[type] || (type ? type.charAt(0).toUpperCase() + type.slice(1) : 'Node')
+  }
+
+  private descendantPods(node: Node): Node[] {
+    const pods: Node[] = []
+    const visited = new Set<string>()
+    const visit = (current: Node) => {
+      if (visited.has(current.id)) return
+      visited.add(current.id)
+      if (String(current.data?.Manager || '').toLowerCase() === 'k8s' && String(current.data?.Type || '').toLowerCase() === 'pod') {
+        pods.push(current)
+        return
+      }
+      ;(current.children || []).forEach(visit)
+    }
+    visit(node)
+    return pods
+  }
+
+  private kubernetesClusterAncestor(node: Node): Node | undefined {
+    return this.nodeAncestors(node).find(item => String(item.data?.Manager || '').toLowerCase() === 'k8s' && String(item.data?.Type || '').toLowerCase() === 'cluster')
+  }
+
+  private servicePods(service: Node): Node[] {
+    const data = service.data || {}
+    const selector = data.K8s?.Extra?.Spec?.Selector || {}
+    const keys = selector && typeof selector === 'object' ? Object.keys(selector) : []
+    if (!keys.length) return []
+    const namespace = String(data.K8s?.Namespace || data.Namespace || data.K8s?.Extra?.ObjectMeta?.Namespace || '')
+    const cluster = this.kubernetesClusterAncestor(service)
+    return this.topologyNodes().filter(node => {
+      if (String(node.data?.Manager || '').toLowerCase() !== 'k8s' || String(node.data?.Type || '').toLowerCase() !== 'pod') return false
+      const podNamespace = String(node.data?.K8s?.Namespace || node.data?.Namespace || node.data?.K8s?.Extra?.ObjectMeta?.Namespace || '')
+      if (podNamespace !== namespace) return false
+      if (cluster && this.kubernetesClusterAncestor(node)?.id !== cluster.id) return false
+      const labels = node.data?.K8s?.Labels || node.data?.K8s?.Extra?.ObjectMeta?.Labels || {}
+      return keys.every(key => String(labels[key]) === String(selector[key]))
+    })
+  }
+
+  private kubernetesContextAnchor(node: Node): NodeContextItem {
+    const allNodes = this.topologyNodes()
+    const type = String(node.data?.Type || '').toLowerCase()
+    if (type === 'node') return { id: node.id, label: this.contextNodeName(node), node }
+
+    let pods = this.descendantPods(node)
+    if (type === 'service') pods = this.servicePods(node)
+    const nodeNames = new Set<string>()
+    pods.forEach(pod => {
+      const nodeName = String(pod.data?.K8s?.Extra?.Spec?.NodeName || pod.data?.K8s?.Node || pod.data?.NodeName || '').trim()
+      if (nodeName) nodeNames.add(nodeName)
+    })
+
+    const cluster = this.kubernetesClusterAncestor(node) || (type === 'cluster' ? node : undefined)
+    if (type === 'cluster' && cluster) {
+      allNodes.forEach(candidate => {
+        if (String(candidate.data?.Manager || '').toLowerCase() !== 'k8s' || String(candidate.data?.Type || '').toLowerCase() !== 'node') return
+        if (this.kubernetesClusterAncestor(candidate)?.id === cluster.id) nodeNames.add(this.contextNodeName(candidate))
+      })
+    }
+
+    const names = Array.from(nodeNames)
+    const anchorNode = names.length === 1 ? allNodes.find(candidate => String(candidate.data?.Type || '').toLowerCase() === 'node' && this.contextNodeName(candidate) === names[0]) : undefined
+    if (names.length) return { id: anchorNode?.id || `k8s-nodes-${node.id}`, label: `${names[0]}${names.length > 1 ? ` +${names.length - 1}` : ''}`, node: anchorNode }
+    return { id: `k8s-node-unresolved-${node.id}`, label: 'Kubernetes Node · 확인 불가' }
+  }
+
+  private nodeContext(node: Node): { icon: NodeContextIcon, items: NodeContextItem[] } {
+    const isGroup = !!node.data?.IsTopologyGroup
+    const representative = isGroup && node.children?.length ? node.children[0] : node
+    const isKubernetes = String(representative.data?.Manager || node.data?.Manager || '').toLowerCase() === 'k8s'
+    const chain = isGroup
+      ? [...this.nodeAncestors(representative.parent || representative), node]
+      : this.nodeAncestors(node)
+
+    let anchor: NodeContextItem
+    if (isKubernetes) {
+      anchor = this.kubernetesContextAnchor(representative)
+    } else {
+      const host = chain.find(item => String(item.data?.Type || '').toLowerCase() === 'host')
+      const rootContext = host || chain[0] || node
+      anchor = { id: rootContext.id, label: this.contextNodeName(rootContext), node: rootContext }
+    }
+
+    const isRoot = !node.parent || node.parent.id === 'root' || anchor.node?.id === node.id
+    const items: NodeContextItem[] = []
+
+    if (isRoot) {
+      items.push({ id: `${node.id}-current`, label: this.contextNodeName(node), node })
+    } else {
+      items.push(anchor)
+      chain.forEach(item => {
+        if (item.id === anchor.node?.id || item.id === node.id) return
+        const label = this.contextTypeLabel(item)
+        if (!items.length || items[items.length - 1].label !== label) {
+          items.push({ id: `${item.id}-type`, label, node: item })
+        }
+      })
+      const currentTypeNode = isGroup ? representative : node
+      const currentTypeLabel = this.contextTypeLabel(currentTypeNode)
+      if (!items.length || items[items.length - 1].label !== currentTypeLabel) {
+        items.push({ id: `${node.id}-current-type`, label: currentTypeLabel, node })
+      }
+      items.push({ id: `${node.id}-current`, label: this.contextNodeName(node), node })
+    }
+
+    const attrs = this.props.config.nodeAttrs(node)
+    return {
+      icon: { icon: attrs.icon, href: attrs.href, iconClass: attrs.iconClass },
+      items
+    }
+  }
+
+  private renderNodeContext(node: Node) {
+    const context = this.nodeContext(node)
+    return <NodeContextBreadcrumb icon={context.icon} items={context.items} />
   }
 
   renderTabPanels(classes: any) {
@@ -268,6 +451,41 @@ class SelectionPanel extends React.Component<Props, State> {
       return !!el.data?.IsTopologyGroup
     }
 
+    const isKubernetesClusterNode = (el: Node | Link): boolean => {
+      if (el.type !== 'node' || el.data?.IsTopologyGroup) return false
+      return String(el.data?.Manager || '').toLowerCase() === 'k8s'
+        && String(el.data?.Type || '').toLowerCase() === 'cluster'
+    }
+
+    const isKubernetesNode = (el: Node | Link): boolean => {
+      if (el.type !== 'node' || el.data?.IsTopologyGroup) return false
+      return String(el.data?.Manager || '').toLowerCase() === 'k8s'
+        && String(el.data?.Type || '').toLowerCase() === 'node'
+    }
+
+    const isKubernetesNamespace = (el: Node | Link): boolean => {
+      if (el.type !== 'node' || el.data?.IsTopologyGroup) return false
+      return String(el.data?.Manager || '').toLowerCase() === 'k8s'
+        && String(el.data?.Type || '').toLowerCase() === 'namespace'
+    }
+
+    const isKubernetesPod = (el: Node | Link): boolean => {
+      if (el.type !== 'node' || el.data?.IsTopologyGroup) return false
+      return String(el.data?.Manager || '').toLowerCase() === 'k8s'
+        && String(el.data?.Type || '').toLowerCase() === 'pod'
+    }
+
+    const isKubernetesWorkload = (el: Node | Link): boolean => {
+      if (el.type !== 'node' || el.data?.IsTopologyGroup || String(el.data?.Manager || '').toLowerCase() !== 'k8s') return false
+      return ['deployment', 'statefulset', 'daemonset', 'job', 'cronjob'].indexOf(String(el.data?.Type || '').toLowerCase()) >= 0
+    }
+
+    const isKubernetesService = (el: Node | Link): boolean => {
+      if (el.type !== 'node' || el.data?.IsTopologyGroup) return false
+      return String(el.data?.Manager || '').toLowerCase() === 'k8s'
+        && String(el.data?.Type || '').toLowerCase() === 'service'
+    }
+
     const isSwitchNode = (el: Node | Link): boolean => {
       return el.type === 'node' && String(el.data?.Type || el.data?.type || '').toLowerCase() === 'switch'
     }
@@ -336,6 +554,7 @@ class SelectionPanel extends React.Component<Props, State> {
             </Tooltip>
             {this.props.buttonsContent && this.props.buttonsContent(el)}
           </div>
+          {el.type === 'node' && this.renderNodeContext(el as Node)}
           {this.props.panelsContent && this.props.panelsContent(el)}
           <TabPanel key={"tabpanel-" + el.id} value={this.state.tab} index={i}>
             {isTopologyGroupNode(el)
@@ -373,6 +592,42 @@ class SelectionPanel extends React.Component<Props, State> {
               ? <VMNetworkDetailPanel node={el as Node} moldInventory={this.props.moldInventory} vmNameMap={this.props.vmNameMap} vmNetworkMap={this.props.vmNetworkMap} vmDetailMap={this.props.vmDetailMap} />
               : el.type === 'node' && String(el.data?.Type || '').toLowerCase() === 'host'
               ? <HostDetailPanel node={el as Node} session={this.props.session} moldInventory={this.props.moldInventory} infrastructureHostSummaries={this.props.infrastructureHostSummaries} kubernetesClusters={this.props.kubernetesClusters} />
+              : isKubernetesClusterNode(el)
+              ? <KubernetesClusterDetailPanel
+                  node={el as Node}
+                  nodeAttrs={(node: Node) => this.props.config.nodeAttrs(node)}
+                  session={this.props.session}
+                  vmDetailMap={this.props.vmDetailMap}
+                  kubernetesClusters={this.props.kubernetesClusters} />
+              : isKubernetesNode(el)
+              ? <KubernetesNodeDetailPanel
+                  node={el as Node}
+                  nodeAttrs={(node: Node) => this.props.config.nodeAttrs(node)}
+                  session={this.props.session}
+                  vmDetailMap={this.props.vmDetailMap}
+                  kubernetesClusters={this.props.kubernetesClusters} />
+              : isKubernetesNamespace(el)
+              ? <KubernetesNamespaceDetailPanel
+                  node={el as Node}
+                  nodeAttrs={(node: Node) => this.props.config.nodeAttrs(node)}
+                  session={this.props.session}
+                  kubernetesClusters={this.props.kubernetesClusters} />
+              : isKubernetesPod(el)
+              ? <KubernetesPodDetailPanel
+                  node={el as Node}
+                  nodeAttrs={(node: Node) => this.props.config.nodeAttrs(node)}
+                  session={this.props.session}
+                  kubernetesClusters={this.props.kubernetesClusters} />
+              : isKubernetesWorkload(el)
+              ? <KubernetesWorkloadDetailPanel
+                  node={el as Node}
+                  nodeAttrs={(node: Node) => this.props.config.nodeAttrs(node)} />
+              : isKubernetesService(el)
+              ? <KubernetesServiceDetailPanel
+                  node={el as Node}
+                  nodeAttrs={(node: Node) => this.props.config.nodeAttrs(node)}
+                  session={this.props.session}
+                  kubernetesClusters={this.props.kubernetesClusters} />
               : isSystemVMNode(el)
               ? <SystemVMDetailPanel node={el as Node} session={this.props.session} moldInventory={this.props.moldInventory} vmNameMap={this.props.vmNameMap} vmNetworkMap={this.props.vmNetworkMap} vmDetailMap={this.props.vmDetailMap} managementServers={this.props.managementServers} />
               : isVMNode(el)
