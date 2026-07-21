@@ -1,0 +1,22 @@
+.netdive-k8s-pod-detail__containers { padding: 2px 18px 9px; }
+.netdive-k8s-pod-detail__container { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 5px 12px; min-height: 62px; padding: 10px 0; border-bottom: 1px solid #f2f4f7; }
+.netdive-k8s-pod-detail__container:last-child { border-bottom: 0; }
+.netdive-k8s-pod-detail__container-main { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
+.netdive-k8s-pod-detail__container-main strong { overflow: hidden; color: #101828; font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.netdive-k8s-pod-detail__container-main span { color: #98a2b3; font-size: 10px; }
+.netdive-k8s-pod-detail__container-state { display: flex; justify-content: flex-end; }
+.netdive-k8s-pod-detail__container-restarts { display: flex; align-items: center; gap: 5px; color: #667085; font-size: 10.5px; white-space: nowrap; }
+.netdive-k8s-pod-detail__container-restarts strong { color: #101828; font-size: 13px; font-weight: 600; }
+.netdive-k8s-pod-detail__container-restarts strong.is-warning { color: #b54708; }
+.netdive-k8s-pod-detail__container small { grid-column: 1 / -1; overflow: hidden; color: #667085; font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
+.netdive-k8s-pod-detail__container-meta { color: #98a2b3 !important; }
+.netdive-k8s-pod-detail__empty-row { padding: 24px 18px; color: #667085; font-size: 12px; text-align: center; }
+.netdive-k8s-pod-detail__links { display: flex; min-width: 0; flex-direction: column; }
+.netdive-k8s-pod-detail__links .ant-btn { display: flex; align-items: center; justify-content: space-between; min-width: 0; height: 27px; padding: 0; color: #1677ff; font-size: 12px; text-align: left; }
+.netdive-k8s-pod-detail__links .ant-btn > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.netdive-k8s-pod-detail__inline-link.ant-btn { height: auto; padding: 0; font-size: 13px; }
+
+@media (max-width: 380px) {
+    .netdive-k8s-pod-detail__container { grid-template-columns: minmax(0, 1fr) auto; }
+    .netdive-k8s-pod-detail__container-restarts { grid-column: 2; }
+}

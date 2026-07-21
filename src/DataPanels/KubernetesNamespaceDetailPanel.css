@@ -1,0 +1,5 @@
+.netdive-k8s-namespace-detail .netdive-detail-kv__label.ant-typography { width: auto; }
+
+@media (max-width: 380px) {
+    .netdive-k8s-namespace-detail .netdive-detail-kv__row { grid-template-columns: 108px minmax(0, 1fr) !important; }
+}

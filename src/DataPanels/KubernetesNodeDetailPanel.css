@@ -1,0 +1,62 @@
+.netdive-k8s-node-detail { display: flex; flex-direction: column; gap: 14px; padding-bottom: 8px; color: #101828; }
+.netdive-k8s-node-detail__topology-icon-image { display: block; width: 17px; height: 17px; object-fit: contain; }
+.netdive-k8s-node-detail__topology-icon { display: inline-flex; align-items: center; justify-content: center; font-family: "Font Awesome 5 Free"; font-size: 15px; font-weight: 900; }
+.netdive-k8s-node-detail__topology-icon.font-brands { font-family: "Font Awesome 5 Brands"; }
+
+.netdive-k8s-node-detail__hero { display: grid; grid-template-columns: 8px max-content minmax(0, 1fr); align-items: center; gap: 9px; margin: 7px 14px 4px; padding: 11px 0; }
+.netdive-k8s-node-detail__hero > i { width: 8px; height: 8px; border-radius: 50%; background: #98a2b3; }
+.netdive-k8s-node-detail__hero > strong { color: #101828; font-size: 18px; font-weight: 600; line-height: 1.12; }
+.netdive-k8s-node-detail__hero > span { min-width: 0; overflow: hidden; color: #667085; font-size: 11.5px; text-overflow: ellipsis; white-space: nowrap; }
+.netdive-k8s-node-detail__hero--success > i { background: #12b76a; }
+.netdive-k8s-node-detail__hero--warning > i { background: #f79009; }
+.netdive-k8s-node-detail__hero--danger > i { background: #d92d20; }
+
+.netdive-k8s-node-detail__summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0 14px 12px; border-top: 1px solid #eef1f5; border-bottom: 1px solid #eef1f5; }
+.netdive-k8s-node-detail__summary > div { display: flex; min-width: 0; min-height: 58px; flex-direction: column; justify-content: center; gap: 5px; padding: 8px 10px; border-right: 1px solid #eef1f5; }
+.netdive-k8s-node-detail__summary > div:last-child { border-right: 0; }
+.netdive-k8s-node-detail__summary span { overflow: hidden; color: #667085; font-size: 12px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.netdive-k8s-node-detail__summary strong { overflow: hidden; color: #101828; font-size: 18px; font-weight: 600; line-height: 1.12; text-overflow: ellipsis; white-space: nowrap; }
+.netdive-k8s-node-detail__summary strong.is-warning { color: #b54708; }
+.netdive-k8s-node-detail__summary strong.is-danger { color: #b42318; }
+
+.netdive-k8s-node-detail__rows { padding: 0 14px 8px; }
+.netdive-k8s-node-detail__row { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(50px, auto); align-items: center; gap: 3px 10px; padding: 10px 0; border-bottom: 1px solid #f2f4f7; }
+.netdive-k8s-node-detail__row:last-child { border-bottom: 0; }
+.netdive-k8s-node-detail__row > strong { overflow: hidden; color: #475467; font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.netdive-k8s-node-detail__row > span { display: flex; justify-content: flex-end; }
+.netdive-k8s-node-detail__row > b { color: #101828; font-size: 12px; font-weight: 600; text-align: right; white-space: nowrap; }
+.netdive-k8s-node-detail__row > small { grid-column: 2 / -1; overflow: hidden; color: #98a2b3; font-size: 10.5px; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+.netdive-k8s-node-detail__normal { display: inline-flex; align-items: center; gap: 4px; color: #067647; font-size: 11px; }
+.netdive-k8s-node-detail__normal i { width: 5px; height: 5px; border-radius: 50%; background: #12b76a; }
+
+.netdive-k8s-node-detail__capacity { padding: 5px 18px 10px; }
+.netdive-k8s-node-detail__capacity-head,
+.netdive-k8s-node-detail__capacity > div:not(.netdive-k8s-node-detail__capacity-head) { display: grid; grid-template-columns: minmax(0, 1fr) minmax(76px, auto) minmax(76px, auto); align-items: center; gap: 10px; min-height: 40px; border-bottom: 1px solid #f2f4f7; }
+.netdive-k8s-node-detail__capacity-head { min-height: 28px; color: #98a2b3; font-size: 10.5px; text-align: right; }
+.netdive-k8s-node-detail__capacity-head::before { content: ""; }
+.netdive-k8s-node-detail__capacity > div:last-child { border-bottom: 0; }
+.netdive-k8s-node-detail__capacity strong { color: #475467; font-size: 12px; font-weight: 600; }
+.netdive-k8s-node-detail__capacity span,
+.netdive-k8s-node-detail__capacity b { color: #101828; font-size: 13px; font-weight: 500; text-align: right; }
+.netdive-k8s-node-detail__capacity b { font-weight: 600; }
+
+.netdive-k8s-node-detail__metric-rows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 4px 18px 10px; column-gap: 16px; }
+.netdive-k8s-node-detail__metric-rows > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 39px; border-bottom: 1px solid #f2f4f7; }
+.netdive-k8s-node-detail__metric-rows span { overflow: hidden; color: #667085; font-size: 12px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.netdive-k8s-node-detail__metric-rows strong { color: #101828; font-size: 15px; font-weight: 600; }
+.netdive-k8s-node-detail__metric-rows .is-warning strong { color: #b54708; }
+.netdive-k8s-node-detail__metric-rows .is-danger strong { color: #b42318; }
+.netdive-k8s-node-detail__problem-list-title { margin: 0 18px; padding-top: 10px; border-top: 1px solid #eaecf0; color: #344054; font-size: 12px; font-weight: 600; }
+.netdive-k8s-node-detail__problem-list-title + .netdive-detail-resource-grid { gap: 0 12px; padding: 4px 18px 12px; }
+.netdive-k8s-node-detail__problem-list-title + .netdive-detail-resource-grid .netdive-detail-resource.ant-btn { height: 50px; min-height: 50px; border: 0; border-bottom: 1px solid #eef1f5; border-radius: 0; box-shadow: none; }
+
+.netdive-k8s-node-detail__notice { display: flex; align-items: center; gap: 8px; padding: 8px 11px; border: 1px solid #d6e4ff; border-radius: 9px; color: #475467; font-size: 11px; background: #f8fbff; }
+.netdive-k8s-node-detail__notice svg { flex: 0 0 auto; color: #1677ff; font-size: 17px; }
+
+@media (max-width: 380px) {
+    .netdive-k8s-node-detail__summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .netdive-k8s-node-detail__summary > div:nth-child(2) { border-right: 0; }
+    .netdive-k8s-node-detail__summary > div:nth-child(-n+2) { border-bottom: 1px solid #eef1f5; }
+    .netdive-k8s-node-detail__metric-rows { grid-template-columns: 1fr; }
+}
+

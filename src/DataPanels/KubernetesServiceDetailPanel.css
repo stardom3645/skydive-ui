@@ -1,0 +1,30 @@
+.netdive-k8s-service-detail__empty-row { padding: 24px 18px; color: #667085; font-size: 12px; text-align: center; }
+
+.netdive-k8s-service-detail__ports { padding: 3px 18px 10px; }
+.netdive-k8s-service-detail__port-head,
+.netdive-k8s-service-detail__port { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(78px, .9fr) minmax(60px, .8fr) minmax(55px, .65fr); align-items: center; gap: 10px; min-height: 41px; border-bottom: 1px solid #f2f4f7; }
+.netdive-k8s-service-detail__port-head { min-height: 30px; color: #98a2b3; font-size: 10.5px; text-align: right; }
+.netdive-k8s-service-detail__port-head span:first-child { text-align: left; }
+.netdive-k8s-service-detail__port:last-child { border-bottom: 0; }
+.netdive-k8s-service-detail__port strong { overflow: hidden; color: #475467; font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.netdive-k8s-service-detail__port span { color: #101828; font-size: 12px; font-weight: 500; text-align: right; white-space: nowrap; }
+
+.netdive-k8s-service-detail__endpoints { padding: 2px 18px 9px; }
+.netdive-k8s-service-detail__endpoint { display: grid; width: 100%; grid-template-columns: minmax(0, 1fr) auto minmax(72px, auto); align-items: center; gap: 12px; min-height: 56px; padding: 9px 0; border: 0; border-bottom: 1px solid #f2f4f7; color: inherit; background: transparent; text-align: left; }
+.netdive-k8s-service-detail__endpoint:last-child { border-bottom: 0; }
+.netdive-k8s-service-detail__endpoint > div { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.netdive-k8s-service-detail__endpoint strong { overflow: hidden; color: #101828; font-size: 12.5px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.netdive-k8s-service-detail__endpoint small { overflow: hidden; color: #667085; font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
+.netdive-k8s-service-detail__endpoint > b { overflow: hidden; color: #475467; font-size: 11px; font-weight: 500; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+.netdive-k8s-service-detail__endpoint--link { cursor: pointer; }
+.netdive-k8s-service-detail__endpoint--link:hover strong,
+.netdive-k8s-service-detail__endpoint--link:hover .netdive-k8s-service-detail__endpoint-action { color: #1677ff; }
+.netdive-k8s-service-detail__endpoint-action { color: #98a2b3; font-size: 11px; text-align: right; }
+
+@media (max-width: 380px) {
+    .netdive-k8s-service-detail__port-head,
+    .netdive-k8s-service-detail__port { grid-template-columns: minmax(0, 1fr) minmax(72px, auto) minmax(50px, auto); }
+    .netdive-k8s-service-detail__port-head span:last-child,
+    .netdive-k8s-service-detail__port span:last-child { display: none; }
+    .netdive-k8s-service-detail__endpoint { grid-template-columns: minmax(0, 1fr) auto 18px; }
+}
