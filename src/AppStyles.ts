@@ -400,7 +400,7 @@ export const styles = (theme: Theme) => createStyles({
   drawerMenuGroup: {
     position: 'relative',
     width: 48,
-    '&:hover $drawerFlyout': {
+    '&:hover $drawerFlyout, &:focus-within $drawerFlyout': {
       opacity: 1,
       visibility: 'visible',
       pointerEvents: 'auto',
@@ -506,6 +506,157 @@ export const styles = (theme: Theme) => createStyles({
     },
     '& .MuiToggleButton-root:hover': {
       backgroundColor: 'var(--netdive-menu-hover)'
+    }
+  },
+  drawerPreferencesHeader: {
+    display: 'flex',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: theme.spacing(1),
+    padding: theme.spacing(0.35, 0.25, 1.25),
+    marginBottom: theme.spacing(0.25),
+    borderBottom: '1px solid var(--netdive-menu-border-soft)'
+  },
+  drawerPreferencesFlyout: {
+    width: 270,
+    padding: theme.spacing(1.25),
+    '& $drawerFlyoutItems': {
+      gap: theme.spacing(1.5)
+    }
+  },
+  drawerPreferencesHeaderText: {
+    minWidth: 0,
+    '& strong': {
+      display: 'block',
+      color: 'var(--netdive-menu-text)',
+      fontSize: 15,
+      fontWeight: 800,
+      lineHeight: 1.35
+    },
+    '& small': {
+      display: 'block',
+      marginTop: 4,
+      color: 'var(--netdive-menu-muted)',
+      opacity: 0.72,
+      fontSize: 10,
+      lineHeight: 1.4,
+      wordBreak: 'keep-all'
+    }
+  },
+  drawerPreferenceSection: {
+    '& .MuiToggleButtonGroup-root': {
+      width: '100%',
+      display: 'grid',
+      gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
+      marginTop: 6,
+      borderRadius: 10,
+      overflow: 'hidden',
+      border: '1px solid var(--netdive-menu-border)'
+    },
+    '& .MuiToggleButton-root': {
+      minWidth: 0,
+      minHeight: 34,
+      padding: theme.spacing(0.75, 1),
+      border: 'none',
+      borderRadius: 0,
+      color: 'var(--netdive-menu-muted)',
+      backgroundColor: 'var(--netdive-menu-card)',
+      fontSize: 12,
+      fontWeight: 700,
+      lineHeight: 1.25,
+      transition: 'background-color 180ms ease, color 180ms ease, box-shadow 180ms ease'
+    },
+    '& .MuiToggleButton-root.Mui-selected': {
+      color: 'var(--netdive-menu-active-text)',
+      backgroundColor: 'var(--netdive-menu-active)',
+      boxShadow: 'inset 0 0 0 1px rgba(22, 119, 255, 0.38), 0 1px 2px rgba(15, 23, 42, 0.08)'
+    },
+    '& .MuiToggleButton-root:hover': {
+      color: 'var(--netdive-menu-active-text)',
+      backgroundColor: 'var(--netdive-menu-hover)'
+    }
+  },
+  drawerPreferenceLabel: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 7,
+    minHeight: 20,
+    color: 'var(--netdive-menu-text)',
+    fontSize: 12,
+    fontWeight: 750,
+    lineHeight: 1.3
+  },
+  drawerInitialLayerPanel: {
+    paddingTop: theme.spacing(1.5),
+    borderTop: '1px solid var(--netdive-menu-border-soft)',
+    '& .MuiToggleButtonGroup-root': {
+      width: '100%',
+      display: 'grid',
+      gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
+      marginTop: 6,
+      borderRadius: 10,
+      overflow: 'hidden',
+      border: '1px solid var(--netdive-menu-border)'
+    },
+    '& .MuiToggleButton-root': {
+      minWidth: 0,
+      minHeight: 34,
+      padding: theme.spacing(0.75, 1),
+      border: 'none',
+      borderRadius: 0,
+      color: 'var(--netdive-menu-muted)',
+      backgroundColor: 'var(--netdive-menu-card)',
+      fontSize: 11,
+      fontWeight: 700,
+      lineHeight: 1.25,
+      whiteSpace: 'normal',
+      transition: 'background-color 180ms ease, color 180ms ease, box-shadow 180ms ease'
+    },
+    '& .MuiToggleButton-root.Mui-selected': {
+      color: 'var(--netdive-menu-active-text)',
+      backgroundColor: 'var(--netdive-menu-active)',
+      boxShadow: 'inset 0 0 0 1px rgba(22, 119, 255, 0.38), 0 1px 2px rgba(15, 23, 42, 0.08)'
+    },
+    '& .MuiToggleButton-root:hover': {
+      backgroundColor: 'var(--netdive-menu-hover)'
+    }
+  },
+  drawerPreferenceNotice: {
+    paddingTop: theme.spacing(1),
+    borderTop: '1px solid var(--netdive-menu-border-soft)',
+    color: 'var(--netdive-menu-muted)',
+    fontSize: 9.5,
+    lineHeight: 1.45,
+    opacity: 0.68,
+    wordBreak: 'keep-all'
+  },
+  preferenceLabelIcon: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 16,
+    height: 16,
+    flexShrink: 0,
+    color: 'var(--netdive-menu-icon)',
+    '& svg': {
+      width: 14,
+      height: 14
+    }
+  },
+  preferenceResetButton: {
+    minWidth: 'auto !important',
+    minHeight: '22px !important',
+    height: '22px !important',
+    alignSelf: 'baseline',
+    padding: '0 5px !important',
+    color: 'var(--netdive-menu-active-text) !important',
+    fontSize: '11px !important',
+    fontWeight: 700,
+    lineHeight: '22px !important',
+    whiteSpace: 'nowrap' as const,
+    backgroundColor: 'transparent !important',
+    '&:hover': {
+      backgroundColor: 'var(--netdive-menu-hover) !important'
     }
   },
   drawerMenuBottomSpacer: {
@@ -744,6 +895,11 @@ export const styles = (theme: Theme) => createStyles({
     justifyContent: 'space-between',
     gap: theme.spacing(2)
   },
+  sideSettingsHeaderActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(0.5)
+  },
   sideSettingsTitle: {
     color: 'var(--netdive-detail-title)',
     fontSize: 18,
@@ -797,23 +953,52 @@ export const styles = (theme: Theme) => createStyles({
     },
     '& .MuiToggleButton-root': {
       minWidth: 0,
-      padding: theme.spacing(0.8, 0.5),
+      minHeight: 36,
+      padding: theme.spacing(0.8, 1.1),
       border: 'none',
       borderRadius: 0,
       color: 'var(--netdive-menu-muted)',
       backgroundColor: 'var(--netdive-menu-card)',
       fontSize: 12,
-      fontWeight: 700
+      fontWeight: 700,
+      lineHeight: 1.25,
+      transition: 'background-color 180ms ease, color 180ms ease, box-shadow 180ms ease'
     },
     '& .MuiToggleButton-root.Mui-selected': {
       color: 'var(--netdive-menu-active-text)',
-      backgroundColor: 'var(--netdive-menu-active)'
+      backgroundColor: 'var(--netdive-menu-active)',
+      boxShadow: 'inset 0 0 0 1px rgba(22, 119, 255, 0.38), 0 1px 2px rgba(15, 23, 42, 0.08)'
+    },
+    '& .MuiToggleButton-root:hover': {
+      color: 'var(--netdive-menu-active-text)',
+      backgroundColor: 'var(--netdive-menu-hover)'
     }
   },
   sideSettingsControlTitle: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 7,
     color: 'var(--netdive-detail-title)',
     fontSize: 13,
-    fontWeight: 900
+    fontWeight: 800,
+    lineHeight: 1.35
+  },
+  preferenceHeaderDescription: {
+    opacity: 0.72
+  },
+  sidePreferenceNotice: {
+    padding: theme.spacing(0.25, 0.25, 0),
+    color: 'var(--netdive-detail-muted)',
+    fontSize: 10.5,
+    lineHeight: 1.45,
+    opacity: 0.68
+  },
+  preferenceSettingsList: {
+    gap: theme.spacing(1.5)
+  },
+  preferenceControlBlock: {
+    padding: theme.spacing(1.35, 1.45),
+    borderRadius: 12
   },
   sideSettingsText: {
     color: 'var(--netdive-detail-text)',

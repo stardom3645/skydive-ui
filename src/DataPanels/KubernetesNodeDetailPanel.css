@@ -28,10 +28,12 @@
 .netdive-k8s-node-detail__row > small { grid-column: 2 / -1; overflow: hidden; color: #98a2b3; font-size: 10.5px; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
 .netdive-k8s-node-detail__normal { display: inline-flex; align-items: center; gap: 4px; color: #067647; font-size: 11px; }
 .netdive-k8s-node-detail__normal i { width: 5px; height: 5px; border-radius: 50%; background: #12b76a; }
+.netdive-k8s-node-detail__condition-state { display: inline-flex !important; align-items: center; gap: 6px; }
+.netdive-k8s-node-detail__condition-state em { color: #98a2b3; font-size: 10px; font-style: normal; font-weight: 500; }
 
 .netdive-k8s-node-detail__capacity { padding: 5px 18px 10px; }
 .netdive-k8s-node-detail__capacity-head,
-.netdive-k8s-node-detail__capacity > div:not(.netdive-k8s-node-detail__capacity-head) { display: grid; grid-template-columns: minmax(0, 1fr) minmax(76px, auto) minmax(76px, auto); align-items: center; gap: 10px; min-height: 40px; border-bottom: 1px solid #f2f4f7; }
+.netdive-k8s-node-detail__capacity > div:not(.netdive-k8s-node-detail__capacity-head) { display: grid; grid-template-columns: minmax(0, 1fr) minmax(90px, auto) minmax(90px, auto); align-items: center; gap: 10px; min-height: 40px; border-bottom: 1px solid #f2f4f7; }
 .netdive-k8s-node-detail__capacity-head { min-height: 28px; color: #98a2b3; font-size: 10.5px; text-align: right; }
 .netdive-k8s-node-detail__capacity-head::before { content: ""; }
 .netdive-k8s-node-detail__capacity > div:last-child { border-bottom: 0; }
@@ -59,4 +61,3 @@
     .netdive-k8s-node-detail__summary > div:nth-child(-n+2) { border-bottom: 1px solid #eef1f5; }
     .netdive-k8s-node-detail__metric-rows { grid-template-columns: 1fr; }
 }
-

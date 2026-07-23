@@ -1,5 +1,42 @@
 .netdive-k8s-namespace-detail .netdive-detail-kv__label.ant-typography { width: auto; }
+.netdive-k8s-namespace-detail__status-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.netdive-k8s-namespace-detail__collection-status { font-size: 12px !important; line-height: 1.25 !important; white-space: normal !important; }
+.netdive-k8s-namespace-detail__placement { display: inline-flex; cursor: help; }
+.netdive-k8s-namespace-detail__labels { display: flex; min-width: 0; flex-direction: column; gap: 8px; }
+.netdive-k8s-namespace-detail__labels > span { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
+.netdive-k8s-namespace-detail__labels strong,
+.netdive-k8s-namespace-detail__labels span { overflow-wrap: anywhere; }
+.netdive-k8s-namespace-detail__labels strong { color: #344054; font-size: 11.5px; font-weight: 600; line-height: 1.35; }
+.netdive-k8s-namespace-detail__labels > span > span { color: #667085; font-size: 11px; line-height: 1.35; }
+
+.netdive-k8s-namespace-detail__resources { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 4px 18px 10px; }
+.netdive-k8s-namespace-detail__resources > div { min-width: 0; padding: 8px 14px; }
+.netdive-k8s-namespace-detail__resources > div + div { border-left: 1px solid #eef1f5; }
+.netdive-k8s-namespace-detail__resources > div > strong { display: block; margin-bottom: 7px; color: #344054; font-size: 12.5px; font-weight: 600; }
+.netdive-k8s-namespace-detail__resources dl { margin: 0; }
+.netdive-k8s-namespace-detail__resources dl > div { display: grid; min-height: 34px; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; border-top: 1px solid #f2f4f7; }
+.netdive-k8s-namespace-detail__resources dt { color: #667085; font-size: 11px; font-weight: 500; }
+.netdive-k8s-namespace-detail__resources dd { overflow-wrap: anywhere; margin: 0; color: #101828; font-size: 12px; font-weight: 600; text-align: right; }
+
+.netdive-k8s-namespace-detail__events { padding: 2px 18px 9px; }
+.netdive-k8s-namespace-detail__events > div { display: grid; min-height: 66px; grid-template-columns: 8px minmax(0, 1fr) auto; align-items: start; gap: 9px; padding: 10px 0; border-bottom: 1px solid #f2f4f7; }
+.netdive-k8s-namespace-detail__events > div:last-child { border-bottom: 0; }
+.netdive-k8s-namespace-detail__event-dot { width: 6px; height: 6px; margin-top: 6px; border-radius: 50%; background: #f79009; }
+.netdive-k8s-namespace-detail__events > div.is-danger .netdive-k8s-namespace-detail__event-dot { background: #d92d20; }
+.netdive-k8s-namespace-detail__event-main { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.netdive-k8s-namespace-detail__event-main > div { display: flex; min-width: 0; align-items: center; gap: 7px; }
+.netdive-k8s-namespace-detail__event-main strong { overflow: hidden; color: #344054; font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.netdive-k8s-namespace-detail__event-main > span { overflow-wrap: anywhere; color: #667085; font-size: 11px; line-height: 1.35; }
+.netdive-k8s-namespace-detail__event-main small { color: #98a2b3; font-size: 10.5px; }
+.netdive-k8s-namespace-detail__events time { padding-top: 2px; color: #98a2b3; font-size: 10.5px; white-space: nowrap; }
 
 @media (max-width: 380px) {
     .netdive-k8s-namespace-detail .netdive-detail-kv__row { grid-template-columns: 108px minmax(0, 1fr) !important; }
+    .netdive-k8s-namespace-detail__status-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .netdive-k8s-namespace-detail__status-summary > div:nth-child(2) { border-right: 0; }
+    .netdive-k8s-namespace-detail__status-summary > div:nth-child(3) { grid-column: 1 / -1; border-top: 1px solid #eef1f5; border-right: 0; }
+    .netdive-k8s-namespace-detail__resources { grid-template-columns: 1fr; }
+    .netdive-k8s-namespace-detail__resources > div + div { border-top: 1px solid #eef1f5; border-left: 0; }
+    .netdive-k8s-namespace-detail__events > div { grid-template-columns: 8px minmax(0, 1fr); }
+    .netdive-k8s-namespace-detail__events time { grid-column: 2; }
 }

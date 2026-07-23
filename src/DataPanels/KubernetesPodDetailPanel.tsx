@@ -44,11 +44,6 @@ const firstValue = (data: any, paths: string[]): string => {
     return typeof value === 'object' ? JSON.stringify(value) : String(value)
 }
 const optionalNumber = (value: any): React.ReactNode => value === undefined || value === null ? '–' : Number(value)
-const formatDate = (value: any): string => {
-    if (!value || (typeof value === 'object' && !Object.keys(value).length)) return ''
-    const date = new Date(value)
-    return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString()
-}
 const containerState = (status: any): { state: string, reason: string } => {
     if (status?.State?.Running) return { state: 'RUNNING', reason: '' }
     if (status?.State?.Waiting) return { state: 'WAITING', reason: status.State.Waiting.Reason || '' }
@@ -57,12 +52,15 @@ const containerState = (status: any): { state: string, reason: string } => {
 }
 
 class KubernetesPodDetailPanel extends React.Component<Props, State> {
-    state: State = { loading: false, error: false, requestKey: '', basicCollapsed: true }
+    state: State = { loading: false, error: false, requestKey: '', basicCollapsed: false }
 
     componentDidMount() { this.loadDetail() }
 
     componentDidUpdate(prevProps: Props) {
-        if (prevProps.node.id !== this.props.node.id || this.clusterFrom(prevProps)?.id !== this.cluster()?.id) this.loadDetail()
+        if (prevProps.node.id !== this.props.node.id || this.clusterFrom(prevProps)?.id !== this.cluster()?.id) {
+            this.setState({ basicCollapsed: false })
+            this.loadDetail()
+        }
     }
 
     private clusterFrom(props: Props): any | undefined {
@@ -318,15 +316,15 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
         ]
         const basicRows = [
             { label: translate('kubernetesPodName'), value: detail.name || this.props.node.id, textValue: detail.name || this.props.node.id, copyText: detail.name || this.props.node.id },
-            { label: 'UID', value: detail.uid || this.uid(), textValue: detail.uid || this.uid(), copyText: detail.uid || this.uid() },
             { label: translate('kubernetesTopologyNamespaces'), value: detail.namespace || translate('kubernetesNotCollected') },
             { label: 'Pod IP', value: detail.podIp || translate('kubernetesNotCollected'), copyText: detail.podIp },
-            { label: 'Host IP', value: detail.hostIp || translate('kubernetesNotCollected'), copyText: detail.hostIp },
-            { label: translate('kubernetesCreatedAt'), value: formatDate(detail.createdAt) || translate('kubernetesNotCollected') },
-            { label: translate('kubernetesStartedAt'), value: formatDate(detail.startTime) || translate('kubernetesNotCollected') }
+            { label: 'Host IP', value: detail.hostIp || translate('kubernetesNotCollected'), copyText: detail.hostIp }
         ]
-
         return <div className="netdive-k8s-node-detail netdive-k8s-pod-detail">
+            <DetailSection icon={<InfoIcon />} title={translate('kubernetesPodBasicInfo')} collapsible collapsed={this.state.basicCollapsed} onToggle={() => this.setState({ basicCollapsed: !this.state.basicCollapsed })}>
+                <DetailKeyValueList rows={basicRows} copyTooltip={translate('copy')} />
+            </DetailSection>
+
             <DetailSection icon={this.topologyIcon(this.props.node)} title={translate('kubernetesPodOperationalStatus')}>
                 <div className={`netdive-k8s-node-detail__hero netdive-k8s-node-detail__hero--${statusTone}`}><i /><strong>{statusLabel}</strong><span>{conclusion}</span></div>
                 <div className="netdive-k8s-node-detail__summary">
@@ -341,7 +339,6 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
             <DetailSection icon={<ErrorOutlineIcon />} title={translate('kubernetesPodConditions')}>{this.renderConditions(detail)}</DetailSection>
             <DetailSection icon={<LinkIcon />} title={translate('kubernetesSchedulingRelationships')}><DetailKeyValueList rows={schedulingRows} /></DetailSection>
             <DetailSection icon={<StorageIcon />} title={translate('kubernetesStorageAndQos')}><DetailKeyValueList rows={storageRows} /></DetailSection>
-            <DetailSection icon={<InfoIcon />} title={translate('kubernetesPodBasicInfo')} collapsible collapsed={this.state.basicCollapsed} onToggle={() => this.setState({ basicCollapsed: !this.state.basicCollapsed })}><DetailKeyValueList rows={basicRows} copyTooltip={translate('copy')} /></DetailSection>
 
             {this.state.error && <div className="netdive-k8s-node-detail__notice"><InfoIcon /><span>{translate('kubernetesPodDetailFallback')}</span></div>}
             {!this.cluster() && <div className="netdive-k8s-node-detail__notice"><InfoIcon /><span>{translate('kubernetesClusterMoldMissing')}</span></div>}

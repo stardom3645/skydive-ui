@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { Avatar, Button, Input, List, Space, Tooltip, Typography } from 'antd'
+import { RightOutlined } from '@ant-design/icons'
 import { Node, NodeAttrs } from '../Topology'
 import { DetailBadge, DetailEmpty, DetailSection } from './common'
 import './GroupDetailPanel.css'
@@ -11,6 +12,7 @@ interface Props {
     nodeDisplayName?: (node: Node) => string
     vmNetworkMap?: Record<string, Array<{ networkName: string, macAddress: string, ipAddress: string }>>
     onNodeSelect: (node: Node) => void
+    onNodeFocus: (node: Node) => void
     onNodesSelect: (nodes: Node[]) => void
     onNodeDeselect: (node: Node) => void
 }
@@ -203,7 +205,19 @@ class GroupDetailPanel extends React.Component<Props, State> {
                                                 </span>
                                             )}
                                         </span>
-                                        <span className="netdive-group-detail-arrow">›</span>
+                                        <Tooltip title="상세 보기">
+                                            <Button
+                                                type="text"
+                                                className="netdive-group-detail-arrow"
+                                                aria-label={`${name} 상세 보기`}
+                                                onClick={(event) => {
+                                                    event.stopPropagation()
+                                                    this.props.onNodeFocus(node)
+                                                }}>
+                                                <span>상세</span>
+                                                <RightOutlined />
+                                            </Button>
+                                        </Tooltip>
                                     </List.Item>
                                 )
                             }} />

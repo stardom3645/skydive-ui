@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Button, Tooltip } from 'antd'
+import { Tooltip } from 'antd'
 import InfoIcon from '@material-ui/icons/Info'
 import LinkIcon from '@material-ui/icons/Link'
 import LanguageIcon from '@material-ui/icons/Language'
@@ -43,11 +43,6 @@ const firstValue = (data: any, paths: string[]): string => {
     return typeof value === 'object' ? JSON.stringify(value) : String(value)
 }
 const optionalNumber = (value: any): React.ReactNode => value === undefined || value === null ? '–' : Number(value)
-const formatDate = (value: any): string => {
-    if (!value || (typeof value === 'object' && !Object.keys(value).length)) return ''
-    const date = new Date(value)
-    return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString()
-}
 const targetPort = (value: any): string => {
     if (value === undefined || value === null || value === '') return '–'
     if (typeof value !== 'object') return String(value)
@@ -56,12 +51,15 @@ const targetPort = (value: any): string => {
 const stringList = (value: any): string[] => Array.isArray(value) ? value.filter(item => item !== undefined && item !== null && String(item) !== '').map(String) : value ? [String(value)] : []
 
 class KubernetesServiceDetailPanel extends React.Component<Props, State> {
-    state: State = { loading: false, error: false, requestKey: '', basicCollapsed: true }
+    state: State = { loading: false, error: false, requestKey: '', basicCollapsed: false }
 
     componentDidMount() { this.loadDetail() }
 
     componentDidUpdate(prevProps: Props) {
-        if (prevProps.node.id !== this.props.node.id || this.clusterFrom(prevProps)?.id !== this.cluster()?.id) this.loadDetail()
+        if (prevProps.node.id !== this.props.node.id || this.clusterFrom(prevProps)?.id !== this.cluster()?.id) {
+            this.setState({ basicCollapsed: false })
+            this.loadDetail()
+        }
     }
 
     private clusterFrom(props: Props): any | undefined {
@@ -302,29 +300,30 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
         ]
         const basicRows = [
             { label: translate('kubernetesServiceName'), value: detail.name || this.props.node.id, textValue: detail.name || this.props.node.id, copyText: detail.name || this.props.node.id },
-            { label: 'UID', value: detail.uid || this.uid(), textValue: detail.uid || this.uid(), copyText: detail.uid || this.uid() },
             { label: translate('kubernetesTopologyNamespaces'), value: detail.namespace || translate('kubernetesNotCollected') },
+            { label: 'Type', value: detail.type || translate('kubernetesNotCollected') },
             { label: 'IP Family', value: stringList(detail.ipFamilies).join(', ') || detail.ipFamilyPolicy || translate('kubernetesNotCollected') },
-            { label: translate('kubernetesPublishNotReadyAddresses'), value: detail.publishNotReadyAddresses === undefined ? translate('kubernetesNotCollected') : detail.publishNotReadyAddresses ? translate('yes') : translate('no') },
-            { label: translate('kubernetesCreatedAt'), value: formatDate(detail.createdAt) || translate('kubernetesNotCollected') }
+            { label: translate('kubernetesPublishNotReadyAddresses'), value: detail.publishNotReadyAddresses === undefined ? translate('kubernetesNotCollected') : detail.publishNotReadyAddresses ? translate('yes') : translate('no') }
         ]
-
         return <div className="netdive-k8s-node-detail netdive-k8s-service-detail">
+            <DetailSection icon={<InfoIcon />} title={translate('kubernetesServiceBasicInfo')} collapsible collapsed={this.state.basicCollapsed} onToggle={() => this.setState({ basicCollapsed: !this.state.basicCollapsed })}>
+                <DetailKeyValueList rows={basicRows} copyTooltip={translate('copy')} />
+            </DetailSection>
+
             <DetailSection icon={this.topologyIcon(this.props.node)} title={translate('kubernetesServiceOperationalStatus')}>
                 <div className={`netdive-k8s-node-detail__hero netdive-k8s-node-detail__hero--${statusTone}`}><i /><strong>{statusLabel}</strong><Tooltip title={conclusion} placement="top"><span>{conclusion}</span></Tooltip></div>
                 <div className="netdive-k8s-node-detail__summary">
-                    <div><span>Type</span><strong>{detail.type || '–'}</strong></div>
                     <div><span>{translate('kubernetesPorts')}</span><strong>{optionalNumber(detail.ports === undefined ? undefined : ports.length)}</strong></div>
-                    <div><span>Endpoint</span><strong className={noReady ? 'is-danger' : partial ? 'is-warning' : ''}>{readySummary}</strong></div>
+                    <div><span>Endpoint</span><strong>{endpointKnown ? optionalNumber(detail.endpointCount === undefined ? endpoints.length : detail.endpointCount) : '–'}</strong></div>
+                    <div><span>Ready</span><strong className={noReady ? 'is-danger' : partial ? 'is-warning' : ''}>{readySummary}</strong></div>
                     <div><span>{translate('kubernetesConnectedPods')}</span><strong>{optionalNumber(detail.selectedPods === undefined ? undefined : pods.length)}</strong></div>
                 </div>
             </DetailSection>
 
+            <DetailSection icon={<LinkIcon />} title={translate('kubernetesServiceSelectionAndResilience')}><DetailKeyValueList rows={relationRows} /></DetailSection>
+            <DetailSection icon={<LanguageIcon />} title={translate('kubernetesServiceNetworkExposure')}><DetailKeyValueList rows={networkRows} /></DetailSection>
             <DetailSection icon={<LinkIcon />} title={translate('kubernetesServiceEndpoints')}>{this.renderEndpoints(detail)}</DetailSection>
             <DetailSection icon={<SettingsEthernetIcon />} title={translate('kubernetesServicePortsAndRouting')}>{this.renderPorts(ports)}</DetailSection>
-            <DetailSection icon={<LanguageIcon />} title={translate('kubernetesServiceNetworkExposure')}><DetailKeyValueList rows={networkRows} /></DetailSection>
-            <DetailSection icon={<LinkIcon />} title={translate('kubernetesServiceSelectionAndResilience')}><DetailKeyValueList rows={relationRows} /></DetailSection>
-            <DetailSection icon={<InfoIcon />} title={translate('kubernetesServiceBasicInfo')} collapsible collapsed={this.state.basicCollapsed} onToggle={() => this.setState({ basicCollapsed: !this.state.basicCollapsed })}><DetailKeyValueList rows={basicRows} copyTooltip={translate('copy')} /></DetailSection>
 
             {this.state.error && <div className="netdive-k8s-node-detail__notice"><InfoIcon /><span>{translate('kubernetesServiceDetailFallback')}</span></div>}
             {!this.cluster() && <div className="netdive-k8s-node-detail__notice"><InfoIcon /><span>{translate('kubernetesClusterMoldMissing')}</span></div>}

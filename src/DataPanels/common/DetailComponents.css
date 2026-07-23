@@ -83,11 +83,16 @@
     justify-content: center;
     width: 18px;
     height: 18px;
-    color: #1677ff;
+    color: #344054;
 }
 
 .netdive-detail-section__icon svg {
     font-size: 15px;
+}
+
+.netdive-detail-section__icon img {
+    filter: grayscale(1) brightness(.52);
+    opacity: .92;
 }
 
 .netdive-detail-section__title-block {

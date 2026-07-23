@@ -44,7 +44,7 @@ const NodeContextBreadcrumb = ({ items, icon, onNavigate }: Props) => (
             {items.map((item, index) =>
                 <li key={`${item.id}-${index}`} className={index === items.length - 1 ? 'is-current' : ''}>
                     {index > 0 && <RightOutlined className="netdive-node-context__separator" aria-hidden="true" />}
-                    <ContextItem item={item} onNavigate={onNavigate} className="netdive-node-context__item" />
+                    <ContextItem item={item} onNavigate={index < items.length - 1 ? onNavigate : undefined} className="netdive-node-context__item" />
                 </li>
             )}
         </ol>

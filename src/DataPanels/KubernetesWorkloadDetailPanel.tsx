@@ -44,7 +44,11 @@ type PodStatusTone = 'success' | 'warning' | 'danger' | 'unknown'
 interface PodDisplayStatus { label: string, tone: PodStatusTone, nodeName: string, restarts: number }
 
 class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
-    state: State = { basicCollapsed: true }
+    state: State = { basicCollapsed: false }
+
+    componentDidUpdate(prevProps: Props) {
+        if (prevProps.node.id !== this.props.node.id) this.setState({ basicCollapsed: false })
+    }
 
     private topologyNodes(): Node[] {
         const nodes = (window as any).App?.tc?.nodes
@@ -233,17 +237,21 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
         const basicRows = [
             { label: translate('kubernetesWorkloadName'), value: data.Name || this.props.node.id, textValue: data.Name || this.props.node.id, copyText: data.Name || this.props.node.id },
             { label: 'Kind', value: kindLabel },
-            { label: 'UID', value: meta.UID || this.props.node.id, textValue: meta.UID || this.props.node.id, copyText: meta.UID || this.props.node.id },
-            { label: translate('kubernetesTopologyNamespaces'), value: data.K8s?.Namespace || meta.Namespace || translate('kubernetesNotCollected') },
-            { label: translate('kubernetesCreatedAt'), value: formatDate(meta.CreationTimestamp?.Time) || translate('kubernetesNotCollected') }
+            { label: translate('kubernetesTopologyNamespaces'), value: data.K8s?.Namespace || meta.Namespace || translate('kubernetesNotCollected') }
         ]
-
         return <div className="netdive-k8s-node-detail netdive-k8s-workload-detail">
+            <DetailSection icon={<InfoIcon />} title={translate('kubernetesWorkloadBasicInfo')} collapsible collapsed={this.state.basicCollapsed} onToggle={() => this.setState({ basicCollapsed: !this.state.basicCollapsed })}>
+                <DetailKeyValueList rows={basicRows} copyTooltip={translate('copy')} />
+            </DetailSection>
+
             <DetailSection icon={this.topologyIcon(this.props.node)} title={`${kindLabel} ${translate('kubernetesOperationalStatusShort')}`}>
                 <div className={`netdive-k8s-node-detail__hero netdive-k8s-node-detail__hero--${statusTone}`}><i /><strong>{statusLabel}</strong><span>{conclusion}</span></div>
                 <div className="netdive-k8s-node-detail__summary">{metrics.map(metric => <div key={metric.label}><span>{metric.label}</span><strong className={metric.problem ? 'is-danger' : ''}>{metric.value === undefined || metric.value === null ? '–' : metric.value}</strong></div>)}</div>
             </DetailSection>
-            <DetailSection icon={<ViewModuleIcon />} title={translate('kubernetesWorkloadConfiguration')}><DetailKeyValueList rows={this.configurationRows(kind, spec, status)} /></DetailSection>
+            <DetailSection icon={<ErrorOutlineIcon />} title={translate('kubernetesWorkloadConditions')}>
+                {Array.isArray(status.Conditions) && status.Conditions.length ? <div className="netdive-k8s-workload-detail__conditions">{status.Conditions.map((condition: any) => <div key={condition.Type}><strong>{condition.Type}</strong><span className={String(condition.Status).toLowerCase() === 'true' ? 'is-normal' : 'is-warning'}>{condition.Status}</span><small>{condition.Reason || '–'}</small></div>)}</div> : <div className="netdive-k8s-workload-detail__empty">{translate('kubernetesNoConditions')}</div>}
+            </DetailSection>
+            <DetailSection icon={<StorageIcon />} title={translate('kubernetesPlacementAndRelations')}><DetailKeyValueList rows={relationRows} /></DetailSection>
             <DetailSection icon={<AccountTreeIcon />} title={translate('kubernetesConnectedPods')}>
                 {pods.length > 0 ? <div className="netdive-k8s-workload-detail__pod-list">{pods.map(pod => {
                     const podStatus = podStatuses.get(pod.id)!
@@ -260,11 +268,7 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
                     </button>
                 })}</div> : <div className="netdive-k8s-workload-detail__empty">{translate('kubernetesNoConnectedPods')}</div>}
             </DetailSection>
-            <DetailSection icon={<StorageIcon />} title={translate('kubernetesPlacementAndRelations')}><DetailKeyValueList rows={relationRows} /></DetailSection>
-            <DetailSection icon={<ErrorOutlineIcon />} title={translate('kubernetesWorkloadConditions')}>
-                {Array.isArray(status.Conditions) && status.Conditions.length ? <div className="netdive-k8s-workload-detail__conditions">{status.Conditions.map((condition: any) => <div key={condition.Type}><strong>{condition.Type}</strong><span className={String(condition.Status).toLowerCase() === 'true' ? 'is-normal' : 'is-warning'}>{condition.Status}</span><small>{condition.Reason || '–'}</small></div>)}</div> : <div className="netdive-k8s-workload-detail__empty">{translate('kubernetesNoConditions')}</div>}
-            </DetailSection>
-            <DetailSection icon={<InfoIcon />} title={translate('kubernetesWorkloadBasicInfo')} collapsible collapsed={this.state.basicCollapsed} onToggle={() => this.setState({ basicCollapsed: !this.state.basicCollapsed })}><DetailKeyValueList rows={basicRows} copyTooltip={translate('copy')} /></DetailSection>
+            <DetailSection icon={<ViewModuleIcon />} title={translate('kubernetesWorkloadConfiguration')}><DetailKeyValueList rows={this.configurationRows(kind, spec, status)} /></DetailSection>
         </div>
     }
 }

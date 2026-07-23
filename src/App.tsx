@@ -70,6 +70,7 @@ import SettingsEthernetIcon from '@material-ui/icons/SettingsEthernet'
 import ChevronRightIcon from '@material-ui/icons/ChevronRight'
 import CheckIcon from '@material-ui/icons/Check'
 import { Tooltip } from 'antd'
+import { BulbOutlined, ClusterOutlined, GlobalOutlined } from '@ant-design/icons'
 
 import { styles } from './AppStyles'
 import { Topology, Node, NodeAttrs, LinkAttrs, LinkTagState, Link } from './Topology'
@@ -143,6 +144,7 @@ interface AddFilterValue {
 const addFilterValue = createFilterOptions<AddFilterValue>();
 
 type NetdiveTheme = "light" | "dark"
+type InitialTopologyLayer = "infrastructure" | "kubernetes"
 type HelpSection = "menu" | "toolbar" | "topology"
 type InfrastructureFocusKey = "networkObjects" | "routers" | "userVMs" | "systemVMs" | "totalNodes"
 type InfrastructureViewMode = "all" | "hosts"
@@ -170,10 +172,16 @@ const KUBERNETES_WORKLOAD_KIND_LABELS: Record<Exclude<KubernetesWorkloadKind, "a
 
 const RECENT_VIEWED_NODES_STORAGE_KEY = "netdive-recent-viewed-nodes"
 const KUBERNETES_MANUALLY_DISABLED_STORAGE_KEY = "netdive-kubernetes-manually-disabled-clusters"
+const INITIAL_TOPOLOGY_LAYER_STORAGE_KEY = "netdive-initial-topology-layer"
 
 const getSavedNetdiveTheme = (): NetdiveTheme => {
   const savedTheme = localStorage.getItem("netdive-theme")
   return savedTheme === "dark" ? "dark" : "light"
+}
+
+const getSavedInitialTopologyLayer = (): InitialTopologyLayer => {
+  const savedLayer = localStorage.getItem(INITIAL_TOPOLOGY_LAYER_STORAGE_KEY)
+  return savedLayer === "kubernetes" ? "kubernetes" : "infrastructure"
 }
 
 const getSavedRecentViewedNodes = (): RecentViewedNodeItem[] => {
@@ -238,6 +246,7 @@ interface State {
   isLinkTagExamplesOpen: boolean
   isVMConsoleEnabled: boolean
   netdiveTheme: NetdiveTheme
+  initialTopologyLayer: InitialTopologyLayer
   isInfrastructurePanelOpen: boolean
   infrastructureFocus: InfrastructureFocusKey | ""
   infrastructureViewMode: InfrastructureViewMode
@@ -389,6 +398,7 @@ class App extends React.Component<Props, State> {
   private kubernetesCheckListRef: React.RefObject<HTMLDivElement>
   private moldInventoryFailureLogged: boolean
   private moldInventoryUnavailable: boolean
+  private initialTopologyLayerPending: boolean
 
   constructor(props) {
     super(props)
@@ -427,6 +437,7 @@ class App extends React.Component<Props, State> {
       isLinkTagExamplesOpen: false,
       isVMConsoleEnabled: true,
       netdiveTheme: getSavedNetdiveTheme(),
+      initialTopologyLayer: getSavedInitialTopologyLayer(),
       isInfrastructurePanelOpen: false,
       infrastructureFocus: "",
       infrastructureViewMode: "all",
@@ -491,6 +502,7 @@ class App extends React.Component<Props, State> {
     this.kubernetesCheckListRef = React.createRef()
     this.moldInventoryFailureLogged = false
     this.moldInventoryUnavailable = false
+    this.initialTopologyLayerPending = true
   }
 
   setLanguage(lang: "en" | "ko") {
@@ -1583,7 +1595,14 @@ class App extends React.Component<Props, State> {
 
     this.reconcileKubernetesWorkloadHierarchy()
 
-    if (this.nextTag) {
+    if (this.initialTopologyLayerPending) {
+      const initialTag = this.state.initialTopologyLayer === "kubernetes" && this.tc.nodeTagStates.has("kubernetes")
+        ? "kubernetes"
+        : this.config.defaultNodeTag()
+      this.tc.activeNodeTag(initialTag)
+      this.initialTopologyLayerPending = false
+      this.nextTag = ""
+    } else if (this.nextTag) {
       this.tc.activeNodeTag(this.nextTag)
       this.nextTag = ""
     } else {
@@ -2653,6 +2672,18 @@ class App extends React.Component<Props, State> {
     this.syncGroupVisibleNodeIDs()
   }
 
+  focusGroupChildFromPanel(node: Node) {
+    if (!this.tc || !node) {
+      return
+    }
+    // The detail action is also an explicit request to reveal the resource.
+    // Make hidden group children visible before selecting them so the opened
+    // detail panel always has a corresponding node on the topology canvas.
+    this.tc.setGroupChildrenDisplay([node], true)
+    this.tc.selectNode(node.id, true)
+    this.syncGroupVisibleNodeIDs()
+  }
+
   setGroupChildrenDisplayFromPanel(nodes: Node[], visible: boolean) {
     if (!this.tc || !nodes || nodes.length === 0) {
       return
@@ -3657,6 +3688,56 @@ class App extends React.Component<Props, State> {
     this.setNetdiveTheme(newTheme)
   }
 
+  private onInitialTopologyLayerChange(event: React.MouseEvent<HTMLElement>, layer: InitialTopologyLayer | null) {
+    if (!layer) {
+      return
+    }
+    localStorage.setItem(INITIAL_TOPOLOGY_LAYER_STORAGE_KEY, layer)
+    this.setState({ initialTopologyLayer: layer })
+  }
+
+  private restorePreferenceDefaults() {
+    localStorage.setItem("language", "ko")
+    localStorage.setItem("netdive-theme", "light")
+    localStorage.setItem(INITIAL_TOPOLOGY_LAYER_STORAGE_KEY, "infrastructure")
+    window.location.reload()
+  }
+
+  private renderPreferenceLabel(classes: any, icon: React.ReactNode, label: string, drawer = false) {
+    return (
+      <div className={drawer ? classes.drawerPreferenceLabel : classes.sideSettingsControlTitle}>
+        <span className={classes.preferenceLabelIcon}>{icon}</span>
+        <span>{label}</span>
+      </div>
+    )
+  }
+
+  private renderInitialTopologyLayerControl(classes: any, drawer = false) {
+    return (
+      <div className={drawer ? classes.drawerInitialLayerPanel : clsx(classes.sideSettingsControlBlock, classes.preferenceControlBlock)}>
+        {this.renderPreferenceLabel(classes, <ClusterOutlined />, translate("initialTopologyLayer"), drawer)}
+        <ToggleButtonGroup
+          value={this.state.initialTopologyLayer}
+          exclusive
+          onChange={this.onInitialTopologyLayerChange.bind(this)}
+          aria-label={translate("initialTopologyLayer")}>
+          <ToggleButton value="infrastructure" aria-label={translate("infrastructureMenu")}>
+            {translate("infrastructureMenu")}
+          </ToggleButton>
+          <ToggleButton value="kubernetes" aria-label="Kubernetes">Kubernetes</ToggleButton>
+        </ToggleButtonGroup>
+      </div>
+    )
+  }
+
+  private renderPreferenceApplyNotice(classes: any, drawer = false) {
+    return (
+      <div className={drawer ? classes.drawerPreferenceNotice : classes.sidePreferenceNotice}>
+        {translate("initialTopologyLayerDescription")}
+      </div>
+    )
+  }
+
   private renderDrawerMenuItem(classes: any, icon: React.ReactNode, label: string, onClick?: () => void, active?: boolean) {
     return (
       <Tooltip title={label} placement="right">
@@ -3687,7 +3768,7 @@ class App extends React.Component<Props, State> {
     )
   }
 
-  private renderDrawerMenuGroup(classes: any, icon: React.ReactNode, label: string, items: React.ReactNode, active?: boolean) {
+  private renderDrawerMenuGroup(classes: any, icon: React.ReactNode, label: string, items: React.ReactNode, active?: boolean, customHeader?: React.ReactNode) {
     return (
       <div className={classes.drawerMenuGroup}>
         <button
@@ -3697,8 +3778,8 @@ class App extends React.Component<Props, State> {
           className={clsx(classes.drawerMenuItem, active && classes.drawerMenuItemActive)}>
           <span className={classes.drawerMenuIcon}>{icon}</span>
         </button>
-        <div className={classes.drawerFlyout} role="menu" aria-label={label}>
-          <div className={classes.drawerFlyoutTitle}>{label}</div>
+        <div className={clsx(classes.drawerFlyout, customHeader && classes.drawerPreferencesFlyout)} role="menu" aria-label={label}>
+          {customHeader || <div className={classes.drawerFlyoutTitle}>{label}</div>}
           <div className={classes.drawerFlyoutItems}>{items}</div>
         </div>
       </div>
@@ -4226,19 +4307,24 @@ class App extends React.Component<Props, State> {
         <div className={classes.sideSettingsHeader}>
           <div>
             <div className={classes.sideSettingsTitle}>{translate("preferences")}</div>
-            <div className={classes.sideSettingsDescription}>{translate("preferencesDescription")}</div>
+            <div className={clsx(classes.sideSettingsDescription, classes.preferenceHeaderDescription)}>{translate("preferencesDescription")}</div>
           </div>
-          <IconButton size="small" onClick={() => this.setState({ isPreferencesPanelOpen: false })}>
-            <CloseIcon fontSize="small" />
-          </IconButton>
+          <div className={classes.sideSettingsHeaderActions}>
+            <Button className={classes.preferenceResetButton} size="small" onClick={this.restorePreferenceDefaults.bind(this)}>
+              {translate("restoreDefaults")}
+            </Button>
+            <IconButton size="small" onClick={() => this.setState({ isPreferencesPanelOpen: false })}>
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          </div>
         </div>
-        <div className={classes.sideSettingsList}>
-          <div className={classes.sideSettingsControlBlock}>
-            <div className={classes.sideSettingsControlTitle}>{translate("language")}</div>
+        <div className={clsx(classes.sideSettingsList, classes.preferenceSettingsList)}>
+          <div className={clsx(classes.sideSettingsControlBlock, classes.preferenceControlBlock)}>
+            {this.renderPreferenceLabel(classes, <GlobalOutlined />, translate("language"))}
             <LanguageToggle />
           </div>
-          <div className={classes.sideSettingsControlBlock}>
-            <div className={classes.sideSettingsControlTitle}>{translate("themeSetting")}</div>
+          <div className={clsx(classes.sideSettingsControlBlock, classes.preferenceControlBlock)}>
+            {this.renderPreferenceLabel(classes, <BulbOutlined />, translate("themeSetting"))}
             <ToggleButtonGroup
               value={this.state.netdiveTheme}
               exclusive
@@ -4248,6 +4334,8 @@ class App extends React.Component<Props, State> {
               <ToggleButton value="dark" aria-label="Dark">Dark</ToggleButton>
             </ToggleButtonGroup>
           </div>
+          {this.renderInitialTopologyLayerControl(classes)}
+          {this.renderPreferenceApplyNotice(classes)}
         </div>
       </Paper>
     )
@@ -4642,12 +4730,12 @@ class App extends React.Component<Props, State> {
           <Brightness4Icon />,
           translate("preferences"),
           <React.Fragment>
-            <div className={classes.drawerLanguagePanel}>
-              <div className={classes.drawerMenuSectionTitle}>{translate("language")}</div>
+            <div className={classes.drawerPreferenceSection}>
+              {this.renderPreferenceLabel(classes, <GlobalOutlined />, translate("language"), true)}
               <LanguageToggle />
             </div>
-            <div className={classes.drawerThemePanel}>
-              <div className={classes.drawerMenuSectionTitle}>{translate("themeSetting")}</div>
+            <div className={classes.drawerPreferenceSection}>
+              {this.renderPreferenceLabel(classes, <BulbOutlined />, translate("themeSetting"), true)}
               <ToggleButtonGroup
                 value={this.state.netdiveTheme}
                 exclusive
@@ -4657,7 +4745,19 @@ class App extends React.Component<Props, State> {
                 <ToggleButton value="dark" aria-label="Dark">Dark</ToggleButton>
               </ToggleButtonGroup>
             </div>
-          </React.Fragment>
+            {this.renderInitialTopologyLayerControl(classes, true)}
+            {this.renderPreferenceApplyNotice(classes, true)}
+          </React.Fragment>,
+          false,
+          <div className={classes.drawerPreferencesHeader}>
+            <div className={classes.drawerPreferencesHeaderText}>
+              <strong>{translate("preferences")}</strong>
+              <small>{translate("preferencesDescription")}</small>
+            </div>
+            <Button className={classes.preferenceResetButton} size="small" onClick={this.restorePreferenceDefaults.bind(this)}>
+              {translate("restoreDefaults")}
+            </Button>
+          </div>
         )}
         {this.renderDrawerMenuGroup(
           classes,
@@ -4799,7 +4899,9 @@ class App extends React.Component<Props, State> {
                   groupVisibleNodeIDs={this.state.groupVisibleNodeIDs}
                   nodeDisplayName={this.nodeDisplayName.bind(this)}
                   onGroupChildToggle={this.toggleGroupChildDisplayFromPanel.bind(this)}
-                  onGroupChildrenDisplayChange={this.setGroupChildrenDisplayFromPanel.bind(this)} />
+                  onGroupChildFocus={this.focusGroupChildFromPanel.bind(this)}
+                  onGroupChildrenDisplayChange={this.setGroupChildrenDisplayFromPanel.bind(this)}
+                  onContextNavigate={this.focusGroupChildFromPanel.bind(this)} />
               }
               {this.state.isTimetravelOpen &&
                 <TimetravelPanel config={this.config} onNavigate={this.onNavigate.bind(this)} />

@@ -44,25 +44,40 @@ const firstValue = (data: any, paths: string[]): string => {
     if (Array.isArray(value)) return value.map(String).join(', ')
     return typeof value === 'object' ? JSON.stringify(value) : String(value)
 }
-const formatDate = (value: any): string => {
-    if (!value) return ''
-    const date = new Date(value)
-    return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString()
-}
 const quantity = (resources: any, key: string): string => {
     const value = resources && resources[key]
     if (value === undefined || value === null || value === '') return '–'
     return typeof value === 'object' && value.string ? value.string : String(value)
 }
+const formatCapacityMemory = (value: string): string => {
+    if (!value || value === '–') return value || '–'
+    const match = value.trim().match(/^([0-9.]+)(Ki|Mi|Gi|Ti)$/i)
+    if (!match) return value
+    const amount = Number(match[1])
+    if (!Number.isFinite(amount)) return value
+    const unit = match[2].toLowerCase()
+    const bytes = amount * (unit === 'ti' ? Math.pow(1024, 4) : unit === 'gi' ? Math.pow(1024, 3) : unit === 'mi' ? Math.pow(1024, 2) : 1024)
+    if (bytes >= Math.pow(1024, 3)) return `${(bytes / Math.pow(1024, 3)).toFixed(2).replace(/\.00$/, '')} GiB`
+    return `${(bytes / Math.pow(1024, 2)).toFixed(1).replace(/\.0$/, '')} MiB`
+}
+const formatCapacityCpu = (value: string): string => {
+    if (!value || value === '–') return value || '–'
+    const millicores = value.match(/^([0-9.]+)m$/i)
+    if (millicores) return `${(Number(millicores[1]) / 1000).toFixed(2).replace(/\.00$/, '')} Core`
+    return /^([0-9.]+)$/.test(value) ? `${value} Core` : value
+}
 const optionalNumber = (value: any): React.ReactNode => value === undefined || value === null ? '–' : Number(value)
 
 class KubernetesNodeDetailPanel extends React.Component<Props, State> {
-    state: State = { loading: false, error: false, requestKey: '', basicCollapsed: true }
+    state: State = { loading: false, error: false, requestKey: '', basicCollapsed: false }
 
     componentDidMount() { this.loadDetail() }
 
     componentDidUpdate(prevProps: Props) {
-        if (prevProps.node.id !== this.props.node.id || this.cluster()?.id !== this.clusterFrom(prevProps)?.id) this.loadDetail()
+        if (prevProps.node.id !== this.props.node.id || this.cluster()?.id !== this.clusterFrom(prevProps)?.id) {
+            this.setState({ basicCollapsed: false })
+            this.loadDetail()
+        }
     }
 
     private clusterFrom(props: Props): any | undefined {
@@ -265,12 +280,12 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
         return <div className="netdive-k8s-node-detail__rows">{conditions.map(condition => {
             const tone = this.conditionTone(condition)
             const state = tone === 'success'
-                ? <span className="netdive-k8s-node-detail__normal"><i />{String(condition.status)}</span>
-                : <DetailBadge tone={tone}>{String(condition.status)}</DetailBadge>
+                ? <span className="netdive-k8s-node-detail__normal"><i />{translate('kubernetesHealthNormal')}</span>
+                : <DetailBadge tone={tone}>{tone === 'danger' ? translate('kubernetesHealthCritical') : translate('kubernetesHealthWarning')}</DetailBadge>
             return <Tooltip key={condition.type} title={condition.message || condition.reason || ''} placement="top">
                 <div className={`netdive-k8s-node-detail__row netdive-k8s-node-detail__row--${tone}`}>
                     <strong>{condition.type}</strong>
-                    <span>{state}</span>
+                    <span className="netdive-k8s-node-detail__condition-state">{state}<em>{String(condition.status)}</em></span>
                     <b>{this.duration(condition.durationSeconds)}</b>
                     <small>{condition.reason || translate('kubernetesNoReason')}</small>
                 </div>
@@ -281,12 +296,16 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
     private renderCapacity() {
         const detail = this.state.detail
         if (!detail?.capacity && !detail?.allocatable) return <DetailEmpty description={translate('kubernetesNodeCapacityUnavailable')} compact />
+        const cpuCapacity = quantity(detail.capacity, 'cpu')
+        const cpuAllocatable = quantity(detail.allocatable, 'cpu')
+        const memoryCapacity = quantity(detail.capacity, 'memory')
+        const memoryAllocatable = quantity(detail.allocatable, 'memory')
         const rows = [
-            { label: 'CPU', capacity: quantity(detail.capacity, 'cpu'), allocatable: quantity(detail.allocatable, 'cpu') },
-            { label: translate('kubernetesMemory'), capacity: quantity(detail.capacity, 'memory'), allocatable: quantity(detail.allocatable, 'memory') },
-            { label: 'Pods', capacity: quantity(detail.capacity, 'pods'), allocatable: quantity(detail.allocatable, 'pods') }
+            { label: 'CPU', capacity: formatCapacityCpu(cpuCapacity), capacityRaw: cpuCapacity, allocatable: formatCapacityCpu(cpuAllocatable), allocatableRaw: cpuAllocatable },
+            { label: translate('kubernetesMemory'), capacity: formatCapacityMemory(memoryCapacity), capacityRaw: memoryCapacity, allocatable: formatCapacityMemory(memoryAllocatable), allocatableRaw: memoryAllocatable },
+            { label: 'Pods', capacity: quantity(detail.capacity, 'pods'), capacityRaw: '', allocatable: quantity(detail.allocatable, 'pods'), allocatableRaw: '' }
         ]
-        return <div className="netdive-k8s-node-detail__capacity"><div className="netdive-k8s-node-detail__capacity-head"><span>{translate('kubernetesCapacity')}</span><span>Allocatable</span></div>{rows.map(row => <div key={row.label}><strong>{row.label}</strong><span>{row.capacity}</span><b>{row.allocatable}</b></div>)}</div>
+        return <div className="netdive-k8s-node-detail__capacity"><div className="netdive-k8s-node-detail__capacity-head"><span>{translate('kubernetesCapacity')}</span><span>{translate('kubernetesAllocatableLabel')}</span></div>{rows.map(row => <div key={row.label}><strong>{row.label}</strong><Tooltip title={row.capacityRaw && row.capacityRaw !== row.capacity ? row.capacityRaw : undefined}><span>{row.capacity}</span></Tooltip><Tooltip title={row.allocatableRaw && row.allocatableRaw !== row.allocatable ? row.allocatableRaw : undefined}><b>{row.allocatable}</b></Tooltip></div>)}</div>
     }
 
     private findInfrastructureRelation(): { vm?: any, confidence: string } {
@@ -333,16 +352,12 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
         const relationVM = relation.vm
         const basicRows: any[] = [
             { label: translate('kubernetesNodeName'), value: name, textValue: name, copyText: name },
-            { label: 'UID', value: detail.uid || this.uid(), textValue: detail.uid || this.uid(), copyText: detail.uid || this.uid() },
             { label: translate('kubernetesNodeRoles'), value: Array.isArray(detail.roles) ? detail.roles.join(', ') : translate('kubernetesNotCollected') },
             { label: 'Internal IP', value: detail.internalIp || translate('kubernetesNotCollected'), copyText: detail.internalIp },
             { label: 'Pod CIDR', value: Array.isArray(detail.podCidrs) && detail.podCidrs.length ? detail.podCidrs.join(', ') : translate('kubernetesNotCollected') },
             { label: translate('kubernetesVersion'), value: detail.kubernetesVersion || translate('kubernetesNotCollected') },
             { label: 'OS Image', value: detail.osImage || translate('kubernetesNotCollected') },
-            { label: translate('kubernetesKernelVersion'), value: detail.kernelVersion || translate('kubernetesNotCollected') },
-            { label: translate('kubernetesArchitecture'), value: detail.architecture || translate('kubernetesNotCollected') },
-            { label: translate('kubernetesContainerRuntime'), value: detail.containerRuntime || translate('kubernetesNotCollected') },
-            { label: translate('kubernetesCreatedAt'), value: formatDate(detail.createdAt) || translate('kubernetesNotCollected') }
+            { label: translate('kubernetesContainerRuntime'), value: detail.containerRuntime || translate('kubernetesNotCollected') }
         ]
         const schedulingRows: any[] = [
             { label: translate('kubernetesScheduling'), value: detail.unschedulable ? <DetailBadge tone="warning">Unschedulable</DetailBadge> : translate('kubernetesSchedulingAllowed') },
@@ -357,6 +372,10 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
         ]
 
         return <div className="netdive-k8s-node-detail">
+            <DetailSection icon={<InfoIcon />} title={translate('kubernetesNodeBasicInfo')} collapsible collapsed={this.state.basicCollapsed} onToggle={() => this.setState({ basicCollapsed: !this.state.basicCollapsed })}>
+                <DetailKeyValueList rows={basicRows} copyTooltip={translate('copy')} />
+            </DetailSection>
+
             <DetailSection icon={this.topologyIcon(this.props.node)} title={translate('kubernetesNodeOperationalStatus')}>
                 <div className={`netdive-k8s-node-detail__hero netdive-k8s-node-detail__hero--${statusTone}`}><i /><strong>{statusLabel}</strong><span>{conclusion}</span></div>
                 <div className="netdive-k8s-node-detail__summary">
@@ -368,9 +387,6 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
             </DetailSection>
 
             <DetailSection icon={<ErrorOutlineIcon />} title={translate('kubernetesNodeConditions')}>{this.renderConditions()}</DetailSection>
-            <DetailSection icon={<ScheduleIcon />} title={translate('kubernetesSchedulingAndTaints')}><DetailKeyValueList rows={schedulingRows} copyTooltip={translate('copy')} /></DetailSection>
-            <DetailSection icon={<StorageIcon />} title={translate('kubernetesCapacityAllocatable')}>{this.renderCapacity()}</DetailSection>
-
             <DetailSection icon={<DnsIcon />} title={translate('kubernetesNodeWorkloads')}>
                 <div className="netdive-k8s-node-detail__metric-rows">
                     {[
@@ -388,8 +404,10 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
                 {Array.isArray(detail.problemPods) && detail.problemPods.length > 0 && <DetailResourceGrid compact>{detail.problemPods.map(pod => <DetailResourceCard key={pod.uid} label={pod.name} value="" icon={<AccountTreeIcon />} iconTone="kubernetes" interactive onClick={() => this.focusProblemPod(pod.uid)} />)}</DetailResourceGrid>}
             </DetailSection>
 
+            <DetailSection icon={<ScheduleIcon />} title={translate('kubernetesSchedulingAndTaints')}><DetailKeyValueList rows={schedulingRows} copyTooltip={translate('copy')} /></DetailSection>
+            <DetailSection icon={<StorageIcon />} title={translate('kubernetesCapacityAllocatable')}>{this.renderCapacity()}</DetailSection>
+
             <DetailSection icon={<LinkIcon />} title={translate('kubernetesInfrastructureRelationship')}><DetailKeyValueList rows={infrastructureRows} /></DetailSection>
-            <DetailSection icon={<InfoIcon />} title={translate('kubernetesNodeBasicInfo')} collapsible collapsed={this.state.basicCollapsed} onToggle={() => this.setState({ basicCollapsed: !this.state.basicCollapsed })}><DetailKeyValueList rows={basicRows} copyTooltip={translate('copy')} /></DetailSection>
 
             {this.state.error && <div className="netdive-k8s-node-detail__notice"><InfoIcon /><span>{translate('kubernetesNodeDetailFallback')}</span></div>}
             {!this.cluster() && <div className="netdive-k8s-node-detail__notice"><InfoIcon /><span>{translate('kubernetesClusterMoldMissing')}</span></div>}

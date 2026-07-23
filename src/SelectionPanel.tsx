@@ -70,7 +70,9 @@ interface Props {
   groupVisibleNodeIDs?: Set<string>
   nodeDisplayName?: (node: Node) => string
   onGroupChildToggle?: (node: Node) => void
+  onGroupChildFocus?: (node: Node) => void
   onGroupChildrenDisplayChange?: (nodes: Node[], visible: boolean) => void
+  onContextNavigate?: (node: Node) => void
 }
 
 interface State {
@@ -206,15 +208,15 @@ class SelectionPanel extends React.Component<Props, State> {
     }
   }
 
+  private contextNodeName(node: Node): string {
+    const displayName = this.props.nodeDisplayName ? this.props.nodeDisplayName(node) : this.props.config.nodeTabTitle(node)
+    return String(displayName || node.data?.Name || node.id).replace(/\s*\n\s*/g, ' ').trim()
+  }
+
   private topologyNodes(): Node[] {
     const nodes = (window as any).App?.tc?.nodes
     if (nodes instanceof Map) return Array.from(nodes.values())
     return Array.isArray(nodes) ? nodes : []
-  }
-
-  private contextNodeName(node: Node): string {
-    const displayName = this.props.nodeDisplayName ? this.props.nodeDisplayName(node) : this.props.config.nodeTabTitle(node)
-    return String(displayName || node.data?.Name || node.id).replace(/\s*\n\s*/g, ' ').trim()
   }
 
   private nodeAncestors(node: Node): Node[] {
@@ -229,137 +231,54 @@ class SelectionPanel extends React.Component<Props, State> {
     return ancestors
   }
 
-  private contextTypeLabel(node: Node): string {
-    const data = node.data || {}
-    const type = String(data.Type || data.type || '').toLowerCase()
-    const name = String(data.Name || data.name || '').toLowerCase()
-    if (String(data.Manager || '').toLowerCase() === 'k8s') {
-      const labels: Record<string, string> = {
-        cluster: 'Cluster', node: 'Node', namespace: 'Namespace', deployment: 'Deployment', statefulset: 'StatefulSet',
-        daemonset: 'DaemonSet', job: 'Job', cronjob: 'CronJob', pod: 'Pod', service: 'Service'
-      }
-      return labels[type] || (type ? type.charAt(0).toUpperCase() + type.slice(1) : 'Kubernetes')
-    }
-    if (type === 'host') return 'Host'
-    if (type === 'libvirt') {
-      if (/^(s-|v-)/.test(name) || name === 'ccvm' || name === 'scvm') return 'System VM'
-      if (/^r-/.test(name)) return 'Virtual Router'
-      return 'User VM'
-    }
-    if (type === 'bridge') {
-      return this.props.config.nodeAttrs(node).weight === WEIGHT_VIRT_BRIDGES ? 'Virtual Bridge' : 'Host Bridge'
-    }
-    const labels: Record<string, string> = {
-      bond: 'Bond Interface', device: 'NIC', internal: 'Interface', interface: 'Interface', tuntap: 'VM Interface',
-      tun: 'VM Interface', tap: 'VM Interface', veth: 'Virtual Ethernet', ovsbridge: 'Virtual Bridge',
-      openvswitch: 'Virtual Bridge', ovsport: 'Virtual Port', patch: 'Patch Port', port: 'Port', switchport: 'Switch Port',
-      erspan: 'ERSPAN', geneve: 'Geneve', vxlan: 'VXLAN', gre: 'GRE', gretap: 'GRE Tap', switch: 'Switch',
-      vlan: 'VLAN', netns: 'Network Namespace', namespace: 'Namespace', container: 'Container'
-    }
-    return labels[type] || (type ? type.charAt(0).toUpperCase() + type.slice(1) : 'Node')
-  }
-
-  private descendantPods(node: Node): Node[] {
-    const pods: Node[] = []
-    const visited = new Set<string>()
-    const visit = (current: Node) => {
-      if (visited.has(current.id)) return
-      visited.add(current.id)
-      if (String(current.data?.Manager || '').toLowerCase() === 'k8s' && String(current.data?.Type || '').toLowerCase() === 'pod') {
-        pods.push(current)
-        return
-      }
-      ;(current.children || []).forEach(visit)
-    }
-    visit(node)
-    return pods
-  }
-
   private kubernetesClusterAncestor(node: Node): Node | undefined {
     return this.nodeAncestors(node).find(item => String(item.data?.Manager || '').toLowerCase() === 'k8s' && String(item.data?.Type || '').toLowerCase() === 'cluster')
   }
 
-  private servicePods(service: Node): Node[] {
-    const data = service.data || {}
-    const selector = data.K8s?.Extra?.Spec?.Selector || {}
-    const keys = selector && typeof selector === 'object' ? Object.keys(selector) : []
-    if (!keys.length) return []
-    const namespace = String(data.K8s?.Namespace || data.Namespace || data.K8s?.Extra?.ObjectMeta?.Namespace || '')
-    const cluster = this.kubernetesClusterAncestor(service)
-    return this.topologyNodes().filter(node => {
-      if (String(node.data?.Manager || '').toLowerCase() !== 'k8s' || String(node.data?.Type || '').toLowerCase() !== 'pod') return false
-      const podNamespace = String(node.data?.K8s?.Namespace || node.data?.Namespace || node.data?.K8s?.Extra?.ObjectMeta?.Namespace || '')
-      if (podNamespace !== namespace) return false
-      if (cluster && this.kubernetesClusterAncestor(node)?.id !== cluster.id) return false
-      const labels = node.data?.K8s?.Labels || node.data?.K8s?.Extra?.ObjectMeta?.Labels || {}
-      return keys.every(key => String(labels[key]) === String(selector[key]))
+  private kubernetesNamespaceNode(node: Node, cluster?: Node): Node | undefined {
+    const chainNamespace = this.nodeAncestors(node).find(item => String(item.data?.Manager || '').toLowerCase() === 'k8s' && String(item.data?.Type || '').toLowerCase() === 'namespace')
+    if (chainNamespace) return chainNamespace
+    const data = node.data || {}
+    const namespace = String(data.K8s?.Namespace || data.Namespace || data.K8s?.Extra?.ObjectMeta?.Namespace || '').trim()
+    if (!namespace) return undefined
+    return this.topologyNodes().find(candidate => {
+      if (String(candidate.data?.Manager || '').toLowerCase() !== 'k8s' || String(candidate.data?.Type || '').toLowerCase() !== 'namespace') return false
+      if (this.contextNodeName(candidate) !== namespace) return false
+      return !cluster || this.kubernetesClusterAncestor(candidate)?.id === cluster.id
     })
-  }
-
-  private kubernetesContextAnchor(node: Node): NodeContextItem {
-    const allNodes = this.topologyNodes()
-    const type = String(node.data?.Type || '').toLowerCase()
-    if (type === 'node') return { id: node.id, label: this.contextNodeName(node), node }
-
-    let pods = this.descendantPods(node)
-    if (type === 'service') pods = this.servicePods(node)
-    const nodeNames = new Set<string>()
-    pods.forEach(pod => {
-      const nodeName = String(pod.data?.K8s?.Extra?.Spec?.NodeName || pod.data?.K8s?.Node || pod.data?.NodeName || '').trim()
-      if (nodeName) nodeNames.add(nodeName)
-    })
-
-    const cluster = this.kubernetesClusterAncestor(node) || (type === 'cluster' ? node : undefined)
-    if (type === 'cluster' && cluster) {
-      allNodes.forEach(candidate => {
-        if (String(candidate.data?.Manager || '').toLowerCase() !== 'k8s' || String(candidate.data?.Type || '').toLowerCase() !== 'node') return
-        if (this.kubernetesClusterAncestor(candidate)?.id === cluster.id) nodeNames.add(this.contextNodeName(candidate))
-      })
-    }
-
-    const names = Array.from(nodeNames)
-    const anchorNode = names.length === 1 ? allNodes.find(candidate => String(candidate.data?.Type || '').toLowerCase() === 'node' && this.contextNodeName(candidate) === names[0]) : undefined
-    if (names.length) return { id: anchorNode?.id || `k8s-nodes-${node.id}`, label: `${names[0]}${names.length > 1 ? ` +${names.length - 1}` : ''}`, node: anchorNode }
-    return { id: `k8s-node-unresolved-${node.id}`, label: 'Kubernetes Node · 확인 불가' }
   }
 
   private nodeContext(node: Node): { icon: NodeContextIcon, items: NodeContextItem[] } {
     const isGroup = !!node.data?.IsTopologyGroup
     const representative = isGroup && node.children?.length ? node.children[0] : node
     const isKubernetes = String(representative.data?.Manager || node.data?.Manager || '').toLowerCase() === 'k8s'
-    const chain = isGroup
-      ? [...this.nodeAncestors(representative.parent || representative), node]
-      : this.nodeAncestors(node)
-
-    let anchor: NodeContextItem
-    if (isKubernetes) {
-      anchor = this.kubernetesContextAnchor(representative)
-    } else {
-      const host = chain.find(item => String(item.data?.Type || '').toLowerCase() === 'host')
-      const rootContext = host || chain[0] || node
-      anchor = { id: rootContext.id, label: this.contextNodeName(rootContext), node: rootContext }
-    }
-
-    const isRoot = !node.parent || node.parent.id === 'root' || anchor.node?.id === node.id
     const items: NodeContextItem[] = []
-
-    if (isRoot) {
-      items.push({ id: `${node.id}-current`, label: this.contextNodeName(node), node })
-    } else {
-      items.push(anchor)
-      chain.forEach(item => {
-        if (item.id === anchor.node?.id || item.id === node.id) return
-        const label = this.contextTypeLabel(item)
-        if (!items.length || items[items.length - 1].label !== label) {
-          items.push({ id: `${item.id}-type`, label, node: item })
-        }
-      })
-      const currentTypeNode = isGroup ? representative : node
-      const currentTypeLabel = this.contextTypeLabel(currentTypeNode)
-      if (!items.length || items[items.length - 1].label !== currentTypeLabel) {
-        items.push({ id: `${node.id}-current-type`, label: currentTypeLabel, node })
+    const addItem = (item: NodeContextItem) => {
+      if (!item.label || (items.length && (items[items.length - 1].id === item.id || items[items.length - 1].label === item.label))) return
+      items.push(item)
+    }
+    if (isKubernetes) {
+      const type = String(representative.data?.Type || '').toLowerCase()
+      const cluster = this.kubernetesClusterAncestor(representative) || (type === 'cluster' ? representative : undefined)
+      if (cluster && cluster.id !== node.id && !(isGroup && type === 'cluster')) addItem({ id: cluster.id, label: this.contextNodeName(cluster), node: cluster })
+      if (type !== 'cluster' && type !== 'node' && type !== 'namespace') {
+        const namespaceNode = this.kubernetesNamespaceNode(representative, cluster)
+        const data = representative.data || {}
+        const namespaceName = namespaceNode
+          ? this.contextNodeName(namespaceNode)
+          : String(data.K8s?.Namespace || data.Namespace || data.K8s?.Extra?.ObjectMeta?.Namespace || '').trim()
+        if (namespaceName) addItem({ id: namespaceNode?.id || `${node.id}-namespace`, label: namespaceName, node: namespaceNode })
       }
-      items.push({ id: `${node.id}-current`, label: this.contextNodeName(node), node })
+      addItem({ id: node.id, label: this.contextNodeName(node), node })
+    } else {
+      const chain = isGroup
+        ? [...this.nodeAncestors(representative.parent || representative), node]
+        : this.nodeAncestors(node)
+      chain.forEach(item => {
+        if (item.data?.IsTopologyGroup && item.id !== node.id) return
+        const contextNode = isGroup && item.id === node.id ? node : item
+        addItem({ id: item.id, label: this.contextNodeName(contextNode), node: item })
+      })
     }
 
     const attrs = this.props.config.nodeAttrs(node)
@@ -371,7 +290,11 @@ class SelectionPanel extends React.Component<Props, State> {
 
   private renderNodeContext(node: Node) {
     const context = this.nodeContext(node)
-    return <NodeContextBreadcrumb icon={context.icon} items={context.items} />
+    if (context.items.length < 2) return null
+    return <NodeContextBreadcrumb
+      icon={context.icon}
+      items={context.items}
+      onNavigate={item => item.node && this.props.onContextNavigate && this.props.onContextNavigate(item.node)} />
   }
 
   renderTabPanels(classes: any) {
@@ -567,6 +490,10 @@ class SelectionPanel extends React.Component<Props, State> {
                   onNodeSelect={(node: Node) => {
                     this.setState({ preferredTabID: el.id })
                     this.props.onGroupChildToggle && this.props.onGroupChildToggle(node)
+                  }}
+                  onNodeFocus={(node: Node) => {
+                    this.setState({ preferredTabID: node.id })
+                    this.props.onGroupChildFocus && this.props.onGroupChildFocus(node)
                   }}
                   onNodesSelect={(nodes: Node[]) => {
                     this.setState({ preferredTabID: el.id })
