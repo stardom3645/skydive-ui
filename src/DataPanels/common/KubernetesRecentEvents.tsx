@@ -1,0 +1,98 @@
+import * as React from 'react'
+
+import { translate } from '../../Config'
+import { DetailBadge, DetailEmpty } from './DetailComponents'
+import './KubernetesRecentEvents.css'
+
+export type KubernetesEventTone = 'success' | 'warning' | 'danger'
+
+export interface KubernetesEventGroup {
+    reason: string
+    tone: KubernetesEventTone
+    resource: string
+    description: string
+    count: number
+    time: any
+}
+
+const valueByPath = (data: any, path: string): any => path.split('.').reduce((value, key) => value === undefined || value === null ? undefined : value[key], data)
+const firstRaw = (data: any, paths: string[]): any => {
+    for (const path of paths) {
+        const value = valueByPath(data, path)
+        if (value !== undefined && value !== null && String(value).trim() !== '') return value
+    }
+    return undefined
+}
+const firstValue = (data: any, paths: string[]): string => {
+    const value = firstRaw(data, paths)
+    if (value === undefined || value === null) return ''
+    return typeof value === 'object' ? JSON.stringify(value) : String(value)
+}
+const normalizedReason = (reason: string): string => reason.toLowerCase().replace(/[\s_-]+/g, '')
+const eventTime = (event: any): any => {
+    const value = firstRaw(event, ['lastTimestamp', 'LastTimestamp', 'eventTime', 'EventTime', 'lastObservedTime', 'LastObservedTime', 'metadata.creationTimestamp', 'ObjectMeta.CreationTimestamp'])
+    return value && typeof value === 'object' && value.Time ? value.Time : value
+}
+const eventsFromSources = (sources: any[]): any[] => {
+    for (const source of sources) {
+        const events = Array.isArray(source) ? source : Array.isArray(source?.items) ? source.items : Array.isArray(source?.Items) ? source.Items : []
+        if (events.length) return events
+    }
+    return []
+}
+
+export const collectKubernetesEventGroups = (sources: any[], tones: Record<string, KubernetesEventTone>): KubernetesEventGroup[] => {
+    const groups = new Map<string, KubernetesEventGroup>()
+    eventsFromSources(sources).forEach(event => {
+        const reason = firstValue(event, ['reason', 'Reason'])
+        const normalized = normalizedReason(reason)
+        const tone = tones[normalized]
+        if (!tone) return
+        const resourceKind = firstValue(event, ['involvedObject.kind', 'InvolvedObject.Kind', 'regarding.kind', 'Regarding.Kind'])
+        const resourceName = firstValue(event, ['involvedObject.name', 'InvolvedObject.Name', 'regarding.name', 'Regarding.Name'])
+        const resource = [resourceKind, resourceName].filter(Boolean).join(': ') || translate('kubernetesResource')
+        const description = firstValue(event, ['message', 'Message', 'note', 'Note']) || translate('kubernetesNoReason')
+        const countValue = firstRaw(event, ['count', 'Count', 'series.count', 'Series.Count'])
+        const count = Math.max(1, Number(countValue || 1))
+        const time = eventTime(event)
+        const key = `${normalized}:${resource}`
+        const existing = groups.get(key)
+        if (!existing) {
+            groups.set(key, { reason, tone, resource, description, count, time })
+            return
+        }
+        existing.count += count
+        const existingTime = new Date(existing.time || 0).getTime()
+        const nextTime = new Date(time || 0).getTime()
+        if (!Number.isNaN(nextTime) && (Number.isNaN(existingTime) || nextTime > existingTime)) {
+            existing.time = time
+            existing.description = description
+        }
+    })
+    return Array.from(groups.values()).sort((left, right) => new Date(right.time || 0).getTime() - new Date(left.time || 0).getTime())
+}
+
+const relativeTime = (value: any): string => {
+    const time = new Date(value || 0).getTime()
+    if (Number.isNaN(time) || time <= 0) return translate('kubernetesNotCollected')
+    const elapsedSeconds = Math.max(0, Math.floor((Date.now() - time) / 1000))
+    if (elapsedSeconds < 60) return translate('kubernetesEventJustNow')
+    const minutes = Math.floor(elapsedSeconds / 60)
+    if (minutes < 60) return translate('kubernetesEventMinutesAgo').replace('{count}', String(minutes))
+    const hours = Math.floor(minutes / 60)
+    if (hours < 24) return translate('kubernetesEventHoursAgo').replace('{count}', String(hours))
+    return translate('kubernetesEventDaysAgo').replace('{count}', String(Math.floor(hours / 24)))
+}
+
+export const KubernetesRecentEvents = ({ groups, emptyText }: { groups: KubernetesEventGroup[], emptyText?: React.ReactNode }) => {
+    if (!groups.length) return emptyText ? <DetailEmpty description={emptyText} compact /> : null
+    return <div className="netdive-k8s-recent-events">{groups.map(group => <div key={`${group.reason}:${group.resource}`} className={`is-${group.tone}`}>
+        <span className="netdive-k8s-recent-events__dot" />
+        <div className="netdive-k8s-recent-events__main">
+            <div><strong>{group.reason}</strong>{group.tone === 'success' ? <span className="netdive-k8s-node-detail__normal"><i />{translate('kubernetesHealthNormal')}</span> : <DetailBadge tone={group.tone}>{group.tone === 'danger' ? translate('kubernetesHealthCritical') : translate('kubernetesHealthWarning')}</DetailBadge>}</div>
+            <span>{group.resource}</span>
+            <small>{group.description} · {translate('kubernetesEventOccurrenceCount').replace('{count}', String(group.count))}</small>
+        </div>
+        <time title={String(group.time || '')}>{relativeTime(group.time)}</time>
+    </div>)}</div>
+}

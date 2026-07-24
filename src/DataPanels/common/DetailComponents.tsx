@@ -214,6 +214,15 @@ export interface DetailResourceCardProps {
 
 export type DetailResourceIconTone = 'host' | 'user-vm' | 'system-vm' | 'router' | 'network' | 'interface' | 'bridge' | 'switch' | 'kubernetes'
 
+export interface DetailLayerIconProps {
+    glyph: string
+    className?: string
+}
+
+export const DetailLayerIcon = ({ glyph, className }: DetailLayerIconProps) => (
+    <span className={joinClassNames('netdive-detail-layer-icon', 'fa', 'fas', 'fa-fw', className)} aria-hidden="true">{glyph}</span>
+)
+
 export const DetailResourceCard = ({
     label,
     value,
@@ -264,6 +273,61 @@ export interface DetailResourceGridProps {
 export const DetailResourceGrid = ({ children, className, compact = false }: DetailResourceGridProps) => (
     <div className={joinClassNames('netdive-detail-resource-grid', compact && 'netdive-detail-resource-grid--compact', className)}>{children}</div>
 )
+
+export interface ConnectedResourceItem {
+    key?: React.Key
+    label: React.ReactNode
+    count: React.ReactNode
+    icon?: React.ReactNode
+    iconTone?: DetailResourceIconTone
+    onClick?: () => void
+    tooltip?: React.ReactNode
+}
+
+export interface ConnectedResourceGroup {
+    key?: React.Key
+    title: React.ReactNode
+    icon?: React.ReactNode
+    items: ConnectedResourceItem[]
+    hint?: React.ReactNode
+}
+
+export interface ConnectedResourcesSectionProps {
+    title: React.ReactNode
+    icon?: React.ReactNode
+    groups: ConnectedResourceGroup[]
+    emptyText?: React.ReactNode
+    className?: string
+}
+
+export const ConnectedResourcesSection = ({ title, icon, groups, emptyText = '-', className }: ConnectedResourcesSectionProps) => {
+    const visibleGroups = groups.map(group => ({ ...group, items: group.items.filter(item => item.count !== undefined && item.count !== null) })).filter(group => group.items.length > 0)
+    return (
+        <DetailSection icon={icon} title={title} className={joinClassNames('netdive-connected-resources', className)}>
+            {visibleGroups.length ? <div className="netdive-connected-resources__groups">{visibleGroups.map((group, groupIndex) => (
+                <div className="netdive-connected-resources__group" key={group.key !== undefined ? group.key : groupIndex}>
+                    <div className="netdive-connected-resources__group-header">
+                        {group.icon && <span className="netdive-connected-resources__group-icon">{group.icon}</span>}
+                        <Typography.Text className="netdive-connected-resources__group-title">{group.title}</Typography.Text>
+                        {group.hint && <span className="netdive-connected-resources__group-hint">{group.hint}</span>}
+                    </div>
+                    <DetailResourceGrid compact>{group.items.map((item, itemIndex) => {
+                        const card = <DetailResourceCard
+                            key={item.key !== undefined ? item.key : itemIndex}
+                            label={item.label}
+                            value={item.count}
+                            icon={item.icon}
+                            iconTone={item.iconTone}
+                            className="netdive-connected-resources__item"
+                            interactive={!!item.onClick}
+                            onClick={item.onClick} />
+                        return item.tooltip ? <Tooltip key={item.key !== undefined ? item.key : itemIndex} title={item.tooltip} placement="top">{card}</Tooltip> : card
+                    })}</DetailResourceGrid>
+                </div>
+            ))}</div> : <DetailEmpty description={emptyText} compact />}
+        </DetailSection>
+    )
+}
 
 export interface DetailEmptyProps {
     description: React.ReactNode

@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Collapse, Modal, Progress, Tooltip } from 'antd'
+import { Collapse, Modal, Popover, Progress, Tooltip } from 'antd'
 import { HistoryOutlined, InfoCircleOutlined } from '@ant-design/icons'
 import AccountTreeIcon from '@material-ui/icons/AccountTree'
 import ErrorOutlineIcon from '@material-ui/icons/ErrorOutline'
@@ -9,13 +9,14 @@ import { translate } from '../Config'
 import { session } from '../Store'
 import { Node } from '../Topology'
 import {
+    ConnectedResourcesSection,
     DetailBadge,
     DetailBadgeTone,
     DetailEmpty,
     DetailKeyValueList,
-    DetailResourceCard,
-    DetailResourceGrid,
-    DetailSection
+    DetailLayerIcon,
+    DetailSection,
+    KubernetesAnalysisConfidence
 } from './common'
 import './KubernetesClusterDetailPanel.css'
 
@@ -38,7 +39,7 @@ interface State {
     summaryClusterID?: string
 }
 
-type ResourceType = 'node' | 'namespace' | 'pod' | 'service'
+type ResourceType = 'node' | 'namespace' | 'pod' | 'service' | 'persistentvolume' | 'persistentvolumeclaim' | 'storageclass'
 
 interface ResourceSummary {
     type: ResourceType
@@ -147,6 +148,15 @@ const formatBinaryBytes = (value: any, unit: 'MiB' | 'GiB'): string => {
     const size = bytes / divisor
     const precision = unit === 'GiB' ? 2 : (Number.isInteger(size) ? 0 : 1)
     return `${size.toFixed(precision).replace(/\.0+$/, '')} ${unit}`
+}
+
+const formatGiB = (value: any): string => {
+    const bytes = Number(value)
+    if (!Number.isFinite(bytes) || bytes < 0) return translate('kubernetesUnknown')
+    if (bytes === 0) return '0 GiB'
+    const size = bytes / (1024 * 1024 * 1024)
+    if (size < 0.01) return '<0.01 GiB'
+    return `${size.toFixed(2).replace(/\.0+$/, '').replace(/(\.\d*[1-9])0$/, '$1')} GiB`
 }
 
 const clampPercent = (value: any): number => Math.max(0, Math.min(100, Number(value) || 0))
@@ -270,7 +280,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
 
     private resourceSummaries(): ResourceSummary[] {
         const resources = this.clusterResources()
-        return (['node', 'namespace', 'pod', 'service'] as ResourceType[]).map(type => ({
+        return (['node', 'namespace', 'pod', 'service', 'persistentvolume', 'persistentvolumeclaim', 'storageclass'] as ResourceType[]).map(type => ({
             type,
             nodes: resources.filter(node => String(node.data?.Type || '').toLowerCase() === type)
         }))
@@ -427,7 +437,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         const ids = nodes.map(node => node.id)
         const app = (window as any).App
         if (ids.length && app && typeof app.focusInfrastructureNodeIDs === 'function') {
-            app.focusInfrastructureNodeIDs(ids, this.props.node.id)
+            app.focusInfrastructureNodeIDs(ids, this.props.node.id, true)
         }
     }
 
@@ -477,7 +487,10 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         if (type === 'node') return translate('kubernetesTopologyNodes')
         if (type === 'namespace') return translate('kubernetesTopologyNamespaces')
         if (type === 'pod') return translate('kubernetesTopologyPods')
-        return translate('kubernetesTopologyServices')
+        if (type === 'service') return translate('kubernetesTopologyServices')
+        if (type === 'persistentvolume') return 'PersistentVolume'
+        if (type === 'persistentvolumeclaim') return 'PersistentVolumeClaim'
+        return 'StorageClass'
     }
 
     private renderMetadataItems(items: Array<{ key: string, value: string }>, emptyText: string) {
@@ -509,12 +522,18 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         const limitsMemory = Number(resources?.limitsMemoryBytes) || 0
         const requestCpuPercent = allocatableCpu > 0 ? clampPercent(requestsCpu / allocatableCpu * 100) : 0
         const requestMemoryPercent = allocatableMemory > 0 ? clampPercent(requestsMemory / allocatableMemory * 100) : 0
+        const usageCpu = Number(resources?.usageCpuCores) || 0
+        const usageMemory = Number(resources?.usageMemoryBytes) || 0
+        const usageCpuPercent = metricsAvailable && allocatableCpu > 0 ? usageCpu / allocatableCpu * 100 : undefined
+        const usageMemoryPercent = metricsAvailable && allocatableMemory > 0 ? usageMemory / allocatableMemory * 100 : undefined
         const currentUsageTooltip = translate('kubernetesCurrentUsageDescription')
         const allocatableTooltip = translate('kubernetesAllocatableDescription')
         const reservableTooltip = translate('kubernetesReservableDescription')
         const reservationRateTooltip = translate('kubernetesReservationRateDescription')
-        const cpuProgressTooltip = `CPU Requests ${requestsCpu.toFixed(2)} / ${allocatableCpu.toFixed(2)} Core (${requestCpuPercent.toFixed(1)}%)`
-        const memoryProgressTooltip = `Memory Requests ${formatBinaryBytes(requestsMemory, 'MiB')} / ${formatBinaryBytes(allocatableMemory, 'GiB')} (${requestMemoryPercent.toFixed(1)}%)`
+        const cpuProgressTooltip = `${translate('kubernetesCpuReservationRate')}\n\nRequests ${requestsCpu.toFixed(2)} Core ÷ ${translate('kubernetesAllocatableLabel')} ${allocatableCpu.toFixed(2)} Core\n= ${requestCpuPercent.toFixed(1)}%`
+        const memoryProgressTooltip = `${translate('kubernetesMemoryReservationRate')}\n\nRequests ${formatBinaryBytes(requestsMemory, 'MiB')} ÷ ${translate('kubernetesAllocatableLabel')} ${formatGiB(allocatableMemory)}\n= ${requestMemoryPercent.toFixed(1)}%`
+        const memoryRequestTooltip = `${translate('kubernetesRequestDescription')}\n\n${translate('kubernetesDisplayedValue')}: ${formatGiB(requestsMemory)}\n${translate('kubernetesOriginalValue')}: ${formatBinaryBytes(requestsMemory, 'MiB')}`
+        const memoryLimitTooltip = `${translate('kubernetesLimitDescription')}\n\n${translate('kubernetesDisplayedValue')}: ${formatGiB(limitsMemory)}\n${translate('kubernetesOriginalValue')}: ${formatBinaryBytes(limitsMemory, 'MiB')}`
         const metricsState = this.metricsState()
 
         if (!resources && !provisionedCores && !provisionedMemory) {
@@ -530,24 +549,22 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                             <div className="netdive-k8s-cluster-detail__capacity-title"><Tooltip overlayClassName="netdive-k8s-cluster-detail__capacity-tooltip" title={translate('kubernetesCpuUnitDescription')}><strong>CPU</strong></Tooltip><span><Tooltip overlayClassName="netdive-k8s-cluster-detail__capacity-tooltip" title={reservationRateTooltip}><span className="netdive-k8s-cluster-detail__tooltip-label">{translate('kubernetesRequestRate')}</span></Tooltip> <b>{requestCpuPercent.toFixed(1)}%</b></span></div>
                             <Tooltip overlayClassName="netdive-k8s-cluster-detail__capacity-tooltip" title={cpuProgressTooltip}><Progress percent={requestCpuPercent} showInfo={false} strokeColor="#1677ff" trailColor="#eef2f6" /></Tooltip>
                             {this.renderCapacityMetrics([
-                                { label: translate('kubernetesCurrentUsage'), value: metricsAvailable ? Number(resources.usageCpuCores || 0).toFixed(2) : translate('kubernetesNotCollected'), unit: metricsAvailable ? 'Core' : undefined, current: true, tooltip: currentUsageTooltip },
+                                { label: translate('kubernetesCurrentUsage'), value: metricsAvailable ? usageCpu.toFixed(2) : translate('kubernetesNotCollected'), unit: metricsAvailable ? 'Core' : undefined, meta: usageCpuPercent !== undefined ? `${translate('kubernetesUsageRate')} ${usageCpuPercent.toFixed(1)}%` : undefined, current: true, tooltip: currentUsageTooltip },
                                 { label: translate('kubernetesAllocatableLabel'), value: allocatableCpu > 0 ? `${allocatableCpu.toFixed(2)} Core` : translate('kubernetesUnknown'), tooltip: allocatableTooltip, tooltipOnLabel: true },
                                 { label: 'Requests', value: `${requestsCpu.toFixed(2)} Core`, tooltip: translate('kubernetesRequestDescription') },
                                 { label: 'Limits', value: `${limitsCpu.toFixed(2)} Core`, tooltip: translate('kubernetesLimitDescription') },
-                                { label: translate('kubernetesReservable'), value: allocatableCpu > 0 ? `${Math.max(0, allocatableCpu - requestsCpu).toFixed(2)} Core` : translate('kubernetesUnknown'), tooltip: reservableTooltip, emphasis: 'reservable' },
-                                { placeholder: true }
+                                { label: translate('kubernetesReservable'), value: allocatableCpu > 0 ? `${Math.max(0, allocatableCpu - requestsCpu).toFixed(2)} Core` : translate('kubernetesUnknown'), tooltip: reservableTooltip, emphasis: 'reservable' }
                             ])}
                         </div>
                         <div className="netdive-k8s-cluster-detail__capacity-card">
                             <div className="netdive-k8s-cluster-detail__capacity-title"><Tooltip overlayClassName="netdive-k8s-cluster-detail__capacity-tooltip" title={translate('kubernetesMemoryUnitDescription')}><strong>{translate('kubernetesMemory')}</strong></Tooltip><span><Tooltip overlayClassName="netdive-k8s-cluster-detail__capacity-tooltip" title={reservationRateTooltip}><span className="netdive-k8s-cluster-detail__tooltip-label">{translate('kubernetesRequestRate')}</span></Tooltip> <b>{requestMemoryPercent.toFixed(1)}%</b></span></div>
                             <Tooltip overlayClassName="netdive-k8s-cluster-detail__capacity-tooltip" title={memoryProgressTooltip}><Progress percent={requestMemoryPercent} showInfo={false} strokeColor="#1677ff" trailColor="#eef2f6" /></Tooltip>
                             {this.renderCapacityMetrics([
-                                { label: translate('kubernetesCurrentUsage'), ...this.metricValueWithUnit(metricsAvailable ? formatBinaryBytes(resources.usageMemoryBytes || 0, 'GiB') : translate('kubernetesNotCollected'), metricsAvailable), current: true, tooltip: currentUsageTooltip },
-                                { label: translate('kubernetesAllocatableLabel'), value: allocatableMemory > 0 ? formatBinaryBytes(allocatableMemory, 'GiB') : translate('kubernetesUnknown'), tooltip: allocatableTooltip, tooltipOnLabel: true },
-                                { label: 'Requests', value: formatBinaryBytes(requestsMemory, 'MiB'), tooltip: translate('kubernetesRequestDescription') },
-                                { label: 'Limits', value: formatBinaryBytes(limitsMemory, 'MiB'), tooltip: translate('kubernetesLimitDescription') },
-                                { label: translate('kubernetesReservable'), value: allocatableMemory > 0 ? formatBinaryBytes(Math.max(0, allocatableMemory - requestsMemory), 'GiB') : translate('kubernetesUnknown'), tooltip: reservableTooltip, emphasis: 'reservable' },
-                                { placeholder: true }
+                                { label: translate('kubernetesCurrentUsage'), ...this.metricValueWithUnit(metricsAvailable ? formatGiB(usageMemory) : translate('kubernetesNotCollected'), metricsAvailable), meta: usageMemoryPercent !== undefined ? `${translate('kubernetesUsageRate')} ${usageMemoryPercent.toFixed(1)}%` : undefined, current: true, tooltip: currentUsageTooltip },
+                                { label: translate('kubernetesAllocatableLabel'), value: allocatableMemory > 0 ? formatGiB(allocatableMemory) : translate('kubernetesUnknown'), tooltip: allocatableTooltip, tooltipOnLabel: true },
+                                { label: 'Requests', value: formatGiB(requestsMemory), tooltip: memoryRequestTooltip },
+                                { label: 'Limits', value: formatGiB(limitsMemory), tooltip: memoryLimitTooltip },
+                                { label: translate('kubernetesReservable'), value: allocatableMemory > 0 ? formatGiB(Math.max(0, allocatableMemory - requestsMemory)) : translate('kubernetesUnknown'), tooltip: reservableTooltip, emphasis: 'reservable' }
                             ])}
                         </div>
                     </div>
@@ -559,7 +576,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                     </span> : null}
                     {allocatableCpu || allocatableMemory ? <span>
                         <span className="netdive-k8s-cluster-detail__capacity-compare-label"><small>{translate('kubernetesAllocatableCapacity')} <Tooltip overlayClassName="netdive-k8s-cluster-detail__capacity-tooltip" title={translate('kubernetesAllocatableCapacityDescription')}><InfoCircleOutlined className="netdive-k8s-cluster-detail__metric-info" /></Tooltip></small></span>
-                        <span className="netdive-k8s-cluster-detail__capacity-compare-values"><span><small>CPU</small><strong>{allocatableCpu ? `${allocatableCpu.toFixed(2)} Core` : translate('kubernetesNotCollected')}</strong></span><span><small>Memory</small><strong>{allocatableMemory ? formatBinaryBytes(allocatableMemory, 'GiB') : translate('kubernetesNotCollected')}</strong></span></span>
+                        <span className="netdive-k8s-cluster-detail__capacity-compare-values"><span><small>CPU</small><strong>{allocatableCpu ? `${allocatableCpu.toFixed(2)} Core` : translate('kubernetesNotCollected')}</strong></span><span><small>Memory</small><strong>{allocatableMemory ? formatGiB(allocatableMemory) : translate('kubernetesNotCollected')}</strong></span></span>
                     </span> : null}
                 </div>
             </div>
@@ -573,15 +590,15 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         return { value: value.slice(0, separator), unit: value.slice(separator + 1) }
     }
 
-    private renderCapacityMetrics(items: Array<{ label?: string, value?: string, unit?: string, current?: boolean, emphasis?: 'reservable', tooltip?: string, tooltipOnLabel?: boolean, placeholder?: boolean }>) {
+    private renderCapacityMetrics(items: Array<{ label?: string, value?: string, unit?: string, meta?: string, current?: boolean, emphasis?: 'reservable', tooltip?: React.ReactNode, tooltipOnLabel?: boolean }>) {
         return (
             <div className="netdive-k8s-cluster-detail__capacity-metrics">
                 {items.map((item, index) => (
-                    <div key={item.placeholder ? `placeholder-${index}` : item.label} className={`netdive-k8s-cluster-detail__capacity-metric ${item.current ? 'is-current' : ''} ${item.emphasis === 'reservable' ? 'is-reservable' : ''} ${item.placeholder ? 'is-placeholder' : ''}`} aria-hidden={item.placeholder || undefined}>
-                        {!item.placeholder && <React.Fragment>
+                    <div key={item.label || index} className={`netdive-k8s-cluster-detail__capacity-metric ${item.current ? 'is-current' : ''} ${item.emphasis === 'reservable' ? 'is-reservable' : ''}`}>
+                        <React.Fragment>
                             <span>{item.tooltipOnLabel ? <Tooltip overlayClassName="netdive-k8s-cluster-detail__capacity-tooltip" title={item.tooltip}><span className="netdive-k8s-cluster-detail__tooltip-label">{item.label}</span></Tooltip> : item.label}{item.tooltip && !item.tooltipOnLabel && <Tooltip overlayClassName="netdive-k8s-cluster-detail__capacity-tooltip" title={item.tooltip}><InfoCircleOutlined className="netdive-k8s-cluster-detail__metric-info" /></Tooltip>}</span>
-                            <strong><span className="netdive-k8s-cluster-detail__metric-number">{item.value}</span>{item.unit && <span className="netdive-k8s-cluster-detail__metric-unit">{item.unit}</span>}</strong>
-                        </React.Fragment>}
+                            <strong><span className="netdive-k8s-cluster-detail__metric-primary"><span className="netdive-k8s-cluster-detail__metric-number">{item.value}</span>{item.unit && <span className="netdive-k8s-cluster-detail__metric-unit">{item.unit}</span>}</span>{item.meta && <small className="netdive-k8s-cluster-detail__metric-meta">{item.meta}</small>}</strong>
+                        </React.Fragment>
                     </div>
                 ))}
             </div>
@@ -854,6 +871,10 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         const namespaceResource = summaries.find(summary => summary.type === 'namespace') as ResourceSummary
         const podResource = summaries.find(summary => summary.type === 'pod') as ResourceSummary
         const serviceResource = summaries.find(summary => summary.type === 'service') as ResourceSummary
+        const persistentVolumeResource = summaries.find(summary => summary.type === 'persistentvolume') as ResourceSummary
+        const persistentVolumeClaimResource = summaries.find(summary => summary.type === 'persistentvolumeclaim') as ResourceSummary
+        const storageClassResource = summaries.find(summary => summary.type === 'storageclass') as ResourceSummary
+        const workloadNodes = resources.filter(node => ['deployment', 'statefulset', 'daemonset', 'job', 'cronjob'].indexOf(String(node.data?.Type || '').toLowerCase()) >= 0)
         const namespaceCount = this.state.summary?.namespaceCount !== undefined ? this.state.summary.namespaceCount : this.state.summary?.namespaces !== undefined ? this.state.summary.namespaces : namespaceResource.nodes.length
         const serviceCount = this.state.summary?.serviceCount !== undefined ? this.state.summary.serviceCount : this.state.summary?.services !== undefined ? this.state.summary.services : serviceResource.nodes.length
         const hostPlacements = this.nodePlacements(resources)
@@ -879,9 +900,31 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
             ? Number(backendInfrastructureRiskScore) + hostRiskScore + networkRiskScore
             : hostRiskScore + networkRiskScore + (controlPlane.total === 1 ? 15 : 0) + (externalPathsEvaluated && externalPathCount === 1 ? 10 : 0))
         const potentialEvaluated = hostPlacementEvaluated || networkPlacementEvaluated || controlPlane.total > 0 || externalPathsEvaluated
-        const placementConfidenceLimited = !hostPlacementEvaluated || !networkPlacementEvaluated
-            || knownHostNodeCount < nodeSummary.total
-            || knownNetworkNodeCount < nodeSummary.total
+        const nodeStatusCollected = this.state.summary?.nodes !== undefined || nodeResource.nodes.length > 0
+        const controlPlaneCollected = this.state.summary?.controlPlane !== undefined || controlPlane.total > 0
+        const podStatusCollected = this.state.summary?.pods !== undefined || podResource.nodes.length > 0
+        const affectedServicesCollected = this.state.summary?.currentlyImpactedServiceCount !== undefined
+            || this.state.summary?.affectedServices !== undefined
+            || (nodeStatusCollected && !(nodeSummary.notReady || 0))
+        const confidenceSignals = [
+            { key: 'node', requiredForCurrentState: true, label: translate('kubernetesConfidenceDataNodeReady'), collected: nodeStatusCollected },
+            { key: 'control-plane', requiredForCurrentState: true, label: translate('kubernetesConfidenceDataControlPlane'), collected: controlPlaneCollected },
+            { key: 'pods', requiredForCurrentState: true, label: translate('kubernetesConfidenceDataPodStatus'), collected: podStatusCollected },
+            { key: 'services', requiredForCurrentState: true, label: translate('kubernetesConfidenceDataAffectedServices'), collected: affectedServicesCollected },
+            { key: 'hosts', requiredForCurrentState: false, label: translate('kubernetesConfidenceDataHostDistribution'), collected: hostPlacementEvaluated && knownHostNodeCount >= nodeSummary.total },
+            { key: 'network', requiredForCurrentState: false, label: translate('kubernetesConfidenceDataNetworkPath'), collected: networkPlacementEvaluated && knownNetworkNodeCount >= nodeSummary.total },
+            { key: 'external', requiredForCurrentState: false, label: translate('kubernetesConfidenceDataExternalPath'), collected: externalPathsEvaluated }
+        ]
+        const confidenceCollected = confidenceSignals.filter(signal => signal.collected).map(signal => signal.label)
+        const confidenceMissing = confidenceSignals.filter(signal => !signal.collected).map(signal => signal.label)
+        const requiredCurrentStateCollected = confidenceSignals.filter(signal => signal.requiredForCurrentState).every(signal => signal.collected)
+        const confidenceState = confidenceCollected.length === 0
+            ? 'unavailable' as const
+            : confidenceMissing.length === 0
+                ? 'sufficient' as const
+                : requiredCurrentStateCollected
+                    ? 'partial' as const
+                    : 'insufficient' as const
         const risks = this.riskItems(nodeSummary, podSummary, affectedServices, hostPlacements, switchPlacements, controlPlane, externalPathCount, externalPathsEvaluated)
         const availabilityHealth = this.operationalStatus(controlPlane, nodeSummary, podSummary, affectedServices)
         const currentRisks = risks.filter(risk => risk.kind === 'current')
@@ -914,6 +957,56 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
             moldCluster?.serviceOffering ? { label: translate('kubernetesServiceOffering'), value: moldCluster.serviceOffering } : null,
             createdAt ? { label: translate('kubernetesCreatedAt'), value: createdAt } : null
         ].filter(Boolean)
+        const podStatusCollectedForDisplay = !!this.state.summary || podResource.nodes.length > 0
+        const serviceStatusCollectedForDisplay = !!this.state.summary || serviceResource.nodes.length > 0
+        const availabilityItems = [
+            {
+                key: 'control-plane',
+                label: 'Control Plane',
+                value: controlPlane.total ? `${controlPlane.ready || 0}/${controlPlane.total}` : '–',
+                details: [
+                    { label: 'Ready', value: controlPlane.total ? controlPlane.ready || 0 : '–' },
+                    { label: 'Degraded', value: controlPlane.total ? controlPlane.notReady || 0 : '–' }
+                ]
+            },
+            {
+                key: 'nodes',
+                label: translate('kubernetesTopologyNodes'),
+                value: nodeSummary.total ? `${nodeSummary.ready || 0}/${nodeSummary.total}` : '–',
+                details: [
+                    { label: 'Ready', value: nodeSummary.total ? nodeSummary.ready || 0 : '–' },
+                    { label: 'NotReady', value: nodeSummary.total ? nodeSummary.notReady || 0 : '–' }
+                ]
+            },
+            {
+                key: 'pods',
+                label: translate('kubernetesTopologyPods'),
+                value: podStatusCollectedForDisplay ? podSummary.total : '–',
+                details: [
+                    { label: 'Running', value: podStatusCollectedForDisplay ? podSummary.running || 0 : '–' },
+                    { label: 'Pending', value: podStatusCollectedForDisplay ? podSummary.pending || 0 : '–' },
+                    { label: 'Failed', value: podStatusCollectedForDisplay ? podSummary.failed || 0 : '–' },
+                    { label: 'Unknown', value: podStatusCollectedForDisplay ? podSummary.unknown || 0 : '–' }
+                ]
+            },
+            {
+                key: 'services',
+                label: translate('kubernetesAffectedServiceKpi'),
+                value: serviceStatusCollectedForDisplay ? affectedServices : '–',
+                details: [
+                    { label: translate('kubernetesNoServiceImpact'), value: serviceStatusCollectedForDisplay ? Math.max(0, serviceCount - affectedServices) : '–' },
+                    { label: translate('kubernetesServiceAffected'), value: serviceStatusCollectedForDisplay ? affectedServices : '–' }
+                ]
+            }
+        ]
+        const abnormalItems = [
+            ...(controlPlane.notReady ? [{ key: 'control-plane', label: 'Control Plane', status: 'Degraded', value: controlPlane.notReady, tone: 'danger' }] : []),
+            ...(nodeSummary.notReady ? [{ key: 'nodes', label: translate('kubernetesTopologyNodes'), status: 'NotReady', value: nodeSummary.notReady, tone: 'danger' }] : []),
+            ...(podSummary.pending ? [{ key: 'pods-pending', label: translate('kubernetesTopologyPods'), status: 'Pending', value: podSummary.pending, tone: 'warning' }] : []),
+            ...(podSummary.failed ? [{ key: 'pods-failed', label: translate('kubernetesTopologyPods'), status: 'Failed', value: podSummary.failed, tone: 'danger' }] : []),
+            ...(podSummary.unknown ? [{ key: 'pods-unknown', label: translate('kubernetesTopologyPods'), status: 'Unknown', value: podSummary.unknown, tone: 'default' }] : []),
+            ...(affectedServices ? [{ key: 'services', label: translate('kubernetesAffectedServiceKpi'), status: translate('kubernetesServiceAffected'), value: affectedServices, tone: 'danger' }] : [])
+        ]
 
         return (
             <div className="netdive-k8s-cluster-detail">
@@ -954,47 +1047,34 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                         <p>{heroConclusion}</p>
                     </div>
                     <div className="netdive-k8s-cluster-detail__availability-strip">
-                        <div className="netdive-k8s-cluster-detail__availability-item netdive-k8s-cluster-detail__availability-item--control-plane">
-                            <span>Control Plane</span>
-                            <div className="netdive-k8s-cluster-detail__availability-value">
-                                <strong>{controlPlane.total ? `${controlPlane.ready || 0}/${controlPlane.total}` : '–'}</strong>
-                                {!controlPlane.total
-                                    ? <small className="is-unknown">{translate('kubernetesNotCollected')}</small>
-                                    : (controlPlane.notReady || 0) > 0
-                                    ? <DetailBadge tone="danger">NotReady {controlPlane.notReady}</DetailBadge>
-                                    : null}
-                            </div>
-                        </div>
-                        <div className="netdive-k8s-cluster-detail__availability-item netdive-k8s-cluster-detail__availability-item--nodes">
-                            <span>{translate('kubernetesTopologyNodes')}</span>
-                            <div className="netdive-k8s-cluster-detail__availability-value">
-                                <strong>{nodeSummary.total ? `${nodeSummary.ready || 0}/${nodeSummary.total}` : '–'}</strong>
-                                {!nodeSummary.total
-                                    ? <small className="is-unknown">{translate('kubernetesNotCollected')}</small>
-                                    : (nodeSummary.notReady || 0) > 0
-                                    ? <DetailBadge tone="danger">NotReady {nodeSummary.notReady}</DetailBadge>
-                                    : null}
-                            </div>
-                        </div>
-                        <div className="netdive-k8s-cluster-detail__availability-item netdive-k8s-cluster-detail__availability-item--pods">
-                            <span>{translate('kubernetesTopologyPods')}</span>
-                            <div className="netdive-k8s-cluster-detail__availability-value">
-                                <strong>{podSummary.total || (this.state.summary || podResource.nodes.length > 0) ? podSummary.total : '–'}</strong>
-                                <div className="netdive-k8s-cluster-detail__availability-alerts">
-                                    {(podSummary.pending || 0) > 0 && <DetailBadge tone="warning">Pending {podSummary.pending}</DetailBadge>}
-                                    {(podSummary.failed || 0) > 0 && <DetailBadge tone="danger">Failed {podSummary.failed}</DetailBadge>}
-                                    {(podSummary.unknown || 0) > 0 && <DetailBadge>Unknown {podSummary.unknown}</DetailBadge>}
-                                </div>
-                            </div>
-                        </div>
-                        <div className="netdive-k8s-cluster-detail__availability-item netdive-k8s-cluster-detail__availability-item--services">
-                            <span>{translate('kubernetesAffectedServiceKpi')}</span>
-                            <div className="netdive-k8s-cluster-detail__availability-value">
-                                <strong>{affectedServices}</strong>
-                                {affectedServices > 0 && <DetailBadge tone="danger">{translate('kubernetesImpactDetected')}</DetailBadge>}
-                            </div>
-                        </div>
+                        {availabilityItems.map(item => (
+                            <Popover
+                                key={item.key}
+                                trigger="click"
+                                placement="bottom"
+                                overlayClassName="netdive-k8s-cluster-detail__status-popover"
+                                title={item.label}
+                                content={<div className="netdive-k8s-cluster-detail__status-distribution">
+                                    {item.details.map(detail => <div key={detail.label}><span>{detail.label}</span><strong>{detail.value}</strong></div>)}
+                                </div>}>
+                                <button type="button" className={`netdive-k8s-cluster-detail__availability-item netdive-k8s-cluster-detail__availability-item--${item.key}`} aria-label={`${item.label} ${translate('kubernetesStatusDistribution')}`}>
+                                    <span>{item.label}</span>
+                                    <strong>{item.value}</strong>
+                                </button>
+                            </Popover>
+                        ))}
                     </div>
+                    {abnormalItems.length > 0 && <div className="netdive-k8s-cluster-detail__abnormal-status">
+                        <span className="netdive-k8s-cluster-detail__abnormal-status-title">{translate('kubernetesAbnormalOverview')}</span>
+                        <div className={`netdive-k8s-cluster-detail__abnormal-status-grid items-${Math.min(4, abnormalItems.length)}`}>
+                            {abnormalItems.map(item => (
+                                <div className={`netdive-k8s-cluster-detail__abnormal-status-item is-${item.tone}`} key={item.key}>
+                                    <span>{item.label}</span>
+                                    <strong>{item.status} <b>{item.value}</b></strong>
+                                </div>
+                            ))}
+                        </div>
+                    </div>}
                     <div className="netdive-k8s-cluster-detail__collection-status">
                         <span>{translate('kubernetesDataCollectionStatus')}</span>
                         <Tooltip title={metricState.description}><span><DetailBadge tone={metricState.tone}>{metricState.label}</DetailBadge></span></Tooltip>
@@ -1021,57 +1101,39 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                             !controlPlane.total ? translate('kubernetesNotCollected') : controlPlane.total === 1 ? translate('kubernetesSingleConfiguration') : translate('kubernetesMultipleConfiguration'))}
                         {this.renderResilienceRow(translate('kubernetesExternalPaths'), externalAnalysis.label, externalAnalysis.tone, externalAnalysis.value, externalAnalysis.short, externalAnalysis.description)}
                     </div>
-                    <div className="netdive-k8s-cluster-detail__confidence">
-                        <span>{translate('kubernetesAnalysisConfidence')}</span>
-                        <strong>{placementConfidenceLimited ? translate('kubernetesConfidenceLimited') : translate('kubernetesConfidenceSufficient')}</strong>
-                        {placementConfidenceLimited && <Tooltip title={translate('kubernetesConfidenceLimitedDescription')}><InfoIcon /></Tooltip>}
-                    </div>
+                    <KubernetesAnalysisConfidence state={confidenceState} collected={confidenceCollected} missing={confidenceMissing} />
                 </DetailSection>
 
-                <DetailSection
+                <ConnectedResourcesSection
                     icon={<AccountTreeIcon />}
-                    title={translate('kubernetesResourceStatus')}>
-                    <div className="netdive-k8s-cluster-detail__resource-navigation">
-                        <DetailResourceGrid compact>
-                                <Tooltip title={translate('kubernetesFocusNodes')} placement="top">
-                                    <DetailResourceCard
-                                        label={this.resourceLabel('node')}
-                                        value={nodeSummary.total}
-                                        icon={this.resourceIcon(nodeResource)}
-                                        iconTone="kubernetes"
-                                        interactive={nodeResource.nodes.length > 0}
-                                        onClick={() => this.focusResources(nodeResource.nodes)} />
-                                </Tooltip>
-                                <Tooltip title={translate('kubernetesFocusNamespaces')} placement="top">
-                                    <DetailResourceCard
-                                        label={this.resourceLabel('namespace')}
-                                        value={namespaceCount}
-                                        icon={this.resourceIcon(namespaceResource)}
-                                        iconTone="kubernetes"
-                                        interactive={namespaceResource.nodes.length > 0}
-                                        onClick={() => this.focusResources(namespaceResource.nodes)} />
-                                </Tooltip>
-                                <Tooltip title={translate('kubernetesFocusPods')} placement="top">
-                                    <DetailResourceCard
-                                        label={this.resourceLabel('pod')}
-                                        value={podSummary.total}
-                                        icon={this.resourceIcon(podResource)}
-                                        iconTone="kubernetes"
-                                        interactive={podResource.nodes.length > 0}
-                                        onClick={() => this.focusResources(podResource.nodes)} />
-                                </Tooltip>
-                                <Tooltip title={translate('kubernetesFocusServices')} placement="top">
-                                    <DetailResourceCard
-                                        label={this.resourceLabel('service')}
-                                        value={serviceCount}
-                                        icon={this.resourceIcon(serviceResource)}
-                                        iconTone="kubernetes"
-                                        interactive={serviceResource.nodes.length > 0}
-                                        onClick={() => this.focusResources(serviceResource.nodes)} />
-                                </Tooltip>
-                        </DetailResourceGrid>
-                    </div>
-                    <div className="netdive-k8s-cluster-detail__resource-capacity-title">{translate('kubernetesResourceCapacity')}</div>
+                    title={translate('hostConnectedResources')}
+                    emptyText={translate('hostNoConnectedResources')}
+                    groups={[
+                        {
+                            key: 'kubernetes',
+                            title: translate('kubernetesConnectedResourceGroup'),
+                            icon: <img src="assets/icons/k8s.png" alt="" />,
+                            items: [
+                            { key: 'nodes', label: this.resourceLabel('node'), count: nodeSummary.total, icon: this.resourceIcon(nodeResource), iconTone: 'kubernetes', onClick: nodeResource.nodes.length ? () => this.focusResources(nodeResource.nodes) : undefined, tooltip: translate('kubernetesFocusNodes') },
+                            { key: 'namespaces', label: this.resourceLabel('namespace'), count: namespaceCount, icon: this.resourceIcon(namespaceResource), iconTone: 'kubernetes', onClick: namespaceResource.nodes.length ? () => this.focusResources(namespaceResource.nodes) : undefined, tooltip: translate('kubernetesFocusNamespaces') },
+                            ...(workloadNodes.length ? [{ key: 'workloads', label: translate('kubernetesTopologyWorkloadControllers'), count: workloadNodes.length, icon: <DetailLayerIcon glyph={'\uf5fd'} />, iconTone: 'kubernetes' as const, onClick: () => this.focusResources(workloadNodes) }] : []),
+                            { key: 'pods', label: this.resourceLabel('pod'), count: podSummary.total, icon: this.resourceIcon(podResource), iconTone: 'kubernetes', onClick: podResource.nodes.length ? () => this.focusResources(podResource.nodes) : undefined, tooltip: translate('kubernetesFocusPods') },
+                            { key: 'services', label: this.resourceLabel('service'), count: serviceCount, icon: this.resourceIcon(serviceResource), iconTone: 'kubernetes', onClick: serviceResource.nodes.length ? () => this.focusResources(serviceResource.nodes) : undefined, tooltip: translate('kubernetesFocusServices') }
+                            ]
+                        },
+                        {
+                            key: 'storage',
+                            title: '스토리지',
+                            icon: <DetailLayerIcon glyph={'\uf1c0'} />,
+                            items: [
+                                ...(persistentVolumeClaimResource.nodes.length ? [{ key: 'pvcs', label: this.resourceLabel('persistentvolumeclaim'), count: persistentVolumeClaimResource.nodes.length, icon: this.resourceIcon(persistentVolumeClaimResource), iconTone: 'kubernetes' as const, onClick: () => this.focusResources(persistentVolumeClaimResource.nodes) }] : []),
+                                ...(persistentVolumeResource.nodes.length ? [{ key: 'pvs', label: this.resourceLabel('persistentvolume'), count: persistentVolumeResource.nodes.length, icon: this.resourceIcon(persistentVolumeResource), iconTone: 'kubernetes' as const, onClick: () => this.focusResources(persistentVolumeResource.nodes) }] : []),
+                                ...(storageClassResource.nodes.length ? [{ key: 'storage-classes', label: this.resourceLabel('storageclass'), count: storageClassResource.nodes.length, icon: this.resourceIcon(storageClassResource), iconTone: 'kubernetes' as const, onClick: () => this.focusResources(storageClassResource.nodes) }] : [])
+                            ]
+                        }
+                    ]} />
+
+                <DetailSection icon={<AccountTreeIcon />} title={translate('kubernetesResourceCapacity')}>
                     {this.renderResourceCapacity(moldCluster)}
                 </DetailSection>
 

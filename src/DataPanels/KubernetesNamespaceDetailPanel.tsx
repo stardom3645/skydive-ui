@@ -4,13 +4,12 @@ import AccountTreeIcon from '@material-ui/icons/AccountTree'
 import DnsIcon from '@material-ui/icons/Dns'
 import InfoIcon from '@material-ui/icons/Info'
 import LinkIcon from '@material-ui/icons/Link'
-import StorageIcon from '@material-ui/icons/Storage'
 import { HistoryOutlined } from '@ant-design/icons'
 
 import { translate } from '../Config'
 import { session } from '../Store'
 import { Node } from '../Topology'
-import { DetailBadge, DetailEmpty, DetailKeyValueList, DetailResourceCard, DetailResourceGrid, DetailSection } from './common'
+import { ConnectedResourcesSection, DetailBadge, DetailEmpty, DetailKeyValueList, DetailLayerIcon, DetailResourceCard, DetailResourceGrid, DetailSection } from './common'
 import './KubernetesNodeDetailPanel.css'
 import './KubernetesNamespaceDetailPanel.css'
 
@@ -149,7 +148,7 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
         return Array.isArray(nodes) ? nodes : []
     }
 
-    private namespaceResources(type: 'pod' | 'service'): Node[] {
+    private namespaceResources(type: string): Node[] {
         const name = firstValue(this.props.node.data || {}, ['Name', 'K8s.Name', 'K8s.Extra.ObjectMeta.Name'])
         const clusterName = firstValue(this.props.node.data || {}, ['ClusterName', 'K8s.ClusterName'])
         return this.topologyNodes().filter(node => {
@@ -229,7 +228,13 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
     private focusResource(uid: string) {
         const resource = this.topologyNodes().find(node => node.id === uid || firstValue(node.data || {}, ['K8s.Extra.ObjectMeta.UID', 'K8s.UID', 'UID']) === uid)
         const app = (window as any).App
-        if (resource && app && typeof app.focusInfrastructureNodeIDs === 'function') app.focusInfrastructureNodeIDs([resource.id], this.props.node.id)
+        if (resource && app && typeof app.focusInfrastructureNodeIDs === 'function') app.focusInfrastructureNodeIDs([resource.id], this.props.node.id, true)
+    }
+
+    private focusResources(resources: Node[]) {
+        const app = (window as any).App
+        const ids = resources.map(resource => resource.id)
+        if (ids.length && app && typeof app.focusInfrastructureNodeIDs === 'function') app.focusInfrastructureNodeIDs(ids, this.props.node.id, true)
     }
 
     private renderLabels(value: any): React.ReactNode {
@@ -355,6 +360,10 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
             { label: translate('kubernetesNamespacePlacement'), value: placementDescription ? <Tooltip title={placementDescription} placement="top"><span className="netdive-k8s-namespace-detail__placement">{placementLabel}</span></Tooltip> : placementLabel }
         ]
         const name = detail.name || firstValue(data, ['Name', 'K8s.Name']) || this.props.node.id
+        const connectedPods = this.namespaceResources('pod')
+        const connectedServices = this.namespaceResources('service')
+        const connectedClaims = this.namespaceResources('persistentvolumeclaim')
+        const connectedWorkloads = ['deployment', 'statefulset', 'daemonset', 'job', 'cronjob'].reduce((items, type) => items.concat(this.namespaceResources(type)), [] as Node[])
         const basicRows = [
             { label: translate('kubernetesNamespaceName'), value: name, textValue: name, copyText: name },
             { label: translate('kubernetesNamespacePhase'), value: detail.phase || translate('kubernetesNotCollected') },
@@ -383,20 +392,42 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
                         ['Pending', detail.pendingPodCount, Number(detail.pendingPodCount || 0) > 0 ? 'warning' : 'default'],
                         ['Failed', detail.failedPodCount, Number(detail.failedPodCount || 0) > 0 ? 'danger' : 'default'],
                         ['CrashLoopBackOff', detail.crashLoopPodCount, Number(detail.crashLoopPodCount || 0) > 0 ? 'danger' : 'default'],
-                        ['OOMKilled', detail.oomKilledPodCount, Number(detail.oomKilledPodCount || 0) > 0 ? 'danger' : 'default'],
-                        [translate('kubernetesTopologyServices'), detail.serviceCount, 'default']
+                        ['OOMKilled', detail.oomKilledPodCount, Number(detail.oomKilledPodCount || 0) > 0 ? 'danger' : 'default']
                     ].map((item: any[]) => <div key={item[0]} className={`is-${item[2]}`}><span>{item[0]}</span><strong>{optionalNumber(item[1])}</strong></div>)}
                 </div>
                 {Array.isArray(detail.problemPods) && detail.problemPods.length > 0 && <div className="netdive-k8s-node-detail__problem-list-title">{translate('kubernetesProblemPods')}</div>}
                 {Array.isArray(detail.problemPods) && detail.problemPods.length > 0 && <DetailResourceGrid compact>{detail.problemPods.map((pod: any) => <DetailResourceCard key={pod.uid} label={pod.name} value="" icon={<AccountTreeIcon />} iconTone="kubernetes" interactive onClick={() => this.focusResource(pod.uid)} />)}</DetailResourceGrid>}
+                <div className="netdive-k8s-node-detail__subsection-title">{translate('kubernetesNamespaceResourcePolicy')}</div>
+                {resourcesExplicitlyEmpty ? <DetailEmpty description={translate('kubernetesNamespaceResourcePolicyEmpty')} compact /> : <div className="netdive-k8s-namespace-detail__resources">
+                    <div><strong>CPU</strong><dl><div><dt>Requests</dt><dd>{displayQuantity(detail.cpuRequests)}</dd></div><div><dt>Limits</dt><dd>{displayQuantity(detail.cpuLimits)}</dd></div></dl></div>
+                    <div><strong>{translate('kubernetesMemory')}</strong><dl><div><dt>Requests</dt><dd>{displayQuantity(detail.memoryRequests, true)}</dd></div><div><dt>Limits</dt><dd>{displayQuantity(detail.memoryLimits, true)}</dd></div></dl></div>
+                </div>}
             </DetailSection>
 
-            <DetailSection icon={<HistoryOutlined />} title={translate('kubernetesNamespaceRecentEvents')}>{this.renderImportantEvents(detail)}</DetailSection>
+            <ConnectedResourcesSection
+                icon={<AccountTreeIcon />}
+                title={translate('hostConnectedResources')}
+                emptyText={translate('hostNoConnectedResources')}
+                groups={[
+                    {
+                        key: 'kubernetes',
+                        title: translate('kubernetesConnectedResourceGroup'),
+                        icon: <img src="assets/icons/k8s.png" alt="" />,
+                        items: [
+                        ...(connectedWorkloads.length ? [{ key: 'workloads', label: translate('kubernetesTopologyWorkloadControllers'), count: connectedWorkloads.length, icon: <DetailLayerIcon glyph={'\uf5fd'} />, iconTone: 'kubernetes' as const, onClick: () => this.focusResources(connectedWorkloads) }] : []),
+                        ...(connectedPods.length ? [{ key: 'pods', label: translate('kubernetesTopologyPods'), count: connectedPods.length, icon: this.topologyIcon(connectedPods[0]), iconTone: 'kubernetes' as const, onClick: () => this.focusResources(connectedPods) }] : []),
+                        ...(connectedServices.length ? [{ key: 'services', label: translate('kubernetesTopologyServices'), count: connectedServices.length, icon: this.topologyIcon(connectedServices[0]), iconTone: 'kubernetes' as const, onClick: () => this.focusResources(connectedServices) }] : [])
+                        ]
+                    },
+                    ...(connectedClaims.length ? [{
+                        key: 'storage',
+                        title: '스토리지',
+                        icon: <DetailLayerIcon glyph={'\uf1c0'} />,
+                        items: [{ key: 'pvcs', label: 'PersistentVolumeClaim', count: connectedClaims.length, icon: this.topologyIcon(connectedClaims[0]), iconTone: 'kubernetes' as const, onClick: () => this.focusResources(connectedClaims) }]
+                    }] : [])
+                ]} />
 
-            <DetailSection icon={<StorageIcon />} title={translate('kubernetesNamespaceResourcePolicy')}>{resourcesExplicitlyEmpty ? <DetailEmpty description={translate('kubernetesNamespaceResourcePolicyEmpty')} compact /> : <div className="netdive-k8s-namespace-detail__resources">
-                <div><strong>CPU</strong><dl><div><dt>Requests</dt><dd>{displayQuantity(detail.cpuRequests)}</dd></div><div><dt>Limits</dt><dd>{displayQuantity(detail.cpuLimits)}</dd></div></dl></div>
-                <div><strong>{translate('kubernetesMemory')}</strong><dl><div><dt>Requests</dt><dd>{displayQuantity(detail.memoryRequests, true)}</dd></div><div><dt>Limits</dt><dd>{displayQuantity(detail.memoryLimits, true)}</dd></div></dl></div>
-            </div>}</DetailSection>
+            <DetailSection icon={<HistoryOutlined />} title={translate('kubernetesNamespaceRecentEvents')}>{this.renderImportantEvents(detail)}</DetailSection>
 
             {this.state.error && <div className="netdive-k8s-node-detail__notice"><InfoIcon /><span>{translate('kubernetesNamespaceDetailFallback')}</span></div>}
             {!this.cluster() && <div className="netdive-k8s-node-detail__notice"><InfoIcon /><span>{translate('kubernetesClusterMoldMissing')}</span></div>}

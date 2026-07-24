@@ -456,7 +456,12 @@ class NodeWrapper {
             const isKubernetesNamespace = node?.data?.Manager === "k8s" && node?.data?.Type === "namespace"
             const kubernetesType = node?.data?.Manager === "k8s" ? String(node?.data?.Type || "").toLowerCase() : ""
             const isKubernetesWorkload = ["deployment", "statefulset", "daemonset", "job", "cronjob"].indexOf(kubernetesType) >= 0
-            const isKubernetesDenseLayer = isKubernetesWorkload || kubernetesType === "pod" || kubernetesType === "service"
+            const isKubernetesDenseLayer = isKubernetesWorkload
+                || kubernetesType === "pod"
+                || kubernetesType === "service"
+                || kubernetesType === "persistentvolume"
+                || kubernetesType === "persistentvolumeclaim"
+                || kubernetesType === "storageclass"
             const kubernetesName = String(node?.data?.Name || "")
             const kubernetesCardWidth = kubernetesName.length <= 14 ? topologyCardWidth : topologyMediumCardWidth
             const kubernetesDenseLayerWidth = Math.max(nodeWidth, kubernetesCardWidth + topologySiblingCardGap)
@@ -2533,7 +2538,7 @@ export class Topology extends React.Component<Props, {}> {
             .style("opacity", (d: Link) => this.linkLabelOpacity(d))
     }
 
-    focusInfrastructureNodes(nodeIDs: string[], anchorNodeID?: string) {
+    focusInfrastructureNodes(nodeIDs: string[], anchorNodeID?: string, revealTargets: boolean = false) {
         this.clearInfrastructureFocus()
         this.unpinNodes()
         const targets = new Set(nodeIDs)
@@ -2556,13 +2561,49 @@ export class Topology extends React.Component<Props, {}> {
                 this.showNode(anchorNode)
             }
         }
+        if (revealTargets) {
+            targets.forEach((id) => {
+                let node: Node | null | undefined = this.nodes.get(id)
+                while (node) {
+                    node.state.expanded = true
+                    node = node.parent
+                }
+            })
+
+            // A target can be hidden behind multiple automatically generated
+            // groups (for example Namespace group -> Service group). Groups at
+            // the next depth do not exist until their parent group is rendered,
+            // so reveal the target path one level at a time.
+            const maxRevealPasses = 12
+            for (let pass = 0; pass < maxRevealPasses; pass += 1) {
+                this.renderTree()
+                let expandedTargetPathGroup = false
+
+                targets.forEach((id) => {
+                    let node: Node | null | undefined = this.nodes.get(id)
+                    while (node) {
+                        const group = this.nodeGroup.get(node.id)
+                        if (group && (!group.wrapped.state.expanded || !group.wrapped.state.groupFullSize)) {
+                            group.wrapped.state.expanded = true
+                            group.wrapped.state.groupFullSize = true
+                            expandedTargetPathGroup = true
+                        }
+                        node = node.parent
+                    }
+                })
+
+                if (!expandedTargetPathGroup) {
+                    break
+                }
+            }
+        }
         targets.forEach((id) => {
             const node = this.nodes.get(id)
             if (node) {
                 const group = this.nodeGroup.get(id)
                 if (group) {
                     groupsToExpand.set(group.id, group)
-                    visibleTargetIDs.add(group.id)
+                    visibleTargetIDs.add(revealTargets ? id : group.id)
                     if (targets.size === 1) {
                         this.pinnedContainerMiniNodeID = id
                     }
@@ -2578,6 +2619,9 @@ export class Topology extends React.Component<Props, {}> {
 
         groupsToExpand.forEach((group) => {
             group.wrapped.state.expanded = true
+            if (revealTargets) {
+                group.wrapped.state.groupFullSize = true
+            }
             expandedContainerGroup = true
         })
 

@@ -47,6 +47,7 @@ import KubernetesNamespaceDetailPanel from './DataPanels/KubernetesNamespaceDeta
 import KubernetesPodDetailPanel from './DataPanels/KubernetesPodDetailPanel'
 import KubernetesWorkloadDetailPanel from './DataPanels/KubernetesWorkloadDetailPanel'
 import KubernetesServiceDetailPanel from './DataPanels/KubernetesServiceDetailPanel'
+import KubernetesStorageDetailPanel from './DataPanels/KubernetesStorageDetailPanel'
 import NodeContextBreadcrumb, { NodeContextIcon, NodeContextItem } from './DataPanels/common/NodeContextBreadcrumb'
 
 
@@ -155,6 +156,9 @@ class SelectionPanel extends React.Component<Props, State> {
 
       const subtitle = this.tabSubtitle(el)
       const isSwitchIcon = el.type === 'node' && String(el.data?.Type || el.data?.type || '').toLowerCase() === 'switch'
+      const isKubernetesService = el.type === 'node'
+        && String(el.data?.Manager || '').toLowerCase() === 'k8s'
+        && String(el.data?.Type || '').toLowerCase() === 'service'
       const isDeploymentIcon = iconClass.split(/\s+/).indexOf('k8s-deployment-icon') >= 0
       const isDaemonSetIcon = iconClass.split(/\s+/).indexOf('k8s-daemonset-icon') >= 0
       const tabIcon = isSwitchIcon
@@ -172,8 +176,8 @@ class SelectionPanel extends React.Component<Props, State> {
           key={"tab-" + i}
           label={
             <Tooltip title={title} placement="bottom">
-              <span className={classes.tabLabelBlock}>
-                <span className={`${classes.tabTitle} ${title.includes("\n") ? classes.tabTitleMulti : ""}`} title={title}>{title}</span>
+              <span className={`${classes.tabLabelBlock} ${isKubernetesService ? classes.tabTitlePreserveCase : ""}`}>
+                <span className={`${classes.tabTitle} ${title.includes("\n") ? classes.tabTitleMulti : ""} ${isKubernetesService ? classes.tabTitlePreserveCase : ""}`} title={title}>{title}</span>
                 {subtitle && <span className={classes.tabSubtitle} title={subtitle}>{subtitle}</span>}
               </span>
             </Tooltip>
@@ -189,6 +193,12 @@ class SelectionPanel extends React.Component<Props, State> {
     }
 
     const rawType = String(el.data.Type || el.data.type || el.type || "").trim()
+    const isKubernetesService = el.type === 'node'
+      && String(el.data?.Manager || '').toLowerCase() === 'k8s'
+      && rawType.toLowerCase() === 'service'
+    if (isKubernetesService) {
+      return translate('kubernetesTopologyServices')
+    }
     const type = rawType ? rawType.charAt(0).toUpperCase() + rawType.slice(1) : ""
     const ipv4 = Array.isArray(el.data.IPV4) && el.data.IPV4.length > 0 ? String(el.data.IPV4[0]) : ""
     const ipv6 = Array.isArray(el.data.IPV6) && el.data.IPV6.length > 0 ? String(el.data.IPV6[0]) : ""
@@ -409,6 +419,12 @@ class SelectionPanel extends React.Component<Props, State> {
         && String(el.data?.Type || '').toLowerCase() === 'service'
     }
 
+    const isKubernetesStorage = (el: Node | Link): boolean => {
+      if (el.type !== 'node' || el.data?.IsTopologyGroup) return false
+      return String(el.data?.Manager || '').toLowerCase() === 'k8s'
+        && ['persistentvolume', 'persistentvolumeclaim', 'storageclass'].includes(String(el.data?.Type || '').toLowerCase())
+    }
+
     const isSwitchNode = (el: Node | Link): boolean => {
       return el.type === 'node' && String(el.data?.Type || el.data?.type || '').toLowerCase() === 'switch'
     }
@@ -555,6 +571,10 @@ class SelectionPanel extends React.Component<Props, State> {
                   nodeAttrs={(node: Node) => this.props.config.nodeAttrs(node)}
                   session={this.props.session}
                   kubernetesClusters={this.props.kubernetesClusters} />
+              : isKubernetesStorage(el)
+              ? <KubernetesStorageDetailPanel
+                  node={el as Node}
+                  nodeAttrs={(node: Node) => this.props.config.nodeAttrs(node)} />
               : isSystemVMNode(el)
               ? <SystemVMDetailPanel node={el as Node} session={this.props.session} moldInventory={this.props.moldInventory} vmNameMap={this.props.vmNameMap} vmNetworkMap={this.props.vmNetworkMap} vmDetailMap={this.props.vmDetailMap} managementServers={this.props.managementServers} />
               : isVMNode(el)

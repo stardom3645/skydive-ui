@@ -123,6 +123,9 @@ export const styles = (theme: Theme) => createStyles({
     lineHeight: 1.2,
     textOverflow: 'clip'
   },
+  tabTitlePreserveCase: {
+    textTransform: 'none'
+  },
   tabTitleTooltip: {
     fontSize: 14
   },

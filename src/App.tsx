@@ -4026,12 +4026,12 @@ class App extends React.Component<Props, State> {
     this.setState({ infrastructureFocus: key })
   }
 
-  private focusInfrastructureNodeIDs(nodeIDs: string[], anchorNodeID?: string) {
+  private focusInfrastructureNodeIDs(nodeIDs: string[], anchorNodeID?: string, revealTargets: boolean = false) {
     if (!this.tc) {
       return
     }
     this.syncTopologyNodeTagForNodes(nodeIDs)
-    this.tc.focusInfrastructureNodes(nodeIDs, anchorNodeID)
+    this.tc.focusInfrastructureNodes(nodeIDs, anchorNodeID, revealTargets)
   }
 
   private selectInfrastructureNodeID(nodeID: string) {
@@ -4614,7 +4614,7 @@ class App extends React.Component<Props, State> {
     const confirmCluster = this.selectedKubernetesCluster(this.state.kubernetesConfirmClusterId)
     const stopCluster = this.selectedKubernetesCluster(this.state.kubernetesStopClusterId)
     const testCluster = this.selectedKubernetesCluster(this.state.kubernetesTestClusterId)
-    const defaultEnabledKubernetesProbes = ["cluster", "namespace", "node", "pod", "service", "deployment", "daemonset", "statefulset", "ingress", "networkpolicy"]
+    const defaultEnabledKubernetesProbes = ["cluster", "namespace", "node", "pod", "service", "deployment", "daemonset", "statefulset", "persistentvolumeclaim", "persistentvolume", "storageclass", "ingress", "networkpolicy"]
     const defaultDisabledKubernetesProbes = ["secret", "configmap"]
     return (
       <React.Fragment>

@@ -1,0 +1,17 @@
+.netdive-k8s-recent-events { padding: 2px 18px 9px; }
+.netdive-k8s-recent-events > div { display: grid; min-height: 66px; grid-template-columns: 8px minmax(0, 1fr) auto; align-items: start; gap: 9px; padding: 10px 0; border-bottom: 1px solid #f2f4f7; }
+.netdive-k8s-recent-events > div:last-child { border-bottom: 0; }
+.netdive-k8s-recent-events__dot { width: 6px; height: 6px; margin-top: 6px; border-radius: 50%; background: #f79009; }
+.netdive-k8s-recent-events > div.is-success .netdive-k8s-recent-events__dot { background: #12b76a; }
+.netdive-k8s-recent-events > div.is-danger .netdive-k8s-recent-events__dot { background: #d92d20; }
+.netdive-k8s-recent-events__main { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.netdive-k8s-recent-events__main > div { display: flex; min-width: 0; align-items: center; gap: 7px; }
+.netdive-k8s-recent-events__main strong { overflow: hidden; color: #344054; font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.netdive-k8s-recent-events__main > span { overflow-wrap: anywhere; color: #667085; font-size: 11px; line-height: 1.35; }
+.netdive-k8s-recent-events__main small { display: -webkit-box; overflow: hidden; color: #98a2b3; font-size: 10.5px; line-height: 1.4; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.netdive-k8s-recent-events time { padding-top: 2px; color: #98a2b3; font-size: 10.5px; white-space: nowrap; }
+
+@media (max-width: 380px) {
+    .netdive-k8s-recent-events > div { grid-template-columns: 8px minmax(0, 1fr); }
+    .netdive-k8s-recent-events time { grid-column: 2; }
+}

@@ -211,6 +211,78 @@
     padding: 0;
 }
 
+.netdive-connected-resources__groups {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 14px 14px;
+}
+
+.netdive-connected-resources__group {
+    min-width: 0;
+    overflow: hidden;
+    padding: 0 10px 10px;
+    border: 1px solid #eef1f5;
+    border-radius: 10px;
+    background: #fbfcfe;
+    box-shadow: none;
+}
+
+.netdive-connected-resources__group-header {
+    display: flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 10px 2px 8px;
+    gap: 6px;
+}
+
+.netdive-connected-resources__group-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    color: #1677ff;
+    background: #f0f7ff;
+}
+
+.netdive-connected-resources__group-icon svg {
+    font-size: 16px;
+}
+
+.netdive-connected-resources__group-icon img {
+    display: block;
+    width: 16px;
+    height: 16px;
+    object-fit: contain;
+}
+
+.netdive-connected-resources__group-title.ant-typography {
+    color: #101828;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.netdive-connected-resources__group-hint {
+    min-width: 0;
+    margin-left: auto;
+    color: #98a2b3;
+    font-size: 10px;
+    font-weight: 500;
+}
+
+.netdive-connected-resources__item.ant-btn {
+    height: 55px;
+    min-height: 55px;
+}
+
+@media (max-width: 400px) {
+    .netdive-connected-resources__group .netdive-detail-resource-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
 .netdive-detail-resource.ant-btn {
     position: relative;
     display: grid;
@@ -272,6 +344,16 @@
 
 .netdive-detail-resource__icon svg {
     font-size: 15px;
+}
+
+.netdive-detail-layer-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Font Awesome 5 Free";
+    font-size: 15px;
+    font-weight: 900;
+    line-height: 1;
 }
 
 .netdive-detail-resource__icon--host {

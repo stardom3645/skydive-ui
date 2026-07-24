@@ -15,8 +15,17 @@
 .netdive-k8s-pod-detail__links .ant-btn { display: flex; align-items: center; justify-content: space-between; min-width: 0; height: 27px; padding: 0; color: #1677ff; font-size: 12px; text-align: left; }
 .netdive-k8s-pod-detail__links .ant-btn > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .netdive-k8s-pod-detail__inline-link.ant-btn { height: auto; padding: 0; font-size: 13px; }
+.netdive-k8s-pod-detail__resources { padding: 2px 18px 9px; }
+.netdive-k8s-pod-detail__resources > div { padding: 10px 0; border-bottom: 1px solid #eef1f5; }
+.netdive-k8s-pod-detail__resources > div:last-child { border-bottom: 0; }
+.netdive-k8s-pod-detail__resources > div > strong { display: block; margin-bottom: 7px; color: #344054; font-size: 12.5px; font-weight: 600; }
+.netdive-k8s-pod-detail__resources dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; margin: 0; }
+.netdive-k8s-pod-detail__resources dl > div { display: flex; min-width: 0; min-height: 32px; align-items: center; justify-content: space-between; gap: 8px; border-top: 1px solid #f2f4f7; }
+.netdive-k8s-pod-detail__resources dt { color: #667085; font-size: 10.5px; }
+.netdive-k8s-pod-detail__resources dd { overflow-wrap: anywhere; margin: 0; color: #101828; font-size: 11.5px; font-weight: 600; text-align: right; }
 
 @media (max-width: 380px) {
     .netdive-k8s-pod-detail__container { grid-template-columns: minmax(0, 1fr) auto; }
     .netdive-k8s-pod-detail__container-restarts { grid-column: 2; }
+    .netdive-k8s-pod-detail__resources dl { grid-template-columns: 1fr; }
 }
