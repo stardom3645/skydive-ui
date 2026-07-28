@@ -117,6 +117,22 @@ const STORAGE_EVENT_TONES = {
 }
 
 class KubernetesStorageDetailPanel extends React.Component<Props> {
+    private lastDebugSignature = ''
+
+    private debugMapping(payload: any) {
+        let enabled = !!(window as any).NETDIVE_STORAGE_DEBUG
+        try {
+            enabled = enabled || window.localStorage.getItem('netdive.debug.kubernetes.storage') === 'true'
+        } catch (_) {
+            // Storage access may be blocked by the browser privacy policy.
+        }
+        if (!enabled) return
+        const signature = JSON.stringify(payload.display)
+        if (signature === this.lastDebugSignature) return
+        this.lastDebugSignature = signature
+        console.debug('[Netdive][KubernetesStorageMapping]', payload)
+    }
+
     private topologyNodes(): Node[] {
         const nodes = (window as any).App?.tc?.nodes
         return nodes instanceof Map ? Array.from(nodes.values()) : Array.isArray(nodes) ? nodes : []
@@ -144,11 +160,11 @@ class KubernetesStorageDetailPanel extends React.Component<Props> {
     }
 
     private spec(node: Node): any {
-        return raw(node.data || {}, ['K8s.Extra.Spec']) || {}
+        return raw(node.data || {}, ['K8s.Extra.Spec', 'K8s.Extra.spec', 'K8s.Spec', 'Spec', 'spec']) || {}
     }
 
     private status(node: Node): any {
-        return raw(node.data || {}, ['K8s.Extra.Status']) || {}
+        return raw(node.data || {}, ['K8s.Extra.Status', 'K8s.Extra.status', 'K8s.StatusObject', 'StatusObject', 'status']) || {}
     }
 
     private podsUsingPVC(pvc: Node): Node[] {
@@ -165,11 +181,21 @@ class KubernetesStorageDetailPanel extends React.Component<Props> {
     }
 
     private storageClassName(node: Node): string {
-        return text(node.data || {}, ['K8s.StorageClassName', 'StorageClassName', 'K8s.Extra.Spec.StorageClassName'])
+        return text(node.data || {}, [
+            'K8s.StorageClassName', 'StorageClassName', 'storageClassName',
+            'K8s.Extra.Spec.StorageClassName', 'K8s.Extra.Spec.storageClassName',
+            'K8s.Extra.spec.storageClassName', 'K8s.Spec.StorageClassName',
+            'K8s.Spec.storageClassName', 'Spec.StorageClassName', 'spec.storageClassName'
+        ])
     }
 
     private pvForPVC(pvc: Node): Node | undefined {
-        const volumeName = text(pvc.data || {}, ['K8s.VolumeName', 'VolumeName', 'K8s.Extra.Spec.VolumeName'])
+        const volumeName = text(pvc.data || {}, [
+            'K8s.VolumeName', 'VolumeName', 'volumeName',
+            'K8s.Extra.Spec.VolumeName', 'K8s.Extra.Spec.volumeName',
+            'K8s.Extra.spec.volumeName', 'K8s.Spec.VolumeName',
+            'K8s.Spec.volumeName', 'Spec.VolumeName', 'spec.volumeName'
+        ])
         return volumeName ? this.resources('persistentvolume').find(pv => this.name(pv) === volumeName) : undefined
     }
 
@@ -241,7 +267,16 @@ class KubernetesStorageDetailPanel extends React.Component<Props> {
         const namespace = this.namespace(this.props.node)
         const spec = this.spec(this.props.node)
         const status = this.status(this.props.node)
-        const meta = raw(data, ['K8s.Extra.ObjectMeta']) || {}
+        const meta = raw(data, [
+            'K8s.Extra.ObjectMeta', 'K8s.Extra.Metadata', 'K8s.Extra.metadata',
+            'K8s.Metadata', 'ObjectMeta', 'metadata'
+        ]) || {}
+        const creationTimestamp = raw(data, [
+            'K8s.CreationTimestamp', 'CreationTimestamp', 'creationTimestamp',
+            'K8s.Extra.ObjectMeta.CreationTimestamp', 'K8s.Extra.ObjectMeta.creationTimestamp',
+            'K8s.Extra.Metadata.CreationTimestamp', 'K8s.Extra.metadata.creationTimestamp',
+            'K8s.Metadata.CreationTimestamp', 'metadata.creationTimestamp'
+        ])
         const none = '없음'
         const empty = '-'
         const collectionFailed = '수집 실패'
@@ -271,13 +306,34 @@ class KubernetesStorageDetailPanel extends React.Component<Props> {
         const storageClassPVCs = type === 'storageclass' ? this.resources('persistentvolumeclaim').filter(item => this.storageClassName(item) === name) : []
         const resourceRequests = field(spec, 'Resources', 'resources')
         const requestValues = field(resourceRequests, 'Requests', 'requests')
-        const requested = formatKubernetesQuantity(storageQuantity(requestValues), none, collectionFailed)
-        const capacityValue = storageQuantity(field(spec, 'Capacity', 'capacity'))
+        const requestedValue = raw(data, ['K8s.RequestedCapacity', 'RequestedCapacity'])
+            || storageQuantity(requestValues)
+        const requested = requestedValue === undefined
+            ? none
+            : formatKubernetesQuantity(requestedValue, none, empty)
+        const capacityValue = raw(data, ['K8s.Capacity.storage', 'K8s.Capacity.Storage', 'Capacity.storage', 'Capacity.Storage'])
+            || storageQuantity(field(spec, 'Capacity', 'capacity'))
             || storageQuantity(field(status, 'Capacity', 'capacity'))
-            || raw(data, ['K8s.Capacity.storage', 'K8s.Capacity.Storage', 'Capacity.storage', 'Capacity.Storage'])
         const capacity = capacityValue === undefined
             ? empty
-            : formatKubernetesQuantity(capacityValue, empty, collectionFailed)
+            : formatKubernetesQuantity(capacityValue, empty, empty)
+        const pvcStatusCapacityValue = type === 'persistentvolumeclaim'
+            ? raw(data, ['K8s.StatusCapacity', 'StatusCapacity'])
+                || storageQuantity(field(status, 'Capacity', 'capacity'))
+            : undefined
+        const boundPVSpec = pv ? this.spec(pv) : undefined
+        const boundPVStatus = pv ? this.status(pv) : undefined
+        const boundPVCapacityValue = pv
+            ? raw(pv.data || {}, ['K8s.Capacity.storage', 'K8s.Capacity.Storage', 'Capacity.storage', 'Capacity.Storage'])
+                || storageQuantity(field(boundPVSpec, 'Capacity', 'capacity'))
+                || storageQuantity(field(boundPVStatus, 'Capacity', 'capacity'))
+            : undefined
+        const actualPVCapacityValue = pvcStatusCapacityValue !== undefined
+            ? pvcStatusCapacityValue
+            : boundPVCapacityValue
+        const boundPVCapacity = actualPVCapacityValue !== undefined
+            ? formatKubernetesQuantity(actualPVCapacityValue, empty, empty)
+            : pv ? empty : none
         const kindLabel = type === 'persistentvolumeclaim' ? 'PVC' : type === 'persistentvolume' ? 'PV' : 'StorageClass'
         const accessModeValues = field(spec, 'AccessModes', 'accessModes')
         const accessModes = Array.isArray(accessModeValues) ? accessModeValues.map(String) : []
@@ -296,20 +352,11 @@ class KubernetesStorageDetailPanel extends React.Component<Props> {
             ...(namespace ? [{ label: translate('kubernetesTopologyNamespaces'), value: namespace }] : []),
             ...(type !== 'storageclass' ? [{ label: 'Phase', value: phase || empty }] : []),
             { label: 'UID', value: meta.UID || this.props.node.id, textValue: meta.UID || this.props.node.id, copyText: meta.UID || this.props.node.id },
-            { label: translate('kubernetesCreatedAt'), value: createdAt(meta.CreationTimestamp) }
+            { label: translate('kubernetesCreatedAt'), value: createdAt(creationTimestamp) }
         ]
         const policyRows: any[] = type === 'persistentvolumeclaim' ? [
             { label: '요청 용량', value: requested },
-            { label: '실제 PV 용량', value: pv
-                ? (() => {
-                    const pvSpec = this.spec(pv)
-                    const pvStatus = this.status(pv)
-                    const value = storageQuantity(field(pvSpec, 'Capacity', 'capacity'))
-                        || storageQuantity(field(pvStatus, 'Capacity', 'capacity'))
-                        || raw(pv.data || {}, ['K8s.Capacity.storage', 'K8s.Capacity.Storage', 'Capacity.storage', 'Capacity.Storage'])
-                    return value === undefined ? empty : formatKubernetesQuantity(value, empty, collectionFailed)
-                })()
-                : none },
+            { label: '실제 PV 용량', value: boundPVCapacity },
             { label: 'Volume Mode', value: String(volumeMode) },
             { label: 'Access Mode', value: list(accessModeValues) },
             { label: 'StorageClass', value: this.storageClassName(this.props.node) || none }
@@ -343,6 +390,23 @@ class KubernetesStorageDetailPanel extends React.Component<Props> {
             ...(pods.length ? [{ key: 'pods', label: translate('kubernetesTopologyPods'), count: pods.length, icon: this.topologyIcon(pods[0]), iconTone: 'kubernetes' as const, onClick: () => this.focus(pods) }] : []),
             ...(workloads.length ? [{ key: 'workloads', label: translate('kubernetesTopologyWorkloadControllers'), count: workloads.length, icon: this.topologyIcon(workloads[0]), iconTone: 'kubernetes' as const, onClick: () => this.focus(workloads) }] : [])
         ]
+        this.debugMapping({
+            resource: { type: kindLabel, name },
+            raw: {
+                metadataCreationTimestamp: creationTimestamp,
+                requestedStorage: requestedValue,
+                pvcStatusCapacity: pvcStatusCapacityValue,
+                volumeName: raw(data, ['K8s.VolumeName', 'K8s.Extra.Spec.VolumeName', 'K8s.Extra.spec.volumeName']),
+                pvCapacity: capacityValue,
+                boundPVCapacity: boundPVCapacityValue
+            },
+            display: {
+                creationTimestamp: createdAt(creationTimestamp),
+                requestedCapacity: requested,
+                capacity,
+                boundPVCapacity
+            }
+        })
         return <div className="netdive-k8s-node-detail netdive-k8s-storage-detail">
             <DetailSection icon={<InfoIcon />} title={`${kindLabel} 기본 정보`}><DetailKeyValueList rows={basicRows} copyTooltip={translate('copy')} /></DetailSection>
             {type !== 'storageclass' && <DetailSection icon={this.topologyIcon(this.props.node)} title={`${kindLabel} 운영 상태`}>
