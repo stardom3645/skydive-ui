@@ -1,5 +1,6 @@
 export {
     ConnectedResourcesSection,
+    ConnectedResourceListSection,
     DetailBadge,
     DetailCopyButton,
     DetailEmpty,
@@ -17,6 +18,11 @@ export {
 
 export { KubernetesAnalysisConfidence } from './KubernetesAnalysisConfidence'
 export { formatKubernetesQuantity } from './kubernetesQuantity'
+export {
+    classifyKubernetesPod,
+    KubernetesStateSeparation,
+    summarizeKubernetesPods
+} from './KubernetesStatusPolicy'
 
 export type {
     KubernetesEventGroup,
@@ -24,10 +30,19 @@ export type {
 } from './KubernetesRecentEvents'
 
 export type { KubernetesAnalysisConfidenceState } from './KubernetesAnalysisConfidence'
+export type {
+    KubernetesPodClassification,
+    KubernetesPodSummary,
+    KubernetesStateItem,
+    KubernetesStateTone
+} from './KubernetesStatusPolicy'
 
 export type {
     ConnectedResourceGroup,
     ConnectedResourceItem,
+    ConnectedResourceListGroup,
+    ConnectedResourceListItem,
+    ConnectedResourceListSectionProps,
     ConnectedResourcesSectionProps,
     DetailBadgeProps,
     DetailBadgeTone,

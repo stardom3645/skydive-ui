@@ -329,6 +329,68 @@ export const ConnectedResourcesSection = ({ title, icon, groups, emptyText = '-'
     )
 }
 
+export interface ConnectedResourceListItem {
+    key?: React.Key
+    kind?: React.ReactNode
+    name: React.ReactNode
+    description?: React.ReactNode
+    icon?: React.ReactNode
+    onClick?: () => void
+    tooltip?: React.ReactNode
+    className?: string
+}
+
+export interface ConnectedResourceListGroup {
+    key?: React.Key
+    title?: React.ReactNode
+    icon?: React.ReactNode
+    items: ConnectedResourceListItem[]
+}
+
+export interface ConnectedResourceListSectionProps {
+    title: React.ReactNode
+    icon?: React.ReactNode
+    groups: ConnectedResourceListGroup[]
+    emptyText?: React.ReactNode
+    className?: string
+}
+
+export const ConnectedResourceListSection = ({ title, icon, groups, emptyText = '-', className }: ConnectedResourceListSectionProps) => {
+    const visibleGroups = groups.filter(group => group.items.length > 0)
+    return (
+        <DetailSection icon={icon} title={title} className={joinClassNames('netdive-connected-resource-list', className)}>
+            {visibleGroups.length ? <div className="netdive-connected-resource-list__groups">{visibleGroups.map((group, groupIndex) => (
+                <div className="netdive-connected-resource-list__group" key={group.key !== undefined ? group.key : groupIndex}>
+                    {(group.title || group.icon) && <div className="netdive-connected-resource-list__group-header">
+                        {group.icon && <span className="netdive-connected-resource-list__group-icon">{group.icon}</span>}
+                        <Typography.Text>{group.title}</Typography.Text>
+                    </div>}
+                    <div className="netdive-connected-resource-list__items">{group.items.map((item, itemIndex) => {
+                        const row = (
+                            <Button
+                                type="text"
+                                className={joinClassNames('netdive-connected-resource-list__item', item.className)}
+                                onClick={item.onClick}
+                                disabled={!item.onClick}>
+                                {item.icon && <span className="netdive-connected-resource-list__item-icon">{item.icon}</span>}
+                                <span className="netdive-connected-resource-list__item-main">
+                                    {item.kind && <Typography.Text className="netdive-connected-resource-list__item-kind">{item.kind}</Typography.Text>}
+                                    <Typography.Text className="netdive-connected-resource-list__item-name">{item.name}</Typography.Text>
+                                    {item.description && <Typography.Text className="netdive-connected-resource-list__item-description">{item.description}</Typography.Text>}
+                                </span>
+                                <RightOutlined className="netdive-connected-resource-list__item-action" />
+                            </Button>
+                        )
+                        return item.tooltip
+                            ? <Tooltip key={item.key !== undefined ? item.key : itemIndex} title={item.tooltip} placement="top">{row}</Tooltip>
+                            : <React.Fragment key={item.key !== undefined ? item.key : itemIndex}>{row}</React.Fragment>
+                    })}</div>
+                </div>
+            ))}</div> : <DetailEmpty description={emptyText} compact />}
+        </DetailSection>
+    )
+}
+
 export interface DetailEmptyProps {
     description: React.ReactNode
     compact?: boolean

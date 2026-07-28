@@ -37,6 +37,145 @@
     color: #98a2b3;
 }
 
+.netdive-group-detail-podSummary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin-bottom: 9px;
+    overflow: hidden;
+    border: 1px solid #eaecf0;
+    border-radius: 8px;
+    background: #f8fafc;
+}
+
+.netdive-group-detail-podSummary > span,
+.netdive-group-detail-podSummary > button {
+    display: flex;
+    min-width: 0;
+    min-height: 42px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 0;
+    border: 0;
+    border-right: 1px solid #eaecf0;
+    outline: 0;
+    background: transparent;
+    font: inherit;
+}
+
+.netdive-group-detail-podSummary > button:not(:disabled) { cursor: pointer; }
+.netdive-group-detail-podSummary > button:not(:disabled):hover { background: #f1f5f9; }
+.netdive-group-detail-podSummary > button:disabled { cursor: default; }
+.netdive-group-detail-podSummary > :last-child { border-right: 0; }
+.netdive-group-detail-podSummary small { color: #667085; font-size: 10px; line-height: 14px; white-space: nowrap; }
+.netdive-group-detail-podSummary strong { color: #344054; font-size: 14px; font-variant-numeric: tabular-nums; font-weight: 600; line-height: 17px; }
+.netdive-group-detail-podSummary .is-running strong { color: #067647; }
+.netdive-group-detail-podSummary .is-problem strong { color: #b54708; }
+.netdive-group-detail-podSummary .is-history strong { color: #667085; }
+
+.netdive-group-detail-podSectionTitle {
+    display: flex;
+    min-height: 30px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 0 3px;
+    border-bottom: 1px solid #f2f4f7;
+}
+
+.netdive-group-detail-podSectionTitle strong { color: #344054; font-size: 11.5px; font-weight: 600; }
+.netdive-group-detail-podSectionTitle span { color: #98a2b3; font-size: 10px; }
+
+.netdive-group-detail-problems {
+    margin-bottom: 9px;
+    overflow: hidden;
+    border: 1px solid #fecdca;
+    border-radius: 8px;
+    background: #fff;
+}
+
+.netdive-group-detail-problems .netdive-group-detail-podSectionTitle {
+    padding: 0 10px;
+    background: #fffbfa;
+}
+
+.netdive-group-detail-problems .netdive-group-detail-podSectionTitle strong,
+.netdive-group-detail-problems .netdive-group-detail-podSectionTitle span {
+    color: #b42318;
+}
+
+.netdive-group-detail-problemGroups {
+    padding: 3px 9px 7px;
+}
+
+.netdive-group-detail-history {
+    margin-top: 9px;
+    overflow: hidden;
+    border: 1px solid #eaecf0;
+    border-radius: 8px;
+    background: #fff;
+}
+
+.netdive-group-detail-historyToggle {
+    display: flex;
+    width: 100%;
+    min-height: 38px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 0 10px;
+    border: 0;
+    outline: 0;
+    background: #f8fafc;
+    color: #475467;
+    font: inherit;
+    cursor: pointer;
+}
+
+.netdive-group-detail-historyToggle > span { display: inline-flex; align-items: center; gap: 7px; }
+.netdive-group-detail-historyToggle strong { font-size: 11.5px; font-weight: 600; }
+.netdive-group-detail-historyToggle b {
+    min-width: 20px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: #eaecf0;
+    color: #667085;
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    line-height: 18px;
+    text-align: center;
+}
+.netdive-group-detail-historyToggle > .anticon { color: #98a2b3; font-size: 10px; transition: transform 0.16s ease; }
+.netdive-group-detail-historyToggle.is-expanded > .anticon { transform: rotate(180deg); }
+.netdive-group-detail-historyGroups { padding: 4px 9px 8px; border-top: 1px solid #eaecf0; }
+.netdive-group-detail-historyGroup > button {
+    display: grid;
+    width: 100%;
+    min-height: 32px;
+    grid-template-columns: minmax(0, 1fr) auto 14px;
+    align-items: center;
+    gap: 8px;
+    padding: 0 4px;
+    border: 0;
+    border-bottom: 1px solid #f2f4f7;
+    outline: 0;
+    background: transparent;
+    color: #667085;
+    font: inherit;
+    font-size: 10.8px;
+    text-align: left;
+    cursor: pointer;
+}
+.netdive-group-detail-historyGroup > button:hover { color: #1677ff; background: #f8fafc; }
+.netdive-group-detail-historyGroup.is-problem > button { color: #b42318; }
+.netdive-group-detail-historyGroup.is-problem > button:hover { color: #912018; background: #fffbfa; }
+.netdive-group-detail-historyGroup > button b { font-variant-numeric: tabular-nums; font-weight: 600; }
+.netdive-group-detail-historyGroup > button .anticon { color: #98a2b3; font-size: 9px; transition: transform 0.16s ease; }
+.netdive-group-detail-historyGroup > button .anticon.is-expanded { transform: rotate(180deg); }
+.netdive-group-detail-historyList { margin-left: 8px; border-left: 2px solid #eef1f5; }
+
 .netdive-group-detail-list .ant-list-items {
     display: flex;
     flex-direction: column;
@@ -151,6 +290,40 @@
     line-height: 16px;
 }
 
+.netdive-group-detail-podContext {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 3px 10px;
+    margin-top: 3px;
+    padding-top: 5px;
+    border-top: 1px solid #f2f4f7;
+}
+
+.netdive-group-detail-podContext > span {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.netdive-group-detail-podContext small {
+    color: #98a2b3;
+    font-size: 9.5px;
+    line-height: 13px;
+}
+
+.netdive-group-detail-podContext b {
+    display: block;
+    overflow: hidden;
+    color: #475467;
+    font-size: 10.2px;
+    font-weight: 500;
+    line-height: 14px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .netdive-group-detail-tag.ant-tag {
     margin-right: 6px;
     border-radius: 999px;
@@ -180,6 +353,14 @@
     background: #fffbeb !important;
     color: #b54708 !important;
 }
+
+.netdive-group-detail-tag.is-history.ant-tag {
+    border-color: #e4e7ec !important;
+    background: #f8fafc !important;
+    color: #667085 !important;
+}
+
+.netdive-group-detail-item.is-history { background: #fcfcfd; }
 
 .netdive-group-detail-ip.ant-typography {
     min-width: 0;

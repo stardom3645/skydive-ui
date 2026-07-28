@@ -3,13 +3,18 @@ import { Tooltip } from 'antd'
 import AccountTreeIcon from '@material-ui/icons/AccountTree'
 import ErrorOutlineIcon from '@material-ui/icons/ErrorOutline'
 import InfoIcon from '@material-ui/icons/Info'
+import SettingsIcon from '@material-ui/icons/Settings'
 import StorageIcon from '@material-ui/icons/Storage'
 import ViewModuleIcon from '@material-ui/icons/ViewModule'
 import { HistoryOutlined } from '@ant-design/icons'
 
 import { translate } from '../Config'
 import { Node } from '../Topology'
-import { collectKubernetesEventGroups, ConnectedResourcesSection, DetailBadge, DetailCopyButton, DetailKeyValueList, DetailSection, formatKubernetesQuantity, KubernetesRecentEvents } from './common'
+import { aggregateKubernetesPods } from '../KubernetesPodLifecycle'
+import { kubernetesPodsForController } from '../KubernetesWorkloadOwnership'
+import { isCurrentKubernetesPod } from '../KubernetesPodLifecycle'
+import { kubernetesLabelValue, matchesKubernetesSelector } from '../KubernetesSelectors'
+import { collectKubernetesEventGroups, ConnectedResourceListSection, DetailBadge, DetailCopyButton, DetailKeyValueList, DetailSection, formatKubernetesQuantity, KubernetesRecentEvents, KubernetesStateSeparation, summarizeKubernetesPods } from './common'
 import './KubernetesNodeDetailPanel.css'
 import './KubernetesWorkloadDetailPanel.css'
 
@@ -60,18 +65,16 @@ interface ContainerDetail {
     memoryLimit: string
     init: boolean
 }
-type PodStatusTone = 'success' | 'warning' | 'danger' | 'unknown'
-interface PodDisplayStatus { label: string, tone: PodStatusTone, nodeName: string, restarts: number }
 const WORKLOAD_EVENT_TONES = {
     successfulcreate: 'success' as const,
-    failedcreate: 'danger' as const,
-    progressdeadlineexceeded: 'danger' as const,
-    failedscale: 'danger' as const,
+    failedcreate: 'warning' as const,
+    progressdeadlineexceeded: 'warning' as const,
+    failedscale: 'warning' as const,
     scalingreplicaset: 'success' as const,
     successfuldelete: 'success' as const,
     faileddelete: 'warning' as const,
     sawcompletedjob: 'success' as const,
-    failedjob: 'danger' as const
+    failedjob: 'warning' as const
 }
 
 const normalizeList = (value: any): any[] => Array.isArray(value) ? value : []
@@ -112,28 +115,8 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
     }
 
     private pods(): Node[] {
-        const direct = (this.props.node.children || []).filter(node => String(node.data?.Type || '').toLowerCase() === 'pod')
-        if (direct.length) return direct
-        const data = this.props.node.data || {}
-        const uid = firstValue(data, ['K8s.Extra.ObjectMeta.UID', 'UID']) || this.props.node.id
-        const kind = String(data.Type || '').toLowerCase()
-        const selector = firstRaw(data, ['K8s.Extra.Spec.Selector.MatchLabels', 'K8s.Extra.Spec.Selector']) || {}
-        const selectorValues = new Map(flattenValues(selector).map(item => [item.key, item.value]))
         const topologyNodes = this.topologyNodes()
-        const ownedJobUIDs = kind === 'cronjob' ? new Set(topologyNodes.filter(node => {
-            if (!this.sameScope(node) || String(node.data?.Type || '').toLowerCase() !== 'job') return false
-            const owners = firstRaw(node.data || {}, ['K8s.Extra.ObjectMeta.OwnerReferences']) || []
-            return Array.isArray(owners) && owners.some(owner => String(owner?.UID || '') === uid)
-        }).map(node => firstValue(node.data || {}, ['K8s.Extra.ObjectMeta.UID', 'UID']) || node.id)) : new Set<string>()
-        return topologyNodes.filter(node => {
-            if (!this.sameScope(node) || String(node.data?.Type || '').toLowerCase() !== 'pod') return false
-            const owners = firstRaw(node.data || {}, ['K8s.Extra.ObjectMeta.OwnerReferences']) || []
-            if (Array.isArray(owners) && owners.some(owner => String(owner?.UID || '') === uid)) return true
-            if (ownedJobUIDs.size && Array.isArray(owners) && owners.some(owner => ownedJobUIDs.has(String(owner?.UID || '')))) return true
-            const labels = firstRaw(node.data || {}, ['K8s.Labels', 'K8s.Extra.ObjectMeta.Labels']) || {}
-            const labelValues = new Map(flattenValues(labels).map(item => [item.key, item.value]))
-            return selectorValues.size > 0 && Array.from(selectorValues.entries()).every(([key, value]) => labelValues.get(key) === value)
-        })
+        return kubernetesPodsForController(this.props.node, topologyNodes)
     }
 
     private topologyIcon(node: Node) {
@@ -148,19 +131,34 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
         if (ids.length && app && typeof app.focusInfrastructureNodeIDs === 'function') app.focusInfrastructureNodeIDs(ids, this.props.node.id, true)
     }
 
+    private openResource(resource: Node) {
+        const app = (window as any).App
+        if (app && typeof app.openResourceDetailNodeID === 'function') app.openResourceDetailNodeID(resource.id)
+    }
+
+    private resourceName(node: Node): string {
+        return firstValue(node.data || {}, ['Name', 'K8s.Name', 'K8s.Extra.ObjectMeta.Name']) || node.id
+    }
+
+    private resourceNamespace(node: Node): string {
+        return firstValue(node.data || {}, ['K8s.Namespace', 'Namespace', 'K8s.Extra.ObjectMeta.Namespace'])
+    }
+
+    private selectorMatches(selector: any, labels: any): boolean {
+        return matchesKubernetesSelector(selector, labels)
+    }
+
     private connectedServices(pods: Node[]): Node[] {
-        const podIDs = new Set(pods.map(pod => pod.id))
         const serviceIDs = new Set<string>()
-        const links = (window as any).App?.tc?.links
-        const topologyLinks: any[] = links instanceof Map ? Array.from(links.values()) : Array.isArray(links) ? links : []
-        topologyLinks.forEach(link => {
-            const sourceID = typeof link?.source === 'string' ? link.source : link?.source?.id
-            const targetID = typeof link?.target === 'string' ? link.target : link?.target?.id
-            const remoteID = podIDs.has(sourceID) ? targetID : podIDs.has(targetID) ? sourceID : ''
-            const remote = remoteID ? this.topologyNodes().find(node => node.id === remoteID) : undefined
-            if (remote && this.sameScope(remote) && String(remote.data?.Type || '').toLowerCase() === 'service') serviceIDs.add(remote.id)
+        const services = this.scopedResources(['service'])
+        pods.forEach(pod => {
+            const labels = firstRaw(pod.data || {}, ['K8s.Labels', 'K8s.Extra.ObjectMeta.Labels', 'Labels']) || {}
+            services.forEach(service => {
+                const selector = firstRaw(service.data || {}, ['K8s.Extra.Spec.Selector', 'K8s.Spec.Selector', 'Spec.Selector'])
+                if (this.selectorMatches(selector, labels)) serviceIDs.add(service.id)
+            })
         })
-        return this.topologyNodes().filter(node => serviceIDs.has(node.id))
+        return services.filter(node => serviceIDs.has(node.id))
     }
 
     private scopedResources(types: string[]): Node[] {
@@ -214,6 +212,94 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
             const name = firstValue(node.data || {}, ['Name', 'K8s.Name'])
             return templateNames.some(templateName => name === templateName || name.indexOf(`${templateName}-${workloadName}-`) === 0)
         })
+    }
+
+    private ingressTargets(services: Node[]): Node[] {
+        const serviceNames = new Set(services.map(service => this.resourceName(service)))
+        return this.scopedResources(['ingress']).filter(node => {
+            const ingressSpec = firstRaw(node.data || {}, ['K8s.Extra.Spec', 'K8s.Spec', 'Spec']) || {}
+            const names = new Set<string>()
+            const add = (backend: any) => {
+                const name = backend?.Service?.Name || backend?.service?.name || backend?.ServiceName || backend?.serviceName
+                if (name) names.add(String(name))
+            }
+            add(ingressSpec.DefaultBackend || ingressSpec.defaultBackend)
+            normalizeList(ingressSpec.Rules || ingressSpec.rules).forEach(rule => {
+                normalizeList(rule?.HTTP?.Paths || rule?.http?.paths).forEach(path => add(path?.Backend || path?.backend))
+            })
+            return Array.from(names).some(name => serviceNames.has(name))
+        })
+    }
+
+    private endpointTargets(services: Node[]): Node[] {
+        const serviceNames = new Set(services.map(service => this.resourceName(service)))
+        return this.scopedResources(['endpoints', 'endpointslice']).filter(node => {
+            const type = String(node.data?.Type || '').toLowerCase()
+            if (type === 'endpoints') return serviceNames.has(this.resourceName(node))
+            const labels = firstRaw(node.data || {}, ['K8s.Labels', 'K8s.Extra.ObjectMeta.Labels', 'Labels']) || {}
+            return serviceNames.has(String(
+                kubernetesLabelValue(labels, 'kubernetes.io/service-name')
+                || kubernetesLabelValue(labels, 'k8s.io/service-name')
+                || ''
+            ))
+        })
+    }
+
+    private serviceAccountTargets(spec: any): Node[] {
+        const podSpec = spec?.Template?.Spec || {}
+        const name = String(podSpec.ServiceAccountName || podSpec.serviceAccountName || podSpec.ServiceAccount || podSpec.serviceAccount || '')
+        return name ? this.scopedResources(['serviceaccount']).filter(node => this.resourceName(node) === name) : []
+    }
+
+    private networkPolicyTargets(spec: any): Node[] {
+        const labels = spec?.Template?.ObjectMeta?.Labels || spec?.Template?.Metadata?.Labels || spec?.Template?.metadata?.labels || {}
+        return this.scopedResources(['networkpolicy']).filter(node => {
+            const policySpec = firstRaw(node.data || {}, ['K8s.Extra.Spec', 'K8s.Spec', 'Spec']) || {}
+            return this.selectorMatches(policySpec.PodSelector || policySpec.podSelector, labels)
+        })
+    }
+
+    private operationalPolicyTargets(spec: any): { hpas: Node[], pdbs: Node[] } {
+        const workloadName = this.resourceName(this.props.node)
+        const hpas = this.scopedResources(['horizontalpodautoscaler', 'hpa']).filter(node => {
+            const target = firstRaw(node.data || {}, ['K8s.Extra.Spec.ScaleTargetRef', 'K8s.Spec.ScaleTargetRef', 'Spec.ScaleTargetRef']) || {}
+            return String(target.Name || target.name || '') === workloadName
+        })
+        const labels = spec?.Template?.ObjectMeta?.Labels || spec?.Template?.Metadata?.Labels || spec?.Template?.metadata?.labels || {}
+        const pdbs = this.scopedResources(['poddisruptionbudget', 'pdb']).filter(node => {
+            const pdbSpec = firstRaw(node.data || {}, ['K8s.Extra.Spec', 'K8s.Spec', 'Spec']) || {}
+            return this.selectorMatches(pdbSpec.Selector || pdbSpec.selector, labels)
+        })
+        return { hpas, pdbs }
+    }
+
+    private boundStorageResources(pvcs: Node[]): { pvs: Node[], storageClasses: Node[] } {
+        const volumeNames = new Set<string>()
+        const storageClassNames = new Set<string>()
+        pvcs.forEach(pvc => {
+            const volumeName = firstValue(pvc.data || {}, ['K8s.Extra.Spec.VolumeName', 'K8s.Spec.VolumeName', 'Spec.VolumeName'])
+            const storageClassName = firstValue(pvc.data || {}, ['K8s.Extra.Spec.StorageClassName', 'K8s.Spec.StorageClassName', 'Spec.StorageClassName'])
+            if (volumeName) volumeNames.add(volumeName)
+            if (storageClassName) storageClassNames.add(storageClassName)
+        })
+        const pvs = this.topologyNodes().filter(node => String(node.data?.Type || '').toLowerCase() === 'persistentvolume' && volumeNames.has(this.resourceName(node)))
+        pvs.forEach(pv => {
+            const storageClassName = firstValue(pv.data || {}, ['K8s.Extra.Spec.StorageClassName', 'K8s.Spec.StorageClassName', 'Spec.StorageClassName'])
+            if (storageClassName) storageClassNames.add(storageClassName)
+        })
+        const storageClasses = this.topologyNodes().filter(node => String(node.data?.Type || '').toLowerCase() === 'storageclass' && storageClassNames.has(this.resourceName(node)))
+        return { pvs, storageClasses }
+    }
+
+    private connectedListItems(resources: Node[], kind: string) {
+        return resources.map(resource => ({
+            key: resource.id,
+            name: this.resourceName(resource),
+            description: this.resourceNamespace(resource) || firstValue(resource.data || {}, ['K8s.Extra.Status.Phase', 'K8s.Status', 'Status']) || undefined,
+            icon: this.topologyIcon(resource),
+            tooltip: `${kind} · ${this.resourceName(resource)}`,
+            onClick: () => this.openResource(resource)
+        }))
     }
 
     private selectorValue(spec: any): React.ReactNode {
@@ -312,28 +398,6 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
             return { tone: 'warning', label: translate('kubernetesHealthWarning'), conclusion: translate('kubernetesWorkloadPartialReplicas'), progress: revisionKnown ? translate('kubernetesRevisionSynced') : translate('kubernetesNotCollected'), progressTone: 'warning' }
         }
         return { tone: 'success', label: translate('kubernetesHealthNormal'), conclusion: translate('kubernetesWorkloadCapacityReady'), progress: revisionKnown ? translate('kubernetesRevisionSynced') : translate('kubernetesNotCollected'), progressTone: revisionKnown ? 'success' : 'default' }
-    }
-
-    private podDisplayStatus(pod: Node): PodDisplayStatus {
-        const data = pod.data || {}
-        const phase = firstValue(data, ['K8s.Extra.Status.Phase', 'K8s.Status', 'Status']) || translate('kubernetesUnknown')
-        const containerStatuses = firstRaw(data, ['K8s.Extra.Status.ContainerStatuses'])
-        const statuses = Array.isArray(containerStatuses) ? containerStatuses : []
-        const waitingReason = statuses.map(status => firstValue(status, ['State.Waiting.Reason', 'state.waiting.reason'])).find(Boolean)
-        const terminatedReason = statuses.map(status => firstValue(status, ['State.Terminated.Reason', 'state.terminated.reason'])).find(Boolean)
-        const reason = waitingReason || terminatedReason
-        const label = reason || phase
-        const normalized = String(label).toLowerCase()
-        const tone: PodStatusTone = normalized === 'running' || normalized === 'succeeded'
-            ? 'success'
-            : normalized === 'failed' || normalized === 'oomkilled' || normalized === 'error'
-                ? 'danger'
-                : normalized === 'pending' || normalized.indexOf('backoff') >= 0 || normalized.indexOf('pull') >= 0
-                    ? 'warning'
-                    : 'unknown'
-        const restarts = statuses.reduce((sum, status) => sum + Number(status?.RestartCount ?? status?.restartCount ?? 0), 0)
-        const nodeName = firstValue(data, ['K8s.Extra.Spec.NodeName', 'K8s.Node', 'NodeName'])
-        return { label, tone, nodeName, restarts }
     }
 
     private metrics(kind: string, spec: any, status: any): Array<{ label: string, value: any, problem?: boolean }> {
@@ -538,28 +602,26 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
         const kindLabel = WORKLOAD_KIND_LABELS[kind] || kind
         const enhanced = kind === 'deployment' || kind === 'statefulset'
         const pods = this.pods()
-        const linkedServices = this.connectedServices(pods)
+        const currentPods = pods.filter(isCurrentKubernetesPod)
+        const linkedServices = this.connectedServices(currentPods)
         const declaredService = kind === 'statefulset' && spec.ServiceName
             ? this.scopedResources(['service']).find(node => firstValue(node.data || {}, ['Name', 'K8s.Name']) === String(spec.ServiceName))
             : undefined
         const connectedServices = Array.from(new Map(linkedServices.concat(declaredService ? [declaredService] : []).map(service => [service.id, service])).values())
-        const replicaSetNames = this.replicaSetReferences(pods)
-        const replicaSetNameSet = new Set(replicaSetNames)
-        const replicaSetTargets = this.scopedResources(['replicaset']).filter(node => replicaSetNameSet.has(firstValue(node.data || {}, ['Name', 'K8s.Name'])))
+        const replicaSetNames = this.replicaSetReferences(currentPods)
         const configMapTargets = this.referencedResources(spec, ['configmap'])
         const secretTargets = this.referencedResources(spec, ['secret'])
         const pvcTargets = kind === 'statefulset' ? this.pvcTargets(spec) : []
+        const ingressTargets = this.ingressTargets(connectedServices)
+        const endpointTargets = this.endpointTargets(connectedServices)
+        const serviceAccountTargets = this.serviceAccountTargets(spec)
+        const networkPolicyTargets = this.networkPolicyTargets(spec)
+        const operationalPolicies = this.operationalPolicyTargets(spec)
+        const boundStorage = this.boundStorageResources(pvcTargets)
         const workloadContainers = enhanced ? this.containers(spec) : []
-        const headlessServices = connectedServices.filter(service => {
-            const serviceSpec = firstRaw(service.data || {}, ['K8s.Extra.Spec']) || {}
-            const clusterIP = serviceSpec.ClusterIP || serviceSpec.ClusterIp
-            const clusterIPs = normalizeList(serviceSpec.ClusterIPs)
-            return String(clusterIP || '').toLowerCase() === 'none' || clusterIPs.some(value => String(value).toLowerCase() === 'none')
-        })
-        const headlessServiceIDs = new Set(headlessServices.map(service => service.id))
-        const regularServices = connectedServices.filter(service => !headlessServiceIDs.has(service.id))
-        const podStatuses = new Map(pods.map(pod => [pod.id, this.podDisplayStatus(pod)]))
-        const problemPods = Array.from(podStatuses.values()).filter(status => status.tone === 'warning' || status.tone === 'danger').length
+        const podSummary = summarizeKubernetesPods(pods)
+        const topologyPodSummary = aggregateKubernetesPods(pods)
+        const problemPods = topologyPodSummary.currentProblems
         const metrics = this.metrics(kind, spec, status)
         const metricProblem = metrics.some(metric => metric.problem)
         const critical = kind === 'job' && Number(status.Failed || 0) > 0 && Number(status.Active || 0) === 0
@@ -586,27 +648,32 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
         const recentEventGroups = collectKubernetesEventGroups([
             firstRaw(data, ['K8s.Extra.Events', 'K8s.Events', 'Events'])
         ], WORKLOAD_EVENT_TONES)
-        const connectedItems = kind === 'deployment'
-            ? [
-                ...(replicaSetTargets.length ? [{ key: 'replicasets', label: 'ReplicaSet', count: replicaSetTargets.length, icon: this.topologyIcon(replicaSetTargets[0]), iconTone: 'kubernetes' as const, onClick: () => this.focusResources(replicaSetTargets) }] : []),
-                ...(pods.length ? [{ key: 'pods', label: translate('kubernetesTopologyPods'), count: pods.length, icon: this.topologyIcon(pods[0]), iconTone: 'kubernetes' as const, onClick: () => this.focusResources(pods) }] : []),
-                ...(connectedServices.length ? [{ key: 'services', label: translate('kubernetesTopologyServices'), count: connectedServices.length, icon: this.topologyIcon(connectedServices[0]), iconTone: 'kubernetes' as const, onClick: () => this.focusResources(connectedServices) }] : []),
-                ...(configMapTargets.length ? [{ key: 'configmaps', label: 'ConfigMap', count: configMapTargets.length, icon: this.topologyIcon(configMapTargets[0]), iconTone: 'kubernetes' as const, onClick: () => this.focusResources(configMapTargets) }] : []),
-                ...(secretTargets.length ? [{ key: 'secrets', label: 'Secret', count: secretTargets.length, icon: this.topologyIcon(secretTargets[0]), iconTone: 'kubernetes' as const, onClick: () => this.focusResources(secretTargets) }] : [])
-            ]
-            : kind === 'statefulset'
-                ? [
-                    ...(pods.length ? [{ key: 'pods', label: translate('kubernetesTopologyPods'), count: pods.length, icon: this.topologyIcon(pods[0]), iconTone: 'kubernetes' as const, onClick: () => this.focusResources(pods) }] : []),
-                    ...(headlessServices.length ? [{ key: 'headless-services', label: 'Headless Service', count: headlessServices.length, icon: this.topologyIcon(headlessServices[0]), iconTone: 'kubernetes' as const, onClick: () => this.focusResources(headlessServices) }] : []),
-                    ...(regularServices.length ? [{ key: 'services', label: translate('kubernetesTopologyServices'), count: regularServices.length, icon: this.topologyIcon(regularServices[0]), iconTone: 'kubernetes' as const, onClick: () => this.focusResources(regularServices) }] : []),
-                    ...(pvcTargets.length ? [{ key: 'pvcs', label: 'PVC', count: pvcTargets.length, icon: this.topologyIcon(pvcTargets[0]), iconTone: 'kubernetes' as const, onClick: () => this.focusResources(pvcTargets) }] : []),
-                    ...(configMapTargets.length ? [{ key: 'configmaps', label: 'ConfigMap', count: configMapTargets.length, icon: this.topologyIcon(configMapTargets[0]), iconTone: 'kubernetes' as const, onClick: () => this.focusResources(configMapTargets) }] : []),
-                    ...(secretTargets.length ? [{ key: 'secrets', label: 'Secret', count: secretTargets.length, icon: this.topologyIcon(secretTargets[0]), iconTone: 'kubernetes' as const, onClick: () => this.focusResources(secretTargets) }] : [])
-                ]
-                : [
-                    ...(pods.length ? [{ key: 'pods', label: translate('kubernetesTopologyPods'), count: pods.length, icon: this.topologyIcon(pods[0]), iconTone: 'kubernetes' as const, onClick: () => this.focusResources(pods) }] : []),
-                    ...(connectedServices.length ? [{ key: 'services', label: translate('kubernetesTopologyServices'), count: connectedServices.length, icon: this.topologyIcon(connectedServices[0]), iconTone: 'kubernetes' as const, onClick: () => this.focusResources(connectedServices) }] : [])
-                ]
+        const recentWorkloadEventGroups = recentEventGroups.filter(group => {
+            const time = new Date(group.time || 0).getTime()
+            return !Number.isNaN(time) && time > 0 && time >= Date.now() - 24 * 60 * 60 * 1000
+        })
+        const recentInstabilityKnown = podSummary.timestampAvailable && (recentEventGroups.length === 0 || recentEventGroups.some(group => {
+            const time = new Date(group.time || 0).getTime()
+            return !Number.isNaN(time) && time > 0
+        }))
+        const operationalPolicyRows = [
+            ...operationalPolicies.hpas.map(hpa => {
+                const hpaSpec = firstRaw(hpa.data || {}, ['K8s.Extra.Spec', 'K8s.Spec', 'Spec']) || {}
+                const hpaStatus = firstRaw(hpa.data || {}, ['K8s.Extra.Status', 'K8s.Status', 'Status']) || {}
+                return {
+                    label: `HPA · ${this.resourceName(hpa)}`,
+                    value: `Min ${optionalText(hpaSpec.MinReplicas ?? hpaSpec.minReplicas)} · Max ${optionalText(hpaSpec.MaxReplicas ?? hpaSpec.maxReplicas)} · Current ${optionalText(hpaStatus.CurrentReplicas ?? hpaStatus.currentReplicas)} · Desired ${optionalText(hpaStatus.DesiredReplicas ?? hpaStatus.desiredReplicas)}`
+                }
+            }),
+            ...operationalPolicies.pdbs.map(pdb => {
+                const pdbSpec = firstRaw(pdb.data || {}, ['K8s.Extra.Spec', 'K8s.Spec', 'Spec']) || {}
+                const pdbStatus = firstRaw(pdb.data || {}, ['K8s.Extra.Status', 'K8s.Status', 'Status']) || {}
+                return {
+                    label: `PDB · ${this.resourceName(pdb)}`,
+                    value: `Min ${optionalText(pdbSpec.MinAvailable ?? pdbSpec.minAvailable)} · Max unavailable ${optionalText(pdbSpec.MaxUnavailable ?? pdbSpec.maxUnavailable)} · Disruptions ${optionalText(pdbStatus.DisruptionsAllowed ?? pdbStatus.disruptionsAllowed)}`
+                }
+            })
+        ]
         return <div className="netdive-k8s-node-detail netdive-k8s-workload-detail">
             <DetailSection icon={<InfoIcon />} title={translate('kubernetesWorkloadBasicInfo')} collapsible collapsed={this.state.basicCollapsed} onToggle={() => this.setState({ basicCollapsed: !this.state.basicCollapsed })}>
                 <DetailKeyValueList rows={basicRows} copyTooltip={translate('copy')} />
@@ -618,6 +685,11 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
                     <div><span>{kind === 'deployment' ? translate('kubernetesAvailableReplicas') : translate('kubernetesReadyReplicas')}</span><strong>{readyReplicas}/{desiredReplicas}</strong></div>
                     <div><span>{kind === 'deployment' ? translate('kubernetesProgress') : translate('kubernetesRevisionStatus')}</span><strong className={`is-${health.progressTone}`}>{health.progress}</strong></div>
                 </div>}
+                <KubernetesStateSeparation items={[
+                    { key: 'current', label: '현재 문제', value: metricProblem || critical ? 'Replica/Rollout' : problemPods, tone: metricProblem || critical || problemPods > 0 ? 'danger' : 'success', tooltip: 'Desired·Ready·Available Replica와 현재 Rollout 상태를 우선하여 판정합니다.' },
+                    { key: 'recent', label: '최근 불안정성', value: recentInstabilityKnown ? podSummary.recentEvicted.length + recentWorkloadEventGroups.reduce((count, group) => count + group.count, 0) : '확인 불가', tone: recentInstabilityKnown ? (podSummary.recentEvicted.length + recentWorkloadEventGroups.length > 0 ? 'warning' : 'success') : 'default', tooltip: '최근 24시간의 Eviction과 워크로드 Event입니다.' },
+                    { key: 'history', label: '누적 이력', value: `Evicted ${podSummary.evicted.length}`, tone: 'history', tooltip: '과거 Evicted 파드는 현재 Replica 상태에 반영하지 않습니다.' }
+                ]} />
             </DetailSection>
             <DetailSection icon={<ViewModuleIcon />} title={translate('kubernetesReplicaRollout')}>
                 <div className="netdive-k8s-node-detail__summary">{metrics.map(metric => <div key={metric.label}><span>{metric.label}</span><strong className={metric.problem ? 'is-danger' : ''}>{metric.value === undefined || metric.value === null ? '–' : metric.value}</strong></div>)}</div>
@@ -627,17 +699,62 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
             {enhanced && kind === 'statefulset' && this.renderStorage(spec, pvcTargets)}
             {enhanced && <DetailSection icon={<ViewModuleIcon />} title={translate('kubernetesContainersImages')}>{this.renderContainers(workloadContainers)}</DetailSection>}
             {enhanced && <DetailSection icon={<ErrorOutlineIcon />} title={translate('kubernetesWorkloadConditions')}>{this.renderConditions(status)}</DetailSection>}
-            <ConnectedResourcesSection
+            {operationalPolicyRows.length > 0 && <DetailSection icon={<SettingsIcon />} title="운영 정책">
+                <DetailKeyValueList rows={operationalPolicyRows} />
+            </DetailSection>}
+            <ConnectedResourceListSection
                 icon={<AccountTreeIcon />}
                 title={translate('hostConnectedResources')}
                 emptyText={translate('hostNoConnectedResources')}
-                groups={[{
-                    key: 'kubernetes',
-                    title: translate('kubernetesConnectedResourceGroup'),
-                    icon: <img src="assets/icons/k8s.png" alt="" />,
-                    items: connectedItems
-                }]} />
-            {!enhanced && recentEventGroups.length > 0 && <DetailSection icon={<HistoryOutlined />} title={translate('kubernetesWorkloadRecentEvents')}><KubernetesRecentEvents groups={recentEventGroups} /></DetailSection>}
+                groups={[
+                    {
+                        key: 'network',
+                        title: '네트워크',
+                        items: [
+                            ...this.connectedListItems(connectedServices, 'Service'),
+                            ...this.connectedListItems(ingressTargets, 'Ingress'),
+                            ...this.connectedListItems(endpointTargets, 'Endpoint')
+                        ]
+                    },
+                    {
+                        key: 'configuration',
+                        title: '설정',
+                        items: [
+                            ...this.connectedListItems(configMapTargets, 'ConfigMap'),
+                            ...this.connectedListItems(secretTargets, 'Secret')
+                        ]
+                    },
+                    {
+                        key: 'security',
+                        title: '보안 및 권한',
+                        items: [
+                            ...this.connectedListItems(serviceAccountTargets, 'ServiceAccount'),
+                            ...this.connectedListItems(networkPolicyTargets, 'NetworkPolicy')
+                        ]
+                    },
+                    {
+                        key: 'policy',
+                        title: '운영 정책',
+                        items: [
+                            ...this.connectedListItems(operationalPolicies.hpas, 'HPA'),
+                            ...this.connectedListItems(operationalPolicies.pdbs, 'PDB')
+                        ]
+                    },
+                    {
+                        key: 'storage',
+                        title: '스토리지',
+                        items: [
+                            ...this.connectedListItems(pvcTargets, 'PVC'),
+                            ...this.connectedListItems(boundStorage.pvs, 'PV'),
+                            ...this.connectedListItems(boundStorage.storageClasses, 'StorageClass')
+                        ]
+                    }
+                ]} />
+            {recentEventGroups.length > 0 && <DetailSection icon={<HistoryOutlined />} title={translate('kubernetesWorkloadRecentEvents')}><KubernetesRecentEvents groups={recentEventGroups} onResourceClick={group => {
+                const target = this.topologyNodes().find(node => (!group.resourceUid || node.id === group.resourceUid || firstValue(node.data || {}, ['K8s.Extra.ObjectMeta.UID', 'UID']) === group.resourceUid)
+                    && (!group.resourceName || firstValue(node.data || {}, ['Name', 'K8s.Name']) === group.resourceName))
+                if (target) this.focusResources([target])
+            }} /></DetailSection>}
         </div>
     }
 }

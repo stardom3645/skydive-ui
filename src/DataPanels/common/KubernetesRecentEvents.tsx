@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { Tooltip } from 'antd'
 
 import { translate } from '../../Config'
 import { DetailBadge, DetailEmpty } from './DetailComponents'
@@ -10,6 +11,9 @@ export interface KubernetesEventGroup {
     reason: string
     tone: KubernetesEventTone
     resource: string
+    resourceKind?: string
+    resourceName?: string
+    resourceUid?: string
     description: string
     count: number
     time: any
@@ -50,6 +54,7 @@ export const collectKubernetesEventGroups = (sources: any[], tones: Record<strin
         if (!tone) return
         const resourceKind = firstValue(event, ['involvedObject.kind', 'InvolvedObject.Kind', 'regarding.kind', 'Regarding.Kind'])
         const resourceName = firstValue(event, ['involvedObject.name', 'InvolvedObject.Name', 'regarding.name', 'Regarding.Name'])
+        const resourceUid = firstValue(event, ['involvedObject.uid', 'InvolvedObject.UID', 'regarding.uid', 'Regarding.UID'])
         const resource = [resourceKind, resourceName].filter(Boolean).join(': ') || translate('kubernetesResource')
         const description = firstValue(event, ['message', 'Message', 'note', 'Note']) || translate('kubernetesNoReason')
         const countValue = firstRaw(event, ['count', 'Count', 'series.count', 'Series.Count'])
@@ -58,7 +63,7 @@ export const collectKubernetesEventGroups = (sources: any[], tones: Record<strin
         const key = `${normalized}:${resource}`
         const existing = groups.get(key)
         if (!existing) {
-            groups.set(key, { reason, tone, resource, description, count, time })
+            groups.set(key, { reason, tone, resource, resourceKind, resourceName, resourceUid, description, count, time })
             return
         }
         existing.count += count
@@ -84,13 +89,19 @@ const relativeTime = (value: any): string => {
     return translate('kubernetesEventDaysAgo').replace('{count}', String(Math.floor(hours / 24)))
 }
 
-export const KubernetesRecentEvents = ({ groups, emptyText }: { groups: KubernetesEventGroup[], emptyText?: React.ReactNode }) => {
+export const KubernetesRecentEvents = ({ groups, emptyText, onResourceClick }: { groups: KubernetesEventGroup[], emptyText?: React.ReactNode, onResourceClick?: (group: KubernetesEventGroup) => void }) => {
     if (!groups.length) return emptyText ? <DetailEmpty description={emptyText} compact /> : null
     return <div className="netdive-k8s-recent-events">{groups.map(group => <div key={`${group.reason}:${group.resource}`} className={`is-${group.tone}`}>
         <span className="netdive-k8s-recent-events__dot" />
         <div className="netdive-k8s-recent-events__main">
-            <div><strong>{group.reason}</strong>{group.tone === 'success' ? <span className="netdive-k8s-node-detail__normal"><i />{translate('kubernetesHealthNormal')}</span> : <DetailBadge tone={group.tone}>{group.tone === 'danger' ? translate('kubernetesHealthCritical') : translate('kubernetesHealthWarning')}</DetailBadge>}</div>
-            <span>{group.resource}</span>
+            <Tooltip title={<div><strong>{group.reason}</strong><br />{group.description}<br />{String(group.time || translate('kubernetesNotCollected'))}</div>} placement="top">
+                <div><strong>{group.reason}</strong>{group.tone === 'success' ? <span className="netdive-k8s-node-detail__normal"><i />{translate('kubernetesHealthNormal')}</span> : <DetailBadge tone={group.tone}>{group.tone === 'danger' ? translate('kubernetesHealthCritical') : translate('kubernetesHealthWarning')}</DetailBadge>}</div>
+            </Tooltip>
+            <Tooltip title={group.resource} placement="top">
+                {onResourceClick && (group.resourceUid || group.resourceName)
+                    ? <button type="button" onClick={() => onResourceClick(group)}>{group.resource}</button>
+                    : <span>{group.resource}</span>}
+            </Tooltip>
             <small>{group.description} · {translate('kubernetesEventOccurrenceCount').replace('{count}', String(group.count))}</small>
         </div>
         <time title={String(group.time || '')}>{relativeTime(group.time)}</time>

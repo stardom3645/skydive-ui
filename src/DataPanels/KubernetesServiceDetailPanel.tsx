@@ -4,11 +4,13 @@ import InfoIcon from '@material-ui/icons/Info'
 import LinkIcon from '@material-ui/icons/Link'
 import SettingsEthernetIcon from '@material-ui/icons/SettingsEthernet'
 import WarningIcon from '@material-ui/icons/WarningOutlined'
-import { HistoryOutlined } from '@ant-design/icons'
+import { HistoryOutlined, LeftOutlined } from '@ant-design/icons'
 
 import { translate } from '../Config'
 import { session } from '../Store'
 import { Node } from '../Topology'
+import { kubernetesLabelValue, matchesKubernetesSelector } from '../KubernetesSelectors'
+import { resolveKubernetesPodController } from '../KubernetesWorkloadOwnership'
 import { collectKubernetesEventGroups, ConnectedResourcesSection, DetailCopyButton, DetailKeyValueList, DetailLayerIcon, DetailSection, KubernetesRecentEvents } from './common'
 import './KubernetesNodeDetailPanel.css'
 import './KubernetesServiceDetailPanel.css'
@@ -53,10 +55,22 @@ const displayOptional = (value: any): React.ReactNode => {
     if (value === undefined || value === null || String(value).trim() === '' || String(value).trim().toLowerCase() === 'none') return translate('kubernetesNone')
     return value
 }
+const flattenedMetadata = (value: any, prefix = ''): string[] => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        return prefix ? [`${prefix}=${String(value)}`] : []
+    }
+    return Object.keys(value).sort().reduce((items: string[], key) => {
+        const path = prefix ? `${prefix}.${key}` : key
+        const child = value[key]
+        if (child && typeof child === 'object' && !Array.isArray(child)) return items.concat(flattenedMetadata(child, path))
+        items.push(`${path}=${String(child)}`)
+        return items
+    }, [])
+}
 const SERVICE_EVENT_TONES = {
     failedtoupdateendpoint: 'warning' as const,
-    syncloadbalancerfailed: 'danger' as const,
-    failedtoloadbalancer: 'danger' as const,
+    syncloadbalancerfailed: 'warning' as const,
+    failedtoloadbalancer: 'warning' as const,
     unhealthy: 'warning' as const,
     updatedloadbalancer: 'success' as const
 }
@@ -91,6 +105,24 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
     }
 
     private cluster() { return this.clusterFrom(this.props) }
+
+    private returnClusterNode(): Node | undefined {
+        return (this.props.node as any).__netdiveReturnClusterNode
+    }
+
+    private returnToClusterServices = () => {
+        const clusterNode = this.returnClusterNode()
+        if (!clusterNode) return
+        ;(clusterNode as any).__netdiveInitialDetailTab = 'services'
+        const topology = (window as any).App?.tc
+        if (topology && typeof topology.selectNode === 'function') {
+            topology.selectNode(this.props.node.id, false)
+            topology.selectNode(clusterNode.id, true, true)
+            return
+        }
+        const app = (window as any).App
+        if (app && typeof app.openResourceDetailNodeID === 'function') app.openResourceDetailNodeID(clusterNode.id)
+    }
 
     private uid(): string {
         return firstValue(this.props.node.data || {}, ['K8s.Extra.ObjectMeta.UID', 'K8s.UID', 'UID', 'uid']) || this.props.node.id
@@ -155,7 +187,7 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
                 if (!this.sameCluster(node) || String(data.Manager || '').toLowerCase() !== 'k8s' || String(data.Type || '').toLowerCase() !== 'pod') return false
                 if (firstValue(data, ['K8s.Namespace', 'Namespace', 'K8s.Extra.ObjectMeta.Namespace']) !== namespace) return false
                 const labels = firstRaw(data, ['K8s.Labels', 'Labels', 'K8s.Extra.ObjectMeta.Labels']) || {}
-                return Object.keys(selector).every(key => String(labels[key]) === String(selector[key]))
+                return matchesKubernetesSelector(selector, labels)
             })
             if (pods.length) source = 'SELECTOR'
         }
@@ -209,6 +241,8 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
             ports,
             selectedPods: related.pods,
             createdAt: objectMeta.CreationTimestamp?.Time,
+            labels: objectMeta.Labels || data.K8s?.Labels || data.Labels || {},
+            annotations: objectMeta.Annotations || data.K8s?.Annotations || data.Annotations || {},
             endpointDataAvailable: false,
             relationshipSource: related.source,
             source: 'TOPOLOGY'
@@ -238,12 +272,29 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
         if (ids.length && app && typeof app.focusInfrastructureNodeIDs === 'function') app.focusInfrastructureNodeIDs(ids, this.props.node.id, true)
     }
 
+    private openResource(resource?: Node) {
+        if (!resource) return
+        const app = (window as any).App
+        if (app && typeof app.openResourceDetailNodeID === 'function') app.openResourceDetailNodeID(resource.id)
+    }
+
+    private openResourceList(resources: Node[]) {
+        if (!resources.length) return
+        const app = (window as any).App
+        if (resources.length === 1 && app && typeof app.openResourceDetailNodeID === 'function') {
+            app.openResourceDetailNodeID(resources[0].id)
+        } else if (app && typeof app.openKubernetesResourceExplorer === 'function') {
+            app.openKubernetesResourceExplorer(resources)
+        }
+    }
+
     private scopedResources(types: string[]): Node[] {
         const namespace = firstValue(this.props.node.data || {}, ['K8s.Namespace', 'Namespace', 'K8s.Extra.ObjectMeta.Namespace'])
         const allowed = new Set(types.map(type => type.toLowerCase()))
         return this.topologyNodes().filter(node => {
             if (!this.sameCluster(node) || !allowed.has(String(node.data?.Type || '').toLowerCase())) return false
-            return !namespace || firstValue(node.data || {}, ['K8s.Namespace', 'Namespace', 'K8s.Extra.ObjectMeta.Namespace']) === namespace
+            const resourceNamespace = firstValue(node.data || {}, ['K8s.Namespace', 'Namespace', 'K8s.Extra.ObjectMeta.Namespace'])
+            return !namespace || !resourceNamespace || resourceNamespace === namespace
         })
     }
 
@@ -253,44 +304,11 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
     }
 
     private workloadTargets(pods: Node[]): Node[] {
-        const workloadTypes = ['deployment', 'statefulset', 'daemonset', 'job', 'cronjob']
-        const candidates = this.scopedResources([...workloadTypes, 'replicaset'])
-        const byUID = new Map<string, Node>()
-        const byKindName = new Map<string, Node>()
-        candidates.forEach(node => {
-            const kind = String(node.data?.Type || '').toLowerCase()
-            const uid = firstValue(node.data || {}, ['K8s.Extra.ObjectMeta.UID', 'K8s.UID', 'UID']) || node.id
-            const name = firstValue(node.data || {}, ['Name', 'K8s.Name'])
-            byUID.set(uid, node)
-            if (name) byKindName.set(`${kind}:${name}`, node)
-        })
+        const topologyNodes = this.topologyNodes()
         const results = new Map<string, Node>()
-        const resolveOwner = (owner: any) => {
-            const kind = String(owner?.Kind || owner?.kind || '').toLowerCase()
-            const ownerNode = byUID.get(String(owner?.UID || owner?.uid || ''))
-                || byKindName.get(`${kind}:${String(owner?.Name || owner?.name || '')}`)
-            if (!ownerNode) return
-            const ownerType = String(ownerNode.data?.Type || '').toLowerCase()
-            if (workloadTypes.indexOf(ownerType) >= 0) {
-                results.set(ownerNode.id, ownerNode)
-                return
-            }
-            if (ownerType === 'replicaset') {
-                const parentOwners = firstRaw(ownerNode.data || {}, ['K8s.Extra.ObjectMeta.OwnerReferences']) || []
-                if (Array.isArray(parentOwners)) parentOwners.forEach(resolveOwner)
-            }
-        }
         pods.forEach(pod => {
-            const owners = firstRaw(pod.data || {}, ['K8s.Extra.ObjectMeta.OwnerReferences']) || []
-            if (Array.isArray(owners)) owners.forEach(resolveOwner)
-            let parent: Node | null | undefined = pod.parent
-            while (parent) {
-                if (workloadTypes.indexOf(String(parent.data?.Type || '').toLowerCase()) >= 0) {
-                    results.set(parent.id, parent)
-                    break
-                }
-                parent = parent.parent
-            }
+            const controller = resolveKubernetesPodController(pod, topologyNodes)
+            if (controller) results.set(controller.id, controller)
         })
         return Array.from(results.values())
     }
@@ -314,10 +332,28 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
         this.scopedResources(['endpointslice']).forEach(node => {
             const labels = firstRaw(node.data || {}, ['K8s.Labels', 'Labels', 'K8s.Extra.ObjectMeta.Labels']) || {}
             const relatedService = firstValue(node.data || {}, ['K8s.ServiceName', 'ServiceName'])
-                || String(labels['kubernetes.io/service-name'] || '')
+                || String(kubernetesLabelValue(labels, 'kubernetes.io/service-name') || '')
             if (relatedService === serviceName) matched.set(node.id, node)
         })
         return Array.from(matched.values())
+    }
+
+    private ingressTargets(serviceName: string): Node[] {
+        return this.scopedResources(['ingress']).filter(node => {
+            const spec = firstRaw(node.data || {}, ['K8s.Extra.Spec', 'K8s.Spec', 'Spec']) || {}
+            const backendNames = new Set<string>()
+            const add = (backend: any) => {
+                const name = backend?.Service?.Name || backend?.service?.name || backend?.ServiceName || backend?.serviceName
+                if (name) backendNames.add(String(name))
+            }
+            add(spec.DefaultBackend || spec.defaultBackend)
+            const rules = spec.Rules || spec.rules
+            if (Array.isArray(rules)) rules.forEach((rule: any) => {
+                const paths = rule?.HTTP?.Paths || rule?.http?.paths
+                if (Array.isArray(paths)) paths.forEach((path: any) => add(path?.Backend || path?.backend))
+            })
+            return backendNames.has(serviceName)
+        })
     }
 
     private selectorValue(selector: any): React.ReactNode {
@@ -365,19 +401,26 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
                 return <div className="netdive-k8s-service-detail__endpoint" key={`${endpoint.address}:${index}`}>
                     <div className="netdive-k8s-service-detail__endpoint-primary">
                         <Tooltip title={podName} placement="top">
-                            {podTarget ? <button type="button" onClick={() => this.focusResources([podTarget])}>{podName}</button> : <strong>{podName}</strong>}
+                            {podTarget ? <button type="button" onClick={() => this.openResource(podTarget)}>{podName}</button> : <strong>{podName}</strong>}
                         </Tooltip>
                         <span className={`netdive-k8s-service-detail__endpoint-ready ${ready ? 'is-ready' : 'is-not-ready'}`}><i />{ready ? 'Ready' : 'NotReady'}</span>
                     </div>
                     <div className="netdive-k8s-service-detail__endpoint-secondary">
                         <span className="netdive-k8s-service-detail__endpoint-ip"><small>{endpoint.address || translate('kubernetesNotCollected')}</small>{endpoint.address && <DetailCopyButton value={String(endpoint.address)} tooltip={translate('copy')} />}</span>
+                        {(endpoint.port || endpoint.protocol) && <span><small>{[endpoint.port, endpoint.protocol].filter(Boolean).join(' / ')}</small></span>}
                     </div>
                     <div className="netdive-k8s-service-detail__endpoint-node">
                         <span>{translate('kubernetesScheduledNodes')}</span>
                         <Tooltip title={nodeName || translate('kubernetesNotCollected')} placement="top">
-                            {nodeTarget ? <button type="button" onClick={() => this.focusResources([nodeTarget])}>{nodeName}</button> : <b>{nodeName || translate('kubernetesNotCollected')}</b>}
+                            {nodeTarget ? <button type="button" onClick={() => this.openResource(nodeTarget)}>{nodeName}</button> : <b>{nodeName || translate('kubernetesNotCollected')}</b>}
                         </Tooltip>
                     </div>
+                    {(endpoint.serving !== undefined || endpoint.terminating !== undefined || endpoint.zone || endpoint.sliceName) && <div className="netdive-k8s-service-detail__endpoint-meta">
+                        {endpoint.serving !== undefined && <span>Serving {endpoint.serving ? 'True' : 'False'}</span>}
+                        {endpoint.terminating !== undefined && <span>Terminating {endpoint.terminating ? 'True' : 'False'}</span>}
+                        {endpoint.zone && <span>Zone {endpoint.zone}</span>}
+                        {endpoint.sliceName && <span>Slice {endpoint.sliceName}</span>}
+                    </div>}
                 </div>
             })}</div>
         }
@@ -389,7 +432,7 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
             return <div className="netdive-k8s-service-detail__endpoint" key={pod.uid || pod.name}>
                 <div className="netdive-k8s-service-detail__endpoint-primary">
                     <Tooltip title={pod.name} placement="top">
-                        {podTarget ? <button type="button" onClick={() => this.focusResources([podTarget])}>{pod.name}</button> : <strong>{pod.name}</strong>}
+                        {podTarget ? <button type="button" onClick={() => this.openResource(podTarget)}>{pod.name}</button> : <strong>{pod.name}</strong>}
                     </Tooltip>
                     <span className={`netdive-k8s-service-detail__endpoint-ready ${pod.ready === true ? 'is-ready' : pod.ready === false ? 'is-not-ready' : 'is-unknown'}`}><i />{pod.ready === true ? 'Ready' : pod.ready === false ? 'NotReady' : translate('kubernetesUnknown')}</span>
                 </div>
@@ -399,7 +442,7 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
                 <div className="netdive-k8s-service-detail__endpoint-node">
                     <span>{translate('kubernetesScheduledNodes')}</span>
                     <Tooltip title={pod.nodeName || translate('kubernetesNotCollected')} placement="top">
-                        {nodeTarget ? <button type="button" onClick={() => this.focusResources([nodeTarget])}>{pod.nodeName}</button> : <b>{pod.nodeName || translate('kubernetesNotCollected')}</b>}
+                        {nodeTarget ? <button type="button" onClick={() => this.openResource(nodeTarget)}>{pod.nodeName}</button> : <b>{pod.nodeName || translate('kubernetesNotCollected')}</b>}
                     </Tooltip>
                 </div>
             </div>
@@ -500,6 +543,7 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
         const nodeTargets = Array.from(connectedReadyNodeNames).map(name => this.resourceByName('node', name)).filter((resource: Node | undefined): resource is Node => !!resource)
         const endpointSliceTargets = this.endpointSliceTargets(detail)
         const serviceName = String(detail.name || this.props.node.id)
+        const ingressTargets = this.ingressTargets(serviceName)
         const basicRows = [
             { label: translate('kubernetesServiceName'), value: <Tooltip title={serviceName} placement="top"><span className="netdive-k8s-service-detail__service-name">{serviceName}</span></Tooltip>, textValue: serviceName, copyText: serviceName },
             { label: translate('kubernetesTopologyNamespaces'), value: displayOptional(detail.namespace) },
@@ -516,6 +560,10 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
             firstRaw(this.props.node.data || {}, ['K8s.Extra.Events', 'K8s.Events', 'Events'])
         ], SERVICE_EVENT_TONES)
         return <div className="netdive-k8s-node-detail netdive-k8s-service-detail">
+            {this.returnClusterNode() && <div className="netdive-k8s-service-detail__return">
+                <button type="button" onClick={this.returnToClusterServices}><LeftOutlined />서비스 목록</button>
+                <span>{firstValue(this.returnClusterNode()!.data || {}, ['Name', 'K8s.Name', 'ClusterName']) || this.returnClusterNode()!.id}</span>
+            </div>}
             <DetailSection icon={<InfoIcon />} title={translate('kubernetesServiceBasicInfo')} collapsible collapsed={this.state.basicCollapsed} onToggle={() => this.setState({ basicCollapsed: !this.state.basicCollapsed })}>
                 <DetailKeyValueList rows={basicRows} copyTooltip={translate('copy')} />
             </DetailSection>
@@ -570,13 +618,24 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
                     title: translate('kubernetesConnectedResourceGroup'),
                     icon: <img src="assets/icons/k8s.png" alt="" />,
                     items: [
-                        ...(podTargets.length ? [{ key: 'pods', label: translate('kubernetesTopologyPods'), count: podTargets.length, icon: this.topologyIcon(podTargets[0]), iconTone: 'kubernetes' as const, onClick: () => this.focusResources(podTargets) }] : []),
-                        ...(workloadTargets.length ? [{ key: 'workloads', label: translate('kubernetesTopologyWorkloadControllers'), count: workloadTargets.length, icon: <DetailLayerIcon glyph={'\uf5fd'} />, iconTone: 'kubernetes' as const, onClick: () => this.focusResources(workloadTargets) }] : []),
-                        ...(nodeTargets.length ? [{ key: 'nodes', label: translate('kubernetesTopologyNodes'), count: nodeTargets.length, icon: this.topologyIcon(nodeTargets[0]), iconTone: 'kubernetes' as const, onClick: () => this.focusResources(nodeTargets) }] : []),
-                        ...(endpointSliceTargets.length ? [{ key: 'endpoint-slices', label: 'EndpointSlice', count: endpointSliceTargets.length, icon: this.topologyIcon(endpointSliceTargets[0]), iconTone: 'kubernetes' as const, onClick: () => this.focusResources(endpointSliceTargets) }] : [])
+                        ...(podTargets.length ? [{ key: 'pods', label: translate('kubernetesTopologyPods'), count: podTargets.length, icon: this.topologyIcon(podTargets[0]), iconTone: 'kubernetes' as const, onClick: () => this.openResourceList(podTargets) }] : []),
+                        ...(workloadTargets.length ? [{ key: 'workloads', label: translate('kubernetesTopologyWorkloadControllers'), count: workloadTargets.length, icon: <DetailLayerIcon glyph={'\uf5fd'} />, iconTone: 'kubernetes' as const, onClick: () => this.openResourceList(workloadTargets) }] : []),
+                        ...(nodeTargets.length ? [{ key: 'nodes', label: translate('kubernetesTopologyNodes'), count: nodeTargets.length, icon: this.topologyIcon(nodeTargets[0]), iconTone: 'kubernetes' as const, onClick: () => this.openResourceList(nodeTargets) }] : []),
+                        ...(endpointSliceTargets.length ? [{ key: 'endpoint-slices', label: 'EndpointSlice', count: endpointSliceTargets.length, icon: this.topologyIcon(endpointSliceTargets[0]), iconTone: 'kubernetes' as const, onClick: () => this.openResource(endpointSliceTargets[0]) }] : []),
+                        ...(ingressTargets.length ? [{ key: 'ingresses', label: 'Ingress', count: ingressTargets.length, icon: this.topologyIcon(ingressTargets[0]), iconTone: 'kubernetes' as const, onClick: () => this.openResource(ingressTargets[0]) }] : [])
                     ]
                 }]} />
-            {recentEventGroups.length > 0 && <DetailSection icon={<HistoryOutlined />} title={translate('kubernetesServiceRecentEvents')}><KubernetesRecentEvents groups={recentEventGroups} /></DetailSection>}
+            <DetailSection icon={<InfoIcon />} title="메타데이터">
+                <DetailKeyValueList rows={[
+                    { label: translate('kubernetesCreatedAt'), value: detail.createdAt ? new Date(detail.createdAt).toLocaleString() : translate('kubernetesNotCollected') },
+                    { label: 'Labels', value: flattenedMetadata(detail.labels).join(', ') || translate('kubernetesNone') },
+                    { label: 'Annotations', value: flattenedMetadata(detail.annotations).join(', ') || translate('kubernetesNone') }
+                ]} />
+            </DetailSection>
+            {recentEventGroups.length > 0 && <DetailSection icon={<HistoryOutlined />} title={translate('kubernetesServiceRecentEvents')}><KubernetesRecentEvents groups={recentEventGroups} onResourceClick={group => {
+                const target = this.resourceForReference({ uid: group.resourceUid, name: group.resourceName, kind: group.resourceKind })
+                if (target) this.focusResources([target])
+            }} /></DetailSection>}
 
             {this.state.error && <div className="netdive-k8s-node-detail__notice"><InfoIcon /><span>{translate('kubernetesServiceDetailFallback')}</span></div>}
             {!this.cluster() && <div className="netdive-k8s-node-detail__notice"><InfoIcon /><span>{translate('kubernetesClusterMoldMissing')}</span></div>}

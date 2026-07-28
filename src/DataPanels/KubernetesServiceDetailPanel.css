@@ -1,3 +1,47 @@
+.netdive-k8s-service-detail__return {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    min-height: 31px;
+    align-items: center;
+    gap: 9px;
+    margin: -2px 0 0;
+    padding: 0 2px 8px;
+    border-bottom: 1px solid #eef1f5;
+}
+
+.netdive-k8s-service-detail__return button {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0;
+    border: 0;
+    color: #475467;
+    background: transparent;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 22px;
+    cursor: pointer;
+}
+
+.netdive-k8s-service-detail__return button:hover {
+    color: #1677ff;
+}
+
+.netdive-k8s-service-detail__return button svg {
+    font-size: 9px;
+}
+
+.netdive-k8s-service-detail__return > span {
+    min-width: 0;
+    overflow: hidden;
+    color: #98a2b3;
+    font-size: 10px;
+    line-height: 16px;
+    text-align: right;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .netdive-k8s-service-detail__empty-row { padding: 24px 18px; color: #667085; font-size: 12px; text-align: center; }
 .netdive-k8s-service-detail__service-name { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .netdive-k8s-service-detail__selectors { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
@@ -45,6 +89,8 @@
 .netdive-k8s-service-detail__endpoint-node > span { color: #98a2b3; font-size: 9.5px; line-height: 14px; }
 .netdive-k8s-service-detail__endpoint-node button,
 .netdive-k8s-service-detail__endpoint-node b { display: block; width: 100%; min-width: 0; overflow: hidden; color: #475467; font-size: 10.5px; font-weight: 500; line-height: 15px; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+.netdive-k8s-service-detail__endpoint-meta { display: flex; min-width: 0; flex-wrap: wrap; gap: 4px 8px; color: #667085; font-size: 9.5px; line-height: 14px; }
+.netdive-k8s-service-detail__endpoint-meta > span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .netdive-k8s-service-detail__availability-state { display: grid; grid-template-columns: 7px auto; align-items: center; justify-content: start; gap: 7px; margin: 0 18px 12px; padding-top: 9px; border-top: 1px solid #eef1f5; }
 .netdive-k8s-service-detail__availability-state > i { width: 7px; height: 7px; border-radius: 50%; background: #98a2b3; }

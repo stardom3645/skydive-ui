@@ -47,6 +47,7 @@ import KubernetesNamespaceDetailPanel from './DataPanels/KubernetesNamespaceDeta
 import KubernetesPodDetailPanel from './DataPanels/KubernetesPodDetailPanel'
 import KubernetesWorkloadDetailPanel from './DataPanels/KubernetesWorkloadDetailPanel'
 import KubernetesServiceDetailPanel from './DataPanels/KubernetesServiceDetailPanel'
+import KubernetesRelationshipResourceDetailPanel from './DataPanels/KubernetesRelationshipResourceDetailPanel'
 import KubernetesStorageDetailPanel from './DataPanels/KubernetesStorageDetailPanel'
 import NodeContextBreadcrumb, { NodeContextIcon, NodeContextItem } from './DataPanels/common/NodeContextBreadcrumb'
 
@@ -425,6 +426,16 @@ class SelectionPanel extends React.Component<Props, State> {
         && ['persistentvolume', 'persistentvolumeclaim', 'storageclass'].includes(String(el.data?.Type || '').toLowerCase())
     }
 
+    const isKubernetesRelationshipResource = (el: Node | Link): boolean => {
+      if (el.type !== 'node' || el.data?.IsTopologyGroup) return false
+      return String(el.data?.Manager || '').toLowerCase() === 'k8s'
+        && [
+          'ingress', 'endpoints', 'endpointslice',
+          'configmap', 'secret', 'serviceaccount', 'networkpolicy',
+          'horizontalpodautoscaler', 'hpa', 'poddisruptionbudget', 'pdb'
+        ].includes(String(el.data?.Type || '').toLowerCase())
+    }
+
     const isSwitchNode = (el: Node | Link): boolean => {
       return el.type === 'node' && String(el.data?.Type || el.data?.type || '').toLowerCase() === 'switch'
     }
@@ -575,6 +586,8 @@ class SelectionPanel extends React.Component<Props, State> {
               ? <KubernetesStorageDetailPanel
                   node={el as Node}
                   nodeAttrs={(node: Node) => this.props.config.nodeAttrs(node)} />
+              : isKubernetesRelationshipResource(el)
+              ? <KubernetesRelationshipResourceDetailPanel node={el as Node} />
               : isSystemVMNode(el)
               ? <SystemVMDetailPanel node={el as Node} session={this.props.session} moldInventory={this.props.moldInventory} vmNameMap={this.props.vmNameMap} vmNetworkMap={this.props.vmNetworkMap} vmDetailMap={this.props.vmDetailMap} managementServers={this.props.managementServers} />
               : isVMNode(el)

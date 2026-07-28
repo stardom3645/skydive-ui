@@ -27,9 +27,9 @@ const WEIGHT_K8S_NODE = 3020
 const WEIGHT_K8S_NAMESPACE = 3030
 const WEIGHT_K8S_WORKLOAD = 3035
 const WEIGHT_K8S_POD = 3040
-const WEIGHT_K8S_STORAGE = 3050
-const WEIGHT_K8S_CONTAINER = 3055
+const WEIGHT_K8S_CONTAINER = 3050
 const WEIGHT_K8S_SERVICE = 3060
+const WEIGHT_K8S_STORAGE = 3070
 const WEIGHT_K8S_OTHER = 3200
 
 const WEIGHT_PHY_FABRIC = 5010
@@ -589,8 +589,8 @@ export const i18nMap = {
         "kubernetesServicePartialEndpoints": "Some Endpoints require attention",
         "kubernetesServiceStatusUnavailable": "Endpoint availability has not been collected",
         "kubernetesServiceExternalNameConfigured": "ExternalName routing is configured",
-        "kubernetesServicePodsReadyInferred": "Connected Pods are Ready (topology inference)",
-        "kubernetesServicePodsProblemInferred": "A connected Pod requires attention (topology inference)",
+        "kubernetesServicePodsReadyInferred": "Connected Pods are Ready (collected relationship inference)",
+        "kubernetesServicePodsProblemInferred": "A connected Pod requires attention (collected relationship inference)",
         "kubernetesPorts": "Ports",
         "kubernetesServicePortsAndRouting": "Ports and routing",
         "kubernetesServicePortsUnavailable": "No Service port information has been collected.",
@@ -613,7 +613,7 @@ export const i18nMap = {
         "kubernetesPublishNotReadyAddresses": "Publish NotReady addresses",
         "kubernetesServiceBasicInfo": "Service basic information",
         "kubernetesServiceName": "Service name",
-        "kubernetesServiceDetailFallback": "Live EndpointSlice details could not be collected. Available Service and topology relationship data is shown instead.",
+        "kubernetesServiceDetailFallback": "Live EndpointSlice details could not be collected. Available Service and collected relationship data is shown instead.",
         "kubernetesOperationalStatusShort": "operational status",
         "kubernetesWorkloadNormalConclusion": "Desired workload capacity is available",
         "kubernetesWorkloadWarningConclusion": "Replica or Pod availability requires attention",
@@ -821,7 +821,7 @@ export const i18nMap = {
         "kubernetesExternalPathMultipleDescription": "{count} external connection paths have been identified.",
         "kubernetesExternalPathNoneDescription": "No exposed external connection path has been identified.",
         "kubernetesCurrentFailureImpact": "Current failure impact",
-        "kubernetesPotentialInfrastructureRisk": "Potential infrastructure risk",
+        "kubernetesPotentialInfrastructureRisk": "Structural vulnerability",
         "kubernetesCurrentFailureImpactTooltip": "Calculated from NotReady nodes, abnormal Pods, and currently affected services.",
         "kubernetesPotentialInfrastructureRiskTooltip": "Calculated separately from operational status using only evaluated physical-host concentration, switch-path concentration, single Control Plane, and single external paths.",
         "kubernetesImpactLow": "Low",
@@ -831,12 +831,12 @@ export const i18nMap = {
         "kubernetesFocusNodes": "Show only this cluster's nodes in the topology",
         "kubernetesFocusNamespaces": "Show only this cluster's namespaces in the topology",
         "kubernetesFocusPods": "Show only this cluster's Pods in the topology",
-        "kubernetesFocusServices": "Show only this cluster's services in the topology",
+        "kubernetesFocusServices": "Open this cluster's service list",
         "kubernetesCurrentUsage": "Current usage",
         "kubernetesUsageRate": "Usage",
         "kubernetesAllocatableLabel": "Available resources",
         "kubernetesRequestRate": "Reservation rate",
-        "kubernetesReservationRateDescription": "Requests as a percentage of Allocatable. This is not real-time usage.",
+        "kubernetesReservationRateDescription": "Reservation rate = Requests / Kubernetes available resources. This is not real-time usage.",
         "kubernetesReservable": "Reservable",
         "kubernetesMemory": "Memory",
         "kubernetesMoldVmAllocation": "Mold VM resources",
@@ -856,7 +856,7 @@ export const i18nMap = {
         "kubernetesAllocatableCapacityDescription": "Total resources Kubernetes can actually provide to Pods.",
         "kubernetesGroupedEvents": "{count} events",
         "kubernetesAdditionalEvents": "+{count}",
-        "kubernetesRelatedEvents": "Related {count}",
+        "kubernetesRelatedEvents": "Related events {count}",
         "kubernetesCollapseEvents": "Collapse",
         "kubernetesEventInfo": "Info",
         "kubernetesUnknown": "Unknown",
@@ -898,7 +898,7 @@ export const i18nMap = {
         "kubernetesSingleExternalPathRiskDescription": "Only one currently identified external connection path exists.",
         "kubernetesSinglePath": "Single path",
         "kubernetesMultiplePaths": "Multiple paths",
-        "kubernetesNoExternalExposure": "No external exposure identified",
+        "kubernetesNoExternalExposure": "No external exposure",
         "kubernetesAnalysisConfidence": "Analysis confidence",
         "kubernetesConfidenceLimited": "Limited",
         "kubernetesConfidenceSufficient": "Sufficient",
@@ -1110,7 +1110,7 @@ export const i18nMap = {
         "helpKubernetesTitle": "Kubernetes collection",
         "helpKubernetesDescription": "Shows Mold registered Kubernetes clusters and displays collected Kubernetes resources in the topology.",
         "helpKubernetesPointCollection": "Open Kubernetes from the left menu to enable collection, refresh clusters, or run connection tests.",
-        "helpKubernetesPointTopology": "Collected clusters, nodes, namespaces, pods, services, and workloads appear as Kubernetes layers.",
+        "helpKubernetesPointTopology": "The Kubernetes topology shows clusters, nodes, namespaces, workload controllers, Pods, and storage resources.",
         "helpKubernetesPointPolicy": "Collection Policy explains included resources and default exclusions such as secret/configmap.",
         "helpViewTitle": "View and display options",
         "helpViewDescription": "Use view settings to keep the topology readable while exploring large environments.",
@@ -1828,8 +1828,8 @@ export const i18nMap = {
         "kubernetesServicePartialEndpoints": "확인이 필요한 Endpoint가 있습니다",
         "kubernetesServiceStatusUnavailable": "Endpoint 가용성 정보가 수집되지 않았습니다",
         "kubernetesServiceExternalNameConfigured": "ExternalName 라우팅이 구성되어 있습니다",
-        "kubernetesServicePodsReadyInferred": "연결 파드가 Ready입니다 (토폴로지 추론)",
-        "kubernetesServicePodsProblemInferred": "확인이 필요한 연결 파드가 있습니다 (토폴로지 추론)",
+        "kubernetesServicePodsReadyInferred": "연결 파드가 Ready입니다 (수집 관계 기준)",
+        "kubernetesServicePodsProblemInferred": "확인이 필요한 연결 파드가 있습니다 (수집 관계 기준)",
         "kubernetesPorts": "포트",
         "kubernetesServicePortsAndRouting": "포트 및 라우팅",
         "kubernetesServicePortsUnavailable": "수집된 서비스 포트 정보가 없습니다.",
@@ -1852,7 +1852,7 @@ export const i18nMap = {
         "kubernetesPublishNotReadyAddresses": "NotReady 주소 게시",
         "kubernetesServiceBasicInfo": "서비스 기본 정보",
         "kubernetesServiceName": "서비스 이름",
-        "kubernetesServiceDetailFallback": "실시간 EndpointSlice 상세 정보를 수집하지 못해 확인 가능한 서비스 및 토폴로지 관계 정보를 표시합니다.",
+        "kubernetesServiceDetailFallback": "실시간 EndpointSlice 상세 정보를 수집하지 못해 확인 가능한 서비스 및 수집 관계 정보를 표시합니다.",
         "kubernetesOperationalStatusShort": "운영 상태",
         "kubernetesWorkloadNormalConclusion": "요구된 워크로드 용량이 정상 제공 중입니다",
         "kubernetesWorkloadWarningConclusion": "Replica 또는 파드 가용성 확인이 필요합니다",
@@ -2060,7 +2060,7 @@ export const i18nMap = {
         "kubernetesExternalPathMultipleDescription": "외부 연결 경로 {count}개가 확인되었습니다.",
         "kubernetesExternalPathNoneDescription": "외부에 노출된 연결 경로가 확인되지 않았습니다.",
         "kubernetesCurrentFailureImpact": "현재 장애 영향도",
-        "kubernetesPotentialInfrastructureRisk": "잠재 인프라 위험도",
+        "kubernetesPotentialInfrastructureRisk": "구조적 취약도",
         "kubernetesCurrentFailureImpactTooltip": "NotReady 노드, 비정상 파드, 현재 영향받는 서비스를 기준으로 계산합니다.",
         "kubernetesPotentialInfrastructureRiskTooltip": "운영 상태와 분리하여 평가된 물리 호스트 집중, 스위치 경로 집중, 단일 Control Plane, 단일 외부 연결 경로만으로 계산합니다.",
         "kubernetesImpactLow": "낮음",
@@ -2070,12 +2070,12 @@ export const i18nMap = {
         "kubernetesFocusNodes": "이 클러스터의 노드만 토폴로지에 표시",
         "kubernetesFocusNamespaces": "이 클러스터의 네임스페이스만 토폴로지에 표시",
         "kubernetesFocusPods": "이 클러스터의 파드만 토폴로지에 표시",
-        "kubernetesFocusServices": "이 클러스터의 서비스만 토폴로지에 표시",
+        "kubernetesFocusServices": "이 클러스터의 서비스 목록 열기",
         "kubernetesCurrentUsage": "현재 사용량",
         "kubernetesUsageRate": "사용률",
         "kubernetesAllocatableLabel": "사용 가능 자원",
         "kubernetesRequestRate": "예약률",
-        "kubernetesReservationRateDescription": "Allocatable 대비 Requests 비율입니다. 실시간 사용률이 아닙니다.",
+        "kubernetesReservationRateDescription": "예약률 = Requests / Kubernetes 사용 가능 자원입니다. 실시간 사용률이 아닙니다.",
         "kubernetesReservable": "예약 가능량",
         "kubernetesMemory": "메모리",
         "kubernetesMoldVmAllocation": "Mold VM 리소스",
@@ -2095,7 +2095,7 @@ export const i18nMap = {
         "kubernetesAllocatableCapacityDescription": "Kubernetes가 Pod에 실제로 제공할 수 있는 전체 자원입니다.",
         "kubernetesGroupedEvents": "{count}개 이벤트",
         "kubernetesAdditionalEvents": "+{count}개",
-        "kubernetesRelatedEvents": "관련 {count}개",
+        "kubernetesRelatedEvents": "관련 이벤트 {count}개",
         "kubernetesCollapseEvents": "접기",
         "kubernetesEventInfo": "정보",
         "kubernetesUnknown": "확인 불가",
@@ -2137,7 +2137,7 @@ export const i18nMap = {
         "kubernetesSingleExternalPathRiskDescription": "현재 확인된 외부 연결 경로가 하나뿐입니다.",
         "kubernetesSinglePath": "단일 경로",
         "kubernetesMultiplePaths": "다중 경로",
-        "kubernetesNoExternalExposure": "외부 노출 미확인",
+        "kubernetesNoExternalExposure": "외부 노출 없음",
         "kubernetesAnalysisConfidence": "분석 신뢰도",
         "kubernetesConfidenceLimited": "제한적",
         "kubernetesConfidenceSufficient": "충분",
@@ -2349,7 +2349,7 @@ export const i18nMap = {
         "helpKubernetesTitle": "Kubernetes 수집",
         "helpKubernetesDescription": "Mold에 등록된 Kubernetes 클러스터를 표시하고 수집된 Kubernetes 리소스를 토폴로지에 반영합니다.",
         "helpKubernetesPointCollection": "좌측 Kubernetes 메뉴에서 수집 활성화, 새로고침, 연결 테스트를 실행합니다.",
-        "helpKubernetesPointTopology": "수집된 클러스터, 노드, 네임스페이스, 파드, 서비스, 워크로드는 Kubernetes 계층으로 표시됩니다.",
+        "helpKubernetesPointTopology": "Kubernetes 토폴로지는 클러스터, 노드, 네임스페이스, 워크로드 컨트롤러, 파드와 스토리지 자원만 표시합니다.",
         "helpKubernetesPointPolicy": "수집 정책에서 기본 수집 대상과 secret/configmap 같은 기본 제외 대상을 확인합니다.",
         "helpViewTitle": "보기와 표시 옵션",
         "helpViewDescription": "큰 환경에서도 토폴로지를 읽기 쉽게 보도록 표시 옵션을 조정합니다.",
@@ -3138,28 +3138,46 @@ class DefaultConfig {
                 }
                 attrs.iconClass = `k8s-workload-icon k8s-${workloadType}-icon`
                 attrs.weight = WEIGHT_K8S_WORKLOAD
-                const workloadStatus = node.data?.K8s?.Extra?.Status || {}
-                const desired = Number(node.data?.K8s?.Extra?.Spec?.Replicas ?? workloadStatus.DesiredNumberScheduled ?? 0)
-                const ready = Number(workloadStatus.AvailableReplicas ?? workloadStatus.ReadyReplicas ?? workloadStatus.NumberAvailable ?? workloadStatus.NumberReady ?? workloadStatus.Succeeded ?? 0)
-                const failed = Number(workloadStatus.UnavailableReplicas ?? workloadStatus.NumberUnavailable ?? workloadStatus.NumberMisscheduled ?? workloadStatus.Failed ?? 0)
-                const active = Number(workloadStatus.Active ?? 0)
-                const healthy = failed === 0 && (desired === 0 || ready >= desired || active > 0)
                 const kindLabels: Record<string, string> = { deployment: "Deployment", statefulset: "StatefulSet", daemonset: "DaemonSet", job: "Job", cronjob: "CronJob" }
                 const kindLabel = kindLabels[workloadType] || String(node.data.Type || '')
-                const workloadSummary = healthy
-                    ? kindLabel
-                    : `${kindLabel} · ${translate("kubernetesHealthWarning")}`
-                attrs.name = `${String(node.data.Name || node.id)}\n${workloadSummary}`
+                attrs.name = `${String(node.data.Name || node.id)}\n${kindLabel}`
                 break
             case "replicaset":
                 attrs.href = "assets/icons/replicaset.png"
                 attrs.weight = WEIGHT_K8S_WORKLOAD
                 break
+            case "configmap":
+                attrs.href = "assets/icons/configmap.png"
+                attrs.weight = WEIGHT_K8S_OTHER
+                break
+            case "secret":
+                attrs.href = "assets/icons/secret.png"
+                attrs.weight = WEIGHT_K8S_OTHER
+                break
+            case "endpoints":
+            case "endpointslice":
+                attrs.href = "assets/icons/endpoints.png"
+                attrs.weight = WEIGHT_K8S_OTHER
+                break
             case "ingress":
-                attrs.icon = "\uf0ac"
+                attrs.href = "assets/icons/ingress.png"
                 attrs.weight = WEIGHT_K8S_OTHER
                 break
             case "networkpolicy":
+                attrs.href = "assets/icons/networkpolicy.png"
+                attrs.weight = WEIGHT_K8S_OTHER
+                break
+            case "serviceaccount":
+                attrs.icon = "\uf2bd"
+                attrs.weight = WEIGHT_K8S_OTHER
+                break
+            case "horizontalpodautoscaler":
+            case "hpa":
+                attrs.icon = "\uf201"
+                attrs.weight = WEIGHT_K8S_OTHER
+                break
+            case "poddisruptionbudget":
+            case "pdb":
                 attrs.icon = "\uf3ed"
                 attrs.weight = WEIGHT_K8S_OTHER
                 break
@@ -3176,7 +3194,7 @@ class DefaultConfig {
                 attrs.weight = WEIGHT_K8S_CONTAINER
                 break
             case "service":
-                attrs.icon = "\uf1e0"
+                attrs.href = "assets/icons/service.svg"
                 attrs.weight = WEIGHT_K8S_SERVICE
                 if (node.data?.IsTopologyGroup) attrs.name = String(node.data.Name || attrs.name)
                 break
@@ -3646,16 +3664,19 @@ class DefaultConfig {
     groupSize(node?: Node): number {
         const workloadTypes = new Set(["deployment", "statefulset", "daemonset", "job", "cronjob"])
         const nodeType = String(node?.data?.Type || '').toLowerCase()
-        return node && node.data?.Manager === "k8s" && (workloadTypes.has(nodeType) || nodeType === "service") ? 10 : 3
+        return node && node.data?.Manager === "k8s" && workloadTypes.has(nodeType) ? 10 : 3
     }
 
     groupThreshold(node?: Node): number {
         const workloadTypes = new Set(["deployment", "statefulset", "daemonset", "job", "cronjob"])
         if (!node || node.data?.Manager !== "k8s") return 3
         const nodeType = String(node.data?.Type || '').toLowerCase()
-        // Service nodes remain directly visible for small clusters. Grouping at the
-        // legacy threshold of three created one identically named group per cluster.
-        if (nodeType === "service") return 10
+        if (nodeType === "pod") {
+            // Workload -> Pod keeps the Kubernetes OwnerReference hierarchy
+            // directly. Pod count must never introduce an intermediate group
+            // anywhere in the Kubernetes topology.
+            return 2147483647
+        }
         if (!workloadTypes.has(nodeType)) return 3
         const controllerCount = (node.parent?.children || []).filter(child => child.data?.Manager === "k8s" && workloadTypes.has(String(child.data?.Type || '').toLowerCase())).length
         return controllerCount > 10 ? 0 : 10
@@ -3687,8 +3708,6 @@ class DefaultConfig {
             case "replicationcontroller":
             case "secret":
                 return "app"
-            case "service":
-                return "service"
             default:
                 return nodeType
         }
@@ -3713,6 +3732,10 @@ class DefaultConfig {
                 const kind = kindLabels[String(node.data.Type || '').toLowerCase()] || String(node.data.Type)
                 return withGroupSuffix(kind)
             }
+            if (String(node.data.Type || '').toLowerCase() === 'pod'
+                && workloadTypes.has(String(node.parent?.data?.Type || '').toLowerCase())) {
+                return withGroupSuffix(translate("k8s-pod-group"))
+            }
             var labels = node.data.K8s.Labels
             if (labels) {
                 var app = labels["k8s-app"] || labels["app"]
@@ -3729,28 +3752,18 @@ class DefaultConfig {
                     return withGroupSuffix(translate("k8s-node-group"))
                 case "namespace":
                     return withGroupSuffix(translate("k8s-namespace-group"))
+                case "storageclass":
+                    return withGroupSuffix("StorageClass")
+                case "persistentvolumeclaim":
+                    return withGroupSuffix("PVC")
+                case "persistentvolume":
+                    return withGroupSuffix("PV")
                 case "pod":
                     return withGroupSuffix(translate("k8s-pod-group"))
-                case "service": {
-                    let clusterName = primitiveGroupName(node.data.ClusterName || node.data.clusterName || node.data.K8s?.ClusterName || node.data.Cluster)
-                    let namespaceName = primitiveGroupName(node.data.Namespace || node.data.K8s?.Namespace || node.data.K8s?.Extra?.ObjectMeta?.Namespace)
-                    let parent = node.parent
-                    while (parent && (!clusterName || !namespaceName)) {
-                        const parentType = primitiveGroupName(parent.data?.Type).toLowerCase()
-                        if (!namespaceName && parentType === "namespace") namespaceName = primitiveGroupName(parent.data?.Name)
-                        if (!clusterName && parentType === "cluster") clusterName = primitiveGroupName(parent.data?.Name)
-                        parent = parent.parent
-                    }
-                    const scopeName = clusterName && namespaceName ? `${clusterName} / ${namespaceName}` : namespaceName || clusterName
-                    if (scopeName && count !== undefined) {
-                        return `${scopeName}\n${translate("kubernetesTopologyServices")} · ${count}`
-                    }
-                    return withGroupSuffix(translate("k8s-service-group"))
-                }
                 case "endpoints":
                 case "ingress":
                 case "networkpolicy":
-                    return withGroupSuffix(translate("k8s-service-group"))
+                    return withGroupSuffix(translate("k8s-app-group"))
                 default:
                     return withGroupSuffix(translate("k8s-app-group"))
             }

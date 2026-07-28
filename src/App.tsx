@@ -19,6 +19,7 @@ import * as React from 'react'
 import clsx from 'clsx'
 import Websocket from 'react-websocket'
 import { debounce } from 'throttle-debounce'
+import { resolveKubernetesPodController } from './KubernetesWorkloadOwnership'
 
 import { withStyles } from '@material-ui/core/styles'
 import CssBaseline from '@material-ui/core/CssBaseline'
@@ -74,6 +75,7 @@ import { BulbOutlined, ClusterOutlined, GlobalOutlined } from '@ant-design/icons
 
 import { styles } from './AppStyles'
 import { Topology, Node, NodeAttrs, LinkAttrs, LinkTagState, Link } from './Topology'
+import { isCurrentKubernetesPod } from './KubernetesPodLifecycle'
 import AutoCompleteInput from './AutoComplete'
 import {
   AppState,
@@ -156,20 +158,25 @@ interface RecentViewedNodeItem {
   rawType: string
   layerTag: RecentNodeLayerTag
   iconGlyph?: string
+  iconHref?: string
   iconTone?: string
 }
 
-type KubernetesWorkloadKind = "all" | "deployment" | "statefulset" | "daemonset" | "job" | "cronjob"
-const KUBERNETES_WORKLOAD_KINDS: KubernetesWorkloadKind[] = ["all", "deployment", "statefulset", "daemonset", "job", "cronjob"]
-const KUBERNETES_WORKLOAD_TYPES = new Set<string>(KUBERNETES_WORKLOAD_KINDS.filter(kind => kind !== "all"))
-const KUBERNETES_WORKLOAD_KIND_LABELS: Record<Exclude<KubernetesWorkloadKind, "all">, string> = {
-  deployment: "Deployment",
-  statefulset: "StatefulSet",
-  daemonset: "DaemonSet",
-  job: "Job",
-  cronjob: "CronJob"
-}
-
+const KUBERNETES_WORKLOAD_TYPES = new Set<string>(["deployment", "statefulset", "daemonset", "job", "cronjob"])
+const KUBERNETES_DETAIL_ONLY_TYPES = new Set([
+  "service",
+  "ingress",
+  "endpoints",
+  "endpointslice",
+  "configmap",
+  "secret",
+  "serviceaccount",
+  "networkpolicy",
+  "horizontalpodautoscaler",
+  "hpa",
+  "poddisruptionbudget",
+  "pdb"
+])
 const RECENT_VIEWED_NODES_STORAGE_KEY = "netdive-recent-viewed-nodes"
 const KUBERNETES_MANUALLY_DISABLED_STORAGE_KEY = "netdive-kubernetes-manually-disabled-clusters"
 const INITIAL_TOPOLOGY_LAYER_STORAGE_KEY = "netdive-initial-topology-layer"
@@ -267,7 +274,10 @@ interface State {
   kubernetesTestResults: KubernetesCheckResult[]
   kubernetesLastTests: Record<string, KubernetesLastTest>
   kubernetesCopiedClusterId: string
-  kubernetesWorkloadKind: KubernetesWorkloadKind
+  kubernetesServiceExplorerOpen: boolean
+  kubernetesServiceSearch: string
+  kubernetesResourceExplorerNodeIDs: string[]
+  kubernetesResourceExplorerTitle: string
   moldIntegrationConnected: boolean
   recentViewedNodes: RecentViewedNodeItem[]
   isRecentViewedNodesCollapsed: boolean
@@ -458,7 +468,10 @@ class App extends React.Component<Props, State> {
       kubernetesTestResults: [],
       kubernetesLastTests: {},
       kubernetesCopiedClusterId: "",
-      kubernetesWorkloadKind: "all",
+      kubernetesServiceExplorerOpen: false,
+      kubernetesServiceSearch: "",
+      kubernetesResourceExplorerNodeIDs: [],
+      kubernetesResourceExplorerTitle: "",
       moldIntegrationConnected: false,
       recentViewedNodes: getSavedRecentViewedNodes(),
       isRecentViewedNodesCollapsed: true,
@@ -601,7 +614,11 @@ class App extends React.Component<Props, State> {
       isScreenConfigOpen: false,
       isPreferencesPanelOpen: false,
       isHelpOpen: false,
-      isAboutOpen: false
+      isAboutOpen: false,
+      kubernetesServiceExplorerOpen: false,
+      kubernetesServiceSearch: '',
+      kubernetesResourceExplorerNodeIDs: [],
+      kubernetesResourceExplorerTitle: ''
     })
   }
 
@@ -1471,7 +1488,41 @@ class App extends React.Component<Props, State> {
     let child = this.tc.nodes.get(edge.Child)
 
     if (parent && child) {
-      if (this.config.isHierarchyLink(edge.Metadata)) {
+      const parentType = String(parent.data?.Type || "").toLowerCase()
+      const childType = String(child.data?.Type || "").toLowerCase()
+      const parentManager = String(parent.data?.Manager || "").toLowerCase()
+      const childManager = String(child.data?.Manager || "").toLowerCase()
+      const isKubernetesDetailRelation = (parentManager === "k8s" && KUBERNETES_DETAIL_ONLY_TYPES.has(parentType))
+        || (childManager === "k8s" && KUBERNETES_DETAIL_ONLY_TYPES.has(childType))
+
+      if (isKubernetesDetailRelation) {
+        // Detail-only Kubernetes resources are intentionally excluded from the
+        // execution topology. Their source edges must not create link layers,
+        // routing toggles, or dynamic canvas nodes.
+        return true
+      }
+      const isKubernetesPodPlacement = parentManager === "k8s"
+        && childManager === "k8s"
+        && ((parentType === "node" && childType === "pod") || (parentType === "pod" && childType === "node"))
+      const isKubernetesPodClaimRelation = parentManager === "k8s"
+        && childManager === "k8s"
+        && ((parentType === "pod" && childType === "persistentvolumeclaim")
+          || (parentType === "persistentvolumeclaim" && childType === "pod"))
+
+      if (isKubernetesPodClaimRelation) {
+        // Pod -> PVC is intentionally available only from Pod storage details.
+        // It must not affect the StorageClass -> PVC -> PV topology hierarchy
+        // and must not create an auxiliary canvas edge.
+        return true
+      } else if (isKubernetesPodPlacement) {
+        // Scheduling is an auxiliary Node-Pod relation, never topology
+        // ownership. Keeping it as a Link prevents expanding a Node from
+        // creating Pod or Pod Group children.
+        this.tc.addLink(edge.ID, parent, child, [edge.Metadata.RelationType], {
+          ...edge.Metadata,
+          KubernetesPlacementLink: true
+        })
+      } else if (this.config.isHierarchyLink(edge.Metadata)) {
         this.tc.setParent(child, parent)
       } else {
         this.tc.addLink(edge.ID, parent, child, [edge.Metadata.RelationType], edge.Metadata)
@@ -1484,62 +1535,198 @@ class App extends React.Component<Props, State> {
   private reconcileKubernetesWorkloadHierarchy() {
     if (!this.tc) return
     const nodes = Array.from(this.tc.nodes.values())
-    const workloads = nodes.filter(node => node.data?.Manager === "k8s" && KUBERNETES_WORKLOAD_TYPES.has(String(node.data?.Type || "").toLowerCase()))
-    const namespaces = nodes.filter(node => node.data?.Manager === "k8s" && String(node.data?.Type || "").toLowerCase() === "namespace")
-    const pods = nodes.filter(node => node.data?.Manager === "k8s" && String(node.data?.Type || "").toLowerCase() === "pod")
-    const clusterName = (node: Node) => String(node.data?.ClusterName || node.data?.K8s?.ClusterName || "")
-    const namespaceName = (node: Node) => String(node.data?.K8s?.Namespace || node.data?.Namespace || node.data?.K8s?.Extra?.ObjectMeta?.Namespace || "")
-    const uid = (node: Node) => String(node.data?.K8s?.Extra?.ObjectMeta?.UID || node.id)
-    const owners = (node: Node): any[] => {
-      const value = node.data?.K8s?.Extra?.ObjectMeta?.OwnerReferences
-      return Array.isArray(value) ? value : []
+    const isKubernetes = (node: Node) => String(node.data?.Manager || "").toLowerCase() === "k8s"
+    const clusters = nodes.filter(node => isKubernetes(node) && String(node.data?.Type || "").toLowerCase() === "cluster")
+    const workloads = nodes.filter(node => isKubernetes(node) && KUBERNETES_WORKLOAD_TYPES.has(String(node.data?.Type || "").toLowerCase()))
+    const namespaces = nodes.filter(node => isKubernetes(node) && String(node.data?.Type || "").toLowerCase() === "namespace")
+    const pods = nodes.filter(node => isKubernetes(node) && String(node.data?.Type || "").toLowerCase() === "pod")
+    const kubernetesNodes = nodes.filter(node => isKubernetes(node) && String(node.data?.Type || "").toLowerCase() === "node")
+    const storageClasses = nodes.filter(node => isKubernetes(node) && String(node.data?.Type || "").toLowerCase() === "storageclass")
+    const persistentVolumeClaims = nodes.filter(node => isKubernetes(node) && String(node.data?.Type || "").toLowerCase() === "persistentvolumeclaim")
+    const persistentVolumes = nodes.filter(node => isKubernetes(node) && String(node.data?.Type || "").toLowerCase() === "persistentvolume")
+    const clusterKeys = (node: Node): string[] => {
+      const type = String(node.data?.Type || "").toLowerCase()
+      return [
+        node.data?.ClusterID,
+        node.data?.ClusterId,
+        node.data?.ClusterName,
+        node.data?.K8s?.ClusterID,
+        node.data?.K8s?.ClusterName,
+        type === "cluster" ? node.id : "",
+        type === "cluster" ? node.data?.Name : ""
+      ].map(value => String(value || "").trim().toLowerCase()).filter(Boolean)
     }
-    const labels = (node: Node): Record<string, any> => node.data?.K8s?.Labels || node.data?.K8s?.Extra?.ObjectMeta?.Labels || {}
-    const selector = (node: Node): Record<string, any> => node.data?.K8s?.Extra?.Spec?.Selector?.MatchLabels || node.data?.K8s?.Extra?.Spec?.Selector || {}
-    const sameScope = (left: Node, right: Node) => clusterName(left) === clusterName(right) && namespaceName(left) === namespaceName(right)
-    const selectorMatches = (workload: Node, pod: Node) => {
-      const matchLabels = selector(workload)
-      const podLabels = labels(pod)
-      const keys = Object.keys(matchLabels)
-      return keys.length > 0 && keys.every(key => String(podLabels[key]) === String(matchLabels[key]))
+    const sameCluster = (left: Node, right: Node): boolean => {
+      const leftKeys = clusterKeys(left)
+      const rightKeys = clusterKeys(right)
+      return leftKeys.length > 0 && rightKeys.length > 0 && leftKeys.some(key => rightKeys.indexOf(key) >= 0)
     }
+    const namespaceName = (node: Node) => String(
+      node.data?.K8s?.Namespace
+      || node.data?.K8s?.namespace
+      || node.data?.Namespace
+      || node.data?.namespace
+      || node.data?.K8s?.Extra?.ObjectMeta?.Namespace
+      || node.data?.K8s?.Extra?.ObjectMeta?.namespace
+      || node.data?.K8s?.Extra?.metadata?.namespace
+      || ""
+    )
     const setParent = (child: Node, parent?: Node) => {
       if (parent && child.parent !== parent) this.tc!.setParent(child, parent)
     }
+
+    namespaces.forEach(namespace => {
+      const existingCluster = String(namespace.parent?.data?.Manager || "").toLowerCase() === "k8s"
+        && String(namespace.parent?.data?.Type || "").toLowerCase() === "cluster"
+        ? namespace.parent
+        : undefined
+      const cluster = existingCluster || clusters.find(item => sameCluster(item, namespace))
+      setParent(namespace, cluster || this.tc!.root)
+    })
+
+    kubernetesNodes.forEach(kubernetesNode => {
+      const cluster = clusters.find(item => sameCluster(item, kubernetesNode))
+      setParent(kubernetesNode, cluster || this.tc!.root)
+    })
 
     // Controllers are presented as one flat Namespace layer. Owner chains such as
     // CronJob -> Job and Deployment -> ReplicaSet remain source metadata used for
     // relation calculation instead of becoming extra topology depth.
     workloads.forEach(workload => {
-      const namespace = namespaces.find(item => clusterName(item) === clusterName(workload) && String(item.data?.Name || item.data?.K8s?.Name || "") === namespaceName(workload))
-      setParent(workload, namespace)
+      const existingNamespace = String(workload.parent?.data?.Manager || "").toLowerCase() === "k8s"
+        && String(workload.parent?.data?.Type || "").toLowerCase() === "namespace"
+        ? workload.parent
+        : undefined
+      const namespace = existingNamespace || namespaces.find(item => sameCluster(item, workload) && String(item.data?.Name || item.data?.K8s?.Name || "") === namespaceName(workload))
+      setParent(workload, namespace || this.tc!.root)
     })
 
     pods.forEach(pod => {
-      const namespace = namespaces.find(item => clusterName(item) === clusterName(pod) && String(item.data?.Name || item.data?.K8s?.Name || "") === namespaceName(pod))
-      const podOwners = owners(pod)
-      let workload = workloads.find(item => sameScope(item, pod) && podOwners.some(owner => String(owner?.UID || "") === uid(item)))
-      if (!workload) {
-        const matching = workloads.filter(item => sameScope(item, pod) && selectorMatches(item, pod))
-        matching.sort((left, right) => Object.keys(selector(right)).length - Object.keys(selector(left)).length || String(right.data?.Name || "").length - String(left.data?.Name || "").length)
-        workload = matching[0]
+      const workload = resolveKubernetesPodController(pod, nodes)
+      pod.data.TopologyWorkloadControllerID = workload?.id || ""
+      // A Kubernetes Node is never a hierarchy parent of a Pod. Managed Pods
+      // follow Namespace -> Workload -> Pod. Ownerless Pods remain attached
+      // only to the internal root for data-panel lookup and are excluded from
+      // the visible Workload-based topology.
+      setParent(pod, workload || this.tc!.root)
+    })
+
+    const resourceName = (node: Node): string => String(
+      node.data?.Name
+      || node.data?.name
+      || node.data?.K8s?.Name
+      || node.data?.K8s?.name
+      || node.data?.K8s?.Extra?.ObjectMeta?.Name
+      || node.data?.K8s?.Extra?.ObjectMeta?.name
+      || node.data?.K8s?.Extra?.metadata?.name
+      || ""
+    )
+    const firstStorageValue = (node: Node, paths: string[]): string => {
+      const read = (source: any, path: string): any => path.split(".").reduce((value, key) => value == null ? undefined : value[key], source)
+      for (const path of paths) {
+        const value = read(node.data, path)
+        if (value !== undefined && value !== null && value !== "") return String(value)
       }
-      setParent(pod, workload || namespace)
+      return ""
+    }
+
+    // Storage is a separate branch from the Namespace -> Workload -> Pod
+    // execution hierarchy. The display order favors navigation:
+    // StorageClass -> PVC -> bound PV.
+    storageClasses.forEach(storageClass => {
+      const cluster = clusters.find(item => sameCluster(item, storageClass))
+      setParent(storageClass, cluster || this.tc!.root)
+    })
+    persistentVolumeClaims.forEach(claim => {
+      const storageClassName = firstStorageValue(claim, [
+        "K8s.Extra.Spec.StorageClassName",
+        "K8s.Extra.Spec.storageClassName",
+        "K8s.Extra.spec.storageClassName",
+        "K8s.Spec.StorageClassName",
+        "K8s.Spec.storageClassName",
+        "Spec.StorageClassName",
+        "spec.storageClassName",
+        "StorageClassName",
+        "storageClassName"
+      ])
+      const storageClass = storageClasses.find(item => sameCluster(item, claim) && resourceName(item) === storageClassName)
+      const cluster = clusters.find(item => sameCluster(item, claim))
+      setParent(claim, storageClass || cluster || this.tc!.root)
+    })
+    persistentVolumes.forEach(volume => {
+      const volumeName = resourceName(volume)
+      const claimRefName = firstStorageValue(volume, [
+        "K8s.Extra.Spec.ClaimRef.Name",
+        "K8s.Extra.Spec.ClaimRef.name",
+        "K8s.Extra.spec.claimRef.name",
+        "K8s.Spec.ClaimRef.Name",
+        "K8s.Spec.ClaimRef.name",
+        "K8s.Spec.claimRef.name",
+        "Spec.ClaimRef.Name",
+        "Spec.ClaimRef.name",
+        "spec.claimRef.name",
+        "ClaimRef.Name",
+        "claimRef.name"
+      ])
+      const claimRefNamespace = firstStorageValue(volume, [
+        "K8s.Extra.Spec.ClaimRef.Namespace",
+        "K8s.Extra.Spec.ClaimRef.namespace",
+        "K8s.Extra.spec.claimRef.namespace",
+        "K8s.Spec.ClaimRef.Namespace",
+        "K8s.Spec.ClaimRef.namespace",
+        "K8s.Spec.claimRef.namespace",
+        "Spec.ClaimRef.Namespace",
+        "Spec.ClaimRef.namespace",
+        "spec.claimRef.namespace",
+        "ClaimRef.Namespace",
+        "claimRef.namespace"
+      ])
+      const boundClaim = persistentVolumeClaims.find(claim => {
+        if (!sameCluster(claim, volume)) return false
+        const declaredVolume = firstStorageValue(claim, [
+          "K8s.Extra.Spec.VolumeName",
+          "K8s.Extra.Spec.volumeName",
+          "K8s.Extra.spec.volumeName",
+          "K8s.Spec.VolumeName",
+          "K8s.Spec.volumeName",
+          "Spec.VolumeName",
+          "spec.volumeName",
+          "VolumeName",
+          "volumeName"
+        ])
+        return (!!declaredVolume && declaredVolume === volumeName)
+          || (!!claimRefName && resourceName(claim) === claimRefName
+            && (!claimRefNamespace || namespaceName(claim) === claimRefNamespace))
+      })
+      const storageClassName = firstStorageValue(volume, [
+        "K8s.Extra.Spec.StorageClassName",
+        "K8s.Extra.Spec.storageClassName",
+        "K8s.Extra.spec.storageClassName",
+        "K8s.Spec.StorageClassName",
+        "K8s.Spec.storageClassName",
+        "Spec.StorageClassName",
+        "spec.storageClassName",
+        "StorageClassName",
+        "storageClassName"
+      ])
+      const storageClass = storageClasses.find(item => sameCluster(item, volume) && resourceName(item) === storageClassName)
+      const cluster = clusters.find(item => sameCluster(item, volume))
+      setParent(volume, boundClaim || storageClass || cluster || this.tc!.root)
     })
   }
 
   private kubernetesTopologyNodeVisible(node: Node): boolean {
-    if (node.data?.Manager !== "k8s") return true
+    if (String(node.data?.Manager || "").toLowerCase() !== "k8s") return true
     const type = String(node.data?.Type || "").toLowerCase()
-    if (type === "replicaset" || type === "endpointslice" || type === "endpoints") return false
-    if (!KUBERNETES_WORKLOAD_TYPES.has(type) || this.state.kubernetesWorkloadKind === "all") return true
-    return type === this.state.kubernetesWorkloadKind
-  }
-
-  private setKubernetesWorkloadKind(kind: KubernetesWorkloadKind) {
-    this.setState({ kubernetesWorkloadKind: kind }, () => {
-      if (this.tc) this.tc.renderTree()
-    })
+    if (type === "cluster" || type === "node" || type === "namespace") return true
+    if (KUBERNETES_WORKLOAD_TYPES.has(type)) return true
+    if (type === "pod") {
+      return isCurrentKubernetesPod(node) && !!node.data?.TopologyWorkloadControllerID
+    }
+    if (type === "storageclass" || type === "persistentvolumeclaim" || type === "persistentvolume") return true
+    // Logical/relationship resources remain addressable by resource explorers
+    // and detail panels, but are never rendered in the base topology.
+    return false
   }
 
   updatedEdge(edge: any): boolean {
@@ -1888,13 +2075,6 @@ class App extends React.Component<Props, State> {
         description: translate("connectionDisplayVLayer2Description"),
         badge: translate("connectionDisplayVirtualBadge")
       },
-      service: {
-        key: "Service",
-        name: translate("connectionDisplayServiceName"),
-        summary: translate("connectionDisplayRelatedResourceSummary"),
-        description: translate("connectionDisplayServiceDescription"),
-        badge: "K8s"
-      },
       node: {
         key: "Node",
         name: translate("connectionDisplayNodeName"),
@@ -1921,7 +2101,7 @@ class App extends React.Component<Props, State> {
   private orderedLinkTagsForActiveLayer(): string[] {
     const tags = Array.from(this.state.linkTagStates.keys())
     const preferred = this.isKubernetesLayerActive()
-      ? ["service", "node", "daemonset"]
+      ? ["node", "daemonset"]
       : ["layer2", "vlayer2"]
     const preferredSet = new Set(preferred)
     const infraSet = new Set(["layer2", "vlayer2"])
@@ -1930,12 +2110,9 @@ class App extends React.Component<Props, State> {
       "namespace",
       "node",
       "pod",
-      "service",
       "deployment",
       "daemonset",
-      "statefulset",
-      "ingress",
-      "networkpolicy"
+      "statefulset"
     ])
     const normalizedToTag = new Map(tags.map((tag) => [tag.toLowerCase(), tag]))
     const ordered = preferred
@@ -2475,12 +2652,14 @@ class App extends React.Component<Props, State> {
     if (!this.tc || !this.tc.nodes.has(node.id)) {
       return
     }
+    const attrs = this.nodeAttrs(node)
     const item: RecentViewedNodeItem = {
       id: node.id,
       name: this.nodeDisplayName(node),
       rawType: this.recentNodeRawType(node),
       layerTag: this.nodePrimaryLayerTag(node),
-      iconGlyph: this.nodeAttrs(node).icon,
+      iconGlyph: attrs.icon,
+      iconHref: attrs.href,
       iconTone: this.recentNodeIconTone(node)
     }
     const next = [item]
@@ -2551,7 +2730,9 @@ class App extends React.Component<Props, State> {
             : classes.recentViewedNodeIconNetwork
     return (
       <span className={clsx(classes.recentViewedNodeIcon, toneClass)}>
-        {this.infrastructureIcon(glyph, tone)}
+        {item.iconHref
+          ? <img src={item.iconHref} alt="" />
+          : this.infrastructureIcon(glyph, tone)}
       </span>
     )
   }
@@ -2681,6 +2862,7 @@ class App extends React.Component<Props, State> {
     // detail panel always has a corresponding node on the topology canvas.
     this.tc.setGroupChildrenDisplay([node], true)
     this.tc.selectNode(node.id, true)
+    this.tc.centerNode(node)
     this.syncGroupVisibleNodeIDs()
   }
 
@@ -3354,7 +3536,9 @@ class App extends React.Component<Props, State> {
 
   renderConnectionDisplayMenu(classes: any) {
     const tags = this.orderedLinkTagsForActiveLayer()
-    const visibleTags = tags.filter((tag) => tag !== "ownership" && tag !== "vownership")
+    const visibleTags = tags.filter((tag) =>
+      tag !== "ownership"
+      && tag !== "vownership")
     if (visibleTags.length === 0) {
       return null
     }
@@ -3793,7 +3977,11 @@ class App extends React.Component<Props, State> {
       isScreenConfigOpen: false,
       isPreferencesPanelOpen: false,
       isHelpOpen: false,
-      isAboutOpen: false
+      isAboutOpen: false,
+      kubernetesServiceExplorerOpen: false,
+      kubernetesServiceSearch: '',
+      kubernetesResourceExplorerNodeIDs: [],
+      kubernetesResourceExplorerTitle: ''
     }, () => {
       if (this.state.kubernetesClusters.length === 0) {
         this.refreshKubernetesClusters()
@@ -4030,6 +4218,23 @@ class App extends React.Component<Props, State> {
     if (!this.tc) {
       return
     }
+    const targets = nodeIDs.map(id => this.tc!.nodes.get(id)).filter((node): node is Node => !!node)
+    const relationshipTargets = targets.filter(node => {
+      if (String(node.data?.Manager || '').toLowerCase() !== 'k8s') return false
+      const type = String(node.data?.Type || '').toLowerCase()
+      return type !== 'cluster'
+        && type !== 'namespace'
+        && type !== 'pod'
+        && !KUBERNETES_WORKLOAD_TYPES.has(type)
+    })
+    if (targets.length > 0 && relationshipTargets.length === targets.length) {
+      if (targets.length === 1) {
+        this.openResourceDetailNodeID(targets[0].id)
+      } else {
+        this.openKubernetesResourceExplorer(targets)
+      }
+      return
+    }
     this.syncTopologyNodeTagForNodes(nodeIDs)
     this.tc.focusInfrastructureNodes(nodeIDs, anchorNodeID, revealTargets)
   }
@@ -4081,6 +4286,12 @@ class App extends React.Component<Props, State> {
     return <img src={src} alt={alt} />
   }
 
+  private kubernetesResourceIcon(node: Node) {
+    const attrs = this.config.nodeAttrs(node)
+    if (attrs.href) return <img src={attrs.href} alt="" />
+    return <span className={clsx("fa", "fas", "fa-fw", attrs.iconClass)}>{attrs.icon}</span>
+  }
+
   private renderInfrastructureSummaryCard(classes: any, icon: React.ReactNode, label: string, value: number, nodeIDs: string[] = []) {
     const clickable = nodeIDs.length > 0
     const content = (
@@ -4109,12 +4320,12 @@ class App extends React.Component<Props, State> {
     )
   }
 
-  private renderKubernetesTopologySummaryCard(classes: any, icon: React.ReactNode, label: string, value: number, nodeIDs: string[]) {
+  private renderKubernetesTopologySummaryCard(classes: any, icon: React.ReactNode, label: string, value: number, nodeIDs: string[], onClick?: () => void) {
     return (
       <button
         type="button"
         className={clsx(classes.infrastructureSummaryCard, classes.kubernetesTopologySummaryCard)}
-        onClick={() => this.focusInfrastructureNodeIDs(nodeIDs)}
+        onClick={onClick || (() => this.focusInfrastructureNodeIDs(nodeIDs))}
         disabled={nodeIDs.length === 0}>
         <span className={classes.infrastructureCardIcon}>{icon}</span>
         <span>
@@ -4122,6 +4333,164 @@ class App extends React.Component<Props, State> {
           <strong>{value}</strong>
         </span>
       </button>
+    )
+  }
+
+  openResourceDetailNodeID(nodeID: string) {
+    if (!this.tc || !nodeID || !this.tc.nodes.has(nodeID)) {
+      return
+    }
+    // Relationship resources may intentionally be absent from the topology
+    // hierarchy. Selecting the backing node still opens its existing detail
+    // panel without promoting it into the execution tree.
+    // Keep the source Pod/Workload selected so the detail tabs provide a
+    // natural back path without changing the visible topology.
+    this.tc.selectNode(nodeID, true, true)
+  }
+
+  openKubernetesResourceExplorer(nodes: Node[]) {
+    if (!nodes.length) return
+    const type = String(nodes[0].data?.Type || 'resource')
+    const labelByType: Record<string, string> = {
+      node: translate('kubernetesTopologyNodes'),
+      service: translate('kubernetesTopologyServices'),
+      ingress: 'Ingress',
+      endpointslice: 'EndpointSlice',
+      persistentvolumeclaim: 'PVC',
+      persistentvolume: 'PV',
+      storageclass: 'StorageClass'
+    }
+    this.setState({
+      isKubernetesManagerOpen: true,
+      kubernetesServiceExplorerOpen: true,
+      kubernetesServiceSearch: '',
+      kubernetesResourceExplorerNodeIDs: nodes.map(node => node.id),
+      kubernetesResourceExplorerTitle: labelByType[type.toLowerCase()] || type
+    })
+  }
+
+  private renderKubernetesServiceExplorer(classes: any) {
+    if (!this.tc) {
+      return null
+    }
+    const resourceValue = (data: any, paths: string[]): string => {
+      for (const path of paths) {
+        const value = path.split('.').reduce((source, key) => source == null ? undefined : source[key], data)
+        if (value !== undefined && value !== null && String(value).trim()) return String(value).trim()
+      }
+      return ''
+    }
+    const clusterIdentity = (node: Node): { key: string, label: string } => {
+      let clusterNode: Node | null | undefined = node.parent
+      while (clusterNode && !(String(clusterNode.data?.Manager || '').toLowerCase() === 'k8s'
+        && String(clusterNode.data?.Type || '').toLowerCase() === 'cluster')) {
+        clusterNode = clusterNode.parent
+      }
+      const data = node.data || {}
+      const directID = resourceValue(data, ['ClusterID', 'ClusterId', 'clusterId', 'K8s.ClusterID'])
+      const directName = resourceValue(data, ['ClusterName', 'clusterName', 'K8s.ClusterName', 'Cluster'])
+      const keys = [
+        clusterNode?.id,
+        clusterNode && resourceValue(clusterNode.data || {}, ['Name', 'ClusterName', 'clusterName']),
+        directID,
+        directName
+      ].map(value => String(value || '').trim().toLowerCase()).filter(Boolean)
+      const configured = this.state.kubernetesClusters.find(cluster =>
+        [cluster?.id, cluster?.name]
+          .map(value => String(value || '').trim().toLowerCase())
+          .some(value => !!value && keys.indexOf(value) >= 0))
+      const label = String(configured?.name || directName || clusterNode?.data?.Name || directID || '클러스터 확인 불가')
+      return { key: String(configured?.id || directID || directName || clusterNode?.id || label), label }
+    }
+    const query = this.state.kubernetesServiceSearch.trim().toLowerCase()
+    const configuredIDs = this.state.kubernetesServiceExplorerOpen
+      ? new Set(this.state.kubernetesResourceExplorerNodeIDs)
+      : new Set<string>()
+    const mappedServices = Array.from(this.tc.nodes.values())
+      .filter(node => configuredIDs.size > 0
+        ? configuredIDs.has(node.id)
+        : String(node.data?.Manager || '').toLowerCase() === 'k8s'
+          && String(node.data?.Type || '').toLowerCase() === 'service')
+      .map(node => {
+        const data = node.data || {}
+        const cluster = clusterIdentity(node)
+        const name = resourceValue(data, ['Name', 'K8s.Name', 'K8s.Extra.ObjectMeta.Name', 'K8s.Extra.metadata.name']) || node.id
+        const namespace = resourceValue(data, ['K8s.Namespace', 'Namespace', 'namespace', 'K8s.Extra.ObjectMeta.Namespace', 'K8s.Extra.metadata.namespace'])
+        const kind = String(data.Type || 'Resource')
+        const serviceType = resourceValue(data, ['K8s.Extra.Spec.Type', 'K8s.Spec.Type', 'Spec.Type', 'spec.type', 'ServiceType']) || 'Service'
+        const clusterIP = resourceValue(data, ['K8s.Extra.Spec.ClusterIP', 'K8s.Spec.ClusterIP', 'Spec.ClusterIP', 'spec.clusterIP', 'ClusterIP'])
+        const uid = resourceValue(data, ['K8s.Extra.ObjectMeta.UID', 'K8s.Extra.metadata.uid', 'K8s.UID', 'UID', 'uid'])
+        return {
+          node,
+          name,
+          namespace,
+          kind,
+          serviceType,
+          clusterIP,
+          clusterKey: cluster.key,
+          clusterLabel: cluster.label,
+          identity: `${cluster.key}/${namespace}/${uid || name}`
+        }
+      })
+    const services = Array.from(new Map(mappedServices.map(item => [item.identity, item])).values())
+      .filter(item => !query || [
+        item.kind,
+        item.clusterLabel,
+        item.namespace,
+        item.name,
+        item.serviceType,
+        item.clusterIP
+      ].join('/').toLowerCase().includes(query))
+      .sort((a, b) => `${a.clusterLabel}/${a.namespace}/${a.name}`.localeCompare(`${b.clusterLabel}/${b.namespace}/${b.name}`))
+
+    return (
+      <section className={classes.kubernetesResourceExplorer}>
+        <div className={classes.kubernetesResourceExplorerHeader}>
+          <div>
+            <strong>{this.state.kubernetesResourceExplorerTitle || 'Kubernetes Services'}</strong>
+            <small>실행 계층과 분리된 Kubernetes 관계 리소스를 탐색합니다.</small>
+          </div>
+          {this.state.kubernetesServiceExplorerOpen && <Button size="small" onClick={() => this.setState({
+              kubernetesServiceExplorerOpen: false,
+              kubernetesServiceSearch: '',
+              kubernetesResourceExplorerNodeIDs: [],
+              kubernetesResourceExplorerTitle: ''
+            })}>
+              전체 서비스
+            </Button>}
+        </div>
+        <TextField
+          size="small"
+          variant="outlined"
+          value={this.state.kubernetesServiceSearch}
+          onChange={(event) => this.setState({ kubernetesServiceSearch: event.target.value })}
+          placeholder="서비스 이름, 클러스터 또는 네임스페이스 검색"
+          fullWidth />
+        <div className={classes.kubernetesResourceExplorerList}>
+          {services.length === 0 && <div className={classes.kubernetesEmptyRow}>검색 결과가 없습니다.</div>}
+          {services.map(item => (
+            <button
+              type="button"
+              key={item.node.id}
+              className={classes.kubernetesResourceExplorerItem}
+              onClick={() => this.openResourceDetailNodeID(item.node.id)}>
+              <span className={classes.kubernetesResourceExplorerIcon}>{this.kubernetesResourceIcon(item.node)}</span>
+              <span>
+                <strong title={item.name}>{item.name}</strong>
+                <small className={classes.kubernetesResourceExplorerScope} title={`${item.clusterLabel}${item.namespace ? ` · ${item.namespace}` : ''}`}>
+                  <b>{item.clusterLabel}</b>
+                  {item.namespace && <span>네임스페이스 · {item.namespace}</span>}
+                </small>
+                <small>
+                  {item.serviceType}
+                  {item.clusterIP && <span> · {item.clusterIP === 'None' ? 'Headless' : item.clusterIP}</span>}
+                </small>
+              </span>
+              <ChevronRightIcon fontSize="small" />
+            </button>
+          ))}
+        </div>
+      </section>
     )
   }
 
@@ -4499,21 +4868,21 @@ class App extends React.Component<Props, State> {
           {this.renderKubernetesTopologySummaryCard(classes, this.infrastructureIcon("\uf07b", "network"), translate("kubernetesTopologyNamespaces"), summary.namespaces, summary.namespaceNodeIDs)}
           {this.renderKubernetesTopologySummaryCard(classes, this.infrastructureIcon("\uf5fd", "system-vm"), translate("kubernetesTopologyWorkloadControllers"), summary.workloads, summary.workloadNodeIDs)}
           {this.renderKubernetesTopologySummaryCard(classes, this.infrastructureIcon("\uf1b3", "network"), translate("kubernetesTopologyPods"), summary.pods, summary.podNodeIDs)}
-          {this.renderKubernetesTopologySummaryCard(classes, this.infrastructureIcon("\uf1e0", "network"), translate("kubernetesTopologyServices"), summary.services, summary.serviceNodeIDs)}
+          {this.renderKubernetesTopologySummaryCard(
+            classes,
+            this.topologyImageIcon("assets/icons/service.svg", "Service"),
+            translate("kubernetesTopologyServices"),
+            summary.services,
+            summary.serviceNodeIDs,
+            () => this.setState({
+              kubernetesServiceExplorerOpen: true,
+              kubernetesServiceSearch: '',
+              kubernetesResourceExplorerNodeIDs: summary.serviceNodeIDs,
+              kubernetesResourceExplorerTitle: 'Kubernetes Services'
+            })
+          )}
         </div>
-        <div className={classes.kubernetesWorkloadFilter}>
-          <div>
-            <strong>{translate("kubernetesWorkloadTypeFilter")}</strong>
-            <small>{translate("kubernetesWorkloadTypeFilterDescription")}</small>
-          </div>
-          <ToggleButtonGroup
-            value={this.state.kubernetesWorkloadKind}
-            exclusive
-            onChange={(event: React.MouseEvent<HTMLElement>, kind: KubernetesWorkloadKind | null) => kind && this.setKubernetesWorkloadKind(kind)}
-            aria-label={translate("kubernetesWorkloadTypeFilter")}>
-            {KUBERNETES_WORKLOAD_KINDS.map(kind => <ToggleButton value={kind} key={kind}>{kind === "all" ? translate("all") : KUBERNETES_WORKLOAD_KIND_LABELS[kind]}</ToggleButton>)}
-          </ToggleButtonGroup>
-        </div>
+        {this.renderKubernetesServiceExplorer(classes)}
         <div className={classes.kubernetesTableHeader}>
           <div className={classes.kubernetesSectionTitleArea}>
             <div className={classes.kubernetesSectionTitleRow}>

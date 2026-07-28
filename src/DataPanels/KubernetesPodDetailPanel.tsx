@@ -9,7 +9,8 @@ import { HistoryOutlined } from '@ant-design/icons'
 import { translate } from '../Config'
 import { session } from '../Store'
 import { Node } from '../Topology'
-import { collectKubernetesEventGroups, ConnectedResourcesSection, DetailBadge, DetailKeyValueList, DetailLayerIcon, DetailSection, KubernetesRecentEvents } from './common'
+import { kubernetesLabelValue, matchesKubernetesSelector } from '../KubernetesSelectors'
+import { classifyKubernetesPod, collectKubernetesEventGroups, ConnectedResourceListSection, DetailBadge, DetailKeyValueList, DetailSection, KubernetesRecentEvents, KubernetesStateSeparation } from './common'
 import './KubernetesNodeDetailPanel.css'
 import './KubernetesPodDetailPanel.css'
 
@@ -51,13 +52,13 @@ const containerState = (status: any): { state: string, reason: string } => {
 }
 const POD_EVENT_TONES = {
     failedscheduling: 'warning' as const,
-    crashloopbackoff: 'danger' as const,
+    crashloopbackoff: 'warning' as const,
     backoff: 'warning' as const,
-    oomkilled: 'danger' as const,
+    oomkilled: 'warning' as const,
     failedmount: 'warning' as const,
     imagepullbackoff: 'warning' as const,
     errimagepull: 'warning' as const,
-    evicted: 'danger' as const,
+    evicted: 'warning' as const,
     unhealthy: 'warning' as const,
     killing: 'warning' as const
 }
@@ -140,9 +141,57 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
             if (!this.sameCluster(node) || String(data.Manager || '').toLowerCase() !== 'k8s' || String(data.Type || '').toLowerCase() !== 'service') return false
             if (firstValue(data, ['K8s.Namespace', 'Namespace', 'K8s.Extra.ObjectMeta.Namespace']) !== namespace) return false
             const selector = firstRaw(data, ['K8s.Extra.Spec.Selector', 'K8s.Selector', 'Selector'])
-            if (!selector || typeof selector !== 'object' || !Object.keys(selector).length) return false
-            return Object.keys(selector).every(key => String(labels[key]) === String(selector[key]))
+            return matchesKubernetesSelector(selector, labels)
         }).map(node => ({ uid: node.id, name: firstValue(node.data || {}, ['Name', 'K8s.Name']) || node.id, kind: 'Service' }))
+    }
+
+    private resourceName(node: Node): string {
+        return firstValue(node.data || {}, ['Name', 'K8s.Name', 'K8s.Extra.ObjectMeta.Name']) || node.id
+    }
+
+    private resourceNamespace(node: Node): string {
+        return firstValue(node.data || {}, ['K8s.Namespace', 'Namespace', 'K8s.Extra.ObjectMeta.Namespace'])
+    }
+
+    private ingressServiceNames(node: Node): Set<string> {
+        const names = new Set<string>()
+        const spec = firstRaw(node.data || {}, ['K8s.Extra.Spec', 'K8s.Spec', 'Spec']) || {}
+        const addBackend = (backend: any) => {
+            const name = backend?.Service?.Name
+                || backend?.service?.name
+                || backend?.ServiceName
+                || backend?.serviceName
+            if (name) names.add(String(name))
+        }
+        addBackend(spec.DefaultBackend || spec.defaultBackend)
+        const rules = spec.Rules || spec.rules
+        if (Array.isArray(rules)) {
+            rules.forEach((rule: any) => {
+                const paths = rule?.HTTP?.Paths || rule?.http?.paths
+                if (Array.isArray(paths)) paths.forEach((path: any) => addBackend(path?.Backend || path?.backend))
+            })
+        }
+        return names
+    }
+
+    private endpointSliceServiceName(node: Node): string {
+        const labels = firstRaw(node.data || {}, ['K8s.Labels', 'K8s.Extra.ObjectMeta.Labels', 'Labels']) || {}
+        return String(
+            kubernetesLabelValue(labels, 'kubernetes.io/service-name')
+            || kubernetesLabelValue(labels, 'k8s.io/service-name')
+            || ''
+        )
+    }
+
+    private endpointSliceTargetsPod(node: Node, podUid: string, podName: string): boolean {
+        const endpoints = firstRaw(node.data || {}, ['K8s.Extra.Endpoints', 'K8s.Endpoints', 'Endpoints'])
+        if (!Array.isArray(endpoints)) return false
+        return endpoints.some((endpoint: any) => {
+            const target = endpoint?.TargetRef || endpoint?.targetRef
+            const uid = String(target?.UID || target?.uid || '')
+            const name = String(target?.Name || target?.name || '')
+            return (!!podUid && uid === podUid) || (!!podName && name === podName)
+        })
     }
 
     private detailFromTopology(): any {
@@ -204,6 +253,8 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
             name: firstValue(data, ['Name', 'K8s.Name']) || objectMeta.Name || this.props.node.id,
             namespace,
             phase: status.Phase || firstValue(data, ['K8s.Status', 'Status']),
+            reason: status.Reason || firstValue(data, ['K8s.Extra.Status.Reason', 'Reason']),
+            statusMessage: status.Message || firstValue(data, ['K8s.Extra.Status.Message', 'Message']),
             podIp: status.PodIP || firstValue(data, ['K8s.IP', 'IP']),
             hostIp: status.HostIP,
             nodeName,
@@ -233,9 +284,9 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
     }
 
     private resourceForReference(reference: any): Node | undefined {
-        const uid = reference?.uid
-        const kind = String(reference?.kind || '').toLowerCase()
-        const name = reference?.name
+        const uid = reference?.uid || reference?.UID
+        const kind = String(reference?.kind || reference?.Kind || '').toLowerCase()
+        const name = typeof reference === 'string' ? reference : reference?.name || reference?.Name
         const resource = this.topologyNodes().find(node => {
             if (!this.sameCluster(node)) return false
             if (uid && (node.id === uid || firstValue(node.data || {}, ['K8s.Extra.ObjectMeta.UID', 'K8s.UID', 'UID']) === uid)) return true
@@ -251,16 +302,91 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
         return undefined
     }
 
-    private focusResource(reference: any) {
+    private openResource(reference: any) {
         const resource = this.resourceForReference(reference)
         const app = (window as any).App
-        if (resource && app && typeof app.focusInfrastructureNodeIDs === 'function') app.focusInfrastructureNodeIDs([resource.id], this.props.node.id, true)
+        if (resource && app && typeof app.openResourceDetailNodeID === 'function') app.openResourceDetailNodeID(resource.id)
     }
 
-    private focusResources(resources: Node[]) {
+    private openResourceNode(resource: Node) {
         const app = (window as any).App
-        const ids = resources.map(resource => resource.id)
-        if (ids.length && app && typeof app.focusInfrastructureNodeIDs === 'function') app.focusInfrastructureNodeIDs(ids, this.props.node.id, true)
+        if (app && typeof app.openResourceDetailNodeID === 'function') app.openResourceDetailNodeID(resource.id)
+    }
+
+    private scopedResources(types: string[], namespace?: string): Node[] {
+        const allowed = new Set(types.map(type => type.toLowerCase()))
+        return this.topologyNodes().filter(node => {
+            if (!this.sameCluster(node) || !allowed.has(String(node.data?.Type || '').toLowerCase())) return false
+            const resourceNamespace = this.resourceNamespace(node)
+            return !namespace || !resourceNamespace || resourceNamespace === namespace
+        })
+    }
+
+    private resourceByName(types: string[], name: string, namespace?: string): Node | undefined {
+        if (!name) return undefined
+        return this.scopedResources(types, namespace).find(node => this.resourceName(node) === name)
+    }
+
+    private podSpec(): any {
+        return firstRaw(this.props.node.data || {}, ['K8s.Extra.Spec', 'K8s.Spec', 'Spec']) || {}
+    }
+
+    private referencedConfiguration(spec: any, namespace: string, type: 'configmap' | 'secret'): Node[] {
+        const names = new Set<string>()
+        const add = (value: any) => { if (value) names.add(String(value)) }
+        const volumes = Array.isArray(spec?.Volumes) ? spec.Volumes : Array.isArray(spec?.volumes) ? spec.volumes : []
+        volumes.forEach((volume: any) => {
+            const source = volume?.VolumeSource || volume
+            if (type === 'configmap') add(source?.ConfigMap?.LocalObjectReference?.Name || source?.ConfigMap?.Name || source?.configMap?.name)
+            else add(source?.Secret?.SecretName || source?.Secret?.Name || source?.secret?.secretName)
+        })
+        const containers = ([] as any[]).concat(spec?.InitContainers || spec?.initContainers || [], spec?.Containers || spec?.containers || [])
+        containers.forEach(container => {
+            ;(container?.EnvFrom || container?.envFrom || []).forEach((source: any) => {
+                if (type === 'configmap') add(source?.ConfigMapRef?.LocalObjectReference?.Name || source?.ConfigMapRef?.Name || source?.configMapRef?.name)
+                else add(source?.SecretRef?.LocalObjectReference?.Name || source?.SecretRef?.Name || source?.secretRef?.name)
+            })
+            ;(container?.Env || container?.env || []).forEach((env: any) => {
+                const valueFrom = env?.ValueFrom || env?.valueFrom
+                if (type === 'configmap') add(valueFrom?.ConfigMapKeyRef?.LocalObjectReference?.Name || valueFrom?.ConfigMapKeyRef?.Name || valueFrom?.configMapKeyRef?.name)
+                else add(valueFrom?.SecretKeyRef?.LocalObjectReference?.Name || valueFrom?.SecretKeyRef?.Name || valueFrom?.secretKeyRef?.name)
+            })
+        })
+        return this.scopedResources([type], namespace).filter(node => names.has(this.resourceName(node)))
+    }
+
+    private selectorMatches(selector: any, labels: any): boolean {
+        return matchesKubernetesSelector(selector, labels)
+    }
+
+    private boundStorageResources(pvcs: Node[]): { pvs: Node[], storageClasses: Node[] } {
+        const pvNames = new Set<string>()
+        const storageClassNames = new Set<string>()
+        pvcs.forEach(pvc => {
+            const data = pvc.data || {}
+            const volumeName = firstValue(data, ['K8s.Extra.Spec.VolumeName', 'K8s.Spec.VolumeName', 'Spec.VolumeName'])
+            const storageClassName = firstValue(data, ['K8s.Extra.Spec.StorageClassName', 'K8s.Spec.StorageClassName', 'Spec.StorageClassName'])
+            if (volumeName) pvNames.add(volumeName)
+            if (storageClassName) storageClassNames.add(storageClassName)
+        })
+        const pvs = this.scopedResources(['persistentvolume']).filter(node => pvNames.has(this.resourceName(node)))
+        pvs.forEach(pv => {
+            const storageClassName = firstValue(pv.data || {}, ['K8s.Extra.Spec.StorageClassName', 'K8s.Spec.StorageClassName', 'Spec.StorageClassName'])
+            if (storageClassName) storageClassNames.add(storageClassName)
+        })
+        const storageClasses = this.scopedResources(['storageclass']).filter(node => storageClassNames.has(this.resourceName(node)))
+        return { pvs, storageClasses }
+    }
+
+    private connectedListItems(resources: Node[], kind: string) {
+        return resources.map(resource => ({
+            key: resource.id,
+            name: this.resourceName(resource),
+            description: this.resourceNamespace(resource) || firstValue(resource.data || {}, ['K8s.Extra.Status.Phase', 'K8s.Status', 'Status']) || undefined,
+            icon: this.topologyIcon(resource),
+            tooltip: `${kind} · ${this.resourceName(resource)}`,
+            onClick: () => this.openResourceNode(resource)
+        }))
     }
 
     private readyCondition(detail: any): boolean | undefined {
@@ -319,6 +445,8 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
     render() {
         const detail = this.state.detail || {}
         const phase = String(detail.phase || '').toLowerCase()
+        const reason = String(detail.reason || '').toLowerCase()
+        const evicted = phase === 'failed' && reason === 'evicted'
         const ready = this.readyCondition(detail)
         const containers = Array.isArray(detail.containers) ? detail.containers : []
         const readyContainers = containers.filter((container: any) => container.ready).length
@@ -326,34 +454,71 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
             const completed = phase === 'succeeded' && container.state === 'TERMINATED' && (!container.terminatedReason || container.terminatedReason === 'Completed')
             return !completed && (container.state !== 'RUNNING' || !container.ready || container.waitingReason)
         })
-        const critical = phase === 'failed' || problemContainers.some((container: any) => container.terminatedReason === 'OOMKilled')
+        const critical = (!evicted && phase === 'failed') || problemContainers.some((container: any) => container.terminatedReason === 'OOMKilled')
         const warning = phase === 'pending' || ready === false || problemContainers.length > 0
         const known = !!phase
-        const statusTone = critical ? 'danger' : warning ? 'warning' : known ? 'success' : 'default'
-        const statusLabel = critical ? translate('kubernetesHealthCritical') : warning ? translate('kubernetesHealthWarning') : known ? translate('kubernetesHealthNormal') : translate('kubernetesHealthUnknown')
-        const conclusion = critical
+        const statusTone = evicted ? 'default' : critical ? 'danger' : warning ? 'warning' : known ? 'success' : 'default'
+        const statusLabel = evicted ? '종료됨' : critical ? translate('kubernetesHealthCritical') : warning ? translate('kubernetesHealthWarning') : known ? translate('kubernetesHealthNormal') : translate('kubernetesHealthUnknown')
+        const conclusion = evicted
+            ? 'Evicted로 종료된 파드입니다. 현재 영향은 대체 파드 상태를 기준으로 확인합니다.'
+            : critical
             ? translate('kubernetesPodCriticalConclusion')
             : warning ? translate('kubernetesPodWarningConclusion')
             : known ? translate('kubernetesPodNoCurrentImpact') : translate('kubernetesPodStatusUnavailable')
         const selectedServices = Array.isArray(detail.selectedByServices) ? detail.selectedByServices : []
-        const ownerTarget = detail.ownerName ? this.resourceForReference({ uid: detail.ownerUid, name: detail.ownerName, kind: detail.ownerKind }) : undefined
-        const nodeTarget = detail.node ? this.resourceForReference(detail.node) : undefined
-        const serviceTargets = selectedServices.map((reference: any) => this.resourceForReference(reference)).filter((resource: Node | undefined): resource is Node => !!resource)
+        const replacementPods = evicted ? this.topologyNodes().filter(node => {
+            if (node.id === this.props.node.id || !this.sameCluster(node) || String(node.data?.Type || '').toLowerCase() !== 'pod') return false
+            if (firstValue(node.data || {}, ['K8s.Namespace', 'Namespace', 'K8s.Extra.ObjectMeta.Namespace']) !== detail.namespace) return false
+            const owners = firstRaw(node.data || {}, ['K8s.Extra.ObjectMeta.OwnerReferences'])
+            return Array.isArray(owners) && owners.some(owner => (detail.ownerUid && owner?.UID === detail.ownerUid) || (detail.ownerName && owner?.Name === detail.ownerName))
+        }).filter(node => {
+            const status = classifyKubernetesPod(node)
+            return status.phase === 'running' && !status.activeProblem
+        }) : []
+        const currentImpact = selectedServices.length > 0 && replacementPods.length === 0
+        const serviceTargets = selectedServices.map((reference: any) => this.resourceForReference(
+            typeof reference === 'string' ? { name: reference, kind: 'service' } : reference
+        )).filter((resource: Node | undefined): resource is Node => !!resource)
         const pvcNames = new Set<string>(Array.isArray(detail.pvcReferences) ? detail.pvcReferences.map(String) : [])
         const pvcTargets = this.topologyNodes().filter(node => this.sameCluster(node)
             && String(node.data?.Type || '').toLowerCase() === 'persistentvolumeclaim'
             && firstValue(node.data || {}, ['K8s.Namespace', 'Namespace', 'K8s.Extra.ObjectMeta.Namespace']) === detail.namespace
             && pvcNames.has(firstValue(node.data || {}, ['Name', 'K8s.Name', 'K8s.Extra.ObjectMeta.Name'])))
-        const pvNames = new Set<string>(pvcTargets.map(pvc => firstValue(pvc.data || {}, ['K8s.VolumeName', 'VolumeName', 'K8s.Extra.Spec.VolumeName'])).filter(Boolean))
-        const pvTargets = this.topologyNodes().filter(node => this.sameCluster(node)
-            && String(node.data?.Type || '').toLowerCase() === 'persistentvolume'
-            && pvNames.has(firstValue(node.data || {}, ['Name', 'K8s.Name', 'K8s.Extra.ObjectMeta.Name'])))
-        const storageClassNames = new Set<string>(([] as Node[]).concat(pvcTargets, pvTargets)
-            .map(resource => firstValue(resource.data || {}, ['K8s.StorageClassName', 'StorageClassName', 'K8s.Extra.Spec.StorageClassName']))
-            .filter(Boolean))
-        const storageClassTargets = this.topologyNodes().filter(node => this.sameCluster(node)
-            && String(node.data?.Type || '').toLowerCase() === 'storageclass'
-            && storageClassNames.has(firstValue(node.data || {}, ['Name', 'K8s.Name', 'K8s.Extra.ObjectMeta.Name'])))
+        const spec = this.podSpec()
+        const podVolumes = Array.isArray(spec.Volumes) ? spec.Volumes : Array.isArray(spec.volumes) ? spec.volumes : []
+        const podContainers = ([] as any[]).concat(spec.InitContainers || spec.initContainers || [], spec.Containers || spec.containers || [])
+        const volumeDetailRows = podVolumes.map((volume: any) => {
+            const volumeName = String(volume.Name || volume.name || '')
+            const source = volume.VolumeSource || volume
+            const claimName = String(source?.PersistentVolumeClaim?.ClaimName || source?.persistentVolumeClaim?.claimName || '')
+            const claim = claimName ? pvcTargets.find(item => this.resourceName(item) === claimName) : undefined
+            const mountPaths = podContainers.reduce((paths: string[], container: any) => {
+                const mounts = container?.VolumeMounts || container?.volumeMounts || []
+                mounts.forEach((mount: any) => {
+                    if (String(mount.Name || mount.name || '') === volumeName) {
+                        const path = String(mount.MountPath || mount.mountPath || '')
+                        if (path) paths.push(path)
+                    }
+                })
+                return paths
+            }, [])
+            const storageClass = claim ? firstValue(claim.data || {}, ['K8s.Extra.Spec.StorageClassName', 'K8s.Spec.StorageClassName', 'Spec.StorageClassName']) : ''
+            const boundPV = claim ? firstValue(claim.data || {}, ['K8s.Extra.Spec.VolumeName', 'K8s.Spec.VolumeName', 'Spec.VolumeName']) : ''
+            const accessModes = claim ? firstValue(claim.data || {}, ['K8s.Extra.Spec.AccessModes', 'K8s.Spec.AccessModes', 'Spec.AccessModes']) : ''
+            const capacity = claim ? firstValue(claim.data || {}, ['K8s.Extra.Status.Capacity.storage', 'K8s.Status.Capacity.storage', 'K8s.Extra.Spec.Resources.Requests.storage']) : ''
+            const phase = claim ? firstValue(claim.data || {}, ['K8s.Extra.Status.Phase', 'K8s.Status', 'Status']) : ''
+            return {
+                label: volumeName || translate('kubernetesVolumes'),
+                value: [
+                    claimName ? `PVC ${claimName}` : '',
+                    mountPaths.length ? `Mount ${Array.from(new Set(mountPaths)).join(', ')}` : '',
+                    accessModes ? `Access ${accessModes}` : '',
+                    storageClass ? `StorageClass ${storageClass}` : '',
+                    boundPV ? `PV ${boundPV}` : '',
+                    [capacity, phase].filter(Boolean).join(' · ')
+                ].filter(Boolean).join(' · ') || translate('kubernetesInformationUnavailable')
+            }
+        })
         const storageRows = [
             { label: translate('kubernetesVolumes'), value: Array.isArray(detail.volumes) && detail.volumes.length ? detail.volumes.join(', ') : translate('kubernetesNone'), textValue: Array.isArray(detail.volumes) ? detail.volumes.join(', ') : '' },
             { label: 'PVC', value: Array.isArray(detail.pvcReferences) && detail.pvcReferences.length ? detail.pvcReferences.join(', ') : translate('kubernetesNone') },
@@ -384,6 +549,12 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
                     <div><span>{translate('kubernetesRestarts')}</span><strong className={Number(detail.restartCount || 0) > 0 ? 'is-warning' : ''}>{optionalNumber(detail.restartCount)}</strong></div>
                     <div><span>{translate('kubernetesConnectedServices')}</span><strong>{optionalNumber(detail.selectedByServices === undefined ? undefined : selectedServices.length)}</strong></div>
                 </div>
+                {evicted && <KubernetesStateSeparation items={[
+                    { key: 'terminated', label: '종료 상태', value: '종료됨', tone: 'history', tooltip: '이 파드는 실행 중인 객체가 아닙니다.' },
+                    { key: 'reason', label: '원본 상태', value: 'Evicted', tone: 'history', tooltip: detail.statusMessage || 'Kubernetes 원본 종료 사유입니다.' },
+                    { key: 'impact', label: '현재 영향 여부', value: currentImpact ? '확인 필요' : '없음', tone: currentImpact ? 'danger' : 'success', tooltip: '연결 서비스와 대체 파드의 현재 상태를 기준으로 판단합니다.' },
+                    { key: 'replacement', label: '대체 파드 상태', value: replacementPods.length ? `Running ${replacementPods.length}` : '확인되지 않음', tone: replacementPods.length ? 'success' : 'default' }
+                ]} />}
             </DetailSection>
 
             <DetailSection icon={<ViewModuleIcon />} title={translate('kubernetesContainerStatus')}>
@@ -397,35 +568,20 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
                 <DetailKeyValueList rows={[{ label: 'QoS Class', value: detail.qosClass || translate('kubernetesNotCollected') }]} />
             </DetailSection>
             <DetailSection icon={<StorageIcon />} title={translate('kubernetesPodVolumesAndNetwork')}>
-                <DetailKeyValueList rows={storageRows.slice(0, 2)} />
+                <DetailKeyValueList rows={volumeDetailRows.length ? volumeDetailRows : storageRows.slice(0, 2)} />
             </DetailSection>
-            <ConnectedResourcesSection
+            <ConnectedResourceListSection
                 icon={<AccountTreeIcon />}
                 title={translate('hostConnectedResources')}
                 emptyText={translate('hostNoConnectedResources')}
                 groups={[
                     {
-                        key: 'kubernetes',
-                        title: translate('kubernetesConnectedResourceGroup'),
-                        icon: <img src="assets/icons/k8s.png" alt="" />,
-                        items: [
-                        ...(ownerTarget ? [{ key: 'owner', label: translate('kubernetesOwner'), count: 1, icon: <DetailLayerIcon glyph={'\uf5fd'} />, iconTone: 'kubernetes' as const, onClick: () => this.focusResources([ownerTarget]), tooltip: detail.ownerName }] : []),
-                        ...(serviceTargets.length ? [{ key: 'services', label: translate('kubernetesTopologyServices'), count: serviceTargets.length, icon: this.topologyIcon(serviceTargets[0]), iconTone: 'kubernetes' as const, onClick: () => this.focusResources(serviceTargets) }] : []),
-                        ...(nodeTarget ? [{ key: 'node', label: translate('kubernetesTopologyNodes'), count: 1, icon: this.topologyIcon(nodeTarget), iconTone: 'kubernetes' as const, onClick: () => this.focusResources([nodeTarget]), tooltip: detail.nodeName }] : [])
-                        ]
-                    },
-                    ...((pvcTargets.length || pvTargets.length || storageClassTargets.length) ? [{
-                        key: 'storage',
-                        title: '스토리지',
-                        icon: <StorageIcon />,
-                        items: [
-                            ...(pvcTargets.length ? [{ key: 'pvcs', label: 'PersistentVolumeClaim', count: pvcTargets.length, icon: this.topologyIcon(pvcTargets[0]), iconTone: 'kubernetes' as const, onClick: () => this.focusResources(pvcTargets) }] : []),
-                            ...(pvTargets.length ? [{ key: 'pvs', label: 'PersistentVolume', count: pvTargets.length, icon: this.topologyIcon(pvTargets[0]), iconTone: 'kubernetes' as const, onClick: () => this.focusResources(pvTargets) }] : []),
-                            ...(storageClassTargets.length ? [{ key: 'storage-classes', label: 'StorageClass', count: storageClassTargets.length, icon: this.topologyIcon(storageClassTargets[0]), iconTone: 'kubernetes' as const, onClick: () => this.focusResources(storageClassTargets) }] : [])
-                        ]
-                    }] : [])
+                        key: 'services',
+                        title: 'Service',
+                        items: this.connectedListItems(serviceTargets, 'Service')
+                    }
                 ]} />
-            {recentEventGroups.length > 0 && <DetailSection icon={<HistoryOutlined />} title={translate('kubernetesPodRecentEvents')}><KubernetesRecentEvents groups={recentEventGroups} /></DetailSection>}
+            {recentEventGroups.length > 0 && <DetailSection icon={<HistoryOutlined />} title={translate('kubernetesPodRecentEvents')}><KubernetesRecentEvents groups={recentEventGroups} onResourceClick={group => this.openResource({ uid: group.resourceUid, name: group.resourceName, kind: group.resourceKind })} /></DetailSection>}
 
             {this.state.error && <div className="netdive-k8s-node-detail__notice"><InfoIcon /><span>{translate('kubernetesPodDetailFallback')}</span></div>}
             {!this.cluster() && <div className="netdive-k8s-node-detail__notice"><InfoIcon /><span>{translate('kubernetesClusterMoldMissing')}</span></div>}

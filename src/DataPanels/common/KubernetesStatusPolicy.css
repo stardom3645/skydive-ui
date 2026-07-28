@@ -1,0 +1,30 @@
+.netdive-k8s-state-separation {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+    margin: 0 14px 10px;
+    border-top: 1px solid #eef1f5;
+    border-bottom: 1px solid #eef1f5;
+}
+
+.netdive-k8s-state-separation > div {
+    display: flex;
+    min-width: 0;
+    min-height: 44px;
+    box-sizing: border-box;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 7px 8px;
+    border-right: 1px solid #eef1f5;
+    text-align: center;
+}
+
+.netdive-k8s-state-separation > div:last-child { border-right: 0; }
+.netdive-k8s-state-separation span { color: #667085; font-size: 10.5px; line-height: 14px; }
+.netdive-k8s-state-separation strong { color: #475467; font-size: 12px; font-variant-numeric: tabular-nums; font-weight: 600; line-height: 16px; }
+.netdive-k8s-state-separation > div.is-danger strong { color: #b42318; }
+.netdive-k8s-state-separation > div.is-warning strong { color: #b54708; }
+.netdive-k8s-state-separation > div.is-history strong { color: #667085; font-weight: 500; }
+.netdive-k8s-state-separation > div.is-success strong { color: #067647; }
+.netdive-k8s-state-separation > div.is-default strong { color: #98a2b3; }

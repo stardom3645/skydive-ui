@@ -24,6 +24,7 @@ import { line, linkVertical, curveCatmullRom, curveCardinalClosed } from 'd3-sha
 import { } from 'd3-transition'
 import { zoom, zoomIdentity } from 'd3-zoom'
 import ResizeObserver from 'react-resize-observer'
+import { aggregateKubernetesPods, isCurrentKubernetesPod, isKubernetesPod, KubernetesPodAggregate } from './KubernetesPodLifecycle'
 
 const flextree = require('d3-flextree').flextree;
 
@@ -52,6 +53,11 @@ const topologySiblingCardGap = 36
 const topologyCardHeight = 92
 // 2줄 노드 이름의 줄 간격입니다.
 const topologyCardTitleLineGap = 20
+// 토폴로지 카드에 직접 노출하는 상태 배지 수입니다. 초과 상태는 +N으로 요약합니다.
+const topologyVisibleStatusBadgeLimit = 2
+// 상태 배지의 실제 렌더링 간격과 제목 사이의 안전 여백입니다.
+const topologyStatusBadgeStep = 34
+const topologyStatusBadgeSingleReserveWidth = 40
 // 컨테이너형 그룹 UI의 전체 너비입니다.
 const groupContainerWidth = 620
 // 컨테이너형 그룹 UI의 헤더 높이입니다.
@@ -458,7 +464,6 @@ class NodeWrapper {
             const isKubernetesWorkload = ["deployment", "statefulset", "daemonset", "job", "cronjob"].indexOf(kubernetesType) >= 0
             const isKubernetesDenseLayer = isKubernetesWorkload
                 || kubernetesType === "pod"
-                || kubernetesType === "service"
                 || kubernetesType === "persistentvolume"
                 || kubernetesType === "persistentvolumeclaim"
                 || kubernetesType === "storageclass"
@@ -776,7 +781,9 @@ export class Topology extends React.Component<Props, {}> {
             if (!group.wrapped.state.expanded || !group.wrapped.state.groupFullSize) {
                 return
             }
-            group.children.forEach((child) => ids.add(child.wrapped.id))
+            group.wrapped.children
+                .filter(child => !isKubernetesPod(child) || isCurrentKubernetesPod(child))
+                .forEach((child) => ids.add(child.id))
         })
         return ids
     }
@@ -1226,7 +1233,9 @@ export class Topology extends React.Component<Props, {}> {
     updateLink(id: string, data: any): boolean {
         var link = this.links.get(id)
         if (link) {
-            link.data = data
+            link.data = link.data?.KubernetesPlacementLink
+                ? { ...data, KubernetesPlacementLink: true }
+                : data
 
             // just increase for now, do not use real revision number
             link.revision++
@@ -1247,13 +1256,14 @@ export class Topology extends React.Component<Props, {}> {
             // remove tags if needed
             link.tags.forEach(tag => {
                 var count = this.linkTagCount.get(tag) || 0
-                if (!count) {
+                if (count <= 1) {
                     this.linkTagCount.delete(tag)
                     this.linkTagStates.delete(tag)
                 } else {
                     this.linkTagCount.set(tag, count - 1)
                 }
             })
+            this.visibleLinksCache = undefined
         }
     }
 
@@ -1299,34 +1309,28 @@ export class Topology extends React.Component<Props, {}> {
             }
             return { label, clusterName, namespaceName, workloadName }
         }
-        const kubernetesServiceScope = (child: Node): string => {
-            let clusterName = primitiveScopeValue(child.data?.ClusterName || child.data?.clusterName || child.data?.K8s?.ClusterName || child.data?.Cluster)
-            let namespaceName = primitiveScopeValue(child.data?.Namespace || child.data?.K8s?.Namespace || child.data?.K8s?.Extra?.ObjectMeta?.Namespace)
-            let parent = child.parent
-            while (parent && (!clusterName || !namespaceName)) {
-                const parentType = String(parent.data?.Type || "").toLowerCase()
-                if (!namespaceName && parentType === "namespace") namespaceName = primitiveScopeValue(parent.data?.Name)
-                if (!clusterName && parentType === "cluster") clusterName = primitiveScopeValue(parent.data?.Name)
-                parent = parent.parent
-            }
-            return [clusterName, namespaceName].filter(Boolean).map(value => encodeURIComponent(value)).join("_") || "unscoped"
-        }
-
         var nodeTypeGID = (node: Node, child: Node): [string, string] | undefined => {
             var nodeType = this.props.groupType ? this.props.groupType(child) : child.data.Type
             if (!nodeType) {
                 return
             }
-            const serviceScope = child.data?.Manager === "k8s" && String(child.data?.Type || "").toLowerCase() === "service"
-                ? "_" + kubernetesServiceScope(child)
-                : ""
-            var gid = node.id + "_" + nodeType + "_" + child.getWeight() + serviceScope
+            var gid = node.id + "_" + nodeType + "_" + child.getWeight()
 
             return [nodeType, gid]
         }
+        const bypassTopologyGroup = (child: Node): boolean =>
+            String(child.data?.Manager || '').toLowerCase() === 'k8s'
+            && String(child.data?.Type || '').toLowerCase() === 'pod'
 
         // dispatch node per groups
         node.children.forEach(child => {
+            // Kubernetes Pods preserve the real
+            // Namespace -> Workload Controller -> Pod hierarchy. They must
+            // never be wrapped in an intermediate Pod Group, regardless of
+            // current count or terminated history.
+            if (bypassTopologyGroup(child.wrapped)) {
+                return
+            }
             var ntg = nodeTypeGID(node.wrapped, child.wrapped)
             if (!ntg) {
                 return
@@ -1384,6 +1388,10 @@ export class Topology extends React.Component<Props, {}> {
         // the expand parameter.
         var children = new Array<NodeWrapper>()
         node.children.forEach(child => {
+            if (bypassTopologyGroup(child.wrapped)) {
+                children.push(child)
+                return
+            }
             var ntg = nodeTypeGID(node.wrapped, child.wrapped)
             if (!ntg) {
                 return
@@ -1397,11 +1405,15 @@ export class Topology extends React.Component<Props, {}> {
             var wrapper = groups.get(gid)
             const configuredGroupSize = this.props.groupThreshold === undefined ? this.props.groupSize : this.props.groupThreshold
             var groupSize = typeof configuredGroupSize === 'function' ? configuredGroupSize(child.wrapped) : configuredGroupSize || defaultGroupSize
-            if (wrapper && wrapper.wrapped.children.length > groupSize) {
+            const hasTerminatedPodHistory = !!wrapper && wrapper.wrapped.children.some(groupChild =>
+                isKubernetesPod(groupChild) && !isCurrentKubernetesPod(groupChild))
+            if (wrapper && (wrapper.wrapped.children.length > groupSize || hasTerminatedPodHistory)) {
                 children.push(wrapper)
                 if (wrapper.wrapped.state.expanded) {
+                    const currentChildren = wrapper.children.filter(groupChild =>
+                        !isKubernetesPod(groupChild.wrapped) || isCurrentKubernetesPod(groupChild.wrapped))
                     const visibleChildren = wrapper.wrapped.state.groupFullSize
-                        ? wrapper.children
+                        ? currentChildren
                         : wrapper.children.filter(child => this.selectedGroupListNodeIDs.has(child.wrapped.id))
                     children = children.concat(visibleChildren)
                     wrapper.wrapped.state.groupOffset = 0
@@ -1431,10 +1443,28 @@ export class Topology extends React.Component<Props, {}> {
         var cloned = new NodeWrapper(node.id, WrapperType.Normal, node, parent)
 
         var matchTags = node.tags.some(tag => this.nodeTagStates.get(tag))
-        if (matchTags && !node.state.expanded) {
+        const nodeIsVisible = node.id === "root" || !this.props.nodeVisible || this.props.nodeVisible(node)
+        // A filtered node must not bypass `nodeVisible` merely because it is
+        // collapsed. This is especially important for ownerless/terminated
+        // Kubernetes Pods kept under the internal root for detail lookup.
+        if (nodeIsVisible && matchTags && !node.state.expanded) {
             return [cloned, null]
         }
 
+        const filteredKubernetesNode = node.id !== "root"
+            && String(node.data?.Manager || '').toLowerCase() === 'k8s'
+            && !nodeIsVisible
+        // Relationship-only Kubernetes resources must not promote their
+        // descendants into an execution layer when the resource itself is
+        // filtered out.
+        if (filteredKubernetesNode) {
+            return [null, []]
+        }
+        if (nodeIsVisible
+            && String(node.data?.Manager || '').toLowerCase() === 'k8s'
+            && String(node.data?.Type || '').toLowerCase() === 'pod') {
+            return [cloned, null]
+        }
         node.children.forEach(child => {
             let [subCloned, subChildren] = this.cloneTree(child, cloned)
             if (subCloned) {
@@ -1450,7 +1480,7 @@ export class Topology extends React.Component<Props, {}> {
             cloned.children.sort((a, b) => this.props.sortNodesFnc(a.wrapped, b.wrapped))
         }
 
-        if (node.id !== "root" && this.props.nodeVisible && !this.props.nodeVisible(node)) {
+        if (!nodeIsVisible) {
             return [null, cloned.children]
         }
 
@@ -1558,6 +1588,11 @@ export class Topology extends React.Component<Props, {}> {
 
     private setFullGroupSelection(groupNode: Node, selected: boolean) {
         groupNode.children.forEach(child => {
+            if (selected && isKubernetesPod(child) && !isCurrentKubernetesPod(child)) {
+                child.state.selected = false
+                this.selectedGroupListNodeIDs.delete(child.id)
+                return
+            }
             child.state.selected = selected
             if (selected) {
                 this.selectedGroupListNodeIDs.add(child.id)
@@ -1637,6 +1672,21 @@ export class Topology extends React.Component<Props, {}> {
         var tagPresent = new Map<string, boolean>()
 
         this.links.forEach((link: Link) => {
+            if (link.data?.KubernetesPlacementLink) {
+                // Node-Pod scheduling is a relationship shown in details, not a
+                // topology edge in the OwnerReference execution hierarchy.
+                return
+            }
+            const sourceKubernetesRelationship = String(link.source.data?.Manager || '').toLowerCase() === 'k8s'
+                && this.props.nodeVisible
+                && !this.props.nodeVisible(link.source)
+            const targetKubernetesRelationship = String(link.target.data?.Manager || '').toLowerCase() === 'k8s'
+                && this.props.nodeVisible
+                && !this.props.nodeVisible(link.target)
+            if (sourceKubernetesRelationship || targetKubernetesRelationship) {
+                return
+            }
+
             var source = findVisible(link.source)
             var target = findVisible(link.target)
 
@@ -2512,6 +2562,18 @@ export class Topology extends React.Component<Props, {}> {
         this.moveTo(x, y)
     }
 
+    centerNode(node: Node) {
+        if (!node) {
+            return
+        }
+        const visibleID = this.visibleNodeIDForID(node.id)
+        const d = this.d3nodes.get(visibleID) || this.d3nodes.get(node.id)
+        if (!d) {
+            return
+        }
+        this.moveTo(d.x, d.y)
+    }
+
     clearInfrastructureFocus() {
         if (!this.gNodes || !this.gLinks || !this.gLinkOverlays || !this.gLinkLabels) {
             return
@@ -3142,10 +3204,14 @@ export class Topology extends React.Component<Props, {}> {
                 return ["쿠버네티스", "네임스페이스"]
             case "쿠버네티스 워크로드 컨트롤러":
                 return ["쿠버네티스", "워크로드 컨트롤러"]
+            case "쿠버네티스 스토리지":
+                return ["쿠버네티스", "스토리지"]
             case "Kubernetes Namespaces":
                 return ["Kubernetes", "Namespaces"]
             case "Kubernetes Workload Controllers":
                 return ["Kubernetes", "Workload Controllers"]
+            case "Kubernetes Storage":
+                return ["Kubernetes", "Storage"]
             default:
                 return [title]
         }
@@ -3209,11 +3275,11 @@ export class Topology extends React.Component<Props, {}> {
         if (/kubernetes.*pod|쿠버네티스.*파드/i.test(title)) {
             return "\uf1b3"
         }
+        if (/kubernetes.*storage|쿠버네티스.*스토리지/i.test(title)) {
+            return "\uf1c0"
+        }
         if (/kubernetes.*container|쿠버네티스.*컨테이너/i.test(title)) {
             return "\uf4b7"
-        }
-        if (/kubernetes.*service|쿠버네티스.*서비스/i.test(title)) {
-            return "\uf1e0"
         }
         if (/other kubernetes|기타 쿠버네티스/i.test(title)) {
             return "\uf542"
@@ -3370,10 +3436,14 @@ export class Topology extends React.Component<Props, {}> {
             .attr("class", "level-label-title")
             .attr("text-anchor", "middle")
             .attr("x", lang === "en" ? 120 : 110)
+        levelLabelEnter.append("title")
+            .attr("class", "level-label-tooltip")
         this.updateLevelLabelTitleText(levelLabelEnter.select("text.level-label-title"))
         this.updateLevelLabelTitleText(levelLabel.select("text.level-label-title"))
         const allLevelLabels = levelLabelEnter.merge(levelLabel)
         allLevelLabels.classed("level-label-switch", (d: LevelRect) => self.isSwitchLevelLabel(self.weightTitles.get(d.weight) || 'Level ' + d.weight))
+        allLevelLabels.select("title.level-label-tooltip")
+            .text((d: LevelRect) => self.weightTitles.get(d.weight) || 'Level ' + d.weight)
         levelLabel.exit().remove()
 
         this.updateLevelLabelActiveClass()
@@ -3667,26 +3737,6 @@ export class Topology extends React.Component<Props, {}> {
             const type = String(data.Type || '').toLowerCase()
             return type === 'libvirt' || isTopologyInterfaceData(data)
         }
-        const isUserVmNode = (d: D3Node) => {
-            const data = d.data.wrapped.data || {}
-            if (String(data.Type || '').toLowerCase() !== 'libvirt') {
-                return false
-            }
-            const name = String(data.Name || self.props.nodeAttrs(d.data.wrapped).name || '').trim().toLowerCase()
-            return !!name && !/^r-/.test(name) && name !== 'ccvm' && name !== 'scvm' && !/^s-/.test(name)
-        }
-        const isSwitchNode = (d: D3Node) => {
-            const data = d.data.wrapped.data || {}
-            return String(data.Type || '').toLowerCase() === 'switch'
-        }
-        const isKubernetesNameWrapNode = (d: D3Node) => {
-            const data = d.data.wrapped.data || {}
-            const type = String(data.Type || '').toLowerCase()
-            return d.data.type !== WrapperType.Group
-                && String(data.Manager || '').toLowerCase() === 'k8s'
-                && ["node", "namespace", "pod", "service"].indexOf(type) >= 0
-        }
-
         const isGroupCardNode = (d: D3Node) => d.data.type === WrapperType.Group
         const groupCardScope = (d: D3Node) => {
             const data = d.data.wrapped.data || {}
@@ -3696,7 +3746,7 @@ export class Topology extends React.Component<Props, {}> {
 
             const parentData = d.parent?.data?.wrapped?.data || {}
             const parentType = String(parentData.Type || '').toLowerCase()
-            if (["cluster", "namespace", "deployment", "statefulset", "daemonset", "job", "cronjob"].indexOf(parentType) < 0) {
+            if (["cluster", "namespace", "deployment", "statefulset", "daemonset", "job", "cronjob", "storageclass", "persistentvolumeclaim"].indexOf(parentType) < 0) {
                 return ''
             }
             return String(parentData.Name || '').trim()
@@ -3722,11 +3772,280 @@ export class Topology extends React.Component<Props, {}> {
             return longestLineLength <= 14 ? topologyCardWidth : topologyMediumCardWidth
         }
         const cardIconX = (d: D3Node) => -cardWidthForNode(d) / 2 + 38
+        const podNodesForSummary = (node: Node): Node[] => {
+            // Workload children are reconciled from ownerReference once when
+            // topology data changes. Reuse that hierarchy here instead of
+            // resolving every Pod against every controller during each SVG
+            // render.
+            const directPods = (node.children || []).reduce((pods: Node[], child) => {
+                if (!isKubernetesPod(child)) return pods
+                const nestedPods = (child.children || []).filter(isKubernetesPod)
+                if (child.data?.IsTopologyGroup && nestedPods.length > 0) {
+                    pods.push(...nestedPods.filter(isCurrentKubernetesPod))
+                } else if (isCurrentKubernetesPod(child)) {
+                    pods.push(child)
+                }
+                return pods
+            }, [])
+            return Array.from(new Map(directPods.map(pod => [pod.id, pod])).values())
+        }
+        const workloadTypes = new Set(['deployment', 'statefulset', 'daemonset', 'job', 'cronjob'])
+        const isWorkloadControllerNode = (node: Node): boolean =>
+            String(node.data?.Manager || '').toLowerCase() === 'k8s'
+            && workloadTypes.has(String(node.data?.Type || '').toLowerCase())
+        const podAggregateForNode = (node: Node): KubernetesPodAggregate | undefined => {
+            const supportsPodSummary = (isKubernetesPod(node) && !!node.data?.IsTopologyGroup)
+                || isWorkloadControllerNode(node)
+            if (!supportsPodSummary) return undefined
+            const pods = podNodesForSummary(node)
+            return pods.length > 0 ? aggregateKubernetesPods(pods) : undefined
+        }
+        interface TopologyStatusBadge {
+            key: string
+            label: string
+            count: number
+            tone: 'running' | 'warning' | 'problem' | 'history' | 'overflow'
+            tooltip: string
+            displayText?: string
+        }
+        const warningProblemReasons = new Set(['pending', 'unschedulable', 'containercreating', 'terminating'])
+        const podStatusBadges = (node: Node): TopologyStatusBadge[] | undefined => {
+            const summary = podAggregateForNode(node)
+            if (!summary) return undefined
+            const warningCount = summary.currentProblemEntries.filter(entry =>
+                warningProblemReasons.has(entry.lifecycle.reason)).length
+            const criticalCount = Math.max(0, summary.currentProblems - warningCount)
+            const badges: TopologyStatusBadge[] = []
+            if (criticalCount > 0) {
+                badges.push({
+                    key: 'problem',
+                    label: '비정상',
+                    count: criticalCount,
+                    tone: 'problem',
+                    tooltip: `비정상 ${criticalCount}\n집계 기준: 현재 복구되지 않은 파드 오류`
+                })
+            }
+            if (warningCount > 0) {
+                badges.push({
+                    key: 'warning',
+                    label: '주의',
+                    count: warningCount,
+                    tone: 'warning',
+                    tooltip: `주의 ${warningCount}\n집계 기준: Pending·Unschedulable·ContainerCreating·Terminating`
+                })
+            }
+            if (summary.running > 0) {
+                badges.push({
+                    key: 'running',
+                    label: '실행 중',
+                    count: summary.running,
+                    tone: 'running',
+                    tooltip: `실행 중 ${summary.running}\n집계 기준: 현재 Running 파드`
+                })
+            }
+            if (summary.terminated > 0) {
+                badges.push({
+                    key: 'history',
+                    label: '종료 이력',
+                    count: summary.terminated,
+                    tone: 'history',
+                    tooltip: `종료 이력 ${summary.terminated}\n집계 기준: Evicted·OOMKilled·Error 등 종료 파드`
+                })
+            }
+            return badges
+        }
+
+        const valueAtPath = (source: any, path: string): any =>
+            path.split('.').reduce((value, key) => value === undefined || value === null ? undefined : value[key], source)
+        const firstRawValue = (source: any, paths: string[]): any => {
+            for (const path of paths) {
+                const value = valueAtPath(source, path)
+                if (value !== undefined && value !== null && String(value).trim() !== '') return value
+            }
+            return undefined
+        }
+        const normalizedType = (node: Node): string => String(node.data?.Type || '').toLowerCase()
+        const isKubernetesResource = (node: Node): boolean => String(node.data?.Manager || '').toLowerCase() === 'k8s'
+        const isTopologyGroup = (node: Node): boolean => !!node.data?.IsTopologyGroup
+        const namespaceForNode = (node: Node): string => {
+            const collected = firstRawValue(node.data || {}, [
+                'Namespace',
+                'K8s.Namespace',
+                'K8s.Extra.ObjectMeta.Namespace'
+            ])
+            if (collected) return String(collected)
+            let parent = node.parent
+            while (parent) {
+                if (normalizedType(parent) === 'namespace') return String(parent.data?.Name || '')
+                parent = parent.parent
+            }
+            return ''
+        }
+        const clusterForNode = (node: Node): string => {
+            const collected = firstRawValue(node.data || {}, [
+                'ClusterName',
+                'clusterName',
+                'Cluster',
+                'K8s.ClusterName'
+            ])
+            if (collected) return String(collected)
+            let parent: Node | null | undefined = node
+            while (parent) {
+                if (normalizedType(parent) === 'cluster') return String(parent.data?.Name || '')
+                parent = parent.parent
+            }
+            return ''
+        }
+        const scopedNodes = (type: string, namespaceNames: Set<string>, clusterNames: Set<string>): Node[] =>
+            Array.from(self.nodes.values()).filter(candidate => {
+                if (!isKubernetesResource(candidate) || isTopologyGroup(candidate) || normalizedType(candidate) !== type) return false
+                const namespace = namespaceForNode(candidate)
+                const cluster = clusterForNode(candidate)
+                if (namespaceNames.size && !namespaceNames.has(namespace)) return false
+                return !clusterNames.size || clusterNames.has(cluster)
+            })
+        const workloadConditionFailed = (status: any): boolean => {
+            const conditions = Array.isArray(status?.Conditions) ? status.Conditions : []
+            return conditions.some((condition: any) => {
+                const state = String(condition?.Status ?? condition?.status ?? '').toLowerCase()
+                const type = String(condition?.Type ?? condition?.type ?? '').toLowerCase()
+                const reason = String(condition?.Reason ?? condition?.reason ?? '').toLowerCase()
+                return state === 'true' && (/fail|error|deadlineexceeded/.test(type) || /fail|error|deadlineexceeded/.test(reason))
+            })
+        }
+        const workloadTone = (node: Node): 'problem' | 'warning' | 'running' => {
+            const data = node.data || {}
+            const type = normalizedType(node)
+            const spec = firstRawValue(data, ['K8s.Extra.Spec']) || {}
+            const status = firstRawValue(data, ['K8s.Extra.Status']) || {}
+            const desired = Number(
+                type === 'daemonset'
+                    ? status.DesiredNumberScheduled ?? 0
+                    : type === 'job'
+                        ? spec.Completions ?? 1
+                        : spec.Replicas ?? status.DesiredReplicas ?? 0
+            )
+            const ready = Number(
+                type === 'deployment'
+                    ? status.AvailableReplicas ?? status.ReadyReplicas ?? 0
+                    : type === 'daemonset'
+                        ? status.NumberAvailable ?? status.NumberReady ?? 0
+                        : type === 'job'
+                            ? status.Succeeded ?? 0
+                            : status.ReadyReplicas ?? status.AvailableReplicas ?? status.Active ?? 0
+            )
+            const unavailable = Number(status.UnavailableReplicas ?? status.NumberUnavailable ?? status.NumberMisscheduled ?? status.Failed ?? 0)
+            const updated = Number(status.UpdatedReplicas ?? status.UpdatedNumberScheduled ?? ready)
+            if ((desired > 0 && ready === 0) || workloadConditionFailed(status)) return 'problem'
+            if (unavailable > 0 || (desired > 0 && (ready < desired || updated < desired))) return 'warning'
+            return 'running'
+        }
+        const namespaceStatusBadges = (node: Node): TopologyStatusBadge[] => {
+            const namespaces = isTopologyGroup(node)
+                ? node.children.filter(child => normalizedType(child) === 'namespace')
+                : [node]
+            const namespaceNames = new Set(namespaces.map(item => String(item.data?.Name || '')).filter(Boolean))
+            const clusterNames = new Set(namespaces.map(clusterForNode).filter(Boolean))
+            const workloads = Array.from(new Map(
+                scopedNodes('deployment', namespaceNames, clusterNames)
+                    .concat(scopedNodes('statefulset', namespaceNames, clusterNames))
+                    .concat(scopedNodes('daemonset', namespaceNames, clusterNames))
+                    .concat(scopedNodes('job', namespaceNames, clusterNames))
+                    .concat(scopedNodes('cronjob', namespaceNames, clusterNames))
+                    .map(item => [item.id, item])
+            ).values())
+            if (!workloads.length) return []
+            return [{
+                key: 'workloads',
+                label: '워크로드',
+                count: workloads.length,
+                tone: 'running',
+                tooltip: `워크로드 ${workloads.length}개\nNamespace 더블클릭 시 펼쳐지는 Workload Controller 수`
+            }]
+        }
+        const workloadStatusBadges = (node: Node): TopologyStatusBadge[] => {
+            // A workload number badge represents only the current Pods that
+            // double-click can actually reveal. Replica/Available values remain
+            // in the detail panel and must not fabricate a topology child count.
+            return podStatusBadges(node) || []
+        }
+        const storageStatusBadges = (node: Node): TopologyStatusBadge[] => {
+            const resources = node.children.filter(child => {
+                const type = normalizedType(child)
+                return !isTopologyGroup(child) && (type === 'persistentvolume' || type === 'persistentvolumeclaim')
+            })
+            const counts = resources.reduce((result, resource) => {
+                const phase = String(firstRawValue(resource.data || {}, ['K8s.Extra.Status.Phase', 'K8s.Status', 'Status', 'Phase']) || '').toLowerCase()
+                if (phase === 'lost' || phase === 'failed') result.problem += 1
+                else if (phase === 'pending' || phase === 'released') result.warning += 1
+                else if (phase === 'bound' || phase === 'available') result.running += 1
+                return result
+            }, { problem: 0, warning: 0, running: 0 })
+            return [
+                counts.problem ? { key: 'problem', label: 'Lost·Failed', count: counts.problem, tone: 'problem' as const, tooltip: `Lost·Failed ${counts.problem}\n집계 기준: 현재 Phase가 Lost 또는 Failed인 PVC·PV` } : undefined,
+                counts.warning ? { key: 'warning', label: 'Pending·Released', count: counts.warning, tone: 'warning' as const, tooltip: `Pending·Released ${counts.warning}\n집계 기준: 현재 Phase가 Pending 또는 Released인 PVC·PV` } : undefined,
+                counts.running ? { key: 'running', label: 'Bound·Available', count: counts.running, tone: 'running' as const, tooltip: `Bound·Available ${counts.running}\n집계 기준: 현재 Phase가 Bound 또는 Available인 PVC·PV` } : undefined
+            ].filter(Boolean) as TopologyStatusBadge[]
+        }
+        const storageExpansionBadges = (node: Node): TopologyStatusBadge[] => {
+            const type = normalizedType(node)
+            const childType = type === 'storageclass'
+                ? 'persistentvolumeclaim'
+                : type === 'persistentvolumeclaim'
+                    ? 'persistentvolume'
+                    : ''
+            if (!childType) return []
+            const childCount = node.children.filter(child => !isTopologyGroup(child) && normalizedType(child) === childType).length
+            if (childCount < 1) return []
+            return [{
+                key: 'children',
+                label: childType === 'persistentvolumeclaim' ? '하위 PVC' : '연결된 PV',
+                count: childCount,
+                tone: 'running',
+                tooltip: childType === 'persistentvolumeclaim'
+                    ? `하위 PVC ${childCount}개`
+                    : `연결된 PV ${childCount}개`
+            }]
+        }
+        const aggregateStatusKind = (node: Node): 'namespace' | 'workload' | 'storage-group' | 'storage-expand' | undefined => {
+            if (!isKubernetesResource(node)) return undefined
+            const type = normalizedType(node)
+            if (type === 'namespace') return 'namespace'
+            if (isWorkloadControllerNode(node)) return 'workload'
+            if (isTopologyGroup(node) && (type === 'persistentvolume' || type === 'persistentvolumeclaim' || type === 'storageclass')) return 'storage-group'
+            if (!isTopologyGroup(node) && (type === 'storageclass' || type === 'persistentvolumeclaim')) return 'storage-expand'
+            return undefined
+        }
+        const topologyStatusBadges = (node: Node): TopologyStatusBadge[] | undefined => {
+            const kind = aggregateStatusKind(node)
+            if (!kind) return undefined
+            if (kind === 'namespace') return namespaceStatusBadges(node)
+            if (kind === 'workload') return workloadStatusBadges(node)
+            if (kind === 'storage-expand') return storageExpansionBadges(node)
+            return storageStatusBadges(node)
+        }
+
         const cardTextX = (d: D3Node) => cardIconX(d) + 43
+        const displayedStatusBadgeCount = (node: Node): number => {
+            const badges = topologyStatusBadges(node)
+            if (!badges?.length) return 0
+            return badges.length <= topologyVisibleStatusBadgeLimit
+                ? badges.length
+                : topologyVisibleStatusBadgeLimit + 1
+        }
         const cardTextRightPadding = (d: D3Node) => {
-            const hasBadge = d.data.wrapped.children.length > 0 || self.props.nodeAttrs(d.data.wrapped).badges.length > 0
+            if (aggregateStatusKind(d.data.wrapped)) {
+                const badgeCount = displayedStatusBadgeCount(d.data.wrapped)
+                if (badgeCount === 0) return 18
+                return topologyStatusBadgeSingleReserveWidth
+                    + Math.max(0, badgeCount - 1) * topologyStatusBadgeStep
+            }
+            const hasBadge = d.data.wrapped.children.length > 0
+                || self.props.nodeAttrs(d.data.wrapped).badges.length > 0
             return hasBadge ? 50 : 18
         }
+        // 표시되는 배지 수만큼만 우측 공간을 예약합니다. 배지가 없는
+        // `kube-public` 같은 짧은 이름에 최대 배지 폭을 강제하지 않습니다.
         const cardTextAvailableWidth = (d: D3Node) => Math.max(72, cardWidthForNode(d) / 2 - cardTextX(d) - cardTextRightPadding(d))
         const cardTitleX = (d: D3Node) => {
             const left = cardTextX(d)
@@ -3937,6 +4256,29 @@ export class Topology extends React.Component<Props, {}> {
                 const scope = groupCardScope(d)
                 if (scope) {
                     return `${attrsName}\n${scope}`
+                }
+            }
+
+            if (d.data.type !== WrapperType.Group && String(nodeData.Manager || '').toLowerCase() === 'k8s') {
+                const storageType = String(nodeData.Type || '').toLowerCase()
+                if (storageType === 'storageclass') {
+                    return `${attrsName}\nStorageClass`
+                }
+                if (storageType === 'persistentvolumeclaim') {
+                    const namespace = String(
+                        nodeData.Namespace
+                        || nodeData.namespace
+                        || nodeData.K8s?.Namespace
+                        || nodeData.K8s?.namespace
+                        || nodeData.K8s?.Extra?.ObjectMeta?.Namespace
+                        || nodeData.K8s?.Extra?.ObjectMeta?.namespace
+                        || nodeData.K8s?.Extra?.metadata?.namespace
+                        || ''
+                    ).trim()
+                    return `${attrsName}\nPVC${namespace ? ` · ${namespace}` : ''}`
+                }
+                if (storageType === 'persistentvolume') {
+                    return `${attrsName}\nPV`
                 }
             }
 
@@ -4227,6 +4569,10 @@ export class Topology extends React.Component<Props, {}> {
 
                 const workloadTypes = new Set(["deployment", "statefulset", "daemonset", "job", "cronjob"])
                 const isWorkloadCard = d.data.wrapped.data?.Manager === "k8s" && workloadTypes.has(String(d.data.wrapped.data?.Type || "").toLowerCase())
+                const storageTypes = new Set(["storageclass", "persistentvolumeclaim", "persistentvolume"])
+                const isStorageCard = d.data.type !== WrapperType.Group
+                    && d.data.wrapped.data?.Manager === "k8s"
+                    && storageTypes.has(String(d.data.wrapped.data?.Type || "").toLowerCase())
                 const isScopedGroupCard = d.data.type === WrapperType.Group && !!String(d.data.wrapped.data?.GroupScopeLabel || '').trim()
                 const fitLine = (value: string, fontSize?: number): string => {
                     if (fontSize) {
@@ -4259,6 +4605,8 @@ export class Topology extends React.Component<Props, {}> {
                 title.text(null)
 
                 let targetLines: string[]
+                let secondaryLineIndex = -1
+                let secondaryLineClass = "node-card-title-secondary"
                 const splitLongName = (value: string): string[] => {
                     title.text(value)
                     const fitsOneLine = textNode.getComputedTextLength() <= availableWidth
@@ -4285,27 +4633,37 @@ export class Topology extends React.Component<Props, {}> {
 
                 const explicitLines = fullText.split("\n").filter((line) => line.length > 0)
                 if (isWorkloadCard && explicitLines.length > 1) {
-                    targetLines = [...splitLongName(explicitLines[0]), explicitLines[1]].slice(0, 3)
-                } else if ((isUserVmNode(d) || isSwitchNode(d) || isKubernetesNameWrapNode(d)) && fullText.indexOf("\n") < 0) {
+                    const workloadNameLines = splitLongName(explicitLines[0])
+                    if (workloadNameLines.length === 1) {
+                        targetLines = [workloadNameLines[0], explicitLines[1]]
+                        secondaryLineIndex = 1
+                    } else {
+                        targetLines = workloadNameLines.slice(0, 2)
+                    }
+                } else if (isStorageCard && explicitLines.length > 1) {
+                    targetLines = explicitLines.slice(0, 2)
+                    secondaryLineIndex = 1
+                    secondaryLineClass = "node-card-title-storage-secondary"
+                } else if (fullText.indexOf("\n") < 0) {
                     targetLines = splitLongName(fullText)
                 } else {
                     targetLines = explicitLines.length > 1 ? explicitLines.slice(0, 2) : [fullText]
                 }
 
                 const fittedLines = targetLines.map((line, index) => {
-                    const isLastWorkloadLine = isWorkloadCard && index === targetLines.length - 1
-                    const secondaryFontSize = isLastWorkloadLine
-                        ? 17
+                    const secondaryFontSize = index === secondaryLineIndex
+                        ? isStorageCard ? 14 : 17
                         : index === 1 && isScopedGroupCard
                             ? 15
                         : undefined
                     return fitLine(line, secondaryFontSize)
                 })
-                const titleY = fittedLines.length > 2 ? -18 : fittedLines.length > 1 ? -4 : 7
+                const titleY = fittedLines.length > 1 ? -4 : 7
                 title.attr("y", titleY)
                 title.text(null)
                 fittedLines.forEach((line, index) => {
                     title.append("tspan")
+                        .attr("class", index === secondaryLineIndex ? secondaryLineClass : null)
                         .attr("x", textX)
                         .attr("dy", index === 0 ? 0 : topologyCardTitleLineGap)
                         .text(line)
@@ -4327,6 +4685,12 @@ export class Topology extends React.Component<Props, {}> {
             .each(function (d: D3Node) {
                 fitNodeTitle(select(this) as Selection<SVGTextElement, D3Node, any, any>)
             })
+
+        cardTextEnter.append("text")
+            .attr("class", "node-card-chevron")
+            .attr("x", (d: D3Node) => cardWidthForNode(d) / 2 - 18)
+            .attr("y", 6)
+            .text((d: D3Node) => isWorkloadControllerNode(d.data.wrapped) ? "›" : "")
 
         const clusterPreview = nodeEnter.append("g")
             .attr("class", "node-container-grid")
@@ -4458,8 +4822,16 @@ export class Topology extends React.Component<Props, {}> {
                 fitNodeTitle(select(this) as Selection<SVGTextElement, D3Node, any, any>)
             })
 
+        node.select("text.node-card-chevron")
+            .attr("x", (d: D3Node) => cardWidthForNode(d) / 2 - 18)
+            .text((d: D3Node) => isWorkloadControllerNode(d.data.wrapped) ? "›" : "")
+
         node.select("rect.node-card-bg title")
-            .text((d: D3Node) => isGroupCardNode(d) ? groupCardTooltip(d) : getNodeDisplayName(d))
+            .text((d: D3Node) => isGroupCardNode(d)
+                ? groupCardTooltip(d)
+                : isWorkloadControllerNode(d.data.wrapped)
+                    ? `${getNodeDisplayName(d)}\n클릭하여 상세 보기`
+                    : getNodeDisplayName(d))
 
         node.select("text.node-container-more")
             .attr("x", (d: D3Node) => cardTextX(d) + 104)
@@ -4805,39 +5177,81 @@ export class Topology extends React.Component<Props, {}> {
         var exco = nodeEnter
             .append("g")
             .attr("class", "node-exco")
-            .attr("pointer-events", "none")
-            .style("opacity", ((d: D3Node) => d.data.wrapped.children.length > 0 ? 1 : 0))
+            .attr("pointer-events", "all")
 
-        exco.append("circle")
-            .attr("class", "node-exco-circle")
-            .attr("cx", (d: D3Node) => cardWidthForNode(d) / 2 - 12)
-            .attr("cy", -topologyCardHeight / 2 + 12)
-            .attr("r", 15)
-
-        const num = (node: NodeWrapper) => {
-            var n = 0
-            n = node.wrapped.children.length
-            return n > 99 ? "+99" : n
+        interface DisplayBadge {
+            key: string
+            count: number
+            tone: string
+            tooltip: string
+            displayText?: string
+        }
+        const compactStatusBadges = (badges: TopologyStatusBadge[]): DisplayBadge[] => {
+            if (badges.length <= topologyVisibleStatusBadgeLimit) {
+                return badges
+            }
+            const hidden = badges.slice(topologyVisibleStatusBadgeLimit)
+            return [
+                ...badges.slice(0, topologyVisibleStatusBadgeLimit),
+                {
+                    key: 'overflow',
+                    count: hidden.length,
+                    tone: 'overflow',
+                    displayText: `+${hidden.length}`,
+                    tooltip: hidden.map(item => item.tooltip).join('\n\n')
+                }
+            ]
+        }
+        const displayBadges = (d: D3Node): DisplayBadge[] => {
+            const statusBadges = topologyStatusBadges(d.data.wrapped)
+            if (statusBadges !== undefined) return compactStatusBadges(statusBadges)
+            const type = normalizedType(d.data.wrapped)
+            if (isKubernetesResource(d.data.wrapped)
+                && (type === 'pod' || type === 'node' || type === 'persistentvolume' || type === 'persistentvolumeclaim')) {
+                return []
+            }
+            const count = isKubernetesPod(d.data.wrapped)
+                ? d.data.wrapped.children.filter(child => isCurrentKubernetesPod(child)).length
+                : d.data.wrapped.children.length
+            return count > 0
+                ? [{ key: 'children', count, tone: 'running', tooltip: `연결된 자원 ${count}` }]
+                : []
         }
 
-        exco.append("text")
-            .attr("id", (d: D3Node) => "exco-" + d.data.id)
-            .attr("class", "node-exco-children")
-            .attr("x", (d: D3Node) => cardWidthForNode(d) / 2 - 12)
-            .attr("y", -topologyCardHeight / 2 + 17)
-            .text((d: D3Node) => num(d.data))
+        const renderStatusBadges = function (d: D3Node) {
+            const root = select(this)
+            const badges = isGroupContainerNode(d) || isGroupListNode(d) ? [] : displayBadges(d)
+            let badge = root.selectAll<SVGGElement, DisplayBadge>("g.node-exco-badge")
+                .data(badges, (item: DisplayBadge) => item.key)
+            badge.exit().remove()
+            const badgeEnter = badge.enter()
+                .append("g")
+                .attr("class", "node-exco-badge")
+            badgeEnter.append("circle")
+                .attr("class", "node-exco-circle")
+                .attr("cy", -topologyCardHeight / 2 + 12)
+                .attr("r", 15)
+            badgeEnter.append("text")
+                .attr("class", "node-exco-children")
+                .attr("y", -topologyCardHeight / 2 + 17)
+            badgeEnter.append("title")
+            badge = badgeEnter.merge(badge as any)
+            badge
+                .attr("class", item => `node-exco-badge is-${item.tone}`)
+                .attr("transform", (_item, index) => `translate(${(index - Math.max(0, badges.length - 1)) * 34},0)`)
+            badge.select("circle")
+                .attr("cx", cardWidthForNode(d) / 2 - 12)
+            badge.select("text")
+                .attr("x", cardWidthForNode(d) / 2 - 12)
+                .style("font-size", item => item.displayText || item.count >= 100 ? "12px" : null)
+                .text(item => item.displayText || item.count)
+            badge.select("title")
+                .text(item => item.tooltip)
+            root.style("opacity", badges.length > 0 ? 1 : 0)
+        }
 
-        node.select("g.node-exco")
-            .filter((d: D3Node) => d.data.wrapped.children.length > 0)
-            .style('opacity', (d: D3Node) => isGroupContainerNode(d) || isGroupListNode(d) ? 0 : 1)
-
-        node.select("circle.node-exco-circle")
-            .attr("cx", (d: D3Node) => cardWidthForNode(d) / 2 - 12)
-
-        node.select("text.node-exco-children")
-            .filter((d: D3Node) => d.data.wrapped.children.length > 0)
-            .attr("x", (d: D3Node) => cardWidthForNode(d) / 2 - 12)
-            .text((d: D3Node) => num(d.data))
+        exco.each(renderStatusBadges)
+        node.select("g.node-exco").each(renderStatusBadges)
 
         node.transition()
             .duration(animDuration)

@@ -26,9 +26,33 @@
 .netdive-k8s-namespace-detail__event-main { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
 .netdive-k8s-namespace-detail__event-main > div { display: flex; min-width: 0; align-items: center; gap: 7px; }
 .netdive-k8s-namespace-detail__event-main strong { overflow: hidden; color: #344054; font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-.netdive-k8s-namespace-detail__event-main > span { overflow-wrap: anywhere; color: #667085; font-size: 11px; line-height: 1.35; }
+.netdive-k8s-namespace-detail__event-main > span,
+.netdive-k8s-namespace-detail__event-main > button { display: block; min-width: 0; overflow: hidden; padding: 0; border: 0; outline: 0; background: transparent; color: #667085; font: inherit; font-size: 11px; line-height: 1.35; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+.netdive-k8s-namespace-detail__event-main > button { cursor: pointer; }
+.netdive-k8s-namespace-detail__event-main > button:hover { color: #1677ff; text-decoration: underline; }
 .netdive-k8s-namespace-detail__event-main small { color: #98a2b3; font-size: 10.5px; }
 .netdive-k8s-namespace-detail__events time { padding-top: 2px; color: #98a2b3; font-size: 10.5px; white-space: nowrap; }
+
+.netdive-k8s-namespace-detail__navigation {
+    margin: -2px 0 2px;
+}
+.netdive-k8s-namespace-detail__navigation .ant-tabs-nav {
+    margin: 0 0 10px;
+}
+.netdive-k8s-namespace-detail__navigation .ant-tabs-nav-list {
+    min-width: max-content;
+}
+.netdive-k8s-namespace-detail__navigation .ant-tabs-nav-wrap {
+    overflow-x: auto;
+}
+.netdive-k8s-namespace-detail__navigation .ant-tabs-tab {
+    padding: 6px 1px;
+    color: #667085;
+    font-size: 11px;
+}
+.netdive-k8s-namespace-detail__navigation .ant-tabs-tab + .ant-tabs-tab {
+    margin-left: 16px;
+}
 
 @media (max-width: 380px) {
     .netdive-k8s-namespace-detail .netdive-detail-kv__row { grid-template-columns: 108px minmax(0, 1fr) !important; }

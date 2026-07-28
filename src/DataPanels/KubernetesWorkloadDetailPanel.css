@@ -104,6 +104,8 @@
 .netdive-k8s-workload-detail__pod-status.is-warning i { background: #f79009; }
 .netdive-k8s-workload-detail__pod-status.is-danger { color: #b42318; }
 .netdive-k8s-workload-detail__pod-status.is-danger i { background: #d92d20; }
+.netdive-k8s-workload-detail__pod-status.is-history { color: #667085; }
+.netdive-k8s-workload-detail__pod-status.is-history i { background: #98a2b3; }
 .netdive-k8s-workload-detail__pod-action { color: #98a2b3; font-size: 11px; }
 
 @media (max-width: 380px) {
