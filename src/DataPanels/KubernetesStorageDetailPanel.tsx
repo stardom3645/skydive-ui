@@ -182,6 +182,7 @@ class KubernetesStorageDetailPanel extends React.Component<Props> {
 
     private storageClassName(node: Node): string {
         return text(node.data || {}, [
+            'K8s.storageClassName',
             'K8s.StorageClassName', 'StorageClassName', 'storageClassName',
             'K8s.Extra.Spec.StorageClassName', 'K8s.Extra.Spec.storageClassName',
             'K8s.Extra.spec.storageClassName', 'K8s.Spec.StorageClassName',
@@ -191,6 +192,7 @@ class KubernetesStorageDetailPanel extends React.Component<Props> {
 
     private pvForPVC(pvc: Node): Node | undefined {
         const volumeName = text(pvc.data || {}, [
+            'K8s.volumeName',
             'K8s.VolumeName', 'VolumeName', 'volumeName',
             'K8s.Extra.Spec.VolumeName', 'K8s.Extra.Spec.volumeName',
             'K8s.Extra.spec.volumeName', 'K8s.Spec.VolumeName',
@@ -306,25 +308,25 @@ class KubernetesStorageDetailPanel extends React.Component<Props> {
         const storageClassPVCs = type === 'storageclass' ? this.resources('persistentvolumeclaim').filter(item => this.storageClassName(item) === name) : []
         const resourceRequests = field(spec, 'Resources', 'resources')
         const requestValues = field(resourceRequests, 'Requests', 'requests')
-        const requestedValue = raw(data, ['K8s.RequestedCapacity', 'RequestedCapacity'])
+        const requestedValue = raw(data, ['K8s.requestStorage', 'requestStorage', 'K8s.RequestedCapacity', 'RequestedCapacity'])
             || storageQuantity(requestValues)
         const requested = requestedValue === undefined
             ? none
             : formatKubernetesQuantity(requestedValue, none, empty)
-        const capacityValue = raw(data, ['K8s.Capacity.storage', 'K8s.Capacity.Storage', 'Capacity.storage', 'Capacity.Storage'])
+        const capacityValue = raw(data, ['K8s.capacity', 'capacity', 'K8s.Capacity.storage', 'K8s.Capacity.Storage', 'Capacity.storage', 'Capacity.Storage'])
             || storageQuantity(field(spec, 'Capacity', 'capacity'))
             || storageQuantity(field(status, 'Capacity', 'capacity'))
         const capacity = capacityValue === undefined
             ? empty
             : formatKubernetesQuantity(capacityValue, empty, empty)
         const pvcStatusCapacityValue = type === 'persistentvolumeclaim'
-            ? raw(data, ['K8s.StatusCapacity', 'StatusCapacity'])
+            ? raw(data, ['K8s.actualCapacity', 'actualCapacity', 'K8s.StatusCapacity', 'StatusCapacity'])
                 || storageQuantity(field(status, 'Capacity', 'capacity'))
             : undefined
         const boundPVSpec = pv ? this.spec(pv) : undefined
         const boundPVStatus = pv ? this.status(pv) : undefined
         const boundPVCapacityValue = pv
-            ? raw(pv.data || {}, ['K8s.Capacity.storage', 'K8s.Capacity.Storage', 'Capacity.storage', 'Capacity.Storage'])
+            ? raw(pv.data || {}, ['K8s.capacity', 'capacity', 'K8s.Capacity.storage', 'K8s.Capacity.Storage', 'Capacity.storage', 'Capacity.Storage'])
                 || storageQuantity(field(boundPVSpec, 'Capacity', 'capacity'))
                 || storageQuantity(field(boundPVStatus, 'Capacity', 'capacity'))
             : undefined
@@ -335,14 +337,30 @@ class KubernetesStorageDetailPanel extends React.Component<Props> {
             ? formatKubernetesQuantity(actualPVCapacityValue, empty, empty)
             : pv ? empty : none
         const kindLabel = type === 'persistentvolumeclaim' ? 'PVC' : type === 'persistentvolume' ? 'PV' : 'StorageClass'
-        const accessModeValues = field(spec, 'AccessModes', 'accessModes')
+        const accessModeValues = raw(data, ['K8s.accessModes', 'accessModes', 'K8s.AccessModes', 'AccessModes'])
+            || field(spec, 'AccessModes', 'accessModes')
         const accessModes = Array.isArray(accessModeValues) ? accessModeValues.map(String) : []
         const persistentVolumeSource = field(spec, 'PersistentVolumeSource', 'persistentVolumeSource') || spec
         const local = field(persistentVolumeSource, 'Local', 'local')
         const hostPath = field(persistentVolumeSource, 'HostPath', 'hostPath')
         const localPath = field(local, 'Path', 'path') || field(hostPath, 'Path', 'path')
-        const volumeMode = field(spec, 'VolumeMode', 'volumeMode') || 'Filesystem'
-        const pvSourceRows = type === 'persistentvolume' ? volumeSourceDetails(spec) : []
+        const volumeMode = raw(data, ['K8s.volumeMode', 'volumeMode', 'K8s.VolumeMode', 'VolumeMode'])
+            || field(spec, 'VolumeMode', 'volumeMode')
+            || 'Filesystem'
+        const explicitSourceType = text(data, ['K8s.volumeSourceType', 'volumeSourceType'])
+        const explicitDriver = text(data, ['K8s.driver', 'driver'])
+        const explicitPath = text(data, ['K8s.path', 'path'])
+        const explicitVolumeHandle = text(data, ['K8s.volumeHandle', 'volumeHandle'])
+        const pvSourceRows = type === 'persistentvolume'
+            ? explicitSourceType
+                ? [
+                    { label: 'Volume Source', value: explicitSourceType },
+                    ...(explicitDriver ? [{ label: 'Driver', value: explicitDriver }] : []),
+                    ...(explicitVolumeHandle ? [{ label: 'VolumeHandle', value: explicitVolumeHandle }] : []),
+                    ...(explicitPath ? [{ label: 'Path', value: explicitPath }] : [])
+                ]
+                : volumeSourceDetails(spec)
+            : []
         const rwo = accessModes.some(mode => mode === 'ReadWriteOnce' || mode === 'RWO')
         const structuralFeatures = type === 'persistentvolume'
             ? [localPath ? 'local-path' : '', rwo ? 'RWO' : '', nodes.length ? `Node ${nodes.length}대` : ''].filter(Boolean)
@@ -365,7 +383,7 @@ class KubernetesStorageDetailPanel extends React.Component<Props> {
             { label: 'Volume Mode', value: String(volumeMode) },
             { label: 'Access Modes', value: list(accessModeValues) },
             ...pvSourceRows,
-            { label: 'Reclaim Policy', value: field(spec, 'PersistentVolumeReclaimPolicy', 'persistentVolumeReclaimPolicy') || text(data, ['K8s.ReclaimPolicy', 'ReclaimPolicy']) || none },
+            { label: 'Reclaim Policy', value: text(data, ['K8s.reclaimPolicy', 'reclaimPolicy', 'K8s.ReclaimPolicy', 'ReclaimPolicy']) || field(spec, 'PersistentVolumeReclaimPolicy', 'persistentVolumeReclaimPolicy') || none },
             { label: 'StorageClass', value: this.storageClassName(this.props.node) || none },
             { label: 'Claim Namespace', value: pvc ? this.namespace(pvc) || none : text(data, ['K8s.ClaimNamespace', 'ClaimNamespace']) || none },
             { label: 'Claim Name', value: pvc ? this.name(pvc) : text(data, ['K8s.ClaimRef', 'ClaimRef']) || none },
@@ -396,7 +414,7 @@ class KubernetesStorageDetailPanel extends React.Component<Props> {
                 metadataCreationTimestamp: creationTimestamp,
                 requestedStorage: requestedValue,
                 pvcStatusCapacity: pvcStatusCapacityValue,
-                volumeName: raw(data, ['K8s.VolumeName', 'K8s.Extra.Spec.VolumeName', 'K8s.Extra.spec.volumeName']),
+                volumeName: raw(data, ['K8s.volumeName', 'K8s.VolumeName', 'K8s.Extra.Spec.VolumeName', 'K8s.Extra.spec.volumeName']),
                 pvCapacity: capacityValue,
                 boundPVCapacity: boundPVCapacityValue
             },
