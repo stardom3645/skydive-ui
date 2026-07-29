@@ -1,2 +1,21 @@
 .netdive-k8s-storage-detail .netdive-k8s-node-detail__hero--info > i { background: #1677ff; }
 .netdive-k8s-storage-detail .netdive-detail-key-value__value { overflow-wrap: anywhere; }
+
+.netdive-k8s-storage-detail__node-link {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #1677ff;
+    font: inherit;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.netdive-k8s-storage-detail__node-link:hover {
+    text-decoration: underline;
+}

@@ -3963,6 +3963,21 @@ export class Topology extends React.Component<Props, {}> {
                 tooltip: `워크로드 ${workloads.length}개\nNamespace 더블클릭 시 펼쳐지는 Workload Controller 수`
             }]
         }
+        const clusterNodeCountBadge = (node: Node): TopologyStatusBadge[] => {
+            const clusters = isTopologyGroup(node)
+                ? node.children.filter(child => normalizedType(child) === 'cluster' && !isTopologyGroup(child))
+                : [node]
+            const clusterNames = new Set(clusters.map(cluster => String(cluster.data?.Name || '')).filter(Boolean))
+            const kubernetesNodes = scopedNodes('node', new Set<string>(), clusterNames)
+            if (!kubernetesNodes.length) return []
+            return [{
+                key: 'nodes',
+                label: '노드',
+                count: kubernetesNodes.length,
+                tone: 'running',
+                tooltip: `Kubernetes 노드 ${kubernetesNodes.length}개\n집계 기준: 해당 클러스터에 속한 Kubernetes Node 수`
+            }]
+        }
         const workloadStatusBadges = (node: Node): TopologyStatusBadge[] => {
             // A workload number badge represents only the current Pods that
             // double-click can actually reveal. Replica/Available values remain
@@ -4007,9 +4022,10 @@ export class Topology extends React.Component<Props, {}> {
                     : `연결된 PV ${childCount}개`
             }]
         }
-        const aggregateStatusKind = (node: Node): 'namespace' | 'workload' | 'storage-group' | 'storage-expand' | undefined => {
+        const aggregateStatusKind = (node: Node): 'cluster' | 'namespace' | 'workload' | 'storage-group' | 'storage-expand' | undefined => {
             if (!isKubernetesResource(node)) return undefined
             const type = normalizedType(node)
+            if (type === 'cluster') return 'cluster'
             if (type === 'namespace') return 'namespace'
             if (isWorkloadControllerNode(node)) return 'workload'
             if (isTopologyGroup(node) && (type === 'persistentvolume' || type === 'persistentvolumeclaim' || type === 'storageclass')) return 'storage-group'
@@ -4019,6 +4035,7 @@ export class Topology extends React.Component<Props, {}> {
         const topologyStatusBadges = (node: Node): TopologyStatusBadge[] | undefined => {
             const kind = aggregateStatusKind(node)
             if (!kind) return undefined
+            if (kind === 'cluster') return clusterNodeCountBadge(node)
             if (kind === 'namespace') return namespaceStatusBadges(node)
             if (kind === 'workload') return workloadStatusBadges(node)
             if (kind === 'storage-expand') return storageExpansionBadges(node)

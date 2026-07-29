@@ -7,7 +7,7 @@ import StorageIcon from '@material-ui/icons/Storage'
 import { translate } from '../Config'
 import { Node } from '../Topology'
 import { matchesKubernetesSelector } from '../KubernetesSelectors'
-import { collectKubernetesEventGroups, ConnectedResourcesSection, DetailKeyValueList, DetailSection, formatKubernetesQuantity, KubernetesRecentEvents, KubernetesStateSeparation } from './common'
+import { collectKubernetesEventGroups, ConnectedResourcesSection, DetailBadge, DetailKeyValueList, DetailSection, formatKubernetesQuantity, KubernetesRecentEvents, KubernetesStateSeparation } from './common'
 import './KubernetesNodeDetailPanel.css'
 import './KubernetesStorageDetailPanel.css'
 
@@ -36,7 +36,7 @@ const field = (value: any, ...keys: string[]): any => {
     return undefined
 }
 const storageQuantity = (value: any): any => field(value, 'storage', 'Storage')
-const volumeSourceDetails = (spec: any): Array<{ label: string, value: React.ReactNode }> => {
+const volumeSourceDetails = (spec: any): Array<{ label: string, value: React.ReactNode, textValue?: string, copyText?: string, tooltip?: React.ReactNode }> => {
     const source = field(spec, 'PersistentVolumeSource', 'persistentVolumeSource') || spec || {}
     const definitions = [
         { type: 'CSI', keys: ['CSI', 'csi'] },
@@ -59,11 +59,11 @@ const volumeSourceDetails = (spec: any): Array<{ label: string, value: React.Rea
         const path = field(detail, 'Path', 'path')
         const server = field(detail, 'Server', 'server')
         return [
-            { label: 'Volume Source', value: definition.type },
-            ...(driver ? [{ label: 'Driver', value: String(driver) }] : []),
-            ...(volumeHandle ? [{ label: 'VolumeHandle', value: String(volumeHandle) }] : []),
-            ...(path ? [{ label: 'Path', value: String(path) }] : []),
-            ...(server ? [{ label: 'Server', value: String(server) }] : [])
+            { label: '볼륨 소스', value: definition.type },
+            ...(driver ? [{ label: '드라이버', value: String(driver) }] : []),
+            ...(volumeHandle ? [{ label: '볼륨 핸들', value: String(volumeHandle), textValue: String(volumeHandle), copyText: String(volumeHandle) }] : []),
+            ...(path ? [{ label: '경로', value: String(path), textValue: String(path), tooltip: String(path), copyText: String(path) }] : []),
+            ...(server ? [{ label: '서버', value: String(server) }] : [])
         ]
     }
     return []
@@ -262,6 +262,10 @@ class KubernetesStorageDetailPanel extends React.Component<Props> {
         return attrs.href ? <img className="netdive-k8s-node-detail__topology-icon-image" src={attrs.href} alt="" /> : <span className="netdive-k8s-node-detail__topology-icon">{attrs.icon}</span>
     }
 
+    private storageResourceIcon(type: 'persistentvolumeclaim' | 'persistentvolume' | 'storageclass') {
+        return <img className="netdive-k8s-node-detail__topology-icon-image" src={`assets/icons/${type}.png`} alt="" />
+    }
+
     render() {
         const data = this.props.node.data || {}
         const type = String(data.Type || '').toLowerCase()
@@ -339,11 +343,6 @@ class KubernetesStorageDetailPanel extends React.Component<Props> {
         const kindLabel = type === 'persistentvolumeclaim' ? 'PVC' : type === 'persistentvolume' ? 'PV' : 'StorageClass'
         const accessModeValues = raw(data, ['K8s.accessModes', 'accessModes', 'K8s.AccessModes', 'AccessModes'])
             || field(spec, 'AccessModes', 'accessModes')
-        const accessModes = Array.isArray(accessModeValues) ? accessModeValues.map(String) : []
-        const persistentVolumeSource = field(spec, 'PersistentVolumeSource', 'persistentVolumeSource') || spec
-        const local = field(persistentVolumeSource, 'Local', 'local')
-        const hostPath = field(persistentVolumeSource, 'HostPath', 'hostPath')
-        const localPath = field(local, 'Path', 'path') || field(hostPath, 'Path', 'path')
         const volumeMode = raw(data, ['K8s.volumeMode', 'volumeMode', 'K8s.VolumeMode', 'VolumeMode'])
             || field(spec, 'VolumeMode', 'volumeMode')
             || 'Filesystem'
@@ -354,59 +353,72 @@ class KubernetesStorageDetailPanel extends React.Component<Props> {
         const pvSourceRows = type === 'persistentvolume'
             ? explicitSourceType
                 ? [
-                    { label: 'Volume Source', value: explicitSourceType },
-                    ...(explicitDriver ? [{ label: 'Driver', value: explicitDriver }] : []),
-                    ...(explicitVolumeHandle ? [{ label: 'VolumeHandle', value: explicitVolumeHandle }] : []),
-                    ...(explicitPath ? [{ label: 'Path', value: explicitPath }] : [])
+                    { label: '볼륨 소스', value: explicitSourceType },
+                    ...(explicitDriver ? [{ label: '드라이버', value: explicitDriver }] : []),
+                    ...(explicitVolumeHandle ? [{ label: '볼륨 핸들', value: explicitVolumeHandle, textValue: explicitVolumeHandle, copyText: explicitVolumeHandle }] : []),
+                    ...(explicitPath ? [{ label: '경로', value: explicitPath, textValue: explicitPath, tooltip: explicitPath, copyText: explicitPath }] : [])
                 ]
                 : volumeSourceDetails(spec)
             : []
-        const rwo = accessModes.some(mode => mode === 'ReadWriteOnce' || mode === 'RWO')
-        const structuralFeatures = type === 'persistentvolume'
-            ? [localPath ? 'local-path' : '', rwo ? 'RWO' : '', nodes.length ? `Node ${nodes.length}대` : ''].filter(Boolean)
-            : []
+        const fullNodeNames = nodes.map(node => this.name(node))
+        const shortNodeName = (nodeName: string) => {
+            if (nodeName.length <= 28) return nodeName
+            const segments = nodeName.split('-')
+            return segments.length > 2 ? segments.slice(-2).join('-') : nodeName
+        }
+        const fixedNodeValue = nodes.length
+            ? <button type="button" className="netdive-k8s-storage-detail__node-link" onClick={() => this.focus(nodes)}>
+                {fullNodeNames.map(shortNodeName).join(', ')}
+            </button>
+            : none
+        const resourceTooltip = (label: string, resources: Node[]) => resources.length
+            ? <span>{label}: {resources.map(resource => this.name(resource)).join(', ')}</span>
+            : undefined
+        const defaultStorageClass = data.K8s?.Default
+            ?? data.Default
+            ?? (meta.Annotations?.['storageclass.kubernetes.io/is-default-class'] === 'true')
         const basicRows: any[] = [
-            { label: `${kindLabel} 이름`, value: name, textValue: name, copyText: name },
+            { label: type === 'storageclass' ? '스토리지 클래스 이름' : `${kindLabel} 이름`, value: name, textValue: name, copyText: name },
             ...(namespace ? [{ label: translate('kubernetesTopologyNamespaces'), value: namespace }] : []),
-            ...(type !== 'storageclass' ? [{ label: 'Phase', value: phase || empty }] : []),
+            ...(type !== 'storageclass' ? [{ label: '상태', value: phase || empty }] : []),
             { label: 'UID', value: meta.UID || this.props.node.id, textValue: meta.UID || this.props.node.id, copyText: meta.UID || this.props.node.id },
             { label: translate('kubernetesCreatedAt'), value: createdAt(creationTimestamp) }
         ]
         const policyRows: any[] = type === 'persistentvolumeclaim' ? [
             { label: '요청 용량', value: requested },
             { label: '실제 PV 용량', value: boundPVCapacity },
-            { label: 'Volume Mode', value: String(volumeMode) },
-            { label: 'Access Mode', value: list(accessModeValues) },
-            { label: 'StorageClass', value: this.storageClassName(this.props.node) || none }
+            { label: '볼륨 모드', value: String(volumeMode) },
+            { label: '접근 모드', value: list(accessModeValues) },
+            { label: '스토리지 클래스', value: this.storageClassName(this.props.node) || none }
         ] : type === 'persistentvolume' ? [
-            { label: 'Capacity', value: capacity },
-            { label: 'Volume Mode', value: String(volumeMode) },
-            { label: 'Access Modes', value: list(accessModeValues) },
+            { label: '용량', value: capacity },
+            { label: '볼륨 모드', value: String(volumeMode) },
+            { label: '접근 모드', value: list(accessModeValues) },
             ...pvSourceRows,
-            { label: 'Reclaim Policy', value: text(data, ['K8s.reclaimPolicy', 'reclaimPolicy', 'K8s.ReclaimPolicy', 'ReclaimPolicy']) || field(spec, 'PersistentVolumeReclaimPolicy', 'persistentVolumeReclaimPolicy') || none },
-            { label: 'StorageClass', value: this.storageClassName(this.props.node) || none },
-            { label: 'Claim Namespace', value: pvc ? this.namespace(pvc) || none : text(data, ['K8s.ClaimNamespace', 'ClaimNamespace']) || none },
-            { label: 'Claim Name', value: pvc ? this.name(pvc) : text(data, ['K8s.ClaimRef', 'ClaimRef']) || none },
-            { label: 'Node Affinity', value: nodes.length ? nodes.map(node => this.name(node)).join(', ') : none }
+            { label: '회수 정책', value: text(data, ['K8s.reclaimPolicy', 'reclaimPolicy', 'K8s.ReclaimPolicy', 'ReclaimPolicy']) || field(spec, 'PersistentVolumeReclaimPolicy', 'persistentVolumeReclaimPolicy') || none },
+            { label: '스토리지 클래스', value: this.storageClassName(this.props.node) || none },
+            { label: '클레임 네임스페이스', value: pvc ? this.namespace(pvc) || none : text(data, ['K8s.ClaimNamespace', 'ClaimNamespace']) || none },
+            { label: '클레임 이름', value: pvc ? this.name(pvc) : text(data, ['K8s.ClaimRef', 'ClaimRef']) || none },
+            { label: '고정 노드', value: fixedNodeValue, tooltip: fullNodeNames.length ? fullNodeNames.join(', ') : undefined }
         ] : [
-            { label: '기본 StorageClass', value: (data.K8s?.Default ?? data.Default ?? (meta.Annotations?.['storageclass.kubernetes.io/is-default-class'] === 'true')) ? translate('yes') : translate('no') },
-            { label: 'Provisioner', value: spec.Provisioner || data.K8s?.Provisioner || data.Provisioner || none },
-            { label: 'Reclaim Policy', value: spec.ReclaimPolicy || data.K8s?.ReclaimPolicy || data.ReclaimPolicy || none },
-            { label: 'Volume Binding Mode', value: spec.VolumeBindingMode || data.K8s?.VolumeBindingMode || data.VolumeBindingMode || none },
-            { label: 'Volume Expansion', value: spec.AllowVolumeExpansion === true || data.K8s?.AllowVolumeExpansion === true ? translate('yes') : translate('no') },
-            { label: 'Parameters', value: spec.Parameters && Object.keys(spec.Parameters).length ? Object.keys(spec.Parameters).map(key => `${key}=${spec.Parameters[key]}`).join(', ') : none }
+            { label: '기본 스토리지 클래스', value: <DetailBadge tone={defaultStorageClass ? 'info' : 'default'}>{defaultStorageClass ? '기본값' : '일반'}</DetailBadge> },
+            { label: '프로비저너', value: spec.Provisioner || data.K8s?.Provisioner || data.Provisioner || none },
+            { label: '회수 정책', value: spec.ReclaimPolicy || data.K8s?.ReclaimPolicy || data.ReclaimPolicy || none },
+            { label: '바인딩 모드', value: spec.VolumeBindingMode || data.K8s?.VolumeBindingMode || data.VolumeBindingMode || none },
+            { label: '볼륨 확장', value: spec.AllowVolumeExpansion === true || data.K8s?.AllowVolumeExpansion === true ? translate('yes') : translate('no') },
+            { label: '매개변수', value: spec.Parameters && Object.keys(spec.Parameters).length ? Object.keys(spec.Parameters).map(key => `${key}=${spec.Parameters[key]}`).join(', ') : none }
         ]
         const directItems: any[] = [
-            ...(pv ? [{ key: 'pv', label: 'PersistentVolume', count: 1, icon: this.topologyIcon(pv), iconTone: 'kubernetes' as const, onClick: () => this.focus([pv]) }] : []),
-            ...(pvc ? [{ key: 'pvc', label: 'PersistentVolumeClaim', count: 1, icon: this.topologyIcon(pvc), iconTone: 'kubernetes' as const, onClick: () => this.focus([pvc]) }] : []),
-            ...(storageClass ? [{ key: 'storage-class', label: 'StorageClass', count: 1, icon: this.topologyIcon(storageClass), iconTone: 'kubernetes' as const, onClick: () => this.focus([storageClass]) }] : []),
-            ...(storageClassPVs.length ? [{ key: 'pvs', label: 'PersistentVolume', count: storageClassPVs.length, icon: this.topologyIcon(storageClassPVs[0]), iconTone: 'kubernetes' as const, onClick: () => this.focus(storageClassPVs) }] : []),
-            ...(storageClassPVCs.length ? [{ key: 'pvcs', label: 'PersistentVolumeClaim', count: storageClassPVCs.length, icon: this.topologyIcon(storageClassPVCs[0]), iconTone: 'kubernetes' as const, onClick: () => this.focus(storageClassPVCs) }] : []),
-            ...(nodes.length ? [{ key: 'nodes', label: translate('kubernetesTopologyNodes'), count: nodes.length, icon: this.topologyIcon(nodes[0]), iconTone: 'kubernetes' as const, onClick: () => this.focus(nodes) }] : [])
+            ...(pv ? [{ key: 'pv', label: 'PV', count: 1, icon: this.storageResourceIcon('persistentvolume'), iconTone: 'kubernetes' as const, tooltip: resourceTooltip('PV', [pv]), onClick: () => this.focus([pv]) }] : []),
+            ...(pvc ? [{ key: 'pvc', label: 'PVC', count: 1, icon: this.storageResourceIcon('persistentvolumeclaim'), iconTone: 'kubernetes' as const, tooltip: resourceTooltip('PVC', [pvc]), onClick: () => this.focus([pvc]) }] : []),
+            ...(storageClass ? [{ key: 'storage-class', label: 'StorageClass', count: 1, icon: this.storageResourceIcon('storageclass'), iconTone: 'kubernetes' as const, tooltip: resourceTooltip('StorageClass', [storageClass]), onClick: () => this.focus([storageClass]) }] : []),
+            ...(storageClassPVCs.length ? [{ key: 'pvcs', label: 'PVC', count: storageClassPVCs.length, icon: this.storageResourceIcon('persistentvolumeclaim'), iconTone: 'kubernetes' as const, tooltip: resourceTooltip('PVC', storageClassPVCs), onClick: () => this.focus(storageClassPVCs) }] : []),
+            ...(storageClassPVs.length ? [{ key: 'pvs', label: 'PV', count: storageClassPVs.length, icon: this.storageResourceIcon('persistentvolume'), iconTone: 'kubernetes' as const, tooltip: resourceTooltip('PV', storageClassPVs), onClick: () => this.focus(storageClassPVs) }] : []),
+            ...(nodes.length ? [{ key: 'nodes', label: '노드', count: nodes.length, icon: this.topologyIcon(nodes[0]), iconTone: 'kubernetes' as const, tooltip: resourceTooltip('노드', nodes), onClick: () => this.focus(nodes) }] : [])
         ]
         const indirectItems: any[] = [
-            ...(pods.length ? [{ key: 'pods', label: translate('kubernetesTopologyPods'), count: pods.length, icon: this.topologyIcon(pods[0]), iconTone: 'kubernetes' as const, onClick: () => this.focus(pods) }] : []),
-            ...(workloads.length ? [{ key: 'workloads', label: translate('kubernetesTopologyWorkloadControllers'), count: workloads.length, icon: this.topologyIcon(workloads[0]), iconTone: 'kubernetes' as const, onClick: () => this.focus(workloads) }] : [])
+            ...(pods.length ? [{ key: 'pods', label: '파드', count: pods.length, icon: this.topologyIcon(pods[0]), iconTone: 'kubernetes' as const, tooltip: resourceTooltip('파드', pods), onClick: () => this.focus(pods) }] : []),
+            ...(workloads.length ? [{ key: 'workloads', label: '워크로드', count: workloads.length, icon: this.topologyIcon(workloads[0]), iconTone: 'kubernetes' as const, tooltip: resourceTooltip('워크로드', workloads), onClick: () => this.focus(workloads) }] : [])
         ]
         this.debugMapping({
             resource: { type: kindLabel, name },
@@ -429,18 +441,17 @@ class KubernetesStorageDetailPanel extends React.Component<Props> {
             <DetailSection icon={<InfoIcon />} title={`${kindLabel} 기본 정보`}><DetailKeyValueList rows={basicRows} copyTooltip={translate('copy')} /></DetailSection>
             {type !== 'storageclass' && <DetailSection icon={this.topologyIcon(this.props.node)} title={`${kindLabel} 운영 상태`}>
                 <KubernetesStateSeparation items={[
-                    { key: 'recent', label: '최근 불안정성', value: recentFailureKnown ? recentFailureCount : collectionFailed, tone: recentFailureKnown ? (recentFailureCount > 0 ? 'warning' : 'success') : 'default', tooltip: '최근 24시간의 Binding·Mount·Attach 오류입니다.' },
-                    { key: 'history', label: '누적 이력', value: recentEventGroups.reduce((sum, group) => sum + group.count, 0), tone: 'history', tooltip: '수집된 스토리지 Event 누적 횟수입니다.' },
-                    ...(type === 'persistentvolume' ? [{ key: 'structural', label: '구조적 특성', value: structuralFeatures.length ? structuralFeatures.join(' · ') : '일반', tone: 'default' as const, tooltip: 'local-path, RWO Access Mode와 Node 종속성은 현재 장애가 아닌 구조적 특성입니다.' }] : [])
+                    { key: 'recent', label: '최근 불안정성', value: recentFailureKnown ? recentFailureCount : collectionFailed, tone: recentFailureKnown ? (recentFailureCount > 0 ? 'warning' : 'success') : 'default', tooltip: '최근 24시간 내 발생한 Binding·Mount·Attach 오류 건수입니다. 현재 기간의 불안정성을 나타냅니다.' },
+                    { key: 'history', label: '누적 이력', value: recentEventGroups.reduce((sum, group) => sum + group.count, 0), tone: 'history', tooltip: '보관 중인 전체 스토리지 이벤트의 누적 건수입니다. 최근 24시간 여부와 관계없이 포함합니다.' }
                 ]} />
             </DetailSection>}
-            <DetailSection icon={<StorageIcon />} title={type === 'storageclass' ? '프로비저닝 정책' : '용량 및 정책'}><DetailKeyValueList rows={policyRows} /></DetailSection>
+            <DetailSection icon={<StorageIcon />} title={type === 'storageclass' ? '프로비저닝 정책' : '용량 및 정책'}><DetailKeyValueList rows={policyRows} copyTooltip={translate('copy')} /></DetailSection>
             <ConnectedResourcesSection icon={<AccountTreeIcon />} title={translate('hostConnectedResources')} emptyText="연결된 스토리지 자원이 없습니다." groups={[
                 { key: 'direct', title: '직접 연결', icon: <StorageIcon />, items: directItems },
                 { key: 'indirect', title: '간접 사용 관계', icon: <img src="assets/icons/k8s.png" alt="" />, items: indirectItems }
             ]} />
             <DetailSection icon={<HistoryIcon />} title={type === 'storageclass' ? '프로비저닝 이력' : '최근 이벤트'}>
-                <KubernetesRecentEvents groups={recentEventGroups} emptyText={type === 'storageclass' ? '수집된 프로비저닝 실패 이력이 없습니다.' : '최근 Binding·Mount 오류가 없습니다.'} onResourceClick={group => {
+                <KubernetesRecentEvents groups={recentEventGroups} emptyText={type === 'storageclass' ? '수집된 프로비저닝 실패 이력이 없습니다.' : '최근 스토리지 관련 이벤트가 없습니다.'} onResourceClick={group => {
                     const target = this.topologyNodes().find(node => (!group.resourceUid || node.id === group.resourceUid || text(node.data || {}, ['K8s.Extra.ObjectMeta.UID', 'UID']) === group.resourceUid)
                         && (!group.resourceName || this.name(node) === group.resourceName))
                     if (target) this.focus([target])

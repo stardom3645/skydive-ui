@@ -104,6 +104,28 @@ export const styles = (theme: Theme) => createStyles({
     color: '#101828',
     cursor: 'help'
   },
+  tabTitleRow: {
+    display: 'flex',
+    minWidth: 0,
+    alignItems: 'center',
+    gap: 6
+  },
+  tabTitleCopy: {
+    display: 'inline-flex',
+    flex: '0 0 auto',
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 4,
+    color: '#667085',
+    cursor: 'pointer',
+    fontSize: 12,
+    '&:hover': {
+      color: '#1677ff',
+      backgroundColor: '#f0f6ff'
+    }
+  },
   tabSubtitle: {
     display: 'block',
     maxWidth: '100%',

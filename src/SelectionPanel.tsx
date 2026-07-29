@@ -21,7 +21,7 @@ import Tab from '@material-ui/core/Tab'
 import { connect } from 'react-redux'
 import { withStyles } from '@material-ui/core/styles'
 import { Button, Tooltip } from 'antd'
-import { CloseOutlined, EnvironmentOutlined } from '@ant-design/icons'
+import { CloseOutlined, CopyOutlined, EnvironmentOutlined } from '@ant-design/icons'
 
 import { Node, Link } from './Topology'
 import DataPanel from './StdDataPanel'
@@ -127,6 +127,14 @@ class SelectionPanel extends React.Component<Props, State> {
     }
   }
 
+  private middleEllipsis(value: string, max = 34): string {
+    const normalized = String(value || "").replace(/\s*\n\s*/g, " ").trim()
+    if (normalized.length <= max) return normalized
+    const head = Math.max(12, Math.ceil((max - 3) * 0.58))
+    const tail = Math.max(8, max - 3 - head)
+    return `${normalized.slice(0, head)}...${normalized.slice(-tail)}`
+  }
+
   private renderTabs(classes: any) {
     return this.props.selection.map((el: Node | Link, i: number) => {
       var className = classes.tabIconFree
@@ -160,6 +168,14 @@ class SelectionPanel extends React.Component<Props, State> {
       const isKubernetesService = el.type === 'node'
         && String(el.data?.Manager || '').toLowerCase() === 'k8s'
         && String(el.data?.Type || '').toLowerCase() === 'service'
+      const isKubernetesNode = el.type === 'node'
+        && String(el.data?.Manager || '').toLowerCase() === 'k8s'
+        && String(el.data?.Type || '').toLowerCase() === 'node'
+      const fullTitle = isKubernetesNode
+        ? String(el.data?.Name || el.data?.K8s?.Name || title).replace(/\s*\n\s*/g, ' ').trim()
+        : title
+      const displayTitle = isKubernetesNode ? this.middleEllipsis(fullTitle) : title
+      const preserveTitleCase = isKubernetesService || isKubernetesNode
       const isDeploymentIcon = iconClass.split(/\s+/).indexOf('k8s-deployment-icon') >= 0
       const isDaemonSetIcon = iconClass.split(/\s+/).indexOf('k8s-daemonset-icon') >= 0
       const tabIcon = isSwitchIcon
@@ -176,9 +192,30 @@ class SelectionPanel extends React.Component<Props, State> {
         <Tab className={classes.tabRoot} icon={tabIcon}
           key={"tab-" + i}
           label={
-            <Tooltip title={title} placement="bottom">
-              <span className={`${classes.tabLabelBlock} ${isKubernetesService ? classes.tabTitlePreserveCase : ""}`}>
-                <span className={`${classes.tabTitle} ${title.includes("\n") ? classes.tabTitleMulti : ""} ${isKubernetesService ? classes.tabTitlePreserveCase : ""}`} title={title}>{title}</span>
+            <Tooltip title={fullTitle} placement="bottom">
+              <span className={`${classes.tabLabelBlock} ${preserveTitleCase ? classes.tabTitlePreserveCase : ""}`}>
+                <span className={classes.tabTitleRow}>
+                  <span className={`${classes.tabTitle} ${displayTitle.includes("\n") ? classes.tabTitleMulti : ""} ${preserveTitleCase ? classes.tabTitlePreserveCase : ""}`}>{displayTitle}</span>
+                  {isKubernetesNode && <span
+                    className={classes.tabTitleCopy}
+                    role="button"
+                    tabIndex={0}
+                    title={translate('copy')}
+                    aria-label={translate('copy')}
+                    onClick={event => {
+                      event.stopPropagation()
+                      navigator.clipboard && navigator.clipboard.writeText(fullTitle)
+                    }}
+                    onKeyDown={event => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        navigator.clipboard && navigator.clipboard.writeText(fullTitle)
+                      }
+                    }}>
+                    <CopyOutlined />
+                  </span>}
+                </span>
                 {subtitle && <span className={classes.tabSubtitle} title={subtitle}>{subtitle}</span>}
               </span>
             </Tooltip>
