@@ -1,5 +1,5 @@
 import { strict as assert } from 'assert'
-import { resolveKubernetesPodController } from '../src/KubernetesWorkloadOwnership'
+import { resolveKubernetesPodController, resolveKubernetesPodTopController } from '../src/KubernetesWorkloadOwnership'
 
 const k8sNode = (id: string, type: string, name: string, namespace: string, extra: any = {}): any => ({
     id,
@@ -55,5 +55,24 @@ describe('KubernetesWorkloadOwnership', () => {
         })
 
         assert.equal(resolveKubernetesPodController(pod, [daemonSet, pod])?.id, daemonSet.id)
+    })
+
+    it('folds a Job into its final CronJob owner for node workload summaries', () => {
+        const cronJob = k8sNode('cronjob-id', 'cronjob', 'backup', 'default')
+        cronJob.data.K8s.Extra.ObjectMeta = { UID: 'cronjob-uid' }
+        const job = k8sNode('job-id', 'job', 'backup-123', 'default', {
+            ObjectMeta: {
+                UID: 'job-uid',
+                OwnerReferences: [{ Kind: 'CronJob', Name: 'backup', UID: 'cronjob-uid', Controller: true }]
+            }
+        })
+        const pod = k8sNode('pod-id', 'pod', 'backup-123-abcd', 'default', {
+            ObjectMeta: {
+                OwnerReferences: [{ Kind: 'Job', Name: 'backup-123', UID: 'job-uid', Controller: true }]
+            }
+        })
+
+        assert.equal(resolveKubernetesPodController(pod, [cronJob, job, pod])?.id, job.id)
+        assert.equal(resolveKubernetesPodTopController(pod, [cronJob, job, pod])?.id, cronJob.id)
     })
 })

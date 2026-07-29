@@ -9,6 +9,7 @@ import { HistoryOutlined } from '@ant-design/icons'
 import { translate } from '../Config'
 import { session } from '../Store'
 import { Node } from '../Topology'
+import { aggregatePods, getPodClassification } from '../KubernetesPodLifecycle'
 import { classifyKubernetesPod, ConnectedResourceListSection, ConnectedResourcesSection, DetailBadge, DetailEmpty, DetailKeyValueList, DetailLayerIcon, DetailResourceCard, DetailResourceGrid, DetailSection, KubernetesStateSeparation, summarizeKubernetesPods } from './common'
 import './KubernetesNodeDetailPanel.css'
 import './KubernetesNamespaceDetailPanel.css'
@@ -167,38 +168,14 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
         const name = firstValue(data, ['Name', 'K8s.Name']) || objectMeta.Name || this.props.node.id
         const pods = this.namespaceResources('pod')
         const services = this.namespaceResources('service')
-        let runningPodCount = 0
-        let pendingPodCount = 0
-        let failedPodCount = 0
-        let crashLoopPodCount = 0
-        let oomKilledPodCount = 0
-        const problemPods: any[] = []
+        const podAggregate = aggregatePods(pods, { namespace: name })
+        const activePods = podAggregate.activeEntries.map(entry => entry.node)
         const scheduledNodes = new Set<string>()
-        pods.forEach(pod => {
+        activePods.forEach(pod => {
             const podData = pod.data || {}
-            const podState = classifyKubernetesPod(pod)
-            const phase = podState.phase
-            if (phase === 'running') runningPodCount++
-            else if (phase === 'pending') pendingPodCount++
-            else if (phase === 'failed' && podState.activeProblem) failedPodCount++
+            const podState = getPodClassification(pod)
             const nodeName = firstValue(podData, ['K8s.Extra.Spec.NodeName', 'K8s.Node', 'NodeName'])
-            if (nodeName && phase === 'running') scheduledNodes.add(nodeName)
-            const containerStatuses = ([] as any[]).concat(
-                firstRaw(podData, ['K8s.Extra.Status.InitContainerStatuses']) || [],
-                firstRaw(podData, ['K8s.Extra.Status.ContainerStatuses']) || []
-            )
-            let crashLoop = false
-            let oomKilled = false
-            containerStatuses.forEach(container => {
-                if (container?.State?.Waiting?.Reason === 'CrashLoopBackOff') crashLoop = true
-                const terminated = container?.State?.Terminated?.Reason || container?.LastTerminationState?.Terminated?.Reason
-                if (terminated === 'OOMKilled') oomKilled = true
-            })
-            if (crashLoop) crashLoopPodCount++
-            if (oomKilled) oomKilledPodCount++
-            if (podState.activeProblem) {
-                problemPods.push({ uid: pod.id, name: firstValue(podData, ['Name', 'K8s.Name']) || pod.id })
-            }
+            if (nodeName && podState.runningPod) scheduledNodes.add(nodeName)
         })
         return {
             uid: objectMeta.UID || this.props.node.id,
@@ -207,15 +184,15 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
             createdAt: objectMeta.CreationTimestamp?.Time,
             labels: data.K8s?.Labels || objectMeta.Labels || {},
             terminating: !!objectMeta.DeletionTimestamp,
-            podCount: pods.length,
+            podCount: podAggregate.current,
             serviceCount: services.length,
-            runningPodCount,
-            pendingPodCount,
-            failedPodCount,
-            crashLoopPodCount,
-            oomKilledPodCount,
+            runningPodCount: podAggregate.running,
+            pendingPodCount: podAggregate.activeEntries.filter(entry => getPodClassification(entry.node).pendingPod).length,
+            failedPodCount: 0,
+            crashLoopPodCount: podAggregate.activeEntries.filter(entry => getPodClassification(entry.node).problemReasons.indexOf('crashloopbackoff') >= 0).length,
+            oomKilledPodCount: podAggregate.activeEntries.filter(entry => getPodClassification(entry.node).problemReasons.indexOf('oomkilled') >= 0).length,
             scheduledNodeCount: scheduledNodes.size,
-            problemPods,
+            problemPods: podAggregate.currentProblemEntries.map(entry => ({ uid: entry.node.id, name: entry.podName })),
             source: 'TOPOLOGY'
         }
     }
@@ -246,7 +223,7 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
     private resourceTabNodes(tab: State['activeDetailTab']): Node[] {
         if (tab === 'workloads') return ['deployment', 'statefulset', 'daemonset', 'job', 'cronjob']
             .reduce((items, type) => items.concat(this.namespaceResources(type)), [] as Node[])
-        if (tab === 'pods') return this.namespaceResources('pod')
+        if (tab === 'pods') return aggregatePods(this.namespaceResources('pod')).activeEntries.map(entry => entry.node)
         if (tab === 'services') return this.namespaceResources('service')
         if (tab === 'ingress') return this.namespaceResources('ingress')
         if (tab === 'configuration') return this.namespaceResources('configmap').concat(this.namespaceResources('secret'))
@@ -386,6 +363,7 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
         const detail = this.state.detail || {}
         const data = this.props.node.data || {}
         const connectedPods = this.namespaceResources('pod')
+        const activeConnectedPods = aggregatePods(connectedPods).activeEntries.map(entry => entry.node)
         const podStatus = summarizeKubernetesPods(connectedPods)
         const problemCount = podStatus.activeProblems.length
         const endpointUnavailable = detail.endpointUnavailableServiceCount
@@ -475,9 +453,8 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
                     {[
                         [translate('kubernetesRunningPods'), podStatus.running, 'default'],
                         ['Pending', podStatus.pending, podStatus.pending > 0 ? 'danger' : 'default'],
-                        ['현재 Failed', podStatus.activeFailed, podStatus.activeFailed > 0 ? 'danger' : 'default'],
                         ['CrashLoopBackOff', crashLoopCount, crashLoopCount > 0 ? 'danger' : 'default'],
-                        ['OOMKilled 이력', detail.oomKilledPodCount, Number(detail.oomKilledPodCount || 0) > 0 ? 'warning' : 'default']
+                        ['현재 OOMKilled', detail.oomKilledPodCount, Number(detail.oomKilledPodCount || 0) > 0 ? 'warning' : 'default']
                     ].map((item: any[]) => <div key={item[0]} className={`is-${item[2]}`}><span>{item[0]}</span><strong>{optionalNumber(item[1])}</strong></div>)}
                 </div>
                 {podStatus.activeProblems.length > 0 && <div className="netdive-k8s-node-detail__problem-list-title">{translate('kubernetesProblemPods')}</div>}
@@ -500,7 +477,7 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
                         icon: <img src="assets/icons/k8s.png" alt="" />,
                         items: [
                         ...(connectedWorkloads.length ? [{ key: 'workloads', label: translate('kubernetesTopologyWorkloadControllers'), count: connectedWorkloads.length, icon: <DetailLayerIcon glyph={'\uf5fd'} />, iconTone: 'kubernetes' as const, onClick: () => this.focusResources(connectedWorkloads) }] : []),
-                        ...(connectedPods.length ? [{ key: 'pods', label: translate('kubernetesTopologyPods'), count: connectedPods.length, icon: this.topologyIcon(connectedPods[0]), iconTone: 'kubernetes' as const, onClick: () => this.focusResources(connectedPods) }] : []),
+                        ...(activeConnectedPods.length ? [{ key: 'pods', label: translate('kubernetesTopologyPods'), count: activeConnectedPods.length, icon: this.topologyIcon(activeConnectedPods[0]), iconTone: 'kubernetes' as const, onClick: () => this.focusResources(activeConnectedPods) }] : []),
                         ...(connectedServices.length ? [{ key: 'services', label: translate('kubernetesTopologyServices'), count: connectedServices.length, icon: this.topologyIcon(connectedServices[0]), iconTone: 'kubernetes' as const, onClick: () => this.setState({ activeDetailTab: 'services' }) }] : [])
                         ]
                     },

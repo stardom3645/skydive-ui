@@ -11,6 +11,22 @@ export interface KubernetesPodLifecycle {
     originalReason?: string
 }
 
+export interface KubernetesPodClassification {
+    phase: string
+    reason: string
+    activePod: boolean
+    runningPod: boolean
+    pendingPod: boolean
+    problemPod: boolean
+    terminatedPod: boolean
+    problemReason: string
+    problemReasons: string[]
+    historicalReasons: string[]
+    evicted: boolean
+    completed: boolean
+    deletionTimestamp: boolean
+}
+
 export interface KubernetesPodTime {
     value?: number
     text: string
@@ -40,6 +56,7 @@ export interface KubernetesPodAggregate {
     current: number
     currentProblems: number
     terminated: number
+    activeEntries: KubernetesPodStatusEntry[]
     currentProblemEntries: KubernetesPodStatusEntry[]
     runningEntries: KubernetesPodStatusEntry[]
     currentEntries: KubernetesPodStatusEntry[]
@@ -89,24 +106,6 @@ const dateValue = (value: any): number | undefined => {
     return timestamp < 100000000000 ? timestamp * 1000 : timestamp
 }
 
-const ageMs = (data: any): number | undefined => {
-    const timestamp = dateValue(firstValue(data, [
-        'K8s.Extra.Metadata.CreationTimestamp',
-        'K8s.Extra.ObjectMeta.CreationTimestamp.Time',
-        'K8s.Extra.ObjectMeta.CreationTimestamp',
-        'K8s.Metadata.CreationTimestamp',
-        'K8s.CreationTimestamp',
-        'CreationTimestamp',
-        'CreatedAt'
-    ]))
-    return timestamp === undefined ? undefined : Math.max(0, Date.now() - timestamp)
-}
-
-const isOlderThan = (data: any, milliseconds: number): boolean => {
-    const age = ageMs(data)
-    return age !== undefined && age >= milliseconds
-}
-
 const waitingReasonsOf = (data: any): string[] =>
     podStatuses(data).map(status => normalized(status?.State?.Waiting?.Reason || status?.state?.waiting?.reason)).filter(Boolean)
 
@@ -119,12 +118,6 @@ const terminatedReasonsOf = (data: any): string[] =>
         return reasons
     }, [])
 
-const restartCountOf = (data: any): number =>
-    podStatuses(data).reduce((sum, status) => sum + Number(status?.RestartCount ?? status?.restartCount ?? 0), 0)
-
-const conditionOf = (data: any, type: string): any | undefined =>
-    podConditions(data).find(condition => normalized(condition?.Type || condition?.type) === normalized(type))
-
 const isTerminating = (data: any): boolean =>
     !!firstValue(data, [
         'K8s.Extra.Metadata.DeletionTimestamp',
@@ -134,18 +127,6 @@ const isTerminating = (data: any): boolean =>
         'K8s.DeletionTimestamp',
         'DeletionTimestamp'
     ])
-
-const terminatingAgeMs = (data: any): number | undefined => {
-    const timestamp = dateValue(firstValue(data, [
-        'K8s.Extra.ObjectMeta.DeletionTimestamp.Time',
-        'K8s.Extra.ObjectMeta.DeletionTimestamp',
-        'K8s.Extra.Metadata.DeletionTimestamp',
-        'K8s.Metadata.DeletionTimestamp',
-        'K8s.DeletionTimestamp',
-        'DeletionTimestamp'
-    ]))
-    return timestamp === undefined ? undefined : Math.max(0, Date.now() - timestamp)
-}
 
 const terminalCategory = (phase: string, rawReason: string, reasons: string[]): { key: string, label: string } | undefined => {
     const candidates = [rawReason, ...reasons].map(normalized)
@@ -159,24 +140,75 @@ const terminalCategory = (phase: string, rawReason: string, reasons: string[]): 
     return undefined
 }
 
+// This is the single frontend domain rule for Pod counts. Resource panels and
+// topology badges must consume these flags rather than inspect phase/reason.
+export const getPodClassification = (node: Node): KubernetesPodClassification => {
+    const data = node.data || {}
+    const phase = normalized(firstValue(data, ['K8s.Extra.Status.Phase', 'K8s.Phase', 'Phase', 'K8s.Status', 'Status']))
+    const reason = normalized(firstValue(data, ['K8s.Extra.Status.Reason', 'K8s.Reason', 'Reason']))
+    const deletionTimestamp = isTerminating(data)
+    const activePod = !deletionTimestamp && (phase === 'pending' || phase === 'running')
+    const statuses = podStatuses(data)
+    const waitingReasons = waitingReasonsOf(data)
+    const historicalReasons = terminatedReasonsOf(data)
+    const actionableReasons = new Set([
+        'crashloopbackoff',
+        'imagepullbackoff',
+        'errimagepull',
+        'createcontainerconfigerror',
+        'createcontainererror',
+        'runcontainererror',
+        'containerstatusunknown',
+        'oomkilled'
+    ])
+    const problemReasons: string[] = []
+    waitingReasons.forEach(item => {
+        if (actionableReasons.has(item)) problemReasons.push(item)
+    })
+    statuses.forEach(status => {
+        const current = normalized(status?.State?.Terminated?.Reason || status?.state?.terminated?.reason)
+        const previous = normalized(status?.LastTerminationState?.Terminated?.Reason || status?.lastState?.terminated?.reason)
+        if (current === 'oomkilled' || previous === 'oomkilled') problemReasons.push('oomkilled')
+    })
+    if (podReady(data) === false) problemReasons.push('ready=false')
+    const uniqueProblemReasons = Array.from(new Set(problemReasons))
+    const evicted = phase === 'failed' && reason === 'evicted'
+    return {
+        phase,
+        reason,
+        activePod,
+        runningPod: activePod && phase === 'running',
+        pendingPod: activePod && phase === 'pending',
+        problemPod: activePod && uniqueProblemReasons.length > 0,
+        terminatedPod: deletionTimestamp || phase === 'succeeded' || phase === 'failed',
+        problemReason: uniqueProblemReasons[0] || '',
+        problemReasons: uniqueProblemReasons,
+        historicalReasons,
+        evicted,
+        completed: phase === 'succeeded' || reason === 'completed',
+        deletionTimestamp
+    }
+}
+
 export const isKubernetesPod = (node: Node): boolean =>
     String(node.data?.Manager || '').toLowerCase() === 'k8s'
     && String(node.data?.Type || '').toLowerCase() === 'pod'
 
 export const kubernetesPodLifecycle = (node: Node): KubernetesPodLifecycle => {
     const data = node.data || {}
-    const phase = normalized(firstValue(data, ['K8s.Extra.Status.Phase', 'K8s.Phase', 'Phase', 'K8s.Status', 'Status']))
+    const classification = getPodClassification(node)
+    const phase = classification.phase
     const rawReason = String(firstValue(data, ['K8s.Extra.Status.Reason', 'K8s.Reason', 'Reason']) || '')
-    const waitingReasons = waitingReasonsOf(data)
     const terminatedReasons = terminatedReasonsOf(data)
     const terminal = terminalCategory(phase, rawReason, terminatedReasons)
-    if (terminal) {
+    if (classification.terminatedPod) {
+        const resolvedTerminal = terminal || { key: 'terminated', label: '종료됨' }
         return {
             kind: 'terminated',
             phase,
-            reason: terminal.key,
-            label: terminal.label,
-            originalReason: rawReason || terminatedReasons[0] || terminal.label
+            reason: resolvedTerminal.key,
+            label: resolvedTerminal.label,
+            originalReason: rawReason || terminatedReasons[0] || resolvedTerminal.label
         }
     }
 
@@ -184,44 +216,25 @@ export const kubernetesPodLifecycle = (node: Node): KubernetesPodLifecycle => {
         crashloopbackoff: 'CrashLoopBackOff',
         imagepullbackoff: 'ImagePullBackOff',
         errimagepull: 'ErrImagePull',
-        containerstatusunknown: 'Unknown'
+        createcontainerconfigerror: 'CreateContainerConfigError',
+        createcontainererror: 'CreateContainerError',
+        runcontainererror: 'RunContainerError',
+        containerstatusunknown: 'Unknown',
+        oomkilled: 'OOMKilled',
+        'ready=false': 'Ready=false'
     }
-    const immediateWaitingProblem = waitingReasons.find(reason => !!waitingLabels[reason])
-    if (immediateWaitingProblem) {
+    if (classification.problemPod) {
+        const activeReason = classification.problemReason
         return {
             kind: 'problem',
             phase,
-            reason: immediateWaitingProblem,
-            label: waitingLabels[immediateWaitingProblem],
-            originalReason: waitingLabels[immediateWaitingProblem]
+            reason: activeReason,
+            label: waitingLabels[activeReason] || activeReason,
+            originalReason: waitingLabels[activeReason] || activeReason
         }
     }
 
-    const scheduled = conditionOf(data, 'PodScheduled')
-    if (scheduled && normalized(scheduled?.Status ?? scheduled?.status) === 'false'
-        && normalized(scheduled?.Reason ?? scheduled?.reason) === 'unschedulable') {
-        return { kind: 'problem', phase, reason: 'unschedulable', label: 'Unschedulable', originalReason: 'Unschedulable' }
-    }
-    if (waitingReasons.indexOf('containercreating') >= 0 && isOlderThan(data, 5 * 60 * 1000)) {
-        return { kind: 'problem', phase, reason: 'containercreating', label: '장기 ContainerCreating' }
-    }
-    if (phase === 'pending' && isOlderThan(data, 5 * 60 * 1000)) {
-        return { kind: 'problem', phase, reason: 'pending', label: '장기 Pending' }
-    }
-    if (phase === 'unknown') {
-        return { kind: 'problem', phase, reason: 'unknown', label: 'Unknown' }
-    }
-    const terminatingAge = terminatingAgeMs(data)
-    if (isTerminating(data) && terminatingAge !== undefined && terminatingAge >= 10 * 60 * 1000) {
-        return { kind: 'problem', phase, reason: 'terminating', label: '장기 Terminating' }
-    }
-    if (phase === 'running' && podReady(data) === false) {
-        return { kind: 'problem', phase, reason: 'notready', label: 'Running · NotReady' }
-    }
-    if (restartCountOf(data) >= 2 && terminatedReasons.map(normalized).indexOf('oomkilled') >= 0) {
-        return { kind: 'problem', phase, reason: 'repeated-oomkilled', label: '반복 OOMKilled' }
-    }
-    if (phase === 'running') return { kind: 'running', phase, reason: '', label: 'Running' }
+    if (classification.runningPod) return { kind: 'running', phase, reason: '', label: 'Running' }
     return { kind: 'current', phase, reason: rawReason, label: phase || '현재 상태' }
 }
 
@@ -343,9 +356,23 @@ const groupEntries = (entries: KubernetesPodStatusEntry[]): KubernetesPodStatusG
         .sort((left, right) => right.entries.length - left.entries.length || left.label.localeCompare(right.label))
 }
 
-export const aggregateKubernetesPods = (nodes: Node[]): KubernetesPodAggregate => {
+export interface KubernetesPodAggregateScope {
+    nodeName?: string
+    namespace?: string
+    predicate?: (node: Node) => boolean
+}
+
+export const aggregatePods = (nodes: Node[], scope: KubernetesPodAggregateScope = {}): KubernetesPodAggregate => {
     const uniqueNodes = Array.from(nodes.reduce((result, node) => {
-        if (isKubernetesPod(node)) result.set(node.id, node)
+        if (!isKubernetesPod(node)) return result
+        const data = node.data || {}
+        const nodeName = String(firstValue(data, ['K8s.Extra.Spec.NodeName', 'K8s.Spec.NodeName', 'K8s.NodeName', 'NodeName']) || '')
+        const namespace = podNamespace(data)
+        if (scope.nodeName !== undefined && nodeName !== scope.nodeName) return result
+        if (scope.namespace !== undefined && namespace !== scope.namespace) return result
+        if (scope.predicate && !scope.predicate(node)) return result
+        const uid = String(firstValue(data, ['K8s.Extra.ObjectMeta.UID', 'K8s.UID', 'UID']) || node.id)
+        result.set(uid, node)
         return result
     }, new Map<string, Node>()).values())
     const entries = uniqueNodes.map(kubernetesPodStatusEntry)
@@ -353,12 +380,14 @@ export const aggregateKubernetesPods = (nodes: Node[]): KubernetesPodAggregate =
     const runningEntries = entries.filter(entry => entry.lifecycle.kind === 'running')
     const currentEntries = entries.filter(entry => entry.lifecycle.kind === 'current')
     const terminatedEntries = entries.filter(entry => entry.lifecycle.kind === 'terminated')
+    const activeEntries = entries.filter(entry => getPodClassification(entry.node).activePod)
     return {
         total: entries.length,
         running: runningEntries.length,
-        current: entries.length - terminatedEntries.length,
+        current: entries.filter(entry => getPodClassification(entry.node).activePod).length,
         currentProblems: currentProblemEntries.length,
         terminated: terminatedEntries.length,
+        activeEntries,
         currentProblemEntries,
         runningEntries,
         currentEntries,
@@ -368,5 +397,7 @@ export const aggregateKubernetesPods = (nodes: Node[]): KubernetesPodAggregate =
     }
 }
 
+export const aggregateKubernetesPods = aggregatePods
+
 export const isCurrentKubernetesPod = (node: Node): boolean =>
-    !isKubernetesPod(node) || kubernetesPodLifecycle(node).kind !== 'terminated'
+    !isKubernetesPod(node) || getPodClassification(node).activePod

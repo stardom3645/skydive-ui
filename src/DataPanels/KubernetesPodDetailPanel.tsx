@@ -9,8 +9,9 @@ import { HistoryOutlined } from '@ant-design/icons'
 import { translate } from '../Config'
 import { session } from '../Store'
 import { Node } from '../Topology'
+import { getPodClassification } from '../KubernetesPodLifecycle'
 import { kubernetesLabelValue, matchesKubernetesSelector } from '../KubernetesSelectors'
-import { classifyKubernetesPod, collectKubernetesEventGroups, ConnectedResourceListSection, DetailBadge, DetailKeyValueList, DetailSection, KubernetesRecentEvents, KubernetesStateSeparation } from './common'
+import { collectKubernetesEventGroups, ConnectedResourceListSection, DetailBadge, DetailKeyValueList, DetailSection, KubernetesRecentEvents, KubernetesStateSeparation } from './common'
 import './KubernetesNodeDetailPanel.css'
 import './KubernetesPodDetailPanel.css'
 
@@ -445,8 +446,8 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
     render() {
         const detail = this.state.detail || {}
         const phase = String(detail.phase || '').toLowerCase()
-        const reason = String(detail.reason || '').toLowerCase()
-        const evicted = phase === 'failed' && reason === 'evicted'
+        const podClassification = getPodClassification(this.props.node)
+        const evicted = podClassification.evicted
         const ready = this.readyCondition(detail)
         const containers = Array.isArray(detail.containers) ? detail.containers : []
         const readyContainers = containers.filter((container: any) => container.ready).length
@@ -454,8 +455,8 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
             const completed = phase === 'succeeded' && container.state === 'TERMINATED' && (!container.terminatedReason || container.terminatedReason === 'Completed')
             return !completed && (container.state !== 'RUNNING' || !container.ready || container.waitingReason)
         })
-        const critical = (!evicted && phase === 'failed') || problemContainers.some((container: any) => container.terminatedReason === 'OOMKilled')
-        const warning = phase === 'pending' || ready === false || problemContainers.length > 0
+        const critical = podClassification.problemPod && problemContainers.some((container: any) => container.terminatedReason === 'OOMKilled')
+        const warning = podClassification.problemPod && !critical
         const known = !!phase
         const statusTone = evicted ? 'default' : critical ? 'danger' : warning ? 'warning' : known ? 'success' : 'default'
         const statusLabel = evicted ? '종료됨' : critical ? translate('kubernetesHealthCritical') : warning ? translate('kubernetesHealthWarning') : known ? translate('kubernetesHealthNormal') : translate('kubernetesHealthUnknown')
@@ -472,8 +473,8 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
             const owners = firstRaw(node.data || {}, ['K8s.Extra.ObjectMeta.OwnerReferences'])
             return Array.isArray(owners) && owners.some(owner => (detail.ownerUid && owner?.UID === detail.ownerUid) || (detail.ownerName && owner?.Name === detail.ownerName))
         }).filter(node => {
-            const status = classifyKubernetesPod(node)
-            return status.phase === 'running' && !status.activeProblem
+            const status = getPodClassification(node)
+            return status.runningPod && !status.problemPod
         }) : []
         const currentImpact = selectedServices.length > 0 && replacementPods.length === 0
         const serviceTargets = selectedServices.map((reference: any) => this.resourceForReference(

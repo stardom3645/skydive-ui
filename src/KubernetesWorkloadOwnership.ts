@@ -139,6 +139,21 @@ export const resolveKubernetesPodController = (pod: Node, nodes: Node[]): Node |
     return undefined
 }
 
+/**
+ * Resolves the final visible controller for inventory/summary views.
+ * Unlike the topology expansion owner, a Job owned by a CronJob is folded into
+ * that CronJob so Pod -> Job -> CronJob is counted once by the final UID.
+ */
+export const resolveKubernetesPodTopController = (pod: Node, nodes: Node[]): Node | undefined => {
+    const directController = resolveKubernetesPodController(pod, nodes)
+    if (!directController || resourceType(directController) !== 'job') return directController
+    for (const owner of ownerReferences(directController)) {
+        const ownerNode = findOwnerNode(owner, directController, nodes)
+        if (ownerNode && resourceType(ownerNode) === 'cronjob') return ownerNode
+    }
+    return directController
+}
+
 export const kubernetesPodsForController = (controller: Node, nodes: Node[]): Node[] =>
     nodes.filter(node => resourceType(node) === 'pod' && resolveKubernetesPodController(node, nodes)?.id === controller.id)
 

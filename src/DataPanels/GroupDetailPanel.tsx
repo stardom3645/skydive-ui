@@ -326,7 +326,7 @@ class GroupDetailPanel extends React.Component<Props, State> {
                             onChange={(event) => this.setState({ search: event.target.value })} />
                     </div>
                     {podGroup && <div className="netdive-group-detail-podSummary" aria-label="파드 그룹 상태 요약">
-                        <span><small>전체 파드</small><strong>{podAggregate?.total || 0}</strong></span>
+                        <span><small>현재 파드</small><strong>{podAggregate?.current || 0}</strong></span>
                         <span className="is-running"><small>실행 중</small><strong>{runningCount}</strong></span>
                         <button
                             type="button"

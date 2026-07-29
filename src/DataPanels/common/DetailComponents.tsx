@@ -5,6 +5,10 @@ import { CopyOutlined, DownOutlined, RightOutlined } from '@ant-design/icons'
 import './DetailComponents.css'
 
 const joinClassNames = (...classNames: Array<string | undefined | false>) => classNames.filter(Boolean).join(' ')
+const copyTextToClipboard = (value: string) => {
+    const clipboard = typeof navigator !== 'undefined' ? navigator.clipboard : undefined
+    if (clipboard && clipboard.writeText) clipboard.writeText(value)
+}
 
 export interface DetailSectionProps {
     icon?: React.ReactNode
@@ -210,6 +214,9 @@ export interface DetailResourceCardProps {
     onClick?: () => void
     iconTone?: DetailResourceIconTone
     className?: string
+    copyText?: string
+    copyTooltip?: React.ReactNode
+    labelTooltip?: React.ReactNode
 }
 
 export type DetailResourceIconTone = 'host' | 'user-vm' | 'system-vm' | 'router' | 'network' | 'interface' | 'bridge' | 'switch' | 'kubernetes'
@@ -231,7 +238,10 @@ export const DetailResourceCard = ({
     interactive = false,
     onClick,
     iconTone,
-    className
+    className,
+    copyText,
+    copyTooltip,
+    labelTooltip
 }: DetailResourceCardProps) => (
     <Button
         type="text"
@@ -251,13 +261,33 @@ export const DetailResourceCard = ({
                 )}>{icon}</span>
             )}
             <span className="netdive-detail-resource__text">
-                <Tooltip title={typeof label === 'string' ? label : undefined} placement="top">
+                <Tooltip title={labelTooltip !== undefined ? labelTooltip : typeof label === 'string' ? label : undefined} placement="top">
                     <Typography.Text className="netdive-detail-resource__label">{label}</Typography.Text>
                 </Tooltip>
                 {description && <Typography.Text className="netdive-detail-resource__description">{description}</Typography.Text>}
             </span>
         </span>
         <Typography.Text className="netdive-detail-resource__value">{value}</Typography.Text>
+        {copyText && <Tooltip title={copyTooltip} placement="top">
+            <span
+                className="netdive-detail-resource__copy"
+                role="button"
+                tabIndex={0}
+                onClick={event => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    copyTextToClipboard(copyText)
+                }}
+                onKeyDown={event => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        copyTextToClipboard(copyText)
+                    }
+                }}>
+                <CopyOutlined />
+            </span>
+        </Tooltip>}
         <span className={joinClassNames('netdive-detail-resource__action', !interactive && 'netdive-detail-resource__action--hidden')}>
             <RightOutlined />
         </span>

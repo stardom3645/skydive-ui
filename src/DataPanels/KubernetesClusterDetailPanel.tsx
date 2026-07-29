@@ -8,6 +8,7 @@ import InfoIcon from '@material-ui/icons/Info'
 import { translate } from '../Config'
 import { session } from '../Store'
 import { Node } from '../Topology'
+import { aggregatePods, getPodClassification, kubernetesPodLifecycle } from '../KubernetesPodLifecycle'
 import {
     ConnectedResourcesSection,
     ConnectedResourceListSection,
@@ -402,15 +403,14 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
             const ready = nodes.filter(node => this.nodeReady(node)).length
             return { total: nodes.length, ready, notReady: nodes.length - ready }
         }
-        const status: StatusSummary = { total: nodes.length, running: 0, pending: 0, failed: 0, unknown: 0 }
-        nodes.forEach(node => {
-            const phase = firstValue(node.data || {}, ['K8s.Status', 'K8s.Extra.Status.Phase', 'Status', 'Phase']).toLowerCase()
-            if (phase === 'running' || phase === 'succeeded') status.running = (status.running || 0) + 1
-            else if (phase === 'pending') status.pending = (status.pending || 0) + 1
-            else if (phase === 'failed') status.failed = (status.failed || 0) + 1
-            else status.unknown = (status.unknown || 0) + 1
-        })
-        return status
+        const pods = aggregatePods(nodes)
+        return {
+            total: pods.current,
+            running: pods.running,
+            pending: pods.activeEntries.filter(entry => getPodClassification(entry.node).pendingPod).length,
+            failed: 0,
+            unknown: 0
+        }
     }
 
     private podTimestamp(node: Node): PodHistoryTimestamp {
@@ -492,100 +492,42 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         return deployment ? firstValue(deployment.data || {}, ['Name', 'K8s.Name', 'K8s.Extra.ObjectMeta.Name']) : String(owner.Name)
     }
 
-    private podContainerStatuses(node: Node): any[] {
-        const data = node.data || {}
-        return ([] as any[]).concat(
-            firstRaw(data, ['K8s.Extra.Status.InitContainerStatuses']) || [],
-            firstRaw(data, ['K8s.Extra.Status.ContainerStatuses']) || [],
-            firstRaw(data, ['K8s.Extra.Status.EphemeralContainerStatuses']) || []
-        )
-    }
-
-    private podAge(node: Node): number {
-        const created = firstRaw(node.data || {}, [
-            'K8s.Extra.ObjectMeta.CreationTimestamp.Time',
-            'K8s.Extra.ObjectMeta.CreationTimestamp',
-            'K8s.CreationTimestamp',
-            'CreationTimestamp'
-        ])
-        const timestamp = new Date(created && typeof created === 'object' && created.Time !== undefined ? created.Time : created).getTime()
-        return Number.isNaN(timestamp) ? 0 : Math.max(0, Date.now() - timestamp)
-    }
-
-    private podIsReady(node: Node): boolean | undefined {
-        const conditions = firstRaw(node.data || {}, ['K8s.Extra.Status.Conditions', 'K8s.Conditions', 'Conditions'])
-        if (!Array.isArray(conditions)) return undefined
-        const ready = conditions.find(condition => String(condition?.Type || condition?.type || '').toLowerCase() === 'ready')
-        if (!ready) return undefined
-        return String(ready?.Status ?? ready?.status ?? '').toLowerCase() === 'true'
-    }
-
     private podCurrentProblemKeys(node: Node): string[] {
-        const data = node.data || {}
-        const phase = firstValue(data, ['K8s.Extra.Status.Phase', 'K8s.Phase', 'Phase', 'K8s.Status']).toLowerCase()
-        const reason = firstValue(data, ['K8s.Extra.Status.Reason', 'K8s.Status', 'Reason']).toLowerCase()
-        const statuses = this.podContainerStatuses(node)
-        const waitingReasons = statuses.map(status =>
-            String(status?.State?.Waiting?.Reason || status?.state?.waiting?.reason || '').toLowerCase())
-        const conditions = firstRaw(data, ['K8s.Extra.Status.Conditions', 'K8s.Conditions', 'Conditions'])
-        const unschedulable = reason === 'unschedulable' || (Array.isArray(conditions) && conditions.some(condition =>
-            String(condition?.Type || condition?.type || '').toLowerCase() === 'podscheduled'
-            && String(condition?.Status ?? condition?.status ?? '').toLowerCase() === 'false'
-            && String(condition?.Reason || condition?.reason || '').toLowerCase() === 'unschedulable'))
-        const deletionTimestamp = firstRaw(data, ['K8s.Extra.ObjectMeta.DeletionTimestamp', 'K8s.DeletionTimestamp', 'DeletionTimestamp'])
-        const deletingSince = deletionTimestamp ? new Date(deletionTimestamp && typeof deletionTimestamp === 'object' && deletionTimestamp.Time !== undefined ? deletionTimestamp.Time : deletionTimestamp).getTime() : NaN
-        const restartCount = statuses.reduce((sum, status) => sum + Number(status?.RestartCount ?? status?.restartCount ?? 0), 0)
-        const oomKilled = statuses.some(status => {
-            const current = status?.State?.Terminated?.Reason || status?.state?.terminated?.reason
-            const previous = status?.LastTerminationState?.Terminated?.Reason || status?.lastState?.terminated?.reason
-            return String(current || previous || '').toLowerCase() === 'oomkilled'
-        })
-        const age = this.podAge(node)
-        const fiveMinutes = 5 * 60 * 1000
-        const tenMinutes = 10 * 60 * 1000
-        const keys: string[] = []
-        if (waitingReasons.indexOf('crashloopbackoff') >= 0) keys.push('crash-loop')
-        if (waitingReasons.some(item => item === 'imagepullbackoff' || item === 'errimagepull')) keys.push('image-pull')
-        if (unschedulable) keys.push('unschedulable')
-        if (waitingReasons.indexOf('containercreating') >= 0 && age >= fiveMinutes) keys.push('long-container-creating')
-        if (phase === 'pending' && age >= fiveMinutes && !unschedulable && waitingReasons.indexOf('containercreating') < 0) keys.push('long-pending')
-        if (phase === 'unknown' || waitingReasons.indexOf('containerstatusunknown') >= 0) keys.push('unknown')
-        if (!Number.isNaN(deletingSince) && Date.now() - deletingSince >= tenMinutes) keys.push('long-terminating')
-        if (phase === 'running' && this.podIsReady(node) === false) keys.push('running-not-ready')
-        if (oomKilled && restartCount >= 2 && phase !== 'failed' && phase !== 'succeeded') keys.push('repeated-oom')
-        return Array.from(new Set(keys))
+        const classification = getPodClassification(node)
+        if (!classification.problemPod) return []
+        const keyByReason: Record<string, string> = {
+            crashloopbackoff: 'crash-loop',
+            imagepullbackoff: 'image-pull',
+            errimagepull: 'image-pull',
+            createcontainerconfigerror: 'container-error',
+            createcontainererror: 'container-error',
+            runcontainererror: 'container-error',
+            containerstatusunknown: 'unknown',
+            'ready=false': 'running-not-ready',
+            oomkilled: 'repeated-oom'
+        }
+        return Array.from(new Set(classification.problemReasons.map(reason => keyByReason[reason] || reason)))
     }
 
     private podTerminationHistoryKeys(node: Node): string[] {
-        const data = node.data || {}
-        const phase = firstValue(data, ['K8s.Extra.Status.Phase', 'K8s.Phase', 'Phase', 'K8s.Status']).toLowerCase()
-        const reasons = [
-            firstValue(data, ['K8s.Extra.Status.Reason', 'K8s.Status', 'Reason']),
-            ...this.podContainerStatuses(node).reduce((items: string[], status) => {
-                const current = status?.State?.Terminated?.Reason || status?.state?.terminated?.reason
-                const previous = status?.LastTerminationState?.Terminated?.Reason || status?.lastState?.terminated?.reason
-                if (current) items.push(String(current))
-                if (previous) items.push(String(previous))
-                return items
-            }, [])
-        ].map(item => item.toLowerCase()).filter(Boolean)
-        const keys: string[] = []
-        reasons.forEach(reason => {
-            if (reason === 'evicted') keys.push('evicted')
-            else if (reason === 'oomkilled') keys.push('oomkilled')
-            else if (reason === 'deadlineexceeded') keys.push('deadline-exceeded')
-            else if (reason === 'nodelost') keys.push('node-lost')
-            else if (reason === 'error') keys.push('error')
-            else if (phase === 'failed') keys.push('failed-other')
-        })
-        if (phase === 'failed' && !keys.length) keys.push('failed-other')
-        return Array.from(new Set(keys))
+        const lifecycle = kubernetesPodLifecycle(node)
+        if (lifecycle.kind !== 'terminated') return []
+        const keys: Record<string, string> = {
+            evicted: 'evicted',
+            oomkilled: 'oomkilled',
+            error: 'error',
+            deadlineexceeded: 'deadline-exceeded',
+            nodelost: 'node-lost',
+            failed: 'failed-other'
+        }
+        return [keys[lifecycle.reason] || (lifecycle.phase === 'failed' ? 'failed-other' : lifecycle.reason)].filter(Boolean)
     }
 
     private podPrimaryReason(node: Node): string {
         const currentLabels: Record<string, string> = {
             'crash-loop': 'CrashLoopBackOff',
             'image-pull': 'ImagePullBackOff / ErrImagePull',
+            'container-error': '컨테이너 생성/실행 오류',
             'long-pending': '장기 Pending',
             'unschedulable': 'Unschedulable',
             'long-container-creating': '장기 ContainerCreating',
@@ -620,6 +562,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         const currentDefinitions = [
             ['crash-loop', 'CrashLoopBackOff'],
             ['image-pull', 'ImagePullBackOff / ErrImagePull'],
+            ['container-error', '컨테이너 생성/실행 오류'],
             ['long-pending', '장기 Pending'],
             ['unschedulable', 'Unschedulable'],
             ['long-container-creating', '장기 ContainerCreating'],
@@ -643,21 +586,18 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         historyDefinitions.forEach(([key]) => historyMap.set(key, []))
         const pendingNodes: Node[] = []
         const unknownNodes: Node[] = []
-        let running = 0
+        const podAggregate = aggregatePods(pods)
         let succeeded = 0
         pods.forEach(node => {
-            const data = node.data || {}
-            const phase = firstValue(data, ['K8s.Extra.Status.Phase', 'K8s.Phase', 'Phase', 'K8s.Status']).toLowerCase()
-            if (phase === 'running') running++
-            if (phase === 'succeeded') succeeded++
-            if (phase === 'pending') pendingNodes.push(node)
-            if (phase === 'unknown') unknownNodes.push(node)
+            const classification = getPodClassification(node)
+            if (classification.completed) succeeded++
+            if (classification.pendingPod) pendingNodes.push(node)
             this.podCurrentProblemKeys(node).forEach(key => currentMap.get(key)?.push(node))
             this.podTerminationHistoryKeys(node).forEach(key => historyMap.get(key)?.push(node))
         })
         const healthyWorkloads = new Set(pods.filter(node => {
-            const phase = firstValue(node.data || {}, ['K8s.Extra.Status.Phase', 'K8s.Phase', 'Phase', 'K8s.Status']).toLowerCase()
-            return phase === 'running' && this.podIsReady(node) && this.podCurrentProblemKeys(node).length === 0
+            const classification = getPodClassification(node)
+            return classification.runningPod && !classification.problemPod
         }).map(node => {
             const namespace = firstValue(node.data || {}, ['K8s.Namespace', 'Namespace', 'K8s.Extra.ObjectMeta.Namespace'])
             const workload = this.podWorkloadName(node, workloads)
@@ -725,19 +665,14 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
             }
         })
         terminationHistoryNodes.sort((a, b) => (this.podTimestamp(b).value || 0) - (this.podTimestamp(a).value || 0))
-        const operationalPodTotal = pods.filter(node => {
-            const phase = firstValue(node.data || {}, ['K8s.Extra.Status.Phase', 'K8s.Phase', 'Phase', 'K8s.Status']).toLowerCase()
-            const currentPhases = ['running', 'pending', 'succeeded', 'unknown']
-            return phase !== 'failed' && (!this.podTerminationHistoryKeys(node).length || currentPhases.indexOf(phase) >= 0)
-        }).length
         return {
             objectTotal: pods.length,
-            total: operationalPodTotal,
-            running,
+            total: podAggregate.current,
+            running: podAggregate.running,
             succeeded,
             pending: pendingNodes.length,
-            failed: activeProblemNodes.filter(node => firstValue(node.data || {}, ['K8s.Extra.Status.Phase', 'K8s.Phase', 'Phase', 'K8s.Status']).toLowerCase() === 'failed').length,
-            unknown: unknownNodes.length,
+            failed: 0,
+            unknown: 0,
             activeProblemNodes,
             unknownNodes,
             pendingNodes,
@@ -1324,7 +1259,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         const replacement = resources.some(item => {
             if (String(item.data?.Type || '').toLowerCase() !== 'pod') return false
             if (firstValue(item.data || {}, ['K8s.Namespace', 'Namespace', 'K8s.Extra.ObjectMeta.Namespace']) !== namespace) return false
-            if (firstValue(item.data || {}, ['K8s.Extra.Status.Phase', 'K8s.Phase', 'Phase', 'K8s.Status']).toLowerCase() !== 'running') return false
+            if (!getPodClassification(item).runningPod) return false
             return this.podWorkloadName(item, workloads) === workloadName
         })
         return replacement ? { label: '복구됨', tone: 'success' } : { label: '확인 필요', tone: 'default' }
@@ -1525,6 +1460,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         const nodeResource = summaries.find(summary => summary.type === 'node') as ResourceSummary
         const namespaceResource = summaries.find(summary => summary.type === 'namespace') as ResourceSummary
         const podResource = summaries.find(summary => summary.type === 'pod') as ResourceSummary
+        const activePodResources = aggregatePods(podResource.nodes).activeEntries.map(entry => entry.node)
         const serviceResource = summaries.find(summary => summary.type === 'service') as ResourceSummary
         const persistentVolumeResource = summaries.find(summary => summary.type === 'persistentvolume') as ResourceSummary
         const persistentVolumeClaimResource = summaries.find(summary => summary.type === 'persistentvolumeclaim') as ResourceSummary
@@ -1634,7 +1570,10 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
             moldCluster?.serviceOffering ? { label: translate('kubernetesServiceOffering'), value: moldCluster.serviceOffering } : null,
             createdAt ? { label: translate('kubernetesCreatedAt'), value: createdAt } : null
         ].filter(Boolean)
-        const podStatusCollectedForDisplay = podResource.nodes.length > 0
+        const podStatusCollectedForDisplay = this.state.summary?.pods !== undefined || podResource.nodes.length > 0
+        const displayedPodTotal = podResource.nodes.length > 0 ? podSummary.total : Number(this.state.summary?.pods?.total || 0)
+        const displayedRunningPods = podResource.nodes.length > 0 ? podSummary.running : Number(this.state.summary?.pods?.running || 0)
+        const displayedPendingPods = podResource.nodes.length > 0 ? podSummary.pending : Number(this.state.summary?.pods?.pending || 0)
         const serviceStatusCollectedForDisplay = !!this.state.summary || serviceResource.nodes.length > 0
         const availabilityItems: any[] = [
             {
@@ -1658,10 +1597,10 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
             {
                 key: 'pods',
                 label: translate('kubernetesTopologyPods'),
-                value: podStatusCollectedForDisplay ? podSummary.total : '–',
+                value: podStatusCollectedForDisplay ? displayedPodTotal : '–',
                 details: [
-                    { label: 'Running', value: podStatusCollectedForDisplay ? podSummary.running || 0 : '–' },
-                    { label: 'Pending', value: podStatusCollectedForDisplay ? podSummary.pending || 0 : '–' },
+                    { label: 'Running', value: podStatusCollectedForDisplay ? displayedRunningPods : '–' },
+                    { label: 'Pending', value: podStatusCollectedForDisplay ? displayedPendingPods : '–' },
                     { label: '현재 문제', value: podStatusCollectedForDisplay ? podSummary.activeProblemNodes.length : '–' },
                     { label: 'Unknown', value: podStatusCollectedForDisplay ? podSummary.unknownNodes.length : '–' },
                     { label: '완료', value: podStatusCollectedForDisplay ? podSummary.succeeded : '–' }
@@ -1918,7 +1857,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                             { key: 'nodes', label: this.resourceLabel('node'), count: nodeSummary.total, icon: this.resourceIcon(nodeResource), iconTone: 'kubernetes', onClick: nodeResource.nodes.length ? () => this.focusResources(nodeResource.nodes) : undefined, tooltip: translate('kubernetesFocusNodes') },
                             { key: 'namespaces', label: this.resourceLabel('namespace'), count: namespaceCount, icon: this.resourceIcon(namespaceResource), iconTone: 'kubernetes', onClick: namespaceResource.nodes.length ? () => this.focusResources(namespaceResource.nodes) : undefined, tooltip: translate('kubernetesFocusNamespaces') },
                             ...(workloadNodes.length ? [{ key: 'workloads', label: translate('kubernetesTopologyWorkloadControllers'), count: workloadNodes.length, icon: <DetailLayerIcon glyph={'\uf5fd'} />, iconTone: 'kubernetes' as const, onClick: () => this.focusResources(workloadNodes) }] : []),
-                            { key: 'pods', label: this.resourceLabel('pod'), count: podSummary.objectTotal, icon: this.resourceIcon(podResource), iconTone: 'kubernetes', onClick: podResource.nodes.length ? () => this.focusResources(podResource.nodes) : undefined, tooltip: translate('kubernetesFocusPods') },
+                            { key: 'pods', label: this.resourceLabel('pod'), count: displayedPodTotal, icon: this.resourceIcon(podResource), iconTone: 'kubernetes', onClick: activePodResources.length ? () => this.focusResources(activePodResources) : undefined, tooltip: translate('kubernetesFocusPods') },
                             { key: 'services', label: this.resourceLabel('service'), count: serviceCount, icon: this.resourceIcon(serviceResource), iconTone: 'kubernetes', onClick: serviceResource.nodes.length ? () => this.setState({ activeDetailTab: 'services', serviceNamespaceFilter: 'all' }) : undefined, tooltip: translate('kubernetesFocusServices') }
                             ]
                         },
