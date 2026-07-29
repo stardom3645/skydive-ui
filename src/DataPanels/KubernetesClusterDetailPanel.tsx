@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Collapse, Modal, Popover, Progress, Select, Tabs, Tooltip } from 'antd'
+import { Collapse, Modal, Progress, Select, Tabs, Tooltip } from 'antd'
 import { HistoryOutlined, InfoCircleOutlined } from '@ant-design/icons'
 import AccountTreeIcon from '@material-ui/icons/AccountTree'
 import ErrorOutlineIcon from '@material-ui/icons/ErrorOutline'
@@ -8,7 +8,7 @@ import InfoIcon from '@material-ui/icons/Info'
 import { translate } from '../Config'
 import { session } from '../Store'
 import { Node } from '../Topology'
-import { aggregatePods, getPodClassification, kubernetesPodLifecycle } from '../KubernetesPodLifecycle'
+import { aggregatePods, kubernetesPodLifecycle, kubernetesPodTime } from '../KubernetesPodLifecycle'
 import {
     ConnectedResourcesSection,
     ConnectedResourceListSection,
@@ -17,6 +17,7 @@ import {
     DetailEmpty,
     DetailKeyValueList,
     DetailLayerIcon,
+    DetailOperationalSummary,
     DetailSection,
     KubernetesAnalysisConfidence
 } from './common'
@@ -407,72 +408,22 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         return {
             total: pods.current,
             running: pods.running,
-            pending: pods.activeEntries.filter(entry => getPodClassification(entry.node).pendingPod).length,
+            pending: pods.pending,
             failed: 0,
             unknown: 0
         }
     }
 
     private podTimestamp(node: Node): PodHistoryTimestamp {
-        const data = node.data || {}
-        const timestampValue = (candidate: any): number | undefined => {
-            const source = candidate && typeof candidate === 'object' && candidate.Time !== undefined ? candidate.Time : candidate
-            const value = new Date(source).getTime()
-            return Number.isNaN(value) ? undefined : value
-        }
-        const newest = (candidates: any[]): number | undefined => {
-            const values = candidates.map(timestampValue).filter((value): value is number => value !== undefined)
-            return values.length ? Math.max(...values) : undefined
-        }
-        const statuses = ([] as any[]).concat(
-            firstRaw(data, ['K8s.Extra.Status.InitContainerStatuses']) || [],
-            firstRaw(data, ['K8s.Extra.Status.ContainerStatuses']) || [],
-            firstRaw(data, ['K8s.Extra.Status.EphemeralContainerStatuses']) || []
-        )
-        const finishedAt = newest([
-            firstRaw(data, ['K8s.FinishedAt', 'FinishedAt']),
-            ...statuses.map(status => status?.State?.Terminated?.FinishedAt || status?.state?.terminated?.finishedAt)
-        ])
-        if (finishedAt !== undefined) return { value: finishedAt, estimated: false, source: '종료 시각' }
-
-        const conditions = firstRaw(data, ['K8s.Extra.Status.Conditions', 'K8s.Conditions', 'Conditions'])
-        const lastTransitionTime = newest([
-            firstRaw(data, ['K8s.LastTransitionTimestamp', 'LastTransitionTimestamp']),
-            ...(Array.isArray(conditions) ? conditions : []).map(condition =>
-                condition?.LastTransitionTime || condition?.lastTransitionTime)
-        ])
-        if (lastTransitionTime !== undefined) return { value: lastTransitionTime, estimated: false, source: '상태 전환' }
-
-        const eventSource = firstRaw(data, ['K8s.Extra.Events', 'K8s.Events', 'Events'])
-        const events = Array.isArray(eventSource)
-            ? eventSource
-            : Array.isArray(eventSource?.items)
-                ? eventSource.items
-                : Array.isArray(eventSource?.Items) ? eventSource.Items : []
-        const terminalEventReasons = new Set(['evicted', 'oomkilled', 'error', 'deadlineexceeded', 'nodelost', 'killing'])
-        const terminalEventTime = newest([
-            firstRaw(data, ['K8s.EvictionTimestamp', 'EvictionTimestamp']),
-            ...events
-                .filter(event => terminalEventReasons.has(firstValue(event, ['reason', 'Reason']).toLowerCase()))
-                .map(event => firstRaw(event, [
-                'lastTimestamp', 'LastTimestamp', 'eventTime', 'EventTime',
-                'lastObservedTime', 'LastObservedTime', 'series.lastObservedTime',
-                'Series.LastObservedTime', 'metadata.creationTimestamp',
-                'ObjectMeta.CreationTimestamp'
-                ]))
-        ])
-        if (terminalEventTime !== undefined) return { value: terminalEventTime, estimated: false, source: '이벤트' }
-
-        const creationTimestamp = newest([
-            firstRaw(data, [
-                'K8s.Extra.ObjectMeta.CreationTimestamp.Time',
-                'K8s.Extra.ObjectMeta.CreationTimestamp',
-                'K8s.CreationTimestamp',
-                'CreationTimestamp'
-            ])
-        ])
-        if (creationTimestamp !== undefined) return { value: creationTimestamp, estimated: true, source: '생성 시각' }
-        return { estimated: false, source: '확인 불가' }
+        const time = kubernetesPodTime(node)
+        const source: PodHistoryTimestamp['source'] = time.source === '상태 전환 시각'
+            ? '상태 전환'
+            : time.source === '이벤트 시각'
+                ? '이벤트'
+                : time.source === '시간 정보 없음'
+                    ? '확인 불가'
+                    : time.source as PodHistoryTimestamp['source']
+        return { value: time.value, estimated: time.accuracy === '추정', source }
     }
 
     private podWorkloadName(node: Node, workloads: Node[]): string {
@@ -492,148 +443,38 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         return deployment ? firstValue(deployment.data || {}, ['Name', 'K8s.Name', 'K8s.Extra.ObjectMeta.Name']) : String(owner.Name)
     }
 
-    private podCurrentProblemKeys(node: Node): string[] {
-        const classification = getPodClassification(node)
-        if (!classification.problemPod) return []
-        const keyByReason: Record<string, string> = {
-            crashloopbackoff: 'crash-loop',
-            imagepullbackoff: 'image-pull',
-            errimagepull: 'image-pull',
-            createcontainerconfigerror: 'container-error',
-            createcontainererror: 'container-error',
-            runcontainererror: 'container-error',
-            containerstatusunknown: 'unknown',
-            'ready=false': 'running-not-ready',
-            oomkilled: 'repeated-oom'
-        }
-        return Array.from(new Set(classification.problemReasons.map(reason => keyByReason[reason] || reason)))
-    }
-
-    private podTerminationHistoryKeys(node: Node): string[] {
-        const lifecycle = kubernetesPodLifecycle(node)
-        if (lifecycle.kind !== 'terminated') return []
-        const keys: Record<string, string> = {
-            evicted: 'evicted',
-            oomkilled: 'oomkilled',
-            error: 'error',
-            deadlineexceeded: 'deadline-exceeded',
-            nodelost: 'node-lost',
-            failed: 'failed-other'
-        }
-        return [keys[lifecycle.reason] || (lifecycle.phase === 'failed' ? 'failed-other' : lifecycle.reason)].filter(Boolean)
-    }
-
     private podPrimaryReason(node: Node): string {
-        const currentLabels: Record<string, string> = {
-            'crash-loop': 'CrashLoopBackOff',
-            'image-pull': 'ImagePullBackOff / ErrImagePull',
-            'container-error': '컨테이너 생성/실행 오류',
-            'long-pending': '장기 Pending',
-            'unschedulable': 'Unschedulable',
-            'long-container-creating': '장기 ContainerCreating',
-            'unknown': 'Unknown',
-            'long-terminating': '장기 Terminating',
-            'running-not-ready': 'Running · NotReady',
-            'repeated-oom': '반복 OOMKilled',
-            'unrecovered-termination': '대체 파드 없음'
-        }
-        const historyLabels: Record<string, string> = {
-            evicted: 'Evicted',
-            oomkilled: 'OOMKilled',
-            error: 'Error',
-            'deadline-exceeded': 'DeadlineExceeded',
-            'node-lost': 'NodeLost',
-            'failed-other': '기타 Failed'
-        }
-        const keys = this.podCurrentProblemKeys(node)
-        if (keys.length) return currentLabels[keys[0]]
-        const historyKeys = this.podTerminationHistoryKeys(node)
-        return historyKeys.length ? historyLabels[historyKeys[0]] : firstValue(node.data || {}, ['K8s.Extra.Status.Reason', 'Reason']) || '상태 확인'
+        const lifecycle = kubernetesPodLifecycle(node)
+        return lifecycle.label || lifecycle.originalReason || '상태 확인'
     }
 
     private podHealth(resources: Node[], windowMs: number): PodHealthSummary {
         const workloads = resources.filter(node => ['deployment', 'statefulset', 'daemonset', 'job', 'cronjob'].indexOf(String(node.data?.Type || '').toLowerCase()) >= 0)
-        const uniquePods = new Map<string, Node>()
-        resources.filter(node => String(node.data?.Type || '').toLowerCase() === 'pod').forEach(node => {
-            const uid = firstValue(node.data || {}, ['K8s.Extra.ObjectMeta.UID', 'K8s.UID', 'UID']) || node.id
-            uniquePods.set(uid, node)
-        })
-        const pods = Array.from(uniquePods.values())
-        const currentDefinitions = [
-            ['crash-loop', 'CrashLoopBackOff'],
-            ['image-pull', 'ImagePullBackOff / ErrImagePull'],
-            ['container-error', '컨테이너 생성/실행 오류'],
-            ['long-pending', '장기 Pending'],
-            ['unschedulable', 'Unschedulable'],
-            ['long-container-creating', '장기 ContainerCreating'],
-            ['unknown', 'Unknown'],
-            ['long-terminating', '장기 Terminating'],
-            ['running-not-ready', 'Running · NotReady'],
-            ['repeated-oom', '반복 OOMKilled'],
-            ['unrecovered-termination', '대체 파드 없음']
-        ]
-        const historyDefinitions = [
-            ['evicted', 'Evicted 파드'],
-            ['oomkilled', 'OOMKilled'],
-            ['error', 'Error'],
-            ['deadline-exceeded', 'DeadlineExceeded'],
-            ['node-lost', 'NodeLost'],
-            ['failed-other', '기타 Failed']
-        ]
-        const currentMap = new Map<string, Node[]>()
-        const historyMap = new Map<string, Node[]>()
-        currentDefinitions.forEach(([key]) => currentMap.set(key, []))
-        historyDefinitions.forEach(([key]) => historyMap.set(key, []))
-        const pendingNodes: Node[] = []
-        const unknownNodes: Node[] = []
-        const podAggregate = aggregatePods(pods)
-        let succeeded = 0
-        pods.forEach(node => {
-            const classification = getPodClassification(node)
-            if (classification.completed) succeeded++
-            if (classification.pendingPod) pendingNodes.push(node)
-            this.podCurrentProblemKeys(node).forEach(key => currentMap.get(key)?.push(node))
-            this.podTerminationHistoryKeys(node).forEach(key => historyMap.get(key)?.push(node))
-        })
-        const healthyWorkloads = new Set(pods.filter(node => {
-            const classification = getPodClassification(node)
-            return classification.runningPod && !classification.problemPod
-        }).map(node => {
-            const namespace = firstValue(node.data || {}, ['K8s.Namespace', 'Namespace', 'K8s.Extra.ObjectMeta.Namespace'])
-            const workload = this.podWorkloadName(node, workloads)
-            return workload ? `${namespace}/${workload}` : ''
-        }).filter(Boolean))
-        pods.forEach(node => {
-            const historyKeys = this.podTerminationHistoryKeys(node)
-            if (!historyKeys.length) return
-            const data = node.data || {}
-            const namespace = firstValue(data, ['K8s.Namespace', 'Namespace', 'K8s.Extra.ObjectMeta.Namespace'])
-            const workload = this.podWorkloadName(node, workloads)
-            const owners = firstRaw(data, ['K8s.Extra.ObjectMeta.OwnerReferences'])
-            const owner = Array.isArray(owners) ? owners.find(item => item?.Controller) || owners[0] : undefined
-            const jobOwned = String(owner?.Kind || '').toLowerCase() === 'job'
-            if (workload && !jobOwned && !healthyWorkloads.has(`${namespace}/${workload}`)) {
-                currentMap.get('unrecovered-termination')?.push(node)
-            }
-        })
-        const unique = (nodes: Node[]): Node[] => Array.from(new Map(nodes.map(node => [node.id, node])).values())
-        const currentProblemGroups = currentDefinitions.map(([key, label]) => ({
-            key,
-            label,
-            nodes: unique(currentMap.get(key) || [])
-        })).filter(group => group.nodes.length).sort((a, b) => b.nodes.length - a.nodes.length)
-        const terminationHistoryGroups = historyDefinitions.map(([key, label]) => ({
-            key,
-            label,
-            nodes: unique(historyMap.get(key) || [])
-        })).filter(group => group.nodes.length).sort((a, b) => b.nodes.length - a.nodes.length)
-        const activeProblemNodes = unique(currentProblemGroups.reduce((items: Node[], group) => items.concat(group.nodes), []))
-        const terminationHistoryNodes = unique(terminationHistoryGroups.reduce((items: Node[], group) => items.concat(group.nodes), []))
+        const podAggregate = aggregatePods(resources)
+        const currentProblemGroups = podAggregate.currentProblemGroups.map(group => ({
+            key: group.key,
+            label: group.label,
+            nodes: group.entries.map(entry => entry.node)
+        }))
+        const terminationHistoryGroups = podAggregate.terminationHistoryGroups.map(group => ({
+            key: group.key,
+            label: group.label,
+            nodes: group.entries.map(entry => entry.node)
+        }))
+        const activeProblemNodes = podAggregate.problemEntries.map(entry => entry.node)
+        const terminationHistoryNodes = podAggregate.terminatedEntries.map(entry => entry.node)
+        const pendingNodes = podAggregate.pendingEntries.map(entry => entry.node)
+        const unknownNodes = podAggregate.currentProblemGroups
+            .filter(group => group.key === 'containerstatusunknown')
+            .reduce((items: Node[], group) => items.concat(group.entries.map(entry => entry.node)), [])
         const now = Date.now()
-        const recentTerminationNodes = terminationHistoryNodes.filter(node => {
-            const timestamp = this.podTimestamp(node).value
-            return timestamp !== undefined && timestamp >= now - windowMs
-        }).sort((a, b) => (this.podTimestamp(b).value || 0) - (this.podTimestamp(a).value || 0))
+        const timeByNodeID = new Map(podAggregate.terminatedEntries.map(entry => [entry.node.id, entry.time]))
+        const recentTerminationNodes = terminationHistoryNodes
+            .filter(node => {
+                const timestamp = timeByNodeID.get(node.id)?.value
+                return timestamp !== undefined && timestamp >= now - windowMs
+            })
+            .sort((a, b) => (timeByNodeID.get(b.id)?.value || 0) - (timeByNodeID.get(a.id)?.value || 0))
         const affectedNodes = new Set<string>()
         const affectedNamespaces = new Set<string>()
         const affectedWorkloads = new Set<string>()
@@ -651,9 +492,9 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
             if (nodeName) affectedNodes.add(nodeName)
             if (namespace) affectedNamespaces.add(namespace)
             if (workload) affectedWorkloads.add(workload)
-            const timestamp = this.podTimestamp(node)
+            const timestamp = timeByNodeID.get(node.id) || { value: undefined, text: '확인 불가', accuracy: '확인 불가', source: '시간 정보 없음' }
             if (timestamp.value !== undefined) timestampAvailableCount++
-            if (timestamp.estimated && timestamp.value !== undefined) {
+            if (timestamp.accuracy === '추정' && timestamp.value !== undefined) {
                 timestampFallbackCount++
                 timestampEstimatedCount++
             } else if (timestamp.value !== undefined) {
@@ -661,16 +502,16 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
             }
             if (timestamp.value !== undefined && (latestTerminationAt === undefined || timestamp.value > latestTerminationAt)) {
                 latestTerminationAt = timestamp.value
-                latestTerminationEstimated = timestamp.estimated
+                latestTerminationEstimated = timestamp.accuracy === '추정'
             }
         })
-        terminationHistoryNodes.sort((a, b) => (this.podTimestamp(b).value || 0) - (this.podTimestamp(a).value || 0))
+        terminationHistoryNodes.sort((a, b) => (timeByNodeID.get(b.id)?.value || 0) - (timeByNodeID.get(a.id)?.value || 0))
         return {
-            objectTotal: pods.length,
-            total: podAggregate.current,
+            objectTotal: podAggregate.total,
+            total: podAggregate.active,
             running: podAggregate.running,
-            succeeded,
-            pending: pendingNodes.length,
+            succeeded: podAggregate.terminationHistoryGroups.find(group => group.key === 'succeeded')?.entries.length || 0,
+            pending: podAggregate.pending,
             failed: 0,
             unknown: 0,
             activeProblemNodes,
@@ -689,8 +530,8 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
             timestampAvailableCount,
             timestampExactCount,
             timestampEstimatedCount,
-            recentTimestampExactCount: recentTerminationNodes.filter(node => !this.podTimestamp(node).estimated).length,
-            recentTimestampEstimatedCount: recentTerminationNodes.filter(node => this.podTimestamp(node).estimated).length
+            recentTimestampExactCount: recentTerminationNodes.filter(node => timeByNodeID.get(node.id)?.accuracy === '정확').length,
+            recentTimestampEstimatedCount: recentTerminationNodes.filter(node => timeByNodeID.get(node.id)?.accuracy === '추정').length
         }
     }
 
@@ -821,44 +662,12 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         return Array.from(counts.entries()).map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count)
     }
 
-    private affectedServiceCount(resources: Node[], nodeStatus: StatusSummary, activeProblemPods: Node[]): number {
-        const collectedCount = this.state.summary?.currentlyImpactedServiceCount !== undefined
+    private affectedServiceCount(): number {
+        return this.state.summary?.currentlyImpactedServiceCount !== undefined
             ? Number(this.state.summary.currentlyImpactedServiceCount) || 0
             : this.state.summary?.affectedServices !== undefined
                 ? Number(this.state.summary.affectedServices) || 0
                 : 0
-        const failedNodeNames = new Set(resources.filter(node => String(node.data?.Type || '').toLowerCase() === 'node' && !this.nodeReady(node)).map(node => firstValue(node.data || {}, ['Name', 'K8s.Name'])))
-        const impactedPodIDs = new Set([
-            ...resources.filter(node => String(node.data?.Type || '').toLowerCase() === 'pod' && failedNodeNames.has(firstValue(node.data || {}, ['K8s.Node', 'NodeName']))).map(node => node.id),
-            ...activeProblemPods.map(node => node.id)
-        ])
-        if (!impactedPodIDs.size && !nodeStatus.notReady) return collectedCount
-        const serviceIDs = new Set<string>()
-        const adjacency = new Map<string, string[]>()
-        this.topologyLinks().forEach(link => {
-            const sourceID = endpointID(link?.source)
-            const targetID = endpointID(link?.target)
-            if (!sourceID || !targetID) return
-            adjacency.set(sourceID, [...(adjacency.get(sourceID) || []), targetID])
-            adjacency.set(targetID, [...(adjacency.get(targetID) || []), sourceID])
-        })
-        const nodeMap = new Map(this.topologyNodes().map(node => [node.id, node]))
-        impactedPodIDs.forEach(podID => {
-            const visited = new Set<string>([podID])
-            let frontier = [podID]
-            for (let depth = 0; depth < 2; depth++) {
-                const next: string[] = []
-                frontier.forEach(id => (adjacency.get(id) || []).forEach(relatedID => {
-                    if (visited.has(relatedID)) return
-                    visited.add(relatedID)
-                    const related = nodeMap.get(relatedID)
-                    if (related && String(related.data?.Type || '').toLowerCase() === 'service') serviceIDs.add(related.id)
-                    else next.push(relatedID)
-                }))
-                frontier = next
-            }
-        })
-        return Math.max(collectedCount, serviceIDs.size)
     }
 
     private moldCluster(): any | undefined {
@@ -1158,10 +967,10 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         return translate('kubernetesRiskAvailability')
     }
 
-    private operationalStatus(controlPlane: StatusSummary, nodes: StatusSummary, pods: PodHealthSummary, unavailableWorkloads: Node[], affectedServices: number, recentNodeSignals: number): { label: string, tone: DetailBadgeTone } {
+    private operationalStatus(controlPlane: StatusSummary, nodes: StatusSummary, pods: PodHealthSummary, unavailableWorkloads: Node[], affectedServices: number, _recentNodeSignals: number): { label: string, tone: DetailBadgeTone } {
         if (!nodes.total && !pods.total && !controlPlane.total) return { label: translate('kubernetesHealthUnknown'), tone: 'default' }
         if ((controlPlane.notReady || 0) > 0 || (nodes.notReady || 0) > 0 || pods.unknownNodes.length > 0 || unavailableWorkloads.length > 0 || affectedServices > 0) return { label: translate('kubernetesHealthCritical'), tone: 'danger' }
-        if (pods.activeProblemNodes.length > 0 || recentNodeSignals > 0) return { label: translate('kubernetesHealthWarning'), tone: 'warning' }
+        if (pods.activeProblemNodes.length > 0) return { label: translate('kubernetesHealthWarning'), tone: 'warning' }
         return { label: translate('kubernetesHealthNormal'), tone: 'success' }
     }
 
@@ -1200,7 +1009,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         return { label: translate('kubernetesResilienceGood'), tone: 'success' }
     }
 
-    private renderResilienceRow(title: string, label: string, tone: DetailBadgeTone, value: React.ReactNode, short: string, tooltip?: React.ReactNode) {
+    private renderResilienceRow(title: string, label: string, tone: DetailBadgeTone, value: React.ReactNode, short: string, tooltip?: React.ReactNode, onClick?: () => void) {
         const state = tone === 'success'
             ? <span className="netdive-k8s-cluster-detail__impact-normal"><i />{label}</span>
             : tone === 'default'
@@ -1217,10 +1026,18 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                 </small>
             </div>
         )
-        return tooltip ? <Tooltip title={tooltip} placement="top">{content}</Tooltip> : content
+        const interactiveContent = onClick
+            ? <div className="netdive-k8s-cluster-detail__resilience-interactive" role="button" tabIndex={0} onClick={onClick} onKeyDown={event => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    onClick()
+                }
+            }}>{content}</div>
+            : content
+        return tooltip ? <Tooltip title={tooltip} placement="top">{interactiveContent}</Tooltip> : interactiveContent
     }
 
-    private heroConclusion(controlPlane: StatusSummary, nodes: StatusSummary, pods: PodHealthSummary, unavailableWorkloads: Node[], affectedServices: number, recentNodeSignals: number, currentRiskTitle?: string): string {
+    private heroConclusion(controlPlane: StatusSummary, nodes: StatusSummary, pods: PodHealthSummary, unavailableWorkloads: Node[], affectedServices: number, _recentNodeSignals: number, currentRiskTitle?: string): string {
         if (controlPlane.notReady) return translate('kubernetesHeroControlPlaneFailure').replace('{count}', String(controlPlane.notReady))
         const workerNotReady = Math.max(0, (nodes.notReady || 0) - (controlPlane.notReady || 0))
         if (workerNotReady) return translate('kubernetesHeroWorkerFailure').replace('{count}', String(workerNotReady))
@@ -1228,7 +1045,6 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         if (unavailableWorkloads.length) return `가용 Replica가 부족한 워크로드 ${unavailableWorkloads.length}개가 있습니다.`
         if (pods.unknownNodes.length) return `Unknown 파드 ${pods.unknownNodes.length}개를 확인해야 합니다.`
         if (pods.activeProblemNodes.length) return `현재 문제 파드 ${pods.activeProblemNodes.length}개를 확인해야 합니다.`
-        if (recentNodeSignals) return `최근 ${this.instabilityWindowLabel()} 동안 노드 상태 전환이 확인되었습니다. 현재 서비스 영향은 없습니다.`
         if (currentRiskTitle) return currentRiskTitle
         return translate('kubernetesHeroNoImpact')
     }
@@ -1256,12 +1072,8 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         const unavailable = unavailableWorkloads.some(item => firstValue(item.data || {}, ['Name', 'K8s.Name', 'K8s.Extra.ObjectMeta.Name']) === workloadName)
         if (unavailable) return { label: '영향 중', tone: 'danger' }
         const namespace = firstValue(node.data || {}, ['K8s.Namespace', 'Namespace', 'K8s.Extra.ObjectMeta.Namespace'])
-        const replacement = resources.some(item => {
-            if (String(item.data?.Type || '').toLowerCase() !== 'pod') return false
-            if (firstValue(item.data || {}, ['K8s.Namespace', 'Namespace', 'K8s.Extra.ObjectMeta.Namespace']) !== namespace) return false
-            if (!getPodClassification(item).runningPod) return false
-            return this.podWorkloadName(item, workloads) === workloadName
-        })
+        const replacement = aggregatePods(resources, { namespace }).runningEntries
+            .some(entry => this.podWorkloadName(entry.node, workloads) === workloadName)
         return replacement ? { label: '복구됨', tone: 'success' } : { label: '확인 필요', tone: 'default' }
     }
 
@@ -1303,6 +1115,19 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
     }
 
     private renderPodStatusSummary(summary: PodHealthSummary) {
+        const onlyEvictedHistory = !summary.currentProblemGroups.length
+            && summary.terminationHistoryGroups.length === 1
+            && /evicted|축출/i.test(summary.terminationHistoryGroups[0].label)
+        if (onlyEvictedHistory) {
+            const evicted = summary.terminationHistoryGroups[0]
+            return <button
+                type="button"
+                className="netdive-k8s-cluster-detail__history-compact"
+                onClick={() => this.setState({ podStatusModalMode: 'history', podStatusModalKey: evicted.key })}>
+                <span>과거 Evicted 이력 <strong>{evicted.nodes.length}건</strong></span>
+                <small>현재 영향 없음 · 현재 장애 판정에서 제외</small>
+            </button>
+        }
         const groups = [
             { key: 'current', label: '현재 문제', description: '운영 상태 및 서비스 영향 판정에 반영', items: summary.currentProblemGroups },
             { key: 'history', label: '종료 이력', description: '현재 장애 판정에서 제외', items: summary.terminationHistoryGroups }
@@ -1469,14 +1294,27 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         const unavailableWorkloads = this.unavailableWorkloads(resources)
         const recentNodeSignals = this.recentNodeSignalNodes(resources, this.instabilityWindowMs())
         const namespaceCount = this.state.summary?.namespaceCount !== undefined ? this.state.summary.namespaceCount : this.state.summary?.namespaces !== undefined ? this.state.summary.namespaces : namespaceResource.nodes.length
-        const serviceCount = this.state.summary?.serviceCount !== undefined ? this.state.summary.serviceCount : this.state.summary?.services !== undefined ? this.state.summary.services : serviceResource.nodes.length
+        // The service tab and the connected-resource card intentionally share
+        // this one collection/count so their badges cannot drift apart.
+        const serviceCount = serviceResource.nodes.length
         const hostPlacements = this.nodePlacements(resources)
         const switchPlacements = this.switchPlacements(hostPlacements)
-        const affectedServices = this.affectedServiceCount(resources, nodeSummary, podSummary.activeProblemNodes)
+        const affectedServices = this.affectedServiceCount()
         const externalPathCount = Number(this.state.summary?.externalPathCount) || 0
         const impactScore = Math.min(100, (nodeSummary.notReady || 0) * 30 + (podSummary.activeProblemNodes.length + unavailableWorkloads.length) * 10 + affectedServices * 10)
         const hostAnalysis = this.placementAnalysis(hostPlacements, nodeSummary.total)
         const networkAnalysis = this.placementAnalysis(switchPlacements, nodeSummary.total, true)
+        const topologyNodes = this.topologyNodes()
+        const hostEvidenceTargets = topologyNodes.filter(node => String(node.data?.Type || '').toLowerCase() === 'host'
+            && hostAnalysis.known.some(item => item.label === (firstValue(node.data || {}, ['Name', 'Hostname']) || node.id)))
+        const networkEvidenceTargets = topologyNodes.filter(node => String(node.data?.Type || '').toLowerCase() === 'switch'
+            && networkAnalysis.known.some(item => item.label === (firstValue(node.data || {}, ['Name', 'SystemName', 'ChassisID']) || node.id)))
+        const controlPlaneTargets = nodeResource.nodes.filter(node => this.controlPlaneNode(node))
+        const currentImpactTargets = [
+            ...nodeResource.nodes.filter(node => !this.nodeReady(node)),
+            ...podSummary.activeProblemNodes,
+            ...unavailableWorkloads
+        ]
         const knownHostNodeCount = hostAnalysis.known.reduce((sum, item) => sum + item.count, 0)
         const knownNetworkNodeCount = networkAnalysis.known.reduce((sum, item) => sum + item.count, 0)
         const hostPlacementEvaluated = knownHostNodeCount > 0
@@ -1503,8 +1341,8 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                 : [])
         ]
         const potentialScoreTooltip = <div className="netdive-k8s-cluster-detail__risk-score-tooltip">
-            <strong>구조적 취약도 {potentialEvaluated ? `${potentialScore} / 100` : '평가 불가'}</strong>
-            <p>현재 장애 점수와 별도로 구조적 배치·연결 취약성만 평가한 점수입니다.</p>
+            <strong>구조적 위험도 {potentialEvaluated ? `${potentialScore} / 100` : '평가 불가'}</strong>
+            <p>점수가 높을수록 구조적 위험이 큽니다. 현재 장애 점수와 별도로 배치·연결 구조만 평가합니다.</p>
             <span>현재 계산에 반영된 항목</span>
             {potentialScoreFactors.length
                 ? <ul>{potentialScoreFactors.map(factor => <li key={factor.label}><span>{factor.label}</span><b>+{factor.score}점</b></li>)}</ul>
@@ -1558,7 +1396,6 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         const overviewRows: any[] = [
             { label: translate('kubernetesClusterName'), value: name, textValue: name, copyText: name },
             { label: translate('kubernetesVersion'), value: version || translate('kubernetesUnknown') },
-            this.state.summary?.apiConnectionStatus ? { label: translate('kubernetesApiConnectionStatus'), value: this.state.summary.apiConnectionStatus } : null,
             moldCluster?.state ? { label: translate('kubernetesMoldDeploymentStatus'), value: <DetailBadge tone={/running/i.test(moldCluster.state) ? 'success' : 'warning'}>{moldCluster.state}</DetailBadge> } : null,
             { label: translate('kubernetesApiServer'), value: apiServer || translate('kubernetesNoConnectionInfo'), textValue: apiServer, copyText: apiServer || undefined },
             moldCluster?.zoneName ? { label: translate('kubernetesZone'), value: moldCluster.zoneName } : null,
@@ -1610,6 +1447,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                 key: 'services',
                 label: translate('kubernetesAffectedServiceKpi'),
                 value: serviceStatusCollectedForDisplay ? affectedServices : '–',
+                tooltip: <div><strong>영향받은 서비스</strong><p>Ready Endpoint가 없거나 현재 문제 워크로드에만 의존하는 Service를 집계합니다.</p></div>,
                 details: [
                     { label: translate('kubernetesNoServiceImpact'), value: serviceStatusCollectedForDisplay ? Math.max(0, serviceCount - affectedServices) : '–' },
                     { label: translate('kubernetesServiceAffected'), value: serviceStatusCollectedForDisplay ? affectedServices : '–' }
@@ -1638,6 +1476,8 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         const historyWindowAvailable = !podSummary.terminationHistoryNodes.length || podSummary.timestampAvailableCount > 0
         const nodeWindowAvailable = this.nodeSignalTimestampsAvailable(resources)
         const instabilityWindowAvailable = historyWindowAvailable || nodeWindowAvailable
+        const hasRecentInstability = podSummary.recentTerminationNodes.length > 0 || recentNodeSignals.length > 0
+        const rawClusterStatus = this.state.summary?.apiConnectionStatus || (controlPlane.total && controlPlane.ready === controlPlane.total ? 'API Healthy' : '확인 불가')
         const historyTimeQualityTooltip = <div className="netdive-k8s-cluster-detail__risk-score-tooltip">
             <strong>최근 {this.instabilityWindowLabel()} 종료 이력 {podSummary.recentTerminationNodes.length}</strong>
             <p>정확 {podSummary.recentTimestampExactCount}건 · 추정 {podSummary.recentTimestampEstimatedCount}건</p>
@@ -1710,31 +1550,27 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                 </DetailSection>
 
                 <DetailSection icon={this.topologyIcon(this.props.node)} title={translate('kubernetesOperationalStatus')}>
-                    <Tooltip title={healthEvidence} placement="top">
-                        <div className={`netdive-k8s-cluster-detail__operation-hero netdive-k8s-cluster-detail__operation-hero--${health.tone}`}>
-                            <span className="netdive-k8s-cluster-detail__operation-dot" />
-                            <strong>{health.label}</strong>
-                            <p>{heroConclusion}</p>
-                        </div>
-                    </Tooltip>
-                    <div className="netdive-k8s-cluster-detail__availability-strip">
-                        {availabilityItems.map(item => (
-                            <Popover
-                                key={item.key}
-                                trigger="click"
-                                placement="bottom"
-                                overlayClassName="netdive-k8s-cluster-detail__status-popover"
-                                title={item.label}
-                                content={<div className="netdive-k8s-cluster-detail__status-distribution">
-                                    {item.details.map(detail => <div key={detail.label}><span>{detail.label}</span><strong>{detail.value}</strong></div>)}
-                                </div>}>
-                                <button type="button" className={`netdive-k8s-cluster-detail__availability-item netdive-k8s-cluster-detail__availability-item--${item.key}`} aria-label={`${item.label} ${translate('kubernetesStatusDistribution')}`}>
-                                    <span>{item.label}</span>
-                                    <strong>{item.value}</strong>
-                                </button>
-                            </Popover>
-                        ))}
-                    </div>
+                    <DetailOperationalSummary
+                        verdict={health.label}
+                        verdictTone={health.tone}
+                        rawStatus={rawClusterStatus}
+                        rawStatusLabel="API 원본 상태"
+                        impact={heroConclusion}
+                        tooltip={healthEvidence}
+                        metrics={availabilityItems.map(item => ({
+                            key: item.key,
+                            label: item.label,
+                            value: item.value,
+                            tooltip: item.tooltip || <div>{item.details.map((detail: any) => <div key={detail.label}>{detail.label}: <strong>{detail.value}</strong></div>)}</div>,
+                            tone: item.key === 'services' && affectedServices > 0 ? 'danger' : 'default',
+                            onClick: item.key === 'nodes' && nodeResource.nodes.length
+                                ? () => this.focusResources(nodeResource.nodes)
+                                : item.key === 'pods' && activePodResources.length
+                                ? () => this.focusResources(activePodResources)
+                                : item.key === 'services'
+                                ? () => this.setState({ activeDetailTab: 'services', serviceNamespaceFilter: 'all' })
+                                : undefined
+                        }))} />
                     {abnormalItems.length > 0 && <div className="netdive-k8s-cluster-detail__abnormal-status">
                         <span className="netdive-k8s-cluster-detail__abnormal-status-title">{translate('kubernetesAbnormalOverview')}</span>
                         <div className={`netdive-k8s-cluster-detail__abnormal-status-grid items-${Math.min(4, abnormalItems.length)}`}>
@@ -1747,7 +1583,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                         </div>
                     </div>}
                     {this.renderPodStatusSummary(podSummary)}
-                    {instabilityWindowAvailable && <div className="netdive-k8s-cluster-detail__instability">
+                    {instabilityWindowAvailable && hasRecentInstability && <div className="netdive-k8s-cluster-detail__instability">
                         <div className="netdive-k8s-cluster-detail__instability-head">
                             <strong>최근 불안정성</strong>
                             <span className="netdive-k8s-cluster-detail__instability-controls">
@@ -1790,11 +1626,25 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                             </button>
                         </div>
                     </div>}
+                    {instabilityWindowAvailable && !hasRecentInstability && <div className="netdive-k8s-cluster-detail__instability-compact">
+                        <span>최근 {this.instabilityWindowLabel()} 이상 징후 없음</span>
+                        <Select size="small" value={this.state.instabilityWindow} onChange={instabilityWindow => this.setState({ instabilityWindow })}>
+                            <Select.Option value="10m">10분</Select.Option>
+                            <Select.Option value="1h">1시간</Select.Option>
+                            <Select.Option value="6h">6시간</Select.Option>
+                            <Select.Option value="24h">24시간</Select.Option>
+                            <Select.Option value="7d">7일</Select.Option>
+                        </Select>
+                    </div>}
                     <div className="netdive-k8s-cluster-detail__collection-status">
                         <span>{translate('kubernetesDataCollectionStatus')}</span>
                         <Tooltip title={metricState.description}><span><DetailBadge tone={metricState.tone}>{metricState.label}</DetailBadge></span></Tooltip>
                         <strong>{collectedAt ? <Tooltip title={`판정 기준 ${collectedAt}`}><span>{formatRelativeDate(this.state.summary?.lastSyncAt || this.state.summary?.collectedAt)}</span></Tooltip> : (updatedAt || translate('kubernetesNoCollectionRecord'))}</strong>
                     </div>
+                </DetailSection>
+
+                <DetailSection icon={<AccountTreeIcon />} title={translate('kubernetesResourceCapacity')}>
+                    {this.renderResourceCapacity(moldCluster)}
                 </DetailSection>
 
                 <DetailSection icon={<ErrorOutlineIcon />} title={translate('kubernetesRiskResilience')}>
@@ -1804,9 +1654,9 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                         {currentRisks.length > 1 && <small>+{currentRisks.length - 1}</small>}
                     </div>
                     <div className="netdive-k8s-cluster-detail__resilience-rows">
-                        {this.renderResilienceRow(translate('kubernetesCurrentFailureImpact'), currentImpactGrade.label, currentImpactGrade.tone, `${impactScore} / 100`, `영향 점수 ${impactScore}/100 · 현재 상태 기준`, translate('kubernetesCurrentFailureImpactTooltip'))}
+                        {this.renderResilienceRow(translate('kubernetesCurrentFailureImpact'), currentImpactGrade.label, currentImpactGrade.tone, `${impactScore} / 100`, `영향 점수 ${impactScore}/100 · 현재 상태 기준`, translate('kubernetesCurrentFailureImpactTooltip'), currentImpactTargets.length ? () => this.focusResources(currentImpactTargets) : undefined)}
                         {instabilityWindowAvailable && this.renderResilienceRow('최근 불안정성', podSummary.recentTerminationNodes.length || recentNodeSignals.length ? translate('kubernetesHealthWarning') : translate('kubernetesHealthNormal'), podSummary.recentTerminationNodes.length || recentNodeSignals.length ? 'warning' : 'success', podSummary.recentTerminationNodes.length + recentNodeSignals.length, `종료 이력 ${podSummary.recentTerminationNodes.length}건, 노드 상태 전환 ${recentNodeSignals.length}건 · 최근 ${this.instabilityWindowLabel()} 기준`)}
-                        {this.renderResilienceRow(translate('kubernetesPotentialInfrastructureRisk'), potentialEvaluated && potentialScore >= 75 ? '매우 높음' : potentialGrade.label, potentialGrade.tone, potentialEvaluated ? `${potentialScore} / 100` : '–', potentialEvaluated ? `구조적 취약도 ${potentialScore}/100 · 현재 장애 점수와 분리` : '분석 데이터 미수집 · 평가 불가', potentialScoreTooltip)}
+                        {this.renderResilienceRow('구조적 위험도', potentialEvaluated && potentialScore >= 75 ? '매우 높음' : potentialGrade.label, potentialGrade.tone, potentialEvaluated ? `${potentialScore} / 100` : '–', potentialEvaluated ? `구조적 위험도 ${potentialScore}/100 · 높을수록 위험` : '분석 데이터 미수집 · 평가 불가', potentialScoreTooltip, [...hostEvidenceTargets, ...networkEvidenceTargets, ...controlPlaneTargets].length ? () => this.focusResources([...hostEvidenceTargets, ...networkEvidenceTargets, ...controlPlaneTargets]) : undefined)}
                         {this.renderResilienceRow(
                             translate('kubernetesHostDistributionShort'),
                             hostAnalysis.tone === 'warning' ? translate('kubernetesResilienceRecommended') : hostAnalysis.label,
@@ -1816,7 +1666,9 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                                 ? '호스트 배치 미수집 · 평가 불가'
                                 : hostAnalysis.known.length === 1
                                     ? '호스트 수 1대 · 단일 호스트 집중'
-                                    : `호스트 수 ${hostAnalysis.known.length}대 · 분산 배치`)}
+                                    : `호스트 수 ${hostAnalysis.known.length}대 · 분산 배치`,
+                            undefined,
+                            hostEvidenceTargets.length ? () => this.focusResources(hostEvidenceTargets) : undefined)}
                         {this.renderResilienceRow(
                             '네트워크 복원력',
                             networkAnalysis.tone === 'warning' ? translate('kubernetesResilienceRecommended') : networkAnalysis.label,
@@ -1826,13 +1678,17 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                                 ? '네트워크 경로 미수집 · 평가 불가'
                                 : networkAnalysis.known.length === 1
                                     ? `단일 경로 비율 ${networkAnalysis.topPercent}% · 연결 스위치 1대`
-                                    : `최대 경로 집중도 ${networkAnalysis.topPercent}% · 연결 스위치 ${networkAnalysis.known.length}대`)}
+                                    : `최대 경로 집중도 ${networkAnalysis.topPercent}% · 연결 스위치 ${networkAnalysis.known.length}대`,
+                            undefined,
+                            networkEvidenceTargets.length ? () => this.focusResources(networkEvidenceTargets) : undefined)}
                         {this.renderResilienceRow(
                             translate('kubernetesControlPlaneResilience'),
                             !controlPlane.total ? translate('kubernetesResilienceUnavailable') : controlPlane.total === 1 ? translate('kubernetesResilienceRecommended') : translate('kubernetesResilienceGood'),
                             !controlPlane.total ? 'default' : controlPlane.total === 1 ? 'warning' : 'success',
                             !controlPlane.total ? '–' : controlPlane.total === 1 ? '낮음' : '양호',
-                            !controlPlane.total ? 'Control Plane 미수집 · 평가 불가' : controlPlane.total === 1 ? 'Control Plane 노드 1대 · 이중화 없음' : `Control Plane 노드 ${controlPlane.total}대 · 다중 구성`)}
+                            !controlPlane.total ? 'Control Plane 미수집 · 평가 불가' : controlPlane.total === 1 ? 'Control Plane 노드 1대 · 이중화 없음' : `Control Plane 노드 ${controlPlane.total}대 · 다중 구성`,
+                            undefined,
+                            controlPlaneTargets.length ? () => this.focusResources(controlPlaneTargets) : undefined)}
                         {this.renderResilienceRow(translate('kubernetesExternalPaths'), externalAnalysis.label, externalAnalysis.tone, externalAnalysis.value, externalAnalysis.short, externalAnalysis.description)}
                     </div>
                     <KubernetesAnalysisConfidence
@@ -1872,10 +1728,6 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                             ]
                         }
                     ]} />
-
-                <DetailSection icon={<AccountTreeIcon />} title={translate('kubernetesResourceCapacity')}>
-                    {this.renderResourceCapacity(moldCluster)}
-                </DetailSection>
 
                 <DetailSection
                     icon={<HistoryOutlined />}

@@ -6,6 +6,7 @@ export {
     DetailEmpty,
     DetailKeyValueList,
     DetailLayerIcon,
+    DetailOperationalSummary,
     DetailResourceCard,
     DetailResourceGrid,
     DetailSection
@@ -51,6 +52,8 @@ export type {
     DetailKeyValueListProps,
     DetailKeyValueRow,
     DetailLayerIconProps,
+    DetailOperationalMetric,
+    DetailOperationalSummaryProps,
     DetailResourceCardProps,
     DetailResourceIconTone,
     DetailResourceGridProps,

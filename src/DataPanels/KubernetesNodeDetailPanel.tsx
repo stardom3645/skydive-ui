@@ -9,9 +9,10 @@ import { HistoryOutlined } from '@ant-design/icons'
 import { translate } from '../Config'
 import { session } from '../Store'
 import { Node } from '../Topology'
-import { aggregatePods, getPodClassification, isCurrentKubernetesPod } from '../KubernetesPodLifecycle'
+import { aggregatePods } from '../KubernetesPodLifecycle'
+import { aggregateKubernetesDetail } from '../KubernetesDetailAggregation'
 import { resolveKubernetesPodTopController } from '../KubernetesWorkloadOwnership'
-import { DetailBadge, DetailBadgeTone, DetailEmpty, DetailKeyValueList, DetailResourceCard, DetailResourceGrid, DetailSection, summarizeKubernetesPods } from './common'
+import { ConnectedResourcesSection, DetailBadge, DetailBadgeTone, DetailEmpty, DetailKeyValueList, DetailLayerIcon, DetailOperationalSummary, DetailResourceCard, DetailResourceGrid, DetailSection, summarizeKubernetesPods } from './common'
 import './KubernetesNodeDetailPanel.css'
 
 interface Props {
@@ -29,6 +30,8 @@ interface State {
     requestKey: string
     basicCollapsed: boolean
     workloadsExpanded: boolean
+    workloadFilter: string
+    conditionsExpanded: boolean
 }
 
 const valueByPath = (data: any, path: string): any => path.split('.').reduce((value, key) => value === undefined || value === null ? undefined : value[key], data)
@@ -181,13 +184,21 @@ const NODE_EVENT_TONES: Record<string, NodeEventTone> = {
 }
 
 class KubernetesNodeDetailPanel extends React.Component<Props, State> {
-    state: State = { loading: false, error: false, requestKey: '', basicCollapsed: false, workloadsExpanded: false }
+    state: State = {
+        loading: false,
+        error: false,
+        requestKey: '',
+        basicCollapsed: false,
+        workloadsExpanded: false,
+        workloadFilter: 'all',
+        conditionsExpanded: false
+    }
 
     componentDidMount() { this.loadDetail() }
 
     componentDidUpdate(prevProps: Props) {
         if (prevProps.node.id !== this.props.node.id || this.cluster()?.id !== this.clusterFrom(prevProps)?.id) {
-            this.setState({ basicCollapsed: false, workloadsExpanded: false })
+            this.setState({ basicCollapsed: false, workloadsExpanded: false, workloadFilter: 'all', conditionsExpanded: false })
             this.loadDetail()
         }
     }
@@ -282,25 +293,6 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
             return firstValue(node.data || {}, ['K8s.Extra.Spec.NodeName', 'K8s.Node', 'NodeName']) === name
         })
         const podAggregate = aggregatePods(scopedPods, { nodeName: name })
-        const pods = podAggregate.activeEntries.map(entry => entry.node)
-        let restartPodCount = 0
-        let oomKilledPodCount = 0
-        pods.forEach(pod => {
-            const containerStatuses = firstRaw(pod.data || {}, ['K8s.Extra.Status.ContainerStatuses']) || []
-            const initStatuses = firstRaw(pod.data || {}, ['K8s.Extra.Status.InitContainerStatuses']) || []
-            let restarted = false
-            let oomKilled = false
-            let crashLoop = false
-            ;([] as any[]).concat(initStatuses || [], containerStatuses || []).forEach(container => {
-                if (Number(container?.RestartCount || 0) > 0) restarted = true
-                const waitingReason = container?.State?.Waiting?.Reason
-                const terminatedReason = container?.State?.Terminated?.Reason || container?.LastTerminationState?.Terminated?.Reason
-                if (waitingReason === 'CrashLoopBackOff') crashLoop = true
-                if (terminatedReason === 'OOMKilled') oomKilled = true
-            })
-            if (restarted) restartPodCount++
-            if (oomKilled) oomKilledPodCount++
-        })
         const nodeInfo = status.NodeInfo || {}
         const createdAt = objectMeta.CreationTimestamp?.Time
         return {
@@ -323,10 +315,10 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
             allocatable: status.Allocatable,
             podCount: podAggregate.current,
             runningPodCount: podAggregate.running,
-            pendingPodCount: podAggregate.activeEntries.filter(entry => getPodClassification(entry.node).pendingPod).length,
+            pendingPodCount: podAggregate.pending,
             failedPodCount: 0,
-            restartPodCount,
-            oomKilledPodCount,
+            restartPodCount: podAggregate.restartHistory,
+            oomKilledPodCount: podAggregate.currentOOMKilled,
             impactedPodCount: podAggregate.currentProblems,
             problemPods: podAggregate.currentProblemEntries.map(entry => ({ uid: entry.node.id, kind: 'Pod', name: entry.podName, namespace: entry.namespace })),
             relationshipConfidence: 'UNKNOWN',
@@ -418,7 +410,11 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
                 existing.description = description
             }
         })
-        return Array.from(groups.values()).sort((left, right) => new Date(right.time || 0).getTime() - new Date(left.time || 0).getTime())
+        const priority: Record<NodeEventTone, number> = { danger: 0, warning: 1, success: 2 }
+        return Array.from(groups.values()).sort((left, right) => {
+            const severity = priority[left.tone] - priority[right.tone]
+            return severity || new Date(right.time || 0).getTime() - new Date(left.time || 0).getTime()
+        })
     }
 
     private relativeEventTime(value: any): string {
@@ -465,7 +461,20 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
                 return supported.indexOf(String(left?.type || '').toLowerCase()) - supported.indexOf(String(right?.type || '').toLowerCase())
             })
         if (!orderedConditions.length) return <DetailEmpty description={translate('kubernetesNodeConditionsUnavailable')} compact />
-        return <div className="netdive-k8s-node-detail__rows">{orderedConditions.map(condition => {
+        const abnormalConditions = orderedConditions.filter(condition => this.conditionTone(condition) !== 'success')
+        if (!abnormalConditions.length && !this.state.conditionsExpanded) {
+            return <button
+                type="button"
+                className="netdive-k8s-node-detail__condition-summary"
+                onClick={() => this.setState({ conditionsExpanded: true })}>
+                <span className="netdive-k8s-node-detail__normal"><i />전체 정상</span>
+                <strong>{orderedConditions.length}개 조건</strong>
+                <small>상세 보기</small>
+            </button>
+        }
+        const visibleConditions = abnormalConditions.length ? orderedConditions : orderedConditions
+        return <React.Fragment>
+            <div className="netdive-k8s-node-detail__rows">{visibleConditions.map(condition => {
             const tone = this.conditionTone(condition)
             const state = tone === 'success'
                 ? <span className="netdive-k8s-node-detail__normal"><i />{translate('kubernetesHealthNormal')}</span>
@@ -485,7 +494,11 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
                     <b>{this.duration(condition.durationSeconds)}</b>
                 </div>
             </Tooltip>
-        })}</div>
+            })}</div>
+            {!abnormalConditions.length && <div className="netdive-k8s-node-detail__condition-collapse">
+                <Button type="link" size="small" onClick={() => this.setState({ conditionsExpanded: false })}>정상 조건 접기</Button>
+            </div>}
+        </React.Fragment>
     }
 
     private renderCapacity(currentPodCount: number) {
@@ -530,6 +543,14 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
             <div className="netdive-k8s-node-detail__resource-caption">사용량 / Allocatable · 사용률</div>
             {metrics.map(metric => {
                 const percentLabel = metric.percent === undefined ? '–' : `${metric.percent.toFixed(1)}%`
+                const tone: DetailBadgeTone = metric.percent === undefined
+                    ? 'default'
+                    : metric.percent >= 90
+                    ? 'danger'
+                    : metric.percent >= 75
+                    ? 'warning'
+                    : 'success'
+                const strokeColor = tone === 'danger' ? '#d92d20' : tone === 'warning' ? '#f79009' : '#1677ff'
                 return <Tooltip
                     key={metric.key}
                     placement="top"
@@ -537,13 +558,13 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
                         <div>Capacity: {metric.capacity || '없음'}</div>
                         <div>Allocatable: {metric.allocatable || '없음'}</div>
                     </div>}>
-                    <div className="netdive-k8s-node-detail__resource-row">
+                    <div className={`netdive-k8s-node-detail__resource-row is-${tone}`}>
                         <strong>{metric.label}</strong>
                         <div>
                             <span><b>{metric.usage || '없음'}</b> / {metric.allocatable || '없음'}</span>
                             <em>{percentLabel}</em>
                         </div>
-                        <Progress percent={metric.percent === undefined ? 0 : Math.min(100, metric.percent)} showInfo={false} size="small" />
+                        <Progress percent={metric.percent === undefined ? 0 : Math.min(100, metric.percent)} showInfo={false} size="small" strokeColor={strokeColor} />
                     </div>
                 </Tooltip>
             })}
@@ -556,22 +577,76 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
         if (ids.length && app && typeof app.focusInfrastructureNodeIDs === 'function') app.focusInfrastructureNodeIDs(ids, this.props.node.id, true)
     }
 
-    private connectedKubernetesResources(): { pods: Node[], workloads: Node[] } {
+    private connectedKubernetesResources(): { pods: Node[], workloads: Node[], workloadPodCounts: Map<string, number> } {
         const allNodes = this.topologyNodes()
         const nodeName = firstValue(this.props.node.data || {}, ['Name', 'K8s.Name'])
         const clusterName = firstValue(this.props.node.data || {}, ['ClusterName', 'K8s.ClusterName'])
-        const sameCluster = (node: Node) => !clusterName || firstValue(node.data || {}, ['ClusterName', 'K8s.ClusterName']) === clusterName
-        const pods = allNodes.filter(node => sameCluster(node)
-            && String(node.data?.Type || '').toLowerCase() === 'pod'
-            && isCurrentKubernetesPod(node)
-            && firstValue(node.data || {}, ['K8s.Extra.Spec.NodeName', 'K8s.Node', 'NodeName']) === nodeName)
-        const workloadIDs = new Set<string>(pods
-            .map(pod => resolveKubernetesPodTopController(pod, allNodes)?.id)
-            .filter(Boolean) as string[])
+        const aggregate = aggregateKubernetesDetail(allNodes, {
+            nodeName,
+            predicate: node => !clusterName || firstValue(node.data || {}, ['ClusterName', 'K8s.ClusterName']) === clusterName
+        })
         return {
-            pods,
-            workloads: allNodes.filter(node => workloadIDs.has(node.id))
+            pods: aggregate.activePodNodes,
+            workloads: aggregate.workloadControllers,
+            workloadPodCounts: aggregate.workloadPodCounts
         }
+    }
+
+    private singleReplicaTargets(workloads: Array<{ kind: string, node?: Node }>): Node[] {
+        return workloads
+            .filter(workload => ['Deployment', 'StatefulSet'].indexOf(workload.kind) >= 0 && workload.node)
+            .filter(workload => Number(firstRaw(workload.node!.data || {}, [
+                'K8s.Extra.Spec.Replicas', 'K8s.Spec.Replicas', 'DesiredReplicas', 'Replicas'
+            ])) === 1)
+            .map(workload => workload.node!)
+    }
+
+    private localStorageDependencyTargets(pods: Node[], workloads: Array<{ node?: Node }>, allNodes: Node[]): Node[] {
+        const targetIDs = new Set<string>()
+        const pvcNodes = allNodes.filter(node => String(node.data?.Type || '').toLowerCase() === 'persistentvolumeclaim')
+        const pvNodes = allNodes.filter(node => String(node.data?.Type || '').toLowerCase() === 'persistentvolume')
+        const storageClassNodes = allNodes.filter(node => String(node.data?.Type || '').toLowerCase() === 'storageclass')
+        const workloadByID = new Map(workloads.filter(workload => workload.node).map(workload => [workload.node!.id, workload.node!]))
+
+        pods.forEach(pod => {
+            const volumes = firstRaw(pod.data || {}, ['K8s.Extra.Spec.Volumes', 'K8s.Spec.Volumes'])
+            if (!Array.isArray(volumes)) return
+            const namespace = resourceNamespace(pod)
+            let local = false
+            const related: Node[] = []
+            volumes.forEach(volume => {
+                if (volume?.HostPath || volume?.hostPath) local = true
+                const claimName = firstValue(volume || {}, [
+                    'PersistentVolumeClaim.ClaimName', 'persistentVolumeClaim.claimName', 'PVC.ClaimName'
+                ])
+                if (!claimName) return
+                const pvc = pvcNodes.find(node => resourceNamespace(node) === namespace
+                    && firstValue(node.data || {}, ['Name', 'K8s.Name', 'K8s.Extra.ObjectMeta.Name']) === claimName)
+                if (!pvc) return
+                related.push(pvc)
+                const volumeName = firstValue(pvc.data || {}, ['K8s.Extra.Spec.VolumeName', 'K8s.Spec.VolumeName', 'VolumeName'])
+                const pv = pvNodes.find(node => firstValue(node.data || {}, ['Name', 'K8s.Name', 'K8s.Extra.ObjectMeta.Name']) === volumeName)
+                if (pv) {
+                    related.push(pv)
+                    if (firstRaw(pv.data || {}, ['K8s.Extra.Spec.Local', 'K8s.Extra.Spec.HostPath', 'K8s.Spec.Local', 'K8s.Spec.HostPath'])) local = true
+                }
+                const storageClassName = firstValue(pvc.data || {}, [
+                    'K8s.Extra.Spec.StorageClassName', 'K8s.Spec.StorageClassName', 'StorageClassName'
+                ]) || (pv ? firstValue(pv.data || {}, ['K8s.Extra.Spec.StorageClassName', 'K8s.Spec.StorageClassName', 'StorageClassName']) : '')
+                const storageClass = storageClassNodes.find(node => firstValue(node.data || {}, ['Name', 'K8s.Name']) === storageClassName)
+                if (storageClass) {
+                    related.push(storageClass)
+                    const provisioner = firstValue(storageClass.data || {}, ['K8s.Extra.Provisioner', 'K8s.Extra.Spec.Provisioner', 'Provisioner'])
+                    if (/local(?:-path)?/i.test(provisioner) || /local-path/i.test(storageClassName)) local = true
+                }
+            })
+            if (!local) return
+            targetIDs.add(pod.id)
+            related.forEach(node => targetIDs.add(node.id))
+            const controller = resolveKubernetesPodTopController(pod, allNodes)
+            if (controller && workloadByID.has(controller.id)) targetIDs.add(controller.id)
+        })
+        return allNodes.filter(node => targetIDs.has(node.id))
     }
 
     render() {
@@ -580,18 +655,15 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
         const name = detail.name || firstValue(data, ['Name', 'K8s.Name']) || this.props.node.id
         const ready = this.ready()
         const statusLabel = ready === true ? translate('kubernetesNodeReady') : ready === false ? translate('kubernetesNodeNotReady') : translate('kubernetesHealthUnknown')
-        const statusTone: DetailBadgeTone = ready === true ? 'success' : ready === false ? 'danger' : 'default'
         const connected = this.connectedKubernetesResources()
         const podStatus = summarizeKubernetesPods(connected.pods)
         const currentPodCount = detail.podCount !== undefined ? Number(detail.podCount) : connected.pods.length
-        const runningPodCount = detail.runningPodCount !== undefined ? Number(detail.runningPodCount) : podStatus.running
         const problemCount = Array.isArray(detail.problemPods) ? detail.problemPods.length : podStatus.activeProblems.length
         const pendingPodCount = detail.pendingPodCount !== undefined ? Number(detail.pendingPodCount) : podStatus.pending
         const roles = Array.isArray(detail.roles) ? detail.roles : detail.roles ? String(detail.roles).split(',').map(role => role.trim()).filter(Boolean) : []
         const missingValue = this.state.error ? '조회 실패' : '없음'
         const roleValue = roles.length ? <span className="netdive-k8s-node-detail__roles">{roles.map(role => <DetailBadge key={role} tone="default">{role}</DetailBadge>)}</span> : missingValue
         const osImage = String(detail.osImage || '')
-        const maxPodCapacity = detail.maxPodCount !== undefined ? detail.maxPodCount : quantity(detail.allocatable, 'pods') !== '–' ? quantity(detail.allocatable, 'pods') : undefined
         const basicRows: any[] = [
             { label: translate('kubernetesNodeName'), value: name, textValue: name, copyText: name },
             { label: translate('kubernetesNodeRoles'), value: roleValue },
@@ -607,11 +679,6 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
         const taintValue = Array.isArray(detail.taints) && detail.taints.length
             ? detail.taints.map(taint => `${taint.key}${taint.value ? `=${taint.value}` : ''}:${taint.effect}`).join(', ')
             : '없음'
-        const workloadRows: any[] = [
-            { label: '현재 Pod / 최대 Pod', value: maxPodCapacity !== undefined ? `${currentPodCount} / ${maxPodCapacity}` : `${currentPodCount} / ${missingValue}` },
-            { label: <Tooltip title={translate('kubernetesSingleReplicaWorkloadsDescription')} placement="top"><span>{translate('kubernetesSingleReplicaWorkloads')}</span></Tooltip>, value: optionalNumber(detail.singleReplicaWorkloadCount) },
-            { label: <Tooltip title={translate('kubernetesLocalStorageWorkloadsDescription')} placement="top"><span>{translate('kubernetesLocalStorageWorkloads')}</span></Tooltip>, value: optionalNumber(detail.localStorageDependentWorkloadCount) }
-        ]
         const problemCriteria = <div>
             <strong>문제 Pod 판정 기준</strong>
             <div>Ready=false, CrashLoopBackOff, ImagePullBackOff, ErrImagePull, CreateContainerConfigError, CreateContainerError, RunContainerError, OOMKilled</div>
@@ -652,7 +719,28 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
         const workloadCounts = workloadKindOrder
             .map(kind => ({ kind, count: workloads.filter(workload => workload.kind === kind).length }))
             .filter(group => group.count > 0)
-        const visibleWorkloads = this.state.workloadsExpanded ? workloads : workloads.slice(0, 6)
+        const filteredWorkloads = this.state.workloadFilter === 'all'
+            ? workloads
+            : workloads.filter(workload => workload.kind === this.state.workloadFilter)
+        const visibleWorkloads = this.state.workloadsExpanded ? filteredWorkloads : filteredWorkloads.slice(0, 6)
+        const workloadPodCounts = connected.workloadPodCounts
+        const currentImpact = ready === false || Number(problemCount || 0) > 0 ? '현재 영향 확인 필요' : '현재 영향 없음'
+        const netdiveTone: DetailBadgeTone = ready === false
+            ? 'danger'
+            : Number(problemCount || 0) > 0 || detail.unschedulable
+            ? 'warning'
+            : ready === true
+            ? 'success'
+            : 'default'
+        const netdiveVerdict = ready === false
+            ? translate('kubernetesHealthCritical')
+            : Number(problemCount || 0) > 0 || detail.unschedulable
+            ? translate('kubernetesHealthWarning')
+            : ready === true
+            ? translate('kubernetesHealthNormal')
+            : translate('kubernetesHealthUnknown')
+        const singleReplicaTargets = this.singleReplicaTargets(workloads)
+        const localStorageTargets = this.localStorageDependencyTargets(connected.pods, workloads, allNodes)
 
         return <div className="netdive-k8s-node-detail">
             <DetailSection icon={<InfoIcon />} title={translate('kubernetesNodeBasicInfo')} collapsible collapsed={this.state.basicCollapsed} onToggle={() => this.setState({ basicCollapsed: !this.state.basicCollapsed })}>
@@ -660,17 +748,18 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
             </DetailSection>
 
             <DetailSection icon={this.topologyIcon(this.props.node)} title={translate('kubernetesNodeOperationalStatus')}>
-                <div className={`netdive-k8s-node-detail__hero netdive-k8s-node-detail__hero--${statusTone}`}><i /><span>원본 상태</span><strong>{statusLabel}</strong></div>
-                <div className="netdive-k8s-node-detail__summary netdive-k8s-node-detail__summary--2">
-                    <div><Tooltip title={NODE_METRIC_MAPPING.runningPods}><span>{translate('kubernetesRunningPods')}</span></Tooltip><strong>{runningPodCount}</strong></div>
-                    <div><Tooltip title={problemCriteria}><span className="netdive-k8s-node-detail__metric-help">{translate('kubernetesProblemPods')}</span></Tooltip><strong className={Number(problemCount || 0) > 0 ? 'is-danger' : ''}>{optionalNumber(problemCount)}</strong></div>
-                </div>
-                <div className="netdive-k8s-node-detail__scheduling netdive-k8s-node-detail__scheduling--2">
-                    <Tooltip title={`원본 필드: spec.unschedulable=${String(!!detail.unschedulable)} · Cordoned=${detail.unschedulable ? 'true' : 'false'}`}>
-                        <div><span>스케줄링</span><strong className={detail.unschedulable ? 'is-warning' : ''}>{detail.unschedulable ? '제한' : '허용'}</strong></div>
-                    </Tooltip>
-                    <div><span>Taint</span><Tooltip title={taintValue}><strong>{taintValue}</strong></Tooltip></div>
-                </div>
+                <DetailOperationalSummary
+                    verdict={netdiveVerdict}
+                    verdictTone={netdiveTone}
+                    rawStatus={statusLabel}
+                    rawStatusLabel="Kubernetes 원본 상태"
+                    impact={currentImpact}
+                    metrics={[
+                        { key: 'active-pods', label: '활성 Pod', value: currentPodCount, tooltip: NODE_METRIC_MAPPING.currentPods, onClick: connected.pods.length ? () => this.focusNodes(connected.pods) : undefined },
+                        { key: 'problem-pods', label: translate('kubernetesProblemPods'), value: optionalNumber(problemCount), tooltip: problemCriteria, tone: Number(problemCount || 0) > 0 ? 'danger' : 'default', onClick: podStatus.activeProblems.length ? () => this.focusNodes(podStatus.activeProblems) : undefined },
+                        { key: 'scheduling', label: '스케줄링', value: detail.unschedulable ? '제한' : '허용', tone: detail.unschedulable ? 'warning' : 'default', tooltip: `원본 필드: spec.unschedulable=${String(!!detail.unschedulable)}` },
+                        { key: 'taint', label: 'Taint', value: Array.isArray(detail.taints) ? detail.taints.length : 0, tone: 'default', tooltip: taintValue }
+                    ]} />
             </DetailSection>
 
             <DetailSection icon={<StorageIcon />} title="리소스 현황">
@@ -681,12 +770,25 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
                 {this.renderConditions()}
             </DetailSection>
 
-            <DetailSection icon={<AccountTreeIcon />} title="할당된 워크로드">
-                <DetailKeyValueList rows={workloadRows} labelWidth={205} copyTooltip={translate('copy')} />
+            <DetailSection icon={<AccountTreeIcon />} title="위험 및 종속성">
+                <div className="netdive-k8s-node-detail__dependency-metrics">
+                    <Tooltip title={translate('kubernetesSingleReplicaWorkloadsDescription')} placement="top">
+                        <button type="button" disabled={!singleReplicaTargets.length} onClick={() => this.focusNodes(singleReplicaTargets)}>
+                            <span>{translate('kubernetesSingleReplicaWorkloads')}</span>
+                            <strong>{optionalNumber(detail.singleReplicaWorkloadCount)}</strong>
+                        </button>
+                    </Tooltip>
+                    <Tooltip title={translate('kubernetesLocalStorageWorkloadsDescription')} placement="top">
+                        <button type="button" disabled={!localStorageTargets.length} onClick={() => this.focusNodes(localStorageTargets)}>
+                            <span>{translate('kubernetesLocalStorageWorkloads')}</span>
+                            <strong>{optionalNumber(detail.localStorageDependentWorkloadCount)}</strong>
+                        </button>
+                    </Tooltip>
+                </div>
                 <div className="netdive-k8s-node-detail__metric-rows">
                     {[
                         ['Pending', pendingPodCount, pendingPodCount > 0 ? 'danger' : 'default', NODE_METRIC_MAPPING.currentPods],
-                        ['재시작 파드', detail.restartPodCount, Number(detail.restartPodCount || 0) > 0 ? 'warning' : 'default', NODE_METRIC_MAPPING.restartPods],
+                        ['재시작 이력 Pod', detail.restartPodCount, Number(detail.restartPodCount || 0) > 0 ? 'warning' : 'default', NODE_METRIC_MAPPING.restartPods],
                         ['현재 OOMKilled', detail.oomKilledPodCount, Number(detail.oomKilledPodCount || 0) > 0 ? 'warning' : 'default', '활성 Pod 중 OOMKilled 상태 또는 직전 종료 상태가 확인된 고유 Pod 수입니다.'],
                     ].map((item: any[]) => <div key={item[0]} className={`is-${item[2]}`}>{item[3] ? <Tooltip title={item[3]} placement="top"><span className="netdive-k8s-node-detail__metric-help">{item[0]}</span></Tooltip> : <span>{item[0]}</span>}<strong>{optionalNumber(item[1])}</strong></div>)}
                 </div>
@@ -694,12 +796,15 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
                 {podStatus.activeProblems.length > 0 && <DetailResourceGrid compact>{podStatus.activeProblems.map(pod => <DetailResourceCard key={pod.id} label={firstValue(pod.data || {}, ['Name', 'K8s.Name']) || pod.id} value="" icon={<AccountTreeIcon />} iconTone="kubernetes" interactive onClick={() => this.focusNodes([pod])} />)}</DetailResourceGrid>}
                 {workloads.length > 0 && <div className="netdive-k8s-node-detail__workload-heading">
                     <strong>워크로드 컨트롤러</strong>
-                    <span>{workloadCounts.map(group => <DetailBadge key={group.kind} tone="default">{group.kind} {group.count}</DetailBadge>)}</span>
+                    <span className="netdive-k8s-node-detail__workload-filters">
+                        <button type="button" className={this.state.workloadFilter === 'all' ? 'is-selected' : ''} onClick={() => this.setState({ workloadFilter: 'all', workloadsExpanded: false })}>전체 {workloads.length}</button>
+                        {workloadCounts.map(group => <button type="button" key={group.kind} className={this.state.workloadFilter === group.kind ? 'is-selected' : ''} onClick={() => this.setState({ workloadFilter: group.kind, workloadsExpanded: false })}>{group.kind} {group.count}</button>)}
+                    </span>
                 </div>}
                 {workloads.length > 0 && <DetailResourceGrid compact className="netdive-k8s-node-detail__workload-list">{visibleWorkloads.map(workload => <DetailResourceCard
                     key={workload.uid}
                     label={middleEllipsis(workload.name)}
-                    description={`${workload.kind} · ${workload.namespace || '없음'}`}
+                    description={`${workload.kind} · ${workload.namespace || '없음'} · 연결 Pod ${workloadPodCounts.get(workload.uid) || 0}`}
                     value=""
                     icon={workload.node ? this.topologyIcon(workload.node) : <AccountTreeIcon />}
                     iconTone="kubernetes"
@@ -708,8 +813,22 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
                     copyText={workload.name}
                     copyTooltip={translate('copy')}
                     labelTooltip={workload.name} />)}</DetailResourceGrid>}
-                {workloads.length > 6 && <div className="netdive-k8s-node-detail__workload-more"><Button type="link" size="small" onClick={() => this.setState({ workloadsExpanded: !this.state.workloadsExpanded })}>{this.state.workloadsExpanded ? '접기' : `전체 ${workloads.length}개 보기`}</Button></div>}
+                {filteredWorkloads.length > 6 && <div className="netdive-k8s-node-detail__workload-more"><Button type="link" size="small" onClick={() => this.setState({ workloadsExpanded: !this.state.workloadsExpanded })}>{this.state.workloadsExpanded ? '접기' : `전체 ${filteredWorkloads.length}개 보기`}</Button></div>}
             </DetailSection>
+
+            <ConnectedResourcesSection
+                icon={<AccountTreeIcon />}
+                title={translate('hostConnectedResources')}
+                emptyText={translate('hostNoConnectedResources')}
+                groups={[{
+                    key: 'kubernetes',
+                    title: translate('kubernetesConnectedResourceGroup'),
+                    icon: <img src="assets/icons/k8s.png" alt="" />,
+                    items: [
+                        { key: 'pods', label: 'Pod', count: connected.pods.length, icon: <DetailLayerIcon glyph={'\uf1b3'} />, iconTone: 'kubernetes', onClick: connected.pods.length ? () => this.focusNodes(connected.pods) : undefined },
+                        { key: 'workloads', label: '워크로드', count: workloads.length, icon: <DetailLayerIcon glyph={'\uf5fd'} />, iconTone: 'kubernetes', onClick: connected.workloads.length ? () => this.focusNodes(connected.workloads) : undefined }
+                    ]
+                }]} />
 
             <DetailSection icon={<HistoryOutlined />} title={translate('kubernetesNodeRecentEvents')}>{this.renderImportantEvents()}</DetailSection>
 

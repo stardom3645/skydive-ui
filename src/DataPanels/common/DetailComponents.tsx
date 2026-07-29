@@ -205,6 +205,86 @@ export const DetailBadge = ({ children, tone = 'default', className }: DetailBad
     </Tag>
 )
 
+export interface DetailOperationalMetric {
+    key?: React.Key
+    label: React.ReactNode
+    value: React.ReactNode
+    tooltip?: React.ReactNode
+    tone?: DetailBadgeTone
+    onClick?: () => void
+}
+
+export interface DetailOperationalSummaryProps {
+    verdict: React.ReactNode
+    verdictTone?: DetailBadgeTone
+    rawStatus: React.ReactNode
+    impact: React.ReactNode
+    verdictLabel?: React.ReactNode
+    rawStatusLabel?: React.ReactNode
+    impactLabel?: React.ReactNode
+    tooltip?: React.ReactNode
+    metrics?: DetailOperationalMetric[]
+    className?: string
+}
+
+/**
+ * Shared Kubernetes operational status header.
+ *
+ * Netdive's interpreted verdict, the Kubernetes/API raw status, and the
+ * currently observed impact are deliberately rendered as separate fields so
+ * structural risk or historical events cannot be mistaken for a live outage.
+ */
+export const DetailOperationalSummary = ({
+    verdict,
+    verdictTone = 'default',
+    rawStatus,
+    impact,
+    verdictLabel = 'Netdive 판정',
+    rawStatusLabel = '원본 상태',
+    impactLabel = '현재 영향',
+    tooltip,
+    metrics = [],
+    className
+}: DetailOperationalSummaryProps) => {
+    const content = (
+        <div className={joinClassNames('netdive-operational-summary', className)}>
+            <div className="netdive-operational-summary__states">
+                <div className="netdive-operational-summary__state netdive-operational-summary__state--verdict">
+                    <span>{verdictLabel}</span>
+                    <strong className={`is-${verdictTone}`}><i />{verdict}</strong>
+                </div>
+                <div className="netdive-operational-summary__state">
+                    <span>{rawStatusLabel}</span>
+                    <strong>{rawStatus}</strong>
+                </div>
+                <div className="netdive-operational-summary__state">
+                    <span>{impactLabel}</span>
+                    <strong>{impact}</strong>
+                </div>
+            </div>
+            {metrics.length > 0 && <div className={`netdive-operational-summary__metrics items-${Math.min(4, metrics.length)}`}>
+                {metrics.map((metric, index) => {
+                    const metricContent = (
+                        <button
+                            type="button"
+                            aria-disabled={!metric.onClick}
+                            tabIndex={metric.onClick ? 0 : -1}
+                            className={`netdive-operational-summary__metric is-${metric.tone || 'default'}`}
+                            onClick={metric.onClick}>
+                            <span>{metric.label}</span>
+                            <strong>{metric.value}</strong>
+                        </button>
+                    )
+                    return metric.tooltip
+                        ? <Tooltip key={metric.key !== undefined ? metric.key : index} title={metric.tooltip} placement="top">{metricContent}</Tooltip>
+                        : <React.Fragment key={metric.key !== undefined ? metric.key : index}>{metricContent}</React.Fragment>
+                })}
+            </div>}
+        </div>
+    )
+    return tooltip ? <Tooltip title={tooltip} placement="top">{content}</Tooltip> : content
+}
+
 export interface DetailResourceCardProps {
     label: React.ReactNode
     value: React.ReactNode

@@ -171,11 +171,13 @@ class SelectionPanel extends React.Component<Props, State> {
       const isKubernetesNode = el.type === 'node'
         && String(el.data?.Manager || '').toLowerCase() === 'k8s'
         && String(el.data?.Type || '').toLowerCase() === 'node'
-      const fullTitle = isKubernetesNode
+      const isKubernetesResource = el.type === 'node'
+        && String(el.data?.Manager || '').toLowerCase() === 'k8s'
+      const fullTitle = isKubernetesResource
         ? String(el.data?.Name || el.data?.K8s?.Name || title).replace(/\s*\n\s*/g, ' ').trim()
         : title
-      const displayTitle = isKubernetesNode ? this.middleEllipsis(fullTitle) : title
-      const preserveTitleCase = isKubernetesService || isKubernetesNode
+      const displayTitle = isKubernetesResource ? this.middleEllipsis(fullTitle) : title
+      const preserveTitleCase = isKubernetesResource
       const isDeploymentIcon = iconClass.split(/\s+/).indexOf('k8s-deployment-icon') >= 0
       const isDaemonSetIcon = iconClass.split(/\s+/).indexOf('k8s-daemonset-icon') >= 0
       const tabIcon = isSwitchIcon
@@ -196,7 +198,7 @@ class SelectionPanel extends React.Component<Props, State> {
               <span className={`${classes.tabLabelBlock} ${preserveTitleCase ? classes.tabTitlePreserveCase : ""}`}>
                 <span className={classes.tabTitleRow}>
                   <span className={`${classes.tabTitle} ${displayTitle.includes("\n") ? classes.tabTitleMulti : ""} ${preserveTitleCase ? classes.tabTitlePreserveCase : ""}`}>{displayTitle}</span>
-                  {isKubernetesNode && <span
+                  {isKubernetesResource && <span
                     className={classes.tabTitleCopy}
                     role="button"
                     tabIndex={0}
@@ -237,7 +239,7 @@ class SelectionPanel extends React.Component<Props, State> {
     if (isKubernetesService) {
       return translate('kubernetesTopologyServices')
     }
-    const type = rawType ? rawType.charAt(0).toUpperCase() + rawType.slice(1) : ""
+    const type = rawType ? rawType.toUpperCase() : ""
     const ipv4 = Array.isArray(el.data.IPV4) && el.data.IPV4.length > 0 ? String(el.data.IPV4[0]) : ""
     const ipv6 = Array.isArray(el.data.IPV6) && el.data.IPV6.length > 0 ? String(el.data.IPV6[0]) : ""
     const address = ipv4 || ipv6

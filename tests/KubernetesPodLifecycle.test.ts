@@ -10,6 +10,9 @@ const podNode = (
         ready?: boolean
         deleting?: boolean
         waitingReason?: string
+        restartCount?: number
+        lastTerminatedReason?: string
+        namespace?: string
     } = {}
 ): any => ({
     id,
@@ -18,7 +21,7 @@ const podNode = (
         Type: 'pod',
         Name: id,
         K8s: {
-            Namespace: 'default',
+            Namespace: options.namespace || 'default',
             Extra: {
                 ObjectMeta: {
                     UID: id,
@@ -30,8 +33,21 @@ const podNode = (
                     Reason: options.reason || '',
                     Conditions: options.ready === undefined ? [] : [{ Type: 'Ready', Status: options.ready ? 'True' : 'False' }],
                     ContainerStatuses: options.waitingReason
-                        ? [{ State: { Waiting: { Reason: options.waitingReason } } }]
-                        : []
+                        ? [{
+                            RestartCount: options.restartCount || 0,
+                            State: { Waiting: { Reason: options.waitingReason } },
+                            LastTerminationState: options.lastTerminatedReason
+                                ? { Terminated: { Reason: options.lastTerminatedReason } }
+                                : undefined
+                        }]
+                        : options.restartCount || options.lastTerminatedReason
+                            ? [{
+                                RestartCount: options.restartCount || 0,
+                                LastTerminationState: options.lastTerminatedReason
+                                    ? { Terminated: { Reason: options.lastTerminatedReason } }
+                                    : undefined
+                            }]
+                            : []
                 }
             }
         }
@@ -71,10 +87,9 @@ describe('KubernetesPodLifecycle domain aggregation', () => {
         const cluster = aggregatePods(pods)
         const worker1 = aggregatePods(pods, { nodeName: 'worker-1' })
         const worker2 = aggregatePods(pods, { nodeName: 'worker-2' })
-        const unscheduled = cluster.activeEntries.filter(entry => !entry.node.data.K8s.Extra.Spec.NodeName).length
-
         assert.equal(cluster.current, 3)
-        assert.equal(worker1.current + worker2.current + unscheduled, cluster.current)
+        assert.equal(cluster.unscheduledPending, 1)
+        assert.equal(worker1.current + worker2.current + cluster.unscheduledPending, cluster.current)
     })
 
     it('classifies only actionable states on active Pods as current problems', () => {
@@ -87,5 +102,51 @@ describe('KubernetesPodLifecycle domain aggregation', () => {
             nodeName: 'worker-1',
             reason: 'Evicted'
         })).problemPod, false)
+    })
+
+    it('deduplicates by Pod UID before applying node and namespace scopes', () => {
+        const original = podNode('same-uid', 'Running', { nodeName: 'worker-1', ready: true })
+        const duplicate = { ...original, id: 'different-topology-node' }
+        const aggregate = aggregatePods([original, duplicate], {
+            nodeName: 'worker-1',
+            namespace: 'default'
+        })
+        assert.equal(aggregate.total, 1)
+        assert.equal(aggregate.active, 1)
+    })
+
+    it('counts restart history and current OOMKilled only for active Pods', () => {
+        const pods = [
+            podNode('active-oom', 'Running', {
+                nodeName: 'worker-1',
+                ready: false,
+                restartCount: 2,
+                lastTerminatedReason: 'OOMKilled'
+            }),
+            podNode('terminated-oom', 'Failed', {
+                nodeName: 'worker-1',
+                reason: 'Error',
+                restartCount: 3,
+                lastTerminatedReason: 'OOMKilled'
+            })
+        ]
+        const aggregate = aggregatePods(pods, { nodeName: 'worker-1' })
+        assert.equal(aggregate.restartHistory, 1)
+        assert.equal(aggregate.currentOOMKilled, 1)
+        assert.equal(aggregate.problems, 1)
+        assert.equal(aggregate.terminated, 1)
+    })
+
+    it('supports future workload scope through the final owner UID resolver', () => {
+        const pods = [
+            podNode('pod-a', 'Running', { nodeName: 'worker-1', ready: true }),
+            podNode('pod-b', 'Running', { nodeName: 'worker-1', ready: true })
+        ]
+        const aggregate = aggregatePods(pods, {
+            ownerUID: 'deployment-a',
+            resolveOwnerUID: pod => pod.id === 'pod-a' ? 'deployment-a' : 'deployment-b'
+        })
+        assert.equal(aggregate.active, 1)
+        assert.equal(aggregate.activeEntries[0].podName, 'pod-a')
     })
 })

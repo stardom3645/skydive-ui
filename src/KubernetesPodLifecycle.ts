@@ -23,6 +23,8 @@ export interface KubernetesPodClassification {
     problemReasons: string[]
     historicalReasons: string[]
     evicted: boolean
+    restartHistoryPod: boolean
+    currentOOMKilledPod: boolean
     completed: boolean
     deletionTimestamp: boolean
 }
@@ -52,11 +54,24 @@ export interface KubernetesPodStatusGroup {
 
 export interface KubernetesPodAggregate {
     total: number
+    active: number
     running: number
+    pending: number
+    problems: number
+    evicted: number
+    restartHistory: number
+    currentOOMKilled: number
+    unscheduledPending: number
     current: number
     currentProblems: number
     terminated: number
     activeEntries: KubernetesPodStatusEntry[]
+    pendingEntries: KubernetesPodStatusEntry[]
+    problemEntries: KubernetesPodStatusEntry[]
+    evictedEntries: KubernetesPodStatusEntry[]
+    restartHistoryEntries: KubernetesPodStatusEntry[]
+    currentOOMKilledEntries: KubernetesPodStatusEntry[]
+    unscheduledPendingEntries: KubernetesPodStatusEntry[]
     currentProblemEntries: KubernetesPodStatusEntry[]
     runningEntries: KubernetesPodStatusEntry[]
     currentEntries: KubernetesPodStatusEntry[]
@@ -64,6 +79,26 @@ export interface KubernetesPodAggregate {
     currentProblemGroups: KubernetesPodStatusGroup[]
     terminationHistoryGroups: KubernetesPodStatusGroup[]
 }
+
+/**
+ * Canonical Pod data dictionary shared by topology and detail panels.
+ * Consumers must use getPodClassification/aggregatePods instead of inspecting
+ * phase, reason, conditions or container states independently.
+ */
+export const KUBERNETES_POD_DOMAIN_RULES = Object.freeze({
+    activePhases: ['pending', 'running'],
+    terminatedPhases: ['succeeded', 'failed'],
+    actionableWaitingReasons: [
+        'crashloopbackoff',
+        'imagepullbackoff',
+        'errimagepull',
+        'createcontainerconfigerror',
+        'createcontainererror',
+        'runcontainererror',
+        'containerstatusunknown'
+    ],
+    identity: 'metadata.uid'
+})
 
 const valueByPath = (data: any, path: string): any =>
     path.split('.').reduce((current, key) => current === undefined || current === null ? undefined : current[key], data)
@@ -118,6 +153,9 @@ const terminatedReasonsOf = (data: any): string[] =>
         return reasons
     }, [])
 
+const restartCountOf = (data: any): number =>
+    podStatuses(data).reduce((total, status) => total + Number(status?.RestartCount ?? status?.restartCount ?? 0), 0)
+
 const isTerminating = (data: any): boolean =>
     !!firstValue(data, [
         'K8s.Extra.Metadata.DeletionTimestamp',
@@ -147,32 +185,30 @@ export const getPodClassification = (node: Node): KubernetesPodClassification =>
     const phase = normalized(firstValue(data, ['K8s.Extra.Status.Phase', 'K8s.Phase', 'Phase', 'K8s.Status', 'Status']))
     const reason = normalized(firstValue(data, ['K8s.Extra.Status.Reason', 'K8s.Reason', 'Reason']))
     const deletionTimestamp = isTerminating(data)
-    const activePod = !deletionTimestamp && (phase === 'pending' || phase === 'running')
+    const terminalReason = reason === 'evicted' || reason === 'completed'
+    const activePod = !deletionTimestamp && !terminalReason && (phase === 'pending' || phase === 'running')
     const statuses = podStatuses(data)
     const waitingReasons = waitingReasonsOf(data)
     const historicalReasons = terminatedReasonsOf(data)
-    const actionableReasons = new Set([
-        'crashloopbackoff',
-        'imagepullbackoff',
-        'errimagepull',
-        'createcontainerconfigerror',
-        'createcontainererror',
-        'runcontainererror',
-        'containerstatusunknown',
-        'oomkilled'
-    ])
+    const actionableReasons = new Set(KUBERNETES_POD_DOMAIN_RULES.actionableWaitingReasons)
     const problemReasons: string[] = []
     waitingReasons.forEach(item => {
         if (actionableReasons.has(item)) problemReasons.push(item)
     })
+    let currentOOMKilledPod = false
     statuses.forEach(status => {
         const current = normalized(status?.State?.Terminated?.Reason || status?.state?.terminated?.reason)
         const previous = normalized(status?.LastTerminationState?.Terminated?.Reason || status?.lastState?.terminated?.reason)
-        if (current === 'oomkilled' || previous === 'oomkilled') problemReasons.push('oomkilled')
+        if (current === 'oomkilled' || previous === 'oomkilled') {
+            currentOOMKilledPod = activePod
+            problemReasons.push('oomkilled')
+        }
     })
     if (podReady(data) === false) problemReasons.push('ready=false')
     const uniqueProblemReasons = Array.from(new Set(problemReasons))
-    const evicted = phase === 'failed' && reason === 'evicted'
+    const evicted = reason === 'evicted'
+    const completed = phase === 'succeeded' || reason === 'completed'
+    const terminatedPod = deletionTimestamp || phase === 'succeeded' || phase === 'failed' || terminalReason
     return {
         phase,
         reason,
@@ -180,12 +216,14 @@ export const getPodClassification = (node: Node): KubernetesPodClassification =>
         runningPod: activePod && phase === 'running',
         pendingPod: activePod && phase === 'pending',
         problemPod: activePod && uniqueProblemReasons.length > 0,
-        terminatedPod: deletionTimestamp || phase === 'succeeded' || phase === 'failed',
+        terminatedPod,
         problemReason: uniqueProblemReasons[0] || '',
         problemReasons: uniqueProblemReasons,
         historicalReasons,
         evicted,
-        completed: phase === 'succeeded' || reason === 'completed',
+        restartHistoryPod: activePod && restartCountOf(data) > 0,
+        currentOOMKilledPod,
+        completed,
         deletionTimestamp
     }
 }
@@ -359,6 +397,8 @@ const groupEntries = (entries: KubernetesPodStatusEntry[]): KubernetesPodStatusG
 export interface KubernetesPodAggregateScope {
     nodeName?: string
     namespace?: string
+    ownerUID?: string
+    resolveOwnerUID?: (node: Node) => string | undefined
     predicate?: (node: Node) => boolean
 }
 
@@ -370,24 +410,49 @@ export const aggregatePods = (nodes: Node[], scope: KubernetesPodAggregateScope 
         const namespace = podNamespace(data)
         if (scope.nodeName !== undefined && nodeName !== scope.nodeName) return result
         if (scope.namespace !== undefined && namespace !== scope.namespace) return result
+        if (scope.ownerUID !== undefined && scope.resolveOwnerUID?.(node) !== scope.ownerUID) return result
         if (scope.predicate && !scope.predicate(node)) return result
         const uid = String(firstValue(data, ['K8s.Extra.ObjectMeta.UID', 'K8s.UID', 'UID']) || node.id)
         result.set(uid, node)
         return result
     }, new Map<string, Node>()).values())
-    const entries = uniqueNodes.map(kubernetesPodStatusEntry)
-    const currentProblemEntries = entries.filter(entry => entry.lifecycle.kind === 'problem')
-    const runningEntries = entries.filter(entry => entry.lifecycle.kind === 'running')
+    const classifiedEntries = uniqueNodes.map(node => ({
+        entry: kubernetesPodStatusEntry(node),
+        classification: getPodClassification(node)
+    }))
+    const entries = classifiedEntries.map(item => item.entry)
+    const activeEntries = classifiedEntries.filter(item => item.classification.activePod).map(item => item.entry)
+    const pendingEntries = classifiedEntries.filter(item => item.classification.pendingPod).map(item => item.entry)
+    const currentProblemEntries = classifiedEntries.filter(item => item.classification.problemPod).map(item => item.entry)
+    const runningEntries = classifiedEntries.filter(item => item.classification.runningPod).map(item => item.entry)
     const currentEntries = entries.filter(entry => entry.lifecycle.kind === 'current')
-    const terminatedEntries = entries.filter(entry => entry.lifecycle.kind === 'terminated')
-    const activeEntries = entries.filter(entry => getPodClassification(entry.node).activePod)
+    const terminatedEntries = classifiedEntries.filter(item => item.classification.terminatedPod).map(item => item.entry)
+    const evictedEntries = classifiedEntries.filter(item => item.classification.evicted).map(item => item.entry)
+    const restartHistoryEntries = classifiedEntries.filter(item => item.classification.restartHistoryPod).map(item => item.entry)
+    const currentOOMKilledEntries = classifiedEntries.filter(item => item.classification.currentOOMKilledPod).map(item => item.entry)
+    const unscheduledPendingEntries = classifiedEntries
+        .filter(item => item.classification.pendingPod && item.entry.nodeName === '정보 없음')
+        .map(item => item.entry)
     return {
         total: entries.length,
+        active: activeEntries.length,
         running: runningEntries.length,
-        current: entries.filter(entry => getPodClassification(entry.node).activePod).length,
+        pending: pendingEntries.length,
+        problems: currentProblemEntries.length,
+        evicted: evictedEntries.length,
+        restartHistory: restartHistoryEntries.length,
+        currentOOMKilled: currentOOMKilledEntries.length,
+        unscheduledPending: unscheduledPendingEntries.length,
+        current: activeEntries.length,
         currentProblems: currentProblemEntries.length,
         terminated: terminatedEntries.length,
         activeEntries,
+        pendingEntries,
+        problemEntries: currentProblemEntries,
+        evictedEntries,
+        restartHistoryEntries,
+        currentOOMKilledEntries,
+        unscheduledPendingEntries,
         currentProblemEntries,
         runningEntries,
         currentEntries,

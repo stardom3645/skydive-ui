@@ -245,6 +245,26 @@
     border-top: 1px solid #eef1f5;
     border-bottom: 1px solid #eef1f5;
 }
+.netdive-k8s-cluster-detail__instability-compact {
+    display: flex;
+    min-height: 36px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 0 14px 9px;
+    padding: 5px 0;
+    border-top: 1px solid #eef1f5;
+    border-bottom: 1px solid #eef1f5;
+    color: #667085;
+    font-size: 11px;
+}
+.netdive-k8s-cluster-detail__instability-compact .ant-select { width: 74px; font-size: 11px; }
+.netdive-k8s-cluster-detail__instability-compact .ant-select-selector {
+    height: 24px !important;
+    border-color: #e4e7ec !important;
+    border-radius: 6px !important;
+}
+.netdive-k8s-cluster-detail__instability-compact .ant-select-selection-item { line-height: 22px !important; }
 
 .netdive-k8s-cluster-detail__instability-head {
     display: flex;
@@ -367,6 +387,26 @@
     border-radius: 7px;
     background: #f8fafc;
 }
+.netdive-k8s-cluster-detail__history-compact {
+    display: flex;
+    width: calc(100% - 28px);
+    min-height: 38px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 0 14px 9px;
+    padding: 7px 8px;
+    border: 1px solid #eaecf0;
+    border-radius: 6px;
+    color: #475467;
+    text-align: left;
+    background: #fafbfc;
+    cursor: pointer;
+}
+.netdive-k8s-cluster-detail__history-compact:hover { border-color: #d0d5dd; background: #f8fafc; }
+.netdive-k8s-cluster-detail__history-compact span { font-size: 11.5px; }
+.netdive-k8s-cluster-detail__history-compact strong { color: #344054; font-size: 13px; font-weight: 600; }
+.netdive-k8s-cluster-detail__history-compact small { color: #98a2b3; font-size: 10px; }
 
 .netdive-k8s-cluster-detail__history-summary > button {
     display: flex;
@@ -707,6 +747,20 @@
 .netdive-k8s-cluster-detail__alert-summary.has-alert .netdive-k8s-cluster-detail__alert-dot { background: #d92d20; }
 
 .netdive-k8s-cluster-detail__resilience-rows { padding: 0 14px 8px; }
+.netdive-k8s-cluster-detail__resilience-interactive {
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color .15s ease;
+}
+.netdive-k8s-cluster-detail__resilience-interactive:hover,
+.netdive-k8s-cluster-detail__resilience-interactive:focus-visible {
+    outline: none;
+    background: #f8fbff;
+}
+.netdive-k8s-cluster-detail__resilience-interactive .netdive-k8s-cluster-detail__resilience-row {
+    padding-right: 5px;
+    padding-left: 5px;
+}
 .netdive-k8s-cluster-detail__resilience-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(70px, auto) minmax(68px, auto);
