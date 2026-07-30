@@ -25,6 +25,10 @@ import { } from 'd3-transition'
 import { zoom, zoomIdentity } from 'd3-zoom'
 import ResizeObserver from 'react-resize-observer'
 import { aggregateKubernetesPods, isCurrentKubernetesPod, isKubernetesPod, KubernetesPodAggregate } from './KubernetesPodLifecycle'
+import {
+    filterKubernetesInfrastructureEvidenceIDs,
+    isKubernetesInfrastructureEvidenceData
+} from './KubernetesInfrastructureEvidence'
 
 const flextree = require('d3-flextree').flextree;
 
@@ -2598,6 +2602,134 @@ export class Topology extends React.Component<Props, {}> {
             .classed("infra-focus-dim", false)
             .classed("infra-focus-hit", false)
             .style("opacity", (d: Link) => this.linkLabelOpacity(d))
+    }
+
+    /**
+     * 현재 렌더링된 인프라 근거만 강조합니다.
+     *
+     * 중요: 이 메서드는 레이어 태그, 펼침 상태, 그룹 상태, 노드 집합을
+     * 변경하지 않습니다. 위험/복원력 근거를 보기 위해 Kubernetes 실행
+     * 계층(Pod/Workload/Namespace)을 인프라 레이어에 주입하지 않도록
+     * 일반 focusInfrastructureNodes 경로와 의도적으로 분리합니다.
+     */
+    focusExistingKubernetesInfrastructureEvidence(nodeIDs: string[]) {
+        this.clearInfrastructureFocus()
+
+        const allowedTargetIDs = filterKubernetesInfrastructureEvidenceIDs(
+            nodeIDs,
+            id => this.nodes.get(id)?.data
+        )
+        if (allowedTargetIDs.length === 0) return
+
+        const visibleNodeIDs = new Set<string>()
+        this.gNodes.selectAll<SVGGElement, D3Node>("g.node").each((d: D3Node) => {
+            const id = d?.data?.wrapped?.id
+            const data = d?.data?.wrapped?.data
+            if (id && isKubernetesInfrastructureEvidenceData(data)) {
+                visibleNodeIDs.add(id)
+            }
+        })
+
+        const visibleTargetIDs = new Set<string>()
+        allowedTargetIDs.forEach(id => {
+            if (visibleNodeIDs.has(id)) {
+                visibleTargetIDs.add(id)
+                return
+            }
+            const visibleID = this.visibleNodeIDForID(id)
+            if (visibleNodeIDs.has(visibleID)) {
+                visibleTargetIDs.add(visibleID)
+            }
+        })
+        if (visibleTargetIDs.size === 0) return
+
+        const renderedLinks = new Array<Link>()
+        const renderedLinkEndpoints = new Map<string, { sourceID: string, targetID: string }>()
+        this.gLinks.selectAll<SVGPathElement, Link>("path.link").each((link: Link) => {
+            if (!link) return
+            const sourceID = link.source?.id
+            const targetID = link.target?.id
+            if (!sourceID || !targetID) return
+            if (!isKubernetesInfrastructureEvidenceData(link.source?.data)
+                || !isKubernetesInfrastructureEvidenceData(link.target?.data)) return
+            const visibleSourceID = visibleNodeIDs.has(sourceID) ? sourceID : this.visibleNodeIDForID(sourceID)
+            const visibleTargetID = visibleNodeIDs.has(targetID) ? targetID : this.visibleNodeIDForID(targetID)
+            if (!visibleNodeIDs.has(visibleSourceID) || !visibleNodeIDs.has(visibleTargetID)) return
+            if (visibleSourceID === visibleTargetID) return
+            renderedLinks.push(link)
+            renderedLinkEndpoints.set(link.id, {
+                sourceID: visibleSourceID,
+                targetID: visibleTargetID
+            })
+        })
+
+        const adjacency = new Map<string, Array<{ id: string, linkID: string }>>()
+        const appendNeighbor = (sourceID: string, targetID: string, linkID: string) => {
+            const neighbors = adjacency.get(sourceID) || []
+            neighbors.push({ id: targetID, linkID })
+            adjacency.set(sourceID, neighbors)
+        }
+        renderedLinks.forEach(link => {
+            const endpoints = renderedLinkEndpoints.get(link.id)
+            if (!endpoints) return
+            appendNeighbor(endpoints.sourceID, endpoints.targetID, link.id)
+            appendNeighbor(endpoints.targetID, endpoints.sourceID, link.id)
+        })
+
+        const hitNodeIDs = new Set<string>(visibleTargetIDs)
+        const hitLinkIDs = new Set<string>()
+        const targets = Array.from(visibleTargetIDs)
+
+        // 근거 대상 사이의 현재 보이는 최단 경로만 포함합니다. 숨겨진
+        // 노드를 펼치거나 새 노드를 생성하지 않습니다.
+        for (let index = 1; index < targets.length; index += 1) {
+            const start = targets[index]
+            const goals = new Set(targets.slice(0, index))
+            const queue = [start]
+            const visited = new Set<string>([start])
+            const previous = new Map<string, { id: string, linkID: string }>()
+            let reached = ''
+
+            while (queue.length && !reached) {
+                const current = queue.shift() as string
+                for (const neighbor of adjacency.get(current) || []) {
+                    if (visited.has(neighbor.id)) continue
+                    visited.add(neighbor.id)
+                    previous.set(neighbor.id, { id: current, linkID: neighbor.linkID })
+                    if (goals.has(neighbor.id)) {
+                        reached = neighbor.id
+                        break
+                    }
+                    queue.push(neighbor.id)
+                }
+            }
+
+            if (!reached) continue
+            let cursor = reached
+            hitNodeIDs.add(cursor)
+            while (cursor !== start) {
+                const step = previous.get(cursor)
+                if (!step) break
+                hitLinkIDs.add(step.linkID)
+                hitNodeIDs.add(step.id)
+                cursor = step.id
+            }
+        }
+
+        this.gNodes.selectAll<SVGGElement, D3Node>("g.node")
+            .classed("infra-focus-hit", (d: D3Node) => hitNodeIDs.has(d?.data?.wrapped?.id))
+            .classed("infra-focus-dim", (d: D3Node) => !hitNodeIDs.has(d?.data?.wrapped?.id))
+        this.gLinks.selectAll<SVGPathElement, Link>("path.link")
+            .classed("infra-focus-hit", (d: Link) => hitLinkIDs.has(d.id))
+            .classed("infra-focus-dim", (d: Link) => !hitLinkIDs.has(d.id))
+        this.gLinkOverlays.selectAll<SVGPathElement, Link>("path.link-overlay")
+            .classed("infra-focus-hit", (d: Link) => hitLinkIDs.has(d.id))
+            .classed("infra-focus-dim", (d: Link) => !hitLinkIDs.has(d.id))
+            .style("opacity", (d: Link) => hitLinkIDs.has(d.id) ? 1 : 0)
+        this.gLinkLabels.selectAll<SVGGElement, Link>("g.link-label")
+            .classed("infra-focus-hit", (d: Link) => hitLinkIDs.has(d.id))
+            .classed("infra-focus-dim", (d: Link) => !hitLinkIDs.has(d.id))
+            .style("opacity", (d: Link) => hitLinkIDs.has(d.id) ? 1 : 0)
     }
 
     focusInfrastructureNodes(nodeIDs: string[], anchorNodeID?: string, revealTargets: boolean = false) {

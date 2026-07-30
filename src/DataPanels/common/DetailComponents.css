@@ -120,7 +120,7 @@
 }
 
 .netdive-operational-summary {
-    padding: 8px 14px 12px;
+    padding: 8px 14px 1px;
 }
 
 .netdive-operational-summary__states {
@@ -152,6 +152,19 @@
     font-size: 11.5px;
     font-weight: 500;
     line-height: 16px;
+}
+.netdive-operational-summary__label {
+    display: inline-flex;
+    max-width: 100%;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+.netdive-operational-summary__info {
+    flex: 0 0 auto;
+    color: #98a2b3;
+    font-size: 10px;
+    cursor: help;
 }
 
 .netdive-operational-summary__state > strong {
@@ -195,17 +208,25 @@
 .netdive-operational-summary__metric {
     display: flex;
     min-width: 0;
-    min-height: 58px;
+    min-height: 54px;
     align-items: center;
     flex-direction: column;
     justify-content: center;
     gap: 4px;
-    padding: 8px;
+    padding: 6px 4px;
     border: 0;
     border-right: 1px solid #eef1f5;
     color: inherit;
     text-align: center;
     background: transparent;
+}
+
+/* Four-column operational metrics must keep short resource labels such as
+ * "Control Plane" on one line. Horizontal padding is kept compact so the
+ * complete label and its info icon fit without ellipsis. */
+.netdive-operational-summary__metric .netdive-operational-summary__label {
+    gap: 3px;
+    white-space: nowrap;
 }
 
 .netdive-operational-summary__metric:last-child { border-right: 0; }
@@ -866,4 +887,10 @@
     .netdive-detail-resource-grid {
         grid-template-columns: 1fr;
     }
+}
+.netdive-k8s-detail__focus-reset {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: -8px;
+    padding: 0 12px 2px;
 }

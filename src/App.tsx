@@ -4223,8 +4223,12 @@ class App extends React.Component<Props, State> {
       if (String(node.data?.Manager || '').toLowerCase() !== 'k8s') return false
       const type = String(node.data?.Type || '').toLowerCase()
       return type !== 'cluster'
+        && type !== 'node'
         && type !== 'namespace'
         && type !== 'pod'
+        && type !== 'storageclass'
+        && type !== 'persistentvolumeclaim'
+        && type !== 'persistentvolume'
         && !KUBERNETES_WORKLOAD_TYPES.has(type)
     })
     if (targets.length > 0 && relationshipTargets.length === targets.length) {
@@ -4237,6 +4241,25 @@ class App extends React.Component<Props, State> {
     }
     this.syncTopologyNodeTagForNodes(nodeIDs)
     this.tc.focusInfrastructureNodes(nodeIDs, anchorNodeID, revealTargets)
+  }
+
+  /**
+   * Kubernetes 위험/복원력 근거 전용 강조 경로입니다.
+   * 현재 레이어, 노드 집합, 펼침 상태를 유지하며 이미 렌더링된
+   * Cluster/Node/Host/Switch 경로만 강조합니다.
+   */
+  private focusKubernetesInfrastructureEvidenceNodeIDs(nodeIDs: string[]) {
+    if (!this.tc) {
+      return
+    }
+    this.tc.focusExistingKubernetesInfrastructureEvidence(nodeIDs)
+  }
+
+  private clearKubernetesInfrastructureEvidence() {
+    if (!this.tc) {
+      return
+    }
+    this.tc.clearInfrastructureFocus()
   }
 
   private selectInfrastructureNodeID(nodeID: string) {

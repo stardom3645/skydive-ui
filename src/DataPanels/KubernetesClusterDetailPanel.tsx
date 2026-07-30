@@ -1,6 +1,6 @@
 import * as React from 'react'
-import { Collapse, Modal, Progress, Select, Tabs, Tooltip } from 'antd'
-import { HistoryOutlined, InfoCircleOutlined } from '@ant-design/icons'
+import { Badge, Button, Col, Collapse, Divider, List, Modal, Progress, Row, Select, Space, Spin, Table, Tabs, Tag, Tooltip, Typography } from 'antd'
+import { HistoryOutlined, InfoCircleOutlined, RightOutlined } from '@ant-design/icons'
 import AccountTreeIcon from '@material-ui/icons/AccountTree'
 import ErrorOutlineIcon from '@material-ui/icons/ErrorOutline'
 import InfoIcon from '@material-ui/icons/Info'
@@ -8,7 +8,7 @@ import InfoIcon from '@material-ui/icons/Info'
 import { translate } from '../Config'
 import { session } from '../Store'
 import { Node } from '../Topology'
-import { aggregatePods, kubernetesPodLifecycle, kubernetesPodTime } from '../KubernetesPodLifecycle'
+import { aggregatePods, getPodClassification, kubernetesPodLifecycle, kubernetesPodTime } from '../KubernetesPodLifecycle'
 import {
     ConnectedResourcesSection,
     ConnectedResourceListSection,
@@ -19,6 +19,8 @@ import {
     DetailLayerIcon,
     DetailOperationalSummary,
     DetailSection,
+    KUBERNETES_DETAIL_LABELS,
+    KUBERNETES_UTILIZATION_THRESHOLDS,
     KubernetesAnalysisConfidence
 } from './common'
 import './KubernetesClusterDetailPanel.css'
@@ -43,8 +45,10 @@ interface State {
     instabilityWindow: string
     podStatusModalMode: '' | 'recent' | 'current' | 'history'
     podStatusModalKey: string
+    resourceUsageModal: '' | 'cpu' | 'memory'
     activeDetailTab: 'overview' | 'services'
     serviceNamespaceFilter: string
+    focusActive: boolean
 }
 
 type ResourceType = 'node' | 'namespace' | 'pod' | 'service' | 'persistentvolume' | 'persistentvolumeclaim' | 'storageclass'
@@ -202,6 +206,28 @@ const formatGiB = (value: any): string => {
     return `${size.toFixed(2).replace(/\.0+$/, '').replace(/(\.\d*[1-9])0$/, '$1')} GiB`
 }
 
+const formatCoreNumber = (value: any): string => {
+    const cores = Number(value)
+    if (!Number.isFinite(cores)) return translate('kubernetesUnknown')
+    return cores.toFixed(2).replace(/\.0+$/, '').replace(/(\.\d*[1-9])0$/, '$1')
+}
+
+const quantityNumber = (value: any): number => {
+    const source = value && typeof value === 'object'
+        ? value.string ?? value.String ?? value.value ?? value.Value
+        : value
+    const parsed = Number(source)
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
+}
+
+const KUBERNETES_RESOURCE_PROGRESS_COLORS = Object.freeze({
+    usage: '#1677ff',
+    secondary: '#bfbfbf',
+    warning: '#f79009',
+    danger: '#d92d20'
+})
+const KUBERNETES_REQUEST_OVERAGE_GUIDANCE_RATIO = 1.2
+
 const clampPercent = (value: any): number => Math.max(0, Math.min(100, Number(value) || 0))
 
 const endpointID = (endpoint: any): string => typeof endpoint === 'string' ? endpoint : endpoint?.id || ''
@@ -231,8 +257,10 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         instabilityWindow: '1h',
         podStatusModalMode: '',
         podStatusModalKey: '',
+        resourceUsageModal: '',
         activeDetailTab: (this.props.node as any).__netdiveInitialDetailTab === 'services' ? 'services' : 'overview',
-        serviceNamespaceFilter: 'all'
+        serviceNamespaceFilter: 'all',
+        focusActive: false
     }
 
     componentDidMount() {
@@ -242,7 +270,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
 
     componentDidUpdate(prevProps: Props) {
         if (prevProps.node.id !== this.props.node.id) {
-            this.setState({ basicCollapsed: false, basicInfoActiveKey: '', expandedRecentChangeKey: '', recentChangesModalOpen: false, instabilityWindow: '1h', podStatusModalMode: '', podStatusModalKey: '', activeDetailTab: 'overview', serviceNamespaceFilter: 'all', summary: undefined, summaryError: false, summaryClusterID: undefined }, () => this.loadClusterSummary())
+            this.setState({ basicCollapsed: false, basicInfoActiveKey: '', expandedRecentChangeKey: '', recentChangesModalOpen: false, instabilityWindow: '1h', podStatusModalMode: '', podStatusModalKey: '', resourceUsageModal: '', activeDetailTab: 'overview', serviceNamespaceFilter: 'all', focusActive: false, summary: undefined, summaryError: false, summaryClusterID: undefined }, () => this.loadClusterSummary())
             return
         }
         const previousCluster = this.moldClusterFrom(prevProps)
@@ -267,9 +295,9 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         })
     }
 
-    private loadClusterSummary() {
+    private loadClusterSummary(force = false) {
         const cluster = this.moldCluster()
-        if (!cluster?.id || this.state.summaryLoading || this.state.summaryClusterID === cluster.id) return
+        if (!cluster?.id || this.state.summaryLoading || (!force && this.state.summaryClusterID === cluster.id)) return
         const endpoint = this.props.session?.endpoint || `${window.location.protocol}//${window.location.host}`
         this.setState({ summaryLoading: true, summaryError: false, summaryClusterID: cluster.id })
         fetch(`${endpoint}/api/mold/kubernetes-clusters/summary?id=${encodeURIComponent(cluster.id)}`, {
@@ -287,6 +315,23 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                 this.setState({ summaryLoading: false, summaryError: true })
             }
         })
+    }
+
+    private changeInstabilityWindow(instabilityWindow: string) {
+        this.setState({ instabilityWindow }, () => this.loadClusterSummary(true))
+    }
+
+    private renderInstabilityWindowSelect() {
+        return <Select
+            size="small"
+            value={this.state.instabilityWindow}
+            onChange={instabilityWindow => this.changeInstabilityWindow(instabilityWindow)}
+            getPopupContainer={trigger => trigger.parentElement as HTMLElement}>
+            <Select.Option value="1h">최근 1시간</Select.Option>
+            <Select.Option value="6h">최근 6시간</Select.Option>
+            <Select.Option value="24h">최근 24시간</Select.Option>
+            <Select.Option value="7d">최근 7일</Select.Option>
+        </Select>
     }
 
     private topologyNodes(): Node[] {
@@ -678,8 +723,31 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         const ids = nodes.map(node => node.id)
         const app = (window as any).App
         if (ids.length && app && typeof app.focusInfrastructureNodeIDs === 'function') {
+            if (typeof app.clearKubernetesInfrastructureEvidence === 'function') {
+                app.clearKubernetesInfrastructureEvidence()
+            }
             app.focusInfrastructureNodeIDs(ids, this.props.node.id, true)
+            this.setState({ focusActive: true })
         }
+    }
+
+    private focusInfrastructureEvidence(nodes: Node[]) {
+        const ids = Array.from(new Set(nodes.map(node => node.id)))
+        const app = (window as any).App
+        if (ids.length && app && typeof app.focusKubernetesInfrastructureEvidenceNodeIDs === 'function') {
+            app.focusKubernetesInfrastructureEvidenceNodeIDs(ids)
+            this.setState({ focusActive: true })
+        }
+    }
+
+    private clearFocusedResources() {
+        const app = (window as any).App
+        if (app && typeof app.clearKubernetesInfrastructureEvidence === 'function') {
+            app.clearKubernetesInfrastructureEvidence()
+        } else if (app && typeof app.focusInfrastructureNodeIDs === 'function') {
+            app.focusInfrastructureNodeIDs([])
+        }
+        this.setState({ focusActive: false })
     }
 
     private openResourceDetail(node: Node) {
@@ -807,7 +875,88 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         )
     }
 
-    private renderResourceCapacity(moldCluster: any) {
+    private renderUtilizationCard(config: {
+        title: string
+        unitTooltip: React.ReactNode
+        allocatableValue: string
+        usageValue: string
+        usagePercent?: number
+        requestsValue?: string
+        requestsPercent?: number
+        limitsValue?: string
+        limitsPercent?: number
+        pod?: boolean
+        allocatableAvailable?: boolean
+        onUsageClick?: () => void
+        usageExceedsRequests?: boolean
+    }) {
+        const usageColor = config.usagePercent !== undefined && config.usagePercent >= KUBERNETES_UTILIZATION_THRESHOLDS.danger
+            ? KUBERNETES_RESOURCE_PROGRESS_COLORS.danger
+            : config.usagePercent !== undefined && config.usagePercent >= KUBERNETES_UTILIZATION_THRESHOLDS.warning
+                ? KUBERNETES_RESOURCE_PROGRESS_COLORS.warning
+                : KUBERNETES_RESOURCE_PROGRESS_COLORS.usage
+        const ratio = (value?: number) => value !== undefined ? `${value.toFixed(1)}%` : '-'
+        return <section className={`netdive-k8s-cluster-detail__utilization-section ${config.pod ? 'is-pod' : ''}`}>
+            <div className="netdive-k8s-cluster-detail__utilization-section-head">
+                <Tooltip overlayClassName="netdive-k8s-cluster-detail__capacity-tooltip" title={config.unitTooltip}>
+                    <Typography.Text strong>{config.title}</Typography.Text>
+                </Tooltip>
+                {config.allocatableAvailable !== false && <Space size={4}>
+                    <Typography.Text type="secondary">Allocatable</Typography.Text>
+                    <Typography.Text strong>{config.pod ? `${config.allocatableValue}개` : config.allocatableValue}</Typography.Text>
+                </Space>}
+            </div>
+            {config.pod && config.allocatableAvailable === false
+                ? <div className="netdive-k8s-cluster-detail__utilization-pod-count">
+                    <Typography.Text type="secondary">활성 Pod</Typography.Text>
+                    <Typography.Text strong>{config.usageValue}개</Typography.Text>
+                </div>
+                : <React.Fragment>
+                    <button
+                        type="button"
+                        className={`netdive-k8s-cluster-detail__utilization-row is-primary ${config.onUsageClick ? 'is-interactive' : ''}`}
+                        disabled={!config.onUsageClick}
+                        onClick={config.onUsageClick}>
+                        <div>
+                            <Typography.Text type="secondary">{config.pod ? '활성 Pod' : '현재 사용량'}</Typography.Text>
+                            <Typography.Text strong>{config.pod ? `${config.usageValue}개` : config.usageValue}</Typography.Text>
+                        </div>
+                        <Typography.Text strong className="netdive-k8s-cluster-detail__utilization-ratio">{ratio(config.usagePercent)}</Typography.Text>
+                    </button>
+                    <Progress size="small" percent={config.usagePercent !== undefined ? clampPercent(config.usagePercent) : 0} showInfo={false} strokeColor={usageColor} trailColor="#f0f0f0" />
+                    {!config.pod && <React.Fragment>
+                        <div className="netdive-k8s-cluster-detail__utilization-row">
+                            <div>
+                                <Tooltip title="값이 설정된 컨테이너의 Requests만 합산하며, 미설정 컨테이너는 합계에서 제외합니다.">
+                                    <Typography.Text type="secondary" className="netdive-k8s-cluster-detail__metric-label-with-info">
+                                        설정된 Requests 합계 <InfoCircleOutlined />
+                                    </Typography.Text>
+                                </Tooltip>
+                                <Typography.Text>{config.requestsValue}</Typography.Text>
+                            </div>
+                            <Typography.Text type="secondary" className="netdive-k8s-cluster-detail__utilization-ratio">{ratio(config.requestsPercent)}</Typography.Text>
+                        </div>
+                        <Progress size="small" percent={config.requestsPercent !== undefined ? clampPercent(config.requestsPercent) : 0} showInfo={false} strokeColor={KUBERNETES_RESOURCE_PROGRESS_COLORS.secondary} trailColor="#f0f0f0" />
+                        <div className="netdive-k8s-cluster-detail__utilization-row is-limits">
+                            <div>
+                                <Tooltip title="값이 설정된 컨테이너의 Limits만 합산하며, 미설정 컨테이너는 합계에서 제외합니다. 따라서 Requests보다 작게 표시될 수 있습니다.">
+                                    <Typography.Text type="secondary" className="netdive-k8s-cluster-detail__metric-label-with-info">
+                                        설정된 Limits 합계 <InfoCircleOutlined />
+                                    </Typography.Text>
+                                </Tooltip>
+                                <Typography.Text>{config.limitsValue}</Typography.Text>
+                            </div>
+                            <Typography.Text type="secondary" className="netdive-k8s-cluster-detail__utilization-ratio">{ratio(config.limitsPercent)}</Typography.Text>
+                        </div>
+                        {config.usageExceedsRequests && <div className="netdive-k8s-cluster-detail__request-overage-guide">
+                            현재 사용량이 설정된 Requests 합계를 크게 초과합니다. 리소스 미설정 여부와 상위 점유 Pod를 확인하세요.
+                        </div>}
+                    </React.Fragment>}
+                </React.Fragment>}
+        </section>
+    }
+
+    private renderResourceCapacity(moldCluster: any, activePodCount: number, allocatablePodCount: number) {
         const resources = this.state.summary?.resources
         const metricsAvailable = !!resources?.metricsAvailable
         const provisionedCores = Number(moldCluster?.cores) || 0
@@ -820,18 +969,15 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         const limitsMemory = Number(resources?.limitsMemoryBytes) || 0
         const requestCpuPercent = allocatableCpu > 0 ? clampPercent(requestsCpu / allocatableCpu * 100) : 0
         const requestMemoryPercent = allocatableMemory > 0 ? clampPercent(requestsMemory / allocatableMemory * 100) : 0
+        const limitCpuPercent = allocatableCpu > 0 ? limitsCpu / allocatableCpu * 100 : 0
+        const limitMemoryPercent = allocatableMemory > 0 ? limitsMemory / allocatableMemory * 100 : 0
         const usageCpu = Number(resources?.usageCpuCores) || 0
         const usageMemory = Number(resources?.usageMemoryBytes) || 0
         const usageCpuPercent = metricsAvailable && allocatableCpu > 0 ? usageCpu / allocatableCpu * 100 : undefined
         const usageMemoryPercent = metricsAvailable && allocatableMemory > 0 ? usageMemory / allocatableMemory * 100 : undefined
-        const currentUsageTooltip = translate('kubernetesCurrentUsageDescription')
-        const allocatableTooltip = translate('kubernetesAllocatableDescription')
-        const reservableTooltip = translate('kubernetesReservableDescription')
-        const reservationRateTooltip = translate('kubernetesReservationRateDescription')
-        const cpuProgressTooltip = `${translate('kubernetesCpuReservationRate')}\n\nRequests ${requestsCpu.toFixed(2)} Core ÷ ${translate('kubernetesAllocatableCapacity')} ${allocatableCpu.toFixed(2)} Core\n= ${requestCpuPercent.toFixed(1)}%`
-        const memoryProgressTooltip = `${translate('kubernetesMemoryReservationRate')}\n\nRequests ${formatBinaryBytes(requestsMemory, 'MiB')} ÷ ${translate('kubernetesAllocatableCapacity')} ${formatGiB(allocatableMemory)}\n= ${requestMemoryPercent.toFixed(1)}%`
-        const memoryRequestTooltip = `${translate('kubernetesRequestDescription')}\n\n${translate('kubernetesDisplayedValue')}: ${formatGiB(requestsMemory)}\n${translate('kubernetesOriginalValue')}: ${formatBinaryBytes(requestsMemory, 'MiB')}`
-        const memoryLimitTooltip = `${translate('kubernetesLimitDescription')}\n\n${translate('kubernetesDisplayedValue')}: ${formatGiB(limitsMemory)}\n${translate('kubernetesOriginalValue')}: ${formatBinaryBytes(limitsMemory, 'MiB')}`
+        const podUsagePercent = allocatablePodCount > 0 ? activePodCount / allocatablePodCount * 100 : undefined
+        const provisionedMemoryBytes = provisionedMemory * 1024 * 1024
+        const reservedMemory = provisionedMemoryBytes > allocatableMemory ? provisionedMemoryBytes - allocatableMemory : 0
         const metricsState = this.metricsState()
 
         if (!resources && !provisionedCores && !provisionedMemory) {
@@ -842,63 +988,81 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
             <div className="netdive-k8s-cluster-detail__capacity">
                 {!metricsAvailable && this.renderMetricsUnavailable(metricsState, true)}
                 {resources && (
-                    <div className="netdive-k8s-cluster-detail__capacity-grid">
-                        <div className="netdive-k8s-cluster-detail__capacity-card">
-                            <div className="netdive-k8s-cluster-detail__capacity-title"><Tooltip overlayClassName="netdive-k8s-cluster-detail__capacity-tooltip" title={translate('kubernetesCpuUnitDescription')}><strong>CPU</strong></Tooltip><span><Tooltip overlayClassName="netdive-k8s-cluster-detail__capacity-tooltip" title={reservationRateTooltip}><span className="netdive-k8s-cluster-detail__tooltip-label">{translate('kubernetesRequestRate')}</span></Tooltip> <b>{requestCpuPercent.toFixed(1)}%</b></span></div>
-                            <Tooltip overlayClassName="netdive-k8s-cluster-detail__capacity-tooltip" title={cpuProgressTooltip}><Progress percent={requestCpuPercent} showInfo={false} strokeColor="#1677ff" trailColor="#eef2f6" /></Tooltip>
-                            {this.renderCapacityMetrics([
-                                { label: translate('kubernetesCurrentUsage'), value: metricsAvailable ? usageCpu.toFixed(2) : translate('kubernetesNotCollected'), unit: metricsAvailable ? 'Core' : undefined, meta: usageCpuPercent !== undefined ? `${translate('kubernetesUsageRate')} ${usageCpuPercent.toFixed(1)}%` : undefined, current: true, tooltip: currentUsageTooltip },
-                                { label: translate('kubernetesAllocatableLabel'), value: allocatableCpu > 0 ? `${allocatableCpu.toFixed(2)} Core` : translate('kubernetesUnknown'), tooltip: allocatableTooltip, tooltipOnLabel: true },
-                                { label: 'Requests', value: `${requestsCpu.toFixed(2)} Core`, tooltip: translate('kubernetesRequestDescription') },
-                                { label: 'Limits', value: `${limitsCpu.toFixed(2)} Core`, tooltip: translate('kubernetesLimitDescription') },
-                                { label: translate('kubernetesReservable'), value: allocatableCpu > 0 ? `${Math.max(0, allocatableCpu - requestsCpu).toFixed(2)} Core` : translate('kubernetesUnknown'), tooltip: reservableTooltip, emphasis: 'reservable' }
-                            ])}
-                        </div>
-                        <div className="netdive-k8s-cluster-detail__capacity-card">
-                            <div className="netdive-k8s-cluster-detail__capacity-title"><Tooltip overlayClassName="netdive-k8s-cluster-detail__capacity-tooltip" title={translate('kubernetesMemoryUnitDescription')}><strong>{translate('kubernetesMemory')}</strong></Tooltip><span><Tooltip overlayClassName="netdive-k8s-cluster-detail__capacity-tooltip" title={reservationRateTooltip}><span className="netdive-k8s-cluster-detail__tooltip-label">{translate('kubernetesRequestRate')}</span></Tooltip> <b>{requestMemoryPercent.toFixed(1)}%</b></span></div>
-                            <Tooltip overlayClassName="netdive-k8s-cluster-detail__capacity-tooltip" title={memoryProgressTooltip}><Progress percent={requestMemoryPercent} showInfo={false} strokeColor="#1677ff" trailColor="#eef2f6" /></Tooltip>
-                            {this.renderCapacityMetrics([
-                                { label: translate('kubernetesCurrentUsage'), ...this.metricValueWithUnit(metricsAvailable ? formatGiB(usageMemory) : translate('kubernetesNotCollected'), metricsAvailable), meta: usageMemoryPercent !== undefined ? `${translate('kubernetesUsageRate')} ${usageMemoryPercent.toFixed(1)}%` : undefined, current: true, tooltip: currentUsageTooltip },
-                                { label: translate('kubernetesAllocatableLabel'), value: allocatableMemory > 0 ? formatGiB(allocatableMemory) : translate('kubernetesUnknown'), tooltip: allocatableTooltip, tooltipOnLabel: true },
-                                { label: 'Requests', value: formatGiB(requestsMemory), tooltip: memoryRequestTooltip },
-                                { label: 'Limits', value: formatGiB(limitsMemory), tooltip: memoryLimitTooltip },
-                                { label: translate('kubernetesReservable'), value: allocatableMemory > 0 ? formatGiB(Math.max(0, allocatableMemory - requestsMemory)) : translate('kubernetesUnknown'), tooltip: reservableTooltip, emphasis: 'reservable' }
-                            ])}
-                        </div>
+                    <div className="netdive-k8s-cluster-detail__utilization-flat">
+                        {this.renderUtilizationCard({
+                            title: 'CPU',
+                            unitTooltip: translate('kubernetesCpuUnitDescription'),
+                            allocatableValue: allocatableCpu > 0 ? `${formatCoreNumber(allocatableCpu)} Core` : translate('kubernetesUnknown'),
+                            usageValue: metricsAvailable ? `${formatCoreNumber(usageCpu)} Core` : translate('kubernetesNotCollected'),
+                            requestsValue: `${formatCoreNumber(requestsCpu)} Core`,
+                            limitsValue: `${formatCoreNumber(limitsCpu)} Core`,
+                            usagePercent: usageCpuPercent,
+                            requestsPercent: requestCpuPercent,
+                            limitsPercent: limitCpuPercent,
+                            allocatableAvailable: allocatableCpu > 0,
+                            onUsageClick: metricsAvailable ? () => this.setState({ resourceUsageModal: 'cpu' }) : undefined,
+                            usageExceedsRequests: metricsAvailable && usageCpu > 0
+                                && (requestsCpu <= 0 || usageCpu >= requestsCpu * KUBERNETES_REQUEST_OVERAGE_GUIDANCE_RATIO)
+                        })}
+                        <Divider />
+                        {this.renderUtilizationCard({
+                            title: translate('kubernetesMemory'),
+                            unitTooltip: translate('kubernetesMemoryUnitDescription'),
+                            allocatableValue: allocatableMemory > 0 ? formatGiB(allocatableMemory) : translate('kubernetesUnknown'),
+                            usageValue: metricsAvailable ? formatGiB(usageMemory) : translate('kubernetesNotCollected'),
+                            requestsValue: formatGiB(requestsMemory),
+                            limitsValue: formatGiB(limitsMemory),
+                            usagePercent: usageMemoryPercent,
+                            requestsPercent: requestMemoryPercent,
+                            limitsPercent: limitMemoryPercent,
+                            allocatableAvailable: allocatableMemory > 0,
+                            onUsageClick: metricsAvailable ? () => this.setState({ resourceUsageModal: 'memory' }) : undefined,
+                            usageExceedsRequests: metricsAvailable && usageMemory > 0
+                                && (requestsMemory <= 0 || usageMemory >= requestsMemory * KUBERNETES_REQUEST_OVERAGE_GUIDANCE_RATIO)
+                        })}
+                        <Divider />
+                        {this.renderUtilizationCard({
+                            title: 'Pod',
+                            unitTooltip: '활성 Pod 수를 Kubernetes Node의 Allocatable Pod 합계와 비교합니다.',
+                            allocatableValue: allocatablePodCount > 0 ? String(allocatablePodCount) : translate('kubernetesUnknown'),
+                            usageValue: String(activePodCount),
+                            usagePercent: podUsagePercent,
+                            pod: true,
+                            allocatableAvailable: allocatablePodCount > 0
+                        })}
                     </div>
                 )}
                 <div className="netdive-k8s-cluster-detail__capacity-compare">
-                    {provisionedCores || provisionedMemory ? <span>
-                        <span className="netdive-k8s-cluster-detail__capacity-compare-label"><small>{translate('kubernetesMoldVmAllocation')} <Tooltip overlayClassName="netdive-k8s-cluster-detail__capacity-tooltip" title={translate('kubernetesMoldVmAllocationDescription')}><InfoCircleOutlined className="netdive-k8s-cluster-detail__metric-info" /></Tooltip></small></span>
-                        <span className="netdive-k8s-cluster-detail__capacity-compare-values"><span><small>CPU</small><strong>{provisionedCores ? `${provisionedCores} vCPU` : translate('kubernetesNotCollected')}</strong></span><span><small>Memory</small><strong>{provisionedMemory ? formatBinaryBytes(provisionedMemory * 1024 * 1024, 'GiB') : translate('kubernetesNotCollected')}</strong></span></span>
-                    </span> : null}
-                    {allocatableCpu || allocatableMemory ? <span>
-                        <span className="netdive-k8s-cluster-detail__capacity-compare-label"><small>{translate('kubernetesAllocatableCapacity')} <Tooltip overlayClassName="netdive-k8s-cluster-detail__capacity-tooltip" title={translate('kubernetesAllocatableCapacityDescription')}><InfoCircleOutlined className="netdive-k8s-cluster-detail__metric-info" /></Tooltip></small></span>
-                        <span className="netdive-k8s-cluster-detail__capacity-compare-values"><span><small>CPU</small><strong>{allocatableCpu ? `${allocatableCpu.toFixed(2)} Core` : translate('kubernetesNotCollected')}</strong></span><span><small>Memory</small><strong>{allocatableMemory ? formatGiB(allocatableMemory) : translate('kubernetesNotCollected')}</strong></span></span>
-                    </span> : null}
-                </div>
-            </div>
-        )
-    }
-
-    private metricValueWithUnit(value: string, separateUnit: boolean): { value: string, unit?: string } {
-        if (!separateUnit) return { value }
-        const separator = value.lastIndexOf(' ')
-        if (separator <= 0) return { value }
-        return { value: value.slice(0, separator), unit: value.slice(separator + 1) }
-    }
-
-    private renderCapacityMetrics(items: Array<{ label?: string, value?: string, unit?: string, meta?: string, current?: boolean, emphasis?: 'reservable', tooltip?: React.ReactNode, tooltipOnLabel?: boolean }>) {
-        return (
-            <div className="netdive-k8s-cluster-detail__capacity-metrics">
-                {items.map((item, index) => (
-                    <div key={item.label || index} className={`netdive-k8s-cluster-detail__capacity-metric ${item.current ? 'is-current' : ''} ${item.emphasis === 'reservable' ? 'is-reservable' : ''}`}>
-                        <React.Fragment>
-                            <span>{item.tooltipOnLabel ? <Tooltip overlayClassName="netdive-k8s-cluster-detail__capacity-tooltip" title={item.tooltip}><span className="netdive-k8s-cluster-detail__tooltip-label">{item.label}</span></Tooltip> : item.label}{item.tooltip && !item.tooltipOnLabel && <Tooltip overlayClassName="netdive-k8s-cluster-detail__capacity-tooltip" title={item.tooltip}><InfoCircleOutlined className="netdive-k8s-cluster-detail__metric-info" /></Tooltip>}</span>
-                            <strong><span className="netdive-k8s-cluster-detail__metric-primary"><span className="netdive-k8s-cluster-detail__metric-number">{item.value}</span>{item.unit && <span className="netdive-k8s-cluster-detail__metric-unit">{item.unit}</span>}</span>{item.meta && <small className="netdive-k8s-cluster-detail__metric-meta">{item.meta}</small>}</strong>
-                        </React.Fragment>
+                    <div className="netdive-k8s-cluster-detail__capacity-compare-head">
+                        <Typography.Text strong>할당 자원 비교</Typography.Text>
+                        <Tooltip overlayClassName="netdive-k8s-cluster-detail__capacity-tooltip" title={<div>
+                            <div>왼쪽 값은 Mold에서 Kubernetes 클러스터 VM에 할당한 총 vCPU와 메모리입니다.</div>
+                            <div>오른쪽 값은 OS와 Kubernetes 시스템 예약분을 제외한 Allocatable 기준입니다.</div>
+                            <div>CPU는 VM 할당량을 vCPU, Kubernetes 사용 가능 자원을 Core 단위로 표시합니다.</div>
+                        </div>}>
+                            <InfoCircleOutlined className="netdive-k8s-cluster-detail__metric-info" />
+                        </Tooltip>
                     </div>
-                ))}
+                    <div className="netdive-k8s-cluster-detail__capacity-compare-columns" aria-hidden="true">
+                        <span>구분</span>
+                        <span>Mold 할당량</span>
+                        <span>Kubernetes Allocatable</span>
+                    </div>
+                    <div className="netdive-k8s-cluster-detail__capacity-compare-row">
+                        <Typography.Text type="secondary">CPU</Typography.Text>
+                        <strong>{provisionedCores ? `${formatCoreNumber(provisionedCores)} vCPU` : translate('kubernetesNotCollected')}</strong>
+                        <strong>{allocatableCpu ? `${formatCoreNumber(allocatableCpu)} Core` : translate('kubernetesNotCollected')}</strong>
+                    </div>
+                    <div className="netdive-k8s-cluster-detail__capacity-compare-row">
+                        <Typography.Text type="secondary">메모리</Typography.Text>
+                        <strong>{provisionedMemory ? formatBinaryBytes(provisionedMemoryBytes, 'GiB') : translate('kubernetesNotCollected')}</strong>
+                        <strong>{allocatableMemory ? formatGiB(allocatableMemory) : translate('kubernetesNotCollected')}</strong>
+                    </div>
+                    {reservedMemory > 0 && <div className="netdive-k8s-cluster-detail__capacity-compare-note">
+                        <span>시스템 예약분:</span>
+                        <strong>메모리 {formatGiB(reservedMemory)}</strong>
+                    </div>}
+                </div>
             </div>
         )
     }
@@ -1017,13 +1181,19 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
             : <DetailBadge tone={tone}>{label}</DetailBadge>
         const content = (
             <div className={`netdive-k8s-cluster-detail__resilience-row netdive-k8s-cluster-detail__resilience-row--${tone}`}>
-                <span>{title}</span>
-                <div>{state}</div>
-                <strong>{value}</strong>
-                <small className="netdive-k8s-cluster-detail__resilience-evidence">
-                    <b>근거</b>
-                    <span>{short}</span>
-                </small>
+                <div className="netdive-k8s-cluster-detail__resilience-info">
+                    <span className="netdive-k8s-cluster-detail__resilience-title">
+                        {title}
+                        {tooltip && <Tooltip title={tooltip} placement="top">
+                            <InfoCircleOutlined />
+                        </Tooltip>}
+                    </span>
+                    <small className="netdive-k8s-cluster-detail__resilience-evidence">
+                        <span>{short}</span>
+                    </small>
+                </div>
+                <div className="netdive-k8s-cluster-detail__resilience-state">{state}</div>
+                <strong className="netdive-k8s-cluster-detail__resilience-value">{value}</strong>
             </div>
         )
         const interactiveContent = onClick
@@ -1034,7 +1204,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                 }
             }}>{content}</div>
             : content
-        return tooltip ? <Tooltip title={tooltip} placement="top">{interactiveContent}</Tooltip> : interactiveContent
+        return interactiveContent
     }
 
     private heroConclusion(controlPlane: StatusSummary, nodes: StatusSummary, pods: PodHealthSummary, unavailableWorkloads: Node[], affectedServices: number, _recentNodeSignals: number, currentRiskTitle?: string): string {
@@ -1051,7 +1221,6 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
 
     private instabilityWindowMs(): number {
         const windows: Record<string, number> = {
-            '10m': 10 * 60 * 1000,
             '1h': 60 * 60 * 1000,
             '6h': 6 * 60 * 60 * 1000,
             '24h': 24 * 60 * 60 * 1000,
@@ -1061,8 +1230,22 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
     }
 
     private instabilityWindowLabel(): string {
-        const labels: Record<string, string> = { '10m': '10분', '1h': '1시간', '6h': '6시간', '24h': '24시간', '7d': '7일' }
+        const labels: Record<string, string> = { '1h': '1시간', '6h': '6시간', '24h': '24시간', '7d': '7일' }
         return labels[this.state.instabilityWindow] || labels['1h']
+    }
+
+    private compactEventTime(value?: number): string {
+        if (!value) return '시각 확인 불가'
+        const date = new Date(value)
+        const pad = (part: number) => String(part).padStart(2, '0')
+        return `${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+    }
+
+    private compactFullDate(value?: number): string {
+        if (!value) return '확인 불가'
+        const date = new Date(value)
+        const pad = (part: number) => String(part).padStart(2, '0')
+        return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
     }
 
     private podTerminationRecovery(node: Node, resources: Node[], unavailableWorkloads: Node[]): { label: string, tone: string } {
@@ -1114,43 +1297,154 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         })}</div>
     }
 
-    private renderPodStatusSummary(summary: PodHealthSummary) {
-        const onlyEvictedHistory = !summary.currentProblemGroups.length
-            && summary.terminationHistoryGroups.length === 1
-            && /evicted|축출/i.test(summary.terminationHistoryGroups[0].label)
-        if (onlyEvictedHistory) {
-            const evicted = summary.terminationHistoryGroups[0]
-            return <button
-                type="button"
-                className="netdive-k8s-cluster-detail__history-compact"
-                onClick={() => this.setState({ podStatusModalMode: 'history', podStatusModalKey: evicted.key })}>
-                <span>과거 Evicted 이력 <strong>{evicted.nodes.length}건</strong></span>
-                <small>현재 영향 없음 · 현재 장애 판정에서 제외</small>
-            </button>
-        }
-        const groups = [
-            { key: 'current', label: '현재 문제', description: '운영 상태 및 서비스 영향 판정에 반영', items: summary.currentProblemGroups },
-            { key: 'history', label: '종료 이력', description: '현재 장애 판정에서 제외', items: summary.terminationHistoryGroups }
-        ].filter(group => group.items.length)
-        if (!groups.length) return null
-        return <div className="netdive-k8s-cluster-detail__pod-status-summary">
-            <strong className="netdive-k8s-cluster-detail__pod-status-title">파드 상태 요약</strong>
-            {groups.map(group => <div key={group.key} className={`netdive-k8s-cluster-detail__pod-status-group is-${group.key}`}>
-                <div className="netdive-k8s-cluster-detail__pod-status-group-head">
-                    <b>{group.label}</b>
-                    <small>{group.description}</small>
+    private renderTerminationHistoryTable(nodes: Node[]) {
+        const rows = nodes.map(node => {
+            const data = node.data || {}
+            const classification = getPodClassification(node)
+            const timestamp = this.podTimestamp(node)
+            const name = firstValue(data, ['Name', 'K8s.Name', 'K8s.Extra.ObjectMeta.Name']) || node.id
+            const namespace = firstValue(data, ['K8s.Namespace', 'Namespace', 'K8s.Extra.ObjectMeta.Namespace']) || '없음'
+            const nodeName = firstValue(data, ['K8s.Node', 'NodeName', 'K8s.Extra.Spec.NodeName']) || '없음'
+            const reason = this.podPrimaryReason(node)
+            const type = classification.evicted
+                ? 'Evicted'
+                : classification.completed
+                    ? 'Succeeded'
+                    : reason || classification.phase || '종료'
+            const status = classification.completed ? '완료' : classification.evicted ? '주의' : '종료'
+            return {
+                key: node.id,
+                node,
+                timestamp,
+                type,
+                namespace,
+                name,
+                nodeName,
+                reason,
+                status
+            }
+        }).sort((a, b) => (b.timestamp.value || 0) - (a.timestamp.value || 0))
+
+        return <Table
+            className="netdive-k8s-cluster-detail__history-table"
+            dataSource={rows}
+            pagination={{ pageSize: 20, size: 'small', showSizeChanger: false }}
+            rowKey="key"
+            size="small"
+            tableLayout="fixed"
+            onRow={record => ({
+                onClick: () => this.focusResources([record.node])
+            })}
+            columns={[
+                {
+                    title: '발생 시각',
+                    key: 'time',
+                    width: '16%',
+                    render: (_value: any, record: any) => <Tooltip title={`시간 기준: ${record.timestamp.source}${record.timestamp.estimated ? ' (추정)' : ''}`}>
+                        <span className="netdive-k8s-cluster-detail__history-table-time">{this.compactFullDate(record.timestamp.value)}</span>
+                    </Tooltip>
+                },
+                {
+                    title: '유형',
+                    dataIndex: 'type',
+                    key: 'type',
+                    width: '9%',
+                    render: (value: string) => <span className="netdive-k8s-cluster-detail__history-table-type">{value}</span>
+                },
+                {
+                    title: 'Namespace / Pod',
+                    key: 'pod',
+                    width: '28%',
+                    render: (_value: any, record: any) => <Tooltip title={`${record.namespace}/${record.name}`}>
+                        <span className="netdive-k8s-cluster-detail__history-table-resource">{record.namespace}/{record.name}</span>
+                    </Tooltip>
+                },
+                {
+                    title: 'Node',
+                    dataIndex: 'nodeName',
+                    key: 'nodeName',
+                    width: '25%',
+                    render: (value: string) => <Tooltip title={value}>
+                        <span className="netdive-k8s-cluster-detail__history-table-resource">{value}</span>
+                    </Tooltip>
+                },
+                {
+                    title: '사유',
+                    dataIndex: 'reason',
+                    key: 'reason',
+                    width: '13%',
+                    render: (value: string) => <Tooltip title={value}>
+                        <span className="netdive-k8s-cluster-detail__history-table-resource">{value || '없음'}</span>
+                    </Tooltip>
+                },
+                {
+                    title: '상태',
+                    dataIndex: 'status',
+                    key: 'status',
+                    width: '9%',
+                    align: 'center' as const,
+                    render: (value: string) => <Tag color={value === '완료' ? 'green' : value === '주의' ? 'orange' : undefined}>{value}</Tag>
+                }
+            ]} />
+    }
+
+    private renderPodStatusSummary(summary: PodHealthSummary, historyFocusTargets: Node[] = []) {
+        const historyTotal = summary.terminationHistoryGroups.reduce((sum, group) => sum + group.nodes.length, 0)
+        if (!summary.currentProblemGroups.length && !historyTotal) return null
+        return <React.Fragment>
+            {summary.currentProblemGroups.length > 0 && <div className="netdive-k8s-cluster-detail__pod-status-summary">
+                <strong className="netdive-k8s-cluster-detail__pod-status-title">현재 문제 파드</strong>
+                <div className="netdive-k8s-cluster-detail__pod-status-group is-current">
+                    <div className="netdive-k8s-cluster-detail__pod-status-group-head">
+                        <b>현재 문제</b>
+                        <small>운영 상태 및 영향받은 서비스 판정에 반영</small>
+                    </div>
+                    <div className="netdive-k8s-cluster-detail__pod-status-items">
+                        {summary.currentProblemGroups.map(item => <button
+                            type="button"
+                            key={item.key}
+                            onClick={() => this.setState({ podStatusModalMode: 'current', podStatusModalKey: item.key })}>
+                            <span>{item.label}</span>
+                            <strong>{item.nodes.length}</strong>
+                        </button>)}
+                    </div>
                 </div>
-                <div className="netdive-k8s-cluster-detail__pod-status-items">
-                    {group.items.map(item => <button
+            </div>}
+            {historyTotal > 0 && <div className="netdive-k8s-cluster-detail__history-section">
+                <Divider />
+                <div className="netdive-k8s-cluster-detail__compact-section-head">
+                    <Space size={4}>
+                        <Typography.Text strong>과거 종료 이력</Typography.Text>
+                        <Tooltip title="Succeeded, Failed, Evicted 등 종료된 파드의 누적 이력입니다. 현재 장애 판정에는 포함하지 않습니다.">
+                            <InfoCircleOutlined className="netdive-k8s-cluster-detail__history-info" />
+                        </Tooltip>
+                    </Space>
+                    <button
                         type="button"
-                        key={item.key}
-                        onClick={() => this.setState({ podStatusModalMode: group.key as 'current' | 'history', podStatusModalKey: item.key })}>
-                        <span>{item.label}</span>
-                        <strong>{item.nodes.length}</strong>
-                    </button>)}
+                        className="netdive-k8s-cluster-detail__history-total"
+                        onClick={() => {
+                            if (historyFocusTargets.length) this.focusResources(historyFocusTargets)
+                            this.setState({ podStatusModalMode: 'history', podStatusModalKey: '' })
+                        }}>
+                        총 <strong>{historyTotal}건</strong>
+                    </button>
                 </div>
-            </div>)}
-        </div>
+                <div className="netdive-k8s-cluster-detail__history-reasons">
+                    {summary.terminationHistoryGroups
+                        .filter(item => item.key === 'evicted' || item.key === 'succeeded')
+                        .map(item => <button
+                            type="button"
+                            key={item.key}
+                            onClick={() => {
+                                if (historyFocusTargets.length) this.focusResources(historyFocusTargets)
+                                this.setState({ podStatusModalMode: 'history', podStatusModalKey: item.key })
+                            }}>
+                            <span>{item.label}</span>
+                            <strong>{item.nodes.length}건</strong>
+                        </button>)}
+                </div>
+            </div>}
+        </React.Fragment>
     }
 
     private recentChangeGroups(): RecentChangeGroup[] {
@@ -1286,6 +1580,30 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         const namespaceResource = summaries.find(summary => summary.type === 'namespace') as ResourceSummary
         const podResource = summaries.find(summary => summary.type === 'pod') as ResourceSummary
         const activePodResources = aggregatePods(podResource.nodes).activeEntries.map(entry => entry.node)
+        const nodeAllocatablePodValues = nodeResource.nodes.map(node => quantityNumber(firstRaw(node.data || {}, [
+            'K8s.Extra.Status.Allocatable.pods',
+            'K8s.Extra.Status.Allocatable.Pods',
+            'K8s.Status.Allocatable.pods',
+            'K8s.Allocatable.pods',
+            'Allocatable.pods',
+            'Allocatable.Pods'
+        ])))
+        // 최대 Pod는 고정값이나 노드 수 기반 추정치를 사용하지 않습니다.
+        // 모든 Kubernetes Node에서 status.allocatable.pods가 확인될 때만
+        // 합계를 노출하고, 하나라도 누락되면 compact 활성 Pod 수만 표시합니다.
+        const nodeAllocatablePodCount = nodeAllocatablePodValues.length > 0
+            && nodeAllocatablePodValues.every(value => value > 0)
+            ? nodeAllocatablePodValues.reduce((total, value) => total + value, 0)
+            : 0
+        // summary.resources.allocatablePods 역시 수집기가 각 Node의
+        // status.allocatable.pods를 합산한 값입니다. 토폴로지 Node 메타데이터가
+        // 축약되어 있을 때만 이 원본 합계로 보완하며 노드 수×고정값 추정은 하지 않습니다.
+        const collectedAllocatablePodCount = quantityNumber(firstRaw(this.state.summary?.resources || {}, [
+            'allocatablePods',
+            'podAllocatable',
+            'allocatablePodCount'
+        ]))
+        const allocatablePodCount = nodeAllocatablePodCount || collectedAllocatablePodCount
         const serviceResource = summaries.find(summary => summary.type === 'service') as ResourceSummary
         const persistentVolumeResource = summaries.find(summary => summary.type === 'persistentvolume') as ResourceSummary
         const persistentVolumeClaimResource = summaries.find(summary => summary.type === 'persistentvolumeclaim') as ResourceSummary
@@ -1310,10 +1628,25 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         const networkEvidenceTargets = topologyNodes.filter(node => String(node.data?.Type || '').toLowerCase() === 'switch'
             && networkAnalysis.known.some(item => item.label === (firstValue(node.data || {}, ['Name', 'SystemName', 'ChassisID']) || node.id)))
         const controlPlaneTargets = nodeResource.nodes.filter(node => this.controlPlaneNode(node))
-        const currentImpactTargets = [
-            ...nodeResource.nodes.filter(node => !this.nodeReady(node)),
+        const currentImpactInfrastructureTargets = nodeResource.nodes.filter(node => !this.nodeReady(node))
+        const affectedWorkloadTargets = [
             ...podSummary.activeProblemNodes,
             ...unavailableWorkloads
+        ]
+        const hostDistributionEvidenceTargets = [
+            ...nodeResource.nodes,
+            ...hostEvidenceTargets
+        ]
+        const networkResilienceEvidenceTargets = [
+            ...nodeResource.nodes,
+            ...hostEvidenceTargets,
+            ...networkEvidenceTargets
+        ]
+        const structuralEvidenceTargets = [
+            this.props.node,
+            ...hostDistributionEvidenceTargets,
+            ...networkEvidenceTargets,
+            ...controlPlaneTargets
         ]
         const knownHostNodeCount = hostAnalysis.known.reduce((sum, item) => sum + item.count, 0)
         const knownNetworkNodeCount = networkAnalysis.known.reduce((sum, item) => sum + item.count, 0)
@@ -1396,12 +1729,12 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         const overviewRows: any[] = [
             { label: translate('kubernetesClusterName'), value: name, textValue: name, copyText: name },
             { label: translate('kubernetesVersion'), value: version || translate('kubernetesUnknown') },
-            moldCluster?.state ? { label: translate('kubernetesMoldDeploymentStatus'), value: <DetailBadge tone={/running/i.test(moldCluster.state) ? 'success' : 'warning'}>{moldCluster.state}</DetailBadge> } : null,
-            { label: translate('kubernetesApiServer'), value: apiServer || translate('kubernetesNoConnectionInfo'), textValue: apiServer, copyText: apiServer || undefined },
-            moldCluster?.zoneName ? { label: translate('kubernetesZone'), value: moldCluster.zoneName } : null,
-            moldCluster?.networkName ? { label: translate('kubernetesNetwork'), value: moldCluster.networkName } : null
+            moldCluster?.state ? { label: translate('kubernetesMoldDeploymentStatus'), value: <DetailBadge tone={/running/i.test(moldCluster.state) ? 'success' : 'warning'}>{moldCluster.state}</DetailBadge> } : null
         ].filter(Boolean)
         const advancedRows: any[] = [
+            { label: translate('kubernetesApiServer'), value: apiServer || translate('kubernetesNoConnectionInfo'), textValue: apiServer, copyText: apiServer || undefined },
+            moldCluster?.zoneName ? { label: translate('kubernetesZone'), value: moldCluster.zoneName } : null,
+            moldCluster?.networkName ? { label: translate('kubernetesNetwork'), value: moldCluster.networkName } : null,
             { label: translate('kubernetesClusterUid'), value: uid || translate('kubernetesNotCollected'), textValue: uid, copyText: uid || undefined },
             { label: translate('kubernetesMoldClusterId'), value: moldCluster?.id || translate('kubernetesNoConnectionInfo'), textValue: moldCluster?.id, copyText: moldCluster?.id },
             moldCluster?.serviceOffering ? { label: translate('kubernetesServiceOffering'), value: moldCluster.serviceOffering } : null,
@@ -1445,7 +1778,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
             },
             {
                 key: 'services',
-                label: translate('kubernetesAffectedServiceKpi'),
+                label: KUBERNETES_DETAIL_LABELS.affectedServices,
                 value: serviceStatusCollectedForDisplay ? affectedServices : '–',
                 tooltip: <div><strong>영향받은 서비스</strong><p>Ready Endpoint가 없거나 현재 문제 워크로드에만 의존하는 Service를 집계합니다.</p></div>,
                 details: [
@@ -1459,54 +1792,157 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
             ...(nodeSummary.notReady ? [{ key: 'nodes', label: translate('kubernetesTopologyNodes'), status: 'NotReady', value: nodeSummary.notReady, tone: 'danger' }] : []),
             ...(podSummary.activeProblemNodes.length ? [{ key: 'pods-active', label: '현재 문제 파드', status: '활성 문제', value: podSummary.activeProblemNodes.length, tone: podSummary.unknownNodes.length ? 'danger' : 'warning', nodes: podSummary.activeProblemNodes }] : []),
             ...(podSummary.unknownNodes.length ? [{ key: 'pods-unknown', label: translate('kubernetesTopologyPods'), status: 'Unknown', value: podSummary.unknownNodes.length, tone: 'danger', nodes: podSummary.unknownNodes }] : []),
-            ...(unavailableWorkloads.length ? [{ key: 'workloads-unavailable', label: '워크로드', status: 'Replica 부족', value: unavailableWorkloads.length, tone: 'danger', nodes: unavailableWorkloads }] : []),
-            ...(affectedServices ? [{ key: 'services', label: translate('kubernetesAffectedServiceKpi'), status: translate('kubernetesServiceAffected'), value: affectedServices, tone: 'danger' }] : [])
+            ...(unavailableWorkloads.length ? [{ key: 'workloads-unavailable', label: KUBERNETES_DETAIL_LABELS.workloadController, status: 'Replica 부족', value: unavailableWorkloads.length, tone: 'danger', nodes: unavailableWorkloads }] : []),
+            ...(affectedServices ? [{ key: 'services', label: KUBERNETES_DETAIL_LABELS.affectedServices, status: translate('kubernetesServiceAffected'), value: affectedServices, tone: 'danger' }] : [])
         ]
-        const recentAffectedNodeNames = new Set(podSummary.recentTerminationNodes.map(node => firstValue(node.data || {}, ['K8s.Node', 'NodeName', 'K8s.Extra.Spec.NodeName'])).filter(Boolean))
+        const activeAnomalyNodes = podSummary.activeProblemNodes.filter(node => {
+            const classification = getPodClassification(node)
+            if (!classification.problemReasons.some(reason => reason === 'crashloopbackoff' || reason === 'oomkilled')) return false
+            const timestamp = this.podTimestamp(node).value
+            return timestamp !== undefined && timestamp >= Date.now() - this.instabilityWindowMs()
+        })
+        const terminationAnomalyNodes = podSummary.recentTerminationNodes.filter(node => {
+            const classification = getPodClassification(node)
+            return !classification.completed && classification.reason !== 'completed'
+        })
+        const recentAnomalyPodNodes = Array.from([...terminationAnomalyNodes, ...activeAnomalyNodes]
+            .reduce((items, node) => items.set(node.id, node), new Map<string, Node>())
+            .values())
+        const recentPressureSignals = recentNodeSignals.reduce<Array<{ node: Node, type: string, timestamp: number }>>((items, node) => {
+            const transitionTimes = firstRaw(node.data || {}, ['K8s.ConditionTransitionTimes', 'ConditionTransitionTimes']) || {}
+            const conditions = firstRaw(node.data || {}, ['K8s.Extra.Status.Conditions', 'Conditions'])
+            const abnormalConditions = ['MemoryPressure', 'DiskPressure', 'PIDPressure', 'NetworkUnavailable']
+                .map(type => {
+                    const condition = Array.isArray(conditions)
+                        ? conditions.find(item => String(item?.Type || '').toLowerCase() === type.toLowerCase())
+                        : undefined
+                    const timestamp = new Date(transitionTimes[type]).getTime()
+                    return { type, timestamp, active: String(condition?.Status || '').toLowerCase() === 'true' }
+                })
+                .filter(item => item.active && !Number.isNaN(item.timestamp) && item.timestamp >= Date.now() - this.instabilityWindowMs())
+            abnormalConditions.forEach(item => items.push({ node, type: item.type, timestamp: item.timestamp }))
+            return items
+        }, [])
+        const recentAffectedNodeNames = new Set([
+            ...recentAnomalyPodNodes.map(node => firstValue(node.data || {}, ['K8s.Node', 'NodeName', 'K8s.Extra.Spec.NodeName'])),
+            ...recentPressureSignals.map(item => firstValue(item.node.data || {}, ['Name', 'K8s.Name']))
+        ].filter(Boolean))
         const historyNodeTargets = nodeResource.nodes.filter(node => recentAffectedNodeNames.has(firstValue(node.data || {}, ['Name', 'K8s.Name'])))
-        const recentAffectedWorkloadNames = new Set(podSummary.recentTerminationNodes.map(node => this.podWorkloadName(node, workloadNodes)).filter(Boolean))
+        const recentAffectedWorkloadNames = new Set(recentAnomalyPodNodes.map(node => this.podWorkloadName(node, workloadNodes)).filter(Boolean))
         const historyWorkloadTargets = workloadNodes.filter(node => recentAffectedWorkloadNames.has(firstValue(node.data || {}, ['Name', 'K8s.Name', 'K8s.Extra.ObjectMeta.Name'])))
         const unrecoveredWorkloadTargets = unavailableWorkloads.filter(node => recentAffectedWorkloadNames.has(firstValue(node.data || {}, ['Name', 'K8s.Name', 'K8s.Extra.ObjectMeta.Name'])))
+        const historyFocusTargets = Array.from([...historyNodeTargets, ...historyWorkloadTargets]
+            .reduce((items, node) => items.set(node.id, node), new Map<string, Node>())
+            .values())
+        const affectedServiceFocusTargets = Array.from([
+            ...podSummary.activeProblemNodes,
+            ...unavailableWorkloads
+        ].reduce((items, node) => items.set(node.id, node), new Map<string, Node>()).values())
         const selectedPodStatusGroup = this.state.podStatusModalMode === 'current'
             ? podSummary.currentProblemGroups.find(group => group.key === this.state.podStatusModalKey)
             : podSummary.terminationHistoryGroups.find(group => group.key === this.state.podStatusModalKey)
         const selectedPodStatusNodes = this.state.podStatusModalMode === 'recent'
-            ? podSummary.recentTerminationNodes
-            : selectedPodStatusGroup?.nodes || []
+            ? recentAnomalyPodNodes
+            : selectedPodStatusGroup?.nodes
+                || (this.state.podStatusModalMode === 'history' && !this.state.podStatusModalKey ? podSummary.terminationHistoryNodes : [])
         const historyWindowAvailable = !podSummary.terminationHistoryNodes.length || podSummary.timestampAvailableCount > 0
         const nodeWindowAvailable = this.nodeSignalTimestampsAvailable(resources)
         const instabilityWindowAvailable = historyWindowAvailable || nodeWindowAvailable
-        const hasRecentInstability = podSummary.recentTerminationNodes.length > 0 || recentNodeSignals.length > 0
+        const hasRecentInstability = recentAnomalyPodNodes.length > 0 || recentPressureSignals.length > 0
+        const recentInstabilityItems = [
+            ...recentAnomalyPodNodes.map(node => {
+                const timestamp = this.podTimestamp(node)
+                const namespace = firstValue(node.data || {}, ['K8s.Namespace', 'Namespace', 'K8s.Extra.ObjectMeta.Namespace'])
+                const podName = firstValue(node.data || {}, ['Name', 'K8s.Name', 'K8s.Extra.ObjectMeta.Name']) || node.id
+                const reason = this.podPrimaryReason(node)
+                const normalizedReason = reason.toLowerCase()
+                const danger = normalizedReason.indexOf('crashloop') >= 0 || normalizedReason.indexOf('oomkilled') >= 0
+                return {
+                    key: `pod-${node.id}`,
+                    timestamp: timestamp.value || 0,
+                    time: this.compactEventTime(timestamp.value),
+                    resource: namespace ? `${namespace}/${podName}` : podName,
+                    resourceType: 'Pod',
+                    detail: reason,
+                    severity: danger ? '위험' : '주의',
+                    tone: danger ? 'danger' as const : 'warning' as const,
+                    nodes: [node]
+                }
+            }),
+            ...recentPressureSignals.map(item => {
+                const nodeName = firstValue(item.node.data || {}, ['Name', 'K8s.Name']) || item.node.id
+                return {
+                    key: `node-${item.node.id}-${item.type}`,
+                    timestamp: item.timestamp,
+                    time: this.compactEventTime(item.timestamp),
+                    resource: nodeName,
+                    resourceType: 'Node',
+                    detail: item.type,
+                    severity: '주의',
+                    tone: 'warning' as const,
+                    nodes: [item.node]
+                }
+            })
+        ].sort((a, b) => b.timestamp - a.timestamp)
+        const podUsageItems = (Array.isArray(this.state.summary?.resources?.podUsage)
+            ? this.state.summary.resources.podUsage
+            : []).map((item: any) => ({
+                namespace: String(item.namespace || ''),
+                name: String(item.name || ''),
+                nodeName: String(item.nodeName || ''),
+                usageCpuCores: Number(item.usageCpuCores) || 0,
+                usageMemoryBytes: Number(item.usageMemoryBytes) || 0
+            }))
+        const selectedUsageItems = podUsageItems
+            .slice()
+            .sort((left: any, right: any) => this.state.resourceUsageModal === 'memory'
+                ? right.usageMemoryBytes - left.usageMemoryBytes
+                : right.usageCpuCores - left.usageCpuCores)
+            .slice(0, 20)
+        const podNodeForUsage = (usage: any) => podResource.nodes.find(node => {
+            const podName = firstValue(node.data || {}, ['Name', 'K8s.Name', 'K8s.Extra.ObjectMeta.Name'])
+            const namespace = firstValue(node.data || {}, ['K8s.Namespace', 'Namespace', 'K8s.Extra.ObjectMeta.Namespace'])
+            return podName === usage.name && namespace === usage.namespace
+        })
+        const usageRelationshipTargets = (usage: any) => {
+            const pod = podNodeForUsage(usage)
+            const node = nodeResource.nodes.find(candidate => firstValue(candidate.data || {}, ['Name', 'K8s.Name']) === usage.nodeName)
+            const workloadName = pod ? this.podWorkloadName(pod, workloadNodes) : ''
+            const workload = workloadNodes.find(candidate => firstValue(candidate.data || {}, ['Name', 'K8s.Name', 'K8s.Extra.ObjectMeta.Name']) === workloadName)
+            return [pod, workload, node].filter((target): target is Node => !!target)
+        }
+        const wallTrendAvailable = typeof (window as any).App?.openWallResourceTrend === 'function'
+            || !!this.state.summary?.wallUrl
+        const openWallTrend = (usage?: any) => {
+            const context = {
+                scope: 'kubernetes-pod',
+                metric: this.state.resourceUsageModal,
+                cluster: name,
+                namespace: usage?.namespace,
+                pod: usage?.name
+            }
+            const app = (window as any).App
+            if (app && typeof app.openWallResourceTrend === 'function') {
+                app.openWallResourceTrend(context)
+                return
+            }
+            if (this.state.summary?.wallUrl) {
+                const url = new URL(String(this.state.summary.wallUrl), window.location.href)
+                Object.keys(context).forEach(key => {
+                    const value = (context as any)[key]
+                    if (value) url.searchParams.set(key, String(value))
+                })
+                window.open(url.toString(), '_blank', 'noopener,noreferrer')
+            }
+        }
         const rawClusterStatus = this.state.summary?.apiConnectionStatus || (controlPlane.total && controlPlane.ready === controlPlane.total ? 'API Healthy' : '확인 불가')
-        const historyTimeQualityTooltip = <div className="netdive-k8s-cluster-detail__risk-score-tooltip">
-            <strong>최근 {this.instabilityWindowLabel()} 종료 이력 {podSummary.recentTerminationNodes.length}</strong>
-            <p>정확 {podSummary.recentTimestampExactCount}건 · 추정 {podSummary.recentTimestampEstimatedCount}건</p>
-            <span>시간 산정 우선순위</span>
-            <ul>
-                <li><span>종료 시각</span><b>terminated.finishedAt</b></li>
-                <li><span>상태 전환</span><b>condition.lastTransitionTime</b></li>
-                <li><span>이벤트</span><b>종료 관련 Event 시간</b></li>
-                <li><span>생성 시각</span><b>creationTimestamp · 추정</b></li>
-            </ul>
-        </div>
-        const healthEvidence = <div className="netdive-k8s-cluster-detail__health-evidence">
-            <strong>현재 상태: {health.label}</strong>
-            <span>현재 영향</span>
-            <ul>
-                <li>비정상 Node {nodeSummary.notReady || 0}</li>
-                <li>현재 문제 파드 {podSummary.activeProblemNodes.length}</li>
-                <li>가용 Replica 부족 {unavailableWorkloads.length}</li>
-                <li>영향 서비스 {affectedServices}</li>
-            </ul>
-            {instabilityWindowAvailable && <React.Fragment>
-                <span>최근 이상 · {this.instabilityWindowLabel()}</span>
-                <ul><li>파드 종료 이력 {podSummary.recentTerminationNodes.length}</li><li>노드 상태 전환 {recentNodeSignals.length}</li><li>영향 노드 {recentAffectedNodeNames.size}</li></ul>
-            </React.Fragment>}
-            <span>누적 이력</span>
-            <ul><li>종료 파드 {podSummary.terminationHistoryNodes.length}</li></ul>
-            <span>구조적 위험</span>
-            <ul><li>Control Plane {controlPlane.total || '미수집'}</li><li>네트워크 경로 {networkAnalysis.known.length || '미수집'}</li></ul>
-            <span>마지막 수집 · {collectedAt || updatedAt || translate('kubernetesNoCollectionRecord')}</span>
+        const collectionTimeText = collectedAt
+            ? `${formatRelativeDate(this.state.summary?.lastSyncAt || this.state.summary?.collectedAt)} 동기화`
+            : (updatedAt || translate('kubernetesNoCollectionRecord'))
+        const historyTimeQualityTooltip = <div>
+            <div>정확 시각 {podSummary.recentTimestampExactCount}건 · 추정 시각 {podSummary.recentTimestampEstimatedCount}건</div>
+            <div>종료 시각, 상태 전환, Event 시간을 우선 사용합니다.</div>
+            <div>확인할 수 없으면 생성 시각을 추정값으로 사용합니다.</div>
         </div>
 
         return (
@@ -1549,24 +1985,52 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                     </div>}
                 </DetailSection>
 
-                <DetailSection icon={this.topologyIcon(this.props.node)} title={translate('kubernetesOperationalStatus')}>
+                <DetailSection
+                    icon={this.topologyIcon(this.props.node)}
+                    title={translate('kubernetesOperationalStatus')}
+                    action={<Space size={5} className="netdive-k8s-cluster-detail__collection-summary">
+                        <Tooltip title={metricState.description}>
+                            <Badge
+                                status={metricState.tone === 'success'
+                                    ? 'success'
+                                    : metricState.tone === 'warning'
+                                        ? 'warning'
+                                        : metricState.tone === 'danger'
+                                            ? 'error'
+                                            : 'default'}
+                                text={metricState.label} />
+                        </Tooltip>
+                        <Typography.Text type="secondary">·</Typography.Text>
+                        <Tooltip title={collectedAt ? `마지막 수집 시각: ${collectedAt}` : metricState.description}>
+                            <Typography.Text type="secondary">{collectionTimeText}</Typography.Text>
+                        </Tooltip>
+                    </Space>}>
                     <DetailOperationalSummary
                         verdict={health.label}
                         verdictTone={health.tone}
                         rawStatus={rawClusterStatus}
                         rawStatusLabel="API 원본 상태"
                         impact={heroConclusion}
-                        tooltip={healthEvidence}
+                        verdictTooltip="현재 Kubernetes 상태와 서비스 영향을 종합한 Netdive 운영 판정입니다."
+                        rawStatusTooltip="Kubernetes API 연결과 Control Plane에서 확인한 원본 상태입니다."
+                        impactTooltip="현재 문제 파드, 비정상 노드와 영향받은 서비스를 기준으로 확인한 현재 영향입니다."
                         metrics={availabilityItems.map(item => ({
                             key: item.key,
                             label: item.label,
                             value: item.value,
-                            tooltip: item.tooltip || <div>{item.details.map((detail: any) => <div key={detail.label}>{detail.label}: <strong>{detail.value}</strong></div>)}</div>,
+                            tooltip: item.tooltip
+                                || (item.key === 'control-plane'
+                                    ? '전체 Control Plane 중 Ready 상태인 수입니다.'
+                                    : item.key === 'nodes'
+                                        ? '전체 Kubernetes 노드 중 Ready 상태인 수입니다.'
+                                        : '삭제 중이거나 종료된 객체를 제외한 활성 파드 수입니다.'),
                             tone: item.key === 'services' && affectedServices > 0 ? 'danger' : 'default',
                             onClick: item.key === 'nodes' && nodeResource.nodes.length
                                 ? () => this.focusResources(nodeResource.nodes)
                                 : item.key === 'pods' && activePodResources.length
                                 ? () => this.focusResources(activePodResources)
+                                : item.key === 'services' && affectedServices > 0 && affectedServiceFocusTargets.length
+                                ? () => this.focusResources(affectedServiceFocusTargets)
                                 : item.key === 'services'
                                 ? () => this.setState({ activeDetailTab: 'services', serviceNamespaceFilter: 'all' })
                                 : undefined
@@ -1582,69 +2046,62 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                             ))}
                         </div>
                     </div>}
-                    {this.renderPodStatusSummary(podSummary)}
-                    {instabilityWindowAvailable && hasRecentInstability && <div className="netdive-k8s-cluster-detail__instability">
+                    {this.renderPodStatusSummary(podSummary, historyFocusTargets)}
+                    {instabilityWindowAvailable && <div className="netdive-k8s-cluster-detail__instability">
+                        <Divider />
                         <div className="netdive-k8s-cluster-detail__instability-head">
-                            <strong>최근 불안정성</strong>
-                            <span className="netdive-k8s-cluster-detail__instability-controls">
-                                {podSummary.recentTimestampEstimatedCount > 0 && <Tooltip title={historyTimeQualityTooltip} placement="top">
-                                    <span><DetailBadge tone="warning">추정 포함</DetailBadge></span>
-                                </Tooltip>}
-                                <Tooltip title="기간별 종료 이력과 영향을 다시 계산합니다.">
-                                    <span><Select size="small" value={this.state.instabilityWindow} onChange={instabilityWindow => this.setState({ instabilityWindow })}>
-                                    <Select.Option value="10m">10분</Select.Option>
-                                    <Select.Option value="1h">1시간</Select.Option>
-                                    <Select.Option value="6h">6시간</Select.Option>
-                                    <Select.Option value="24h">24시간</Select.Option>
-                                    <Select.Option value="7d">7일</Select.Option>
-                                    </Select></span>
+                            <Space size={4}>
+                                <Typography.Text strong>최근 이상징후</Typography.Text>
+                                <Tooltip title={<React.Fragment>
+                                    <div>선택한 기간의 실제 이상 Pod와 활성 Node pressure 상태만 집계합니다.</div>
+                                    <div>Succeeded·Completed는 과거 종료 이력에만 포함됩니다.</div>
+                                    {podSummary.recentTimestampEstimatedCount > 0 && historyTimeQualityTooltip}
+                                </React.Fragment>}>
+                                    <InfoCircleOutlined className="netdive-k8s-cluster-detail__history-info" />
                                 </Tooltip>
-                            </span>
+                            </Space>
+                            <Space size={5} className="netdive-k8s-cluster-detail__instability-head-actions">
+                                {this.renderInstabilityWindowSelect()}
+                            </Space>
                         </div>
-                        <Tooltip title={historyTimeQualityTooltip} placement="top">
-                            <div className="netdive-k8s-cluster-detail__instability-quality">
-                                최근 {this.instabilityWindowLabel()} 종료 이력 <strong>{podSummary.recentTerminationNodes.length}</strong>
-                                <span>정확 {podSummary.recentTimestampExactCount} · 추정 {podSummary.recentTimestampEstimatedCount}</span>
-                            </div>
-                        </Tooltip>
-                        <div className="netdive-k8s-cluster-detail__instability-grid">
-                            <button type="button" disabled={!podSummary.recentTerminationNodes.length} onClick={() => this.setState({ podStatusModalMode: 'recent', podStatusModalKey: '' })}>
-                                <span>종료 파드</span>
-                                <strong className={podSummary.recentTerminationNodes.length ? 'is-warning' : ''}>{podSummary.recentTerminationNodes.length}</strong>
+                        {this.state.summaryLoading
+                            ? <div className="netdive-k8s-cluster-detail__instability-fetch-state"><Spin size="small" /><span>기간 데이터를 불러오는 중입니다.</span></div>
+                            : this.state.summaryError
+                                ? <div className="netdive-k8s-cluster-detail__instability-fetch-state is-error">
+                                    <span>기간 데이터를 불러오지 못했습니다.</span>
+                                    <Button type="link" size="small" onClick={() => this.loadClusterSummary(true)}>다시 시도</Button>
+                                </div>
+                                : null}
+                        {hasRecentInstability && <Row gutter={[6, 6]} className="netdive-k8s-cluster-detail__instability-cards">
+                            <Col span={12}><button type="button" disabled={!recentInstabilityItems.length} onClick={() => this.focusResources([...recentAnomalyPodNodes, ...recentPressureSignals.map(item => item.node)])}>
+                                <span>감지된 이상징후</span><strong className={recentInstabilityItems.length ? 'is-warning' : ''}>{recentAnomalyPodNodes.length + recentPressureSignals.length}</strong>
+                            </button></Col>
+                            <Col span={12}><button type="button" disabled={!historyNodeTargets.length} onClick={() => this.focusResources(historyNodeTargets)}>
+                                <span>영향받은 노드</span><strong className={recentAffectedNodeNames.size ? 'is-warning' : ''}>{recentAffectedNodeNames.size}</strong>
+                            </button></Col>
+                            <Col span={12}><button type="button" disabled={!historyWorkloadTargets.length} onClick={() => this.focusResources(historyWorkloadTargets)}>
+                                <span>영향 워크로드</span><strong className={recentAffectedWorkloadNames.size ? 'is-warning' : ''}>{recentAffectedWorkloadNames.size}</strong>
+                            </button></Col>
+                            <Col span={12}><button type="button" disabled={!unrecoveredWorkloadTargets.length} onClick={() => this.focusResources(unrecoveredWorkloadTargets)}>
+                                <span>미복구 상태</span><strong className={unrecoveredWorkloadTargets.length ? 'is-danger' : ''}>{unrecoveredWorkloadTargets.length}</strong>
+                            </button></Col>
+                        </Row>}
+                        {hasRecentInstability
+                            ? <button
+                                type="button"
+                                className="netdive-k8s-cluster-detail__instability-detail-trigger"
+                                onClick={() => this.setState({ podStatusModalMode: 'recent', podStatusModalKey: '' })}>
+                                <span>최근 이상징후 {recentAnomalyPodNodes.length + recentPressureSignals.length}건</span>
+                                <RightOutlined />
                             </button>
-                            <button type="button" disabled={!historyNodeTargets.length} onClick={() => this.focusResources(historyNodeTargets)}>
-                                <span>영향 노드</span>
-                                <strong>{recentAffectedNodeNames.size}</strong>
-                            </button>
-                            <button type="button" disabled={!historyWorkloadTargets.length} onClick={() => this.focusResources(historyWorkloadTargets)}>
-                                <span>영향 워크로드</span>
-                                <strong>{recentAffectedWorkloadNames.size}</strong>
-                            </button>
-                            <button type="button" disabled={!unrecoveredWorkloadTargets.length} onClick={() => this.focusResources(unrecoveredWorkloadTargets)}>
-                                <span>미복구 워크로드</span>
-                                <strong className={unrecoveredWorkloadTargets.length ? 'is-warning' : ''}>{unrecoveredWorkloadTargets.length}</strong>
-                            </button>
-                        </div>
+                            : !this.state.summaryLoading && !this.state.summaryError
+                                ? <div className="netdive-k8s-cluster-detail__instability-empty">최근 {this.instabilityWindowLabel()} 동안 이상징후 없음</div>
+                                : null}
                     </div>}
-                    {instabilityWindowAvailable && !hasRecentInstability && <div className="netdive-k8s-cluster-detail__instability-compact">
-                        <span>최근 {this.instabilityWindowLabel()} 이상 징후 없음</span>
-                        <Select size="small" value={this.state.instabilityWindow} onChange={instabilityWindow => this.setState({ instabilityWindow })}>
-                            <Select.Option value="10m">10분</Select.Option>
-                            <Select.Option value="1h">1시간</Select.Option>
-                            <Select.Option value="6h">6시간</Select.Option>
-                            <Select.Option value="24h">24시간</Select.Option>
-                            <Select.Option value="7d">7일</Select.Option>
-                        </Select>
-                    </div>}
-                    <div className="netdive-k8s-cluster-detail__collection-status">
-                        <span>{translate('kubernetesDataCollectionStatus')}</span>
-                        <Tooltip title={metricState.description}><span><DetailBadge tone={metricState.tone}>{metricState.label}</DetailBadge></span></Tooltip>
-                        <strong>{collectedAt ? <Tooltip title={`판정 기준 ${collectedAt}`}><span>{formatRelativeDate(this.state.summary?.lastSyncAt || this.state.summary?.collectedAt)}</span></Tooltip> : (updatedAt || translate('kubernetesNoCollectionRecord'))}</strong>
-                    </div>
                 </DetailSection>
 
                 <DetailSection icon={<AccountTreeIcon />} title={translate('kubernetesResourceCapacity')}>
-                    {this.renderResourceCapacity(moldCluster)}
+                    {this.renderResourceCapacity(moldCluster, activePodResources.length, allocatablePodCount)}
                 </DetailSection>
 
                 <DetailSection icon={<ErrorOutlineIcon />} title={translate('kubernetesRiskResilience')}>
@@ -1654,9 +2111,9 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                         {currentRisks.length > 1 && <small>+{currentRisks.length - 1}</small>}
                     </div>
                     <div className="netdive-k8s-cluster-detail__resilience-rows">
-                        {this.renderResilienceRow(translate('kubernetesCurrentFailureImpact'), currentImpactGrade.label, currentImpactGrade.tone, `${impactScore} / 100`, `영향 점수 ${impactScore}/100 · 현재 상태 기준`, translate('kubernetesCurrentFailureImpactTooltip'), currentImpactTargets.length ? () => this.focusResources(currentImpactTargets) : undefined)}
-                        {instabilityWindowAvailable && this.renderResilienceRow('최근 불안정성', podSummary.recentTerminationNodes.length || recentNodeSignals.length ? translate('kubernetesHealthWarning') : translate('kubernetesHealthNormal'), podSummary.recentTerminationNodes.length || recentNodeSignals.length ? 'warning' : 'success', podSummary.recentTerminationNodes.length + recentNodeSignals.length, `종료 이력 ${podSummary.recentTerminationNodes.length}건, 노드 상태 전환 ${recentNodeSignals.length}건 · 최근 ${this.instabilityWindowLabel()} 기준`)}
-                        {this.renderResilienceRow('구조적 위험도', potentialEvaluated && potentialScore >= 75 ? '매우 높음' : potentialGrade.label, potentialGrade.tone, potentialEvaluated ? `${potentialScore} / 100` : '–', potentialEvaluated ? `구조적 위험도 ${potentialScore}/100 · 높을수록 위험` : '분석 데이터 미수집 · 평가 불가', potentialScoreTooltip, [...hostEvidenceTargets, ...networkEvidenceTargets, ...controlPlaneTargets].length ? () => this.focusResources([...hostEvidenceTargets, ...networkEvidenceTargets, ...controlPlaneTargets]) : undefined)}
+                        {this.renderResilienceRow(translate('kubernetesCurrentFailureImpact'), currentImpactGrade.label, currentImpactGrade.tone, `${impactScore} / 100`, `영향 점수 ${impactScore}/100 · 현재 상태 기준`, <div><strong>현재 장애 영향도</strong><p>높을수록 위험합니다.</p><p>{translate('kubernetesCurrentFailureImpactTooltip')}</p></div>, currentImpactInfrastructureTargets.length ? () => this.focusInfrastructureEvidence(currentImpactInfrastructureTargets) : undefined)}
+                        {instabilityWindowAvailable && this.renderResilienceRow('최근 불안정성', hasRecentInstability ? translate('kubernetesHealthWarning') : translate('kubernetesHealthNormal'), hasRecentInstability ? 'warning' : 'success', recentAnomalyPodNodes.length + recentPressureSignals.length, `실제 이상 Pod ${recentAnomalyPodNodes.length}건, Node pressure ${recentPressureSignals.length}건 · 최근 ${this.instabilityWindowLabel()} 기준`)}
+                        {this.renderResilienceRow('구조적 위험도', potentialEvaluated && potentialScore >= 75 ? '매우 높음' : potentialGrade.label, potentialGrade.tone, potentialEvaluated ? `${potentialScore} / 100` : '–', potentialEvaluated ? `구조적 위험도 ${potentialScore}/100 · 높을수록 위험` : '분석 데이터 미수집 · 평가 불가', potentialScoreTooltip, structuralEvidenceTargets.length ? () => this.focusInfrastructureEvidence(structuralEvidenceTargets) : undefined)}
                         {this.renderResilienceRow(
                             translate('kubernetesHostDistributionShort'),
                             hostAnalysis.tone === 'warning' ? translate('kubernetesResilienceRecommended') : hostAnalysis.label,
@@ -1668,7 +2125,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                                     ? '호스트 수 1대 · 단일 호스트 집중'
                                     : `호스트 수 ${hostAnalysis.known.length}대 · 분산 배치`,
                             undefined,
-                            hostEvidenceTargets.length ? () => this.focusResources(hostEvidenceTargets) : undefined)}
+                            hostEvidenceTargets.length ? () => this.focusInfrastructureEvidence(hostDistributionEvidenceTargets) : undefined)}
                         {this.renderResilienceRow(
                             '네트워크 복원력',
                             networkAnalysis.tone === 'warning' ? translate('kubernetesResilienceRecommended') : networkAnalysis.label,
@@ -1680,7 +2137,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                                     ? `단일 경로 비율 ${networkAnalysis.topPercent}% · 연결 스위치 1대`
                                     : `최대 경로 집중도 ${networkAnalysis.topPercent}% · 연결 스위치 ${networkAnalysis.known.length}대`,
                             undefined,
-                            networkEvidenceTargets.length ? () => this.focusResources(networkEvidenceTargets) : undefined)}
+                            networkEvidenceTargets.length ? () => this.focusInfrastructureEvidence(networkResilienceEvidenceTargets) : undefined)}
                         {this.renderResilienceRow(
                             translate('kubernetesControlPlaneResilience'),
                             !controlPlane.total ? translate('kubernetesResilienceUnavailable') : controlPlane.total === 1 ? translate('kubernetesResilienceRecommended') : translate('kubernetesResilienceGood'),
@@ -1688,9 +2145,15 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                             !controlPlane.total ? '–' : controlPlane.total === 1 ? '낮음' : '양호',
                             !controlPlane.total ? 'Control Plane 미수집 · 평가 불가' : controlPlane.total === 1 ? 'Control Plane 노드 1대 · 이중화 없음' : `Control Plane 노드 ${controlPlane.total}대 · 다중 구성`,
                             undefined,
-                            controlPlaneTargets.length ? () => this.focusResources(controlPlaneTargets) : undefined)}
+                            controlPlaneTargets.length ? () => this.focusInfrastructureEvidence(controlPlaneTargets) : undefined)}
                         {this.renderResilienceRow(translate('kubernetesExternalPaths'), externalAnalysis.label, externalAnalysis.tone, externalAnalysis.value, externalAnalysis.short, externalAnalysis.description)}
                     </div>
+                    {affectedWorkloadTargets.length > 0 && <div className="netdive-k8s-cluster-detail__risk-actions">
+                        <Button type="link" size="small" onClick={() => this.focusResources(affectedWorkloadTargets)}>
+                            영향 워크로드 보기
+                            <RightOutlined />
+                        </Button>
+                    </div>}
                     <KubernetesAnalysisConfidence
                         state={confidenceState}
                         collected={confidenceCollected}
@@ -1699,6 +2162,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                             ? `현재 상태·구조 분석과 별도로 파드 종료 이력의 기간 분석에는 정확 시각 ${podSummary.timestampExactCount}건과 생성 시각 기반 추정 ${podSummary.timestampEstimatedCount}건이 사용됩니다.`
                             : undefined} />
                 </DetailSection>
+                {this.state.focusActive && <div className="netdive-k8s-detail__focus-reset"><Button type="link" size="small" onClick={() => this.clearFocusedResources()}>강조 초기화</Button></div>}
 
                 <ConnectedResourcesSection
                     icon={<AccountTreeIcon />}
@@ -1712,7 +2176,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                             items: [
                             { key: 'nodes', label: this.resourceLabel('node'), count: nodeSummary.total, icon: this.resourceIcon(nodeResource), iconTone: 'kubernetes', onClick: nodeResource.nodes.length ? () => this.focusResources(nodeResource.nodes) : undefined, tooltip: translate('kubernetesFocusNodes') },
                             { key: 'namespaces', label: this.resourceLabel('namespace'), count: namespaceCount, icon: this.resourceIcon(namespaceResource), iconTone: 'kubernetes', onClick: namespaceResource.nodes.length ? () => this.focusResources(namespaceResource.nodes) : undefined, tooltip: translate('kubernetesFocusNamespaces') },
-                            ...(workloadNodes.length ? [{ key: 'workloads', label: translate('kubernetesTopologyWorkloadControllers'), count: workloadNodes.length, icon: <DetailLayerIcon glyph={'\uf5fd'} />, iconTone: 'kubernetes' as const, onClick: () => this.focusResources(workloadNodes) }] : []),
+                            ...(workloadNodes.length ? [{ key: 'workloads', label: translate('kubernetesTopologyWorkloadControllers'), count: workloadNodes.length, icon: <DetailLayerIcon glyph={'\uf5fd'} />, iconTone: 'kubernetes' as const, onClick: () => this.focusResources(workloadNodes), tooltip: translate('kubernetesTopologyWorkloadControllers') }] : []),
                             { key: 'pods', label: this.resourceLabel('pod'), count: displayedPodTotal, icon: this.resourceIcon(podResource), iconTone: 'kubernetes', onClick: activePodResources.length ? () => this.focusResources(activePodResources) : undefined, tooltip: translate('kubernetesFocusPods') },
                             { key: 'services', label: this.resourceLabel('service'), count: serviceCount, icon: this.resourceIcon(serviceResource), iconTone: 'kubernetes', onClick: serviceResource.nodes.length ? () => this.setState({ activeDetailTab: 'services', serviceNamespaceFilter: 'all' }) : undefined, tooltip: translate('kubernetesFocusServices') }
                             ]
@@ -1745,21 +2209,36 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                 <Modal
                     visible={!!this.state.podStatusModalMode}
                     className="netdive-k8s-cluster-detail__eviction-modal"
-                    title={this.state.podStatusModalMode === 'recent'
-                        ? `최근 ${this.instabilityWindowLabel()} 종료 파드`
-                        : `${this.state.podStatusModalMode === 'current' ? '현재 문제' : '종료 이력'} · ${selectedPodStatusGroup?.label || '파드'}`}
-                    width={620}
+                    title={this.state.podStatusModalMode === 'history'
+                        ? `과거 종료 이력 · ${selectedPodStatusGroup?.label || '전체'}`
+                        : this.state.podStatusModalMode === 'recent'
+                            ? `최근 ${this.instabilityWindowLabel()} 이상징후`
+                            : `현재 문제 · ${selectedPodStatusGroup?.label || '파드'}`}
+                    width={this.state.podStatusModalMode === 'history' || this.state.podStatusModalMode === 'recent' ? 900 : 620}
                     footer={null}
                     destroyOnClose
                     onCancel={() => this.setState({ podStatusModalMode: '', podStatusModalKey: '' })}>
-                    {this.state.podStatusModalMode === 'recent' && podSummary.terminationHistoryGroups.length > 0 && <div className="netdive-k8s-cluster-detail__eviction-causes">
-                        <strong>상태 분류</strong>
-                        {podSummary.terminationHistoryGroups.slice(0, 6).map(group => <span key={group.key}><small>{group.label}</small><b>{group.nodes.length}</b></span>)}
-                    </div>}
-                    {this.state.podStatusModalMode !== 'current' && podSummary.timestampEstimatedCount > 0 && <div className="netdive-k8s-cluster-detail__eviction-time-notice">
+                    {this.state.podStatusModalMode === 'history' && podSummary.timestampEstimatedCount > 0 && <div className="netdive-k8s-cluster-detail__eviction-time-notice">
                         정확 {podSummary.timestampExactCount}건 · 추정 {podSummary.timestampEstimatedCount}건입니다. 추정 항목은 Pod 생성 시각을 기준으로 정렬합니다.
                     </div>}
-                    {this.renderPodStatusList(selectedPodStatusNodes, resources, unavailableWorkloads, selectedPodStatusGroup?.label, this.state.podStatusModalMode === 'current')}
+                    {this.state.podStatusModalMode === 'history'
+                        ? this.renderTerminationHistoryTable(selectedPodStatusNodes)
+                        : this.state.podStatusModalMode === 'recent'
+                        ? <List
+                            size="small"
+                            className="netdive-k8s-cluster-detail__instability-list is-modal"
+                            dataSource={recentInstabilityItems}
+                            renderItem={item => <List.Item key={item.key} role="button" tabIndex={0} onClick={() => this.focusResources(item.nodes)}>
+                                <Typography.Text type="secondary">{item.time}</Typography.Text>
+                                <span className="netdive-k8s-cluster-detail__instability-target">
+                                    <Tag color={item.resourceType === 'Node' ? 'cyan' : 'blue'}>{item.resourceType}</Tag>
+                                    <Tooltip title={item.resource}><Typography.Text ellipsis>{item.resource}</Typography.Text></Tooltip>
+                                </span>
+                                <Typography.Text type="secondary">{item.detail}</Typography.Text>
+                                <Tag color={item.tone === 'danger' ? 'red' : 'orange'}>{item.severity}</Tag>
+                            </List.Item>}
+                        />
+                        : this.renderPodStatusList(selectedPodStatusNodes, resources, unavailableWorkloads, selectedPodStatusGroup?.label, this.state.podStatusModalMode === 'current')}
                 </Modal>
 
                 <Modal
@@ -1771,6 +2250,81 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                     destroyOnClose
                     onCancel={() => this.setState({ recentChangesModalOpen: false, expandedRecentChangeKey: '' })}>
                     {this.renderRecentChanges(recentChangeGroups, undefined, 'modal')}
+                </Modal>
+
+                <Modal
+                    visible={!!this.state.resourceUsageModal}
+                    className="netdive-k8s-cluster-detail__resource-usage-modal"
+                    title={`${this.state.resourceUsageModal === 'memory' ? '메모리' : 'CPU'} 상위 사용 Pod`}
+                    width={760}
+                    destroyOnClose
+                    footer={<Space>
+                        <Tooltip title={wallTrendAvailable ? 'Wall에서 선택한 자원의 추세를 확인합니다.' : '현재 응답에 Wall 이동 경로가 제공되지 않았습니다.'}>
+                            <span><Button disabled={!wallTrendAvailable} onClick={() => openWallTrend()}>Wall 추세 보기</Button></span>
+                        </Tooltip>
+                        <Button type="primary" onClick={() => this.setState({ resourceUsageModal: '' })}>닫기</Button>
+                    </Space>}
+                    onCancel={() => this.setState({ resourceUsageModal: '' })}>
+                    {selectedUsageItems.length
+                        ? <Table
+                            size="small"
+                            pagination={false}
+                            rowKey={(item: any) => `${item.namespace}/${item.name}`}
+                            dataSource={selectedUsageItems}
+                            className="netdive-k8s-cluster-detail__resource-usage-table"
+                            onRow={(item: any) => ({
+                                onClick: () => {
+                                    const targets = usageRelationshipTargets(item)
+                                    if (targets.length) this.focusResources(targets)
+                                }
+                            })}
+                            columns={[
+                                {
+                                    title: 'Namespace / Pod',
+                                    key: 'pod',
+                                    render: (_value: any, item: any) => {
+                                        const pod = podNodeForUsage(item)
+                                        const fullName = `${item.namespace}/${item.name}`
+                                        return <Tooltip title={fullName}>
+                                            <Button type="link" className="netdive-k8s-cluster-detail__resource-usage-pod" onClick={event => {
+                                                event.stopPropagation()
+                                                const targets = usageRelationshipTargets(item)
+                                                if (targets.length) this.focusResources(targets)
+                                                if (pod) this.openResourceDetail(pod)
+                                            }}>{fullName}</Button>
+                                        </Tooltip>
+                                    }
+                                },
+                                {
+                                    title: '노드',
+                                    dataIndex: 'nodeName',
+                                    key: 'nodeName',
+                                    width: '28%',
+                                    render: (value: string) => <Tooltip title={value}><span className="netdive-k8s-cluster-detail__resource-usage-node">{value || '없음'}</span></Tooltip>
+                                },
+                                {
+                                    title: '현재 사용량',
+                                    key: 'usage',
+                                    width: 110,
+                                    align: 'right' as const,
+                                    render: (_value: any, item: any) => <strong>{this.state.resourceUsageModal === 'memory'
+                                        ? formatGiB(item.usageMemoryBytes)
+                                        : `${formatCoreNumber(item.usageCpuCores)} Core`}</strong>
+                                },
+                                {
+                                    title: '',
+                                    key: 'actions',
+                                    width: 88,
+                                    align: 'right' as const,
+                                    render: (_value: any, item: any) => <Tooltip title={wallTrendAvailable ? 'Wall에서 이 Pod의 추세 보기' : 'Wall 이동 경로 미설정'}>
+                                        <span><Button type="link" size="small" disabled={!wallTrendAvailable} onClick={event => {
+                                            event.stopPropagation()
+                                            openWallTrend(item)
+                                        }}>Wall 추세</Button></span>
+                                    </Tooltip>
+                                }
+                            ]} />
+                        : <DetailEmpty description="Pod별 metrics-server 사용량을 확인할 수 없습니다." compact />}
                 </Modal>
 
                 {!moldCluster && (

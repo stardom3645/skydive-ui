@@ -7,6 +7,8 @@ export {
     DetailKeyValueList,
     DetailLayerIcon,
     DetailOperationalSummary,
+    KUBERNETES_DETAIL_LABELS,
+    KUBERNETES_UTILIZATION_THRESHOLDS,
     DetailResourceCard,
     DetailResourceGrid,
     DetailSection

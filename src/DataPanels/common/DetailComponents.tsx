@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { Button, Card, Empty, Tag, Tooltip, Typography } from 'antd'
-import { CopyOutlined, DownOutlined, RightOutlined } from '@ant-design/icons'
+import { CopyOutlined, DownOutlined, InfoCircleOutlined, RightOutlined } from '@ant-design/icons'
 
 import './DetailComponents.css'
 
@@ -223,9 +223,26 @@ export interface DetailOperationalSummaryProps {
     rawStatusLabel?: React.ReactNode
     impactLabel?: React.ReactNode
     tooltip?: React.ReactNode
+    verdictTooltip?: React.ReactNode
+    rawStatusTooltip?: React.ReactNode
+    impactTooltip?: React.ReactNode
     metrics?: DetailOperationalMetric[]
     className?: string
 }
+
+export const KUBERNETES_DETAIL_LABELS = Object.freeze({
+    verdict: 'Netdive 판정',
+    rawStatus: 'Kubernetes/API 원본 상태',
+    impact: '현재 영향',
+    affectedServices: '영향받은 서비스',
+    pod: '파드',
+    workloadController: '워크로드 컨트롤러'
+})
+
+export const KUBERNETES_UTILIZATION_THRESHOLDS = Object.freeze({
+    warning: 75,
+    danger: 90
+})
 
 /**
  * Shared Kubernetes operational status header.
@@ -239,26 +256,35 @@ export const DetailOperationalSummary = ({
     verdictTone = 'default',
     rawStatus,
     impact,
-    verdictLabel = 'Netdive 판정',
-    rawStatusLabel = '원본 상태',
-    impactLabel = '현재 영향',
+    verdictLabel = KUBERNETES_DETAIL_LABELS.verdict,
+    rawStatusLabel = KUBERNETES_DETAIL_LABELS.rawStatus,
+    impactLabel = KUBERNETES_DETAIL_LABELS.impact,
     tooltip,
+    verdictTooltip,
+    rawStatusTooltip,
+    impactTooltip,
     metrics = [],
     className
 }: DetailOperationalSummaryProps) => {
+    const stateLabel = (label: React.ReactNode, stateTooltip?: React.ReactNode) => (
+        <span className="netdive-operational-summary__label">
+            {label}
+            {stateTooltip && <Tooltip title={stateTooltip} placement="top"><InfoCircleOutlined className="netdive-operational-summary__info" /></Tooltip>}
+        </span>
+    )
     const content = (
         <div className={joinClassNames('netdive-operational-summary', className)}>
             <div className="netdive-operational-summary__states">
                 <div className="netdive-operational-summary__state netdive-operational-summary__state--verdict">
-                    <span>{verdictLabel}</span>
+                    {stateLabel(verdictLabel, verdictTooltip)}
                     <strong className={`is-${verdictTone}`}><i />{verdict}</strong>
                 </div>
                 <div className="netdive-operational-summary__state">
-                    <span>{rawStatusLabel}</span>
+                    {stateLabel(rawStatusLabel, rawStatusTooltip)}
                     <strong>{rawStatus}</strong>
                 </div>
                 <div className="netdive-operational-summary__state">
-                    <span>{impactLabel}</span>
+                    {stateLabel(impactLabel, impactTooltip)}
                     <strong>{impact}</strong>
                 </div>
             </div>
@@ -271,13 +297,14 @@ export const DetailOperationalSummary = ({
                             tabIndex={metric.onClick ? 0 : -1}
                             className={`netdive-operational-summary__metric is-${metric.tone || 'default'}`}
                             onClick={metric.onClick}>
-                            <span>{metric.label}</span>
+                            <span className="netdive-operational-summary__label">
+                                {metric.label}
+                                {metric.tooltip && <Tooltip title={metric.tooltip} placement="top"><InfoCircleOutlined className="netdive-operational-summary__info" /></Tooltip>}
+                            </span>
                             <strong>{metric.value}</strong>
                         </button>
                     )
-                    return metric.tooltip
-                        ? <Tooltip key={metric.key !== undefined ? metric.key : index} title={metric.tooltip} placement="top">{metricContent}</Tooltip>
-                        : <React.Fragment key={metric.key !== undefined ? metric.key : index}>{metricContent}</React.Fragment>
+                    return <React.Fragment key={metric.key !== undefined ? metric.key : index}>{metricContent}</React.Fragment>
                 })}
             </div>}
         </div>
