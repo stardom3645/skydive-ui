@@ -6,13 +6,14 @@
 .netdive-k8s-recent-events > div.is-danger .netdive-k8s-recent-events__dot { background: #d92d20; }
 .netdive-k8s-recent-events__main { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
 .netdive-k8s-recent-events__main > div { display: flex; min-width: 0; align-items: center; gap: 7px; }
-.netdive-k8s-recent-events__main strong { overflow: hidden; color: #344054; font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.netdive-k8s-recent-events__main > div .netdive-detail-status-indicator { width: auto; flex: 0 0 auto; }
+.netdive-k8s-recent-events__main strong { overflow: hidden; color: #344054; font-size: var(--netdive-detail-font-body-label); font-weight: var(--netdive-detail-weight-section-title); line-height: var(--netdive-detail-line-body-label); text-overflow: ellipsis; white-space: nowrap; }
 .netdive-k8s-recent-events__main > span,
-.netdive-k8s-recent-events__main > button { display: block; min-width: 0; overflow: hidden; padding: 0; border: 0; outline: 0; background: transparent; color: #667085; font: inherit; font-size: 11px; line-height: 1.35; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+.netdive-k8s-recent-events__main > button { display: block; min-width: 0; overflow: hidden; padding: 0; border: 0; outline: 0; background: transparent; color: #667085; font: inherit; font-size: var(--netdive-detail-font-supporting-text); font-weight: var(--netdive-detail-weight-supporting-text); line-height: var(--netdive-detail-line-supporting-text); text-align: left; text-overflow: ellipsis; white-space: nowrap; }
 .netdive-k8s-recent-events__main > button { cursor: pointer; }
 .netdive-k8s-recent-events__main > button:hover { color: #1677ff; text-decoration: underline; }
-.netdive-k8s-recent-events__main small { display: -webkit-box; overflow: hidden; color: #98a2b3; font-size: 10.5px; line-height: 1.4; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
-.netdive-k8s-recent-events time { padding-top: 2px; color: #98a2b3; font-size: 10.5px; white-space: nowrap; }
+.netdive-k8s-recent-events__main small { display: -webkit-box; overflow: hidden; color: #98a2b3; font-size: var(--netdive-detail-font-supporting-text); font-weight: var(--netdive-detail-weight-supporting-text); line-height: var(--netdive-detail-line-supporting-text); -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.netdive-k8s-recent-events time { padding-top: 2px; color: #98a2b3; font-size: var(--netdive-detail-font-supporting-text); font-weight: var(--netdive-detail-weight-supporting-text); line-height: var(--netdive-detail-line-supporting-text); white-space: nowrap; }
 
 @media (max-width: 380px) {
     .netdive-k8s-recent-events > div { grid-template-columns: 8px minmax(0, 1fr); }

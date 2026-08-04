@@ -332,7 +332,6 @@ class BondDetailPanel extends React.Component<Props, State> {
             title: translate(key),
             dataIndex: key,
             key,
-            ellipsis: true,
             render: (value: any) => textValue(value)
         }))
     }
@@ -348,7 +347,7 @@ class BondDetailPanel extends React.Component<Props, State> {
                     dataSource={rows}
                     pagination={false}
                     size="small"
-                    scroll={{ x: 'max-content' }} />
+                    tableLayout="fixed" />
             </div>
         )
     }
@@ -387,7 +386,7 @@ class BondDetailPanel extends React.Component<Props, State> {
                     dataSource={rows}
                     pagination={false}
                     size="small"
-                    scroll={{ x: 'max-content' }} />
+                    tableLayout="fixed" />
             </div>
         )
     }

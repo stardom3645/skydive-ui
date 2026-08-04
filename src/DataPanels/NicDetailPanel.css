@@ -24,12 +24,20 @@
 
 .netdive-nic-detail__table-scroll {
     width: 100%;
-    overflow-x: auto;
+    overflow-x: hidden;
 }
 
 .netdive-nic-detail__table .ant-table {
+    width: 100%;
     color: #101828;
     font-size: 12px;
+    table-layout: fixed;
+}
+
+.netdive-nic-detail__table .ant-table-container,
+.netdive-nic-detail__table .ant-table-content {
+    width: 100%;
+    overflow-x: hidden !important;
 }
 
 .netdive-nic-detail__table .ant-table-thead > tr > th {
@@ -38,7 +46,7 @@
     font-size: 11.5px;
     font-weight: 600;
     background: #f8fafc;
-    white-space: nowrap;
+    white-space: normal;
 }
 
 .netdive-nic-detail__table .ant-table-tbody > tr > td {
@@ -46,7 +54,9 @@
     padding: 9px 12px;
     color: #344054;
     font-weight: 500;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
+    white-space: normal;
+    word-break: normal;
 }
 
 .netdive-nic-detail__table .ant-table-tbody > tr:last-child > td {

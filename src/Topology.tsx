@@ -27,7 +27,8 @@ import ResizeObserver from 'react-resize-observer'
 import { aggregateKubernetesPods, isCurrentKubernetesPod, isKubernetesPod, KubernetesPodAggregate } from './KubernetesPodLifecycle'
 import {
     filterKubernetesInfrastructureEvidenceIDs,
-    isKubernetesInfrastructureEvidenceData
+    isKubernetesInfrastructureEvidenceData,
+    isKubernetesTopologyData
 } from './KubernetesInfrastructureEvidence'
 
 const flextree = require('d3-flextree').flextree;
@@ -611,6 +612,8 @@ export class Topology extends React.Component<Props, {}> {
     private selectedGroupListNodeIDs: Set<string>
     private groupNavigatorFilters: Map<string, GroupNavigatorFilter>
     private groupNavigatorRenderKeys: Map<string, string>
+    private zoomFitTimeoutID: number
+    private zoomFitAnimationFrameID: number
 
     root: Node
     nodes: Map<string, Node>
@@ -640,6 +643,8 @@ export class Topology extends React.Component<Props, {}> {
         this.selectedGroupListNodeIDs = new Set<string>()
         this.groupNavigatorFilters = new Map<string, GroupNavigatorFilter>()
         this.groupNavigatorRenderKeys = new Map<string, string>()
+        this.zoomFitTimeoutID = 0
+        this.zoomFitAnimationFrameID = 0
     }
     componentDidMount() {
         select("body")
@@ -666,6 +671,7 @@ export class Topology extends React.Component<Props, {}> {
             window.clearTimeout(this.showLevelLabelsTimeoutID)
             this.showLevelLabelsTimeoutID = 0
         }
+        this.cancelScheduledZoomFit()
 
         if (this.svg) {
             this.svg.on(".zoom", null)
@@ -1456,7 +1462,7 @@ export class Topology extends React.Component<Props, {}> {
         }
 
         const filteredKubernetesNode = node.id !== "root"
-            && String(node.data?.Manager || '').toLowerCase() === 'k8s'
+            && isKubernetesTopologyData(node.data, node.tags)
             && !nodeIsVisible
         // Relationship-only Kubernetes resources must not promote their
         // descendants into an execution layer when the resource itself is
@@ -1465,7 +1471,7 @@ export class Topology extends React.Component<Props, {}> {
             return [null, []]
         }
         if (nodeIsVisible
-            && String(node.data?.Manager || '').toLowerCase() === 'k8s'
+            && isKubernetesTopologyData(node.data, node.tags)
             && String(node.data?.Type || '').toLowerCase() === 'pod') {
             return [cloned, null]
         }
@@ -2303,7 +2309,18 @@ export class Topology extends React.Component<Props, {}> {
         return { width: parent.clientWidth || parent.parentNode.clientWidth, height: parent.clientHeight || parent.parentNode.clientHeight }
     }
 
-    zoomFit() {
+    private cancelScheduledZoomFit() {
+        if (this.zoomFitTimeoutID) {
+            window.clearTimeout(this.zoomFitTimeoutID)
+            this.zoomFitTimeoutID = 0
+        }
+        if (this.zoomFitAnimationFrameID) {
+            window.cancelAnimationFrame(this.zoomFitAnimationFrameID)
+            this.zoomFitAnimationFrameID = 0
+        }
+    }
+
+    private applyZoomFit() {
         if (!this.gNodes) {
             return
         }
@@ -2338,6 +2355,34 @@ export class Topology extends React.Component<Props, {}> {
             .transition()
             .duration(animDuration)
             .call(this.zoom.transform, t)
+    }
+
+    zoomFit() {
+        this.cancelScheduledZoomFit()
+        this.applyZoomFit()
+    }
+
+    /**
+     * Fit after the current topology render transition has removed stale nodes.
+     *
+     * On the initial page load, changing the active layer starts D3 exit
+     * transitions for nodes outside that layer. Measuring gNodes immediately
+     * includes those exiting nodes and centers the viewport around an obsolete
+     * bounding box. Layer changes made later appear correct because their
+     * layout is already mounted. Waiting for the render transition and two
+     * animation frames makes the initial path use the same final bounds.
+     */
+    zoomFitAfterRender() {
+        this.cancelScheduledZoomFit()
+        this.zoomFitTimeoutID = window.setTimeout(() => {
+            this.zoomFitTimeoutID = 0
+            this.zoomFitAnimationFrameID = window.requestAnimationFrame(() => {
+                this.zoomFitAnimationFrameID = window.requestAnimationFrame(() => {
+                    this.zoomFitAnimationFrameID = 0
+                    this.applyZoomFit()
+                })
+            })
+        }, animDuration)
     }
 
     currentZoom(): number {

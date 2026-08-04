@@ -7,13 +7,28 @@ import StorageIcon from '@material-ui/icons/Storage'
 import { translate } from '../Config'
 import { Node } from '../Topology'
 import { matchesKubernetesSelector } from '../KubernetesSelectors'
-import { collectKubernetesEventGroups, ConnectedResourcesSection, DetailBadge, DetailKeyValueList, DetailSection, formatKubernetesQuantity, KubernetesRecentEvents, KubernetesStateSeparation } from './common'
-import './KubernetesNodeDetailPanel.css'
+import {
+    BasicInfoRows,
+    collectKubernetesEventGroups,
+    DetailAdvancedInfo,
+    DetailBadge,
+    DetailBadgeTone,
+    DetailSectionCard,
+    formatKubernetesQuantity,
+    KubernetesRecentEvents,
+    RelatedResourceGrid,
+    StatusSummaryGrid
+} from './common'
 import './KubernetesStorageDetailPanel.css'
 
 interface Props {
     node: Node
     nodeAttrs: (node: Node) => any
+}
+
+interface State {
+    basicCollapsed: boolean
+    basicInfoAdvanced: boolean
 }
 
 const raw = (data: any, paths: string[]): any => {
@@ -116,7 +131,8 @@ const STORAGE_EVENT_TONES = {
     volumecreated: 'success' as const
 }
 
-class KubernetesStorageDetailPanel extends React.Component<Props> {
+class KubernetesStorageDetailPanel extends React.Component<Props, State> {
+    state: State = { basicCollapsed: false, basicInfoAdvanced: false }
     private lastDebugSignature = ''
 
     private debugMapping(payload: any) {
@@ -259,11 +275,11 @@ class KubernetesStorageDetailPanel extends React.Component<Props> {
 
     private topologyIcon(node: Node) {
         const attrs = this.props.nodeAttrs(node)
-        return attrs.href ? <img className="netdive-k8s-node-detail__topology-icon-image" src={attrs.href} alt="" /> : <span className="netdive-k8s-node-detail__topology-icon">{attrs.icon}</span>
+        return attrs.href ? <img className="netdive-detail-topology-icon-image" src={attrs.href} alt="" /> : <span className="netdive-detail-topology-icon">{attrs.icon}</span>
     }
 
     private storageResourceIcon(type: 'persistentvolumeclaim' | 'persistentvolume' | 'storageclass') {
-        return <img className="netdive-k8s-node-detail__topology-icon-image" src={`assets/icons/${type}.png`} alt="" />
+        return <img className="netdive-detail-topology-icon-image" src={`assets/icons/${type}.png`} alt="" />
     }
 
     render() {
@@ -380,7 +396,9 @@ class KubernetesStorageDetailPanel extends React.Component<Props> {
         const basicRows: any[] = [
             { label: type === 'storageclass' ? '스토리지 클래스 이름' : `${kindLabel} 이름`, value: name, textValue: name, copyText: name },
             ...(namespace ? [{ label: translate('kubernetesTopologyNamespaces'), value: namespace }] : []),
-            ...(type !== 'storageclass' ? [{ label: '상태', value: phase || empty }] : []),
+            ...(type !== 'storageclass' ? [{ label: '상태', value: phase || empty }] : [])
+        ]
+        const advancedRows: any[] = [
             { label: 'UID', value: meta.UID || this.props.node.id, textValue: meta.UID || this.props.node.id, copyText: meta.UID || this.props.node.id },
             { label: translate('kubernetesCreatedAt'), value: createdAt(creationTimestamp) }
         ]
@@ -437,26 +455,52 @@ class KubernetesStorageDetailPanel extends React.Component<Props> {
                 boundPVCapacity
             }
         })
-        return <div className="netdive-k8s-node-detail netdive-k8s-storage-detail">
-            <DetailSection icon={<InfoIcon />} title={`${kindLabel} 기본 정보`}><DetailKeyValueList rows={basicRows} copyTooltip={translate('copy')} /></DetailSection>
-            {type !== 'storageclass' && <DetailSection icon={this.topologyIcon(this.props.node)} title={`${kindLabel} 운영 상태`}>
-                <KubernetesStateSeparation items={[
-                    { key: 'recent', label: '최근 불안정성', value: recentFailureKnown ? recentFailureCount : collectionFailed, tone: recentFailureKnown ? (recentFailureCount > 0 ? 'warning' : 'success') : 'default', tooltip: '최근 24시간 내 발생한 Binding·Mount·Attach 오류 건수입니다. 현재 기간의 불안정성을 나타냅니다.' },
-                    { key: 'history', label: '누적 이력', value: recentEventGroups.reduce((sum, group) => sum + group.count, 0), tone: 'history', tooltip: '보관 중인 전체 스토리지 이벤트의 누적 건수입니다. 최근 24시간 여부와 관계없이 포함합니다.' }
-                ]} />
-            </DetailSection>}
-            <DetailSection icon={<StorageIcon />} title={type === 'storageclass' ? '프로비저닝 정책' : '용량 및 정책'}><DetailKeyValueList rows={policyRows} copyTooltip={translate('copy')} /></DetailSection>
-            <ConnectedResourcesSection icon={<AccountTreeIcon />} title={translate('hostConnectedResources')} emptyText="연결된 스토리지 자원이 없습니다." groups={[
+        const storageTone: DetailBadgeTone = !recentFailureKnown
+            ? 'default'
+            : recentFailureCount > 0 || (phase && phase.toLowerCase() !== 'bound' && phase.toLowerCase() !== 'available')
+                ? 'warning'
+                : 'success'
+        const storageVerdict = storageTone === 'success' ? translate('kubernetesHealthNormal') : storageTone === 'warning' ? translate('kubernetesHealthWarning') : translate('kubernetesHealthUnknown')
+        const storageImpact = !recentFailureKnown
+            ? collectionFailed
+            : recentFailureCount > 0
+                ? `최근 오류 ${recentFailureCount}건`
+                : '최근 오류 없음'
+        return <div className="netdive-k8s-storage-detail">
+            <DetailSectionCard icon={<InfoIcon />} title={`${kindLabel} 기본 정보`} collapsible collapsed={this.state.basicCollapsed} onToggle={() => this.setState({ basicCollapsed: !this.state.basicCollapsed })}>
+                <BasicInfoRows density="compact" rows={basicRows} labelWidth={122} copyTooltip={translate('copy')} />
+                <DetailAdvancedInfo title={translate('kubernetesAdvancedInformation')} active={this.state.basicInfoAdvanced} onChange={basicInfoAdvanced => this.setState({ basicInfoAdvanced })}>
+                    <BasicInfoRows density="compact" rows={advancedRows} labelWidth={122} copyTooltip={translate('copy')} />
+                </DetailAdvancedInfo>
+            </DetailSectionCard>
+            {type !== 'storageclass' && <DetailSectionCard icon={this.topologyIcon(this.props.node)} title={`${kindLabel} 운영 상태`}>
+                <StatusSummaryGrid
+                    verdict={storageVerdict}
+                    verdictTone={storageTone}
+                    rawStatus={phase || empty}
+                    rawStatusLabel="Phase"
+                    impact={storageImpact}
+                    impactTooltip="최근 24시간 내 Binding·Mount·Attach 오류를 기준으로 표시합니다."
+                    metrics={[
+                        { key: 'recent', label: '최근 불안정성', value: recentFailureKnown ? recentFailureCount : collectionFailed, tone: recentFailureKnown ? (recentFailureCount > 0 ? 'warning' : 'default') : 'default', tooltip: '최근 24시간 내 발생한 Binding·Mount·Attach 오류 건수입니다.' },
+                        { key: 'history', label: '누적 이력', value: recentEventGroups.reduce((sum, group) => sum + group.count, 0), tooltip: '보관 중인 전체 스토리지 이벤트의 누적 건수입니다.' }
+                    ]}
+                />
+            </DetailSectionCard>}
+            <DetailSectionCard icon={<StorageIcon />} title={type === 'storageclass' ? '프로비저닝 정책' : '용량 및 정책'}>
+                <BasicInfoRows density="compact" rows={policyRows} labelWidth={122} copyTooltip={translate('copy')} />
+            </DetailSectionCard>
+            <RelatedResourceGrid icon={<AccountTreeIcon />} title={translate('hostConnectedResources')} emptyText="연결된 스토리지 자원이 없습니다." groups={[
                 { key: 'direct', title: '직접 연결', icon: <StorageIcon />, items: directItems },
                 { key: 'indirect', title: '간접 사용 관계', icon: <img src="assets/icons/k8s.png" alt="" />, items: indirectItems }
             ]} />
-            <DetailSection icon={<HistoryIcon />} title={type === 'storageclass' ? '프로비저닝 이력' : '최근 이벤트'}>
+            <DetailSectionCard icon={<HistoryIcon />} title={type === 'storageclass' ? '프로비저닝 이력' : '최근 이벤트'}>
                 <KubernetesRecentEvents groups={recentEventGroups} emptyText={type === 'storageclass' ? '수집된 프로비저닝 실패 이력이 없습니다.' : '최근 스토리지 관련 이벤트가 없습니다.'} onResourceClick={group => {
                     const target = this.topologyNodes().find(node => (!group.resourceUid || node.id === group.resourceUid || text(node.data || {}, ['K8s.Extra.ObjectMeta.UID', 'UID']) === group.resourceUid)
                         && (!group.resourceName || this.name(node) === group.resourceName))
                     if (target) this.focus([target])
                 }} />
-            </DetailSection>
+            </DetailSectionCard>
         </div>
     }
 }

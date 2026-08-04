@@ -18,6 +18,7 @@
 import { Node, Link, NodeAttrs, LinkAttrs, LinkTagState } from './Topology'
 import Tools from './Tools'
 import { switchDisplayName } from './SwitchNodeUtils'
+import { isKubernetesTopologyData } from './KubernetesInfrastructureEvidence'
 
 const SHOW_DEBUG = false
 
@@ -2123,7 +2124,7 @@ export const i18nMap = {
         "kubernetesConcentrated": "집중",
         "kubernetesDistributed": "분산",
         "kubernetesCurrentAlerts": "현재 경보",
-        "kubernetesNoCurrentAlerts": "감지된 운영 경보 없음",
+        "kubernetesNoCurrentAlerts": "현재 감지된 운영 경보 없음",
         "kubernetesPotentialRisks": "잠재 위험",
         "kubernetesNoPotentialRisks": "평가 가능한 잠재 위험이 감지되지 않음",
         "kubernetesResilienceGood": "양호",
@@ -3489,7 +3490,7 @@ class DefaultConfig {
     }
 
     nodeTags(data: any): Array<string> {
-        if (data.Manager && data.Manager === "k8s") {
+        if (isKubernetesTopologyData(data)) {
             return ["kubernetes"]
         } else {
             return [translate("infrastructure")]

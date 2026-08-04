@@ -21,7 +21,7 @@ import Tab from '@material-ui/core/Tab'
 import { connect } from 'react-redux'
 import { withStyles } from '@material-ui/core/styles'
 import { Button, Tooltip } from 'antd'
-import { CloseOutlined, CopyOutlined, EnvironmentOutlined } from '@ant-design/icons'
+import { CloseOutlined, EnvironmentOutlined } from '@ant-design/icons'
 
 import { Node, Link } from './Topology'
 import DataPanel from './StdDataPanel'
@@ -50,6 +50,7 @@ import KubernetesServiceDetailPanel from './DataPanels/KubernetesServiceDetailPa
 import KubernetesRelationshipResourceDetailPanel from './DataPanels/KubernetesRelationshipResourceDetailPanel'
 import KubernetesStorageDetailPanel from './DataPanels/KubernetesStorageDetailPanel'
 import NodeContextBreadcrumb, { NodeContextIcon, NodeContextItem } from './DataPanels/common/NodeContextBreadcrumb'
+import { DetailPanelHeader } from './DataPanels/common'
 
 
 interface Props {
@@ -171,6 +172,9 @@ class SelectionPanel extends React.Component<Props, State> {
       const isKubernetesNode = el.type === 'node'
         && String(el.data?.Manager || '').toLowerCase() === 'k8s'
         && String(el.data?.Type || '').toLowerCase() === 'node'
+      const isKubernetesCluster = el.type === 'node'
+        && String(el.data?.Manager || '').toLowerCase() === 'k8s'
+        && String(el.data?.Type || '').toLowerCase() === 'cluster'
       const isKubernetesResource = el.type === 'node'
         && String(el.data?.Manager || '').toLowerCase() === 'k8s'
       const fullTitle = isKubernetesResource
@@ -191,36 +195,21 @@ class SelectionPanel extends React.Component<Props, State> {
         : <span className={className}>{icon}</span>
 
       return (
-        <Tab className={classes.tabRoot} icon={tabIcon}
+        <Tab className={`${classes.tabRoot}${isKubernetesCluster ? ' netdive-cluster-selection-tab' : ''}`} icon={tabIcon}
           key={"tab-" + i}
           label={
-            <Tooltip title={fullTitle} placement="bottom">
-              <span className={`${classes.tabLabelBlock} ${preserveTitleCase ? classes.tabTitlePreserveCase : ""}`}>
-                <span className={classes.tabTitleRow}>
-                  <span className={`${classes.tabTitle} ${displayTitle.includes("\n") ? classes.tabTitleMulti : ""} ${preserveTitleCase ? classes.tabTitlePreserveCase : ""}`}>{displayTitle}</span>
-                  {isKubernetesResource && <span
-                    className={classes.tabTitleCopy}
-                    role="button"
-                    tabIndex={0}
-                    title={translate('copy')}
-                    aria-label={translate('copy')}
-                    onClick={event => {
-                      event.stopPropagation()
-                      navigator.clipboard && navigator.clipboard.writeText(fullTitle)
-                    }}
-                    onKeyDown={event => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault()
-                        event.stopPropagation()
-                        navigator.clipboard && navigator.clipboard.writeText(fullTitle)
-                      }
-                    }}>
-                    <CopyOutlined />
-                  </span>}
-                </span>
-                {subtitle && <span className={classes.tabSubtitle} title={subtitle}>{subtitle}</span>}
-              </span>
-            </Tooltip>
+            <DetailPanelHeader
+              title={displayTitle}
+              fullTitle={fullTitle}
+              subtitle={subtitle}
+              copyValue={isKubernetesResource ? fullTitle : undefined}
+              copyTooltip={translate('copy')}
+              className={`${classes.tabLabelBlock} ${preserveTitleCase ? classes.tabTitlePreserveCase : ""}`}
+              titleRowClassName={classes.tabTitleRow}
+              titleClassName={`${classes.tabTitle} ${displayTitle.includes("\n") ? classes.tabTitleMulti : ""} ${preserveTitleCase ? classes.tabTitlePreserveCase : ""}`}
+              subtitleClassName={classes.tabSubtitle}
+              copyClassName={classes.tabTitleCopy}
+            />
           }
           {...a11yProps(i)} />
       )
@@ -522,7 +511,7 @@ class SelectionPanel extends React.Component<Props, State> {
 
       return (
         <React.Fragment key={el.id}>
-          <div className={classes.tabActions}>
+          <div className={`${classes.tabActions}${isKubernetesClusterNode(el) ? ' netdive-cluster-panel-actions' : ''}`}>
             <Tooltip title={translate("removeFromSelection")}>
               <Button
                 type="text"

@@ -1,0 +1,10 @@
+.netdive-k8s-relationship-detail {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: var(--netdive-detail-panel-gap);
+}
+
+.netdive-k8s-relationship-detail .netdive-detail-kv__value {
+    overflow-wrap: anywhere;
+}

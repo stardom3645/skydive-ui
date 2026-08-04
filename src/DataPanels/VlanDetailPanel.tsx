@@ -291,7 +291,7 @@ class VlanDetailPanel extends React.Component<Props, State> {
         }
         preferred.forEach(add)
         rows.forEach(row => Object.keys(row).forEach(add))
-        return keys.map(key => ({ title: translate(key), dataIndex: key, key, ellipsis: true, render: (value: any) => textValue(value) }))
+        return keys.map(key => ({ title: translate(key), dataIndex: key, key, render: (value: any) => textValue(value) }))
     }
 
     private renderTable(value: any, preferred: string[] = []) {
@@ -299,7 +299,7 @@ class VlanDetailPanel extends React.Component<Props, State> {
         if (!rows.length) return <DetailEmpty description={translate('vlanNoData')} compact />
         return (
             <div className="netdive-detail-table-scroll">
-                <Table className="netdive-detail-table" columns={this.tableColumns(rows, preferred)} dataSource={rows} pagination={false} size="small" scroll={{ x: 'max-content' }} />
+                <Table className="netdive-detail-table" columns={this.tableColumns(rows, preferred)} dataSource={rows} pagination={false} size="small" tableLayout="fixed" />
             </div>
         )
     }

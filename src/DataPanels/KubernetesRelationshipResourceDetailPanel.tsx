@@ -6,8 +6,8 @@ import SettingsIcon from '@material-ui/icons/Settings'
 
 import { Node } from '../Topology'
 import { kubernetesLabelValue, matchesKubernetesSelector } from '../KubernetesSelectors'
-import { ConnectedResourceListSection, DetailKeyValueList, DetailSection } from './common'
-import './KubernetesNodeDetailPanel.css'
+import { BasicInfoRows, ConnectedResourceListSection, DetailAdvancedInfo, DetailSectionCard } from './common'
+import './KubernetesRelationshipResourceDetailPanel.css'
 
 interface Props {
     node: Node
@@ -105,6 +105,12 @@ const connectedItems = (resources: Node[], kind: string) => resources.map(resour
 }))
 
 const KubernetesRelationshipResourceDetailPanel = ({ node }: Props) => {
+    const [basicCollapsed, setBasicCollapsed] = React.useState(false)
+    const [basicInfoAdvanced, setBasicInfoAdvanced] = React.useState(false)
+    React.useEffect(() => {
+        setBasicCollapsed(false)
+        setBasicInfoAdvanced(false)
+    }, [node.id])
     const data = node.data || {}
     const type = resourceType(node)
     const spec = firstRaw(data, ['K8s.Extra.Spec', 'K8s.Spec', 'Spec']) || {}
@@ -154,8 +160,12 @@ const KubernetesRelationshipResourceDetailPanel = ({ node }: Props) => {
     const baseRows = [
         { label: '이름', value: resourceName(node), textValue: resourceName(node), copyText: resourceName(node) },
         { label: '종류', value: kind },
-        { label: '네임스페이스', value: resourceNamespace(node) },
-        { label: '생성 시간', value: firstValue(data, ['K8s.Extra.ObjectMeta.CreationTimestamp.Time', 'K8s.Extra.ObjectMeta.CreationTimestamp', 'CreatedAt']) }
+        { label: '네임스페이스', value: resourceNamespace(node) }
+    ]
+    const advancedRows = [
+        { label: '생성 시간', value: firstValue(data, ['K8s.Extra.ObjectMeta.CreationTimestamp.Time', 'K8s.Extra.ObjectMeta.CreationTimestamp', 'CreatedAt']) },
+        { label: 'Labels', value: displayValue(labels) },
+        { label: 'Annotations', value: displayValue(annotations) }
     ]
 
     let detailRows: any[] = []
@@ -228,27 +238,23 @@ const KubernetesRelationshipResourceDetailPanel = ({ node }: Props) => {
     ]
 
     return (
-        <div className="netdive-k8s-node-detail">
-            <DetailSection icon={<InfoIcon />} title={`${kind} 기본 정보`}>
-                <DetailKeyValueList rows={baseRows} copyTooltip="복사" />
-            </DetailSection>
+        <div className="netdive-k8s-relationship-detail">
+            <DetailSectionCard icon={<InfoIcon />} title={`${kind} 기본 정보`} collapsible collapsed={basicCollapsed} onToggle={() => setBasicCollapsed(!basicCollapsed)}>
+                <BasicInfoRows density="compact" rows={baseRows} labelWidth={122} copyTooltip="복사" />
+                <DetailAdvancedInfo title="고급 정보" active={basicInfoAdvanced} onChange={setBasicInfoAdvanced}>
+                    <BasicInfoRows density="compact" rows={advancedRows} labelWidth={122} copyTooltip="복사" />
+                </DetailAdvancedInfo>
+            </DetailSectionCard>
             {detailRows.length > 0 && (
-                <DetailSection icon={type === 'networkpolicy' || type === 'serviceaccount' ? <SecurityIcon /> : <SettingsIcon />} title={`${kind} 구성`}>
-                    <DetailKeyValueList rows={detailRows} />
-                </DetailSection>
+                <DetailSectionCard icon={type === 'networkpolicy' || type === 'serviceaccount' ? <SecurityIcon /> : <SettingsIcon />} title={`${kind} 구성`}>
+                    <BasicInfoRows density="compact" rows={detailRows} labelWidth={122} />
+                </DetailSectionCard>
             )}
-            <DetailSection icon={<InfoIcon />} title="메타데이터">
-                <DetailKeyValueList rows={[
-                    { label: 'Labels', value: displayValue(labels) },
-                    { label: 'Annotations', value: displayValue(annotations) }
-                ]} />
-            </DetailSection>
-            {relatedGroups.length > 0 && (
-                <ConnectedResourceListSection
-                    icon={<AccountTreeIcon />}
-                    title="연결 자원"
-                    groups={relatedGroups} />
-            )}
+            <ConnectedResourceListSection
+                icon={<AccountTreeIcon />}
+                title="연결 자원"
+                emptyText="연결된 Kubernetes 자원이 없습니다."
+                groups={relatedGroups} />
         </div>
     )
 }

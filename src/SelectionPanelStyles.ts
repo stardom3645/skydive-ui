@@ -22,7 +22,9 @@ export const styles = (theme: Theme) => createStyles({
     paddingTop: 12,
     paddingBottom: theme.spacing(2.5),
     paddingLeft: 18,
-    paddingRight: 22,
+    // Shared detail-panel scroll gutter: keep cards clear of the vertical
+    // scrollbar without applying per-panel width or padding corrections.
+    paddingRight: 26,
     width: `100%`,
     height: `100%`,
     maxHeight: 'calc(100% - 70px)',
@@ -98,10 +100,9 @@ export const styles = (theme: Theme) => createStyles({
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
-    fontSize: 15,
-    lineHeight: 1.18,
-    fontWeight: 600,
-    color: '#101828',
+    fontSize: 'var(--netdive-detail-font-panel-title)',
+    lineHeight: 'var(--netdive-detail-line-panel-title)',
+    color: 'var(--netdive-detail-text)',
     cursor: 'help'
   },
   tabTitleRow: {
@@ -133,10 +134,9 @@ export const styles = (theme: Theme) => createStyles({
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
-    color: 'var(--netdive-detail-muted, #64748b)',
-    fontSize: 11.5,
-    lineHeight: 1.25,
-    fontWeight: 600,
+    color: 'var(--netdive-detail-text-secondary)',
+    fontSize: 'var(--netdive-detail-font-supporting-text)',
+    lineHeight: 'var(--netdive-detail-line-supporting-text)',
     letterSpacing: 0.1
   },
   tabTitleMulti: {

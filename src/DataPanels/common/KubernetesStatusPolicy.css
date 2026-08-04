@@ -21,10 +21,10 @@
 }
 
 .netdive-k8s-state-separation > div:last-child { border-right: 0; }
-.netdive-k8s-state-separation span { color: #667085; font-size: 10.5px; line-height: 14px; }
-.netdive-k8s-state-separation strong { color: #475467; font-size: 12px; font-variant-numeric: tabular-nums; font-weight: 600; line-height: 16px; }
+.netdive-k8s-state-separation span { color: #667085; font-size: var(--netdive-detail-font-supporting-text); font-weight: var(--netdive-detail-weight-supporting-text); line-height: var(--netdive-detail-line-supporting-text); }
+.netdive-k8s-state-separation strong { color: #475467; font-size: var(--netdive-detail-font-body-label); font-variant-numeric: tabular-nums; font-weight: var(--netdive-detail-weight-status-tag); line-height: var(--netdive-detail-line-body-label); }
 .netdive-k8s-state-separation > div.is-danger strong { color: #b42318; }
 .netdive-k8s-state-separation > div.is-warning strong { color: #b54708; }
-.netdive-k8s-state-separation > div.is-history strong { color: #667085; font-weight: 500; }
+.netdive-k8s-state-separation > div.is-history strong { color: #667085; font-weight: var(--netdive-detail-weight-body-label); }
 .netdive-k8s-state-separation > div.is-success strong { color: #067647; }
 .netdive-k8s-state-separation > div.is-default strong { color: #98a2b3; }

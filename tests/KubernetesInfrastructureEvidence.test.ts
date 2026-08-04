@@ -1,7 +1,9 @@
 import { expect } from 'chai'
 import {
     filterKubernetesInfrastructureEvidenceIDs,
-    isKubernetesInfrastructureEvidenceData
+    isKubernetesInfrastructureEvidenceData,
+    isKubernetesTopologyData,
+    isTopologyNodeVisibleInLayer
 } from '../src/KubernetesInfrastructureEvidence'
 
 describe('Kubernetes infrastructure evidence allowlist', () => {
@@ -34,5 +36,24 @@ describe('Kubernetes infrastructure evidence allowlist', () => {
             ['cluster', 'node', 'pod', 'workload', 'namespace', 'host', 'port', 'switch', 'host'],
             id => dataByID[id]
         )).to.deep.equal(['cluster', 'node', 'host', 'port', 'switch'])
+    })
+
+    it('keeps Kubernetes execution resources out of the infrastructure layer', () => {
+        const pod = { Manager: 'k8s', Type: 'pod' }
+        const legacyPod = { Type: 'pod', K8s: { Namespace: 'monitoring' } }
+        const incompletePod = { Type: 'pod' }
+        const host = { Manager: 'netlink', Type: 'host' }
+
+        expect(isTopologyNodeVisibleInLayer(pod, ['kubernetes'], false)).to.equal(false)
+        expect(isTopologyNodeVisibleInLayer(legacyPod, [], false)).to.equal(false)
+        expect(isTopologyNodeVisibleInLayer(incompletePod, ['인프라스트럭처'], false)).to.equal(false)
+        expect(isTopologyNodeVisibleInLayer(host, ['인프라스트럭처'], false)).to.equal(true)
+        expect(isTopologyNodeVisibleInLayer(pod, ['kubernetes'], true)).to.equal(true)
+    })
+
+    it('normalizes Kubernetes manager names and missing manager metadata', () => {
+        expect(isKubernetesTopologyData({ Manager: 'Kubernetes', Type: 'pod' })).to.equal(true)
+        expect(isKubernetesTopologyData({ Type: 'deployment' })).to.equal(true)
+        expect(isKubernetesTopologyData({ Type: 'interface' })).to.equal(false)
     })
 })

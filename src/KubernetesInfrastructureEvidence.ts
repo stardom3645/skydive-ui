@@ -9,6 +9,34 @@ const KUBERNETES_INFRASTRUCTURE_TYPES = new Set([
     'node'
 ])
 
+// These resource types are Kubernetes-only. Treat them as Kubernetes data
+// even when an older/synthetic topology object is missing Manager="k8s".
+// This prevents a stale or incomplete metadata record from leaking an
+// execution layer into the Infrastructure view.
+const KUBERNETES_ONLY_TYPES = new Set([
+    'namespace',
+    'deployment',
+    'statefulset',
+    'daemonset',
+    'job',
+    'cronjob',
+    'replicaset',
+    'replicationcontroller',
+    'pod',
+    'ingress',
+    'endpoints',
+    'endpointslice',
+    'storageclass',
+    'persistentvolumeclaim',
+    'persistentvolume',
+    'configmap',
+    'secret',
+    'serviceaccount',
+    'networkpolicy',
+    'horizontalpodautoscaler',
+    'poddisruptionbudget'
+])
+
 const INFRASTRUCTURE_EVIDENCE_TYPES = new Set([
     'host',
     'device',
@@ -25,6 +53,28 @@ const INFRASTRUCTURE_EVIDENCE_TYPES = new Set([
     'networkpath',
     'fabric'
 ])
+
+export const isKubernetesTopologyData = (data?: any, tags: string[] = []): boolean => {
+    if (!data) return false
+
+    const manager = String(data.Manager || data.manager || '').toLowerCase()
+    const type = String(data.Type || data.type || '').toLowerCase()
+    const normalizedTags = tags.map(tag => String(tag).toLowerCase())
+
+    return manager === 'k8s'
+        || manager === 'kubernetes'
+        || normalizedTags.indexOf('kubernetes') >= 0
+        || !!data.K8s
+        || KUBERNETES_ONLY_TYPES.has(type)
+}
+
+export const isTopologyNodeVisibleInLayer = (
+    data: any,
+    tags: string[],
+    kubernetesLayerActive: boolean
+): boolean => {
+    return kubernetesLayerActive || !isKubernetesTopologyData(data, tags)
+}
 
 export const isKubernetesInfrastructureEvidenceData = (data?: any): boolean => {
     if (!data) return false

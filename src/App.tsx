@@ -20,6 +20,7 @@ import clsx from 'clsx'
 import Websocket from 'react-websocket'
 import { debounce } from 'throttle-debounce'
 import { resolveKubernetesPodController } from './KubernetesWorkloadOwnership'
+import { isKubernetesTopologyData, isTopologyNodeVisibleInLayer } from './KubernetesInfrastructureEvidence'
 
 import { withStyles } from '@material-ui/core/styles'
 import CssBaseline from '@material-ui/core/CssBaseline'
@@ -1716,7 +1717,12 @@ class App extends React.Component<Props, State> {
   }
 
   private kubernetesTopologyNodeVisible(node: Node): boolean {
-    if (String(node.data?.Manager || "").toLowerCase() !== "k8s") return true
+    // Tag filtering is the primary layer switch, but legacy/synthetic K8s
+    // objects can have an incomplete Manager/tag. Keep a final visibility
+    // guard here so Pod/Workload/Namespace rows can never leak into the
+    // Infrastructure layer.
+    if (!isTopologyNodeVisibleInLayer(node.data, node.tags, this.isKubernetesLayerActive())) return false
+    if (!isKubernetesTopologyData(node.data, node.tags)) return true
     const type = String(node.data?.Type || "").toLowerCase()
     if (type === "cluster" || type === "node" || type === "namespace") return true
     if (KUBERNETES_WORKLOAD_TYPES.has(type)) return true
@@ -1801,7 +1807,10 @@ class App extends React.Component<Props, State> {
 
     this.updateFilters()
 
-    this.tc.zoomFit()
+    // The initial layer switch removes non-layer nodes with a D3 transition.
+    // Fit only after that render settles so a refresh uses the visible layer's
+    // final bounds instead of the temporary all-node bounding box.
+    this.tc.zoomFitAfterRender()
     this.pruneRecentViewedNodes()
   }
 

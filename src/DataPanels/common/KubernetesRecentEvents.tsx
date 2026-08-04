@@ -2,7 +2,7 @@ import * as React from 'react'
 import { Tooltip } from 'antd'
 
 import { translate } from '../../Config'
-import { DetailBadge, DetailEmpty } from './DetailComponents'
+import { DetailEmpty, DetailStatusIndicator } from './DetailComponents'
 import './KubernetesRecentEvents.css'
 
 export type KubernetesEventTone = 'success' | 'warning' | 'danger'
@@ -95,7 +95,16 @@ export const KubernetesRecentEvents = ({ groups, emptyText, onResourceClick }: {
         <span className="netdive-k8s-recent-events__dot" />
         <div className="netdive-k8s-recent-events__main">
             <Tooltip title={<div><strong>{group.reason}</strong><br />{group.description}<br />{String(group.time || translate('kubernetesNotCollected'))}</div>} placement="top">
-                <div><strong>{group.reason}</strong>{group.tone === 'success' ? <span className="netdive-k8s-node-detail__normal"><i />{translate('kubernetesHealthNormal')}</span> : <DetailBadge tone={group.tone}>{group.tone === 'danger' ? translate('kubernetesHealthCritical') : translate('kubernetesHealthWarning')}</DetailBadge>}</div>
+                <div>
+                    <strong>{group.reason}</strong>
+                    <DetailStatusIndicator tone={group.tone}>
+                        {group.tone === 'danger'
+                            ? translate('kubernetesHealthCritical')
+                            : group.tone === 'warning'
+                                ? translate('kubernetesHealthWarning')
+                                : translate('kubernetesHealthNormal')}
+                    </DetailStatusIndicator>
+                </div>
             </Tooltip>
             <Tooltip title={group.resource} placement="top">
                 {onResourceClick && (group.resourceUid || group.resourceName)

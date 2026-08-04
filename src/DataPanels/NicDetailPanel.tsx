@@ -283,7 +283,7 @@ class NicDetailPanel extends React.Component<Props, State> {
         }
         preferred.forEach(add)
         rows.forEach(row => Object.keys(row).forEach(add))
-        return keys.map(key => ({ title: translate(key), dataIndex: key, key, ellipsis: true, render: (value: any) => textValue(value) }))
+        return keys.map(key => ({ title: translate(key), dataIndex: key, key, render: (value: any) => textValue(value) }))
     }
 
     private renderTable(value: any, preferred: string[] = []) {
@@ -291,7 +291,7 @@ class NicDetailPanel extends React.Component<Props, State> {
         if (!rows.length) return <DetailEmpty description={translate('nicNoData')} compact />
         return (
             <div className="netdive-nic-detail__table-scroll">
-                <Table className="netdive-nic-detail__table" columns={this.tableColumns(rows, preferred)} dataSource={rows} pagination={false} size="small" scroll={{ x: 'max-content' }} />
+                <Table className="netdive-nic-detail__table" columns={this.tableColumns(rows, preferred)} dataSource={rows} pagination={false} size="small" tableLayout="fixed" />
             </div>
         )
     }

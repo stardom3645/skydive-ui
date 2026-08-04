@@ -1863,6 +1863,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                         dataSource={visibleProcesses.map(item => ({ ...item, key: item.process }))}
                         pagination={false}
                         size="small"
+                        tableLayout="fixed"
                     />
                 </Card>
                 <Card
@@ -1887,6 +1888,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                         dataSource={visibleServices.map(item => ({ ...item, key: `${item.port}-${item.protocol}-${item.process}` }))}
                         pagination={false}
                         size="small"
+                        tableLayout="fixed"
                     />
                 </Card>
             </div>

@@ -1,5 +1,11 @@
-.netdive-k8s-storage-detail .netdive-k8s-node-detail__hero--info > i { background: #1677ff; }
-.netdive-k8s-storage-detail .netdive-detail-key-value__value { overflow-wrap: anywhere; }
+.netdive-k8s-storage-detail {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: var(--netdive-detail-panel-gap);
+}
+
+.netdive-k8s-storage-detail .netdive-detail-kv__value { overflow-wrap: anywhere; }
 
 .netdive-k8s-storage-detail__node-link {
     min-width: 0;
@@ -8,7 +14,7 @@
     padding: 0;
     border: 0;
     background: transparent;
-    color: #1677ff;
+    color: var(--netdive-detail-primary);
     font: inherit;
     text-align: left;
     text-overflow: ellipsis;

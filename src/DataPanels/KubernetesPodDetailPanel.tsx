@@ -11,8 +11,22 @@ import { session } from '../Store'
 import { Node } from '../Topology'
 import { getPodClassification } from '../KubernetesPodLifecycle'
 import { kubernetesLabelValue, matchesKubernetesSelector } from '../KubernetesSelectors'
-import { collectKubernetesEventGroups, ConnectedResourceListSection, DetailBadge, DetailKeyValueList, DetailSection, KubernetesRecentEvents, KubernetesStateSeparation } from './common'
-import './KubernetesNodeDetailPanel.css'
+import {
+    BasicInfoRows,
+    collectKubernetesEventGroups,
+    CompactEmptyState,
+    ConnectedResourceListSection,
+    DetailAdvancedInfo,
+    DetailBadgeTone,
+    DetailInlineSectionHeader,
+    DetailSectionCard,
+    DetailStatusIndicator,
+    KubernetesRecentEvents,
+    KubernetesStateSeparation,
+    StatusEvidenceList,
+    StatusEvidenceRow,
+    StatusSummaryGrid
+} from './common'
 import './KubernetesPodDetailPanel.css'
 
 interface Props {
@@ -28,6 +42,7 @@ interface State {
     error: boolean
     requestKey: string
     basicCollapsed: boolean
+    basicInfoAdvanced: boolean
 }
 
 const valueByPath = (data: any, path: string): any => path.split('.').reduce((value, key) => value === undefined || value === null ? undefined : value[key], data)
@@ -65,13 +80,13 @@ const POD_EVENT_TONES = {
 }
 
 class KubernetesPodDetailPanel extends React.Component<Props, State> {
-    state: State = { loading: false, error: false, requestKey: '', basicCollapsed: false }
+    state: State = { loading: false, error: false, requestKey: '', basicCollapsed: false, basicInfoAdvanced: false }
 
     componentDidMount() { this.loadDetail() }
 
     componentDidUpdate(prevProps: Props) {
         if (prevProps.node.id !== this.props.node.id || this.clusterFrom(prevProps)?.id !== this.cluster()?.id) {
-            this.setState({ basicCollapsed: false })
+            this.setState({ basicCollapsed: false, basicInfoAdvanced: false })
             this.loadDetail()
         }
     }
@@ -280,8 +295,8 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
 
     private topologyIcon(node: Node) {
         const attrs = this.props.nodeAttrs(node)
-        if (attrs.href) return <img className="netdive-k8s-node-detail__topology-icon-image" src={attrs.href} alt="" />
-        return <span className={`netdive-k8s-node-detail__topology-icon ${attrs.iconClass || ''}`} aria-hidden="true">{attrs.icon}</span>
+        if (attrs.href) return <img className="netdive-detail-topology-icon-image" src={attrs.href} alt="" />
+        return <span className={`netdive-detail-topology-icon ${attrs.iconClass || ''}`} aria-hidden="true">{attrs.icon}</span>
     }
 
     private resourceForReference(reference: any): Node | undefined {
@@ -402,18 +417,27 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
     }
 
     private renderConditions(detail: any) {
-        if (!Array.isArray(detail.conditions) || !detail.conditions.length) return <div className="netdive-k8s-pod-detail__empty-row">{translate('kubernetesPodConditionsUnavailable')}</div>
-        return <div className="netdive-k8s-node-detail__rows">{detail.conditions.map((condition: any) => {
+        if (!Array.isArray(detail.conditions) || !detail.conditions.length) return <CompactEmptyState description={translate('kubernetesPodConditionsUnavailable')} compact />
+        return <StatusEvidenceList>{detail.conditions.map((condition: any) => {
             const tone = this.conditionTone(condition)
-            const state = tone === 'success'
-                ? <span className="netdive-k8s-node-detail__normal"><i />{condition.status}</span>
-                : <DetailBadge tone={tone}>{condition.status}</DetailBadge>
-            return <Tooltip key={condition.type} title={condition.message || condition.reason || ''} placement="top"><div className={`netdive-k8s-node-detail__row netdive-k8s-node-detail__row--${tone}`}><strong>{condition.type}</strong><span>{state}</span><b>{condition.reason || '–'}</b></div></Tooltip>
-        })}</div>
+            const stateLabel = tone === 'danger'
+                ? translate('kubernetesHealthCritical')
+                : tone === 'warning' ? translate('kubernetesHealthWarning') : translate('kubernetesHealthNormal')
+            return <StatusEvidenceRow
+                key={condition.type}
+                title={condition.type}
+                evidence={condition.message || condition.reason || 'Kubernetes Pod Condition입니다.'}
+                state={<DetailStatusIndicator tone={tone}>{stateLabel}</DetailStatusIndicator>}
+                value={condition.status}
+                valueVariant="grade"
+                tone={tone}
+                tooltipRawValue={`status=${condition.status}, reason=${condition.reason || '–'}`}
+            />
+        })}</StatusEvidenceList>
     }
 
     private renderContainers(detail: any) {
-        if (!Array.isArray(detail.containers) || !detail.containers.length) return <div className="netdive-k8s-pod-detail__empty-row">{translate('kubernetesPodContainersUnavailable')}</div>
+        if (!Array.isArray(detail.containers) || !detail.containers.length) return <CompactEmptyState description={translate('kubernetesPodContainersUnavailable')} compact />
         return <div className="netdive-k8s-pod-detail__containers">{detail.containers.map((container: any) => {
             const reason = container.waitingReason || container.terminatedReason || ''
             const completed = String(detail.phase).toLowerCase() === 'succeeded' && container.state === 'TERMINATED' && (!reason || reason === 'Completed')
@@ -422,7 +446,7 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
             const probes = [container.livenessProbeConfigured && 'Liveness', container.readinessProbeConfigured && 'Readiness', container.startupProbeConfigured && 'Startup'].filter(Boolean).join(' · ')
             return <div className={`netdive-k8s-pod-detail__container ${problem ? 'is-problem' : ''}`} key={`${container.type}:${container.name}`}>
                 <div className="netdive-k8s-pod-detail__container-main"><strong>{container.name}</strong><span>{container.type}</span></div>
-                <div className="netdive-k8s-pod-detail__container-state">{problem ? <DetailBadge tone={reason === 'OOMKilled' || container.state === 'TERMINATED' ? 'danger' : 'warning'}>{stateLabel}</DetailBadge> : <span className="netdive-k8s-node-detail__normal"><i />{stateLabel === 'RUNNING' ? 'Running' : stateLabel}</span>}</div>
+                <div className="netdive-k8s-pod-detail__container-state"><DetailStatusIndicator tone={problem ? (reason === 'OOMKilled' || container.state === 'TERMINATED' ? 'danger' : 'warning') : 'success'}>{stateLabel === 'RUNNING' ? 'Running' : stateLabel}</DetailStatusIndicator></div>
                 <div className="netdive-k8s-pod-detail__container-restarts"><span>{translate('kubernetesRestarts')}</span><strong className={Number(container.restartCount || 0) > 0 ? 'is-warning' : ''}>{optionalNumber(container.restartCount)}</strong></div>
                 <Tooltip title={container.image || ''} placement="top"><small>{container.image || translate('kubernetesNotCollected')}</small></Tooltip>
                 {probes && <small className="netdive-k8s-pod-detail__container-meta">{translate('kubernetesConfiguredProbes')} {probes}</small>}
@@ -528,64 +552,96 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
         const basicRows = [
             { label: translate('kubernetesPodName'), value: detail.name || this.props.node.id, textValue: detail.name || this.props.node.id, copyText: detail.name || this.props.node.id },
             { label: translate('kubernetesTopologyNamespaces'), value: detail.namespace || translate('kubernetesNotCollected') },
-            { label: 'Pod IP', value: detail.podIp || translate('kubernetesNotCollected'), copyText: detail.podIp },
-            { label: 'Host IP', value: detail.hostIp || translate('kubernetesNotCollected'), copyText: detail.hostIp }
+            { label: 'Pod IP', value: detail.podIp || translate('kubernetesNotCollected'), copyText: detail.podIp }
         ]
+        const advancedRows = [
+            { label: 'Host IP', value: detail.hostIp || translate('kubernetesNotCollected'), copyText: detail.hostIp },
+            { label: 'Node', value: detail.nodeName || translate('kubernetesNotCollected'), textValue: detail.nodeName },
+            { label: translate('kubernetesCreatedAt'), value: detail.createdAt ? new Date(detail.createdAt).toLocaleString() : translate('kubernetesNotCollected') }
+        ]
+        const ownerTarget = detail.ownerName ? this.resourceForReference({ uid: detail.ownerUid, name: detail.ownerName, kind: detail.ownerKind }) : undefined
+        const nodeTarget = detail.node ? this.resourceForReference(detail.node) : undefined
         const recentEventGroups = collectKubernetesEventGroups([
             detail.events,
             detail.recentEvents,
             detail.podEvents,
             firstRaw(this.props.node.data || {}, ['K8s.Extra.Events', 'K8s.Events', 'Events'])
         ], POD_EVENT_TONES)
-        return <div className="netdive-k8s-node-detail netdive-k8s-pod-detail">
-            <DetailSection icon={<InfoIcon />} title={translate('kubernetesPodBasicInfo')} collapsible collapsed={this.state.basicCollapsed} onToggle={() => this.setState({ basicCollapsed: !this.state.basicCollapsed })}>
-                <DetailKeyValueList rows={basicRows} copyTooltip={translate('copy')} />
-            </DetailSection>
+        return <div className="netdive-k8s-pod-detail">
+            <DetailSectionCard icon={<InfoIcon />} title={translate('kubernetesPodBasicInfo')} collapsible collapsed={this.state.basicCollapsed} onToggle={() => this.setState({ basicCollapsed: !this.state.basicCollapsed })}>
+                <BasicInfoRows density="compact" rows={basicRows} labelWidth={122} copyTooltip={translate('copy')} />
+                <DetailAdvancedInfo
+                    title={translate('kubernetesAdvancedInformation')}
+                    active={this.state.basicInfoAdvanced}
+                    onChange={basicInfoAdvanced => this.setState({ basicInfoAdvanced })}>
+                    <BasicInfoRows density="compact" rows={advancedRows} labelWidth={122} copyTooltip={translate('copy')} />
+                </DetailAdvancedInfo>
+            </DetailSectionCard>
 
-            <DetailSection icon={this.topologyIcon(this.props.node)} title={translate('kubernetesPodOperationalStatus')}>
-                <div className={`netdive-k8s-node-detail__hero netdive-k8s-node-detail__hero--${statusTone}`}><i /><strong>{statusLabel}</strong><span>{conclusion}</span></div>
-                <div className="netdive-k8s-node-detail__summary">
-                    <div><span>Phase</span><strong className={critical ? 'is-danger' : warning ? 'is-warning' : ''}>{detail.phase || '–'}</strong></div>
-                    <div><span>{translate('kubernetesContainers')}</span><strong>{containers.length ? `${readyContainers}/${containers.length}` : '–'}</strong></div>
-                    <div><span>{translate('kubernetesRestarts')}</span><strong className={Number(detail.restartCount || 0) > 0 ? 'is-warning' : ''}>{optionalNumber(detail.restartCount)}</strong></div>
-                    <div><span>{translate('kubernetesConnectedServices')}</span><strong>{optionalNumber(detail.selectedByServices === undefined ? undefined : selectedServices.length)}</strong></div>
-                </div>
+            <DetailSectionCard icon={this.topologyIcon(this.props.node)} title={translate('kubernetesPodOperationalStatus')}>
+                <StatusSummaryGrid
+                    verdict={statusLabel}
+                    verdictTone={statusTone as DetailBadgeTone}
+                    rawStatus={detail.phase || '–'}
+                    rawStatusLabel="Phase"
+                    impact={conclusion}
+                    impactTooltip={conclusion}
+                    metrics={[
+                        { key: 'containers', label: translate('kubernetesContainers'), value: containers.length ? `${readyContainers}/${containers.length}` : '–', tone: problemContainers.length ? 'warning' : 'default', tooltip: '준비된 컨테이너 수와 전체 컨테이너 수입니다.' },
+                        { key: 'restarts', label: translate('kubernetesRestarts'), value: optionalNumber(detail.restartCount), tone: Number(detail.restartCount || 0) > 0 ? 'warning' : 'default', tooltip: '현재 Pod 컨테이너의 누적 재시작 횟수입니다.' },
+                        { key: 'services', label: translate('kubernetesConnectedServices'), value: optionalNumber(detail.selectedByServices === undefined ? undefined : selectedServices.length), tooltip: '이 Pod를 Selector로 선택하는 Service 수입니다.' },
+                        { key: 'ready', label: 'Ready', value: ready === undefined ? '미확인' : ready ? 'True' : 'False', tone: ready === false ? 'danger' : 'default', tooltip: 'Kubernetes Ready Condition의 현재 값입니다.' }
+                    ]}
+                />
                 {evicted && <KubernetesStateSeparation items={[
                     { key: 'terminated', label: '종료 상태', value: '종료됨', tone: 'history', tooltip: '이 파드는 실행 중인 객체가 아닙니다.' },
                     { key: 'reason', label: '원본 상태', value: 'Evicted', tone: 'history', tooltip: detail.statusMessage || 'Kubernetes 원본 종료 사유입니다.' },
                     { key: 'impact', label: '현재 영향 여부', value: currentImpact ? '확인 필요' : '없음', tone: currentImpact ? 'danger' : 'success', tooltip: '연결 서비스와 대체 파드의 현재 상태를 기준으로 판단합니다.' },
                     { key: 'replacement', label: '대체 파드 상태', value: replacementPods.length ? `Running ${replacementPods.length}` : '확인되지 않음', tone: replacementPods.length ? 'success' : 'default' }
                 ]} />}
-            </DetailSection>
+            </DetailSectionCard>
 
-            <DetailSection icon={<ViewModuleIcon />} title={translate('kubernetesContainerStatus')}>
+            <DetailSectionCard icon={<ViewModuleIcon />} title={translate('kubernetesContainerStatus')}>
                 {this.renderContainers(detail)}
-                <div className="netdive-k8s-node-detail__subsection-title">{translate('kubernetesPodConditions')}</div>
+                <DetailInlineSectionHeader title={translate('kubernetesPodConditions')} />
                 {this.renderConditions(detail)}
-            </DetailSection>
-            <DetailSection icon={<StorageIcon />} title={translate('kubernetesPodResources')}>
+            </DetailSectionCard>
+            <DetailSectionCard icon={<StorageIcon />} title={translate('kubernetesPodResources')}>
                 {this.renderContainerResources(detail)}
-                <div className="netdive-k8s-node-detail__subsection-title">QoS</div>
-                <DetailKeyValueList rows={[{ label: 'QoS Class', value: detail.qosClass || translate('kubernetesNotCollected') }]} />
-            </DetailSection>
-            <DetailSection icon={<StorageIcon />} title={translate('kubernetesPodVolumesAndNetwork')}>
-                <DetailKeyValueList rows={volumeDetailRows.length ? volumeDetailRows : storageRows.slice(0, 2)} />
-            </DetailSection>
+                <DetailInlineSectionHeader title="QoS" />
+                <BasicInfoRows density="compact" rows={[{ label: 'QoS Class', value: detail.qosClass || translate('kubernetesNotCollected') }]} labelWidth={122} />
+            </DetailSectionCard>
+            <DetailSectionCard icon={<StorageIcon />} title={translate('kubernetesPodVolumesAndNetwork')}>
+                <BasicInfoRows density="compact" rows={volumeDetailRows.length ? volumeDetailRows : storageRows.slice(0, 2)} labelWidth={122} />
+            </DetailSectionCard>
             <ConnectedResourceListSection
                 icon={<AccountTreeIcon />}
                 title={translate('hostConnectedResources')}
                 emptyText={translate('hostNoConnectedResources')}
                 groups={[
                     {
+                        key: 'ownership',
+                        title: '소유 및 배치',
+                        items: [
+                            ...(ownerTarget ? this.connectedListItems([ownerTarget], detail.ownerKind || 'Controller') : []),
+                            ...(nodeTarget ? this.connectedListItems([nodeTarget], 'Node') : [])
+                        ]
+                    },
+                    {
                         key: 'services',
                         title: 'Service',
                         items: this.connectedListItems(serviceTargets, 'Service')
+                    },
+                    {
+                        key: 'storage',
+                        title: '스토리지',
+                        items: this.connectedListItems(pvcTargets, 'PVC')
                     }
                 ]} />
-            {recentEventGroups.length > 0 && <DetailSection icon={<HistoryOutlined />} title={translate('kubernetesPodRecentEvents')}><KubernetesRecentEvents groups={recentEventGroups} onResourceClick={group => this.openResource({ uid: group.resourceUid, name: group.resourceName, kind: group.resourceKind })} /></DetailSection>}
+            <DetailSectionCard icon={<HistoryOutlined />} title={translate('kubernetesPodRecentEvents')}><KubernetesRecentEvents groups={recentEventGroups} emptyText="최근 발생한 중요 이벤트가 없습니다." onResourceClick={group => this.openResource({ uid: group.resourceUid, name: group.resourceName, kind: group.resourceKind })} /></DetailSectionCard>
 
-            {this.state.error && <div className="netdive-k8s-node-detail__notice"><InfoIcon /><span>{translate('kubernetesPodDetailFallback')}</span></div>}
-            {!this.cluster() && <div className="netdive-k8s-node-detail__notice"><InfoIcon /><span>{translate('kubernetesClusterMoldMissing')}</span></div>}
+            {this.state.error && <div className="netdive-detail-notice"><InfoIcon /><span>{translate('kubernetesPodDetailFallback')}</span></div>}
+            {!this.cluster() && <div className="netdive-detail-notice"><InfoIcon /><span>{translate('kubernetesClusterMoldMissing')}</span></div>}
         </div>
     }
 }

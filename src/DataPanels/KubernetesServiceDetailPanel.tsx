@@ -3,7 +3,6 @@ import { Tooltip } from 'antd'
 import InfoIcon from '@material-ui/icons/Info'
 import LinkIcon from '@material-ui/icons/Link'
 import SettingsEthernetIcon from '@material-ui/icons/SettingsEthernet'
-import WarningIcon from '@material-ui/icons/WarningOutlined'
 import { HistoryOutlined, LeftOutlined } from '@ant-design/icons'
 
 import { translate } from '../Config'
@@ -11,8 +10,23 @@ import { session } from '../Store'
 import { Node } from '../Topology'
 import { kubernetesLabelValue, matchesKubernetesSelector } from '../KubernetesSelectors'
 import { resolveKubernetesPodController } from '../KubernetesWorkloadOwnership'
-import { collectKubernetesEventGroups, ConnectedResourcesSection, DetailCopyButton, DetailKeyValueList, DetailLayerIcon, DetailSection, KubernetesRecentEvents } from './common'
-import './KubernetesNodeDetailPanel.css'
+import {
+    BasicInfoRows,
+    collectKubernetesEventGroups,
+    CompactEmptyState,
+    DetailAdvancedInfo,
+    DetailBadgeTone,
+    DetailCopyButton,
+    DetailInlineSectionHeader,
+    DetailLayerIcon,
+    DetailSectionCard,
+    DetailStatusIndicator,
+    KubernetesRecentEvents,
+    RelatedResourceGrid,
+    StatusEvidenceList,
+    StatusEvidenceRow,
+    StatusSummaryGrid
+} from './common'
 import './KubernetesServiceDetailPanel.css'
 
 interface Props {
@@ -28,6 +42,7 @@ interface State {
     error: boolean
     requestKey: string
     basicCollapsed: boolean
+    basicInfoAdvanced: boolean
 }
 
 const valueByPath = (data: any, path: string): any => path.split('.').reduce((value, key) => value === undefined || value === null ? undefined : value[key], data)
@@ -76,13 +91,13 @@ const SERVICE_EVENT_TONES = {
 }
 
 class KubernetesServiceDetailPanel extends React.Component<Props, State> {
-    state: State = { loading: false, error: false, requestKey: '', basicCollapsed: false }
+    state: State = { loading: false, error: false, requestKey: '', basicCollapsed: false, basicInfoAdvanced: false }
 
     componentDidMount() { this.loadDetail() }
 
     componentDidUpdate(prevProps: Props) {
         if (prevProps.node.id !== this.props.node.id || this.clusterFrom(prevProps)?.id !== this.cluster()?.id) {
-            this.setState({ basicCollapsed: false })
+            this.setState({ basicCollapsed: false, basicInfoAdvanced: false })
             this.loadDetail()
         }
     }
@@ -251,8 +266,8 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
 
     private topologyIcon(node: Node) {
         const attrs = this.props.nodeAttrs(node)
-        if (attrs.href) return <img className="netdive-k8s-node-detail__topology-icon-image" src={attrs.href} alt="" />
-        return <span className={`netdive-k8s-node-detail__topology-icon ${attrs.iconClass || ''}`} aria-hidden="true">{attrs.icon}</span>
+        if (attrs.href) return <img className="netdive-detail-topology-icon-image" src={attrs.href} alt="" />
+        return <span className={`netdive-detail-topology-icon ${attrs.iconClass || ''}`} aria-hidden="true">{attrs.icon}</span>
     }
 
     private resourceForReference(reference: any): Node | undefined {
@@ -369,7 +384,7 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
     }
 
     private renderPorts(ports: any[]) {
-        if (!ports.length) return <div className="netdive-k8s-service-detail__empty-row">{translate('kubernetesServicePortsUnavailable')}</div>
+        if (!ports.length) return <CompactEmptyState description={translate('kubernetesServicePortsUnavailable')} compact />
         return <div className="netdive-k8s-service-detail__ports">
             <div className="netdive-k8s-service-detail__port-head"><span>{translate('kubernetesPortName')}</span><span>{translate('kubernetesServicePort')}</span><span>{translate('kubernetesTargetPort')}</span><span>NodePort</span></div>
             {ports.map((port, index) => {
@@ -403,7 +418,7 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
                         <Tooltip title={podName} placement="top">
                             {podTarget ? <button type="button" onClick={() => this.openResource(podTarget)}>{podName}</button> : <strong>{podName}</strong>}
                         </Tooltip>
-                        <span className={`netdive-k8s-service-detail__endpoint-ready ${ready ? 'is-ready' : 'is-not-ready'}`}><i />{ready ? 'Ready' : 'NotReady'}</span>
+                        <DetailStatusIndicator tone={ready ? 'success' : 'danger'}>{ready ? 'Ready' : 'NotReady'}</DetailStatusIndicator>
                     </div>
                     <div className="netdive-k8s-service-detail__endpoint-secondary">
                         <span className="netdive-k8s-service-detail__endpoint-ip"><small>{endpoint.address || translate('kubernetesNotCollected')}</small>{endpoint.address && <DetailCopyButton value={String(endpoint.address)} tooltip={translate('copy')} />}</span>
@@ -425,7 +440,7 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
             })}</div>
         }
         const pods = Array.isArray(detail.selectedPods) ? detail.selectedPods : []
-        if (!pods.length) return <div className="netdive-k8s-service-detail__empty-row">{translate('kubernetesServiceEndpointsUnavailable')}</div>
+        if (!pods.length) return <CompactEmptyState description={translate('kubernetesServiceEndpointsUnavailable')} compact />
         return <div className="netdive-k8s-service-detail__endpoints">{pods.map((pod: any) => {
             const podTarget = this.resourceForReference(pod)
             const nodeTarget = this.resourceByName('node', pod.nodeName)
@@ -434,7 +449,7 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
                     <Tooltip title={pod.name} placement="top">
                         {podTarget ? <button type="button" onClick={() => this.openResource(podTarget)}>{pod.name}</button> : <strong>{pod.name}</strong>}
                     </Tooltip>
-                    <span className={`netdive-k8s-service-detail__endpoint-ready ${pod.ready === true ? 'is-ready' : pod.ready === false ? 'is-not-ready' : 'is-unknown'}`}><i />{pod.ready === true ? 'Ready' : pod.ready === false ? 'NotReady' : translate('kubernetesUnknown')}</span>
+                    <DetailStatusIndicator tone={pod.ready === true ? 'success' : pod.ready === false ? 'danger' : 'default'}>{pod.ready === true ? 'Ready' : pod.ready === false ? 'NotReady' : translate('kubernetesUnknown')}</DetailStatusIndicator>
                 </div>
                 <div className="netdive-k8s-service-detail__endpoint-secondary">
                     <span className="netdive-k8s-service-detail__endpoint-ip"><small>{translate('kubernetesNotCollected')}</small></span>
@@ -548,10 +563,15 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
             { label: translate('kubernetesServiceName'), value: <Tooltip title={serviceName} placement="top"><span className="netdive-k8s-service-detail__service-name">{serviceName}</span></Tooltip>, textValue: serviceName, copyText: serviceName },
             { label: translate('kubernetesTopologyNamespaces'), value: displayOptional(detail.namespace) },
             { label: translate('kubernetesServiceType'), value: displayOptional(serviceTypeValue) },
-            { label: 'Cluster IP', value: clusterIpValue, textValue: clusterIps.join(', '), copyText: clusterIps[0] },
+            { label: 'Cluster IP', value: clusterIpValue, textValue: clusterIps.join(', '), copyText: clusterIps[0] }
+        ]
+        const advancedRows = [
             { label: 'IP Family', value: displayOptional(stringList(detail.ipFamilies).join(', ') || detail.ipFamilyPolicy) },
             { label: 'Selector', value: this.selectorValue(detail.selector) },
-            { label: translate('kubernetesPublishNotReadyAddresses'), value: detail.publishNotReadyAddresses === undefined ? translate('kubernetesNone') : detail.publishNotReadyAddresses ? translate('yes') : translate('no') }
+            { label: translate('kubernetesPublishNotReadyAddresses'), value: detail.publishNotReadyAddresses === undefined ? translate('kubernetesNone') : detail.publishNotReadyAddresses ? translate('yes') : translate('no') },
+            { label: translate('kubernetesCreatedAt'), value: detail.createdAt ? new Date(detail.createdAt).toLocaleString() : translate('kubernetesNotCollected') },
+            { label: 'Labels', value: flattenedMetadata(detail.labels).join(', ') || translate('kubernetesNone') },
+            { label: 'Annotations', value: flattenedMetadata(detail.annotations).join(', ') || translate('kubernetesNone') }
         ]
         const recentEventGroups = collectKubernetesEventGroups([
             detail.events,
@@ -559,57 +579,74 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
             detail.serviceEvents,
             firstRaw(this.props.node.data || {}, ['K8s.Extra.Events', 'K8s.Events', 'Events'])
         ], SERVICE_EVENT_TONES)
-        return <div className="netdive-k8s-node-detail netdive-k8s-service-detail">
+        return <div className="netdive-k8s-service-detail">
             {this.returnClusterNode() && <div className="netdive-k8s-service-detail__return">
                 <button type="button" onClick={this.returnToClusterServices}><LeftOutlined />서비스 목록</button>
                 <span>{firstValue(this.returnClusterNode()!.data || {}, ['Name', 'K8s.Name', 'ClusterName']) || this.returnClusterNode()!.id}</span>
             </div>}
-            <DetailSection icon={<InfoIcon />} title={translate('kubernetesServiceBasicInfo')} collapsible collapsed={this.state.basicCollapsed} onToggle={() => this.setState({ basicCollapsed: !this.state.basicCollapsed })}>
-                <DetailKeyValueList rows={basicRows} copyTooltip={translate('copy')} />
-            </DetailSection>
+            <DetailSectionCard icon={<InfoIcon />} title={translate('kubernetesServiceBasicInfo')} collapsible collapsed={this.state.basicCollapsed} onToggle={() => this.setState({ basicCollapsed: !this.state.basicCollapsed })}>
+                <BasicInfoRows density="compact" rows={basicRows} labelWidth={122} copyTooltip={translate('copy')} />
+                <DetailAdvancedInfo
+                    title={translate('kubernetesAdvancedInformation')}
+                    active={this.state.basicInfoAdvanced}
+                    onChange={basicInfoAdvanced => this.setState({ basicInfoAdvanced })}>
+                    <BasicInfoRows density="compact" rows={advancedRows} labelWidth={122} copyTooltip={translate('copy')} />
+                </DetailAdvancedInfo>
+            </DetailSectionCard>
 
-            <DetailSection icon={this.topologyIcon(this.props.node)} title={translate('kubernetesServiceOperationalStatus')}>
-                <div className={`netdive-k8s-node-detail__hero netdive-k8s-node-detail__hero--${statusTone}`}><i /><strong>{statusLabel}</strong><Tooltip title={conclusion} placement="top"><span>{conclusion}</span></Tooltip></div>
-                <div className="netdive-k8s-node-detail__summary">
-                    <div><span>{translate('kubernetesServicePorts')}</span><strong>{optionalNumber(detail.ports === undefined ? undefined : ports.length)}</strong></div>
-                    <div><span>{translate('kubernetesAllEndpoints')}</span><strong>{endpointKnown ? optionalNumber(endpointCount) : '–'}</strong></div>
-                    <div><span>{translate('kubernetesReadyEndpoints')}</span><strong className={hasEndpointsWithoutReady ? 'is-danger' : endpointKnown && Number(readyEndpointCount || 0) < Number(endpointCount || 0) ? 'is-warning' : ''}>{readySummary}</strong></div>
-                    <div><span>{translate('kubernetesTargetPods')}</span><strong>{optionalNumber(detail.selectedPods === undefined ? undefined : pods.length)}</strong></div>
-                </div>
-                {availabilityState && <div className={`netdive-k8s-service-detail__availability-state is-${availabilityState.tone}`}>
-                    <i />
-                    <strong>{availabilityState.tone === 'warning' ? translate('kubernetesAvailabilityWarning') : translate('kubernetesAvailabilityNormal')}</strong>
-                </div>}
-            </DetailSection>
+            <DetailSectionCard icon={this.topologyIcon(this.props.node)} title={translate('kubernetesServiceOperationalStatus')}>
+                <StatusSummaryGrid
+                    verdict={statusLabel}
+                    verdictTone={statusTone as DetailBadgeTone}
+                    rawStatus={detail.type || '–'}
+                    rawStatusLabel={translate('kubernetesServiceType')}
+                    impact={conclusion}
+                    impactTooltip={conclusion}
+                    metrics={[
+                        { key: 'ports', label: translate('kubernetesServicePorts'), value: optionalNumber(detail.ports === undefined ? undefined : ports.length), tooltip: 'Service가 외부에 제공하는 포트 수입니다.' },
+                        { key: 'endpoints', label: translate('kubernetesAllEndpoints'), value: endpointKnown ? optionalNumber(endpointCount) : '–', tooltip: '현재 수집된 전체 Endpoint 수입니다.' },
+                        { key: 'ready', label: translate('kubernetesReadyEndpoints'), value: readySummary, tone: hasEndpointsWithoutReady ? 'danger' : endpointKnown && Number(readyEndpointCount || 0) < Number(endpointCount || 0) ? 'warning' : 'default', tooltip: '트래픽을 전달할 수 있는 Ready Endpoint 수입니다.' },
+                        { key: 'pods', label: translate('kubernetesTargetPods'), value: optionalNumber(detail.selectedPods === undefined ? undefined : pods.length), tooltip: 'Selector 또는 토폴로지 관계로 연결된 Pod 수입니다.' }
+                    ]}
+                />
+            </DetailSectionCard>
 
-            <DetailSection icon={<LinkIcon />} title={translate('kubernetesServiceEndpointAvailability')}>
+            <DetailSectionCard icon={<LinkIcon />} title={translate('kubernetesServiceEndpointAvailability')}>
                 <div className="netdive-k8s-service-detail__endpoint-region">
-                    <div className="netdive-k8s-service-detail__region-title">Endpoint</div>
+                    <DetailInlineSectionHeader title="Endpoint" />
                     {this.renderEndpoints(detail)}
                 </div>
                 {availabilityState && <React.Fragment>
                     <div className="netdive-k8s-service-detail__availability-region">
-                        <div className="netdive-k8s-service-detail__region-title">{translate('kubernetesRiskAvailability')}</div>
-                        <div className={`netdive-k8s-service-detail__availability-summary is-${availabilityState.tone}`}>
-                            <div className="netdive-k8s-service-detail__availability-heading">
-                                {availabilityState.tone === 'warning' ? <WarningIcon /> : <i />}
-                                <strong>{availabilityState.title}</strong>
-                            </div>
-                            <dl>
-                                <div><dt>{translate('kubernetesReadyEndpoints')}</dt><dd>{readyEndpointCount}</dd></div>
-                                <div><dt>{translate('kubernetesScheduledNodes')}</dt><dd>{uniqueReadyNodeNames.size}</dd></div>
-                            </dl>
-                            <p>{availabilityState.description}</p>
-                        </div>
+                        <DetailInlineSectionHeader title={translate('kubernetesRiskAvailability')} />
+                        <StatusEvidenceList>
+                            <StatusEvidenceRow
+                                title={availabilityState.title}
+                                evidence={availabilityState.description}
+                                state={<DetailStatusIndicator tone={availabilityState.tone as DetailBadgeTone}>{availabilityState.tone === 'warning' ? translate('kubernetesAvailabilityWarning') : translate('kubernetesAvailabilityNormal')}</DetailStatusIndicator>}
+                                value={readyEndpointCount}
+                                valueVariant="number"
+                                tone={availabilityState.tone as DetailBadgeTone}
+                                tooltip="Ready Endpoint 수를 기준으로 가용성을 판단합니다."
+                            />
+                            <StatusEvidenceRow
+                                title={translate('kubernetesScheduledNodes')}
+                                evidence="Ready Endpoint가 분산된 노드 수입니다."
+                                state={<DetailStatusIndicator tone={availabilityState.tone as DetailBadgeTone}>{availabilityState.label}</DetailStatusIndicator>}
+                                value={uniqueReadyNodeNames.size}
+                                valueVariant="number"
+                                tone={availabilityState.tone as DetailBadgeTone}
+                            />
+                        </StatusEvidenceList>
                     </div>
                 </React.Fragment>}
-            </DetailSection>
-            <DetailSection icon={<SettingsEthernetIcon />} title={translate('kubernetesServicePortsTraffic')}>
+            </DetailSectionCard>
+            <DetailSectionCard icon={<SettingsEthernetIcon />} title={translate('kubernetesServicePortsTraffic')}>
                 {this.renderPorts(ports)}
-                <div className="netdive-k8s-node-detail__subsection-title">{translate('kubernetesServiceNetworkExposure')}</div>
-                <DetailKeyValueList rows={networkRows} />
-            </DetailSection>
-            <ConnectedResourcesSection
+                <DetailInlineSectionHeader title={translate('kubernetesServiceNetworkExposure')} />
+                <BasicInfoRows density="compact" rows={networkRows} labelWidth={122} />
+            </DetailSectionCard>
+            <RelatedResourceGrid
                 icon={<LinkIcon />}
                 title={translate('hostConnectedResources')}
                 emptyText={translate('hostNoConnectedResources')}
@@ -625,20 +662,13 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
                         ...(ingressTargets.length ? [{ key: 'ingresses', label: 'Ingress', count: ingressTargets.length, icon: this.topologyIcon(ingressTargets[0]), iconTone: 'kubernetes' as const, onClick: () => this.openResource(ingressTargets[0]) }] : [])
                     ]
                 }]} />
-            <DetailSection icon={<InfoIcon />} title="메타데이터">
-                <DetailKeyValueList rows={[
-                    { label: translate('kubernetesCreatedAt'), value: detail.createdAt ? new Date(detail.createdAt).toLocaleString() : translate('kubernetesNotCollected') },
-                    { label: 'Labels', value: flattenedMetadata(detail.labels).join(', ') || translate('kubernetesNone') },
-                    { label: 'Annotations', value: flattenedMetadata(detail.annotations).join(', ') || translate('kubernetesNone') }
-                ]} />
-            </DetailSection>
-            {recentEventGroups.length > 0 && <DetailSection icon={<HistoryOutlined />} title={translate('kubernetesServiceRecentEvents')}><KubernetesRecentEvents groups={recentEventGroups} onResourceClick={group => {
+            <DetailSectionCard icon={<HistoryOutlined />} title={translate('kubernetesServiceRecentEvents')}><KubernetesRecentEvents groups={recentEventGroups} emptyText="최근 발생한 중요 이벤트가 없습니다." onResourceClick={group => {
                 const target = this.resourceForReference({ uid: group.resourceUid, name: group.resourceName, kind: group.resourceKind })
                 if (target) this.focusResources([target])
-            }} /></DetailSection>}
+            }} /></DetailSectionCard>
 
-            {this.state.error && <div className="netdive-k8s-node-detail__notice"><InfoIcon /><span>{translate('kubernetesServiceDetailFallback')}</span></div>}
-            {!this.cluster() && <div className="netdive-k8s-node-detail__notice"><InfoIcon /><span>{translate('kubernetesClusterMoldMissing')}</span></div>}
+            {this.state.error && <div className="netdive-detail-notice"><InfoIcon /><span>{translate('kubernetesServiceDetailFallback')}</span></div>}
+            {!this.cluster() && <div className="netdive-detail-notice"><InfoIcon /><span>{translate('kubernetesClusterMoldMissing')}</span></div>}
         </div>
     }
 }
