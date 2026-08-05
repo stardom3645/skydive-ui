@@ -3,7 +3,8 @@ const CopyWebPackPlugin = require('copy-webpack-plugin');
 
 var path = require('path');
 
-const devBackend = process.env.NETDIVE_DEV_BACKEND || 'http://10.10.254.191:8082';
+// analyzer가 동작 중인 가상머신의 IP 주소를 입력합니다.
+const devBackend = process.env.NETDIVE_DEV_BACKEND || 'http://10.10.254.242:8082';
 const devPort = Number(process.env.NETDIVE_DEV_PORT || 8082);
 
 const htmlPlugin = new HtmlWebPackPlugin({

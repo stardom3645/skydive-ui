@@ -21,7 +21,6 @@ import {
     DetailModalTextCell,
     DetailMetricRow,
     DetailSectionCard,
-    DetailStatusIndicator,
     HistoryModal,
     KUBERNETES_DETAIL_LABELS,
     KUBERNETES_UTILIZATION_THRESHOLDS,
@@ -1314,8 +1313,8 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
             : 'grade'
         return <StatusEvidenceRow
             title={title}
-            evidence={<span>{short}</span>}
-            state={<DetailStatusIndicator tone={tone}>{label}</DetailStatusIndicator>}
+            evidence={short}
+            status={{ label, tone }}
             value={value}
             valueVariant={valueVariant}
             tone={tone}
@@ -2248,7 +2247,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                         <strong>{currentRisks.length ? currentRisks[0].title : translate('kubernetesNoCurrentAlerts')}</strong>
                         {currentRisks.length > 1 && <small>+{currentRisks.length - 1}</small>}
                     </div>
-                    <StatusEvidenceList>
+                    <StatusEvidenceList columnHeaders={{ state: '상태', value: '평가' }}>
                         {this.renderResilienceRow(translate('kubernetesCurrentFailureImpact'), currentImpactGrade.label, currentImpactGrade.tone, `${impactScore} / 100`, `영향 점수 ${impactScore}/100 · 현재 상태 기준`, <div><strong>현재 장애 영향도</strong><p>높을수록 위험합니다.</p><p>{translate('kubernetesCurrentFailureImpactTooltip')}</p></div>, currentImpactInfrastructureTargets.length ? () => this.focusInfrastructureEvidence(currentImpactInfrastructureTargets) : undefined)}
                         {instabilityWindowAvailable && this.renderResilienceRow(
                             '최근 불안정성',

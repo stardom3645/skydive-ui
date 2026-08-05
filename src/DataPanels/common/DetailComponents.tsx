@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Button, Card, Collapse, Empty, Modal, Progress, Tag, Tooltip, Typography } from 'antd'
+import { Button, Card, Collapse, Empty, Modal, Progress, Tabs, Tag, Tooltip, Typography } from 'antd'
 import { CopyOutlined, DownOutlined, InfoCircleOutlined, RightOutlined } from '@ant-design/icons'
 
 import './DetailComponents.css'
@@ -30,6 +30,7 @@ export interface DetailPanelHeaderProps {
     titleClassName?: string
     subtitleClassName?: string
     copyClassName?: string
+    titleMaxLines?: 1 | 2
 }
 
 /**
@@ -48,7 +49,8 @@ export const DetailPanelHeader = ({
     titleRowClassName,
     titleClassName,
     subtitleClassName,
-    copyClassName
+    copyClassName,
+    titleMaxLines = 1
 }: DetailPanelHeaderProps) => {
     const copy = (event: React.MouseEvent<HTMLElement> | React.KeyboardEvent<HTMLElement>) => {
         event.preventDefault()
@@ -60,7 +62,7 @@ export const DetailPanelHeader = ({
     const content = (
         <span className={joinClassNames('netdive-detail-panel-header', className)}>
             <span className={joinClassNames('netdive-detail-panel-header__title-row', titleRowClassName)}>
-                <span className={joinClassNames('netdive-detail-panel-header__title', titleClassName)}>{title}</span>
+                <span className={joinClassNames('netdive-detail-panel-header__title', `netdive-detail-panel-header__title--lines-${titleMaxLines}`, titleClassName)}>{title}</span>
                 {copyValue && <span
                     className={joinClassNames('netdive-detail-panel-header__copy', copyClassName)}
                     role="button"
@@ -560,18 +562,23 @@ export const DetailMetricRow = ({
 
 export interface ResourceMetricBlockProps {
     title: React.ReactNode
+    basis?: React.ReactNode
+    basisTooltip?: React.ReactNode
     tooltip?: React.ReactNode
     tooltipOverlayClassName?: string
     children: React.ReactNode
     className?: string
 }
 
-export const ResourceMetricBlock = ({ title, tooltip, tooltipOverlayClassName, children, className }: ResourceMetricBlockProps) => (
+export const ResourceMetricBlock = ({ title, basis, basisTooltip, tooltip, tooltipOverlayClassName, children, className }: ResourceMetricBlockProps) => (
     <section className={joinClassNames('netdive-detail-resource-metric-block', className)}>
         <div className="netdive-detail-resource-metric-block__header">
             {tooltip
                 ? <Tooltip title={tooltip} placement="top" overlayClassName={tooltipOverlayClassName}><Typography.Text strong>{title}</Typography.Text></Tooltip>
                 : <Typography.Text strong>{title}</Typography.Text>}
+            {basis && (basisTooltip
+                ? <Tooltip title={basisTooltip} placement="top" overlayClassName="netdive-detail-tooltip"><small className="netdive-detail-resource-metric-block__basis">기준: {basis}</small></Tooltip>
+                : <small className="netdive-detail-resource-metric-block__basis">기준: {basis}</small>)}
         </div>
         <div className="netdive-detail-resource-metric-block__body">{children}</div>
     </section>
@@ -580,7 +587,16 @@ export const ResourceMetricBlock = ({ title, tooltip, tooltipOverlayClassName, c
 export interface StatusEvidenceRowProps {
     title: React.ReactNode
     evidence?: React.ReactNode
-    state: React.ReactNode
+    metadata?: ReadonlyArray<{
+        key?: React.Key
+        label: React.ReactNode
+        value: React.ReactNode
+    }>
+    state?: React.ReactNode
+    status?: {
+        label: React.ReactNode
+        tone?: DetailBadgeTone
+    }
     value: React.ReactNode
     valueVariant?: StatusEvidenceValueVariant
     tone?: DetailBadgeTone
@@ -590,6 +606,74 @@ export interface StatusEvidenceRowProps {
     onClick?: () => void
     className?: string
 }
+
+export interface DetailNavigationTab {
+    key: string
+    label: React.ReactNode
+}
+
+export interface DetailNavigationTabsProps {
+    activeKey: string
+    tabs: DetailNavigationTab[]
+    onChange: (key: string) => void
+    className?: string
+}
+
+/** Shared Ant Design navigation for detail panels. All supplied destinations
+ * remain first-class tabs; callers do not need panel-local tab markup. */
+export const DetailNavigationTabs = ({
+    activeKey,
+    tabs,
+    onChange,
+    className
+}: DetailNavigationTabsProps) => <Tabs
+        className={joinClassNames('netdive-detail-navigation-tabs', className)}
+        activeKey={activeKey}
+        onChange={onChange}>
+        {tabs.map(tab => <Tabs.TabPane tab={tab.label} key={tab.key} />)}
+    </Tabs>
+
+export interface DetailMetaInfoItem {
+    key?: React.Key
+    label: React.ReactNode
+    value: React.ReactNode
+}
+
+export const DetailMetaInfoRow = ({ items, className }: { items: DetailMetaInfoItem[], className?: string }) => (
+    <div className={joinClassNames('netdive-detail-meta-info-row', className)}>
+        {items.map((item, index) => <span key={item.key === undefined ? index : item.key}>
+            <span>{item.label}</span>
+            <strong>{item.value}</strong>
+        </span>)}
+    </div>
+)
+
+export interface DetailCollectionStatusRowProps {
+    label?: React.ReactNode
+    value: React.ReactNode
+    tone?: DetailBadgeTone
+    tooltip?: React.ReactNode
+    tooltipDetail?: React.ReactNode
+    className?: string
+}
+
+export const DetailCollectionStatusRow = ({
+    label = '데이터 수집 상태',
+    value,
+    tone = 'default',
+    tooltip,
+    tooltipDetail,
+    className
+}: DetailCollectionStatusRowProps) => (
+    <div className={joinClassNames('netdive-detail-collection-status-row', className)}>
+        <span>{label}</span>
+        {operationalTooltipTrigger(
+            <DetailStatusIndicator tone={tone}>{value}</DetailStatusIndicator>,
+            tooltip,
+            tooltipDetail
+        )}
+    </div>
+)
 
 export type StatusEvidenceValueVariant = 'number' | 'grade' | 'score'
 
@@ -612,17 +696,30 @@ export const DetailStatusIndicator = ({
 
 export interface StatusEvidenceListProps {
     children: React.ReactNode
+    columnHeaders?: {
+        state: React.ReactNode
+        value: React.ReactNode
+    }
     className?: string
 }
 
-export const StatusEvidenceList = ({ children, className }: StatusEvidenceListProps) => (
-    <div className={joinClassNames('netdive-detail-evidence-list', className)}>{children}</div>
+export const StatusEvidenceList = ({ children, columnHeaders, className }: StatusEvidenceListProps) => (
+    <div className={joinClassNames('netdive-detail-evidence-list', className)}>
+        {columnHeaders && <div className="netdive-detail-evidence-list__column-headers">
+            <span aria-hidden="true" />
+            <span>{columnHeaders.state}</span>
+            <span>{columnHeaders.value}</span>
+        </div>}
+        {children}
+    </div>
 )
 
 export const StatusEvidenceRow = ({
     title,
     evidence,
+    metadata,
     state,
+    status,
     value,
     valueVariant = 'number',
     tone = 'default',
@@ -632,6 +729,9 @@ export const StatusEvidenceRow = ({
     onClick,
     className
 }: StatusEvidenceRowProps) => {
+    const renderedState = status
+        ? <DetailStatusIndicator tone={status.tone || tone}>{status.label}</DetailStatusIndicator>
+        : state
     const content = (
         <div className={joinClassNames('netdive-detail-evidence-row', `netdive-detail-evidence-row--${tone}`, className)}>
             <div className="netdive-detail-evidence-row__info">
@@ -645,8 +745,14 @@ export const StatusEvidenceRow = ({
                     </Tooltip>}
                 </span>
                 {evidence && <small className="netdive-detail-evidence-row__evidence">{evidence}</small>}
+                {metadata && metadata.length > 0 && <dl className="netdive-detail-evidence-row__metadata">
+                    {metadata.map((item, index) => <div key={item.key === undefined ? index : item.key} className="netdive-detail-evidence-row__metadata-item">
+                        <dt>{item.label}</dt>
+                        <dd>{item.value}</dd>
+                    </div>)}
+                </dl>}
             </div>
-            <div className="netdive-detail-evidence-row__state">{state}</div>
+            <div className="netdive-detail-evidence-row__state">{renderedState}</div>
             <strong className={joinClassNames('netdive-detail-evidence-row__value', `is-${valueVariant}`)}>{value}</strong>
         </div>
     )

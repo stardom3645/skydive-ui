@@ -37,7 +37,23 @@ const eventTime = (event: any): any => {
     const value = firstRaw(event, ['lastTimestamp', 'LastTimestamp', 'eventTime', 'EventTime', 'lastObservedTime', 'LastObservedTime', 'metadata.creationTimestamp', 'ObjectMeta.CreationTimestamp'])
     return value && typeof value === 'object' && value.Time ? value.Time : value
 }
-const eventsFromSources = (sources: any[]): any[] => {
+const eventsFromSources = (sources: any[], combineSources = false): any[] => {
+    if (combineSources) {
+        const events = ([] as any[]).concat(...sources.map(source =>
+            Array.isArray(source) ? source : Array.isArray(source?.items) ? source.items : Array.isArray(source?.Items) ? source.Items : []))
+        const seen = new Set<string>()
+        return events.filter(event => {
+            const key = firstValue(event, ['metadata.uid', 'ObjectMeta.UID']) || [
+                firstValue(event, ['reason', 'Reason']),
+                firstValue(event, ['involvedObject.uid', 'InvolvedObject.UID', 'regarding.uid', 'Regarding.UID']),
+                String(eventTime(event) || ''),
+                firstValue(event, ['message', 'Message', 'note', 'Note'])
+            ].join('\u0000')
+            if (seen.has(key)) return false
+            seen.add(key)
+            return true
+        })
+    }
     for (const source of sources) {
         const events = Array.isArray(source) ? source : Array.isArray(source?.items) ? source.items : Array.isArray(source?.Items) ? source.Items : []
         if (events.length) return events
@@ -45,21 +61,41 @@ const eventsFromSources = (sources: any[]): any[] => {
     return []
 }
 
-export const collectKubernetesEventGroups = (sources: any[], tones: Record<string, KubernetesEventTone>): KubernetesEventGroup[] => {
+export interface KubernetesEventCollectionOptions {
+    combineSources?: boolean
+    sinceMs?: number
+    now?: number
+    eventFilter?: (event: any) => boolean
+    fallbackResourceKind?: string
+    fallbackResourceName?: string
+    fallbackResourceUid?: string
+}
+
+export const collectKubernetesEventGroups = (
+    sources: any[],
+    tones: Record<string, KubernetesEventTone>,
+    options: KubernetesEventCollectionOptions = {}
+): KubernetesEventGroup[] => {
     const groups = new Map<string, KubernetesEventGroup>()
-    eventsFromSources(sources).forEach(event => {
+    const now = options.now === undefined ? Date.now() : options.now
+    eventsFromSources(sources, options.combineSources).forEach(event => {
+        if (options.eventFilter && !options.eventFilter(event)) return
         const reason = firstValue(event, ['reason', 'Reason'])
         const normalized = normalizedReason(reason)
         const tone = tones[normalized]
         if (!tone) return
-        const resourceKind = firstValue(event, ['involvedObject.kind', 'InvolvedObject.Kind', 'regarding.kind', 'Regarding.Kind'])
-        const resourceName = firstValue(event, ['involvedObject.name', 'InvolvedObject.Name', 'regarding.name', 'Regarding.Name'])
-        const resourceUid = firstValue(event, ['involvedObject.uid', 'InvolvedObject.UID', 'regarding.uid', 'Regarding.UID'])
+        const resourceKind = firstValue(event, ['involvedObject.kind', 'InvolvedObject.Kind', 'regarding.kind', 'Regarding.Kind']) || options.fallbackResourceKind || ''
+        const resourceName = firstValue(event, ['involvedObject.name', 'InvolvedObject.Name', 'regarding.name', 'Regarding.Name']) || options.fallbackResourceName || ''
+        const resourceUid = firstValue(event, ['involvedObject.uid', 'InvolvedObject.UID', 'regarding.uid', 'Regarding.UID']) || options.fallbackResourceUid || ''
         const resource = [resourceKind, resourceName].filter(Boolean).join(': ') || translate('kubernetesResource')
         const description = firstValue(event, ['message', 'Message', 'note', 'Note']) || translate('kubernetesNoReason')
         const countValue = firstRaw(event, ['count', 'Count', 'series.count', 'Series.Count'])
         const count = Math.max(1, Number(countValue || 1))
         const time = eventTime(event)
+        if (options.sinceMs !== undefined) {
+            const timestamp = new Date(time || 0).getTime()
+            if (Number.isNaN(timestamp) || timestamp < now - options.sinceMs || timestamp > now) return
+        }
         const key = `${normalized}:${resource}`
         const existing = groups.get(key)
         if (!existing) {

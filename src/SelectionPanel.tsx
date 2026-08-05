@@ -180,7 +180,7 @@ class SelectionPanel extends React.Component<Props, State> {
       const fullTitle = isKubernetesResource
         ? String(el.data?.Name || el.data?.K8s?.Name || title).replace(/\s*\n\s*/g, ' ').trim()
         : title
-      const displayTitle = isKubernetesResource ? this.middleEllipsis(fullTitle) : title
+      const displayTitle = isKubernetesNode ? fullTitle : isKubernetesResource ? this.middleEllipsis(fullTitle) : title
       const preserveTitleCase = isKubernetesResource
       const isDeploymentIcon = iconClass.split(/\s+/).indexOf('k8s-deployment-icon') >= 0
       const isDaemonSetIcon = iconClass.split(/\s+/).indexOf('k8s-daemonset-icon') >= 0
@@ -209,6 +209,7 @@ class SelectionPanel extends React.Component<Props, State> {
               titleClassName={`${classes.tabTitle} ${displayTitle.includes("\n") ? classes.tabTitleMulti : ""} ${preserveTitleCase ? classes.tabTitlePreserveCase : ""}`}
               subtitleClassName={classes.tabSubtitle}
               copyClassName={classes.tabTitleCopy}
+              titleMaxLines={isKubernetesNode ? 2 : 1}
             />
           }
           {...a11yProps(i)} />

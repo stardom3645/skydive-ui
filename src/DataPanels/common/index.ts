@@ -10,6 +10,7 @@ export {
     DetailCompactResourceItem,
     DetailCompactResourceList,
     DetailCopyButton,
+    DetailCollectionStatusRow,
     DetailEmpty,
     DetailKeyValueList,
     DetailLayerIcon,
@@ -19,6 +20,8 @@ export {
     DetailOperationalSummary,
     DetailModalResourceCell,
     DetailModalTextCell,
+    DetailMetaInfoRow,
+    DetailNavigationTabs,
     KUBERNETES_DETAIL_LABELS,
     KUBERNETES_UTILIZATION_THRESHOLDS,
     DetailResourceCard,
@@ -40,6 +43,8 @@ export {
     collectKubernetesEventGroups,
     KubernetesRecentEvents
 } from './KubernetesRecentEvents'
+export { formatKubernetesValueState } from './KubernetesValueState'
+export type { KubernetesValueStateOptions } from './KubernetesValueState'
 
 export { KubernetesAnalysisConfidence } from './KubernetesAnalysisConfidence'
 export {
@@ -70,6 +75,7 @@ export {
 } from './KubernetesStatusPolicy'
 
 export type {
+    KubernetesEventCollectionOptions,
     KubernetesEventGroup,
     KubernetesEventTone
 } from './KubernetesRecentEvents'

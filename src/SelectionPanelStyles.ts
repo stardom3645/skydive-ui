@@ -97,9 +97,6 @@ export const styles = (theme: Theme) => createStyles({
   tabTitle: {
     display: 'block',
     maxWidth: '100%',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
     fontSize: 'var(--netdive-detail-font-panel-title)',
     lineHeight: 'var(--netdive-detail-line-panel-title)',
     color: 'var(--netdive-detail-text)',

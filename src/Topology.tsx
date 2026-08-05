@@ -30,6 +30,7 @@ import {
     isKubernetesInfrastructureEvidenceData,
     isKubernetesTopologyData
 } from './KubernetesInfrastructureEvidence'
+import { kubernetesClusterGroupObjectCount } from './TopologyGroupBadge'
 
 const flextree = require('d3-flextree').flextree;
 
@@ -4141,9 +4142,18 @@ export class Topology extends React.Component<Props, {}> {
             }]
         }
         const clusterNodeCountBadge = (node: Node): TopologyStatusBadge[] => {
-            const clusters = isTopologyGroup(node)
-                ? node.children.filter(child => normalizedType(child) === 'cluster' && !isTopologyGroup(child))
-                : [node]
+            if (isTopologyGroup(node)) {
+                const clusterObjectCount = kubernetesClusterGroupObjectCount(node.children)
+                if (!clusterObjectCount) return []
+                return [{
+                    key: 'clusters',
+                    label: '클러스터',
+                    count: clusterObjectCount,
+                    tone: 'running',
+                    tooltip: `Kubernetes 클러스터 ${clusterObjectCount}개\n집계 기준: 그룹 안의 고유 클러스터 객체 수`
+                }]
+            }
+            const clusters = [node]
             const clusterNames = new Set(clusters.map(cluster => String(cluster.data?.Name || '')).filter(Boolean))
             const kubernetesNodes = scopedNodes('node', new Set<string>(), clusterNames)
             if (!kubernetesNodes.length) return []
