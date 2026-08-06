@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Badge, Button, Col, Collapse, Divider, Modal, Row, Select, Space, Spin, Table, Tabs, Tag, Tooltip, Typography } from 'antd'
+import { Badge, Button, Col, Collapse, Divider, Modal, Row, Select, Space, Spin, Table, Tag, Tooltip, Typography } from 'antd'
 import { HistoryOutlined, InfoCircleOutlined, RightOutlined } from '@ant-design/icons'
 import AccountTreeIcon from '@material-ui/icons/AccountTree'
 import ErrorOutlineIcon from '@material-ui/icons/ErrorOutline'
@@ -20,6 +20,7 @@ import {
     DetailModalResourceCell,
     DetailModalTextCell,
     DetailMetricRow,
+    DetailNavigationTabs,
     DetailSectionCard,
     HistoryModal,
     KUBERNETES_DETAIL_LABELS,
@@ -2074,13 +2075,14 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
 
         return (
             <div className="netdive-k8s-cluster-detail">
-                <Tabs
-                    className="netdive-k8s-cluster-detail__navigation"
+                <DetailNavigationTabs
                     activeKey={this.state.activeDetailTab}
-                    onChange={activeDetailTab => this.setState({ activeDetailTab: activeDetailTab as State['activeDetailTab'] })}>
-                    <Tabs.TabPane tab={<span className="netdive-k8s-cluster-detail__navigation-label"><span>개요</span></span>} key="overview" />
-                    <Tabs.TabPane tab={<span className="netdive-k8s-cluster-detail__navigation-label"><span>서비스</span><small>{serviceResource.nodes.length}</small></span>} key="services" />
-                </Tabs>
+                    tabs={[
+                        { key: 'overview', label: '개요' },
+                        { key: 'services', label: '서비스', count: serviceResource.nodes.length }
+                    ]}
+                    onChange={activeDetailTab => this.setState({ activeDetailTab: activeDetailTab as State['activeDetailTab'] })}
+                />
                 {this.state.activeDetailTab === 'overview' ? <React.Fragment>
                 <DetailSectionCard
                     icon={<InfoIcon />}

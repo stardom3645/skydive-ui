@@ -2,6 +2,8 @@ import { strict as assert } from 'assert'
 import {
     kubernetesNamespaceContainerResourceCoverage,
     kubernetesNamespaceDistribution,
+    kubernetesNamespacePolicyCoverage,
+    kubernetesNamespaceResourceCoverageFromDetail,
     kubernetesNamespaceWorkloadHealth,
     uniqueKubernetesNamespaceResources
 } from '../src/KubernetesNamespaceDetailAggregation'
@@ -104,6 +106,10 @@ describe('Kubernetes namespace detail aggregation', () => {
             cpuLimits: 2,
             memoryRequests: 2,
             memoryLimits: 2,
+            cpuRequestsCollected: true,
+            cpuLimitsCollected: true,
+            memoryRequestsCollected: true,
+            memoryLimitsCollected: true,
             cpuRequestsCores: 0.5,
             cpuLimitsCores: 1,
             memoryRequestsBytes: 512 * Math.pow(1024, 2),
@@ -120,10 +126,82 @@ describe('Kubernetes namespace detail aggregation', () => {
             cpuLimits: 0,
             memoryRequests: 0,
             memoryLimits: 0,
+            cpuRequestsCollected: false,
+            cpuLimitsCollected: false,
+            memoryRequestsCollected: false,
+            memoryLimitsCollected: false,
             cpuRequestsCores: undefined,
             cpuLimitsCores: undefined,
             memoryRequestsBytes: undefined,
             memoryLimitsBytes: undefined
         })
+    })
+
+    it('does not present missing container Resources data as an unset 0 / 0 value', () => {
+        const missingResources = pod('missing-resources', { containers: [{ Name: 'app' }] })
+        const coverage = kubernetesNamespaceContainerResourceCoverage([missingResources])
+        assert.equal(coverage.collected, false)
+        assert.equal(coverage.total, 1)
+        assert.equal(coverage.cpuRequests, 0)
+        assert.equal(coverage.cpuRequestsCores, undefined)
+    })
+
+    it('treats an empty container list on an active Pod as uncollected', () => {
+        const coverage = kubernetesNamespaceContainerResourceCoverage([pod('empty-container-spec')])
+        assert.equal(coverage.collected, false)
+        assert.equal(coverage.total, 0)
+        assert.equal(coverage.cpuRequestsCollected, false)
+    })
+
+    it('deduplicates regular and init containers within the active Pod denominator', () => {
+        const duplicated = pod('duplicate-containers', { containers: [
+            { Name: 'app', Resources: { Requests: { cpu: '100m' } } },
+            { Name: 'app', Resources: { Requests: { cpu: '100m' } } }
+        ], spec: { InitContainers: [
+            { Name: 'prepare', Resources: {} },
+            { Name: 'prepare', Resources: {} }
+        ] } })
+        const coverage = kubernetesNamespaceContainerResourceCoverage([duplicated])
+        assert.equal(coverage.collected, true)
+        assert.equal(coverage.total, 2)
+        assert.equal(coverage.cpuRequests, 1)
+    })
+
+    it('keeps an invalid quantity from contradicting an apparently configured total', () => {
+        const invalid = pod('invalid-quantity', { containers: [{
+            Name: 'app',
+            Resources: { Requests: { cpu: 'not-a-quantity' }, Limits: {}, }
+        }] })
+        const coverage = kubernetesNamespaceContainerResourceCoverage([invalid])
+        assert.equal(coverage.cpuRequests, 1)
+        assert.equal(coverage.cpuRequestsCollected, false)
+        assert.equal(coverage.cpuRequestsCores, undefined)
+        assert.equal(coverage.memoryRequestsCollected, true)
+    })
+
+    it('distinguishes absent policy object collection from a collected zero count', () => {
+        assert.deepEqual(kubernetesNamespacePolicyCoverage([], false, undefined, undefined), { collected: false, count: 0 })
+        assert.deepEqual(kubernetesNamespacePolicyCoverage([], true, [], 0), { collected: true, count: 0 })
+        const quotas = [
+            resource('quota-a', 'resourcequota', { name: 'quota', uid: 'quota-uid' }),
+            resource('quota-a-copy', 'resourcequota', { name: 'quota', uid: 'quota-uid' })
+        ]
+        assert.deepEqual(kubernetesNamespacePolicyCoverage(quotas, false, undefined, undefined), { collected: true, count: 1 })
+    })
+
+    it('uses one namespace API dataset for resource counts and aggregates', () => {
+        const coverage = kubernetesNamespaceResourceCoverageFromDetail({
+            collected: true,
+            totalContainers: 3,
+            cpuRequests: { configuredContainers: 2, cores: 0.75 },
+            cpuLimits: { configuredContainers: 1, cores: 1 },
+            memoryRequests: { configuredContainers: 2, bytes: 768 * 1024 * 1024 },
+            memoryLimits: { configuredContainers: 1, bytes: 1024 * 1024 * 1024 }
+        })
+        assert.equal(coverage?.total, 3)
+        assert.equal(coverage?.cpuRequests, 2)
+        assert.equal(coverage?.cpuRequestsCores, 0.75)
+        assert.equal(coverage?.memoryLimitsBytes, 1024 * 1024 * 1024)
+        assert.equal(kubernetesNamespaceResourceCoverageFromDetail({ collected: false }), undefined)
     })
 })

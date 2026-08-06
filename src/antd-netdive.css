@@ -117,3 +117,50 @@
   font-size: 18px;
   line-height: 1;
 }
+
+/* Mold's shared Ant Dropdown contract. The overlay is portalled to body, so
+ * these rules intentionally live outside .netdive-ant-theme. Values mirror
+ * ablestack-cloud/ui/src/style/vars.less rather than a detail-panel skin. */
+.netdive-mold-dropdown.ant-dropdown {
+  z-index: 2147483656;
+  color: rgba(0, 0, 0, 0.65);
+  font-family: var(--netdive-font-family);
+  font-size: 14px;
+}
+
+.netdive-mold-dropdown .ant-dropdown-menu {
+  min-width: 176px;
+  padding: 4px 0;
+  border-radius: 4px;
+  background-color: #fff;
+  background-clip: padding-box;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.netdive-mold-dropdown .ant-dropdown-menu-item,
+.netdive-mold-dropdown .ant-dropdown-menu-submenu-title {
+  min-height: 32px;
+  padding: 5px 12px;
+  border-radius: 0;
+  color: rgba(0, 0, 0, 0.65);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 22px;
+  white-space: nowrap;
+}
+
+.netdive-mold-dropdown .ant-dropdown-menu-item:hover,
+.netdive-mold-dropdown .ant-dropdown-menu-item-active,
+.netdive-mold-dropdown .ant-dropdown-menu-submenu-title:hover {
+  color: #1890ff;
+  background-color: #e6f7ff;
+}
+
+.netdive-mold-dropdown .ant-dropdown-menu-item-selected,
+.netdive-mold-dropdown .ant-dropdown-menu-submenu-title-selected,
+.netdive-mold-dropdown .ant-dropdown-menu-item-selected:hover,
+.netdive-mold-dropdown .ant-dropdown-menu-item-selected.ant-dropdown-menu-item-active {
+  color: #1890ff;
+  background-color: #e6f7ff;
+  font-weight: 400;
+}

@@ -5,36 +5,3 @@
     padding-bottom: var(--netdive-detail-panel-bottom-padding);
     color: var(--netdive-detail-text);
 }
-
-.netdive-k8s-namespace-detail__labels {
-    display: flex;
-    min-width: 0;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.netdive-k8s-namespace-detail__labels > span {
-    display: flex;
-    min-width: 0;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.netdive-k8s-namespace-detail__labels strong,
-.netdive-k8s-namespace-detail__labels span {
-    overflow-wrap: anywhere;
-}
-
-.netdive-k8s-namespace-detail__labels strong {
-    color: var(--netdive-detail-text);
-    font-size: var(--netdive-detail-font-body-label);
-    font-weight: var(--netdive-detail-weight-status-tag);
-    line-height: var(--netdive-detail-line-body-label);
-}
-
-.netdive-k8s-namespace-detail__labels > span > span {
-    color: var(--netdive-detail-text-secondary);
-    font-size: var(--netdive-detail-font-supporting-text);
-    font-weight: var(--netdive-detail-weight-supporting-text);
-    line-height: var(--netdive-detail-line-supporting-text);
-}

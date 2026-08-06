@@ -1,6 +1,7 @@
 import * as React from 'react'
-import { Button, Card, Collapse, Empty, Modal, Progress, Tabs, Tag, Tooltip, Typography } from 'antd'
-import { CopyOutlined, DownOutlined, InfoCircleOutlined, RightOutlined } from '@ant-design/icons'
+import { Button, Card, Collapse, Dropdown, Empty, Menu, Modal, Progress, Tabs, Tag, Tooltip, Typography } from 'antd'
+import { CopyOutlined, DownOutlined, EllipsisOutlined, InfoCircleOutlined, RightOutlined } from '@ant-design/icons'
+import { kubernetesMetadataKeyLabel, kubernetesMetadataValueDescription } from './KubernetesDataPresentation'
 
 import './DetailComponents.css'
 
@@ -116,6 +117,7 @@ export interface DetailSectionProps {
     icon?: React.ReactNode
     title: React.ReactNode
     description?: React.ReactNode
+    descriptionTooltip?: React.ReactNode
     action?: React.ReactNode
     children: React.ReactNode
     className?: string
@@ -129,6 +131,7 @@ export const DetailSection = ({
     icon,
     title,
     description,
+    descriptionTooltip,
     action,
     children,
     className,
@@ -162,11 +165,11 @@ export const DetailSection = ({
                 {icon && <span className="netdive-detail-section__icon">{icon}</span>}
                 <div className="netdive-detail-section__title-block">
                     <Typography.Text className="netdive-detail-section__title">{title}</Typography.Text>
-                    {description && (
-                        <Typography.Text className="netdive-detail-section__description">
-                            {description}
-                        </Typography.Text>
-                    )}
+                    {description && (descriptionTooltip
+                        ? <Tooltip title={<DetailTooltipContent description={descriptionTooltip} />} overlayClassName="netdive-operational-tooltip">
+                            <Typography.Text className="netdive-detail-section__description">{description}</Typography.Text>
+                        </Tooltip>
+                        : <Typography.Text className="netdive-detail-section__description">{description}</Typography.Text>)}
                 </div>
             </div>
             {(action || collapsible) && (
@@ -242,6 +245,8 @@ export interface DetailKeyValueRow {
     textValue?: string
     copyText?: string
     tooltip?: React.ReactNode
+    wrap?: boolean
+    labelWrap?: boolean
 }
 
 export interface DetailKeyValueListProps {
@@ -274,10 +279,10 @@ export const DetailKeyValueList = ({
                     : <span className="netdive-detail-kv__value-text">{row.value}</span>
                 return (
                     <div
-                        className="netdive-detail-kv__row"
+                        className={joinClassNames('netdive-detail-kv__row', row.wrap && 'netdive-detail-kv__row--wrap')}
                         key={row.key !== undefined ? row.key : index}
                         style={{ gridTemplateColumns: `${labelColumn} minmax(0, 1fr)` }}>
-                        <Typography.Text className="netdive-detail-kv__label">{row.label}</Typography.Text>
+                        <Typography.Text className={joinClassNames('netdive-detail-kv__label', row.labelWrap && 'netdive-detail-kv__label--wrap')}>{row.label}</Typography.Text>
                         <div className="netdive-detail-kv__value">
                             {value}
                             {row.copyText && (
@@ -411,7 +416,23 @@ export const KUBERNETES_DETAIL_LABELS = Object.freeze({
     persistentVolumeClaim: 'PVC',
     storageClass: 'StorageClass',
     endpointSlice: 'EndpointSlice',
-    nodePressure: '노드 압박'
+    nodePressure: '노드 압박',
+    namespaceStatus: '네임스페이스 상태',
+    active: '활성',
+    runningPods: '실행 중 파드',
+    notReadyPods: '준비되지 않은 파드',
+    pendingPods: '대기 중 파드',
+    recentRestartPods: '최근 재시작 파드',
+    crashLoopBackOffPods: 'CrashLoopBackOff 상태 파드',
+    oomKilledPods: '현재·최근 OOMKilled 발생 파드',
+    cpuRequests: 'CPU 요청량',
+    cpuLimits: 'CPU 제한량',
+    memoryRequests: '메모리 요청량',
+    memoryLimits: '메모리 제한량',
+    labels: '라벨',
+    annotations: '어노테이션',
+    resourceQuota: '리소스 할당량(ResourceQuota)',
+    limitRange: '기본 리소스 제한(LimitRange)'
 })
 
 export const KUBERNETES_UTILIZATION_THRESHOLDS = Object.freeze({
@@ -599,6 +620,9 @@ export interface StatusEvidenceRowProps {
     }
     value: React.ReactNode
     valueVariant?: StatusEvidenceValueVariant
+    secondaryValue?: React.ReactNode
+    secondaryValueVariant?: StatusEvidenceValueVariant
+    valuesUnavailable?: boolean
     tone?: DetailBadgeTone
     tooltip?: React.ReactNode
     tooltipDetail?: React.ReactNode
@@ -610,43 +634,171 @@ export interface StatusEvidenceRowProps {
 export interface DetailNavigationTab {
     key: string
     label: React.ReactNode
+    count?: React.ReactNode
 }
 
 export interface DetailNavigationTabsProps {
     activeKey: string
     tabs: DetailNavigationTab[]
+    overflowTabs?: DetailNavigationTab[]
     onChange: (key: string) => void
     className?: string
 }
 
-/** Shared Ant Design navigation for detail panels. All supplied destinations
- * remain first-class tabs; callers do not need panel-local tab markup. */
+/** Canonical Ant Design navigation extracted from the established Kubernetes
+ * cluster panel. Native Ant Tabs overflow stays portalled outside the panel. */
 export const DetailNavigationTabs = ({
     activeKey,
     tabs,
+    overflowTabs = [],
     onChange,
     className
-}: DetailNavigationTabsProps) => <Tabs
-        className={joinClassNames('netdive-detail-navigation-tabs', className)}
-        activeKey={activeKey}
-        onChange={onChange}>
-        {tabs.map(tab => <Tabs.TabPane tab={tab.label} key={tab.key} />)}
+}: DetailNavigationTabsProps) => {
+    const overflowActive = overflowTabs.some(tab => tab.key === activeKey)
+    const menu = <Menu selectedKeys={overflowActive ? [activeKey] : []} onClick={({ key }) => onChange(String(key))}>
+        {overflowTabs.map(tab => <Menu.Item key={tab.key}>{tab.label}</Menu.Item>)}
+    </Menu>
+    const overflowTrigger = overflowTabs.length > 0
+        ? <Dropdown
+            overlay={menu}
+            overlayClassName="netdive-mold-dropdown"
+            trigger={['click']}
+            placement="bottomRight"
+            getPopupContainer={() => document.body}>
+            <Button
+                type="text"
+                aria-label="추가 탭"
+                aria-current={overflowActive ? 'page' : undefined}
+                icon={<EllipsisOutlined />}
+                className={joinClassNames(
+                    'netdive-detail-navigation-tabs__overflow-trigger',
+                    overflowActive && 'is-active'
+                )}
+            />
+        </Dropdown>
+        : undefined
+    return <Tabs
+        className={joinClassNames('netdive-detail-navigation-tabs', overflowTabs.length > 0 && 'has-explicit-overflow', className)}
+        activeKey={overflowActive ? '__overflow_active__' : activeKey}
+        onChange={onChange}
+        tabBarExtraContent={overflowTrigger}
+        moreIcon={<EllipsisOutlined />}>
+        {tabs.map(tab => <Tabs.TabPane
+            tab={<span className="netdive-detail-navigation-tabs__label">
+                <span>{tab.label}</span>
+                {tab.count !== undefined && <small>{tab.count}</small>}
+            </span>}
+            key={tab.key} />)}
     </Tabs>
+}
 
 export interface DetailMetaInfoItem {
     key?: React.Key
     label: React.ReactNode
     value: React.ReactNode
+    tone?: DetailBadgeTone
+    tooltip?: React.ReactNode
+    tooltipDetail?: React.ReactNode
 }
 
 export const DetailMetaInfoRow = ({ items, className }: { items: DetailMetaInfoItem[], className?: string }) => (
     <div className={joinClassNames('netdive-detail-meta-info-row', className)}>
-        {items.map((item, index) => <span key={item.key === undefined ? index : item.key}>
-            <span>{item.label}</span>
-            <strong>{item.value}</strong>
-        </span>)}
+        {items.map((item, index) => {
+            const value = item.tone
+                ? <DetailStatusIndicator tone={item.tone}>{item.value}</DetailStatusIndicator>
+                : <strong>{item.value}</strong>
+            return <span key={item.key === undefined ? index : item.key}>
+                <span>{item.label}</span>
+                {operationalTooltipTrigger(value, item.tooltip, item.tooltipDetail)}
+            </span>
+        })}
     </div>
 )
+
+export interface DetailMetadataSummaryProps {
+    value: Record<string, any> | undefined | null
+    excludedKeys?: string[]
+}
+
+/** Non-interactive count used in basic information. Metadata exploration is
+ * intentionally kept in the advanced clickable rows below. */
+export const DetailMetadataSummary = ({
+    value,
+    excludedKeys = []
+}: DetailMetadataSummaryProps) => {
+    const metadata = value && typeof value === 'object' && !Array.isArray(value) ? value : {}
+    const keys = Object.keys(metadata).filter(key => excludedKeys.indexOf(key) < 0).sort()
+    return <span className="netdive-detail-metadata-summary">{keys.length}개</span>
+}
+
+export interface DetailMetadataRowItem {
+    key: React.Key
+    label: React.ReactNode
+    value: Record<string, any> | undefined | null
+    excludedKeys?: string[]
+    modalTitle?: React.ReactNode
+}
+
+export interface DetailMetadataRowsProps {
+    items: DetailMetadataRowItem[]
+    labelWidth?: number | string
+}
+
+/** Shared metadata action rows: item label / key-only summary / chevron. */
+export const DetailMetadataRows = ({ items, labelWidth = 122 }: DetailMetadataRowsProps) => {
+    const [selectedKey, setSelectedKey] = React.useState<React.Key | undefined>()
+    const normalized = items.map(item => {
+        const metadata = item.value && typeof item.value === 'object' && !Array.isArray(item.value) ? item.value : {}
+        const keys = Object.keys(metadata).filter(key => (item.excludedKeys || []).indexOf(key) < 0).sort()
+        const selected = keys.reduce((result, key) => {
+            result[key] = metadata[key]
+            return result
+        }, {} as Record<string, any>)
+        return { ...item, keys, selected, serialized: JSON.stringify(selected, null, 2) }
+    })
+    const selected = normalized.find(item => item.key === selectedKey)
+    const labelColumn = typeof labelWidth === 'number' ? `${labelWidth}px` : labelWidth
+    return <div className="netdive-detail-metadata-rows">
+        {normalized.map(item => {
+            const summary = item.keys.length === 0
+                ? '키 없음'
+                : `${item.keys.slice(0, 2).map(kubernetesMetadataKeyLabel).join(', ')}${item.keys.length > 2 ? ` 외 ${item.keys.length - 2}개` : ''}`
+            const content = <React.Fragment>
+                <strong>{item.label}</strong>
+                <span>{summary}</span>
+                {item.keys.length > 0 && <RightOutlined />}
+            </React.Fragment>
+            return item.keys.length > 0
+                ? <button
+                    type="button"
+                    key={item.key}
+                    className="netdive-detail-metadata-row is-interactive"
+                    style={{ gridTemplateColumns: `${labelColumn} minmax(0, 1fr) 24px` }}
+                    onClick={() => setSelectedKey(item.key)}>{content}</button>
+                : <div
+                    key={item.key}
+                    className="netdive-detail-metadata-row"
+                    style={{ gridTemplateColumns: `${labelColumn} minmax(0, 1fr) 24px` }}>{content}</div>
+        })}
+        <Modal
+            title={selected?.modalTitle || selected?.label}
+            visible={!!selected}
+            onCancel={() => setSelectedKey(undefined)}
+            footer={null}
+            destroyOnClose
+            keyboard
+            getContainer={() => document.body}
+            className="netdive-list-modal netdive-detail-metadata-modal">
+            <div className="netdive-detail-metadata-modal__toolbar">
+                <span>총 {selected?.keys.length || 0}개</span>
+                <DetailCopyButton value={selected?.serialized || ''} tooltip="전체 값 복사" />
+            </div>
+            {selected?.keys.map(key => kubernetesMetadataValueDescription(key, selected.selected[key])).filter(Boolean).map((description, index) =>
+                <div key={index} className="netdive-detail-metadata-modal__description">{description}</div>)}
+            <pre>{selected?.serialized}</pre>
+        </Modal>
+    </div>
+}
 
 export interface DetailCollectionStatusRowProps {
     label?: React.ReactNode
@@ -699,16 +851,26 @@ export interface StatusEvidenceListProps {
     columnHeaders?: {
         state: React.ReactNode
         value: React.ReactNode
+        secondaryValue?: React.ReactNode
+        valueTooltip?: React.ReactNode
+        secondaryValueTooltip?: React.ReactNode
     }
     className?: string
 }
 
 export const StatusEvidenceList = ({ children, columnHeaders, className }: StatusEvidenceListProps) => (
-    <div className={joinClassNames('netdive-detail-evidence-list', className)}>
-        {columnHeaders && <div className="netdive-detail-evidence-list__column-headers">
+    <div className={joinClassNames('netdive-detail-evidence-list', columnHeaders?.secondaryValue !== undefined && 'has-secondary-value', className)}>
+        {columnHeaders && <div className={joinClassNames('netdive-detail-evidence-list__column-headers', columnHeaders.secondaryValue !== undefined && 'has-secondary-value')}>
             <span aria-hidden="true" />
             <span>{columnHeaders.state}</span>
-            <span>{columnHeaders.value}</span>
+            <span className="netdive-detail-evidence-list__header-label">
+                {columnHeaders.value}
+                {columnHeaders.valueTooltip && <Tooltip title={<DetailTooltipContent description={columnHeaders.valueTooltip} />} overlayClassName="netdive-operational-tooltip"><InfoCircleOutlined /></Tooltip>}
+            </span>
+            {columnHeaders.secondaryValue !== undefined && <span className="netdive-detail-evidence-list__header-label">
+                {columnHeaders.secondaryValue}
+                {columnHeaders.secondaryValueTooltip && <Tooltip title={<DetailTooltipContent description={columnHeaders.secondaryValueTooltip} />} overlayClassName="netdive-operational-tooltip"><InfoCircleOutlined /></Tooltip>}
+            </span>}
         </div>}
         {children}
     </div>
@@ -722,6 +884,9 @@ export const StatusEvidenceRow = ({
     status,
     value,
     valueVariant = 'number',
+    secondaryValue,
+    secondaryValueVariant = 'grade',
+    valuesUnavailable = false,
     tone = 'default',
     tooltip,
     tooltipDetail,
@@ -732,8 +897,10 @@ export const StatusEvidenceRow = ({
     const renderedState = status
         ? <DetailStatusIndicator tone={status.tone || tone}>{status.label}</DetailStatusIndicator>
         : state
+    const renderedValue = valuesUnavailable ? '확인 불가' : value
+    const renderedSecondaryValue = valuesUnavailable ? '확인 불가' : secondaryValue
     const content = (
-        <div className={joinClassNames('netdive-detail-evidence-row', `netdive-detail-evidence-row--${tone}`, className)}>
+        <div className={joinClassNames('netdive-detail-evidence-row', secondaryValue !== undefined && 'has-secondary-value', valuesUnavailable && 'has-unavailable-values', `netdive-detail-evidence-row--${tone}`, className)}>
             <div className="netdive-detail-evidence-row__info">
                 <span className="netdive-detail-evidence-row__title">
                     {title}
@@ -753,7 +920,8 @@ export const StatusEvidenceRow = ({
                 </dl>}
             </div>
             <div className="netdive-detail-evidence-row__state">{renderedState}</div>
-            <strong className={joinClassNames('netdive-detail-evidence-row__value', `is-${valueVariant}`)}>{value}</strong>
+            <strong className={joinClassNames('netdive-detail-evidence-row__value', `is-${valueVariant}`)}>{renderedValue}</strong>
+            {secondaryValue !== undefined && <strong className={joinClassNames('netdive-detail-evidence-row__value', 'netdive-detail-evidence-row__secondary-value', `is-${secondaryValueVariant}`)}>{renderedSecondaryValue}</strong>}
         </div>
     )
     if (!onClick) return content

@@ -21,6 +21,8 @@ export {
     DetailModalResourceCell,
     DetailModalTextCell,
     DetailMetaInfoRow,
+    DetailMetadataRows,
+    DetailMetadataSummary,
     DetailNavigationTabs,
     KUBERNETES_DETAIL_LABELS,
     KUBERNETES_UTILIZATION_THRESHOLDS,
@@ -45,6 +47,19 @@ export {
 } from './KubernetesRecentEvents'
 export { formatKubernetesValueState } from './KubernetesValueState'
 export type { KubernetesValueStateOptions } from './KubernetesValueState'
+export {
+    kubernetesCollectionPresentation,
+    kubernetesConfigurationCoveragePresentation,
+    kubernetesMetadataKeyLabel,
+    kubernetesMetadataValueDescription,
+    kubernetesNamespacePhaseLabel
+} from './KubernetesDataPresentation'
+export type {
+    KubernetesCollectionPresentation,
+    KubernetesCollectionSource,
+    KubernetesConfigurationCoveragePresentation,
+    KubernetesConfigurationState
+} from './KubernetesDataPresentation'
 
 export { KubernetesAnalysisConfidence } from './KubernetesAnalysisConfidence'
 export {
@@ -118,6 +133,10 @@ export type {
     DetailLayerIconProps,
     DetailInlineSectionHeaderProps,
     DetailMetricRowProps,
+    DetailMetaInfoItem,
+    DetailMetadataRowItem,
+    DetailMetadataRowsProps,
+    DetailMetadataSummaryProps,
     DetailPanelHeaderProps,
     DetailOperationalMetric,
     DetailOperationalSummaryProps,

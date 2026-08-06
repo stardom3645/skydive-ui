@@ -1,6 +1,7 @@
 import type { Node } from './Topology'
 import { resolveKubernetesPodTopController } from './KubernetesWorkloadOwnership'
 import { podCpuResourceCores, podMemoryResourceBytes } from './DataPanels/common/KubernetesPodUsageMetrics'
+import { kubernetesCpuCores, kubernetesMemoryBytes } from './DataPanels/common/kubernetesQuantity'
 
 const valueAtPath = (source: any, path: string): any =>
     path.split('.').reduce((value, key) => value === undefined || value === null ? undefined : value[key], source)
@@ -183,10 +184,78 @@ export interface KubernetesContainerResourceCoverage {
     cpuLimits: number
     memoryRequests: number
     memoryLimits: number
+    cpuRequestsCollected: boolean
+    cpuLimitsCollected: boolean
+    memoryRequestsCollected: boolean
+    memoryLimitsCollected: boolean
     cpuRequestsCores?: number
     cpuLimitsCores?: number
     memoryRequestsBytes?: number
     memoryLimitsBytes?: number
+}
+
+export interface KubernetesNamespaceResourceConfigurationDetail {
+    collected?: boolean
+    totalContainers?: number
+    cpuRequests?: { configuredContainers?: number, cores?: number }
+    cpuLimits?: { configuredContainers?: number, cores?: number }
+    memoryRequests?: { configuredContainers?: number, bytes?: number }
+    memoryLimits?: { configuredContainers?: number, bytes?: number }
+}
+
+/** Converts the namespace API resource contract without inferring missing
+ * counts from legacy aggregate strings. All four rows originate from the same
+ * active-Pod container dataset. */
+export const kubernetesNamespaceResourceCoverageFromDetail = (
+    detail: KubernetesNamespaceResourceConfigurationDetail | undefined | null
+): KubernetesContainerResourceCoverage | undefined => {
+    if (!detail || detail.collected !== true) return undefined
+    const total = Number(detail.totalContainers)
+    const metrics = [detail.cpuRequests, detail.cpuLimits, detail.memoryRequests, detail.memoryLimits]
+    const configured = metrics.map(metric => Number(metric?.configuredContainers))
+    if (!Number.isFinite(total) || total < 0 || configured.some(value => !Number.isFinite(value) || value < 0)) return undefined
+    return {
+        collected: true,
+        total,
+        cpuRequests: configured[0],
+        cpuLimits: configured[1],
+        memoryRequests: configured[2],
+        memoryLimits: configured[3],
+        cpuRequestsCollected: true,
+        cpuLimitsCollected: true,
+        memoryRequestsCollected: true,
+        memoryLimitsCollected: true,
+        cpuRequestsCores: Number.isFinite(Number(detail.cpuRequests?.cores)) ? Number(detail.cpuRequests?.cores) : 0,
+        cpuLimitsCores: Number.isFinite(Number(detail.cpuLimits?.cores)) ? Number(detail.cpuLimits?.cores) : 0,
+        memoryRequestsBytes: Number.isFinite(Number(detail.memoryRequests?.bytes)) ? Number(detail.memoryRequests?.bytes) : 0,
+        memoryLimitsBytes: Number.isFinite(Number(detail.memoryLimits?.bytes)) ? Number(detail.memoryLimits?.bytes) : 0
+    }
+}
+
+export interface KubernetesNamespacePolicyCoverage {
+    collected: boolean
+    count: number
+}
+
+export const kubernetesNamespacePolicyCoverage = (
+    topologyResources: Node[],
+    detailCollected: any,
+    detailResources: any,
+    detailCount: any
+): KubernetesNamespacePolicyCoverage => {
+    const topologyCount = uniqueKubernetesNamespaceResources(topologyResources).length
+    const detailListCollected = Array.isArray(detailResources)
+    const collected = detailCollected === true || topologyCount > 0 || detailListCollected
+    if (!collected) return { collected: false, count: 0 }
+    const reportedCount = Number(detailCount)
+    return {
+        collected: true,
+        count: Math.max(
+            topologyCount,
+            detailListCollected ? detailResources.length : 0,
+            Number.isFinite(reportedCount) && reportedCount >= 0 ? reportedCount : 0
+        )
+    }
 }
 
 export const kubernetesNamespaceContainerResourceCoverage = (pods: Node[]): KubernetesContainerResourceCoverage => {
@@ -204,6 +273,11 @@ export const kubernetesNamespaceContainerResourceCoverage = (pods: Node[]): Kube
     let cpuLimitsCores: number | undefined
     let memoryRequestsBytes: number | undefined
     let memoryLimitsBytes: number | undefined
+    let resourceSpecsCollected = true
+    let cpuRequestsValid = true
+    let cpuLimitsValid = true
+    let memoryRequestsValid = true
+    let memoryLimitsValid = true
     const sum = (current: number | undefined, value: number | undefined): number | undefined =>
         value === undefined ? current : (current || 0) + value
     const configured = (resourceValues: any, key: 'cpu' | 'memory'): boolean => {
@@ -211,33 +285,65 @@ export const kubernetesNamespaceContainerResourceCoverage = (pods: Node[]): Kube
         const value = resourceValues[key] ?? resourceValues[key[0].toUpperCase() + key.slice(1)] ?? resourceValues[key.toUpperCase()]
         return value !== undefined && value !== null && value !== ''
     }
+    const resourceValue = (resourceValues: any, key: 'cpu' | 'memory'): any =>
+        resourceValues?.[key] ?? resourceValues?.[key[0].toUpperCase() + key.slice(1)] ?? resourceValues?.[key.toUpperCase()]
     uniquePods.forEach(pod => {
         const spec = firstRaw(pod.data || {}, ['K8s.Extra.Spec', 'K8s.Spec', 'Spec'])
         const containers = spec?.Containers || spec?.containers
-        if (!spec || !Array.isArray(containers)) return
+        // A valid active Kubernetes Pod always has at least one regular
+        // container. An empty array therefore means the container Spec was not
+        // collected, not that the Namespace genuinely has a 0 / 0 baseline.
+        if (!spec || !Array.isArray(containers) || containers.length === 0) return
         collectedPodSpecs += 1
         const initContainers = spec.InitContainers || spec.initContainers || []
-        const countedContainers = containers.concat(Array.isArray(initContainers) ? initContainers : [])
+        const uniqueContainers = (items: any[], prefix: string): any[] => Array.from(items.reduce((result, container, index) => {
+            const name = container?.Name || container?.name
+            const key = `${prefix}:${name || index}`
+            if (!result.has(key)) result.set(key, container)
+            return result
+        }, new Map<string, any>()).values())
+        const regularContainers = uniqueContainers(containers, 'container')
+        const policyInitContainers = uniqueContainers(Array.isArray(initContainers) ? initContainers : [], 'initContainer')
+        const countedContainers = regularContainers.concat(policyInitContainers)
         const effectiveContainerSpec = {
-            Containers: containers,
-            InitContainers: Array.isArray(initContainers) ? initContainers : []
+            Containers: regularContainers,
+            InitContainers: policyInitContainers
         }
         countedContainers.forEach((container: any) => {
             total += 1
+            if (!Object.prototype.hasOwnProperty.call(container || {}, 'Resources')
+                && !Object.prototype.hasOwnProperty.call(container || {}, 'resources')) resourceSpecsCollected = false
             const resources = container?.Resources || container?.resources || {}
             const requests = resources.Requests || resources.requests || {}
             const limits = resources.Limits || resources.limits || {}
-            if (configured(requests, 'cpu')) cpuRequests += 1
-            if (configured(limits, 'cpu')) cpuLimits += 1
-            if (configured(requests, 'memory')) memoryRequests += 1
-            if (configured(limits, 'memory')) memoryLimits += 1
+            if (configured(requests, 'cpu')) {
+                cpuRequests += 1
+                if (kubernetesCpuCores(resourceValue(requests, 'cpu')) === undefined) cpuRequestsValid = false
+            }
+            if (configured(limits, 'cpu')) {
+                cpuLimits += 1
+                if (kubernetesCpuCores(resourceValue(limits, 'cpu')) === undefined) cpuLimitsValid = false
+            }
+            if (configured(requests, 'memory')) {
+                memoryRequests += 1
+                if (kubernetesMemoryBytes(resourceValue(requests, 'memory')) === undefined) memoryRequestsValid = false
+            }
+            if (configured(limits, 'memory')) {
+                memoryLimits += 1
+                if (kubernetesMemoryBytes(resourceValue(limits, 'memory')) === undefined) memoryLimitsValid = false
+            }
         })
         cpuRequestsCores = sum(cpuRequestsCores, podCpuResourceCores(effectiveContainerSpec, 'Requests'))
         cpuLimitsCores = sum(cpuLimitsCores, podCpuResourceCores(effectiveContainerSpec, 'Limits'))
         memoryRequestsBytes = sum(memoryRequestsBytes, podMemoryResourceBytes(effectiveContainerSpec, 'Requests'))
         memoryLimitsBytes = sum(memoryLimitsBytes, podMemoryResourceBytes(effectiveContainerSpec, 'Limits'))
     })
-    const collected = uniquePods.length === 0 || collectedPodSpecs === uniquePods.length
+    const baseCollected = (uniquePods.length === 0 || collectedPodSpecs === uniquePods.length) && resourceSpecsCollected
+    const cpuRequestsCollected = baseCollected && cpuRequestsValid
+    const cpuLimitsCollected = baseCollected && cpuLimitsValid
+    const memoryRequestsCollected = baseCollected && memoryRequestsValid
+    const memoryLimitsCollected = baseCollected && memoryLimitsValid
+    const collected = cpuRequestsCollected && cpuLimitsCollected && memoryRequestsCollected && memoryLimitsCollected
     return {
         collected,
         total,
@@ -245,10 +351,14 @@ export const kubernetesNamespaceContainerResourceCoverage = (pods: Node[]): Kube
         cpuLimits,
         memoryRequests,
         memoryLimits,
-        cpuRequestsCores: collected ? cpuRequestsCores : undefined,
-        cpuLimitsCores: collected ? cpuLimitsCores : undefined,
-        memoryRequestsBytes: collected ? memoryRequestsBytes : undefined,
-        memoryLimitsBytes: collected ? memoryLimitsBytes : undefined
+        cpuRequestsCollected,
+        cpuLimitsCollected,
+        memoryRequestsCollected,
+        memoryLimitsCollected,
+        cpuRequestsCores: cpuRequestsCollected ? cpuRequestsCores : undefined,
+        cpuLimitsCores: cpuLimitsCollected ? cpuLimitsCores : undefined,
+        memoryRequestsBytes: memoryRequestsCollected ? memoryRequestsBytes : undefined,
+        memoryLimitsBytes: memoryLimitsCollected ? memoryLimitsBytes : undefined
     }
 }
 
