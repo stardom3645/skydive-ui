@@ -19,6 +19,7 @@ import { Node, Link, NodeAttrs, LinkAttrs, LinkTagState } from './Topology'
 import Tools from './Tools'
 import { switchDisplayName } from './SwitchNodeUtils'
 import { isKubernetesTopologyData } from './KubernetesInfrastructureEvidence'
+import { kubernetesWorkloadNodeText } from './KubernetesTopologyNodePresentation'
 
 const SHOW_DEBUG = false
 
@@ -1858,12 +1859,12 @@ export const i18nMap = {
         "kubernetesWorkloadNormalConclusion": "요구된 워크로드 용량이 정상 제공 중입니다",
         "kubernetesWorkloadWarningConclusion": "Replica 또는 파드 가용성 확인이 필요합니다",
         "kubernetesWorkloadFailedConclusion": "실패한 워크로드 실행이 있습니다",
-        "kubernetesDesiredReplicas": "Desired",
-        "kubernetesAvailableReplicas": "Available",
-        "kubernetesUpdatedReplicas": "Updated",
-        "kubernetesUnavailableReplicas": "Unavailable",
-        "kubernetesReadyReplicas": "Ready",
-        "kubernetesCurrentReplicas": "Current",
+        "kubernetesDesiredReplicas": "목표 복제본",
+        "kubernetesAvailableReplicas": "가용 복제본",
+        "kubernetesUpdatedReplicas": "업데이트 복제본",
+        "kubernetesUnavailableReplicas": "미가용 복제본",
+        "kubernetesReadyReplicas": "준비 복제본",
+        "kubernetesCurrentReplicas": "현재 복제본",
         "kubernetesDesiredNodes": "Desired 노드",
         "kubernetesReadyNodes": "Ready 노드",
         "kubernetesAvailableNodes": "Available 노드",
@@ -3139,9 +3140,7 @@ class DefaultConfig {
                 }
                 attrs.iconClass = `k8s-workload-icon k8s-${workloadType}-icon`
                 attrs.weight = WEIGHT_K8S_WORKLOAD
-                const kindLabels: Record<string, string> = { deployment: "Deployment", statefulset: "StatefulSet", daemonset: "DaemonSet", job: "Job", cronjob: "CronJob" }
-                const kindLabel = kindLabels[workloadType] || String(node.data.Type || '')
-                attrs.name = `${String(node.data.Name || node.id)}\n${kindLabel}`
+                attrs.name = kubernetesWorkloadNodeText(node.data.Name || node.id, workloadType).accessibleName
                 break
             case "replicaset":
                 attrs.href = "assets/icons/replicaset.png"

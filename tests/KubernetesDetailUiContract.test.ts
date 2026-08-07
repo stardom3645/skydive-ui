@@ -8,6 +8,19 @@ const root = path.resolve(__dirname, '..')
 const read = (file: string) => fs.readFileSync(path.join(root, file), 'utf8')
 
 describe('Kubernetes detail UI contract', () => {
+    it('keeps structured modal copy actions visible and supports embedded-browser fallback', () => {
+        const common = read('src/DataPanels/common/DetailComponents.tsx')
+        const table = read('src/DataPanels/common/KubernetesStructuredDataTable.tsx')
+        const commonCss = read('src/DataPanels/common/DetailComponents.css')
+        assert.ok(common.includes("document.execCommand('copy')"))
+        assert.ok(common.includes('result.catch(() => copyTextWithLegacySelection(value))'))
+        assert.ok(common.includes('placement="topRight"'))
+        assert.ok(common.includes('getPopupContainer={() => document.body}'))
+        assert.ok(table.includes('width: hasExpandableRows ? 72 : 44'))
+        assert.ok(commonCss.includes('.netdive-k8s-structured-table__actions'))
+        assert.ok(commonCss.includes('.netdive-detail-copy-tooltip .ant-tooltip-inner'))
+    })
+
     it('covers normal, exceptional, empty, failure, long-name, and narrow states', () => {
         const states = new Set(kubernetesDetailPreviewFixtures.map(fixture => fixture.key))
         ;['normal', 'warning', 'danger', 'empty', 'fetch-error', 'long-name', 'narrow-panel']
@@ -169,8 +182,8 @@ describe('Kubernetes detail UI contract', () => {
         const common = read('src/DataPanels/common/DetailComponents.tsx')
         const commonCss = read('src/DataPanels/common/DetailComponents.css')
         const selection = read('src/SelectionPanel.tsx')
-        assert.ok(selection.includes('titleMaxLines={isKubernetesNode ? 2 : 1}'))
-        assert.ok(selection.includes('const displayTitle = isKubernetesNode ? fullTitle'))
+        assert.ok(selection.includes('titleMaxLines={isKubernetesLongNameResource ? 2 : 1}'))
+        assert.ok(selection.includes('const displayTitle = isKubernetesLongNameResource ? fullTitle'))
         assert.ok(common.includes('titleMaxLines?: 1 | 2'))
         assert.ok(commonCss.includes('-webkit-line-clamp: 2'))
         assert.ok(node.includes("{ label: 'Kubelet 버전'"))
@@ -245,11 +258,12 @@ describe('Kubernetes detail UI contract', () => {
         const namespaceCss = read('src/DataPanels/KubernetesNamespaceDetailPanel.css')
         const recentEvents = read('src/DataPanels/common/KubernetesRecentEvents.tsx')
         const visualPreview = read('tests/visual/KubernetesDetailVisualRegression.tsx')
+        const resourceConfigurationCard = read('src/DataPanels/common/KubernetesResourceConfigurationCard.tsx')
         ;[
             '<DetailSectionCard',
             '<BasicInfoRows',
             '<DetailAdvancedInfo',
-            '<DetailMetadataRows',
+            '<KubernetesMetadataRows',
             '<DetailMetadataSummary',
             '<StatusSummaryGrid',
             '<DetailNavigationTabs',
@@ -273,17 +287,17 @@ describe('Kubernetes detail UI contract', () => {
         assert.ok(namespace.includes('value: collection.label'))
         assert.ok(!namespace.includes('<DetailCollectionStatusRow'))
         assert.ok(namespace.includes('kubernetesCollectionPresentation(['))
-        assert.ok(namespace.includes("label: 'Requests/Limits', state: resourceCoverage.collected ? 'collected' : 'uncollected'"))
+        assert.ok(namespace.includes("label: 'Requests/Limits', state: requestsLimitsCollectionState"))
         assert.ok(namespace.includes("label: '사용량 메트릭', state: usageMetricsCollected ? 'collected' : 'uncollected'"))
         assert.ok(namespace.includes("label: 'Kubernetes 객체'"))
-        assert.ok(namespace.includes("label: '워크로드·Pod'"))
-        assert.ok(namespace.includes("label: 'Service'"))
+        assert.ok(namespace.includes('label: KUBERNETES_DETAIL_LABELS.workloadsAndPods'))
+        assert.ok(namespace.includes('label: KUBERNETES_DETAIL_LABELS.services'))
         assert.ok(namespace.includes("label: '이벤트'"))
-        assert.ok(namespace.includes('kubernetesConfigurationCoveragePresentation('))
+        assert.ok(resourceConfigurationCard.includes('kubernetesConfigurationCoveragePresentation('))
         assert.ok(namespace.includes('KUBERNETES_DETAIL_LABELS.namespaceStatus'))
         assert.ok(namespace.includes('KUBERNETES_DETAIL_LABELS.runningPods'))
-        assert.ok(namespace.includes('KUBERNETES_DETAIL_LABELS.cpuRequests'))
-        assert.ok(namespace.includes('KUBERNETES_DETAIL_LABELS.memoryLimits'))
+        assert.ok(resourceConfigurationCard.includes('KUBERNETES_DETAIL_LABELS.cpuRequests'))
+        assert.ok(resourceConfigurationCard.includes('KUBERNETES_DETAIL_LABELS.memoryLimits'))
         assert.ok(namespace.includes("modalTitle: '네임스페이스 어노테이션'"))
         assert.ok(!namespace.includes("label: 'Annotation'"))
         assert.ok(namespace.includes('<DetailNavigationTabs'))
@@ -312,7 +326,7 @@ describe('Kubernetes detail UI contract', () => {
         assert.ok(antThemeCss.includes('background-color: #e6f7ff'))
         assert.ok(antThemeCss.includes('z-index: 2147483656'))
         assert.ok(namespace.includes('overflowTabs={['))
-        assert.ok(namespace.includes("{ key: 'services', label: 'Service', count: connectedServices.length }"))
+        assert.ok(namespace.includes("{ key: 'services', label: KUBERNETES_DETAIL_LABELS.services, count: connectedServices.length }"))
         assert.ok(namespace.includes("{ key: 'ingress', label: 'Ingress', count:"))
         assert.ok(namespace.includes("{ key: 'configuration', label: '정책 및 설정', count:"))
         assert.ok(namespace.includes("{ key: 'storage', label: '스토리지', count:"))
@@ -322,10 +336,48 @@ describe('Kubernetes detail UI contract', () => {
         assert.ok(commonCss.includes('justify-self: end'))
         assert.ok(commonCss.includes('.netdive-detail-meta-info-row .netdive-detail-status-indicator'))
         assert.ok(commonComponents.includes('export const DetailMetadataSummary'))
-        assert.ok(commonComponents.includes('export const DetailMetadataRows'))
-        assert.ok(commonComponents.includes('className="netdive-detail-metadata-row is-interactive"'))
-        assert.ok(commonComponents.includes('className="netdive-detail-metadata-row"'))
-        assert.ok(commonComponents.includes('<RightOutlined />'))
+        const metadataModal = read('src/DataPanels/common/KubernetesMetadataModal.tsx')
+        assert.ok(metadataModal.includes('export const KubernetesMetadataRows'))
+        assert.ok(metadataModal.includes('className="netdive-detail-metadata-row is-interactive"'))
+        assert.ok(metadataModal.includes("emptyText = '추가 메타데이터 없음'"))
+        assert.ok(metadataModal.includes('const visibleItems = normalized.filter(item => item.entries.length > 0)'))
+        const structuredTable = read('src/DataPanels/common/KubernetesStructuredDataTable.tsx')
+        const selectorModal = read('src/DataPanels/common/KubernetesSelectorSummary.tsx')
+        assert.ok(metadataModal.includes('<KubernetesStructuredDataTable'))
+        assert.ok(metadataModal.includes('<KubernetesRawJsonCollapse'))
+        assert.ok(metadataModal.indexOf('<KubernetesModalResourceContext') < metadataModal.indexOf('<KubernetesModalSection'))
+        assert.ok(metadataModal.indexOf('<KubernetesModalSection') < metadataModal.indexOf('<KubernetesRawJsonCollapse'))
+        assert.ok(selectorModal.indexOf('<KubernetesModalResourceContext') < selectorModal.indexOf('title={`라벨 선택자'))
+        assert.ok(selectorModal.indexOf('title={`라벨 선택자') < selectorModal.indexOf('title={`조건 선택자'))
+        assert.ok(selectorModal.indexOf('title={`조건 선택자') < selectorModal.indexOf('<KubernetesRawJsonCollapse'))
+        assert.ok(structuredTable.includes('<Divider />'))
+        assert.ok(structuredTable.includes('KubernetesModalResourceContext'))
+        assert.ok(structuredTable.includes('KubernetesModalSection'))
+        assert.ok(structuredTable.includes('<Table<KubernetesStructuredDataRow>'))
+        assert.ok(structuredTable.includes('className="netdive-modal-table netdive-k8s-structured-table"'))
+        assert.ok(structuredTable.includes('size="small"'))
+        assert.ok(structuredTable.includes('rowKey="id"'))
+        assert.ok(structuredTable.includes('expandedRowKeys: expandedKeys'))
+        assert.ok(structuredTable.includes('setExpandedKeys(current => toggleKubernetesStructuredExpandedKey(current, row.id))'))
+        assert.ok(structuredTable.includes('event.stopPropagation()'))
+        assert.ok(structuredTable.includes('destroyInactivePanel'))
+        assert.ok(structuredTable.includes('className="netdive-k8s-structured-table__empty"'))
+        assert.ok(!metadataModal.includes('ellipsis={{'))
+        assert.ok(!structuredTable.includes('ellipsis={{'))
+        assert.ok(!structuredTable.includes('Popover'))
+        assert.ok(!structuredTable.includes('onMouseEnter'))
+        assert.ok(commonCss.includes('background: #fafafa'))
+        assert.ok(commonCss.includes('border-bottom-color: #f0f0f0'))
+        assert.ok(commonCss.includes('.netdive-k8s-modal-section > .ant-divider'))
+        assert.ok(commonCss.includes('.netdive-k8s-structured-table__empty.netdive-detail-empty--compact'))
+        assert.ok(commonCss.includes('border: 1px solid var(--netdive-detail-section-divider)'))
+        assert.ok(commonCss.includes('margin: 8px 0 6px'))
+        assert.ok(commonCss.includes('padding: 14px 16px'))
+        assert.ok(!metadataModal.includes('tooltip="키 복사"'))
+        assert.ok(!metadataModal.includes('netdive-k8s-metadata-modal__list'))
+        assert.ok(!metadataModal.includes('netdive-k8s-metadata-modal__entry'))
+        assert.ok(!commonComponents.includes("? '키 없음'"))
+        assert.ok(metadataModal.includes('<RightOutlined />'))
         assert.ok(!commonComponents.includes('상세 보기'))
         assert.ok(!commonComponents.includes('DetailMetadataList'))
         assert.ok(!commonComponents.includes('export const DetailResourceConfigurationList'))
@@ -333,11 +385,17 @@ describe('Kubernetes detail UI contract', () => {
         assert.ok(commonCss.includes('.netdive-detail-metadata-row.is-interactive:hover'))
         assert.ok(!commonCss.includes('.netdive-detail-metadata-list'))
         assert.ok(!commonCss.includes('.netdive-detail-resource-configuration__headers'))
-        assert.ok(namespace.includes('description="활성 Pod 컨테이너의 요청량·제한량 설정 현황입니다."'))
+        assert.ok(namespace.includes('<KubernetesResourceConfigurationCard coverage={resourceCoverage} />'))
+        assert.ok(resourceConfigurationCard.includes("description = '활성 파드 컨테이너의 요청량·제한량 설정 현황입니다.'"))
         assert.strictEqual((namespace.match(/활성 Pod의 일반 컨테이너와 initContainer 중 해당 리소스 값/g) || []).length, 0)
-        assert.ok(namespace.includes("columnHeaders={{ state: '상태', value: '설정 수', secondaryValue: '설정 합계'"))
-        assert.ok(namespace.includes('secondaryValue={item.total}'))
-        assert.ok(namespace.includes('valuesUnavailable={item.unavailable}'))
+        assert.ok(resourceConfigurationCard.includes("value: '설정 컨테이너'"))
+        assert.ok(resourceConfigurationCard.includes("value: '설정값'"))
+        assert.ok(resourceConfigurationCard.includes("secondaryValue: '설정 합계'"))
+        assert.ok(resourceConfigurationCard.includes('kubernetesConfiguredResourceTotalPresentation({'))
+        assert.ok(resourceConfigurationCard.includes("secondaryValue={descriptionMode === 'single' ? undefined : row.total}"))
+        assert.ok(resourceConfigurationCard.includes('valuesUnavailable={!row.collected}'))
+        assert.ok(resourceConfigurationCard.includes('kubernetesConfigurationCoveragePresentation('))
+        assert.ok(resourceConfigurationCard.includes('kubernetesResourceConfigurationCollectionState('))
         assert.ok(commonComponents.includes('secondaryValue?: React.ReactNode'))
         assert.ok(commonComponents.includes('valuesUnavailable?: boolean'))
         assert.ok(commonComponents.includes("const renderedValue = valuesUnavailable ? '확인 불가' : value"))
@@ -347,9 +405,13 @@ describe('Kubernetes detail UI contract', () => {
         assert.ok(namespace.includes("onClick={limitRangeConfigured ? () => this.setState({ policyModal: 'limitRange' }) : undefined}"))
         assert.ok(namespace.includes('KUBERNETES_DETAIL_LABELS.resourceQuota'))
         assert.ok(namespace.includes('KUBERNETES_DETAIL_LABELS.limitRange'))
+        assert.ok(commonComponents.includes("resourceQuota: '리소스 할당량'"))
+        assert.ok(commonComponents.includes("limitRange: '기본 리소스 제한'"))
+        assert.ok(!commonComponents.includes("resourceQuota: '리소스 할당량(ResourceQuota)'"))
+        assert.ok(!commonComponents.includes("limitRange: '기본 리소스 제한(LimitRange)'"))
         assert.ok(kubernetesPresentation.includes("key === 'kubectl.kubernetes.io/last-applied-configuration'"))
         assert.ok(kubernetesPresentation.includes("'kubectl.kubernetes.io/last-applied-configuration': 'kubectl 적용 구성'"))
-        assert.ok(commonComponents.includes('전체 값 복사'))
+        assert.ok(metadataModal.includes('전체 ${kindLabel} 복사'))
         assert.ok(namespace.includes('ResourceQuota'))
         assert.ok(namespace.includes('LimitRange'))
         assert.ok(namespace.includes("label: 'PVC'"))
@@ -359,7 +421,13 @@ describe('Kubernetes detail UI contract', () => {
         assert.ok(!namespaceCss.includes('overflow-x: auto'))
         assert.ok(!namespaceCss.includes('navigation'))
         assert.ok(!namespaceCss.includes('netdive-k8s-namespace-detail__resource-policy'))
-        assert.ok(namespace.includes('집계 결과는 있으나 연결된 Pod를 현재 토폴로지에서 확인할 수 없습니다.'))
+        assert.ok(namespace.includes('집계 결과는 있으나 연결된 파드를 현재 토폴로지에서 확인할 수 없습니다.'))
+        assert.ok(namespace.includes("tooltip: '파드 생성 이후 Evicted, restartCount 1 이상, 과거 OOMKilled"))
+        assert.ok(namespace.includes('파드 UID 기준으로 중복 제거합니다.'))
+        assert.ok(resourceConfigurationCard.includes("tooltip={descriptionMode === 'single' ? row.tooltip.replace('활성 파드', '이 컨테이너') : row.tooltip}"))
+        assert.ok(!resourceConfigurationCard.includes('evidence={row.tooltip}'))
+        assert.ok(commonComponents.includes('item.tooltip && item.onClick ? <Tooltip'))
+        assert.ok(commonComponents.includes('interactive || labelTooltip !== undefined'))
         assert.ok(!namespace.includes("import './KubernetesNodeDetailPanel.css'"))
         assert.ok(!namespace.includes('netdive-k8s-node-detail'))
         assert.ok(!namespace.includes('<DetailBadge'))
@@ -397,27 +465,27 @@ describe('Kubernetes detail UI contract', () => {
             {
                 name: 'workload',
                 source: read('src/DataPanels/KubernetesWorkloadDetailPanel.tsx'),
-                required: ['<DetailSectionCard', '<BasicInfoRows', '<DetailAdvancedInfo', '<StatusSummaryGrid', '<StatusEvidenceRow', '<KubernetesRecentEvents']
+                required: ['<DetailSectionCard', '<BasicInfoRows', '<DetailAdvancedInfo', '<KubernetesMetadataRows', '<StatusSummaryGrid', '<StatusEvidenceRow', '<KubernetesRecentEvents']
             },
             {
                 name: 'pod',
                 source: read('src/DataPanels/KubernetesPodDetailPanel.tsx'),
-                required: ['<DetailSectionCard', '<BasicInfoRows', '<DetailAdvancedInfo', '<StatusSummaryGrid', '<StatusEvidenceRow', '<KubernetesRecentEvents']
+                required: ['<DetailSectionCard', '<BasicInfoRows', '<DetailAdvancedInfo', '<KubernetesMetadataRows', '<StatusSummaryGrid', '<StatusEvidenceRow', '<KubernetesRecentEvents']
             },
             {
                 name: 'service',
                 source: read('src/DataPanels/KubernetesServiceDetailPanel.tsx'),
-                required: ['<DetailSectionCard', '<BasicInfoRows', '<DetailAdvancedInfo', '<StatusSummaryGrid', '<StatusEvidenceRow', '<RelatedResourceGrid', '<KubernetesRecentEvents']
+                required: ['<DetailSectionCard', '<BasicInfoRows', '<DetailAdvancedInfo', '<KubernetesMetadataRows', '<StatusSummaryGrid', '<StatusEvidenceRow', '<RelatedResourceGrid', '<KubernetesRecentEvents']
             },
             {
                 name: 'storage',
                 source: read('src/DataPanels/KubernetesStorageDetailPanel.tsx'),
-                required: ['<DetailSectionCard', '<BasicInfoRows', '<DetailAdvancedInfo', '<StatusSummaryGrid', '<RelatedResourceGrid', '<KubernetesRecentEvents']
+                required: ['<DetailSectionCard', '<BasicInfoRows', '<DetailAdvancedInfo', '<KubernetesMetadataRows', '<StatusSummaryGrid', '<RelatedResourceGrid', '<KubernetesRecentEvents']
             },
             {
                 name: 'relationship',
                 source: read('src/DataPanels/KubernetesRelationshipResourceDetailPanel.tsx'),
-                required: ['<DetailSectionCard', '<BasicInfoRows', '<DetailAdvancedInfo', '<ConnectedResourceListSection']
+                required: ['<DetailSectionCard', '<BasicInfoRows', '<DetailAdvancedInfo', '<KubernetesMetadataRows', '<ConnectedResourceListSection']
             }
         ]
         panels.forEach(panel => {
@@ -428,6 +496,65 @@ describe('Kubernetes detail UI contract', () => {
             assert.ok(!panel.source.includes('<DetailSection '), `${panel.name} uses the legacy section alias`)
             assert.ok(!panel.source.includes('<ConnectedResourcesSection'), `${panel.name} uses the legacy related-resource alias`)
         })
+    })
+
+    it('keeps workload topology nodes on one fixed three-line card contract', () => {
+        const topology = read('src/Topology.tsx')
+        const topologyCss = read('src/Topology.css')
+        const presentation = read('src/KubernetesTopologyNodePresentation.ts')
+        assert.ok(topology.includes('const topologyWorkloadCardHeight = 108'))
+        assert.ok(topology.includes('const topologyWorkloadTitleLineGap = 18'))
+        assert.ok(topology.includes('isWorkloadControllerNode(d.data.wrapped) ? topologyWorkloadCardHeight : topologyCardHeight'))
+        assert.ok(topology.includes('targetLines = [workloadNameLines[0] || workloadText.name, workloadNameLines[1] || "\\u00a0", workloadText.kind]'))
+        assert.ok(topology.includes('secondaryLineIndex = 2'))
+        assert.ok(topology.includes('secondaryLineClass = "node-card-title-workload-kind"'))
+        assert.ok(topology.includes("nodeHeight + kubernetesWorkloadVerticalGapBoost + (topologyWorkloadCardHeight - topologyCardHeight)"))
+        assert.ok(topologyCss.includes('.node-card-title .node-card-title-workload-kind'))
+        assert.ok(topologyCss.includes('font-size: 14px'))
+        assert.ok(presentation.includes("deployment: 'Deployment'"))
+        assert.ok(presentation.includes("statefulset: 'StatefulSet'"))
+        assert.ok(presentation.includes("daemonset: 'DaemonSet'"))
+    })
+
+    it('keeps StatefulSet detail on shared long-value, resource and relationship grammar', () => {
+        const workload = read('src/DataPanels/KubernetesWorkloadDetailPanel.tsx')
+        const workloadCss = read('src/DataPanels/KubernetesWorkloadDetailPanel.css')
+        const common = read('src/DataPanels/common/DetailComponents.tsx')
+        const commonCss = read('src/DataPanels/common/DetailComponents.css')
+        const recentEvents = read('src/DataPanels/common/KubernetesRecentEvents.tsx')
+        const selectionStyles = read('src/SelectionPanelStyles.ts')
+        assert.ok(workload.includes('<DetailLongValue'))
+        assert.ok(workload.includes('<KubernetesResourceConfigurationRows'))
+        assert.ok(workload.includes('<KubernetesSelectorSummary selector={selector}'))
+        assert.ok(workload.includes('{ label: KUBERNETES_DETAIL_LABELS.selector'))
+        assert.ok(!workload.includes("{ label: 'Selector'"))
+        assert.ok(workload.includes('<KubernetesReplicaSummary'))
+        assert.ok(workload.includes("const operationalMetrics = kind === 'statefulset' ? []"))
+        assert.ok(!workload.includes('<DetailMetricSummaryRow'))
+        assert.ok(workload.includes('kubernetesCreationTimestamp(data)'))
+        assert.ok(workload.includes('collectClaims(spec?.Template?.Spec'))
+        assert.ok(workload.includes('lookbackLabel="최근 1시간"'))
+        assert.ok(workload.includes("label: '누적 Evicted 파드'"))
+        assert.ok(workload.includes("normalizeList(status.Conditions).length > 0"))
+        assert.ok(workload.includes("title: '파드'"))
+        assert.ok(workload.includes("title: '서비스'"))
+        assert.ok(workload.includes("title: 'PVC'"))
+        assert.ok(workload.includes('spec.ServiceName'))
+        assert.ok(workload.includes('EndpointSlice') || workload.includes("['endpointslice']"))
+        assert.ok(workload.includes('PersistentVolumeClaim'))
+        assert.ok(!workload.includes('StatefulSet의 현재 Replica/Rollout 집계입니다.'))
+        assert.ok(!workloadCss.includes('container-resources'))
+        assert.ok(!workloadCss.includes('netdive-k8s-workload-detail__selector'))
+        assert.ok(common.includes('export const DetailMetricSummaryRow'))
+        const replicaSummary = read('src/DataPanels/common/KubernetesReplicaSummary.tsx')
+        assert.ok(replicaSummary.includes("['desired', 'ready', 'current', 'updated', 'unavailable']"))
+        assert.ok(replicaSummary.includes('kubernetesReplicaLabel(term, true)'))
+        assert.ok(commonCss.includes('.netdive-detail-metric-summary-row'))
+        assert.ok(commonCss.includes('.netdive-connected-resource-list__item.ant-btn > .netdive-connected-resource-list__item-icon'))
+        assert.ok(commonCss.includes('.netdive-connected-resource-list__item.ant-btn > .netdive-connected-resource-list__item-icon > *'))
+        assert.ok(commonCss.includes('max-height: var(--netdive-detail-line-primary-value-two-lines)'))
+        assert.ok(recentEvents.includes('lookbackLabel ? `${lookbackLabel} 동안 발생한 중요 이벤트가 없습니다.`'))
+        assert.ok(selectionStyles.includes("flex: '0 0 30px'"))
     })
 
     it('keeps all shared Kubernetes detail typography on the 11px semantic floor', () => {

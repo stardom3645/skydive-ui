@@ -32,22 +32,21 @@ import {
     DetailLayerIcon,
     DetailMetricRow,
     DetailMetaInfoRow,
-    DetailMetadataRows,
     DetailMetadataSummary,
     DetailModalResourceCell,
     DetailModalTextCell,
     DetailNavigationTabs,
     DetailSectionCard,
     formatKubernetesValueState,
-    formatPodCpuUsage,
-    formatPodMemoryUsage,
     HistoryModal,
+    KubernetesMetadataRows,
     KubernetesEventGroup,
     KUBERNETES_DETAIL_LABELS,
     KubernetesRecentEvents,
+    KubernetesResourceConfigurationCard,
     kubernetesCollectionPresentation,
-    kubernetesConfigurationCoveragePresentation,
     kubernetesNamespacePhaseLabel,
+    kubernetesResourceConfigurationCoverageState,
     RelatedResourceGrid,
     ResourceMetricBlock,
     StatusEvidenceList,
@@ -306,8 +305,8 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
         const nodes = this.resourceTabNodes(tab)
         const labels: Record<string, string> = {
             workloads: '워크로드',
-            pods: 'Pod',
-            services: 'Service',
+            pods: KUBERNETES_DETAIL_LABELS.pods,
+            services: KUBERNETES_DETAIL_LABELS.services,
             ingress: 'Ingress',
             configuration: '정책 및 설정',
             storage: '스토리지'
@@ -473,74 +472,26 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
         const usageMetricsCollected = detail.usageMetricsCollected === true
             || detail.metricsCollected === true
             || ['cpuUsage', 'memoryUsage', 'resourceUsage', 'usageMetrics'].some(key => detail[key] !== undefined && detail[key] !== null)
-        const workloadPodCollectionState = detail.podCollected === true && allTopologyNodes.length > 0
+        const listCollected = (keys: string[]): boolean => keys.some(key => Array.isArray(detail[key]))
+        const workloadCollected = detail.workloadCollected === true || listCollected(['workloads', 'deployments', 'statefulSets', 'daemonSets', 'jobs', 'cronJobs'])
+        const podsCollected = detail.podCollected === true || listCollected(['pods'])
+        const workloadObserved = connectedWorkloads.length > 0
+        const podsObserved = connectedPods.length > 0
+        const workloadPodCollectionState = workloadCollected && podsCollected
             ? 'collected'
-            : detail.podCollected === true || allTopologyNodes.length > 0 ? 'partial' : 'uncollected'
-        const serviceCollectionState = detail.serviceCollected === true
+            : workloadCollected || podsCollected || workloadObserved || podsObserved ? 'partial' : 'uncollected'
+        const serviceCollectionState = detail.serviceCollected === true || listCollected(['services'])
             ? 'collected'
             : connectedServices.length > 0 ? 'partial' : 'uncollected'
+        const requestsLimitsCollectionState = kubernetesResourceConfigurationCoverageState(resourceCoverage)
         const collection = kubernetesCollectionPresentation([
             { key: 'object', label: 'Kubernetes 객체', state: detail.phase ? 'collected' : 'uncollected' },
-            { key: 'workloads-pods', label: '워크로드·Pod', state: workloadPodCollectionState },
-            { key: 'services', label: 'Service', state: serviceCollectionState },
+            { key: 'workloads-pods', label: KUBERNETES_DETAIL_LABELS.workloadsAndPods, state: workloadPodCollectionState },
+            { key: 'services', label: KUBERNETES_DETAIL_LABELS.services, state: serviceCollectionState },
             { key: 'events', label: '이벤트', state: detail.eventsCollected === true || eventsCollected ? 'collected' : 'uncollected' },
-            { key: 'requests-limits', label: 'Requests/Limits', state: resourceCoverage.collected ? 'collected' : 'uncollected' },
+            { key: 'requests-limits', label: 'Requests/Limits', state: requestsLimitsCollectionState },
             { key: 'usage', label: '사용량 메트릭', state: usageMetricsCollected ? 'collected' : 'uncollected' }
         ])
-        const resourceConfigurationItems = [
-            {
-                key: 'cpu-requests',
-                label: KUBERNETES_DETAIL_LABELS.cpuRequests,
-                configured: resourceCoverage.cpuRequests,
-                collected: resourceCoverage.cpuRequestsCollected,
-                aggregate: resourceCoverage.cpuRequestsCores,
-                format: formatPodCpuUsage,
-                evidence: '활성 Pod가 스케줄링 시 요청하는 CPU 설정입니다.'
-            },
-            {
-                key: 'cpu-limits',
-                label: KUBERNETES_DETAIL_LABELS.cpuLimits,
-                configured: resourceCoverage.cpuLimits,
-                collected: resourceCoverage.cpuLimitsCollected,
-                aggregate: resourceCoverage.cpuLimitsCores,
-                format: formatPodCpuUsage,
-                evidence: '활성 Pod 컨테이너가 사용할 수 있는 CPU 상한입니다.'
-            },
-            {
-                key: 'memory-requests',
-                label: KUBERNETES_DETAIL_LABELS.memoryRequests,
-                configured: resourceCoverage.memoryRequests,
-                collected: resourceCoverage.memoryRequestsCollected,
-                aggregate: resourceCoverage.memoryRequestsBytes,
-                format: formatPodMemoryUsage,
-                evidence: '활성 Pod가 스케줄링 시 요청하는 메모리 설정입니다.'
-            },
-            {
-                key: 'memory-limits',
-                label: KUBERNETES_DETAIL_LABELS.memoryLimits,
-                configured: resourceCoverage.memoryLimits,
-                collected: resourceCoverage.memoryLimitsCollected,
-                aggregate: resourceCoverage.memoryLimitsBytes,
-                format: formatPodMemoryUsage,
-                evidence: '활성 Pod 컨테이너가 사용할 수 있는 메모리 상한입니다.'
-            }
-        ].map(item => {
-            const coverage = kubernetesConfigurationCoveragePresentation(item.configured, resourceCoverage.total, item.collected)
-            return {
-                key: item.key,
-                label: item.label,
-                evidence: item.evidence,
-                status: coverage.label,
-                tone: coverage.tone,
-                unavailable: !item.collected,
-                configured: coverage.value,
-                total: !item.collected
-                    ? '확인 불가'
-                    : item.aggregate === undefined
-                        ? item.format(0)
-                        : item.format(item.aggregate)
-            }
-        })
         const scheduledNodeTone: DetailBadgeTone = activeConnectedPods.length === 0 ? 'default' : 'success'
         const endpointTone: DetailBadgeTone = endpointUnavailable === undefined
             ? 'default'
@@ -563,7 +514,7 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
         const podModal = this.state.podModal ? podModalConfigs[this.state.podModal] : undefined
         const podModalColumns = [
             {
-                title: 'Pod',
+                title: '파드',
                 key: 'pod',
                 width: '52%',
                 render: (_value: any, pod: Node) => <DetailModalResourceCell
@@ -593,8 +544,8 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
                 tabs={[
                     { key: 'overview', label: '개요' },
                     { key: 'workloads', label: '워크로드', count: connectedWorkloads.length },
-                    { key: 'pods', label: 'Pod', count: activeConnectedPods.length },
-                    { key: 'services', label: 'Service', count: connectedServices.length }
+                    { key: 'pods', label: KUBERNETES_DETAIL_LABELS.pods, count: activeConnectedPods.length },
+                    { key: 'services', label: KUBERNETES_DETAIL_LABELS.services, count: connectedServices.length }
                 ]}
                 overflowTabs={[
                     { key: 'ingress', label: 'Ingress', count: this.namespaceResources('ingress').length },
@@ -610,9 +561,9 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
                     title={translate('kubernetesAdvancedInformation')}
                     active={this.state.basicInfoAdvanced}
                     onChange={basicInfoAdvanced => this.setState({ basicInfoAdvanced })}>
-                    <DetailMetadataRows items={[
-                        { key: 'labels', label: KUBERNETES_DETAIL_LABELS.labels, value: detail.labels, excludedKeys: ['kubernetes.io/metadata.name'], modalTitle: '네임스페이스 라벨' },
-                        { key: 'annotations', label: KUBERNETES_DETAIL_LABELS.annotations, value: detail.annotations, modalTitle: '네임스페이스 어노테이션' }
+                    <KubernetesMetadataRows items={[
+                        { key: 'labels', label: KUBERNETES_DETAIL_LABELS.labels, resourceName: name, resourceKind: 'Namespace', metadataKind: 'label', data: detail.labels, excludedKeys: ['kubernetes.io/metadata.name'], modalTitle: '네임스페이스 라벨' },
+                        { key: 'annotations', label: KUBERNETES_DETAIL_LABELS.annotations, resourceName: name, resourceKind: 'Namespace', metadataKind: 'annotation', data: detail.annotations, modalTitle: '네임스페이스 어노테이션' }
                     ]} />
                 </DetailAdvancedInfo>
             </DetailSectionCard>
@@ -630,7 +581,7 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
                             label: '현재 문제',
                             value: optionalNumber(problemCount),
                             tone: Number(problemCount || 0) > 0 ? 'danger' : 'default',
-                            tooltip: '현재 비정상 Pod와 미가용 워크로드를 자원 UID 기준으로 중복 제거한 대상 수입니다. 정상 완료된 Job과 과거 종료 이력은 제외합니다.',
+                            tooltip: '현재 비정상 파드와 미가용 워크로드를 자원 UID 기준으로 중복 제거한 대상 수입니다. 정상 완료된 Job과 과거 종료 이력은 제외합니다.',
                             onClick: problemResources.length ? () => this.focusResources(problemResources) : undefined
                         },
                         {
@@ -645,7 +596,7 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
                             label: '누적 이력',
                             value: historyCount,
                             tone: 'default',
-                            tooltip: 'Pod 생성 이후 Evicted, 누적 restartCount, 과거 OOMKilled가 확인된 고유 Pod 수입니다. 현재 운영 판정에는 사용하지 않습니다.'
+                            tooltip: '파드 생성 이후 Evicted, restartCount 1 이상, 과거 OOMKilled가 확인된 파드를 합산하고 파드 UID 기준으로 중복 제거합니다. 현재 운영 판정에는 사용하지 않습니다.'
                         },
                     ]}
                 />
@@ -656,7 +607,7 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
                         label: '데이터 수집 상태',
                         value: collection.label,
                         tone: collection.tone,
-                        tooltip: `${collection.collected}/${collection.total}개 데이터 소스를 사용할 수 있습니다.`,
+                        tooltip: '소스별 실제 수집 상태입니다.',
                         tooltipDetail: collection.detail
                     }
                 ]} />
@@ -666,7 +617,7 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
                 <StatusEvidenceList columnHeaders={{ state: '상태', value: '결과' }}>
                     <StatusEvidenceRow
                         title="배치 노드 수"
-                        evidence="현재 활성 Pod가 배치된 고유 노드 수입니다."
+                        evidence="현재 활성 파드가 배치된 고유 노드 수입니다."
                         status={{ label: statusText(scheduledNodeTone), tone: scheduledNodeTone }}
                         value={scheduledNodeNames.size}
                         tone={scheduledNodeTone}
@@ -678,11 +629,11 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
                         value={distribution.multiReplicaWorkloads.length === 0 ? '해당 없음' : distribution.concentratedWorkloads.length === 0 ? '분산됨' : `${distribution.concentratedWorkloads.length}개 집중`}
                         valueVariant="grade"
                         tone={distributionTone}
-                        tooltip="활성 Pod의 최상위 Deployment·StatefulSet 소유 관계를 추적하고, desired replica가 2개 이상인 워크로드만 평가합니다. 가용 노드가 1대뿐인 경우에는 단일 노드 집중 경고를 만들지 않으며 topologySpreadConstraints와 podAntiAffinity도 함께 확인합니다."
+                        tooltip="활성 파드의 최상위 Deployment·StatefulSet 소유 관계를 추적하고, desired Replica가 2개 이상인 워크로드만 평가합니다. 가용 노드가 1대뿐인 경우에는 단일 노드 집중 경고를 만들지 않으며 topologySpreadConstraints와 podAntiAffinity도 함께 확인합니다."
                     />
                     <StatusEvidenceRow
                         title={translate('kubernetesEndpointUnavailableServices')}
-                        evidence="사용 가능한 Endpoint가 없는 Service 수입니다."
+                        evidence="사용 가능한 Endpoint가 없는 서비스 수입니다."
                         status={{ label: statusText(endpointTone), tone: endpointTone }}
                         value={optionalNumber(endpointUnavailable)}
                         tone={endpointTone}
@@ -695,18 +646,18 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
                     {[
                         ['전체 워크로드', connectedWorkloads.length, 'success', '네임스페이스에 포함된 상위 워크로드 수입니다.', '', undefined, 'Deployment·StatefulSet·DaemonSet·Job·CronJob을 포함하고, 중간 소유자인 ReplicaSet은 제외하여 고유 UID 기준으로 집계합니다.'],
                         ['미가용 워크로드', workloadHealth.unavailableWorkloads.length, workloadHealth.unavailableWorkloads.length > 0 ? 'danger' : 'success', '자원 종류별 desired·available·ready·완료 조건을 충족하지 못한 워크로드입니다.', ''],
-                        [KUBERNETES_DETAIL_LABELS.runningPods, podDataset.runningPods.length, 'success', '현재 실행 중인 고유 Pod입니다.', ''],
-                        [KUBERNETES_DETAIL_LABELS.notReadyPods, podDataset.notReadyPods.length, podDataset.notReadyPods.length > 0 ? 'danger' : 'success', '실행 중이지만 Ready 조건을 충족하지 못한 Pod입니다.', 'not-ready'],
-                        [KUBERNETES_DETAIL_LABELS.pendingPods, podDataset.pendingPods.length, podDataset.pendingPods.length > 0 ? 'danger' : 'success', '아직 실행 단계에 도달하지 못한 고유 Pod입니다.', 'pending'],
-                        [KUBERNETES_DETAIL_LABELS.recentRestartPods, podDataset.recentRestartPods.length, podDataset.recentRestartPods.length > 0 ? 'warning' : 'success', '최근 조회 기간 동안 restartCount가 증가한 Pod입니다.', 'restart', [
+                        [KUBERNETES_DETAIL_LABELS.runningPods, podDataset.runningPods.length, 'success', '현재 실행 중인 고유 파드입니다.', ''],
+                        [KUBERNETES_DETAIL_LABELS.notReadyPods, podDataset.notReadyPods.length, podDataset.notReadyPods.length > 0 ? 'danger' : 'success', '실행 중이지만 Ready 조건을 충족하지 못한 파드입니다.', 'not-ready'],
+                        [KUBERNETES_DETAIL_LABELS.pendingPods, podDataset.pendingPods.length, podDataset.pendingPods.length > 0 ? 'danger' : 'success', '아직 실행 단계에 도달하지 못한 고유 파드입니다.', 'pending'],
+                        [KUBERNETES_DETAIL_LABELS.recentRestartPods, podDataset.recentRestartPods.length, podDataset.recentRestartPods.length > 0 ? 'warning' : 'success', '최근 조회 기간 동안 restartCount가 증가한 파드입니다.', 'restart', [
                             { key: 'window', label: '조회 기간', value: '최근 1시간' },
                             { key: 'history', label: '누적 이력', value: `${podDataset.restartHistoryPods.length}개` }
-                        ], '오른쪽 수치는 최근 1시간 내 컨테이너 종료 시각으로 restartCount 증가를 확인한 고유 Pod 수입니다. 누적 이력은 Pod 생성 이후 restartCount가 1 이상인 Pod 수이며 운영 판정에는 사용하지 않습니다.'],
-                        [KUBERNETES_DETAIL_LABELS.crashLoopBackOffPods, podDataset.crashLoopPods.length, podDataset.crashLoopPods.length > 0 ? 'danger' : 'success', '현재 컨테이너 시작이 반복적으로 실패하는 Pod입니다.', 'crashloop'],
-                        [KUBERNETES_DETAIL_LABELS.oomKilledPods, podDataset.currentOOMKilledPods.length, podDataset.currentOOMKilledPods.length > 0 ? 'warning' : 'success', '현재 종료 상태이거나 조회 기간 내 OOMKilled가 발생한 Pod입니다.', 'oom-killed', [
+                        ], '오른쪽 수치는 최근 1시간 내 컨테이너 종료 시각으로 restartCount 증가를 확인한 고유 파드 수입니다. 누적 이력은 파드 생성 이후 restartCount가 1 이상인 파드 수이며 운영 판정에는 사용하지 않습니다.'],
+                        [KUBERNETES_DETAIL_LABELS.crashLoopBackOffPods, podDataset.crashLoopPods.length, podDataset.crashLoopPods.length > 0 ? 'danger' : 'success', '현재 컨테이너 시작이 반복적으로 실패하는 파드입니다.', 'crashloop'],
+                        [KUBERNETES_DETAIL_LABELS.oomKilledPods, podDataset.currentOOMKilledPods.length, podDataset.currentOOMKilledPods.length > 0 ? 'warning' : 'success', '현재 종료 상태이거나 조회 기간 내 OOMKilled가 발생한 파드입니다.', 'oom-killed', [
                             { key: 'window', label: '조회 기간', value: '최근 1시간' },
                             { key: 'history', label: '누적 이력', value: `${podDataset.oomKilledHistoryPods.length}개` }
-                        ], '오른쪽 수치는 현재 종료 원인이 OOMKilled이거나 최근 1시간 내 발생 시각이 확인된 고유 Pod 수입니다. 과거 last terminated reason은 누적 이력에만 포함하고 운영 판정에는 사용하지 않습니다.']
+                        ], '오른쪽 수치는 현재 종료 원인이 OOMKilled이거나 최근 1시간 내 발생 시각이 확인된 고유 파드 수입니다. 과거 last terminated reason은 누적 이력에만 포함하고 운영 판정에는 사용하지 않습니다.']
                     ].map((item: any[]) => {
                         const tone = item[2] as DetailBadgeTone
                         return <StatusEvidenceRow
@@ -724,26 +675,7 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
                 </StatusEvidenceList>
             </DetailSectionCard>
 
-            <DetailSectionCard
-                icon={<DnsIcon />}
-                title="리소스 요청량 및 제한량"
-                description="활성 Pod 컨테이너의 요청량·제한량 설정 현황입니다."
-                descriptionTooltip="활성 Pod를 UID로 중복 제거하고 종료 Pod를 제외합니다. 설정 비율에는 고유 일반 컨테이너와 initContainer를 포함하며, 설정 합계는 Kubernetes 스케줄링 기준에 따라 일반 컨테이너 합계와 initContainer 최댓값 중 큰 값을 Pod별로 합산합니다.">
-                <StatusEvidenceList columnHeaders={{ state: '상태', value: '설정 수', secondaryValue: '설정 합계', valueTooltip: '설정 수는 해당 값이 명시된 컨테이너 수와 평가 대상 전체 컨테이너 수의 비율입니다.' }}>
-                    {resourceConfigurationItems.map(item => <StatusEvidenceRow
-                        key={item.key}
-                        title={item.label}
-                        evidence={item.evidence}
-                        status={{ label: item.status, tone: item.tone }}
-                        value={item.configured}
-                        valueVariant="grade"
-                        secondaryValue={item.total}
-                        secondaryValueVariant="grade"
-                        valuesUnavailable={item.unavailable}
-                        tone={item.tone}
-                    />)}
-                </StatusEvidenceList>
-            </DetailSectionCard>
+            <KubernetesResourceConfigurationCard coverage={resourceCoverage} />
 
             <DetailSectionCard icon={<DnsIcon />} title="네임스페이스 정책">
                 <StatusEvidenceList columnHeaders={{ state: '상태', value: '설정 수' }}>
@@ -809,8 +741,8 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
                     />
                     : podModal && <CompactEmptyState
                         description={podModal.count > 0
-                            ? '집계 결과는 있으나 연결된 Pod를 현재 토폴로지에서 확인할 수 없습니다.'
-                            : '해당 조건에 해당하는 Pod가 없습니다.'}
+                            ? '집계 결과는 있으나 연결된 파드를 현재 토폴로지에서 확인할 수 없습니다.'
+                            : '해당 조건에 해당하는 파드가 없습니다.'}
                         compact />}
             </HistoryModal>
 
@@ -822,7 +754,7 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
                 width={620}
                 onCancel={() => this.setState({ policyModal: '' })}>
                 {this.state.policyModal === 'quota' && <ResourceMetricBlock title={KUBERNETES_DETAIL_LABELS.resourceQuota} basis={`${quotaCount}개`} basisTooltip="여러 ResourceQuota가 있으면 Kubernetes가 가장 제한적인 한도를 함께 적용합니다. 현재 요약은 첫 번째 수집 항목의 Used/Hard 값입니다.">
-                    <DetailMetricRow label="Pod" value={pairValue(mapValue(quotaUsed, ['pods']), mapValue(quotaHard, ['pods']), !!firstQuota)} ratio="" />
+                    <DetailMetricRow label="파드" value={pairValue(mapValue(quotaUsed, ['pods']), mapValue(quotaHard, ['pods']), !!firstQuota)} ratio="" />
                     <DetailMetricRow label={KUBERNETES_DETAIL_LABELS.cpuRequests} value={pairValue(mapValue(quotaUsed, ['requests.cpu', 'cpu']), mapValue(quotaHard, ['requests.cpu', 'cpu']), !!firstQuota)} ratio="" />
                     <DetailMetricRow label={KUBERNETES_DETAIL_LABELS.cpuLimits} value={pairValue(mapValue(quotaUsed, ['limits.cpu']), mapValue(quotaHard, ['limits.cpu']), !!firstQuota)} ratio="" />
                     <DetailMetricRow label={KUBERNETES_DETAIL_LABELS.memoryRequests} value={pairValue(mapValue(quotaUsed, ['requests.memory', 'memory']), mapValue(quotaHard, ['requests.memory', 'memory']), !!firstQuota)} ratio="" />

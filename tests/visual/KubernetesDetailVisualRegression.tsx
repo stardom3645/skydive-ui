@@ -12,6 +12,7 @@ import {
     DetailSectionCard,
     DetailStatusIndicator,
     HistoryModal,
+    KubernetesResourceConfigurationCard,
     RelatedResourceGrid,
     ResourceMetricBlock,
     StatusEvidenceList,
@@ -76,7 +77,7 @@ const PreviewPanel = () => {
                                 { label: `${resourceLabel} 이름`, value: panelName, textValue: panelName, copyText: panelName },
                                 {
                                     label: resource === 'cluster' ? '쿠버네티스 버전' : resource === 'node' ? '역할' : '상태',
-                                    value: resource === 'cluster' ? 'v1.34.2' : resource === 'node' ? 'control-plane' : 'Active'
+                                    value: resource === 'cluster' ? 'v1.34.2' : resource === 'node' ? 'control-plane' : '활성'
                                 },
                                 { label: '생성 시각', value: empty ? errorText : '2026. 7. 21. 오전 10:14:01' }
                             ]}
@@ -87,19 +88,30 @@ const PreviewPanel = () => {
                         <StatusSummaryGrid
                             verdict={fixture.verdict}
                             verdictTone={tone}
-                            rawStatus={resource === 'namespace' && !empty ? 'Active' : fixture.rawStatus}
+                            rawStatus={resource === 'namespace' && !empty ? '활성' : fixture.rawStatus}
                             rawStatusLabel={rawStatusLabel}
                             impact={fixture.impact}
                             metrics={[
                                 { label: resource === 'cluster' ? 'Control Plane' : resource === 'node' ? '활성 파드' : '문제 파드', value: empty ? '0' : resource === 'cluster' ? '1/1' : resource === 'node' ? '13' : '0' },
                                 { label: resource === 'cluster' ? '노드' : resource === 'node' ? '문제 파드' : '영향받은 서비스', value: requestedState === 'danger' ? '2' : '0', tone: metricTone },
                                 { label: resource === 'cluster' ? '파드' : resource === 'node' ? '스케줄링' : '수집 상태', value: resource === 'cluster' ? '23' : resource === 'node' ? '허용' : '수집 완료' },
-                                { label: resource === 'cluster' ? '영향받은 서비스' : resource === 'node' ? 'Taint' : '실행 중 Pod', value: requestedState === 'warning' ? '1' : resource === 'namespace' ? '12' : '0', tone: metricTone }
+                                { label: resource === 'cluster' ? '영향받은 서비스' : resource === 'node' ? 'Taint' : '실행 중 파드', value: requestedState === 'warning' ? '1' : resource === 'namespace' ? '12' : '0', tone: metricTone }
                             ]}
                         />
                     </DetailSectionCard>
 
-                    <DetailSectionCard title="리소스 현황" icon={<span>▤</span>}>
+                    {resource === 'namespace' ? <KubernetesResourceConfigurationCard coverage={{
+                        total: empty ? 0 : 13,
+                        cpuRequests: 0,
+                        cpuLimits: 0,
+                        memoryRequests: requestedState === 'warning' ? 1 : 0,
+                        memoryLimits: 0,
+                        cpuRequestsCollected: !empty,
+                        cpuLimitsCollected: !empty,
+                        memoryRequestsCollected: !empty,
+                        memoryLimitsCollected: !empty,
+                        memoryRequestsBytes: requestedState === 'warning' ? 200 * 1024 * 1024 : undefined
+                    }} /> : <DetailSectionCard title="리소스 현황" icon={<span>▤</span>}>
                         {empty
                             ? <CompactEmptyState description={errorText} compact />
                             : <div className="visual-regression-metrics">
@@ -112,13 +124,13 @@ const PreviewPanel = () => {
                                     <DetailMetricRow muted label="설정된 Requests 합계" value="0.68 GiB" ratio="18.7%" progressPercent={18.7} />
                                 </ResourceMetricBlock>
                             </div>}
-                    </DetailSectionCard>
+                    </DetailSectionCard>}
 
                     <DetailSectionCard title={resource === 'cluster' ? '위험 및 복원력' : resource === 'node' ? '위험 및 종속성' : '가용성'} icon={<span>!</span>}>
                         <StatusEvidenceList>
                             <StatusEvidenceRow
-                                title={resource === 'namespace' ? '예약된 노드' : '현재 장애 영향도'}
-                                evidence={resource === 'namespace' ? '실행 중인 Pod가 배치된 고유 노드 수입니다.' : '현재 상태 기준 · 실제 영향 지표'}
+                                title={resource === 'namespace' ? '배치 노드 수' : '현재 장애 영향도'}
+                                evidence={resource === 'namespace' ? '실행 중인 파드가 배치된 고유 노드 수입니다.' : '현재 상태 기준 · 실제 영향 지표'}
                                 state={<DetailStatusIndicator tone={tone}>{fixture.verdict}</DetailStatusIndicator>}
                                 value={resource === 'namespace' ? '2' : requestedState === 'danger' ? '80 / 100' : '0 / 100'}
                                 valueVariant={resource === 'namespace' ? 'number' : 'score'}
@@ -126,7 +138,7 @@ const PreviewPanel = () => {
                             />
                             <StatusEvidenceRow
                                 title={resource === 'cluster' ? '네트워크 복원력' : resource === 'node' ? '로컬 스토리지 의존 워크로드' : 'Pod 배치'}
-                                evidence={resource === 'namespace' ? '실행 중인 Pod의 노드 분산 상태입니다.' : '단일 경로 비율 100% · 연결 스위치 1대'}
+                                evidence={resource === 'namespace' ? '실행 중인 파드의 노드 분산 상태입니다.' : '단일 경로 비율 100% · 연결 스위치 1대'}
                                 state={<DetailStatusIndicator tone="warning">보완 권장</DetailStatusIndicator>}
                                 value={resource === 'namespace' ? '집중' : '매우 낮음'}
                                 valueVariant="grade"

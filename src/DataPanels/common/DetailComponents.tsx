@@ -1,14 +1,46 @@
 import * as React from 'react'
 import { Button, Card, Collapse, Dropdown, Empty, Menu, Modal, Progress, Tabs, Tag, Tooltip, Typography } from 'antd'
 import { CopyOutlined, DownOutlined, EllipsisOutlined, InfoCircleOutlined, RightOutlined } from '@ant-design/icons'
-import { kubernetesMetadataKeyLabel, kubernetesMetadataValueDescription } from './KubernetesDataPresentation'
 
 import './DetailComponents.css'
 
 const joinClassNames = (...classNames: Array<string | undefined | false>) => classNames.filter(Boolean).join(' ')
+
+const copyTextWithLegacySelection = (value: string) => {
+    if (typeof document === 'undefined' || !document.body) return false
+    const input = document.createElement('textarea')
+    input.value = value
+    input.setAttribute('readonly', '')
+    input.style.position = 'fixed'
+    input.style.top = '0'
+    input.style.left = '-9999px'
+    input.style.opacity = '0'
+    document.body.appendChild(input)
+    input.focus()
+    input.select()
+    input.setSelectionRange(0, input.value.length)
+    let copied = false
+    try {
+        copied = document.execCommand('copy')
+    } catch (_error) {
+        copied = false
+    }
+    document.body.removeChild(input)
+    return copied
+}
+
 const copyTextToClipboard = (value: string) => {
     const clipboard = typeof navigator !== 'undefined' ? navigator.clipboard : undefined
-    if (clipboard && clipboard.writeText) clipboard.writeText(value)
+    if (!clipboard || !clipboard.writeText) {
+        copyTextWithLegacySelection(value)
+        return
+    }
+    try {
+        const result = clipboard.writeText(value)
+        if (result && typeof result.catch === 'function') result.catch(() => copyTextWithLegacySelection(value))
+    } catch (_error) {
+        copyTextWithLegacySelection(value)
+    }
 }
 
 const textWithPreferredBreaks = (value: string) => {
@@ -220,12 +252,16 @@ export const DetailCopyButton = ({ value, tooltip = 'Copy', onCopy, className }:
             onCopy(value)
             return
         }
-        const clipboard = navigator && navigator.clipboard
-        if (clipboard && clipboard.writeText) clipboard.writeText(value)
+        copyTextToClipboard(value)
     }
 
     return (
-        <Tooltip title={tooltip} placement="top">
+        <Tooltip
+            title={tooltip}
+            placement="topRight"
+            overlayClassName="netdive-detail-copy-tooltip"
+            getPopupContainer={() => document.body}
+            autoAdjustOverflow>
             <Button
                 type="text"
                 size="small"
@@ -248,6 +284,38 @@ export interface DetailKeyValueRow {
     wrap?: boolean
     labelWrap?: boolean
 }
+
+export interface DetailLongValueProps {
+    value: string
+    copy?: boolean
+    copyTooltip?: React.ReactNode
+    maxLines?: 1 | 2
+    className?: string
+}
+
+/** Shared long-value presentation for resource names, selectors, revisions and
+ * image references. It preserves two readable lines while Tooltip and copy
+ * retain the complete source value. */
+export const DetailLongValue = ({
+    value,
+    copy = false,
+    copyTooltip = '복사',
+    maxLines = 2,
+    className
+}: DetailLongValueProps) => (
+    <span className={joinClassNames('netdive-detail-long-value', className)}>
+        <Tooltip title={value} placement="top" overlayClassName="netdive-detail-tooltip">
+            <span className={joinClassNames('netdive-detail-long-value__text', `lines-${maxLines}`)}>{textWithPreferredBreaks(value)}</span>
+        </Tooltip>
+        {copy && <DetailCopyButton value={value} tooltip={copyTooltip} />}
+    </span>
+)
+
+export const DetailModalAction = ({ children, onClick }: { children: React.ReactNode, onClick: () => void }) => (
+    <Button type="text" className="netdive-detail-modal-action" onClick={onClick}>
+        <span>{children}</span><RightOutlined />
+    </Button>
+)
 
 export interface DetailKeyValueListProps {
     rows: DetailKeyValueRow[]
@@ -411,6 +479,10 @@ export const KUBERNETES_DETAIL_LABELS = Object.freeze({
     controlPlane: 'Control Plane',
     namespace: '네임스페이스',
     pod: '파드',
+    pods: '파드',
+    service: '서비스',
+    services: '서비스',
+    workloadsAndPods: '워크로드·파드',
     workloadController: '워크로드 컨트롤러',
     persistentVolume: 'PV',
     persistentVolumeClaim: 'PVC',
@@ -431,8 +503,9 @@ export const KUBERNETES_DETAIL_LABELS = Object.freeze({
     memoryLimits: '메모리 제한량',
     labels: '라벨',
     annotations: '어노테이션',
-    resourceQuota: '리소스 할당량(ResourceQuota)',
-    limitRange: '기본 리소스 제한(LimitRange)'
+    selector: '선택자',
+    resourceQuota: '리소스 할당량',
+    limitRange: '기본 리소스 제한'
 })
 
 export const KUBERNETES_UTILIZATION_THRESHOLDS = Object.freeze({
@@ -701,6 +774,29 @@ export interface DetailMetaInfoItem {
     tooltipDetail?: React.ReactNode
 }
 
+export interface DetailMetricSummaryItem {
+    key?: React.Key
+    label: React.ReactNode
+    value: React.ReactNode
+    tone?: DetailBadgeTone
+    tooltip?: React.ReactNode
+}
+
+/** Compact metric strip for secondary summaries such as Replica snapshots.
+ * It deliberately stays below KPI emphasis and wraps at narrow panel widths. */
+export const DetailMetricSummaryRow = ({ items, className }: { items: DetailMetricSummaryItem[], className?: string }) => (
+    <div className={joinClassNames('netdive-detail-metric-summary-row', className)}>
+        {items.map((item, index) => {
+            const content = <span className={joinClassNames('netdive-detail-metric-summary-row__item', item.tone && `is-${item.tone}`)}>
+                <span>{item.label}</span><strong>{item.value}</strong>
+            </span>
+            return item.tooltip
+                ? <Tooltip key={item.key === undefined ? index : item.key} title={<DetailTooltipContent description={item.tooltip} />} overlayClassName="netdive-operational-tooltip">{content}</Tooltip>
+                : <React.Fragment key={item.key === undefined ? index : item.key}>{content}</React.Fragment>
+        })}
+    </div>
+)
+
 export const DetailMetaInfoRow = ({ items, className }: { items: DetailMetaInfoItem[], className?: string }) => (
     <div className={joinClassNames('netdive-detail-meta-info-row', className)}>
         {items.map((item, index) => {
@@ -729,75 +825,6 @@ export const DetailMetadataSummary = ({
     const metadata = value && typeof value === 'object' && !Array.isArray(value) ? value : {}
     const keys = Object.keys(metadata).filter(key => excludedKeys.indexOf(key) < 0).sort()
     return <span className="netdive-detail-metadata-summary">{keys.length}개</span>
-}
-
-export interface DetailMetadataRowItem {
-    key: React.Key
-    label: React.ReactNode
-    value: Record<string, any> | undefined | null
-    excludedKeys?: string[]
-    modalTitle?: React.ReactNode
-}
-
-export interface DetailMetadataRowsProps {
-    items: DetailMetadataRowItem[]
-    labelWidth?: number | string
-}
-
-/** Shared metadata action rows: item label / key-only summary / chevron. */
-export const DetailMetadataRows = ({ items, labelWidth = 122 }: DetailMetadataRowsProps) => {
-    const [selectedKey, setSelectedKey] = React.useState<React.Key | undefined>()
-    const normalized = items.map(item => {
-        const metadata = item.value && typeof item.value === 'object' && !Array.isArray(item.value) ? item.value : {}
-        const keys = Object.keys(metadata).filter(key => (item.excludedKeys || []).indexOf(key) < 0).sort()
-        const selected = keys.reduce((result, key) => {
-            result[key] = metadata[key]
-            return result
-        }, {} as Record<string, any>)
-        return { ...item, keys, selected, serialized: JSON.stringify(selected, null, 2) }
-    })
-    const selected = normalized.find(item => item.key === selectedKey)
-    const labelColumn = typeof labelWidth === 'number' ? `${labelWidth}px` : labelWidth
-    return <div className="netdive-detail-metadata-rows">
-        {normalized.map(item => {
-            const summary = item.keys.length === 0
-                ? '키 없음'
-                : `${item.keys.slice(0, 2).map(kubernetesMetadataKeyLabel).join(', ')}${item.keys.length > 2 ? ` 외 ${item.keys.length - 2}개` : ''}`
-            const content = <React.Fragment>
-                <strong>{item.label}</strong>
-                <span>{summary}</span>
-                {item.keys.length > 0 && <RightOutlined />}
-            </React.Fragment>
-            return item.keys.length > 0
-                ? <button
-                    type="button"
-                    key={item.key}
-                    className="netdive-detail-metadata-row is-interactive"
-                    style={{ gridTemplateColumns: `${labelColumn} minmax(0, 1fr) 24px` }}
-                    onClick={() => setSelectedKey(item.key)}>{content}</button>
-                : <div
-                    key={item.key}
-                    className="netdive-detail-metadata-row"
-                    style={{ gridTemplateColumns: `${labelColumn} minmax(0, 1fr) 24px` }}>{content}</div>
-        })}
-        <Modal
-            title={selected?.modalTitle || selected?.label}
-            visible={!!selected}
-            onCancel={() => setSelectedKey(undefined)}
-            footer={null}
-            destroyOnClose
-            keyboard
-            getContainer={() => document.body}
-            className="netdive-list-modal netdive-detail-metadata-modal">
-            <div className="netdive-detail-metadata-modal__toolbar">
-                <span>총 {selected?.keys.length || 0}개</span>
-                <DetailCopyButton value={selected?.serialized || ''} tooltip="전체 값 복사" />
-            </div>
-            {selected?.keys.map(key => kubernetesMetadataValueDescription(key, selected.selected[key])).filter(Boolean).map((description, index) =>
-                <div key={index} className="netdive-detail-metadata-modal__description">{description}</div>)}
-            <pre>{selected?.serialized}</pre>
-        </Modal>
-    </div>
 }
 
 export interface DetailCollectionStatusRowProps {
@@ -1045,9 +1072,11 @@ export const DetailResourceCard = ({
                 )}>{icon}</span>
             )}
             <span className="netdive-detail-resource__text">
-                <Tooltip title={labelTooltip !== undefined ? labelTooltip : typeof label === 'string' ? label : undefined} placement="top">
-                    <Typography.Text className="netdive-detail-resource__label">{label}</Typography.Text>
-                </Tooltip>
+                {interactive || labelTooltip !== undefined
+                    ? <Tooltip title={labelTooltip !== undefined ? labelTooltip : typeof label === 'string' ? label : undefined} placement="top">
+                        <Typography.Text className="netdive-detail-resource__label">{label}</Typography.Text>
+                    </Tooltip>
+                    : <Typography.Text className="netdive-detail-resource__label">{label}</Typography.Text>}
                 {description && <Typography.Text className="netdive-detail-resource__description">{description}</Typography.Text>}
             </span>
         </span>
@@ -1200,7 +1229,7 @@ export const ConnectedResourcesSection = ({ title, icon, groups, emptyText = '-'
                             interactive={!!item.onClick}
                             selected={item.selected}
                             onClick={item.onClick} />
-                        return item.tooltip ? <Tooltip key={item.key !== undefined ? item.key : itemIndex} title={item.tooltip} placement="top">{card}</Tooltip> : card
+                        return item.tooltip && item.onClick ? <Tooltip key={item.key !== undefined ? item.key : itemIndex} title={item.tooltip} placement="top">{card}</Tooltip> : card
                     })}</DetailResourceGrid>
                 </div>
             ))}</div> : <DetailEmpty description={emptyText} compact />}

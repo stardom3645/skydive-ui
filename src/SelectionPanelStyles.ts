@@ -72,6 +72,8 @@ export const styles = (theme: Theme) => createStyles({
     maxWidth: 320,
     minHeight: 60,
     height: 60,
+    paddingTop: 0,
+    paddingBottom: 0,
     paddingLeft: 12,
     paddingRight: 12,
     overflow: 'hidden',
@@ -127,7 +129,7 @@ export const styles = (theme: Theme) => createStyles({
   tabSubtitle: {
     display: 'block',
     maxWidth: '100%',
-    marginTop: 2,
+    marginTop: 3,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
@@ -209,7 +211,13 @@ export const styles = (theme: Theme) => createStyles({
     fontWeight: 900,
     fontSize: 26,
     marginBottom: `0 !important`,
-    flex: '0 0 auto',
+    display: 'inline-flex',
+    width: 30,
+    height: 30,
+    flex: '0 0 30px',
+    alignItems: 'center',
+    justifyContent: 'center',
+    lineHeight: 1,
     color: '#1677ff'
   },
   tabIconBrands: {
@@ -217,7 +225,13 @@ export const styles = (theme: Theme) => createStyles({
     fontWeight: 900,
     fontSize: 26,
     marginBottom: `0 !important`,
-    flex: '0 0 auto',
+    display: 'inline-flex',
+    width: 30,
+    height: 30,
+    flex: '0 0 30px',
+    alignItems: 'center',
+    justifyContent: 'center',
+    lineHeight: 1,
     color: '#1677ff'
   }
 })

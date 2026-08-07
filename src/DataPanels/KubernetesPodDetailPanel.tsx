@@ -21,6 +21,7 @@ import {
     DetailInlineSectionHeader,
     DetailSectionCard,
     DetailStatusIndicator,
+    KubernetesMetadataRows,
     KubernetesRecentEvents,
     KubernetesStateSeparation,
     StatusEvidenceList,
@@ -288,6 +289,7 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
             selectedByServices: this.selectedServices(labels, namespace),
             node: node ? { uid: node.id, name: nodeName, kind: 'Node' } : nodeName ? { name: nodeName, kind: 'Node' } : undefined,
             labels,
+            annotations: data.K8s?.Annotations || objectMeta.Annotations || {},
             relationshipConfidence: node ? 'CONFIRMED' : nodeName ? 'INFERRED' : 'UNKNOWN',
             source: 'TOPOLOGY'
         }
@@ -575,6 +577,10 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
                     active={this.state.basicInfoAdvanced}
                     onChange={basicInfoAdvanced => this.setState({ basicInfoAdvanced })}>
                     <BasicInfoRows density="compact" rows={advancedRows} labelWidth={122} copyTooltip={translate('copy')} />
+                    <KubernetesMetadataRows items={[
+                        { key: 'labels', label: '라벨', resourceName: detail.name || this.props.node.id, resourceKind: 'Pod', metadataKind: 'label', data: detail.labels, modalTitle: 'Pod 라벨' },
+                        { key: 'annotations', label: '어노테이션', resourceName: detail.name || this.props.node.id, resourceKind: 'Pod', metadataKind: 'annotation', data: detail.annotations, modalTitle: 'Pod 어노테이션' }
+                    ]} />
                 </DetailAdvancedInfo>
             </DetailSectionCard>
 

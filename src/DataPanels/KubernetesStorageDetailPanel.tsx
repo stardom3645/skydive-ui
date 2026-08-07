@@ -15,6 +15,7 @@ import {
     DetailBadgeTone,
     DetailSectionCard,
     formatKubernetesQuantity,
+    KubernetesMetadataRows,
     KubernetesRecentEvents,
     RelatedResourceGrid,
     StatusSummaryGrid
@@ -471,6 +472,10 @@ class KubernetesStorageDetailPanel extends React.Component<Props, State> {
                 <BasicInfoRows density="compact" rows={basicRows} labelWidth={122} copyTooltip={translate('copy')} />
                 <DetailAdvancedInfo title={translate('kubernetesAdvancedInformation')} active={this.state.basicInfoAdvanced} onChange={basicInfoAdvanced => this.setState({ basicInfoAdvanced })}>
                     <BasicInfoRows density="compact" rows={advancedRows} labelWidth={122} copyTooltip={translate('copy')} />
+                    <KubernetesMetadataRows items={[
+                        { key: 'labels', label: '라벨', resourceName: name, resourceKind: kindLabel, metadataKind: 'label', data: meta.Labels || meta.labels, modalTitle: `${kindLabel} 라벨` },
+                        { key: 'annotations', label: '어노테이션', resourceName: name, resourceKind: kindLabel, metadataKind: 'annotation', data: meta.Annotations || meta.annotations, modalTitle: `${kindLabel} 어노테이션` }
+                    ]} />
                 </DetailAdvancedInfo>
             </DetailSectionCard>
             {type !== 'storageclass' && <DetailSectionCard icon={this.topologyIcon(this.props.node)} title={`${kindLabel} 운영 상태`}>

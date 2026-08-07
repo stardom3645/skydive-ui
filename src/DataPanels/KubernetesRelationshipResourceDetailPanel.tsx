@@ -6,7 +6,14 @@ import SettingsIcon from '@material-ui/icons/Settings'
 
 import { Node } from '../Topology'
 import { kubernetesLabelValue, matchesKubernetesSelector } from '../KubernetesSelectors'
-import { BasicInfoRows, ConnectedResourceListSection, DetailAdvancedInfo, DetailSectionCard } from './common'
+import {
+    BasicInfoRows,
+    ConnectedResourceListSection,
+    DetailAdvancedInfo,
+    DetailSectionCard,
+    KubernetesMetadataRows,
+    KubernetesSelectorSummary
+} from './common'
 import './KubernetesRelationshipResourceDetailPanel.css'
 
 interface Props {
@@ -163,9 +170,7 @@ const KubernetesRelationshipResourceDetailPanel = ({ node }: Props) => {
         { label: '네임스페이스', value: resourceNamespace(node) }
     ]
     const advancedRows = [
-        { label: '생성 시간', value: firstValue(data, ['K8s.Extra.ObjectMeta.CreationTimestamp.Time', 'K8s.Extra.ObjectMeta.CreationTimestamp', 'CreatedAt']) },
-        { label: 'Labels', value: displayValue(labels) },
-        { label: 'Annotations', value: displayValue(annotations) }
+        { label: '생성 시간', value: firstValue(data, ['K8s.Extra.ObjectMeta.CreationTimestamp.Time', 'K8s.Extra.ObjectMeta.CreationTimestamp', 'CreatedAt']) }
     ]
 
     let detailRows: any[] = []
@@ -202,7 +207,7 @@ const KubernetesRelationshipResourceDetailPanel = ({ node }: Props) => {
     } else if (type === 'networkpolicy') {
         detailRows = [
             { label: '표현 범위', value: '정책 정의 (실제 차단 여부를 판정하지 않음)' },
-            { label: 'Pod Selector', value: displayValue(spec.PodSelector || spec.podSelector) },
+            { label: '파드 선택자', value: <KubernetesSelectorSummary selector={spec.PodSelector || spec.podSelector || {}} mode="labelSelector" resourceName={resourceName(node)} resourceKind={kind} title={`${kind} 선택자`} />, wrap: true },
             { label: 'Policy Type', value: displayValue(spec.PolicyTypes || spec.policyTypes) },
             { label: 'Ingress Rule', value: Array.isArray(spec.Ingress || spec.ingress) ? (spec.Ingress || spec.ingress).length : 0 },
             { label: 'Egress Rule', value: Array.isArray(spec.Egress || spec.egress) ? (spec.Egress || spec.egress).length : 0 }
@@ -219,6 +224,7 @@ const KubernetesRelationshipResourceDetailPanel = ({ node }: Props) => {
         ]
     } else if (['poddisruptionbudget', 'pdb'].indexOf(type) >= 0) {
         detailRows = [
+            { label: '파드 선택자', value: <KubernetesSelectorSummary selector={spec.Selector || spec.selector || {}} mode="labelSelector" resourceName={resourceName(node)} resourceKind={kind} title={`${kind} 선택자`} />, wrap: true },
             { label: 'Min Available', value: displayValue(spec.MinAvailable ?? spec.minAvailable) },
             { label: 'Max Unavailable', value: displayValue(spec.MaxUnavailable ?? spec.maxUnavailable) },
             { label: 'Current / Desired Healthy', value: `${displayValue(status.CurrentHealthy ?? status.currentHealthy)} / ${displayValue(status.DesiredHealthy ?? status.desiredHealthy)}` },
@@ -243,6 +249,10 @@ const KubernetesRelationshipResourceDetailPanel = ({ node }: Props) => {
                 <BasicInfoRows density="compact" rows={baseRows} labelWidth={122} copyTooltip="복사" />
                 <DetailAdvancedInfo title="고급 정보" active={basicInfoAdvanced} onChange={setBasicInfoAdvanced}>
                     <BasicInfoRows density="compact" rows={advancedRows} labelWidth={122} copyTooltip="복사" />
+                    <KubernetesMetadataRows items={[
+                        { key: 'labels', label: '라벨', resourceName: resourceName(node), resourceKind: kind, metadataKind: 'label', data: labels, modalTitle: `${kind} 라벨` },
+                        { key: 'annotations', label: '어노테이션', resourceName: resourceName(node), resourceKind: kind, metadataKind: 'annotation', data: annotations, modalTitle: `${kind} 어노테이션` }
+                    ]} />
                 </DetailAdvancedInfo>
             </DetailSectionCard>
             {detailRows.length > 0 && (

@@ -13,15 +13,17 @@ export {
     DetailCollectionStatusRow,
     DetailEmpty,
     DetailKeyValueList,
+    DetailLongValue,
+    DetailModalAction,
     DetailLayerIcon,
     DetailInlineSectionHeader,
     DetailMetricRow,
+    DetailMetricSummaryRow,
     DetailPanelHeader,
     DetailOperationalSummary,
     DetailModalResourceCell,
     DetailModalTextCell,
     DetailMetaInfoRow,
-    DetailMetadataRows,
     DetailMetadataSummary,
     DetailNavigationTabs,
     KUBERNETES_DETAIL_LABELS,
@@ -49,17 +51,94 @@ export { formatKubernetesValueState } from './KubernetesValueState'
 export type { KubernetesValueStateOptions } from './KubernetesValueState'
 export {
     kubernetesCollectionPresentation,
+    kubernetesCreationTimestamp,
+    formatKubernetesTimestamp,
+    kubernetesConfiguredResourceTotalPresentation,
     kubernetesConfigurationCoveragePresentation,
     kubernetesMetadataKeyLabel,
     kubernetesMetadataValueDescription,
-    kubernetesNamespacePhaseLabel
+    kubernetesNamespacePhaseLabel,
+    kubernetesReplicaLabel,
+    kubernetesResourceConfigurationCollectionState
 } from './KubernetesDataPresentation'
 export type {
+    KubernetesCollectionState,
     KubernetesCollectionPresentation,
     KubernetesCollectionSource,
+    KubernetesConfiguredResourceTotalOptions,
     KubernetesConfigurationCoveragePresentation,
-    KubernetesConfigurationState
+    KubernetesConfigurationState,
+    KubernetesResourceConfigurationCollectionMetric
 } from './KubernetesDataPresentation'
+export type { KubernetesReplicaTerm } from './KubernetesDataPresentation'
+
+export { KubernetesReplicaSummary } from './KubernetesReplicaSummary'
+export type { KubernetesReplicaSummaryProps } from './KubernetesReplicaSummary'
+
+export {
+    KubernetesSelectorModal,
+    KubernetesSelectorSummary
+} from './KubernetesSelectorSummary'
+export type {
+    KubernetesSelectorModalProps,
+    KubernetesSelectorSummaryProps
+} from './KubernetesSelectorSummary'
+export {
+    kubernetesSelectorEntries,
+    normalizeKubernetesLabelSelector,
+    normalizeKubernetesSimpleSelector
+} from './KubernetesSelectorPresentation'
+export type {
+    KubernetesSelectorEntry,
+    KubernetesSelectorExpression,
+    KubernetesSelectorMode,
+    NormalizedKubernetesSelector
+} from './KubernetesSelectorPresentation'
+
+export {
+    KubernetesMetadataModal,
+    KubernetesMetadataRows
+} from './KubernetesMetadataModal'
+export type {
+    KubernetesMetadataModalProps,
+    KubernetesMetadataRowItem,
+    KubernetesMetadataRowsProps
+} from './KubernetesMetadataModal'
+export {
+    kubernetesMetadataDisplayValue,
+    normalizeKubernetesMetadata,
+    serializeKubernetesMetadata
+} from './KubernetesMetadataPresentation'
+export type {
+    KubernetesMetadataEntry,
+    KubernetesMetadataKind
+} from './KubernetesMetadataPresentation'
+
+export {
+    KubernetesModalResourceContext,
+    KubernetesModalSection,
+    KubernetesRawJsonCollapse,
+    KubernetesStructuredDataTable
+} from './KubernetesStructuredDataTable'
+export { toggleKubernetesStructuredExpandedKey } from './KubernetesStructuredDataState'
+export type {
+    KubernetesRawJsonCollapseProps,
+    KubernetesModalResourceContextProps,
+    KubernetesModalSectionProps,
+    KubernetesStructuredDataRow,
+    KubernetesStructuredDataTableProps
+} from './KubernetesStructuredDataTable'
+
+export {
+    KubernetesResourceConfigurationCard,
+    KubernetesResourceConfigurationRows,
+    kubernetesResourceConfigurationCoverageState
+} from './KubernetesResourceConfigurationCard'
+export type {
+    KubernetesResourceConfigurationCardProps,
+    KubernetesResourceConfigurationRowsProps,
+    KubernetesResourceConfigurationCoverage
+} from './KubernetesResourceConfigurationCard'
 
 export { KubernetesAnalysisConfidence } from './KubernetesAnalysisConfidence'
 export {
@@ -92,7 +171,8 @@ export {
 export type {
     KubernetesEventCollectionOptions,
     KubernetesEventGroup,
-    KubernetesEventTone
+    KubernetesEventTone,
+    KubernetesRecentEventsProps
 } from './KubernetesRecentEvents'
 
 export type { KubernetesAnalysisConfidenceState } from './KubernetesAnalysisConfidence'
@@ -130,12 +210,12 @@ export type {
     DetailEmptyProps,
     DetailKeyValueListProps,
     DetailKeyValueRow,
+    DetailLongValueProps,
     DetailLayerIconProps,
     DetailInlineSectionHeaderProps,
     DetailMetricRowProps,
+    DetailMetricSummaryItem,
     DetailMetaInfoItem,
-    DetailMetadataRowItem,
-    DetailMetadataRowsProps,
     DetailMetadataSummaryProps,
     DetailPanelHeaderProps,
     DetailOperationalMetric,

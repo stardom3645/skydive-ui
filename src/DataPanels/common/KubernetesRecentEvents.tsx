@@ -125,8 +125,16 @@ const relativeTime = (value: any): string => {
     return translate('kubernetesEventDaysAgo').replace('{count}', String(Math.floor(hours / 24)))
 }
 
-export const KubernetesRecentEvents = ({ groups, emptyText, onResourceClick }: { groups: KubernetesEventGroup[], emptyText?: React.ReactNode, onResourceClick?: (group: KubernetesEventGroup) => void }) => {
-    if (!groups.length) return emptyText ? <DetailEmpty description={emptyText} compact /> : null
+export interface KubernetesRecentEventsProps {
+    groups: KubernetesEventGroup[]
+    emptyText?: React.ReactNode
+    lookbackLabel?: string
+    onResourceClick?: (group: KubernetesEventGroup) => void
+}
+
+export const KubernetesRecentEvents = ({ groups, emptyText, lookbackLabel, onResourceClick }: KubernetesRecentEventsProps) => {
+    const resolvedEmptyText = emptyText || (lookbackLabel ? `${lookbackLabel} 동안 발생한 중요 이벤트가 없습니다.` : undefined)
+    if (!groups.length) return resolvedEmptyText ? <DetailEmpty description={resolvedEmptyText} compact /> : null
     return <div className="netdive-k8s-recent-events">{groups.map(group => <div key={`${group.reason}:${group.resource}`} className={`is-${group.tone}`}>
         <span className="netdive-k8s-recent-events__dot" />
         <div className="netdive-k8s-recent-events__main">

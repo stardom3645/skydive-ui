@@ -22,6 +22,9 @@ import {
     DetailSectionCard,
     DetailStatusIndicator,
     KubernetesRecentEvents,
+    KubernetesMetadataRows,
+    KubernetesSelectorSummary,
+    KUBERNETES_DETAIL_LABELS,
     RelatedResourceGrid,
     StatusEvidenceList,
     StatusEvidenceRow,
@@ -69,18 +72,6 @@ const stringList = (value: any): string[] => Array.isArray(value) ? value.filter
 const displayOptional = (value: any): React.ReactNode => {
     if (value === undefined || value === null || String(value).trim() === '' || String(value).trim().toLowerCase() === 'none') return translate('kubernetesNone')
     return value
-}
-const flattenedMetadata = (value: any, prefix = ''): string[] => {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) {
-        return prefix ? [`${prefix}=${String(value)}`] : []
-    }
-    return Object.keys(value).sort().reduce((items: string[], key) => {
-        const path = prefix ? `${prefix}.${key}` : key
-        const child = value[key]
-        if (child && typeof child === 'object' && !Array.isArray(child)) return items.concat(flattenedMetadata(child, path))
-        items.push(`${path}=${String(child)}`)
-        return items
-    }, [])
 }
 const SERVICE_EVENT_TONES = {
     failedtoupdateendpoint: 'warning' as const,
@@ -371,18 +362,6 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
         })
     }
 
-    private selectorValue(selector: any): React.ReactNode {
-        if (!selector || typeof selector !== 'object' || Array.isArray(selector)) return translate('kubernetesNone')
-        const entries = Object.keys(selector).sort().map(key => `${key}=${String(selector[key])}`)
-        if (!entries.length) return translate('kubernetesNone')
-        const visible = entries.slice(0, 2)
-        const hidden = entries.slice(2)
-        return <span className="netdive-k8s-service-detail__selectors">
-            {visible.map(value => <span key={value}>{value}</span>)}
-            {hidden.length > 0 && <Tooltip title={hidden.join('\n')} placement="top"><button type="button">{translate('kubernetesAdditionalItems').replace('{count}', String(hidden.length))}</button></Tooltip>}
-        </span>
-    }
-
     private renderPorts(ports: any[]) {
         if (!ports.length) return <CompactEmptyState description={translate('kubernetesServicePortsUnavailable')} compact />
         return <div className="netdive-k8s-service-detail__ports">
@@ -567,11 +546,9 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
         ]
         const advancedRows = [
             { label: 'IP Family', value: displayOptional(stringList(detail.ipFamilies).join(', ') || detail.ipFamilyPolicy) },
-            { label: 'Selector', value: this.selectorValue(detail.selector) },
+            { label: KUBERNETES_DETAIL_LABELS.selector, value: <KubernetesSelectorSummary selector={detail.selector} mode="simpleMap" resourceName={serviceName} resourceKind="Service" title="Service 선택자" />, wrap: true },
             { label: translate('kubernetesPublishNotReadyAddresses'), value: detail.publishNotReadyAddresses === undefined ? translate('kubernetesNone') : detail.publishNotReadyAddresses ? translate('yes') : translate('no') },
-            { label: translate('kubernetesCreatedAt'), value: detail.createdAt ? new Date(detail.createdAt).toLocaleString() : translate('kubernetesNotCollected') },
-            { label: 'Labels', value: flattenedMetadata(detail.labels).join(', ') || translate('kubernetesNone') },
-            { label: 'Annotations', value: flattenedMetadata(detail.annotations).join(', ') || translate('kubernetesNone') }
+            { label: translate('kubernetesCreatedAt'), value: detail.createdAt ? new Date(detail.createdAt).toLocaleString() : translate('kubernetesNotCollected') }
         ]
         const recentEventGroups = collectKubernetesEventGroups([
             detail.events,
@@ -591,6 +568,10 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
                     active={this.state.basicInfoAdvanced}
                     onChange={basicInfoAdvanced => this.setState({ basicInfoAdvanced })}>
                     <BasicInfoRows density="compact" rows={advancedRows} labelWidth={122} copyTooltip={translate('copy')} />
+                    <KubernetesMetadataRows items={[
+                        { key: 'labels', label: KUBERNETES_DETAIL_LABELS.labels, resourceName: serviceName, resourceKind: 'Service', metadataKind: 'label', data: detail.labels, modalTitle: 'Service 라벨' },
+                        { key: 'annotations', label: KUBERNETES_DETAIL_LABELS.annotations, resourceName: serviceName, resourceKind: 'Service', metadataKind: 'annotation', data: detail.annotations, modalTitle: 'Service 어노테이션' }
+                    ]} />
                 </DetailAdvancedInfo>
             </DetailSectionCard>
 

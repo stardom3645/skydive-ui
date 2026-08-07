@@ -31,6 +31,10 @@ import {
     isKubernetesTopologyData
 } from './KubernetesInfrastructureEvidence'
 import { kubernetesClusterGroupObjectCount } from './TopologyGroupBadge'
+import {
+    isKubernetesWorkloadType,
+    kubernetesWorkloadNodeText
+} from './KubernetesTopologyNodePresentation'
 
 const flextree = require('d3-flextree').flextree;
 
@@ -57,8 +61,12 @@ const topologyCardTextPadding = 104
 const topologySiblingCardGap = 36
 // 일반 토폴로지 노드 카드의 높이입니다.
 const topologyCardHeight = 92
+// Workload cards reserve two name rows and one resource-kind row.
+const topologyWorkloadCardHeight = 108
 // 2줄 노드 이름의 줄 간격입니다.
 const topologyCardTitleLineGap = 20
+const topologyWorkloadTitleLineGap = 18
+const topologyWorkloadKindFontSize = 14
 // 토폴로지 카드에 직접 노출하는 상태 배지 수입니다. 초과 상태는 +N으로 요약합니다.
 const topologyVisibleStatusBadgeLimit = 2
 // 상태 배지의 실제 렌더링 간격과 제목 사이의 안전 여백입니다.
@@ -467,7 +475,7 @@ class NodeWrapper {
             const isKubernetesNode = node?.data?.Manager === "k8s" && node?.data?.Type === "node"
             const isKubernetesNamespace = node?.data?.Manager === "k8s" && node?.data?.Type === "namespace"
             const kubernetesType = node?.data?.Manager === "k8s" ? String(node?.data?.Type || "").toLowerCase() : ""
-            const isKubernetesWorkload = ["deployment", "statefulset", "daemonset", "job", "cronjob"].indexOf(kubernetesType) >= 0
+            const isKubernetesWorkload = isKubernetesWorkloadType(kubernetesType)
             const isKubernetesDenseLayer = isKubernetesWorkload
                 || kubernetesType === "pod"
                 || kubernetesType === "persistentvolume"
@@ -491,7 +499,7 @@ class NodeWrapper {
                 isUserVmNode || isVmInterfaceNode
                     ? nodeHeight + userVmVerticalGapBoost
                     : isKubernetesWorkload
-                        ? nodeHeight + kubernetesWorkloadVerticalGapBoost
+                        ? nodeHeight + kubernetesWorkloadVerticalGapBoost + (topologyWorkloadCardHeight - topologyCardHeight)
                         : nodeHeight
             ]
         }
@@ -3000,7 +3008,14 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     private isLinkNodeSelected(link: Link): boolean {
-        return link.source.state.selected || link.target.state.selected
+        const originalSource = this.nodes.get(this.linkOriginalSourceID(link))
+        const originalTarget = this.nodes.get(this.linkOriginalTargetID(link))
+
+        // visibleLinks() can replace a grouped endpoint with its visible group
+        // node. Keep the original endpoint selection in the decision so a
+        // selected switch port or host still reveals its physical links.
+        return link.source.state.selected || link.target.state.selected ||
+            !!originalSource?.state.selected || !!originalTarget?.state.selected
     }
 
     private activeContainerNodeID(): string {
@@ -3178,6 +3193,13 @@ export class Topology extends React.Component<Props, {}> {
     private linkDisplayOpacity(link: Link): number {
         if (!this.isLinkVisible(link)) {
             return 0
+        }
+
+        // A selected endpoint always wins over the container/proxy filter.
+        // Otherwise host -> grouped switch-port links are classified as proxy
+        // links and hidden immediately after highlightNeighborLinks() runs.
+        if (this.isLinkNodeSelected(link)) {
+            return 1
         }
 
         const activeIDs = this.activeContainerMiniNodeIDs()
@@ -4260,9 +4282,13 @@ export class Topology extends React.Component<Props, {}> {
                 const filtered = self.filteredGroupNavigatorNodes(d.data.wrapped.children as Node[], d.data.wrapped.id)
                 return self.groupListHeight(filtered.length)
             }
-            return isGroupContainerNode(d) ? this.groupContainerHeightForGroup(d.data.wrapped.children) : topologyCardHeight
+            if (isGroupContainerNode(d)) return this.groupContainerHeightForGroup(d.data.wrapped.children)
+            return isWorkloadControllerNode(d.data.wrapped) ? topologyWorkloadCardHeight : topologyCardHeight
         }
         const cardTopY = -topologyCardHeight / 2
+        const cardTopYForNode = (d: D3Node) => isWorkloadControllerNode(d.data.wrapped)
+            ? -topologyWorkloadCardHeight / 2
+            : cardTopY
         // 그룹 카드의 가까운 백플레이트가 앞 카드에서 분리되는 오른쪽/아래 간격입니다.
         const groupBackplateNearOffset = { x: 6, y: 5 }
         // 그룹 카드의 먼 백플레이트가 계층 깊이를 드러내는 오른쪽/아래 간격입니다.
@@ -4295,7 +4321,7 @@ export class Topology extends React.Component<Props, {}> {
         card.append("rect")
             .attr("class", "node-card-bg")
             .attr("x", (d: D3Node) => -cardWidthForNode(d) / 2)
-            .attr("y", cardTopY)
+            .attr("y", (d: D3Node) => cardTopYForNode(d))
             .attr("width", (d: D3Node) => cardWidthForNode(d))
             .attr("height", (d: D3Node) => cardHeightForNode(d))
             .attr("rx", 12)
@@ -4771,8 +4797,7 @@ export class Topology extends React.Component<Props, {}> {
                 const textNode = this as SVGTextElement
                 const textX = cardTitleX(d)
 
-                const workloadTypes = new Set(["deployment", "statefulset", "daemonset", "job", "cronjob"])
-                const isWorkloadCard = d.data.wrapped.data?.Manager === "k8s" && workloadTypes.has(String(d.data.wrapped.data?.Type || "").toLowerCase())
+                const isWorkloadCard = isWorkloadControllerNode(d.data.wrapped)
                 const storageTypes = new Set(["storageclass", "persistentvolumeclaim", "persistentvolume"])
                 const isStorageCard = d.data.type !== WrapperType.Group
                     && d.data.wrapped.data?.Manager === "k8s"
@@ -4836,14 +4861,15 @@ export class Topology extends React.Component<Props, {}> {
                 }
 
                 const explicitLines = fullText.split("\n").filter((line) => line.length > 0)
-                if (isWorkloadCard && explicitLines.length > 1) {
-                    const workloadNameLines = splitLongName(explicitLines[0])
-                    if (workloadNameLines.length === 1) {
-                        targetLines = [workloadNameLines[0], explicitLines[1]]
-                        secondaryLineIndex = 1
-                    } else {
-                        targetLines = workloadNameLines.slice(0, 2)
-                    }
+                if (isWorkloadCard) {
+                    const workloadText = kubernetesWorkloadNodeText(
+                        d.data.wrapped.data?.Name || explicitLines[0] || d.data.wrapped.id,
+                        d.data.wrapped.data?.Type
+                    )
+                    const workloadNameLines = splitLongName(workloadText.name).slice(0, 2)
+                    targetLines = [workloadNameLines[0] || workloadText.name, workloadNameLines[1] || "\u00a0", workloadText.kind]
+                    secondaryLineIndex = 2
+                    secondaryLineClass = "node-card-title-workload-kind"
                 } else if (isStorageCard && explicitLines.length > 1) {
                     targetLines = explicitLines.slice(0, 2)
                     secondaryLineIndex = 1
@@ -4856,20 +4882,20 @@ export class Topology extends React.Component<Props, {}> {
 
                 const fittedLines = targetLines.map((line, index) => {
                     const secondaryFontSize = index === secondaryLineIndex
-                        ? isStorageCard ? 14 : 17
+                        ? isWorkloadCard ? topologyWorkloadKindFontSize : isStorageCard ? 14 : 17
                         : index === 1 && isScopedGroupCard
                             ? 15
                         : undefined
                     return fitLine(line, secondaryFontSize)
                 })
-                const titleY = fittedLines.length > 1 ? -4 : 7
+                const titleY = isWorkloadCard ? -topologyWorkloadTitleLineGap : fittedLines.length > 1 ? -4 : 7
                 title.attr("y", titleY)
                 title.text(null)
                 fittedLines.forEach((line, index) => {
                     title.append("tspan")
                         .attr("class", index === secondaryLineIndex ? secondaryLineClass : null)
                         .attr("x", textX)
-                        .attr("dy", index === 0 ? 0 : topologyCardTitleLineGap)
+                        .attr("dy", index === 0 ? 0 : isWorkloadCard ? topologyWorkloadTitleLineGap : topologyCardTitleLineGap)
                         .text(line)
                 })
 
@@ -4975,6 +5001,7 @@ export class Topology extends React.Component<Props, {}> {
             .transition()
             .duration(animDuration)
             .attr("x", (d: D3Node) => -cardWidthForNode(d) / 2)
+            .attr("y", (d: D3Node) => cardTopYForNode(d))
             .attr("width", (d: D3Node) => cardWidthForNode(d))
             .attr("height", (d: D3Node) => cardHeightForNode(d))
 
@@ -5433,11 +5460,11 @@ export class Topology extends React.Component<Props, {}> {
                 .attr("class", "node-exco-badge")
             badgeEnter.append("circle")
                 .attr("class", "node-exco-circle")
-                .attr("cy", -topologyCardHeight / 2 + 12)
+                .attr("cy", -cardHeightForNode(d) / 2 + 12)
                 .attr("r", 15)
             badgeEnter.append("text")
                 .attr("class", "node-exco-children")
-                .attr("y", -topologyCardHeight / 2 + 17)
+                .attr("y", -cardHeightForNode(d) / 2 + 17)
             badgeEnter.append("title")
             badge = badgeEnter.merge(badge as any)
             badge

@@ -411,6 +411,12 @@ svg {
     font-weight: 600;
 }
 
+.node-card-title .node-card-title-workload-kind {
+    fill: #667085;
+    font-size: 14px;
+    font-weight: 500;
+}
+
 .node-card-title .node-card-title-storage-secondary {
     fill: #667085;
     font-size: 14px;

@@ -214,6 +214,8 @@ export const kubernetesNamespaceResourceCoverageFromDetail = (
     const metrics = [detail.cpuRequests, detail.cpuLimits, detail.memoryRequests, detail.memoryLimits]
     const configured = metrics.map(metric => Number(metric?.configuredContainers))
     if (!Number.isFinite(total) || total < 0 || configured.some(value => !Number.isFinite(value) || value < 0)) return undefined
+    const collectedAggregate = (value: any): number | undefined =>
+        value !== undefined && value !== null && Number.isFinite(Number(value)) ? Number(value) : undefined
     return {
         collected: true,
         total,
@@ -225,10 +227,10 @@ export const kubernetesNamespaceResourceCoverageFromDetail = (
         cpuLimitsCollected: true,
         memoryRequestsCollected: true,
         memoryLimitsCollected: true,
-        cpuRequestsCores: Number.isFinite(Number(detail.cpuRequests?.cores)) ? Number(detail.cpuRequests?.cores) : 0,
-        cpuLimitsCores: Number.isFinite(Number(detail.cpuLimits?.cores)) ? Number(detail.cpuLimits?.cores) : 0,
-        memoryRequestsBytes: Number.isFinite(Number(detail.memoryRequests?.bytes)) ? Number(detail.memoryRequests?.bytes) : 0,
-        memoryLimitsBytes: Number.isFinite(Number(detail.memoryLimits?.bytes)) ? Number(detail.memoryLimits?.bytes) : 0
+        cpuRequestsCores: collectedAggregate(detail.cpuRequests?.cores),
+        cpuLimitsCores: collectedAggregate(detail.cpuLimits?.cores),
+        memoryRequestsBytes: collectedAggregate(detail.memoryRequests?.bytes),
+        memoryLimitsBytes: collectedAggregate(detail.memoryLimits?.bytes)
     }
 }
 

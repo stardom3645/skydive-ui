@@ -96,6 +96,8 @@ describe('Kubernetes namespace detail aggregation', () => {
                 { Resources: { Requests: {}, Limits: { memory: '128Mi' } } }
             ], spec: { InitContainers: [
                 { Resources: { Requests: { cpu: '500m', memory: '512Mi' }, Limits: { cpu: '1', memory: '1Gi' } } }
+            ], EphemeralContainers: [
+                { Resources: { Requests: { cpu: '8', memory: '8Gi' }, Limits: { cpu: '16', memory: '16Gi' } } }
             ] } })
         const duplicatePodA = { ...podA, id: 'pod-a-duplicate' }
         const coverage = kubernetesNamespaceContainerResourceCoverage([podA, duplicatePodA])
@@ -203,5 +205,16 @@ describe('Kubernetes namespace detail aggregation', () => {
         assert.equal(coverage?.cpuRequestsCores, 0.75)
         assert.equal(coverage?.memoryLimitsBytes, 1024 * 1024 * 1024)
         assert.equal(kubernetesNamespaceResourceCoverageFromDetail({ collected: false }), undefined)
+
+        const missingAggregate = kubernetesNamespaceResourceCoverageFromDetail({
+            collected: true,
+            totalContainers: 1,
+            cpuRequests: { configuredContainers: 1 },
+            cpuLimits: { configuredContainers: 0 },
+            memoryRequests: { configuredContainers: 0 },
+            memoryLimits: { configuredContainers: 0 }
+        })
+        assert.equal(missingAggregate?.cpuRequestsCores, undefined)
+        assert.equal(missingAggregate?.cpuLimitsCores, undefined)
     })
 })
