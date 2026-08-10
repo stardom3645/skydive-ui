@@ -52,32 +52,6 @@
     white-space: nowrap;
 }
 
-.netdive-k8s-service-detail__selectors {
-    display: flex;
-    min-width: 0;
-    flex-direction: column;
-    gap: 3px;
-}
-
-.netdive-k8s-service-detail__selectors > span {
-    overflow: hidden;
-    color: var(--netdive-detail-text);
-    font-size: var(--netdive-detail-font-supporting-text);
-    line-height: var(--netdive-detail-line-supporting-text);
-    overflow-wrap: anywhere;
-}
-
-.netdive-k8s-service-detail__selectors > button {
-    width: fit-content;
-    padding: 0;
-    border: 0;
-    color: var(--netdive-detail-primary);
-    background: transparent;
-    font-size: var(--netdive-detail-font-supporting-text);
-    line-height: var(--netdive-detail-line-supporting-text);
-    cursor: pointer;
-}
-
 .netdive-k8s-service-detail__ports { padding: 3px var(--netdive-detail-card-padding-x) 10px; }
 
 .netdive-k8s-service-detail__port-head,

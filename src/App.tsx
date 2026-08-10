@@ -164,6 +164,9 @@ interface RecentViewedNodeItem {
 }
 
 const KUBERNETES_WORKLOAD_TYPES = new Set<string>(["deployment", "statefulset", "daemonset", "job", "cronjob"])
+// Intermediate owner resources remain in tc.nodes for relationship lookup and
+// detail navigation, but never become an execution-topology layer.
+const KUBERNETES_INTERMEDIATE_RELATION_TYPES = new Set(["replicaset"])
 const KUBERNETES_DETAIL_ONLY_TYPES = new Set([
   "service",
   "ingress",
@@ -1495,6 +1498,8 @@ class App extends React.Component<Props, State> {
       const childManager = String(child.data?.Manager || "").toLowerCase()
       const isKubernetesDetailRelation = (parentManager === "k8s" && KUBERNETES_DETAIL_ONLY_TYPES.has(parentType))
         || (childManager === "k8s" && KUBERNETES_DETAIL_ONLY_TYPES.has(childType))
+        || (parentManager === "k8s" && KUBERNETES_INTERMEDIATE_RELATION_TYPES.has(parentType))
+        || (childManager === "k8s" && KUBERNETES_INTERMEDIATE_RELATION_TYPES.has(childType))
 
       if (isKubernetesDetailRelation) {
         // Detail-only Kubernetes resources are intentionally excluded from the
@@ -1724,6 +1729,7 @@ class App extends React.Component<Props, State> {
     if (!isTopologyNodeVisibleInLayer(node.data, node.tags, this.isKubernetesLayerActive())) return false
     if (!isKubernetesTopologyData(node.data, node.tags)) return true
     const type = String(node.data?.Type || "").toLowerCase()
+    if (KUBERNETES_INTERMEDIATE_RELATION_TYPES.has(type)) return false
     if (type === "cluster" || type === "node" || type === "namespace") return true
     if (KUBERNETES_WORKLOAD_TYPES.has(type)) return true
     if (type === "pod") {

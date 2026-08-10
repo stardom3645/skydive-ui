@@ -1868,7 +1868,7 @@ export const i18nMap = {
         "kubernetesDesiredNodes": "Desired 노드",
         "kubernetesReadyNodes": "Ready 노드",
         "kubernetesAvailableNodes": "Available 노드",
-        "kubernetesMisscheduledNodes": "잘못 배치됨",
+        "kubernetesMisscheduledNodes": "비대상 배치",
         "kubernetesCurrentNodes": "Current 노드",
         "kubernetesUpdatedNodes": "Updated 노드",
         "kubernetesUnavailableNodes": "Unavailable 노드",

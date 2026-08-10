@@ -9,33 +9,46 @@ import { HistoryOutlined } from '@ant-design/icons'
 import { translate } from '../Config'
 import { Node } from '../Topology'
 import { aggregateKubernetesPods } from '../KubernetesPodLifecycle'
-import { kubernetesPodsForController } from '../KubernetesWorkloadOwnership'
+import {
+    currentKubernetesReplicaSetForDeployment,
+    kubernetesPodsForController,
+    kubernetesReplicaSetRelationsForDeployment
+} from '../KubernetesWorkloadOwnership'
 import { isCurrentKubernetesPod } from '../KubernetesPodLifecycle'
 import { kubernetesLabelValue, matchesKubernetesSelector } from '../KubernetesSelectors'
 import {
+    KubernetesDaemonSetPlacementSnapshot,
+    kubernetesDaemonSetPlacementHasProblem,
+    kubernetesDaemonSetPlacementSnapshot
+} from '../KubernetesDaemonSetDetailAggregation'
+import {
     BasicInfoRows,
     collectKubernetesEventGroups,
-    CompactEmptyState,
     ConnectedResourceListSection,
     DetailAdvancedInfo,
     DetailBadgeTone,
     DetailLongValue,
     DetailModalAction,
-    DetailMetadataSummary,
-    DetailInlineSectionHeader,
+    DetailCardSubsectionHeader,
     DetailSectionCard,
     DetailStatusIndicator,
     HistoryModal,
     KubernetesMetadataRows,
     KubernetesSelectorSummary,
     KUBERNETES_DETAIL_LABELS,
-    KubernetesResourceConfigurationRows,
     kubernetesCreationTimestamp,
     formatKubernetesTimestamp,
-    kubernetesCpuCores,
-    kubernetesMemoryBytes,
     KubernetesRecentEvents,
+    KubernetesDaemonSetPlacementSummary,
     KubernetesReplicaSummary,
+    KubernetesConditionRows,
+    KubernetesContainerDetails,
+    DAEMONSET_CONDITION_DEFINITIONS,
+    DEPLOYMENT_CONDITION_DEFINITIONS,
+    KUBERNETES_DAEMONSET_PLACEMENT_ROLLOUT_TITLE,
+    kubernetesDaemonSetNodeLabel,
+    KubernetesSchedulingModalAction,
+    normalizeKubernetesSchedulingConfiguration,
     KubernetesStateSeparation,
     StatusEvidenceList,
     StatusEvidenceRow,
@@ -113,6 +126,7 @@ const normalizeList = (value: any): any[] => Array.isArray(value) ? value : []
 const conditionValue = (condition: any, key: string): any => condition?.[key] ?? condition?.[key.charAt(0).toLowerCase() + key.slice(1)]
 const numberValue = (value: any, fallback = 0): number => value === undefined || value === null || Number.isNaN(Number(value)) ? fallback : Number(value)
 const optionalText = (value: any): string => value === undefined || value === null || String(value).trim() === '' ? translate('kubernetesNone') : String(value)
+const intOrStringValue = (value: any): any => value?.StrVal ?? value?.strVal ?? value?.IntVal ?? value?.intVal ?? value
 
 class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
     state: State = { basicCollapsed: false, basicInfoAdvanced: false, rolloutAdvanced: false, pvcModalOpen: false }
@@ -203,7 +217,7 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
             declaredName,
             Array.from(selectorMatchedNames),
             Array.from(endpointSliceServiceNames)
-        ) : Array.from(selectorMatchedNames))
+        ) : [...Array.from(selectorMatchedNames), ...Array.from(endpointSliceServiceNames)])
         services.filter(service => relatedNames.has(this.resourceName(service))).forEach(service => serviceIDs.add(service.id))
         return services.filter(node => serviceIDs.has(node.id))
     }
@@ -239,14 +253,6 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
             })
         })
         return this.scopedResources(types).filter(node => names.has(firstValue(node.data || {}, ['Name', 'K8s.Name'])))
-    }
-
-    private replicaSetReferences(pods: Node[]): string[] {
-        const names = new Set<string>()
-        pods.forEach(pod => normalizeList(firstRaw(pod.data || {}, ['K8s.Extra.ObjectMeta.OwnerReferences'])).forEach((owner: any) => {
-            if (String(owner?.Kind || owner?.kind || '').toLowerCase() === 'replicaset' && (owner?.Name || owner?.name)) names.add(String(owner.Name || owner.name))
-        }))
-        return Array.from(names)
     }
 
     private pvcTargets(spec: any, pods: Node[] = []): Node[] {
@@ -355,7 +361,7 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
             description: this.resourceNamespace(resource) || firstValue(resource.data || {}, ['K8s.Extra.Status.Phase', 'K8s.Status', 'Status']) || undefined,
             icon: this.topologyIcon(resource),
             tooltip: `${kind} · ${this.resourceName(resource)}`,
-            onClick: () => this.openResource(resource)
+            onClick: resource.data?.RelationshipReferenceOnly ? undefined : () => this.openResource(resource)
         }))
     }
 
@@ -415,7 +421,7 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
         if (unavailable > 0) {
             return { tone: 'warning', label: translate('kubernetesHealthWarning'), conclusion: translate('kubernetesWorkloadPartialReplicas'), progress: translate('kubernetesRolloutDelayed'), progressTone: 'warning' }
         }
-        return { tone: 'success', label: translate('kubernetesHealthNormal'), conclusion: translate('kubernetesWorkloadCapacityReady'), progress: translate('kubernetesRolloutComplete'), progressTone: 'success' }
+        return { tone: 'success', label: translate('kubernetesHealthNormal'), conclusion: '목표 복제본 충족', progress: translate('kubernetesRolloutComplete'), progressTone: 'success' }
     }
 
     private statefulSetHealth(spec: any, status: any, pvcTargets: Node[]): WorkloadHealth {
@@ -443,7 +449,24 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
         return { tone: rollout.tone, label: rollout.verdict, conclusion: rollout.impact, progress: rollout.label, progressTone: rollout.tone }
     }
 
-    private metrics(kind: string, spec: any, status: any): Array<{ label: string, value: any, problem?: boolean }> {
+    private daemonSetHealth(placement: KubernetesDaemonSetPlacementSnapshot): WorkloadHealth {
+        if (!placement.collected) {
+            return { tone: 'default', label: translate('kubernetesHealthUnknown'), conclusion: '영향 확인 불가', progress: '상태 확인 불가', progressTone: 'default' }
+        }
+        if (kubernetesDaemonSetPlacementHasProblem(placement)) {
+            const updating = placement.desired !== undefined && placement.updated !== undefined && placement.updated < placement.desired
+            return {
+                tone: 'warning',
+                label: translate('kubernetesHealthWarning'),
+                conclusion: '노드 배치 상태 확인 필요',
+                progress: updating ? translate('kubernetesRolloutInProgress') : '배치 상태 확인 필요',
+                progressTone: 'warning'
+            }
+        }
+        return { tone: 'success', label: translate('kubernetesHealthNormal'), conclusion: '배치 대상 노드 충족', progress: translate('kubernetesRolloutComplete'), progressTone: 'success' }
+    }
+
+    private metrics(kind: string, spec: any, status: any, daemonPlacement?: KubernetesDaemonSetPlacementSnapshot): Array<{ label: string, value: any, problem?: boolean }> {
         switch (kind) {
             case 'deployment': return [
                 { label: translate('kubernetesDesiredReplicas'), value: intOrUndefined(spec.Replicas) },
@@ -461,12 +484,18 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
                     problem: spec.Replicas !== undefined && status.ReadyReplicas !== undefined && numberValue(status.ReadyReplicas) < numberValue(spec.Replicas)
                 }
             ]
-            case 'daemonset': return [
-                { label: translate('kubernetesDesiredNodes'), value: intOrUndefined(status.DesiredNumberScheduled) },
-                { label: translate('kubernetesReadyNodes'), value: intOrUndefined(status.NumberReady) },
-                { label: translate('kubernetesAvailableNodes'), value: intOrUndefined(status.NumberAvailable) },
-                { label: translate('kubernetesMisscheduledNodes'), value: intOrUndefined(status.NumberMisscheduled), problem: Number(status.NumberMisscheduled || 0) > 0 }
-            ]
+            case 'daemonset': {
+                const placement = daemonPlacement || kubernetesDaemonSetPlacementSnapshot(status)
+                return [
+                    { label: kubernetesDaemonSetNodeLabel('desired'), value: placement.desired },
+                    { label: kubernetesDaemonSetNodeLabel('current'), value: placement.current, problem: placement.current !== undefined && placement.desired !== undefined && placement.current < placement.desired },
+                    { label: kubernetesDaemonSetNodeLabel('ready'), value: placement.ready, problem: placement.ready !== undefined && placement.desired !== undefined && placement.ready < placement.desired },
+                    { label: kubernetesDaemonSetNodeLabel('available'), value: placement.available, problem: placement.available !== undefined && placement.desired !== undefined && placement.available < placement.desired },
+                    { label: kubernetesDaemonSetNodeLabel('updated'), value: placement.updated, problem: placement.updated !== undefined && placement.desired !== undefined && placement.updated < placement.desired },
+                    { label: kubernetesDaemonSetNodeLabel('unavailable'), value: placement.unavailable, problem: placement.unavailable !== undefined && placement.unavailable > 0 },
+                    { label: kubernetesDaemonSetNodeLabel('misscheduled'), value: placement.misscheduled, problem: placement.misscheduled !== undefined && placement.misscheduled > 0 }
+                ]
+            }
             case 'job': return [
                 { label: 'Active', value: intOrUndefined(status.Active) },
                 { label: 'Succeeded', value: intOrUndefined(status.Succeeded) },
@@ -487,8 +516,8 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
         switch (kind) {
             case 'deployment': return [
                 { label: translate('kubernetesDeploymentStrategy'), value: spec.Strategy?.Type || translate('kubernetesNotCollected') },
-                { label: 'Max Surge', value: spec.Strategy?.RollingUpdate?.MaxSurge?.StrVal || (spec.Strategy?.RollingUpdate?.MaxSurge?.IntVal ?? translate('kubernetesNotCollected')) },
-                { label: 'Max Unavailable', value: spec.Strategy?.RollingUpdate?.MaxUnavailable?.StrVal || (spec.Strategy?.RollingUpdate?.MaxUnavailable?.IntVal ?? translate('kubernetesNotCollected')) },
+                { label: '최대 추가 배포', value: spec.Strategy?.RollingUpdate?.MaxSurge?.StrVal || (spec.Strategy?.RollingUpdate?.MaxSurge?.IntVal ?? translate('kubernetesNotCollected')) },
+                { label: '최대 미가용', value: spec.Strategy?.RollingUpdate?.MaxUnavailable?.StrVal || (spec.Strategy?.RollingUpdate?.MaxUnavailable?.IntVal ?? translate('kubernetesNotCollected')) },
                 {
                     label: translate('kubernetesProgress'),
                     value: Number(status.UnavailableReplicas || 0) > 0
@@ -496,12 +525,48 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
                         : <DetailStatusIndicator tone="success">{translate('kubernetesStable')}</DetailStatusIndicator>
                 }
             ]
-            case 'daemonset': return [
-                { label: translate('kubernetesUpdateStrategy'), value: spec.UpdateStrategy?.Type || translate('kubernetesNotCollected') },
-                { label: translate('kubernetesCurrentNodes'), value: optionalNumber(status.CurrentNumberScheduled) },
-                { label: translate('kubernetesUpdatedNodes'), value: optionalNumber(status.UpdatedNumberScheduled) },
-                { label: translate('kubernetesUnavailableNodes'), value: optionalNumber(status.NumberUnavailable) }
-            ]
+            case 'daemonset': {
+                const collected = !!spec && typeof spec === 'object' && Object.keys(spec).length > 0
+                const absent = collected ? '설정되지 않음' : translate('kubernetesNotCollected')
+                const configuredValue = (value: any) => value === undefined || value === null || String(value).trim() === '' ? absent : String(value)
+                const maxUnavailable = intOrStringValue(spec.UpdateStrategy?.RollingUpdate?.MaxUnavailable ?? spec.updateStrategy?.rollingUpdate?.maxUnavailable)
+                const maxSurge = intOrStringValue(spec.UpdateStrategy?.RollingUpdate?.MaxSurge ?? spec.updateStrategy?.rollingUpdate?.maxSurge)
+                return [
+                    { label: '업데이트 전략', value: configuredValue(spec.UpdateStrategy?.Type ?? spec.updateStrategy?.type) },
+                    {
+                        label: '최대 미가용',
+                        value: configuredValue(maxUnavailable),
+                        tooltip: !collected
+                            ? 'DaemonSet spec 데이터가 수집되지 않아 설정값을 확인할 수 없습니다.'
+                            : maxUnavailable === undefined
+                            ? 'spec.updateStrategy.rollingUpdate.maxUnavailable에 명시된 값이 없습니다. RollingUpdate에서는 Kubernetes API 서버의 기본화 규칙이 적용될 수 있습니다.'
+                            : 'Kubernetes 원본 필드: spec.updateStrategy.rollingUpdate.maxUnavailable'
+                    },
+                    {
+                        label: '최대 추가 배포',
+                        value: configuredValue(maxSurge),
+                        tooltip: !collected
+                            ? 'DaemonSet spec 데이터가 수집되지 않아 설정값을 확인할 수 없습니다.'
+                            : maxSurge === undefined
+                            ? 'spec.updateStrategy.rollingUpdate.maxSurge에 명시된 값이 없습니다. RollingUpdate에서는 Kubernetes API 서버의 기본화 규칙이 적용될 수 있습니다.'
+                            : 'Kubernetes 원본 필드: spec.updateStrategy.rollingUpdate.maxSurge'
+                    },
+                    {
+                        label: '노드 선택 조건',
+                        value: (() => {
+                            const scheduling = normalizeKubernetesSchedulingConfiguration(spec.Template?.Spec ?? spec.template?.spec)
+                            return scheduling.nodeSelectionCount ? `${scheduling.nodeSelectionCount}개` : absent
+                        })()
+                    },
+                    {
+                        label: '허용 조건',
+                        value: (() => {
+                            const scheduling = normalizeKubernetesSchedulingConfiguration(spec.Template?.Spec ?? spec.template?.spec)
+                            return scheduling.tolerationCount ? `${scheduling.tolerationCount}개` : absent
+                        })()
+                    }
+                ]
+            }
             case 'job': return [
                 { label: 'Completions', value: optionalNumber(spec.Completions) },
                 { label: translate('kubernetesParallelism'), value: optionalNumber(spec.Parallelism) },
@@ -518,16 +583,18 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
         }
     }
 
-    private rolloutRows(kind: string, spec: any, status: any, health: WorkloadHealth, replicaSetNames: string[]): any[] {
+    private rolloutRows(kind: string, spec: any, status: any, health: WorkloadHealth, currentReplicaSet?: Node): any[] {
         if (kind === 'deployment') {
             const rows: any[] = [
                 { label: translate('kubernetesDeploymentStrategy'), value: optionalText(spec.Strategy?.Type) },
-                { label: 'Max Surge', value: optionalText(spec.Strategy?.RollingUpdate?.MaxSurge?.StrVal || spec.Strategy?.RollingUpdate?.MaxSurge?.IntVal) },
-                { label: 'Max Unavailable', value: optionalText(spec.Strategy?.RollingUpdate?.MaxUnavailable?.StrVal || spec.Strategy?.RollingUpdate?.MaxUnavailable?.IntVal) },
+                { label: '최대 추가 배포', value: optionalText(spec.Strategy?.RollingUpdate?.MaxSurge?.StrVal || spec.Strategy?.RollingUpdate?.MaxSurge?.IntVal), tooltip: 'Kubernetes 원본 필드: spec.strategy.rollingUpdate.maxSurge' },
+                { label: '최대 미가용', value: optionalText(spec.Strategy?.RollingUpdate?.MaxUnavailable?.StrVal || spec.Strategy?.RollingUpdate?.MaxUnavailable?.IntVal), tooltip: 'Kubernetes 원본 필드: spec.strategy.rollingUpdate.maxUnavailable' },
                 { label: translate('kubernetesProgress'), value: <span className={`netdive-k8s-workload-detail__inline-state is-${health.progressTone}`}>{health.progress}</span> }
             ]
-            if (replicaSetNames.length) rows.push({ label: translate('kubernetesCurrentReplicaSet'), value: replicaSetNames[0], textValue: replicaSetNames[0], copyText: replicaSetNames[0] })
-            if (replicaSetNames.length > 1) rows.push({ label: translate('kubernetesPreviousReplicaSets'), value: replicaSetNames.length - 1 })
+            if (currentReplicaSet) {
+                const name = this.resourceName(currentReplicaSet)
+                rows.push({ label: translate('kubernetesCurrentReplicaSet'), value: <DetailLongValue value={name} copy />, wrap: true })
+            } else rows.push({ label: translate('kubernetesCurrentReplicaSet'), value: translate('kubernetesNotCollected') })
             return rows
         }
         if (kind === 'statefulset') {
@@ -542,96 +609,6 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
             ]
         }
         return this.configurationRows(kind, spec, status)
-    }
-
-    private conditionTone(condition: any): WorkloadTone {
-        const type = String(conditionValue(condition, 'Type') || '')
-        const status = String(conditionValue(condition, 'Status') || '').toLowerCase()
-        const reason = String(conditionValue(condition, 'Reason') || '').toLowerCase()
-        const normalized = type.toLowerCase()
-        if (reason === 'progressdeadlineexceeded' || ((/failure|failed|error|degraded/.test(normalized) || /failure|failed|error/.test(reason)) && status === 'true')) return 'danger'
-        if (/failure|failed|error|degraded/.test(normalized)) return status === 'false' ? 'success' : 'warning'
-        if (status === 'true' && (normalized === 'available' || normalized === 'progressing' || normalized === 'ready')) return 'success'
-        if (status === 'false') return 'warning'
-        return 'default'
-    }
-
-    private renderConditions(status: any) {
-        const conditions = normalizeList(status.Conditions)
-        if (!conditions.length) return <CompactEmptyState description={translate('kubernetesNoConditions')} compact />
-        return <StatusEvidenceList>
-            {conditions.map((condition: any, index: number) => {
-                const type = conditionValue(condition, 'Type') || translate('kubernetesUnknown')
-                const state = conditionValue(condition, 'Status') || translate('kubernetesUnknown')
-                const reason = conditionValue(condition, 'Reason') || '–'
-                const tone = this.conditionTone(condition) as DetailBadgeTone
-                const stateLabel = tone === 'danger'
-                    ? translate('kubernetesHealthCritical')
-                    : tone === 'warning'
-                        ? translate('kubernetesHealthWarning')
-                        : tone === 'success'
-                            ? translate('kubernetesHealthNormal')
-                            : translate('kubernetesHealthUnknown')
-                return <StatusEvidenceRow
-                    key={`${type}:${index}`}
-                    title={type}
-                    evidence={conditionValue(condition, 'Message') || reason}
-                    state={<DetailStatusIndicator tone={tone}>{stateLabel}</DetailStatusIndicator>}
-                    value={state}
-                    valueVariant="grade"
-                    tone={tone}
-                    tooltipRawValue={`status=${state}, reason=${reason}`}
-                />
-            })}
-        </StatusEvidenceList>
-    }
-
-    private renderContainers(containers: ContainerDetail[]) {
-        if (!containers.length) return <CompactEmptyState description={translate('kubernetesPodContainersUnavailable')} compact />
-        return <div className="netdive-k8s-workload-detail__containers">{containers.map((container, index) => {
-            const requests = container.resources?.Requests ?? container.resources?.requests ?? {}
-            const limits = container.resources?.Limits ?? container.resources?.limits ?? {}
-            const has = (value: any, key: string) => value && Object.prototype.hasOwnProperty.call(value, key)
-            const cpuRequest = has(requests, 'cpu') ? kubernetesCpuCores(requests.cpu) : undefined
-            const cpuLimit = has(limits, 'cpu') ? kubernetesCpuCores(limits.cpu) : undefined
-            const memoryRequest = has(requests, 'memory') ? kubernetesMemoryBytes(requests.memory) : undefined
-            const memoryLimit = has(limits, 'memory') ? kubernetesMemoryBytes(limits.memory) : undefined
-            const coverage = {
-                total: 1,
-                cpuRequests: has(requests, 'cpu') ? 1 : 0,
-                cpuLimits: has(limits, 'cpu') ? 1 : 0,
-                memoryRequests: has(requests, 'memory') ? 1 : 0,
-                memoryLimits: has(limits, 'memory') ? 1 : 0,
-                cpuRequestsCollected: container.resourcesCollected && (!has(requests, 'cpu') || cpuRequest !== undefined),
-                cpuLimitsCollected: container.resourcesCollected && (!has(limits, 'cpu') || cpuLimit !== undefined),
-                memoryRequestsCollected: container.resourcesCollected && (!has(requests, 'memory') || memoryRequest !== undefined),
-                memoryLimitsCollected: container.resourcesCollected && (!has(limits, 'memory') || memoryLimit !== undefined),
-                cpuRequestsCores: cpuRequest,
-                cpuLimitsCores: cpuLimit,
-                memoryRequestsBytes: memoryRequest,
-                memoryLimitsBytes: memoryLimit
-            }
-            return <details className="netdive-k8s-workload-detail__container" open={index === 0} key={`${container.init ? 'init' : 'app'}:${container.name}`}>
-                <summary><span><strong>{container.name}</strong><small>{container.init ? '초기화 컨테이너(Init Container)' : '일반 컨테이너'}</small></span><i /></summary>
-                <div className="netdive-k8s-workload-detail__container-body">
-                    <div className="netdive-k8s-workload-detail__container-image">
-                        <span>{translate('kubernetesContainerImage')}</span>
-                        <div><DetailLongValue value={container.image} copy={container.image !== translate('kubernetesImageUnavailable')} copyTooltip={translate('copy')} /></div>
-                    </div>
-                    <div className="netdive-k8s-workload-detail__container-runtime">
-                        <div className="netdive-k8s-workload-detail__container-row"><span>{translate('kubernetesImagePullPolicy')}</span><b>{container.pullPolicy}</b></div>
-                        <div className="netdive-k8s-workload-detail__container-row">
-                            <span>{translate('kubernetesContainerPorts')}</span>
-                            <b className="netdive-k8s-workload-detail__container-port-list">{container.ports.length
-                                ? container.ports.map((port, portIndex) => <span key={`${port}:${portIndex}`}>{port}</span>)
-                                : translate('kubernetesNone')}</b>
-                        </div>
-                    </div>
-                    <div className="netdive-k8s-workload-detail__container-subtitle">{translate('kubernetesResourceConfiguration')}</div>
-                    <KubernetesResourceConfigurationRows coverage={coverage} descriptionMode="single" />
-                </div>
-            </details>
-        })}</div>
     }
 
     private renderPvcTemplateModal(spec: any) {
@@ -656,11 +633,17 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
         const meta = extra.ObjectMeta || extra.Metadata || extra.metadata || {}
         const kind = String(data.Type || '').toLowerCase()
         const kindLabel = WORKLOAD_KIND_LABELS[kind] || kind
-        const enhanced = kind === 'deployment' || kind === 'statefulset'
+        const enhanced = kind === 'deployment' || kind === 'statefulset' || kind === 'daemonset'
+        const topologyNodes = this.topologyNodes()
+        const ownedReplicaSets = kind === 'deployment'
+            ? kubernetesReplicaSetRelationsForDeployment(this.props.node, topologyNodes)
+            : []
+        const currentReplicaSet = kind === 'deployment'
+            ? currentKubernetesReplicaSetForDeployment(this.props.node, topologyNodes)
+            : undefined
         const pods = this.pods()
         const currentPods = pods.filter(isCurrentKubernetesPod)
         const connectedServices = this.connectedServices(currentPods, kind === 'statefulset' ? spec : undefined)
-        const replicaSetNames = this.replicaSetReferences(currentPods)
         const configMapTargets = this.referencedResources(spec, ['configmap'])
         const secretTargets = this.referencedResources(spec, ['secret'])
         const pvcTargets = kind === 'statefulset' ? this.pvcTargets(spec, currentPods) : []
@@ -674,7 +657,8 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
         const podSummary = summarizeKubernetesPods(pods)
         const topologyPodSummary = aggregateKubernetesPods(pods)
         const problemPods = topologyPodSummary.currentProblems
-        const metrics = this.metrics(kind, spec, status)
+        const daemonPlacement = kubernetesDaemonSetPlacementSnapshot(status)
+        const metrics = this.metrics(kind, spec, status, daemonPlacement)
         const metricProblem = metrics.some(metric => metric.problem)
         const critical = kind === 'job' && Number(status.Failed || 0) > 0 && Number(status.Active || 0) === 0
         const warning = metricProblem || problemPods > 0
@@ -685,24 +669,27 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
             ? this.deploymentHealth(spec, status)
             : kind === 'statefulset'
                 ? this.statefulSetHealth(spec, status, pvcTargets)
-                : undefined
+                : kind === 'daemonset'
+                    ? this.daemonSetHealth(daemonPlacement)
+                    : undefined
         const workloadName = String(data.Name || this.props.node.id)
         const labels = meta.Labels || meta.labels || data.K8s?.Labels || {}
         const annotations = meta.Annotations || meta.annotations || {}
         const creationTimestamp = kubernetesCreationTimestamp(data)
         const selector = spec.Selector || spec.selector || {}
         const pvcTemplates = normalizeList(spec.VolumeClaimTemplates || spec.volumeClaimTemplates)
+        const scheduling = normalizeKubernetesSchedulingConfiguration(spec.Template?.Spec ?? spec.template?.spec)
         const basicRows = [
             { label: translate('kubernetesWorkloadName'), value: <DetailLongValue value={workloadName} copy />, wrap: true },
             { label: translate('kubernetesWorkloadType'), value: kindLabel },
             { label: translate('kubernetesTopologyNamespaces'), value: data.K8s?.Namespace || meta.Namespace || translate('kubernetesNotCollected') },
             { label: translate('kubernetesCreatedAt'), value: formatDate(creationTimestamp) || translate('kubernetesNotCollected') },
-            { label: '라벨 수', value: <DetailMetadataSummary value={labels} /> },
-            { label: '어노테이션 수', value: <DetailMetadataSummary value={annotations} /> },
             { label: KUBERNETES_DETAIL_LABELS.selector, value: <KubernetesSelectorSummary selector={selector} mode="labelSelector" resourceName={workloadName} resourceKind={kindLabel} title={`${kindLabel} 선택자`} />, wrap: true }
         ]
         const recentEventGroups = collectKubernetesEventGroups([
-            firstRaw(data, ['K8s.Extra.Events', 'K8s.Events', 'Events'])
+            firstRaw(data, ['K8s.Extra.Events', 'K8s.Events', 'Events']),
+            ...(kind === 'deployment' ? ownedReplicaSets.map(replicaSet => firstRaw(replicaSet.data || {}, ['K8s.Extra.Events', 'K8s.Events', 'Events'])) : []),
+            ...((kind === 'deployment' || kind === 'daemonset') ? currentPods.map(pod => firstRaw(pod.data || {}, ['K8s.Extra.Events', 'K8s.Events', 'Events'])) : [])
         ], WORKLOAD_EVENT_TONES, { sinceMs: 60 * 60 * 1000 })
         const recentWorkloadEventGroups = recentEventGroups
         const recentInstabilityKnown = podSummary.timestampAvailable && (recentEventGroups.length === 0 || recentEventGroups.some(group => {
@@ -732,21 +719,44 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
         const impact = health ? health.conclusion : conclusion
         const desiredReplicas = intOrUndefined(spec.Replicas)
         const readyReplicas = intOrUndefined(status.ReadyReplicas)
+        const availableReplicas = intOrUndefined(status.AvailableReplicas)
         const currentReplicas = intOrUndefined(status.CurrentReplicas)
         const updatedReplicas = intOrUndefined(status.UpdatedReplicas)
-        const unavailableReplicas = desiredReplicas === undefined || readyReplicas === undefined
-            ? undefined
-            : Math.max(0, desiredReplicas - readyReplicas)
+        const unavailableReplicas = kind === 'deployment'
+            ? intOrUndefined(status.UnavailableReplicas) ?? (desiredReplicas === undefined || availableReplicas === undefined
+                ? undefined
+                : Math.max(0, desiredReplicas - availableReplicas))
+            : desiredReplicas === undefined || readyReplicas === undefined
+                ? undefined
+                : Math.max(0, desiredReplicas - readyReplicas)
         const impactTooltip = kind === 'statefulset'
             ? `목표 복제본 ${desiredReplicas === undefined ? '확인 불가' : desiredReplicas}개, 준비 복제본 ${readyReplicas === undefined ? '확인 불가' : readyReplicas}개, 미가용 복제본 ${unavailableReplicas === undefined ? '확인 불가' : unavailableReplicas}개, 업데이트 복제본 ${updatedReplicas === undefined ? '확인 불가' : updatedReplicas}개를 기준으로 가용성 영향을 판정합니다.`
-            : impact
-        const operationalMetrics = kind === 'statefulset' ? [] : metrics.map(metric => ({
+            : kind === 'deployment'
+                ? `목표 복제본 ${desiredReplicas === undefined ? '확인 불가' : desiredReplicas}개, 가용 복제본 ${availableReplicas === undefined ? '확인 불가' : availableReplicas}개, 업데이트 복제본 ${updatedReplicas === undefined ? '확인 불가' : updatedReplicas}개, 미가용 복제본 ${unavailableReplicas === undefined ? '확인 불가' : unavailableReplicas}개를 기준으로 현재 가용성 영향을 판정합니다.`
+                : kind === 'daemonset'
+                    ? `배치 대상 노드 ${daemonPlacement.desired === undefined ? '확인 불가' : daemonPlacement.desired}개, 현재 배치 노드 ${daemonPlacement.current === undefined ? '확인 불가' : daemonPlacement.current}개, 준비 노드 ${daemonPlacement.ready === undefined ? '확인 불가' : daemonPlacement.ready}개, 가용 노드 ${daemonPlacement.available === undefined ? '확인 불가' : daemonPlacement.available}개, 미가용 노드 ${daemonPlacement.unavailable === undefined ? '확인 불가' : daemonPlacement.unavailable}개, 비대상 배치 ${daemonPlacement.misscheduled === undefined ? '확인 불가' : daemonPlacement.misscheduled}개를 기준으로 현재 영향을 판정합니다.`
+                    : impact
+        const operationalMetrics = kind === 'statefulset' || kind === 'deployment' || kind === 'daemonset' ? [] : metrics.map(metric => ({
             key: metric.label,
             label: metric.label,
             value: metric.value === undefined || metric.value === null ? '–' : metric.value,
             tone: metric.problem ? 'danger' as const : 'default' as const,
             tooltip: `${metric.label}의 현재 집계값입니다.`
         }))
+        const rolloutConfigurationRows = (enhanced && health
+            ? this.rolloutRows(kind, spec, status, health, currentReplicaSet)
+            : this.configurationRows(kind, spec, status)).map((row: any) => {
+            if (row.label === 'PVC 템플릿' && pvcTemplates.length) {
+                return { ...row, value: <DetailModalAction onClick={() => this.setState({ pvcModalOpen: true })}>{pvcTemplates.length}개</DetailModalAction> }
+            }
+            if (kind === 'daemonset' && row.label === '노드 선택 조건' && scheduling.nodeSelectionCount > 0) {
+                return { ...row, value: <KubernetesSchedulingModalAction resourceKind={kindLabel} resourceName={workloadName} configuration={scheduling}>{scheduling.nodeSelectionCount}개</KubernetesSchedulingModalAction> }
+            }
+            if (kind === 'daemonset' && row.label === '허용 조건' && scheduling.tolerationCount > 0) {
+                return { ...row, value: <KubernetesSchedulingModalAction resourceKind={kindLabel} resourceName={workloadName} configuration={scheduling}>{scheduling.tolerationCount}개</KubernetesSchedulingModalAction> }
+            }
+            return row
+        })
         return <div className="netdive-k8s-workload-detail">
             <DetailSectionCard icon={<InfoIcon />} title={translate('kubernetesWorkloadBasicInfo')} collapsible collapsed={this.state.basicCollapsed} onToggle={() => this.setState({ basicCollapsed: !this.state.basicCollapsed })}>
                 <BasicInfoRows density="compact" rows={basicRows} labelWidth={122} copyTooltip={translate('copy')} />
@@ -772,18 +782,23 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
                     metrics={operationalMetrics}
                 />
                 <KubernetesStateSeparation items={[
-                    { key: 'current', label: '현재 문제', value: metricProblem || critical ? '복제본/롤아웃' : problemPods, tone: metricProblem || critical || problemPods > 0 ? 'danger' : 'success', tooltip: '목표·준비·가용 복제본과 현재 롤아웃 상태를 우선하여 판정합니다.' },
+                    { key: 'current', label: '현재 문제', value: metricProblem || critical ? (kind === 'daemonset' ? '노드 배치/롤아웃' : '복제본/롤아웃') : problemPods, tone: metricProblem || critical || problemPods > 0 ? 'danger' : 'success', tooltip: kind === 'daemonset' ? '배치 대상·현재 배치·준비·가용·업데이트·미가용·비대상 배치와 현재 파드 상태를 기준으로 판정합니다.' : '목표·준비·가용 복제본과 현재 롤아웃 상태를 우선하여 판정합니다.' },
                     { key: 'recent', label: '최근 불안정성', value: recentInstabilityKnown ? podSummary.recentEvicted.length + recentWorkloadEventGroups.reduce((count, group) => count + group.count, 0) : '확인 불가', tone: recentInstabilityKnown ? (podSummary.recentEvicted.length + recentWorkloadEventGroups.length > 0 ? 'warning' : 'success') : 'default', tooltip: '최근 1시간의 Eviction과 워크로드 Event입니다.' },
                     { key: 'history', label: '누적 Evicted 파드', value: podSummary.evicted.length, tone: 'history', tooltip: '파드 UID로 중복 제거한 누적 Evicted 파드 수입니다. 현재 장애 판정에는 사용하지 않습니다.' }
                 ]} />
             </DetailSectionCard>
-            <DetailSectionCard icon={<ViewModuleIcon />} title={translate('kubernetesReplicaRollout')}>
+            <DetailSectionCard icon={<ViewModuleIcon />} title={kind === 'daemonset' ? KUBERNETES_DAEMONSET_PLACEMENT_ROLLOUT_TITLE : translate('kubernetesReplicaRollout')}>
                 {kind === 'statefulset' ? <KubernetesReplicaSummary
                     desired={desiredReplicas}
                     ready={readyReplicas}
                     current={currentReplicas}
                     updated={updatedReplicas}
-                    unavailable={unavailableReplicas} /> : <StatusEvidenceList columnHeaders={{ state: '상태', value: '결과' }}>
+                    unavailable={unavailableReplicas} /> : kind === 'deployment' ? <KubernetesReplicaSummary
+                        desired={desiredReplicas}
+                        available={availableReplicas}
+                        updated={updatedReplicas}
+                        unavailable={unavailableReplicas}
+                        terms={['desired', 'available', 'updated', 'unavailable']} /> : kind === 'daemonset' ? <KubernetesDaemonSetPlacementSummary {...daemonPlacement} /> : <StatusEvidenceList columnHeaders={{ state: '상태', value: '결과' }}>
                     {(metrics as any[]).map((metric: any) => {
                         const unknown = metric.value === undefined || metric.value === null
                         const tone: DetailBadgeTone = unknown ? 'default' : metric.problem ? 'danger' : 'success'
@@ -798,17 +813,16 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
                         />
                     })}
                 </StatusEvidenceList>}
-                <DetailInlineSectionHeader title={translate('kubernetesWorkloadConfiguration')} />
+                <DetailCardSubsectionHeader title={translate('kubernetesWorkloadConfiguration')} />
                 <BasicInfoRows
                     density="compact"
-                    rows={enhanced && health ? this.rolloutRows(kind, spec, status, health, replicaSetNames).map((row: any) => row.label === 'PVC 템플릿' && pvcTemplates.length
-                        ? { ...row, value: <DetailModalAction onClick={() => this.setState({ pvcModalOpen: true })}>{pvcTemplates.length}개</DetailModalAction> }
-                        : row) : this.configurationRows(kind, spec, status)}
+                    rows={rolloutConfigurationRows}
                     labelWidth={122}
                     copyTooltip={translate('copy')}
                 />
                 {kind === 'statefulset' && <DetailAdvancedInfo
                     title={translate('kubernetesAdvancedInformation')}
+                    hierarchy="supporting"
                     active={this.state.rolloutAdvanced}
                     onChange={rolloutAdvanced => this.setState({ rolloutAdvanced })}>
                     <BasicInfoRows density="compact" labelWidth={122} copyTooltip={translate('copy')} rows={[
@@ -817,9 +831,32 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
                         { label: '시작 순번', value: spec.Ordinals?.Start === undefined ? 0 : Number(spec.Ordinals.Start) }
                     ]} />
                 </DetailAdvancedInfo>}
+                {kind === 'daemonset' && <DetailAdvancedInfo
+                    title={translate('kubernetesAdvancedInformation')}
+                    hierarchy="supporting"
+                    active={this.state.rolloutAdvanced}
+                    onChange={rolloutAdvanced => this.setState({ rolloutAdvanced })}>
+                    <BasicInfoRows density="compact" labelWidth={122} rows={[
+                        { label: '최소 준비 시간', value: spec.MinReadySeconds ?? spec.minReadySeconds ?? '설정되지 않음' },
+                        { label: '리비전 이력 한도', value: spec.RevisionHistoryLimit ?? spec.revisionHistoryLimit ?? '설정되지 않음' }
+                    ]} />
+                </DetailAdvancedInfo>}
             </DetailSectionCard>
-            {enhanced && <DetailSectionCard icon={<ViewModuleIcon />} title={translate('kubernetesContainersImages')}>{this.renderContainers(workloadContainers)}</DetailSectionCard>}
-            {enhanced && normalizeList(status.Conditions).length > 0 && <DetailSectionCard icon={<ErrorOutlineIcon />} title={translate('kubernetesWorkloadConditions')}>{this.renderConditions(status)}</DetailSectionCard>}
+            {enhanced && <DetailSectionCard icon={<ViewModuleIcon />} title={translate('kubernetesContainersImages')}><KubernetesContainerDetails containers={workloadContainers.map(container => ({
+                key: `${container.init ? 'init' : 'app'}:${container.name}`,
+                name: container.name,
+                kindLabel: container.init ? '초기화 컨테이너' : '일반 컨테이너',
+                image: container.image,
+                pullPolicy: container.pullPolicy,
+                ports: container.ports,
+                resources: container.resources,
+                resourcesCollected: container.resourcesCollected
+            }))} /></DetailSectionCard>}
+            {enhanced && normalizeList(status.Conditions).length > 0 && <DetailSectionCard icon={<ErrorOutlineIcon />} title={translate('kubernetesWorkloadConditions')}>
+                <KubernetesConditionRows
+                    conditions={normalizeList(status.Conditions)}
+                    definitions={kind === 'deployment' ? DEPLOYMENT_CONDITION_DEFINITIONS : kind === 'daemonset' ? DAEMONSET_CONDITION_DEFINITIONS : undefined} />
+            </DetailSectionCard>}
             {operationalPolicyRows.length > 0 && <DetailSectionCard icon={<SettingsIcon />} title="운영 정책">
                 <BasicInfoRows density="compact" rows={operationalPolicyRows} labelWidth={122} />
             </DetailSectionCard>}
@@ -831,6 +868,13 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
                     { key: 'pods', title: '파드', items: this.connectedListItems(currentPods, 'Pod') },
                     { key: 'services', title: '서비스', items: this.connectedListItems(connectedServices, 'Service') },
                     { key: 'pvcs', title: 'PVC', items: this.connectedListItems(pvcTargets, 'PVC') }
+                ] : kind === 'deployment' ? [
+                    { key: 'replicaSets', title: 'ReplicaSet', items: this.connectedListItems(ownedReplicaSets, 'ReplicaSet') },
+                    { key: 'pods', title: '파드', items: this.connectedListItems(currentPods, 'Pod') },
+                    { key: 'services', title: '서비스', items: this.connectedListItems(connectedServices, 'Service') }
+                ] : kind === 'daemonset' ? [
+                    { key: 'pods', title: '파드', items: this.connectedListItems(currentPods, 'Pod') },
+                    { key: 'services', title: '서비스', items: this.connectedListItems(connectedServices, 'Service') }
                 ] : [
                     {
                         key: 'execution',

@@ -6,16 +6,19 @@ import { kubernetesReplicaLabel, KubernetesReplicaTerm } from './KubernetesDataP
 export interface KubernetesReplicaSummaryProps {
     desired?: number
     ready?: number
+    available?: number
     current?: number
     updated?: number
     unavailable?: number
+    terms?: KubernetesReplicaTerm[]
 }
 
-const terms: KubernetesReplicaTerm[] = ['desired', 'ready', 'current', 'updated', 'unavailable']
+const defaultTerms: KubernetesReplicaTerm[] = ['desired', 'ready', 'current', 'updated', 'unavailable']
 
 const descriptions: Record<KubernetesReplicaTerm, string> = {
     desired: 'spec.replicas에 지정된 목표 복제본 수입니다.',
     ready: 'Ready 조건이 True인 복제본 수입니다.',
+    available: '최소 가용 시간 조건을 충족해 서비스 가능한 복제본 수입니다.',
     current: '현재 리비전으로 유지되는 복제본 수입니다.',
     updated: '업데이트 리비전이 적용된 복제본 수입니다.',
     unavailable: '목표 복제본 중 Ready 상태가 아닌 복제본 수입니다.'
@@ -23,9 +26,9 @@ const descriptions: Record<KubernetesReplicaTerm, string> = {
 
 /** Fixed-order, equal-width Replica evidence strip shared by Replica workloads. */
 export const KubernetesReplicaSummary = (props: KubernetesReplicaSummaryProps) =>
-    <DetailMetricSummaryRow items={terms.map(term => {
+    <DetailMetricSummaryRow items={(props.terms || defaultTerms).map(term => {
         const value = props[term]
-        const warning = term === 'ready'
+        const warning = term === 'ready' || term === 'available'
             ? value !== undefined && props.desired !== undefined && value < props.desired
             : term === 'unavailable' && value !== undefined && value > 0
         return {

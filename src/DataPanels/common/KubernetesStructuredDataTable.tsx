@@ -12,6 +12,7 @@ export interface KubernetesStructuredDataRow {
     operator?: React.ReactNode
     value: React.ReactNode
     copyValue?: string
+    copyTooltip?: React.ReactNode
     expandedValue?: string
 }
 
@@ -22,6 +23,11 @@ export interface KubernetesStructuredDataTableProps {
     valueTitle: React.ReactNode
     actionTitle?: React.ReactNode
     emptyText: React.ReactNode
+    columnWidths?: {
+        key?: string | number
+        operator?: string | number
+        action?: string | number
+    }
 }
 
 /** Mold-standard compact Ant Table for metadata and selector key/value rows. */
@@ -31,7 +37,8 @@ export const KubernetesStructuredDataTable = ({
     operatorTitle,
     valueTitle,
     actionTitle = '',
-    emptyText
+    emptyText,
+    columnWidths
 }: KubernetesStructuredDataTableProps) => {
     const [expandedKeys, setExpandedKeys] = React.useState<React.Key[]>([])
     const hasExpandableRows = rows.some(row => !!row.expandedValue)
@@ -49,7 +56,7 @@ export const KubernetesStructuredDataTable = ({
         {
             title: keyTitle,
             key: 'key',
-            width: operatorTitle ? '38%' : '42%',
+            width: columnWidths?.key || (operatorTitle ? '38%' : '42%'),
             render: (_value: any, row: KubernetesStructuredDataRow) => <span className="netdive-k8s-structured-table__key">
                 <Typography.Text strong>{row.keyLabel}</Typography.Text>
                 {row.keySecondary && <Typography.Text type="secondary">{row.keySecondary}</Typography.Text>}
@@ -58,7 +65,7 @@ export const KubernetesStructuredDataTable = ({
         ...(operatorTitle ? [{
             title: operatorTitle,
             key: 'operator',
-            width: '17%',
+            width: columnWidths?.operator || '17%',
             render: (_value: any, row: KubernetesStructuredDataRow) => <Typography.Text>{row.operator || '–'}</Typography.Text>
         }] : []),
         {
@@ -71,10 +78,10 @@ export const KubernetesStructuredDataTable = ({
             key: 'actions',
             // Includes the Table cell padding so one or two 24px actions are
             // never clipped by the common modal's fixed-layout table.
-            width: hasExpandableRows ? 72 : 44,
+            width: columnWidths?.action || (hasExpandableRows ? 72 : 44),
             align: 'right' as const,
             render: (_value: any, row: KubernetesStructuredDataRow) => <span className="netdive-k8s-structured-table__actions">
-                {row.copyValue !== undefined && <DetailCopyButton value={row.copyValue} tooltip="행 전체 복사" />}
+                {row.copyValue !== undefined && <DetailCopyButton value={row.copyValue} tooltip={row.copyTooltip || '행 전체 복사'} />}
                 {row.expandedValue && <Button
                     type="text"
                     size="small"
@@ -143,19 +150,37 @@ export interface KubernetesModalResourceContextProps {
     resourceKind: React.ReactNode
     resourceName: string
     copyTooltip?: React.ReactNode
+    contextLabel?: React.ReactNode
+    contextValue?: string
+    contextCopyTooltip?: React.ReactNode
+    variant?: 'resource' | 'subject'
 }
 
 export const KubernetesModalResourceContext = ({
     resourceKind,
     resourceName,
-    copyTooltip = '자원명 복사'
-}: KubernetesModalResourceContextProps) => <div className="netdive-k8s-modal-resource-context">
-    <Typography.Text strong className="netdive-k8s-modal-resource-context__kind">{resourceKind}</Typography.Text>
-    <div className="netdive-k8s-modal-resource-context__name-row">
+    copyTooltip = '자원명 복사',
+    contextLabel,
+    contextValue,
+    contextCopyTooltip = '컨텍스트 값 복사',
+    variant = 'resource'
+}: KubernetesModalResourceContextProps) => {
+    const nameRow = <div className="netdive-k8s-modal-resource-context__name-row">
         <Typography.Text className="netdive-k8s-modal-resource-context__name">{resourceName}</Typography.Text>
         <DetailCopyButton value={resourceName} tooltip={copyTooltip} />
     </div>
-</div>
+    const kind = <Typography.Text strong className="netdive-k8s-modal-resource-context__kind">{resourceKind}</Typography.Text>
+    return <div className={`netdive-k8s-modal-resource-context is-${variant}`}>
+        {variant === 'subject' ? <React.Fragment>{nameRow}{kind}</React.Fragment> : <React.Fragment>{kind}{nameRow}</React.Fragment>}
+        {contextValue && <div className="netdive-k8s-modal-resource-context__supporting-row">
+            {contextLabel && <Typography.Text type="secondary" className="netdive-k8s-modal-resource-context__supporting-label">{contextLabel}</Typography.Text>}
+            <div className="netdive-k8s-modal-resource-context__supporting-name-row">
+                <Typography.Text type="secondary" className="netdive-k8s-modal-resource-context__supporting-value">{contextValue}</Typography.Text>
+                <DetailCopyButton value={contextValue} tooltip={contextCopyTooltip} />
+            </div>
+        </div>}
+    </div>
+}
 
 export interface KubernetesModalSectionProps {
     title: React.ReactNode

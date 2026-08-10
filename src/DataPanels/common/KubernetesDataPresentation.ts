@@ -28,7 +28,18 @@ export const kubernetesCreationTimestamp = (data: any): any => {
         if (value === undefined || value === null || value === '') continue
         if (typeof value === 'object') {
             const nested = value.Time ?? value.time
-            if (nested !== undefined && nested !== null && nested !== '') return nested
+            // The graph normalizer turns metav1.Time/time.Time into empty
+            // objects because time.Time has no exported data fields. Do not
+            // let that lossy K8s.Extra value mask the explicit, valid
+            // K8s.CreationTimestamp published by the collector.
+            if (nested === undefined || nested === null || nested === '') continue
+            if (typeof nested === 'object') {
+                if (!Object.keys(nested).length) continue
+                const nestedTime = nested.Time ?? nested.time
+                if (nestedTime === undefined || nestedTime === null || nestedTime === '' || typeof nestedTime === 'object') continue
+                return nestedTime
+            }
+            return nested
         }
         return value
     }
@@ -45,11 +56,12 @@ export const formatKubernetesTimestamp = (value: any): string => {
     return Number.isNaN(date.getTime()) ? String(nested) : date.toLocaleString()
 }
 
-export type KubernetesReplicaTerm = 'desired' | 'ready' | 'current' | 'updated' | 'unavailable'
+export type KubernetesReplicaTerm = 'desired' | 'ready' | 'available' | 'current' | 'updated' | 'unavailable'
 
 const KUBERNETES_REPLICA_LABELS: Record<KubernetesReplicaTerm, string> = {
     desired: '목표 복제본',
     ready: '준비 복제본',
+    available: '가용 복제본',
     current: '현재 복제본',
     updated: '업데이트 복제본',
     unavailable: '미가용 복제본'
@@ -58,6 +70,7 @@ const KUBERNETES_REPLICA_LABELS: Record<KubernetesReplicaTerm, string> = {
 const KUBERNETES_REPLICA_COMPACT_LABELS: Record<KubernetesReplicaTerm, string> = {
     desired: '목표',
     ready: '준비',
+    available: '가용',
     current: '현재',
     updated: '업데이트',
     unavailable: '미가용'
@@ -67,6 +80,34 @@ const KUBERNETES_REPLICA_COMPACT_LABELS: Record<KubernetesReplicaTerm, string> =
 export const kubernetesReplicaLabel = (term: KubernetesReplicaTerm, compact = false): string =>
     (compact ? KUBERNETES_REPLICA_COMPACT_LABELS : KUBERNETES_REPLICA_LABELS)[term]
 
+export type KubernetesDaemonSetNodeTerm = 'desired' | 'current' | 'ready' | 'available' | 'updated' | 'unavailable' | 'misscheduled'
+
+const KUBERNETES_DAEMONSET_NODE_LABELS: Record<KubernetesDaemonSetNodeTerm, string> = {
+    desired: '배치 대상 노드',
+    current: '현재 배치 노드',
+    ready: '준비 노드',
+    available: '가용 노드',
+    updated: '업데이트 노드',
+    unavailable: '미가용 노드',
+    misscheduled: '비대상 배치'
+}
+
+const KUBERNETES_DAEMONSET_NODE_COMPACT_LABELS: Record<KubernetesDaemonSetNodeTerm, string> = {
+    desired: '배치 대상',
+    current: '현재 배치',
+    ready: '준비',
+    available: '가용',
+    updated: '업데이트',
+    unavailable: '미가용',
+    misscheduled: '비대상 배치'
+}
+
+/** Shared user-facing node-placement vocabulary for DaemonSet workloads. */
+export const kubernetesDaemonSetNodeLabel = (term: KubernetesDaemonSetNodeTerm, compact = false): string =>
+    (compact ? KUBERNETES_DAEMONSET_NODE_COMPACT_LABELS : KUBERNETES_DAEMONSET_NODE_LABELS)[term]
+
+export const KUBERNETES_DAEMONSET_PLACEMENT_ROLLOUT_TITLE = '노드 배치 및 롤아웃'
+
 const KUBERNETES_NAMESPACE_PHASE_LABELS: Record<string, string> = {
     active: '활성',
     terminating: '종료 중'
@@ -75,6 +116,25 @@ const KUBERNETES_NAMESPACE_PHASE_LABELS: Record<string, string> = {
 export const kubernetesNamespacePhaseLabel = (value: any): string => {
     const source = String(value || '').trim()
     return KUBERNETES_NAMESPACE_PHASE_LABELS[source.toLowerCase()] || source
+}
+
+export const kubernetesPodPhaseLabel = (value: any): string => {
+    switch (String(value || '').toLowerCase()) {
+    case 'running': return '실행 중'
+    case 'pending': return '대기 중'
+    case 'succeeded': return '완료'
+    case 'failed': return '실패'
+    case 'unknown': return '알 수 없음'
+    default: return '수집되지 않음'
+    }
+}
+
+export const kubernetesContainerKindLabel = (value: any): string => {
+    switch (String(value || '').toUpperCase()) {
+    case 'INIT': return '초기화 컨테이너'
+    case 'EPHEMERAL': return '임시 컨테이너'
+    default: return '일반 컨테이너'
+    }
 }
 
 export const kubernetesMetadataValueDescription = (key: string, value: any): string | undefined => {
@@ -128,6 +188,21 @@ export const kubernetesConfiguredResourceTotalPresentation = ({
     format
 }: KubernetesConfiguredResourceTotalOptions): string => {
     if (!collected) return '확인 불가'
+    if (configuredContainers <= 0) return '미설정'
+    if (aggregate === undefined || !Number.isFinite(aggregate)) return '확인 불가'
+    return format(aggregate)
+}
+
+/** Single-container ResourceList presentation. Unlike aggregate coverage, the
+ * field state and its value occupy one cell and must not repeat equivalent
+ * "unset" or "uncollected" labels in separate columns. */
+export const kubernetesSingleResourceValuePresentation = ({
+    configuredContainers,
+    collected,
+    aggregate,
+    format
+}: KubernetesConfiguredResourceTotalOptions): string => {
+    if (!collected) return '수집되지 않음'
     if (configuredContainers <= 0) return '미설정'
     if (aggregate === undefined || !Number.isFinite(aggregate)) return '확인 불가'
     return format(aggregate)

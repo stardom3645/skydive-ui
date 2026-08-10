@@ -7,6 +7,7 @@ export {
     CopyButton,
     DetailAdvancedInfo,
     DetailBadge,
+    DetailCardSubsectionHeader,
     DetailCompactResourceItem,
     DetailCompactResourceList,
     DetailCopyButton,
@@ -57,8 +58,12 @@ export {
     kubernetesConfigurationCoveragePresentation,
     kubernetesMetadataKeyLabel,
     kubernetesMetadataValueDescription,
+    kubernetesContainerKindLabel,
+    kubernetesDaemonSetNodeLabel,
     kubernetesNamespacePhaseLabel,
+    kubernetesPodPhaseLabel,
     kubernetesReplicaLabel,
+    kubernetesSingleResourceValuePresentation,
     kubernetesResourceConfigurationCollectionState
 } from './KubernetesDataPresentation'
 export type {
@@ -71,9 +76,26 @@ export type {
     KubernetesResourceConfigurationCollectionMetric
 } from './KubernetesDataPresentation'
 export type { KubernetesReplicaTerm } from './KubernetesDataPresentation'
+export type { KubernetesDaemonSetNodeTerm } from './KubernetesDataPresentation'
+export { KUBERNETES_DAEMONSET_PLACEMENT_ROLLOUT_TITLE } from './KubernetesDataPresentation'
 
 export { KubernetesReplicaSummary } from './KubernetesReplicaSummary'
 export type { KubernetesReplicaSummaryProps } from './KubernetesReplicaSummary'
+export { KubernetesDaemonSetPlacementSummary } from './KubernetesDaemonSetPlacementSummary'
+export type { KubernetesDaemonSetPlacementSummaryProps } from './KubernetesDaemonSetPlacementSummary'
+export { KubernetesConditionRows } from './KubernetesConditionRows'
+export type { KubernetesConditionRowsProps } from './KubernetesConditionRows'
+export { DAEMONSET_CONDITION_DEFINITIONS, DEPLOYMENT_CONDITION_DEFINITIONS, POD_CONDITION_DEFINITIONS, kubernetesConditionPresentation } from './KubernetesConditionPresentation'
+export type { KubernetesConditionDefinition, KubernetesConditionPresentation, KubernetesConditionTone } from './KubernetesConditionPresentation'
+export { KubernetesContainerDetails } from './KubernetesContainerDetails'
+export type { KubernetesContainerDetailItem, KubernetesContainerDetailsProps, KubernetesContainerRuntimeDetail } from './KubernetesContainerDetails'
+export { KubernetesVolumeDetailModal, KubernetesVolumeList } from './KubernetesVolumeList'
+export type { KubernetesVolumeDetailModalProps, KubernetesVolumeListProps } from './KubernetesVolumeList'
+
+export { kubernetesSchedulingMetadata, normalizeKubernetesSchedulingConfiguration } from './KubernetesSchedulingPresentation'
+export type { KubernetesSchedulingConfiguration } from './KubernetesSchedulingPresentation'
+export { KubernetesSchedulingModalAction } from './KubernetesSchedulingModal'
+export type { KubernetesSchedulingModalActionProps } from './KubernetesSchedulingModal'
 
 export {
     KubernetesSelectorModal,
@@ -132,7 +154,8 @@ export type {
 export {
     KubernetesResourceConfigurationCard,
     KubernetesResourceConfigurationRows,
-    kubernetesResourceConfigurationCoverageState
+    kubernetesResourceConfigurationCoverageState,
+    kubernetesSingleContainerResourceCoverage
 } from './KubernetesResourceConfigurationCard'
 export type {
     KubernetesResourceConfigurationCardProps,
@@ -213,6 +236,7 @@ export type {
     DetailLongValueProps,
     DetailLayerIconProps,
     DetailInlineSectionHeaderProps,
+    DetailCardSubsectionHeaderProps,
     DetailMetricRowProps,
     DetailMetricSummaryItem,
     DetailMetaInfoItem,

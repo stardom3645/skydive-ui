@@ -2,7 +2,9 @@ import { strict as assert } from 'assert'
 import {
     kubernetesCreationTimestamp,
     formatKubernetesTimestamp,
+    kubernetesDaemonSetNodeLabel,
     kubernetesReplicaLabel,
+    kubernetesSingleResourceValuePresentation,
     kubernetesCollectionPresentation,
     kubernetesConfiguredResourceTotalPresentation,
     kubernetesConfigurationCoveragePresentation,
@@ -13,6 +15,15 @@ import {
 } from '../src/DataPanels/common/KubernetesDataPresentation'
 
 describe('Kubernetes data presentation', () => {
+    it('keeps single-container resource values distinct without duplicate state text', () => {
+        const format = (value: number) => `${value} unit`
+        assert.equal(kubernetesSingleResourceValuePresentation({ configuredContainers: 1, collected: true, aggregate: 100, format }), '100 unit')
+        assert.equal(kubernetesSingleResourceValuePresentation({ configuredContainers: 0, collected: true, format }), '미설정')
+        assert.equal(kubernetesSingleResourceValuePresentation({ configuredContainers: 0, collected: false, format }), '수집되지 않음')
+        assert.equal(kubernetesSingleResourceValuePresentation({ configuredContainers: 1, collected: true, format }), '확인 불가')
+        assert.equal(kubernetesSingleResourceValuePresentation({ configuredContainers: 1, collected: true, aggregate: 0, format }), '0 unit')
+    })
+
     it('uses one Replica vocabulary and formats collected timestamps', () => {
         assert.equal(kubernetesReplicaLabel('desired'), '목표 복제본')
         assert.equal(kubernetesReplicaLabel('ready'), '준비 복제본')
@@ -22,10 +33,23 @@ describe('Kubernetes data presentation', () => {
         assert.equal(formatKubernetesTimestamp({}), '')
     })
 
+    it('uses one DaemonSet node-placement vocabulary', () => {
+        assert.equal(kubernetesDaemonSetNodeLabel('desired'), '배치 대상 노드')
+        assert.equal(kubernetesDaemonSetNodeLabel('current'), '현재 배치 노드')
+        assert.equal(kubernetesDaemonSetNodeLabel('misscheduled'), '비대상 배치')
+        assert.equal(kubernetesDaemonSetNodeLabel('updated', true), '업데이트')
+    })
+
     it('reads creation time from collector and Kubernetes API metadata shapes', () => {
         assert.equal(kubernetesCreationTimestamp({ K8s: { Extra: { ObjectMeta: { CreationTimestamp: { Time: '2026-08-01T01:02:03Z' } } } } }), '2026-08-01T01:02:03Z')
         assert.equal(kubernetesCreationTimestamp({ K8s: { Extra: { metadata: { creationTimestamp: '2026-08-02T01:02:03Z' } } } }), '2026-08-02T01:02:03Z')
         assert.equal(kubernetesCreationTimestamp({ K8s: { CreationTimestamp: '2026-08-03T01:02:03Z' } }), '2026-08-03T01:02:03Z')
+        assert.equal(kubernetesCreationTimestamp({
+            K8s: {
+                Extra: { ObjectMeta: { CreationTimestamp: { Time: {} } } },
+                CreationTimestamp: '2026-07-24T00:33:40Z'
+            }
+        }), '2026-07-24T00:33:40Z')
         assert.equal(kubernetesCreationTimestamp({}), undefined)
     })
     it('keeps resource configuration states distinct', () => {

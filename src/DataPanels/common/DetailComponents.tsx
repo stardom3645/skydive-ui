@@ -374,6 +374,7 @@ export interface DetailAdvancedInfoProps {
     active: boolean
     onChange: (active: boolean) => void
     className?: string
+    hierarchy?: 'default' | 'supporting'
 }
 
 /**
@@ -381,11 +382,11 @@ export interface DetailAdvancedInfoProps {
  * It intentionally mirrors the established Kubernetes cluster spacing and
  * chevron behavior without requiring resource-specific CSS overrides.
  */
-export const DetailAdvancedInfo = ({ title, children, active, onChange, className }: DetailAdvancedInfoProps) => (
+export const DetailAdvancedInfo = ({ title, children, active, onChange, className, hierarchy = 'default' }: DetailAdvancedInfoProps) => (
     <Collapse
         accordion
         bordered={false}
-        className={joinClassNames('netdive-detail-advanced-collapse', className)}
+        className={joinClassNames('netdive-detail-advanced-collapse', hierarchy === 'supporting' && 'is-supporting', className)}
         activeKey={active ? 'advanced' : ''}
         expandIconPosition="right"
         onChange={key => onChange((Array.isArray(key) ? String(key[0] || '') : String(key || '')) === 'advanced')}>
@@ -691,7 +692,8 @@ export interface StatusEvidenceRowProps {
         label: React.ReactNode
         tone?: DetailBadgeTone
     }
-    value: React.ReactNode
+    value?: React.ReactNode
+    hideValue?: boolean
     valueVariant?: StatusEvidenceValueVariant
     secondaryValue?: React.ReactNode
     secondaryValueVariant?: StatusEvidenceValueVariant
@@ -784,10 +786,27 @@ export interface DetailMetricSummaryItem {
 
 /** Compact metric strip for secondary summaries such as Replica snapshots.
  * It deliberately stays below KPI emphasis and wraps at narrow panel widths. */
-export const DetailMetricSummaryRow = ({ items, className }: { items: DetailMetricSummaryItem[], className?: string }) => (
-    <div className={joinClassNames('netdive-detail-metric-summary-row', className)}>
+export interface DetailMetricSummaryRowProps {
+    items: DetailMetricSummaryItem[]
+    className?: string
+    /** Maximum columns before the equal-width summary wraps to another row. */
+    columns?: number
+    /** Low-emphasis horizontal form for secondary evidence below a primary strip. */
+    variant?: 'default' | 'supporting'
+}
+
+export const DetailMetricSummaryRow = ({ items, className, columns, variant = 'default' }: DetailMetricSummaryRowProps) => {
+    const columnCount = Math.max(1, Math.min(columns || items.length, items.length || 1))
+    return <div
+        className={joinClassNames('netdive-detail-metric-summary-row', variant === 'supporting' && 'is-supporting', items.length > columnCount && 'is-wrapped', className)}
+        style={{ gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))` }}>
         {items.map((item, index) => {
-            const content = <span className={joinClassNames('netdive-detail-metric-summary-row__item', item.tone && `is-${item.tone}`)}>
+            const content = <span className={joinClassNames(
+                'netdive-detail-metric-summary-row__item',
+                item.tone && `is-${item.tone}`,
+                (index + 1) % columnCount === 0 && 'is-row-end',
+                index >= columnCount && 'is-wrapped-row'
+            )}>
                 <span>{item.label}</span><strong>{item.value}</strong>
             </span>
             return item.tooltip
@@ -795,7 +814,7 @@ export const DetailMetricSummaryRow = ({ items, className }: { items: DetailMetr
                 : <React.Fragment key={item.key === undefined ? index : item.key}>{content}</React.Fragment>
         })}
     </div>
-)
+}
 
 export const DetailMetaInfoRow = ({ items, className }: { items: DetailMetaInfoItem[], className?: string }) => (
     <div className={joinClassNames('netdive-detail-meta-info-row', className)}>
@@ -877,7 +896,7 @@ export interface StatusEvidenceListProps {
     children: React.ReactNode
     columnHeaders?: {
         state: React.ReactNode
-        value: React.ReactNode
+        value?: React.ReactNode
         secondaryValue?: React.ReactNode
         valueTooltip?: React.ReactNode
         secondaryValueTooltip?: React.ReactNode
@@ -885,15 +904,16 @@ export interface StatusEvidenceListProps {
     className?: string
 }
 
-export const StatusEvidenceList = ({ children, columnHeaders, className }: StatusEvidenceListProps) => (
-    <div className={joinClassNames('netdive-detail-evidence-list', columnHeaders?.secondaryValue !== undefined && 'has-secondary-value', className)}>
-        {columnHeaders && <div className={joinClassNames('netdive-detail-evidence-list__column-headers', columnHeaders.secondaryValue !== undefined && 'has-secondary-value')}>
+export const StatusEvidenceList = ({ children, columnHeaders, className }: StatusEvidenceListProps) => {
+    const withoutValue = !!columnHeaders && columnHeaders.value === undefined
+    return <div className={joinClassNames('netdive-detail-evidence-list', columnHeaders?.secondaryValue !== undefined && 'has-secondary-value', withoutValue && 'without-value', className)}>
+        {columnHeaders && <div className={joinClassNames('netdive-detail-evidence-list__column-headers', columnHeaders.secondaryValue !== undefined && 'has-secondary-value', withoutValue && 'without-value')}>
             <span aria-hidden="true" />
             <span>{columnHeaders.state}</span>
-            <span className="netdive-detail-evidence-list__header-label">
+            {columnHeaders.value !== undefined && <span className="netdive-detail-evidence-list__header-label">
                 {columnHeaders.value}
                 {columnHeaders.valueTooltip && <Tooltip title={<DetailTooltipContent description={columnHeaders.valueTooltip} />} overlayClassName="netdive-operational-tooltip"><InfoCircleOutlined /></Tooltip>}
-            </span>
+            </span>}
             {columnHeaders.secondaryValue !== undefined && <span className="netdive-detail-evidence-list__header-label">
                 {columnHeaders.secondaryValue}
                 {columnHeaders.secondaryValueTooltip && <Tooltip title={<DetailTooltipContent description={columnHeaders.secondaryValueTooltip} />} overlayClassName="netdive-operational-tooltip"><InfoCircleOutlined /></Tooltip>}
@@ -901,7 +921,7 @@ export const StatusEvidenceList = ({ children, columnHeaders, className }: Statu
         </div>}
         {children}
     </div>
-)
+}
 
 export const StatusEvidenceRow = ({
     title,
@@ -910,6 +930,7 @@ export const StatusEvidenceRow = ({
     state,
     status,
     value,
+    hideValue = false,
     valueVariant = 'number',
     secondaryValue,
     secondaryValueVariant = 'grade',
@@ -927,7 +948,7 @@ export const StatusEvidenceRow = ({
     const renderedValue = valuesUnavailable ? '확인 불가' : value
     const renderedSecondaryValue = valuesUnavailable ? '확인 불가' : secondaryValue
     const content = (
-        <div className={joinClassNames('netdive-detail-evidence-row', secondaryValue !== undefined && 'has-secondary-value', valuesUnavailable && 'has-unavailable-values', `netdive-detail-evidence-row--${tone}`, className)}>
+        <div className={joinClassNames('netdive-detail-evidence-row', secondaryValue !== undefined && 'has-secondary-value', hideValue && 'without-value', valuesUnavailable && 'has-unavailable-values', `netdive-detail-evidence-row--${tone}`, className)}>
             <div className="netdive-detail-evidence-row__info">
                 <span className="netdive-detail-evidence-row__title">
                     {title}
@@ -947,7 +968,7 @@ export const StatusEvidenceRow = ({
                 </dl>}
             </div>
             <div className="netdive-detail-evidence-row__state">{renderedState}</div>
-            <strong className={joinClassNames('netdive-detail-evidence-row__value', `is-${valueVariant}`)}>{renderedValue}</strong>
+            {!hideValue && <strong className={joinClassNames('netdive-detail-evidence-row__value', `is-${valueVariant}`)}>{renderedValue}</strong>}
             {secondaryValue !== undefined && <strong className={joinClassNames('netdive-detail-evidence-row__value', 'netdive-detail-evidence-row__secondary-value', `is-${secondaryValueVariant}`)}>{renderedSecondaryValue}</strong>}
         </div>
     )
@@ -1130,6 +1151,19 @@ export const DetailInlineSectionHeader = ({ title, action, className }: DetailIn
     </div>
 )
 
+export interface DetailCardSubsectionHeaderProps extends DetailInlineSectionHeaderProps {
+    first?: boolean
+}
+
+/** First-level hierarchy inside a shared detail card. It stays visibly below
+ * the card title and above supporting disclosure rows. */
+export const DetailCardSubsectionHeader = ({ title, action, className, first = false }: DetailCardSubsectionHeaderProps) => (
+    <div className={joinClassNames('netdive-detail-card-subsection-header', first && 'is-first', className)}>
+        <strong>{title}</strong>
+        {action && <span className="netdive-detail-card-subsection-header__action">{action}</span>}
+    </div>
+)
+
 export interface DetailCompactResourceItemProps {
     name: React.ReactNode
     metadata: React.ReactNode
@@ -1274,21 +1308,18 @@ export const ConnectedResourceListSection = ({ title, icon, groups, emptyText = 
                         <Typography.Text>{group.title}</Typography.Text>
                     </div>}
                     <div className="netdive-connected-resource-list__items">{group.items.map((item, itemIndex) => {
-                        const row = (
-                            <Button
-                                type="text"
-                                className={joinClassNames('netdive-connected-resource-list__item', item.className)}
-                                onClick={item.onClick}
-                                disabled={!item.onClick}>
+                        const rowContent = <span className="netdive-connected-resource-list__item-layout">
                                 {item.icon && <span className="netdive-connected-resource-list__item-icon">{item.icon}</span>}
                                 <span className="netdive-connected-resource-list__item-main">
                                     {item.kind && <Typography.Text className="netdive-connected-resource-list__item-kind">{item.kind}</Typography.Text>}
                                     <Typography.Text className="netdive-connected-resource-list__item-name">{item.name}</Typography.Text>
                                     {item.description && <Typography.Text className="netdive-connected-resource-list__item-description">{item.description}</Typography.Text>}
                                 </span>
-                                <RightOutlined className="netdive-connected-resource-list__item-action" />
-                            </Button>
-                        )
+                                {item.onClick && <RightOutlined className="netdive-connected-resource-list__item-action" />}
+                            </span>
+                        const row = item.onClick
+                            ? <Button type="text" className={joinClassNames('netdive-connected-resource-list__item', item.className)} onClick={item.onClick}>{rowContent}</Button>
+                            : <div className={joinClassNames('netdive-connected-resource-list__item', 'is-static', item.className)}>{rowContent}</div>
                         return item.tooltip
                             ? <Tooltip key={item.key !== undefined ? item.key : itemIndex} title={item.tooltip} placement="top">{row}</Tooltip>
                             : <React.Fragment key={item.key !== undefined ? item.key : itemIndex}>{row}</React.Fragment>

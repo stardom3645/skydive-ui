@@ -32,7 +32,6 @@ import {
     DetailLayerIcon,
     DetailMetricRow,
     DetailMetaInfoRow,
-    DetailMetadataSummary,
     DetailModalResourceCell,
     DetailModalTextCell,
     DetailNavigationTabs,
@@ -451,9 +450,7 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
             { label: KUBERNETES_DETAIL_LABELS.namespaceStatus, value: formatKubernetesValueState({ value: phaseLabel, collected: !!detail.phase }) },
             { label: translate('kubernetesCreatedAt'), value: displayDate(detail.createdAt) },
             { label: KUBERNETES_DETAIL_LABELS.resourceQuota, value: !quotaCollected ? '수집되지 않음' : quotaConfigured ? `설정됨 · ${quotaCount}개` : '설정되지 않음', labelWrap: true },
-            { label: KUBERNETES_DETAIL_LABELS.limitRange, value: !limitRangeCollected ? '수집되지 않음' : limitRangeConfigured ? `설정됨 · ${limitRangeCount}개` : '설정되지 않음', labelWrap: true },
-            { label: KUBERNETES_DETAIL_LABELS.labels, value: <DetailMetadataSummary value={detail.labels} excludedKeys={['kubernetes.io/metadata.name']} />, wrap: true },
-            { label: KUBERNETES_DETAIL_LABELS.annotations, value: <DetailMetadataSummary value={detail.annotations} />, wrap: true }
+            { label: KUBERNETES_DETAIL_LABELS.limitRange, value: !limitRangeCollected ? '수집되지 않음' : limitRangeConfigured ? `설정됨 · ${limitRangeCount}개` : '설정되지 않음', labelWrap: true }
         ]
         const namespaceEventGroups = this.importantEventGroups(detail)
         const recentNamespaceEventGroups = namespaceEventGroups.filter(group => {
@@ -562,7 +559,7 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
                     active={this.state.basicInfoAdvanced}
                     onChange={basicInfoAdvanced => this.setState({ basicInfoAdvanced })}>
                     <KubernetesMetadataRows items={[
-                        { key: 'labels', label: KUBERNETES_DETAIL_LABELS.labels, resourceName: name, resourceKind: 'Namespace', metadataKind: 'label', data: detail.labels, excludedKeys: ['kubernetes.io/metadata.name'], modalTitle: '네임스페이스 라벨' },
+                        { key: 'labels', label: KUBERNETES_DETAIL_LABELS.labels, resourceName: name, resourceKind: 'Namespace', metadataKind: 'label', data: detail.labels, modalTitle: '네임스페이스 라벨' },
                         { key: 'annotations', label: KUBERNETES_DETAIL_LABELS.annotations, resourceName: name, resourceKind: 'Namespace', metadataKind: 'annotation', data: detail.annotations, modalTitle: '네임스페이스 어노테이션' }
                     ]} />
                 </DetailAdvancedInfo>

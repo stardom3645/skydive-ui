@@ -2,6 +2,7 @@ import * as React from 'react'
 import DnsIcon from '@material-ui/icons/Dns'
 
 import {
+    BasicInfoRows,
     DetailSectionCard,
     KUBERNETES_DETAIL_LABELS,
     StatusEvidenceList,
@@ -11,9 +12,11 @@ import {
     kubernetesConfiguredResourceTotalPresentation,
     kubernetesConfigurationCoveragePresentation,
     kubernetesResourceConfigurationCollectionState,
+    kubernetesSingleResourceValuePresentation,
     KubernetesCollectionState
 } from './KubernetesDataPresentation'
 import { formatPodCpuUsage, formatPodMemoryUsage } from './KubernetesPodUsageMetrics'
+import { kubernetesCpuCores, kubernetesMemoryBytes } from './kubernetesQuantity'
 
 export interface KubernetesResourceConfigurationCoverage {
     total: number
@@ -41,7 +44,35 @@ export interface KubernetesResourceConfigurationCardProps {
 
 export interface KubernetesResourceConfigurationRowsProps {
     coverage: KubernetesResourceConfigurationCoverage
-    descriptionMode?: 'aggregate' | 'single'
+    mode?: 'aggregate' | 'single'
+}
+
+/** Converts one collected Container ResourceRequirements object into the same
+ * coverage contract used by aggregate namespace metrics. Presence of a key is
+ * kept separate from parsing its numeric value so an invalid collected value
+ * becomes "확인 불가", not "수집되지 않음". */
+export const kubernetesSingleContainerResourceCoverage = (
+    resources: any,
+    collected: boolean
+): KubernetesResourceConfigurationCoverage => {
+    const requests = resources?.Requests ?? resources?.requests ?? {}
+    const limits = resources?.Limits ?? resources?.limits ?? {}
+    const has = (value: any, key: string) => !!value && Object.prototype.hasOwnProperty.call(value, key)
+    return {
+        total: 1,
+        cpuRequests: has(requests, 'cpu') ? 1 : 0,
+        cpuLimits: has(limits, 'cpu') ? 1 : 0,
+        memoryRequests: has(requests, 'memory') ? 1 : 0,
+        memoryLimits: has(limits, 'memory') ? 1 : 0,
+        cpuRequestsCollected: collected,
+        cpuLimitsCollected: collected,
+        memoryRequestsCollected: collected,
+        memoryLimitsCollected: collected,
+        cpuRequestsCores: has(requests, 'cpu') ? kubernetesCpuCores(requests.cpu) : undefined,
+        cpuLimitsCores: has(limits, 'cpu') ? kubernetesCpuCores(limits.cpu) : undefined,
+        memoryRequestsBytes: has(requests, 'memory') ? kubernetesMemoryBytes(requests.memory) : undefined,
+        memoryLimitsBytes: has(limits, 'memory') ? kubernetesMemoryBytes(limits.memory) : undefined
+    }
 }
 
 const resourceMetrics = (coverage: KubernetesResourceConfigurationCoverage) => [
@@ -95,7 +126,7 @@ export const kubernetesResourceConfigurationCoverageState = (
 
 export const KubernetesResourceConfigurationRows = ({
     coverage,
-    descriptionMode = 'aggregate'
+    mode = 'aggregate'
 }: KubernetesResourceConfigurationRowsProps) => {
     const rows = resourceMetrics(coverage).map(metric => {
         const state = kubernetesConfigurationCoveragePresentation(metric.configuredContainers, coverage.total, metric.collected)
@@ -109,14 +140,26 @@ export const KubernetesResourceConfigurationRows = ({
                 collected: metric.collected,
                 aggregate: metric.aggregate,
                 format: metric.format
+            }),
+            singleValue: kubernetesSingleResourceValuePresentation({
+                configuredContainers: metric.configuredContainers,
+                collected: metric.collected,
+                aggregate: metric.aggregate,
+                format: metric.format
             })
         }
     })
-    return <StatusEvidenceList columnHeaders={descriptionMode === 'single' ? {
-        state: '상태',
-        value: '설정값',
-        valueTooltip: '컨테이너 ResourceList에 명시된 실제 요청량 또는 제한량입니다.'
-    } : {
+    if (mode === 'single') return <BasicInfoRows
+        density="compact"
+        labelWidth={122}
+        rows={rows.map(row => ({
+            key: row.key,
+            label: row.label,
+            value: row.singleValue,
+            tooltip: row.tooltip.replace('활성 파드', '이 컨테이너')
+        }))}
+    />
+    return <StatusEvidenceList columnHeaders={{
         state: '상태',
         value: '설정 컨테이너',
         secondaryValue: '설정 합계',
@@ -125,11 +168,11 @@ export const KubernetesResourceConfigurationRows = ({
         {rows.map(row => <StatusEvidenceRow
             key={row.key}
             title={row.label}
-            tooltip={descriptionMode === 'single' ? row.tooltip.replace('활성 파드', '이 컨테이너') : row.tooltip}
+            tooltip={row.tooltip}
             status={{ label: row.status, tone: row.tone }}
-            value={descriptionMode === 'single' ? row.total : row.configured}
+            value={row.configured}
             valueVariant="grade"
-            secondaryValue={descriptionMode === 'single' ? undefined : row.total}
+            secondaryValue={row.total}
             secondaryValueVariant="grade"
             valuesUnavailable={!row.collected}
             tone={row.tone}
@@ -149,6 +192,6 @@ export const KubernetesResourceConfigurationCard = ({
         title={title}
         description={description}
         descriptionTooltip={descriptionTooltip}>
-        <KubernetesResourceConfigurationRows coverage={coverage} />
+        <KubernetesResourceConfigurationRows coverage={coverage} mode="aggregate" />
     </DetailSectionCard>
 }

@@ -1,6 +1,6 @@
 import type { Node } from './Topology'
 import { isCurrentKubernetesPod } from './KubernetesPodLifecycle'
-import { matchesKubernetesSelector } from './KubernetesSelectors'
+import { kubernetesLabelValue, matchesKubernetesSelector } from './KubernetesSelectors'
 
 export const KUBERNETES_CONTROLLER_TYPES = new Set([
     'deployment',
@@ -25,17 +25,23 @@ const resourceType = (node: Node): string => String(node.data?.Type || '').toLow
 const resourceName = (node: Node): string => String(firstRaw(node.data || {}, [
     'Name',
     'K8s.Name',
-    'K8s.Extra.ObjectMeta.Name'
+    'K8s.Extra.ObjectMeta.Name',
+    'K8s.Extra.Metadata.Name',
+    'K8s.Extra.metadata.name'
 ]) || '')
 const resourceUID = (node: Node): string => String(firstRaw(node.data || {}, [
     'K8s.Extra.ObjectMeta.UID',
+    'K8s.Extra.Metadata.UID',
+    'K8s.Extra.metadata.uid',
     'K8s.UID',
     'UID'
 ]) || node.id)
 const resourceNamespace = (node: Node): string => String(firstRaw(node.data || {}, [
     'K8s.Namespace',
     'Namespace',
-    'K8s.Extra.ObjectMeta.Namespace'
+    'K8s.Extra.ObjectMeta.Namespace',
+    'K8s.Extra.Metadata.Namespace',
+    'K8s.Extra.metadata.namespace'
 ]) || '')
 const resourceCluster = (node: Node): string => String(firstRaw(node.data || {}, [
     'ClusterName',
@@ -46,6 +52,8 @@ const resourceCluster = (node: Node): string => String(firstRaw(node.data || {},
 const ownerReferences = (node: Node): any[] => {
     const value = firstRaw(node.data || {}, [
         'K8s.Extra.ObjectMeta.OwnerReferences',
+        'K8s.Extra.ObjectMeta.ownerReferences',
+        'K8s.Extra.metadata.ownerReferences',
         'K8s.Extra.Metadata.OwnerReferences',
         'K8s.Metadata.OwnerReferences',
         'K8s.OwnerReferences',
@@ -53,6 +61,15 @@ const ownerReferences = (node: Node): any[] => {
     ])
     if (!Array.isArray(value)) return []
     return value.slice().sort((left, right) => Number(!!right?.Controller) - Number(!!left?.Controller))
+}
+
+const ownerMatches = (owner: any, expectedKind: string, ownerNode: Node): boolean => {
+    const kind = String(owner?.Kind || owner?.kind || '').toLowerCase()
+    const uid = String(owner?.UID || owner?.uid || '')
+    const name = String(owner?.Name || owner?.name || '')
+    if (kind && kind !== expectedKind.toLowerCase()) return false
+    if (uid && uid === resourceUID(ownerNode)) return true
+    return !!name && name === resourceName(ownerNode)
 }
 
 const sameScope = (left: Node, right: Node): boolean => {
@@ -155,7 +172,131 @@ export const resolveKubernetesPodTopController = (pod: Node, nodes: Node[]): Nod
 }
 
 export const kubernetesPodsForController = (controller: Node, nodes: Node[]): Node[] =>
-    nodes.filter(node => resourceType(node) === 'pod' && resolveKubernetesPodController(node, nodes)?.id === controller.id)
+    nodes.filter(node => resourceType(node) === 'pod' && (
+        String(node.data?.TopologyWorkloadControllerID || '') === controller.id
+        || resolveKubernetesPodController(node, nodes)?.id === controller.id
+    ))
 
 export const currentKubernetesPodsForController = (controller: Node, nodes: Node[]): Node[] =>
     kubernetesPodsForController(controller, nodes).filter(isCurrentKubernetesPod)
+
+/** ReplicaSets directly controlled by a Deployment. Selector coincidence is
+ * intentionally insufficient because an old ReplicaSet and an unrelated
+ * controller can expose the same Pod labels during a rollout. */
+export const kubernetesReplicaSetsForDeployment = (deployment: Node, nodes: Node[]): Node[] =>
+    nodes.filter(node => resourceType(node) === 'replicaset'
+        && sameScope(deployment, node)
+        && ownerReferences(node).some(owner => ownerMatches(owner, 'deployment', deployment)))
+
+/** Returns collected ReplicaSet objects plus stable relationship references
+ * recovered from Pods already assigned to the Deployment by the topology
+ * owner resolver. Some topology views intentionally omit ReplicaSet nodes,
+ * but Pod OwnerReferences still preserve the real ReplicaSet UID and name. */
+export const kubernetesReplicaSetRelationsForDeployment = (deployment: Node, nodes: Node[]): Node[] => {
+    const replicaSets = kubernetesReplicaSetsForDeployment(deployment, nodes)
+    const identities = new Set<string>()
+    replicaSets.forEach(replicaSet => {
+        identities.add(resourceUID(replicaSet))
+        identities.add(resourceName(replicaSet))
+    })
+    const deploymentPods = kubernetesPodsForController(deployment, nodes)
+    deploymentPods.forEach(pod => ownerReferences(pod).forEach(owner => {
+        if (String(owner?.Kind || owner?.kind || '').toLowerCase() !== 'replicaset') return
+        const uid = String(owner?.UID || owner?.uid || '')
+        const name = String(owner?.Name || owner?.name || '')
+        if ((!uid && !name) || (uid && identities.has(uid)) || (name && identities.has(name))) return
+        const namespace = resourceNamespace(pod)
+        const cluster = resourceCluster(pod) || resourceCluster(deployment)
+        const reference = {
+            id: uid || `${resourceUID(deployment)}:${namespace}:${name}`,
+            tags: ['kubernetes'],
+            data: {
+                Manager: 'k8s',
+                Type: 'replicaset',
+                Name: name || uid,
+                ClusterName: cluster,
+                RelationshipReferenceOnly: true,
+                K8s: {
+                    UID: uid,
+                    Namespace: namespace,
+                    ClusterName: cluster,
+                    Extra: { ObjectMeta: { UID: uid, Name: name, Namespace: namespace } }
+                }
+            },
+            weight: 0,
+            children: [],
+            parent: null,
+            revision: 0,
+            state: { expanded: false, selected: false, mouseover: false, groupOffset: 0, groupFullSize: false },
+            type: 'node',
+            getWeight: () => 0
+        } as Node
+        replicaSets.push(reference)
+        if (uid) identities.add(uid)
+        if (name) identities.add(name)
+    }))
+    return replicaSets
+}
+
+const deploymentRevision = (node: Node): number | undefined => {
+    const annotations = firstRaw(node.data || {}, [
+        'K8s.Extra.ObjectMeta.Annotations',
+        'K8s.Extra.ObjectMeta.annotations',
+        'K8s.Extra.Metadata.Annotations',
+        'K8s.Extra.metadata.annotations',
+        'K8s.Metadata.Annotations',
+        'K8s.Annotations',
+        'Annotations'
+    ]) || {}
+    const raw = annotations['deployment.kubernetes.io/revision']
+        ?? kubernetesLabelValue(annotations, 'deployment.kubernetes.io/revision')
+    const value = Number(raw)
+    return raw === undefined || !Number.isFinite(value) ? undefined : value
+}
+
+const replicaSetReplicaState = (node: Node, nodes: Node[]) => {
+    const numberAt = (paths: string[]): number => {
+        const raw = firstRaw(node.data || {}, paths)
+        const value = Number(raw)
+        return raw === undefined || !Number.isFinite(value) ? 0 : value
+    }
+    const desired = numberAt(['K8s.Extra.Spec.Replicas', 'K8s.Extra.spec.replicas', 'K8s.DesiredReplicas', 'DesiredReplicas'])
+    const replicas = numberAt(['K8s.Extra.Status.Replicas', 'K8s.Extra.status.replicas', 'K8s.Replicas', 'Replicas'])
+    const ready = numberAt(['K8s.Extra.Status.ReadyReplicas', 'K8s.Extra.status.readyReplicas', 'K8s.ReadyReplicas', 'ReadyReplicas'])
+    const available = numberAt(['K8s.Extra.Status.AvailableReplicas', 'K8s.Extra.status.availableReplicas', 'K8s.AvailableReplicas', 'AvailableReplicas'])
+    const podCount = kubernetesPodsForReplicaSets([node], nodes).filter(isCurrentKubernetesPod).length
+    return { desired, replicas, ready, available, podCount }
+}
+
+/** Selects the current ReplicaSet by the Deployment revision annotation and
+ * then by the highest collected ReplicaSet revision. This never promotes a
+ * ReplicaSet that is not owned by the Deployment. */
+export const currentKubernetesReplicaSetForDeployment = (deployment: Node, nodes: Node[]): Node | undefined => {
+    const replicaSets = kubernetesReplicaSetRelationsForDeployment(deployment, nodes)
+    const targetRevision = deploymentRevision(deployment)
+    return replicaSets.slice().sort((left, right) => {
+        const score = (replicaSet: Node): number => {
+            const state = replicaSetReplicaState(replicaSet, nodes)
+            const revision = deploymentRevision(replicaSet) ?? -1
+            const active = state.desired > 0 || state.replicas > 0 || state.ready > 0 || state.available > 0 || state.podCount > 0
+            const targetRevisionMatch = targetRevision !== undefined && revision === targetRevision
+            return (active ? 1000000 : 0)
+                + (targetRevisionMatch ? 100000 : 0)
+                + state.podCount * 10000
+                + state.ready * 1000
+                + state.available * 100
+                + state.desired * 10
+                + Math.max(0, revision)
+        }
+        return score(right) - score(left)
+    })[0]
+}
+
+/** Pods whose direct controller OwnerReference points at one of the supplied
+ * ReplicaSets. No Deployment selector fallback is used. */
+export const kubernetesPodsForReplicaSets = (replicaSets: Node[], nodes: Node[]): Node[] => {
+    return nodes.filter(node => resourceType(node) === 'pod' && ownerReferences(node).some(owner => {
+        if (String(owner?.Kind || owner?.kind || '').toLowerCase() !== 'replicaset') return false
+        return replicaSets.some(replicaSet => sameScope(replicaSet, node) && ownerMatches(owner, 'replicaset', replicaSet))
+    }))
+}
