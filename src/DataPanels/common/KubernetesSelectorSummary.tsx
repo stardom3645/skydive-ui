@@ -1,8 +1,8 @@
 import * as React from 'react'
 import { RightOutlined } from '@ant-design/icons'
-import { Tooltip } from 'antd'
 
 import {
+    DetailInfoTooltip,
     HistoryModal
 } from './DetailComponents'
 import {
@@ -127,11 +127,9 @@ export const KubernetesSelectorSummary = ({
         ? 'Service가 연결할 파드를 라벨로 선택하는 기준입니다.'
         : '워크로드가 관리할 파드를 라벨과 조건으로 선택하는 기준입니다.')
     return <React.Fragment>
-        <Tooltip title={tooltip} overlayClassName="netdive-detail-tooltip">
-            <button type="button" className="netdive-k8s-selector-summary" onClick={() => setOpen(true)}>
-                <span>{summary}</span><RightOutlined />
-            </button>
-        </Tooltip>
+        <button type="button" className="netdive-k8s-selector-summary" onClick={() => setOpen(true)}>
+            <span>{summary}<DetailInfoTooltip description={tooltip} ariaLabel="선택자 정보" /></span><RightOutlined />
+        </button>
         <KubernetesSelectorModal
             visible={open}
             onCancel={() => setOpen(false)}

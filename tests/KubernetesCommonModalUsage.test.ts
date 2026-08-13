@@ -10,6 +10,7 @@ describe('Kubernetes common metadata and selector modal usage', () => {
     const workload = read('src/DataPanels/KubernetesWorkloadDetailPanel.tsx')
     const pod = read('src/DataPanels/KubernetesPodDetailPanel.tsx')
     const service = read('src/DataPanels/KubernetesServiceDetailPanel.tsx')
+    const storage = read('src/DataPanels/KubernetesStorageDetailPanel.tsx')
     const selection = read('src/SelectionPanel.tsx')
     const commonIndex = read('src/DataPanels/common/index.ts')
     const metadata = read('src/DataPanels/common/KubernetesMetadataModal.tsx')
@@ -24,7 +25,7 @@ describe('Kubernetes common metadata and selector modal usage', () => {
     })
 
     it('uses the same metadata entry point in Namespace, workload, Pod and Service panels', () => {
-        ;[namespace, workload, pod, service].forEach(source => {
+        ;[namespace, workload, pod, service, storage].forEach(source => {
             assert.ok(source.includes('KubernetesMetadataRows,'))
             assert.ok(source.includes("from './common'"))
             assert.ok(source.includes('<KubernetesMetadataRows'))
@@ -41,6 +42,20 @@ describe('Kubernetes common metadata and selector modal usage', () => {
         assert.ok(metadata.includes('className="netdive-detail-metadata-row is-empty"'))
         assert.ok(metadata.includes('<strong>{item.label}</strong><span>없음</span>'))
         assert.ok(metadata.includes('description={`총 ${entries.length}개'))
+    })
+
+    it('keeps metadata summary values on the common key-value typography', () => {
+        const css = read('src/DataPanels/common/DetailComponents.css')
+        const metadataValueRule = css.slice(
+            css.indexOf('.netdive-detail-metadata-row > span {'),
+            css.indexOf('.netdive-detail-metadata-row > .anticon')
+        )
+        assert.ok(metadataValueRule.includes('font-size: var(--netdive-detail-font-body-label)'))
+        assert.ok(metadataValueRule.includes('font-weight: var(--netdive-detail-weight-body-label)'))
+        assert.ok(metadataValueRule.includes('line-height: var(--netdive-detail-line-body-label)'))
+        assert.ok(metadataValueRule.includes('color: #101828'))
+        assert.ok(!metadataValueRule.includes('font-supporting-text'))
+        assert.ok(!css.includes('.netdive-detail-metadata-row.is-empty > span'))
     })
 
     it('uses the common selector modes for workload and Service selectors', () => {

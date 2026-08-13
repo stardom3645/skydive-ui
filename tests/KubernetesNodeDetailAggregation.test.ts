@@ -4,9 +4,11 @@ import {
     kubernetesNodeLocalStorageDependencies,
     kubernetesNodePodDataset,
     kubernetesNodeSingleReplicaWorkloads,
-    kubernetesNodeTopWorkloads
+    kubernetesNodeTopWorkloads,
+    kubernetesOperationalPodDataset
 } from '../src/KubernetesNodeDetailAggregation'
 import { formatKubernetesValueState } from '../src/DataPanels/common/KubernetesValueState'
+import { aggregatePods, registerKubernetesPodCurrentStatusSnapshots } from '../src/KubernetesPodLifecycle'
 
 const NOW = Date.parse('2026-08-05T12:00:00Z')
 
@@ -45,6 +47,33 @@ const pod = (id: string, phase: string, options: any = {}): any => resource(id, 
 })
 
 describe('Kubernetes node detail aggregation', () => {
+    it('shares the latest API Ready result with namespace and workload aggregates', () => {
+        const dashboardPod = pod('dashboard-api-ready', 'Running', { ready: false })
+        registerKubernetesPodCurrentStatusSnapshots([{
+            uid: 'dashboard-api-ready', phase: 'Running', ready: true, problem: false,
+            observedAt: '2026-08-10T12:00:00Z'
+        }])
+        const dataset = kubernetesNodePodDataset([dashboardPod], 'worker-1', 'cluster-a', Date.parse('2026-08-10T12:00:01Z'))
+        assert.equal(dataset.runningPods.length, 1)
+        assert.equal(dataset.notReadyPods.length, 0)
+        assert.equal(dataset.problemPods.length, 0)
+    })
+
+    it('matches the two Ready kubernetes-dashboard Pods across Namespace and Deployment', () => {
+        const metrics = pod('dashboard-metrics-scraper-pod', 'Running', { ready: false })
+        const dashboard = pod('kubernetes-dashboard-pod', 'Running', { ready: false })
+        registerKubernetesPodCurrentStatusSnapshots([
+            { uid: metrics.id, phase: 'Running', ready: true, problem: false, observedAt: '2026-08-10T12:00:00Z' },
+            { uid: dashboard.id, phase: 'Running', ready: true, problem: false, observedAt: '2026-08-10T12:00:00Z' }
+        ])
+        const namespaceDataset = kubernetesOperationalPodDataset([metrics, dashboard])
+        assert.equal(namespaceDataset.runningPods.length, 2)
+        assert.equal(namespaceDataset.notReadyPods.length, 0)
+        assert.equal(namespaceDataset.problemPods.length, 0)
+        assert.equal(aggregatePods([metrics]).currentProblems, 0)
+        assert.equal(aggregatePods([dashboard]).currentProblems, 0)
+    })
+
     it('reuses one active Pod definition and keeps current problems separate', () => {
         const nodes = [
             pod('running', 'Running', { ready: true }),

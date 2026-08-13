@@ -269,6 +269,13 @@
     gap: 3px;
 }
 
+.netdive-group-detail-topologyBadges {
+    display: block;
+    flex: 0 0 auto;
+    margin-left: 2px;
+    overflow: visible;
+}
+
 .netdive-group-detail-name.ant-typography {
     max-width: 100%;
     color: #344054;

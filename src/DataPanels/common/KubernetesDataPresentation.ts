@@ -129,12 +129,208 @@ export const kubernetesPodPhaseLabel = (value: any): string => {
     }
 }
 
+const KUBERNETES_PVC_PHASE_LABELS: Record<string, string> = {
+    bound: '바인딩 완료',
+    pending: '바인딩 대기',
+    lost: '바인딩 손실'
+}
+
+/** User-facing PVC binding state. The Kubernetes phase remains available to
+ * callers for diagnostic Tooltips instead of leaking into the primary UI. */
+export const kubernetesPvcPhaseLabel = (value: any): string => {
+    const source = String(value ?? '').trim()
+    return source ? KUBERNETES_PVC_PHASE_LABELS[source.toLowerCase()] || source : '수집되지 않음'
+}
+
+const KUBERNETES_PV_PHASE_LABELS: Record<string, string> = {
+    available: '사용 가능',
+    bound: '바인딩 완료',
+    released: '클레임 해제',
+    failed: '바인딩 실패'
+}
+
+export const kubernetesPvPhaseLabel = (value: any): string => {
+    const source = String(value ?? '').trim()
+    return source ? KUBERNETES_PV_PHASE_LABELS[source.toLowerCase()] || source : '수집되지 않음'
+}
+
+const KUBERNETES_VOLUME_MODE_LABELS: Record<string, string> = {
+    filesystem: '파일시스템',
+    block: '블록'
+}
+
+export const kubernetesVolumeModeLabel = (value: any): string => {
+    const source = String(value ?? '').trim()
+    return source ? KUBERNETES_VOLUME_MODE_LABELS[source.toLowerCase()] || source : '수집되지 않음'
+}
+
+const KUBERNETES_ACCESS_MODE_LABELS: Record<string, string> = {
+    readwriteonce: '단일 노드 읽기/쓰기',
+    readonlymany: '다중 노드 읽기 전용',
+    readwritemany: '다중 노드 읽기/쓰기',
+    readwriteoncepod: '단일 파드 읽기/쓰기'
+}
+
+export const kubernetesAccessModeLabel = (value: any): string => {
+    const source = String(value ?? '').trim()
+    return source ? KUBERNETES_ACCESS_MODE_LABELS[source.toLowerCase()] || source : '수집되지 않음'
+}
+
+export const kubernetesAccessModesLabel = (values: any): string =>
+    Array.isArray(values) && values.length
+        ? values.map(kubernetesAccessModeLabel).join(', ')
+        : '설정되지 않음'
+
+const KUBERNETES_TRAFFIC_POLICY_LABELS: Record<string, string> = {
+    cluster: '클러스터 전체',
+    local: '로컬'
+}
+
+/** Shared user-facing Service traffic-policy vocabulary. Kubernetes's raw
+ * enum remains available to callers for diagnostic Tooltips. */
+export const kubernetesTrafficPolicyLabel = (value: any): string => {
+    const source = String(value ?? '').trim()
+    return source ? KUBERNETES_TRAFFIC_POLICY_LABELS[source.toLowerCase()] || source : '설정되지 않음'
+}
+
+const KUBERNETES_VOLUME_SOURCE_LABELS: Record<string, string> = {
+    hostpath: '호스트 경로',
+    local: '로컬 볼륨',
+    nfs: 'NFS',
+    csi: 'CSI',
+    iscsi: 'iSCSI',
+    cephfs: 'CephFS',
+    rbd: 'RBD',
+    fc: 'Fibre Channel',
+    azuredisk: 'Azure Disk',
+    gcepersistentdisk: 'GCE 영구 디스크',
+    awselasticblockstore: 'AWS EBS'
+}
+
+export const kubernetesVolumeSourceTypeLabel = (value: any): string => {
+    const source = String(value ?? '').trim()
+    return source ? KUBERNETES_VOLUME_SOURCE_LABELS[source.toLowerCase()] || source : '수집되지 않음'
+}
+
 export const kubernetesContainerKindLabel = (value: any): string => {
     switch (String(value || '').toUpperCase()) {
     case 'INIT': return '초기화 컨테이너'
     case 'EPHEMERAL': return '임시 컨테이너'
     default: return '일반 컨테이너'
     }
+}
+
+/** Returns only the reason attached to the container's current Kubernetes
+ * state. A previous termination reason is diagnostic history and must not be
+ * presented as the reason for a currently Running container. */
+export const kubernetesContainerStateReason = (container: any): string | undefined => {
+    const state = String(container?.state ?? container?.State ?? '').trim().toUpperCase()
+    const reason = state === 'WAITING'
+        ? container?.waitingReason ?? container?.WaitingReason
+        : state === 'TERMINATED'
+            ? container?.terminatedReason ?? container?.TerminatedReason
+            : undefined
+    const normalized = String(reason ?? '').trim()
+    return normalized || undefined
+}
+
+const KUBERNETES_NO_IMPACT_LABELS = new Set([
+    '영향 없음',
+    '현재 영향 없음',
+    '확인된 영향 없음',
+    '현재 워크로드 영향 없음',
+    '확인된 가용성 영향 없음'
+])
+
+/** Keeps operational KPI values compact while leaving each panel's detailed
+ * impact evidence in its Tooltip. The underlying verdict text is not changed. */
+export const kubernetesImpactLabel = (value: string): string => {
+    const normalized = value.trim()
+    if (KUBERNETES_NO_IMPACT_LABELS.has(normalized)) return '영향 없음'
+    const unavailableWorkloads = normalized.match(/^워크로드\s+(\d+)개\s+미가용$/)
+    // `현재 영향` is already the KPI label, so repeating the resource
+    // kind needlessly consumes the narrow three-column value area.
+    if (unavailableWorkloads) return `${unavailableWorkloads[1]}개 미가용`
+    return value
+}
+
+const KUBERNETES_RECLAIM_POLICY_LABELS: Record<string, string> = {
+    delete: '삭제',
+    retain: '유지',
+    recycle: '재사용'
+}
+
+const KUBERNETES_VOLUME_BINDING_MODE_LABELS: Record<string, string> = {
+    waitforfirstconsumer: '사용 시 바인딩',
+    immediate: '즉시 바인딩'
+}
+
+export interface KubernetesVolumeBindingModePresentation {
+    label: string
+    description?: string
+    rawValue?: string
+}
+
+export const kubernetesReclaimPolicyLabel = (value: any): string => {
+    const source = String(value ?? '').trim()
+    return KUBERNETES_RECLAIM_POLICY_LABELS[source.toLowerCase()] || source
+}
+
+export const kubernetesVolumeBindingModeLabel = (value: any): string => {
+    const source = String(value ?? '').trim()
+    return KUBERNETES_VOLUME_BINDING_MODE_LABELS[source.toLowerCase()] || source
+}
+
+/** Keeps the user-facing StorageClass binding mode and its operational meaning
+ * together while preserving the Kubernetes source value for diagnostics. */
+export const kubernetesVolumeBindingModePresentation = (value: any): KubernetesVolumeBindingModePresentation => {
+    const source = String(value ?? '').trim()
+    const normalized = source.toLowerCase()
+    return {
+        label: KUBERNETES_VOLUME_BINDING_MODE_LABELS[normalized] || source,
+        description: normalized === 'waitforfirstconsumer'
+            ? '이 스토리지 클래스를 사용하는 파드의 배치 위치가 결정된 후 볼륨을 바인딩합니다.'
+            : undefined,
+        rawValue: source || undefined
+    }
+}
+
+export interface KubernetesBooleanSettingOptions {
+    collected: boolean
+    enabledLabel?: string
+    disabledLabel?: string
+}
+
+/** Formats an optional Kubernetes boolean without collapsing an absent field
+ * into an explicitly configured false value. */
+export const kubernetesBooleanSettingLabel = (
+    value: any,
+    {
+        collected,
+        enabledLabel = '사용',
+        disabledLabel = '사용하지 않음'
+    }: KubernetesBooleanSettingOptions
+): string => {
+    if (!collected) return '수집되지 않음'
+    if (value === undefined || value === null || value === '') return '설정되지 않음'
+    if (value === true || String(value).toLowerCase() === 'true') return enabledLabel
+    if (value === false || String(value).toLowerCase() === 'false') return disabledLabel
+    return '확인 불가'
+}
+
+/** Kubernetes supports both stable and legacy default StorageClass
+ * annotations. The collector-derived value is accepted only as a fallback
+ * because the probe computes it from those same annotations. */
+export const kubernetesDefaultStorageClass = (
+    annotations: Record<string, any> | undefined | null,
+    collectorValue?: any
+): boolean | undefined => {
+    const stable = annotations?.['storageclass.kubernetes.io/is-default-class']
+    const legacy = annotations?.['storageclass.beta.kubernetes.io/is-default-class']
+    if (stable !== undefined || legacy !== undefined) {
+        return String(stable ?? legacy).toLowerCase() === 'true'
+    }
+    return typeof collectorValue === 'boolean' ? collectorValue : undefined
 }
 
 export const kubernetesMetadataValueDescription = (key: string, value: any): string | undefined => {
@@ -213,6 +409,9 @@ export interface KubernetesCollectionSource {
     label: string
     collected?: boolean
     state?: KubernetesCollectionState
+    /** Missing essential evidence means the resource itself could not be
+     * evaluated, rather than an optional observation source being absent. */
+    essential?: boolean
 }
 
 export type KubernetesCollectionState = 'collected' | 'partial' | 'uncollected'
@@ -236,8 +435,8 @@ export const kubernetesResourceConfigurationCollectionState = (
 }
 
 export interface KubernetesCollectionPresentation {
-    label: '수집됨' | '부분 수집' | '수집되지 않음'
-    tone: 'success' | 'warning' | 'default'
+    label: '수집됨' | '부분 수집' | '수집되지 않음' | '수집 실패'
+    tone: 'success' | 'warning' | 'danger' | 'default'
     collected: number
     total: number
     detail: string
@@ -252,17 +451,26 @@ export const kubernetesCollectionPresentation = (
     const collected = states.filter(state => state === 'collected').length
     const partial = states.filter(state => state === 'partial').length
     const total = sources.length
-    const label = total > 0 && collected === total
-        ? '수집됨'
-        : collected > 0 || partial > 0 ? '부분 수집' : '수집되지 않음'
-    const stateLabel = (state: KubernetesCollectionState) => state === 'collected'
-        ? '수집됨'
-        : state === 'partial' ? '부분 수집' : '수집되지 않음'
+    const essentialMissing = sources.some((source, index) => source.essential && states[index] === 'uncollected')
+    const label = essentialMissing
+        ? '수집 실패'
+        : total > 0 && collected === total
+            ? '수집됨'
+            : collected > 0 || partial > 0 ? '부분 수집' : '수집되지 않음'
+    const detailGroups: Array<{ state: KubernetesCollectionState, label: string }> = [
+        { state: 'collected', label: '수집됨' },
+        { state: 'partial', label: '부분 수집' },
+        { state: 'uncollected', label: '수집되지 않음' }
+    ]
+    const detail = detailGroups.map(group => {
+        const labels = sources.filter((_source, index) => states[index] === group.state).map(source => source.label)
+        return labels.length ? `${group.label}: ${labels.join(', ')}` : ''
+    }).filter(Boolean).join(' · ')
     return {
         label,
-        tone: label === '수집됨' ? 'success' : label === '부분 수집' ? 'warning' : 'default',
+        tone: label === '수집됨' ? 'success' : label === '부분 수집' ? 'warning' : label === '수집 실패' ? 'danger' : 'default',
         collected,
         total,
-        detail: sources.map((source, index) => `${source.label}: ${stateLabel(states[index])}`).join(' · ')
+        detail
     }
 }

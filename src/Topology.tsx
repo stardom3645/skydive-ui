@@ -24,18 +24,30 @@ import { line, linkVertical, curveCatmullRom, curveCardinalClosed } from 'd3-sha
 import { } from 'd3-transition'
 import { zoom, zoomIdentity } from 'd3-zoom'
 import ResizeObserver from 'react-resize-observer'
-import { aggregateKubernetesPods, isCurrentKubernetesPod, isKubernetesPod, KubernetesPodAggregate } from './KubernetesPodLifecycle'
+import { isCurrentKubernetesPod, isKubernetesPod } from './KubernetesPodLifecycle'
 import {
     filterKubernetesInfrastructureEvidenceIDs,
     isKubernetesInfrastructureEvidenceData,
     isKubernetesTopologyData
 } from './KubernetesInfrastructureEvidence'
-import { kubernetesClusterGroupObjectCount } from './TopologyGroupBadge'
 import {
+    isKubernetesStorageType,
+    isKubernetesThreeLineTopologyType,
     isKubernetesWorkloadType,
-    kubernetesWorkloadNodeText
+    kubernetesTopologyNodeText
 } from './KubernetesTopologyNodePresentation'
-
+import {
+    kubernetesTopologyNodeNeedsAttention,
+    kubernetesTopologyAttentionPathIDs,
+    kubernetesTopologyBadgeGroupSummary,
+    kubernetesTopologyCountBadges
+} from './KubernetesTopologyBadgeAggregation'
+import {
+    TopologyStatusBadgeGroupSummary,
+    TopologyStatusBadgeRail,
+    TopologyStatusBadgeTooltip
+} from './TopologyStatusBadge'
+import TopologyContextMenu, { TopologyContextMenuAction } from './TopologyContextMenu'
 const flextree = require('d3-flextree').flextree;
 
 import './Topology.css'
@@ -61,17 +73,14 @@ const topologyCardTextPadding = 104
 const topologySiblingCardGap = 36
 // 일반 토폴로지 노드 카드의 높이입니다.
 const topologyCardHeight = 92
-// Workload cards reserve two name rows and one resource-kind row.
+// Kubernetes workload and storage cards reserve two name rows and one
+// resource-kind/context row.
 const topologyWorkloadCardHeight = 108
 // 2줄 노드 이름의 줄 간격입니다.
 const topologyCardTitleLineGap = 20
 const topologyWorkloadTitleLineGap = 18
 const topologyWorkloadKindFontSize = 14
-// 토폴로지 카드에 직접 노출하는 상태 배지 수입니다. 초과 상태는 +N으로 요약합니다.
-const topologyVisibleStatusBadgeLimit = 2
 // 상태 배지의 실제 렌더링 간격과 제목 사이의 안전 여백입니다.
-const topologyStatusBadgeStep = 34
-const topologyStatusBadgeSingleReserveWidth = 40
 // 컨테이너형 그룹 UI의 전체 너비입니다.
 const groupContainerWidth = 620
 // 컨테이너형 그룹 UI의 헤더 높이입니다.
@@ -112,8 +121,6 @@ const kubernetesNodeHorizontalGapBoost = 150
 const kubernetesNodeLabelWidthBoost = 95
 // Kubernetes 네임스페이스 계층에서 노드 간 가로 간격을 추가로 넓히는 값입니다.
 const kubernetesNamespaceHorizontalGapBoost = 160
-// Kubernetes 워크로드에서 파드 계층으로 내려갈 때 추가할 세로 여백입니다.
-const kubernetesWorkloadVerticalGapBoost = 16
 // 고정된 좌측 계층 라벨과 토폴로지 카드 사이의 화면 안전 영역입니다.
 const topologyLevelLabelSafeInset = 200
 // 시스템 VM / 가상 라우터 compact 레이아웃의 카드 및 그룹 최소 간격입니다.
@@ -476,6 +483,7 @@ class NodeWrapper {
             const isKubernetesNamespace = node?.data?.Manager === "k8s" && node?.data?.Type === "namespace"
             const kubernetesType = node?.data?.Manager === "k8s" ? String(node?.data?.Type || "").toLowerCase() : ""
             const isKubernetesWorkload = isKubernetesWorkloadType(kubernetesType)
+            const isKubernetesThreeLineCard = isKubernetesThreeLineTopologyType(kubernetesType)
             const isKubernetesDenseLayer = isKubernetesWorkload
                 || kubernetesType === "pod"
                 || kubernetesType === "persistentvolume"
@@ -498,8 +506,12 @@ class NodeWrapper {
                         : nodeWidth,
                 isUserVmNode || isVmInterfaceNode
                     ? nodeHeight + userVmVerticalGapBoost
-                    : isKubernetesWorkload
-                        ? nodeHeight + kubernetesWorkloadVerticalGapBoost + (topologyWorkloadCardHeight - topologyCardHeight)
+                    : isKubernetesThreeLineCard
+                        // Reserve only the extra physical card height. Adding
+                        // another workload-only gap here makes the Workload
+                        // Controller -> Pod level visibly taller than every
+                        // other Kubernetes boundary.
+                        ? nodeHeight + (topologyWorkloadCardHeight - topologyCardHeight)
                         : nodeHeight
             ]
         }
@@ -549,7 +561,6 @@ export interface BadgeAttrs {
 interface Props {
     onClick: () => void
     sortNodesFnc: (node1: Node, node2: Node) => number
-    onShowNodeContextMenu: (node: Node) => any
     onNodeSelected: (node: Node, isSelected: boolean) => void
     className: string
     nodeAttrs: (node: Node) => NodeAttrs
@@ -575,6 +586,17 @@ interface GroupNavigatorFilter {
     search: string
 }
 
+type TopologyFocusMode = 'connections' | 'problems'
+
+interface TopologyNodeFocus {
+    mode: TopologyFocusMode
+    anchorID: string
+    nodeIDs: Set<string>
+    relationLinkIDs: Set<string>
+    visibleRelationLinkIDs: Set<string>
+    hierarchyLinkKeys: Set<string>
+}
+
 /**
  * Topology component. Based on a tree enhanced by multiple levels supports.
  */
@@ -596,7 +618,7 @@ export class Topology extends React.Component<Props, {}> {
     private gGroupButtons: Selection<SVGGraphicsElement, {}, null, undefined>
     private gNodes: Selection<SVGGraphicsElement, {}, null, undefined>
     private gRaisedLinkLabels: Selection<SVGGraphicsElement, {}, null, undefined>
-    private gContextMenu: Selection<SVGGraphicsElement, {}, null, undefined>
+    private topologyContextMenuRoot: HTMLDivElement | null
     private zoom: zoom
     private liner: line
     private showLevelLabelsTimeoutID: number
@@ -623,6 +645,11 @@ export class Topology extends React.Component<Props, {}> {
     private groupNavigatorRenderKeys: Map<string, string>
     private zoomFitTimeoutID: number
     private zoomFitAnimationFrameID: number
+    private kubernetesProblemsOnly: boolean
+    private kubernetesAttentionPathIDs: Set<string>
+    private kubernetesProblemsExpandedSnapshot: Map<string, boolean> | null
+    private kubernetesProblemsGroupSnapshot: Map<string, NodeState> | null
+    private topologyNodeFocus: TopologyNodeFocus | null
 
     root: Node
     nodes: Map<string, Node>
@@ -651,6 +678,12 @@ export class Topology extends React.Component<Props, {}> {
         this.expandedContainerMiniNodeIDs = new Set<string>()
         this.selectedGroupListNodeIDs = new Set<string>()
         this.groupNavigatorFilters = new Map<string, GroupNavigatorFilter>()
+        this.kubernetesProblemsOnly = false
+        this.kubernetesAttentionPathIDs = new Set<string>()
+        this.kubernetesProblemsExpandedSnapshot = null
+        this.kubernetesProblemsGroupSnapshot = null
+        this.topologyNodeFocus = null
+        this.topologyContextMenuRoot = null
         this.groupNavigatorRenderKeys = new Map<string, string>()
         this.zoomFitTimeoutID = 0
         this.zoomFitAnimationFrameID = 0
@@ -660,6 +693,10 @@ export class Topology extends React.Component<Props, {}> {
             .on("keydown.topology", () => {
                 if (event.keyCode === 17) {
                     this.isCtrlPressed = true
+                }
+                if (event.keyCode === 27) {
+                    this.hideNodeContextMenu()
+                    this.clearTopologyNodeFocus()
                 }
             })
             .on("keyup.topology", () => {
@@ -681,6 +718,7 @@ export class Topology extends React.Component<Props, {}> {
             this.showLevelLabelsTimeoutID = 0
         }
         this.cancelScheduledZoomFit()
+        this.hideNodeContextMenu()
 
         if (this.svg) {
             this.svg.on(".zoom", null)
@@ -821,6 +859,7 @@ export class Topology extends React.Component<Props, {}> {
             .on("click", () => {
                 this.clearRaisedLinkLabel()
                 this.hideNodeContextMenu()
+                this.clearTopologyNodeFocus()
                 this.props.onClick()
             })
 
@@ -957,10 +996,6 @@ export class Topology extends React.Component<Props, {}> {
         this.gRaisedLinkLabels = this.g.append("g")
             .attr("class", "raised-link-labels")
 
-        // context menu group
-        this.gContextMenu = this.svg.append("g")
-            .attr("class", "context-menu")
-
         this.liner = line()
             .x(d => d.x)
             .y(d => d.y)
@@ -1076,6 +1111,69 @@ export class Topology extends React.Component<Props, {}> {
         // 3) 전체 토폴로지 다시 그리기
         this.invalidated = true
         this.resetCacheAndRenderTree()
+    }
+
+    /** Enable or disable the Kubernetes attention-path view. Problem branches
+     * are expanded once here; subsequent user collapse/expand is respected. */
+    setKubernetesProblemsOnly(enabled: boolean) {
+        if (this.kubernetesProblemsOnly === enabled) return
+
+        if (enabled) {
+            this.kubernetesProblemsExpandedSnapshot = new Map<string, boolean>()
+            this.nodes.forEach(node => this.kubernetesProblemsExpandedSnapshot!.set(node.id, !!node.state.expanded))
+            this.kubernetesProblemsGroupSnapshot = new Map<string, NodeState>()
+            this.groupStates.forEach((state, id) => this.kubernetesProblemsGroupSnapshot!.set(id, { ...state }))
+
+            this.kubernetesProblemsOnly = true
+            this.refreshKubernetesAttentionPaths()
+            this.kubernetesAttentionPathIDs.forEach(id => {
+                const node = this.nodes.get(id)
+                if (node && node.children.some(child => this.kubernetesAttentionPathIDs.has(child.id))) {
+                    node.state.expanded = true
+                }
+            })
+
+            // First render creates the synthetic groups for the retained
+            // branches. Expand those groups only on this activation edge.
+            this.invalidated = true
+            this.resetCacheAndRenderTree()
+            this.groups.forEach((_group, groupID) => {
+                const state = this.groupStates.get(groupID)
+                if (!state) return
+                state.expanded = true
+                state.groupFullSize = true
+                state.groupOffset = 0
+            })
+        } else {
+            this.kubernetesProblemsOnly = false
+            this.kubernetesAttentionPathIDs.clear()
+            this.kubernetesProblemsExpandedSnapshot?.forEach((expanded, id) => {
+                const node = this.nodes.get(id)
+                if (node) node.state.expanded = expanded
+            })
+            this.groupStates.forEach((state, id) => {
+                const snapshot = this.kubernetesProblemsGroupSnapshot?.get(id)
+                if (snapshot) Object.assign(state, snapshot)
+                else {
+                    state.expanded = false
+                    state.groupFullSize = false
+                    state.groupOffset = 0
+                }
+            })
+            this.kubernetesProblemsExpandedSnapshot = null
+            this.kubernetesProblemsGroupSnapshot = null
+        }
+
+        this.invalidated = true
+        this.resetCacheAndRenderTree()
+    }
+
+    private refreshKubernetesAttentionPaths() {
+        this.kubernetesAttentionPathIDs = this.kubernetesProblemsOnly
+            ? kubernetesTopologyAttentionPathIDs(
+                this.root.children,
+                node => !this.props.nodeVisible || this.props.nodeVisible(node))
+            : new Set<string>()
     }
 
     activeNodeTag(tag: string) {
@@ -1462,7 +1560,12 @@ export class Topology extends React.Component<Props, {}> {
         var cloned = new NodeWrapper(node.id, WrapperType.Normal, node, parent)
 
         var matchTags = node.tags.some(tag => this.nodeTagStates.get(tag))
-        const nodeIsVisible = node.id === "root" || !this.props.nodeVisible || this.props.nodeVisible(node)
+        const baseNodeVisible = node.id === "root" || !this.props.nodeVisible || this.props.nodeVisible(node)
+        const attentionPathVisible = !this.kubernetesProblemsOnly
+            || node.id === "root"
+            || !isKubernetesTopologyData(node.data, node.tags)
+            || this.kubernetesAttentionPathIDs.has(node.id)
+        const nodeIsVisible = baseNodeVisible && attentionPathVisible
         // A filtered node must not bypass `nodeVisible` merely because it is
         // collapsed. This is especially important for ownerless/terminated
         // Kubernetes Pods kept under the internal root for detail lookup.
@@ -1584,6 +1687,10 @@ export class Topology extends React.Component<Props, {}> {
 
         this.groups.clear()
         this.nodeGroup.clear()
+
+        // Status updates may change which branch needs attention. Refresh the
+        // path set without forcing expanded state after initial activation.
+        this.refreshKubernetesAttentionPaths()
 
         var [tree, _] = this.cloneTree(node, null)
         if (!tree) {
@@ -2189,6 +2296,9 @@ export class Topology extends React.Component<Props, {}> {
             return
         }
         const currentVisibleID = this.visibleNodeIDForID(id)
+        if (active && this.topologyNodeFocus && this.topologyNodeFocus.anchorID !== id) {
+            this.clearTopologyNodeFocus()
+        }
         let unselectedNodes: Node[] = []
         let shouldUnselectLinks = false
         if (!this.isCtrlPressed && active && !keepExisting) {
@@ -2427,6 +2537,346 @@ export class Topology extends React.Component<Props, {}> {
         this.setZoomLevel(1)
     }
 
+    private displayedNodeName(node: Node): string {
+        const configuredName = this.props.nodeAttrs(node).name
+        return String(configuredName || node.data?.Name || node.data?.name || node.id)
+            .replace(/\s*\n\s*/g, ' ')
+            .trim()
+    }
+
+    private copyNodeName(node: Node) {
+        const value = this.displayedNodeName(node)
+        if (navigator.clipboard?.writeText) {
+            navigator.clipboard.writeText(value).catch(() => this.copyTextFallback(value))
+            return
+        }
+        this.copyTextFallback(value)
+    }
+
+    private copyTextFallback(value: string) {
+        const textarea = document.createElement('textarea')
+        textarea.value = value
+        textarea.setAttribute('readonly', '')
+        textarea.style.position = 'fixed'
+        textarea.style.opacity = '0'
+        document.body.appendChild(textarea)
+        textarea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textarea)
+    }
+
+    private hierarchyChildrenAvailable(d: D3Node): boolean {
+        return !!(d.data?.children?.length || d.data?.wrapped?.children?.length)
+    }
+
+    /**
+     * Returns exactly the children represented by the next visible topology
+     * layer. Detail-list rows must use this resolver as well as card Badges;
+     * using node.children directly would bypass generated Group nodes and
+     * reintroduce recursive-looking resource totals on Cluster rows.
+     */
+    private synthesizedKubernetesBadgeChildren(node: Node): Node[] {
+        const visibleChildren = (node.children || [])
+            .filter(child => !this.props.nodeVisible || this.props.nodeVisible(child))
+        const buckets = new Map<string, { type: string, children: Node[] }>()
+        const direct = new Array<Node>()
+
+        visibleChildren.forEach(child => {
+            // Pods are the actual next layer below a workload and are never
+            // replaced by a synthetic Pod Group.
+            if (isKubernetesPod(child)) {
+                if (isCurrentKubernetesPod(child)) direct.push(child)
+                return
+            }
+            const groupType = this.props.groupType ? this.props.groupType(child) : child.data?.Type
+            if (!groupType) {
+                direct.push(child)
+                return
+            }
+            const key = `${String(groupType)}:${child.getWeight()}`
+            const bucket = buckets.get(key) || { type: String(groupType), children: [] }
+            bucket.children.push(child)
+            buckets.set(key, bucket)
+        })
+
+        buckets.forEach((bucket, key) => {
+            const first = bucket.children[0]
+            const configured = this.props.groupThreshold === undefined
+                ? this.props.groupSize
+                : this.props.groupThreshold
+            const threshold = typeof configured === 'function'
+                ? configured(first)
+                : configured || defaultGroupSize
+            if (bucket.children.length <= threshold) {
+                direct.push(...bucket.children)
+                return
+            }
+
+            const id = `${node.id}_${bucket.type}_${first.getWeight()}`
+            const state = this.groupStates.get(id) || Topology.defaultState()
+            const groupName = this.props.groupName
+                ? this.props.groupName(first, bucket.children.length)
+                : `${bucket.type} 그룹`
+            const group = new Node(id, [], {
+                Name: groupName,
+                Type: first.data?.Type || bucket.type,
+                GroupType: bucket.type,
+                Manager: first.data?.Manager,
+                IsTopologyGroup: true
+            }, state, () => first.getWeight())
+            group.parent = node
+            group.children = bucket.children
+            direct.push(group)
+        })
+        return direct
+    }
+
+    private renderedKubernetesBadgeChildren(wrapper: NodeWrapper): Node[] {
+        if (wrapper.type === WrapperType.Group) return wrapper.wrapped.children
+
+        // normalizeTreeHeight inserts Hidden wrappers only to align visual
+        // levels. They are not a Badge aggregation level: walk through them
+        // until the first actually rendered resource/group node. Otherwise a
+        // Cluster can change from two groups to one merely by being expanded.
+        const nextRenderedWrappers = new Array<NodeWrapper>()
+        const collectNextRendered = (children: NodeWrapper[]) => {
+            children.forEach(child => {
+                if (child.type === WrapperType.Hidden) {
+                    collectNextRendered(child.children)
+                    return
+                }
+                nextRenderedWrappers.push(child)
+            })
+        }
+        collectNextRendered(wrapper.children)
+
+        const renderedGroupIDs = new Set(nextRenderedWrappers
+            .filter(child => child.type === WrapperType.Group)
+            .map(child => child.wrapped.id))
+        const rendered = nextRenderedWrappers
+            .filter(child => {
+                const owningGroup = this.nodeGroup.get(child.wrapped.id)
+                return !owningGroup || !renderedGroupIDs.has(owningGroup.wrapped.id)
+            })
+            .map(child => child.wrapped)
+        return rendered.length > 0
+            ? rendered
+            : this.synthesizedKubernetesBadgeChildren(wrapper.wrapped)
+    }
+
+    topologyBadgeChildren(node: Node): Node[] {
+        const visibleID = this.visibleNodeIDForID(node.id)
+        const rendered = this.d3nodes.get(node.id) || this.d3nodes.get(visibleID)
+        if (rendered && rendered.data.wrapped.id === node.id) {
+            return this.renderedKubernetesBadgeChildren(rendered.data)
+        }
+        return this.synthesizedKubernetesBadgeChildren(node)
+    }
+
+    private nodeNeedsAttention(node: Node): boolean {
+        if (isKubernetesTopologyData(node.data)) {
+            return kubernetesTopologyNodeNeedsAttention(node)
+        }
+        const kind = topologyNodeStatus(node).kind
+        return kind === 'bad' || kind === 'unknown'
+    }
+
+    private subtreeNeedsAttention(node: Node, visiting = new Set<string>()): boolean {
+        if (visiting.has(node.id)) return false
+        visiting.add(node.id)
+        const needed = this.nodeNeedsAttention(node)
+            || (node.children || []).some(child => this.subtreeNeedsAttention(child, visiting))
+        visiting.delete(node.id)
+        return needed
+    }
+
+    private problemPathNodeIDs(d: D3Node): Set<string> {
+        const result = new Set<string>([d.data.id])
+        const canonicalIDs = isKubernetesTopologyData(d.data.wrapped.data)
+            ? kubernetesTopologyAttentionPathIDs(
+                [d.data.wrapped],
+                node => !this.props.nodeVisible || this.props.nodeVisible(node))
+            : new Set<string>()
+
+        const visit = (current: D3Node): boolean => {
+            let retainedChild = false
+            ;(current.children || []).forEach(child => {
+                if (visit(child)) retainedChild = true
+            })
+            const wrapped = current.data.wrapped
+            const groupedAttention = current.data.type === WrapperType.Group
+                && (wrapped.children || []).some(child => canonicalIDs.has(child.id) || this.subtreeNeedsAttention(child))
+            const retained = canonicalIDs.has(wrapped.id)
+                || this.nodeNeedsAttention(wrapped)
+                || groupedAttention
+                || retainedChild
+            if (retained) result.add(current.data.id)
+            return retained
+        }
+        visit(d)
+        return result
+    }
+
+    private hierarchyLinkKey(sourceID: string, targetID: string): string {
+        return `${sourceID}->${targetID}`
+    }
+
+    private connectionFocus(d: D3Node): Pick<TopologyNodeFocus, 'nodeIDs' | 'relationLinkIDs' | 'visibleRelationLinkIDs' | 'hierarchyLinkKeys'> {
+        const nodeIDs = new Set<string>([d.data.id])
+        const relationLinkIDs = new Set<string>()
+        const visibleRelationLinkIDs = new Set<string>()
+        const hierarchyLinkKeys = new Set<string>()
+
+        // Derive hierarchy neighbors from paths that are actually rendered.
+        // Hidden normalization wrappers and non-rendered descendants can never
+        // enter the 1-hop set through this path.
+        this.gHieraLinks.selectAll('path.hiera-link').each((link: any) => {
+            const sourceID = link?.source?.data?.id
+            const targetID = link?.target?.data?.id
+            if (!sourceID || !targetID || (sourceID !== d.data.id && targetID !== d.data.id)) return
+            nodeIDs.add(sourceID)
+            nodeIDs.add(targetID)
+            hierarchyLinkKeys.add(this.hierarchyLinkKey(sourceID, targetID))
+        })
+
+        // Read only currently rendered and visible relation paths. This keeps
+        // connection focus independent from link filters and never makes a
+        // hidden/event-only edge visible.
+        this.gLinks.selectAll('path.link').each((link: Link) => {
+            if (!link || this.linkDisplayOpacity(link) <= 0) return
+            const path = select(`#link-${link.id}`).attr('d')
+            if (!path) return
+            visibleRelationLinkIDs.add(link.id)
+            const sourceID = link.source.id
+            const targetID = link.target.id
+            if (sourceID === d.data.id || targetID === d.data.id) {
+                nodeIDs.add(sourceID)
+                nodeIDs.add(targetID)
+                relationLinkIDs.add(link.id)
+            }
+        })
+        return { nodeIDs, relationLinkIDs, visibleRelationLinkIDs, hierarchyLinkKeys }
+    }
+
+    private clearTopologyNodeFocus() {
+        this.topologyNodeFocus = null
+        this.applyTopologyNodeFocus()
+    }
+
+    private toggleTopologyNodeFocus(
+        mode: TopologyFocusMode,
+        d: D3Node,
+        nodeIDs: Set<string>,
+        relationLinkIDs = new Set<string>(),
+        visibleRelationLinkIDs = new Set<string>(),
+        hierarchyLinkKeys = new Set<string>()
+    ) {
+        if (this.topologyNodeFocus?.mode === mode && this.topologyNodeFocus.anchorID === d.data.id) {
+            this.clearTopologyNodeFocus()
+            return
+        }
+        this.topologyNodeFocus = {
+            mode,
+            anchorID: d.data.id,
+            nodeIDs,
+            relationLinkIDs,
+            visibleRelationLinkIDs,
+            hierarchyLinkKeys
+        }
+        this.applyTopologyNodeFocus()
+    }
+
+    private applyTopologyNodeFocus() {
+        const focus = this.topologyNodeFocus
+        const focused = (id?: string) => !focus || (!!id && focus.nodeIDs.has(id))
+        this.gNodes?.selectAll('g.node')
+            .classed('topology-focus-dim', (d: D3Node) => !focused(d?.data?.id))
+            .classed('topology-focus-hit', (d: D3Node) => !!focus && focused(d?.data?.id))
+        this.gHieraLinks?.selectAll('path.hiera-link')
+            .classed('topology-focus-dim', (link: any) => {
+                if (!focus) return false
+                const key = this.hierarchyLinkKey(link?.source?.data?.id, link?.target?.data?.id)
+                return focus.mode === 'connections'
+                    ? !focus.hierarchyLinkKeys.has(key)
+                    : !(focused(link?.source?.data?.id) && focused(link?.target?.data?.id))
+            })
+            .classed('topology-focus-hit', (link: any) => {
+                if (!focus) return false
+                const key = this.hierarchyLinkKey(link?.source?.data?.id, link?.target?.data?.id)
+                return focus.mode === 'connections'
+                    ? focus.hierarchyLinkKeys.has(key)
+                    : focused(link?.source?.data?.id) && focused(link?.target?.data?.id)
+            })
+
+        const linkFocused = (link: Link) => {
+            if (!focus) return true
+            if (focus.mode === 'connections') return focus.relationLinkIDs.has(link.id)
+            return focused(this.visibleNodeIDForID(link.source.id))
+                && focused(this.visibleNodeIDForID(link.target.id))
+        }
+        this.gLinks?.selectAll('path.link')
+            .classed('topology-focus-dim', (link: Link) => !!focus
+                && (focus.mode !== 'connections' || focus.visibleRelationLinkIDs.has(link.id))
+                && !linkFocused(link))
+            .classed('topology-focus-hit', (link: Link) => !!focus && linkFocused(link))
+        this.gLinkWraps?.selectAll('path.link-wrap')
+            .classed('topology-focus-dim', (link: Link) => !!focus
+                && (focus.mode !== 'connections' || focus.visibleRelationLinkIDs.has(link.id))
+                && !linkFocused(link))
+        this.gLinkOverlays?.selectAll('path.link-overlay')
+            .classed('topology-focus-dim', (link: Link) => !!focus
+                && (focus.mode !== 'connections' || focus.visibleRelationLinkIDs.has(link.id))
+                && !linkFocused(link))
+        this.gLinkLabels?.selectAll('g.link-label')
+            .classed('topology-focus-dim', (link: Link) => !!focus
+                && (focus.mode !== 'connections' || focus.visibleRelationLinkIDs.has(link.id))
+                && !linkFocused(link))
+    }
+
+    private contextMenuItems(d: D3Node): TopologyContextMenuAction[] {
+        const node = d.data.wrapped
+        const hasChildren = this.hierarchyChildrenAvailable(d)
+        const hasProblemPath = this.subtreeNeedsAttention(node)
+        const isExpanded = !!node.state.expanded
+        const connectionFocus = this.connectionFocus(d)
+        const items: TopologyContextMenuAction[] = [
+            { key: 'detail', text: '상세 보기', section: 'navigation', callback: () => this.props.onNodeClicked(node) },
+            { key: 'center', text: '화면 중앙으로 이동', section: 'navigation', callback: () => this.centerNode(node) }
+        ]
+        if (connectionFocus.nodeIDs.size > 1) {
+            items.push({
+                key: 'connections',
+                text: '연결 자원 보기',
+                section: 'navigation',
+                callback: () => this.toggleTopologyNodeFocus(
+                    'connections',
+                    d,
+                    connectionFocus.nodeIDs,
+                    connectionFocus.relationLinkIDs,
+                    connectionFocus.visibleRelationLinkIDs,
+                    connectionFocus.hierarchyLinkKeys)
+            })
+        }
+        items.push({ key: 'copy', text: '이름 복사', section: 'navigation', callback: () => this.copyNodeName(node) })
+        if (hasChildren) {
+            items.push({
+                key: isExpanded ? 'collapse' : 'expand',
+                text: isExpanded ? '하위 자원 접기' : '하위 자원 펼치기',
+                section: 'topology',
+                callback: () => this.expand(node)
+            })
+        }
+        if (hasProblemPath) {
+            items.push({
+                key: 'problems',
+                text: '이상 경로 보기',
+                section: 'topology',
+                callback: () => this.toggleTopologyNodeFocus('problems', d, this.problemPathNodeIDs(d))
+            })
+        }
+        return items
+    }
+
     private showNodeContextMenu(d: D3Node) {
         if (!this.svgDiv) {
             return
@@ -2435,84 +2885,53 @@ export class Topology extends React.Component<Props, {}> {
         // hide previous
         this.hideNodeContextMenu()
 
-        if (this.props.onShowNodeContextMenu) {
-            var data = this.props.onShowNodeContextMenu(d.data.wrapped)
+        const actions = this.contextMenuItems(d)
+        const clientX = event.clientX
+        const clientY = event.clientY
+        const root = document.createElement('div')
+        root.className = 'netdive-resource-context-menu-portal'
+        root.style.left = `${clientX}px`
+        root.style.top = `${clientY}px`
+        document.body.appendChild(root)
+        this.topologyContextMenuRoot = root
 
-            var divBB = this.svgDiv.getBoundingClientRect()
+        ReactDOM.render(<TopologyContextMenu
+            nodeName={this.displayedNodeName(d.data.wrapped)}
+            actions={actions}
+            onAction={(action) => {
+                this.hideNodeContextMenu()
+                action.callback()
+            }} />, root, () => {
+                const bounds = root.getBoundingClientRect()
+                const inset = 8
+                const left = Math.max(inset, Math.min(clientX, window.innerWidth - bounds.width - inset))
+                const top = Math.max(inset, Math.min(clientY, window.innerHeight - bounds.height - inset))
+                root.style.left = `${left}px`
+                root.style.top = `${top}px`
+            })
+        window.setTimeout(() => document.addEventListener('mousedown', this.onContextMenuOutsideMouseDown, true), 0)
+    }
 
-            var x = event.x - divBB.left, y = event.y - divBB.top
-
-            var g = this.gContextMenu.append("g")
-                .style("opacity", 0)
-            g.transition()
-                .duration(300)
-                .style("opacity", 1)
-            var rect = g.append("rect")
-                .attr("filter", "url(#drop-shadow)")
-
-            var marginX = 20, marginY = 10, paddingY = 30
-
-            var dy = 0, rects = new Array<Selection<SVGGElement, {}, null, undefined>>()
-            for (let item of data) {
-                let gItem = g.append("g")
-                    .attr("class", "context-menu-item " + item.class)
-                let rect = gItem.append("rect")
-
-                let text = gItem.append("text")
-                    .classed("disabled", item.disabled)
-                    .attr("x", x)
-                    .attr("y", y + paddingY)
-                    .attr("dy", dy)
-                    .text(d => item.text)
-
-                let element = text.node()
-                if (!element) {
-                    continue
-                }
-
-                let bb = element.getBBox()
-                rect
-                    .attr("x", bb.x - marginX + 1)
-                    .attr("y", bb.y - paddingY / 4)
-                    .attr("height", bb.height + paddingY / 2)
-                    .style("opacity", 0)
-                rects.push(rect)
-
-                if (!item.disabled) {
-                    gItem.on("click", () => { item.callback(d) })
-                    gItem.on("mouseover", () => { rect.style("opacity", 1) })
-                    gItem.on("mouseout", () => rect.style("opacity", 0))
-                }
-
-                dy += paddingY
-            }
-
-            var element = g.node()
-            if (!element) {
-                return
-            }
-
-            var bb = element.getBBox()
-            rect
-                .attr("x", bb.x - marginX)
-                .attr("y", bb.y - marginY)
-                .attr("width", bb.width + marginX * 2)
-                .attr("height", bb.height + marginY * 2)
-
-            for (let rect of rects) {
-                rect.attr("width", bb.width + marginX * 2 - 2)
-            }
-        }
+    private onContextMenuOutsideMouseDown = (mouseEvent: MouseEvent) => {
+        if (this.topologyContextMenuRoot?.contains(mouseEvent.target as globalThis.Node)) return
+        this.hideNodeContextMenu()
     }
 
     private hideNodeContextMenu() {
-        this.gContextMenu.select("g").remove()
+        document.removeEventListener('mousedown', this.onContextMenuOutsideMouseDown, true)
+        if (!this.topologyContextMenuRoot) return
+        ReactDOM.unmountComponentAtNode(this.topologyContextMenuRoot)
+        this.topologyContextMenuRoot.remove()
+        this.topologyContextMenuRoot = null
     }
 
     private nodeClicked(d: D3Node) {
         event.stopPropagation()
         this.clearRaisedLinkLabel()
         this.hideNodeContextMenu()
+        if (this.topologyNodeFocus && this.topologyNodeFocus.anchorID !== d.data.id) {
+            this.clearTopologyNodeFocus()
+        }
 
         if (this.props.onNodeClicked) {
             this.props.onNodeClicked(d.data.wrapped)
@@ -2629,7 +3048,13 @@ export class Topology extends React.Component<Props, {}> {
         if (!d) {
             return
         }
-        this.moveTo(d.x, d.y)
+        const current = (this.svg.node() as any)?.__zoom || zoomIdentity
+        const scale = Math.max(0.1, Math.min(1.5, current.k || 1))
+        const viewSize = this.viewSize()
+        const transform = zoomIdentity
+            .translate(viewSize.width / 2 - scale * d.x, viewSize.height / 2 - scale * d.y)
+            .scale(scale)
+        this.svg.transition().duration(animDuration).call(this.zoom.transform, transform)
     }
 
     clearInfrastructureFocus() {
@@ -3972,306 +4397,38 @@ export class Topology extends React.Component<Props, {}> {
             return longestLineLength <= 14 ? topologyCardWidth : topologyMediumCardWidth
         }
         const cardIconX = (d: D3Node) => -cardWidthForNode(d) / 2 + 38
-        const podNodesForSummary = (node: Node): Node[] => {
-            // Workload children are reconciled from ownerReference once when
-            // topology data changes. Reuse that hierarchy here instead of
-            // resolving every Pod against every controller during each SVG
-            // render.
-            const directPods = (node.children || []).reduce((pods: Node[], child) => {
-                if (!isKubernetesPod(child)) return pods
-                const nestedPods = (child.children || []).filter(isKubernetesPod)
-                if (child.data?.IsTopologyGroup && nestedPods.length > 0) {
-                    pods.push(...nestedPods.filter(isCurrentKubernetesPod))
-                } else if (isCurrentKubernetesPod(child)) {
-                    pods.push(child)
-                }
-                return pods
-            }, [])
-            return Array.from(new Map(directPods.map(pod => [pod.id, pod])).values())
-        }
         const workloadTypes = new Set(['deployment', 'statefulset', 'daemonset', 'job', 'cronjob'])
         const isWorkloadControllerNode = (node: Node): boolean =>
             String(node.data?.Manager || '').toLowerCase() === 'k8s'
             && workloadTypes.has(String(node.data?.Type || '').toLowerCase())
-        const podAggregateForNode = (node: Node): KubernetesPodAggregate | undefined => {
-            const supportsPodSummary = (isKubernetesPod(node) && !!node.data?.IsTopologyGroup)
-                || isWorkloadControllerNode(node)
-            if (!supportsPodSummary) return undefined
-            const pods = podNodesForSummary(node)
-            return pods.length > 0 ? aggregateKubernetesPods(pods) : undefined
-        }
+        const isStorageResourceNode = (node: Node): boolean =>
+            String(node.data?.Manager || '').toLowerCase() === 'k8s'
+            && isKubernetesStorageType(node.data?.Type)
+        const isKubernetesThreeLineCardNode = (node: Node): boolean =>
+            isWorkloadControllerNode(node) || isStorageResourceNode(node)
         interface TopologyStatusBadge {
             key: string
             label: string
             count: number
-            tone: 'running' | 'warning' | 'problem' | 'history' | 'overflow'
-            tooltip: string
             displayText?: string
+            tone: 'running' | 'warning' | 'problem' | 'inactive'
+            tooltip: TopologyStatusBadgeTooltip
         }
-        const warningProblemReasons = new Set(['pending', 'unschedulable', 'containercreating', 'terminating'])
-        const podStatusBadges = (node: Node): TopologyStatusBadge[] | undefined => {
-            const summary = podAggregateForNode(node)
-            if (!summary) return undefined
-            const warningCount = summary.currentProblemEntries.filter(entry =>
-                warningProblemReasons.has(entry.lifecycle.reason)).length
-            const criticalCount = Math.max(0, summary.currentProblems - warningCount)
-            const badges: TopologyStatusBadge[] = []
-            if (criticalCount > 0) {
-                badges.push({
-                    key: 'problem',
-                    label: '비정상',
-                    count: criticalCount,
-                    tone: 'problem',
-                    tooltip: `비정상 ${criticalCount}\n집계 기준: 현재 복구되지 않은 파드 오류`
-                })
-            }
-            if (warningCount > 0) {
-                badges.push({
-                    key: 'warning',
-                    label: '주의',
-                    count: warningCount,
-                    tone: 'warning',
-                    tooltip: `주의 ${warningCount}\n집계 기준: Pending·Unschedulable·ContainerCreating·Terminating`
-                })
-            }
-            if (summary.running > 0) {
-                badges.push({
-                    key: 'running',
-                    label: '실행 중',
-                    count: summary.running,
-                    tone: 'running',
-                    tooltip: `실행 중 ${summary.running}\n집계 기준: 현재 Running 파드`
-                })
-            }
-            if (summary.terminated > 0) {
-                badges.push({
-                    key: 'history',
-                    label: '종료 이력',
-                    count: summary.terminated,
-                    tone: 'history',
-                    tooltip: `종료 이력 ${summary.terminated}\n집계 기준: Evicted·OOMKilled·Error 등 종료 파드`
-                })
-            }
-            return badges
-        }
-
-        const valueAtPath = (source: any, path: string): any =>
-            path.split('.').reduce((value, key) => value === undefined || value === null ? undefined : value[key], source)
-        const firstRawValue = (source: any, paths: string[]): any => {
-            for (const path of paths) {
-                const value = valueAtPath(source, path)
-                if (value !== undefined && value !== null && String(value).trim() !== '') return value
-            }
-            return undefined
-        }
-        const normalizedType = (node: Node): string => String(node.data?.Type || '').toLowerCase()
         const isKubernetesResource = (node: Node): boolean => String(node.data?.Manager || '').toLowerCase() === 'k8s'
-        const isTopologyGroup = (node: Node): boolean => !!node.data?.IsTopologyGroup
-        const namespaceForNode = (node: Node): string => {
-            const collected = firstRawValue(node.data || {}, [
-                'Namespace',
-                'K8s.Namespace',
-                'K8s.Extra.ObjectMeta.Namespace'
-            ])
-            if (collected) return String(collected)
-            let parent = node.parent
-            while (parent) {
-                if (normalizedType(parent) === 'namespace') return String(parent.data?.Name || '')
-                parent = parent.parent
-            }
-            return ''
-        }
-        const clusterForNode = (node: Node): string => {
-            const collected = firstRawValue(node.data || {}, [
-                'ClusterName',
-                'clusterName',
-                'Cluster',
-                'K8s.ClusterName'
-            ])
-            if (collected) return String(collected)
-            let parent: Node | null | undefined = node
-            while (parent) {
-                if (normalizedType(parent) === 'cluster') return String(parent.data?.Name || '')
-                parent = parent.parent
-            }
-            return ''
-        }
-        const scopedNodes = (type: string, namespaceNames: Set<string>, clusterNames: Set<string>): Node[] =>
-            Array.from(self.nodes.values()).filter(candidate => {
-                if (!isKubernetesResource(candidate) || isTopologyGroup(candidate) || normalizedType(candidate) !== type) return false
-                const namespace = namespaceForNode(candidate)
-                const cluster = clusterForNode(candidate)
-                if (namespaceNames.size && !namespaceNames.has(namespace)) return false
-                return !clusterNames.size || clusterNames.has(cluster)
-            })
-        const workloadConditionFailed = (status: any): boolean => {
-            const conditions = Array.isArray(status?.Conditions) ? status.Conditions : []
-            return conditions.some((condition: any) => {
-                const state = String(condition?.Status ?? condition?.status ?? '').toLowerCase()
-                const type = String(condition?.Type ?? condition?.type ?? '').toLowerCase()
-                const reason = String(condition?.Reason ?? condition?.reason ?? '').toLowerCase()
-                return state === 'true' && (/fail|error|deadlineexceeded/.test(type) || /fail|error|deadlineexceeded/.test(reason))
-            })
-        }
-        const workloadTone = (node: Node): 'problem' | 'warning' | 'running' => {
-            const data = node.data || {}
-            const type = normalizedType(node)
-            const spec = firstRawValue(data, ['K8s.Extra.Spec']) || {}
-            const status = firstRawValue(data, ['K8s.Extra.Status']) || {}
-            const desired = Number(
-                type === 'daemonset'
-                    ? status.DesiredNumberScheduled ?? 0
-                    : type === 'job'
-                        ? spec.Completions ?? 1
-                        : spec.Replicas ?? status.DesiredReplicas ?? 0
-            )
-            const ready = Number(
-                type === 'deployment'
-                    ? status.AvailableReplicas ?? status.ReadyReplicas ?? 0
-                    : type === 'daemonset'
-                        ? status.NumberAvailable ?? status.NumberReady ?? 0
-                        : type === 'job'
-                            ? status.Succeeded ?? 0
-                            : status.ReadyReplicas ?? status.AvailableReplicas ?? status.Active ?? 0
-            )
-            const unavailable = Number(status.UnavailableReplicas ?? status.NumberUnavailable ?? status.NumberMisscheduled ?? status.Failed ?? 0)
-            const updated = Number(status.UpdatedReplicas ?? status.UpdatedNumberScheduled ?? ready)
-            if ((desired > 0 && ready === 0) || workloadConditionFailed(status)) return 'problem'
-            if (unavailable > 0 || (desired > 0 && (ready < desired || updated < desired))) return 'warning'
-            return 'running'
-        }
-        const namespaceStatusBadges = (node: Node): TopologyStatusBadge[] => {
-            const namespaces = isTopologyGroup(node)
-                ? node.children.filter(child => normalizedType(child) === 'namespace')
-                : [node]
-            const namespaceNames = new Set(namespaces.map(item => String(item.data?.Name || '')).filter(Boolean))
-            const clusterNames = new Set(namespaces.map(clusterForNode).filter(Boolean))
-            const workloads = Array.from(new Map(
-                scopedNodes('deployment', namespaceNames, clusterNames)
-                    .concat(scopedNodes('statefulset', namespaceNames, clusterNames))
-                    .concat(scopedNodes('daemonset', namespaceNames, clusterNames))
-                    .concat(scopedNodes('job', namespaceNames, clusterNames))
-                    .concat(scopedNodes('cronjob', namespaceNames, clusterNames))
-                    .map(item => [item.id, item])
-            ).values())
-            if (!workloads.length) return []
-            return [{
-                key: 'workloads',
-                label: '워크로드',
-                count: workloads.length,
-                tone: 'running',
-                tooltip: `워크로드 ${workloads.length}개\nNamespace 더블클릭 시 펼쳐지는 Workload Controller 수`
-            }]
-        }
-        const clusterNodeCountBadge = (node: Node): TopologyStatusBadge[] => {
-            if (isTopologyGroup(node)) {
-                const clusterObjectCount = kubernetesClusterGroupObjectCount(node.children)
-                if (!clusterObjectCount) return []
-                return [{
-                    key: 'clusters',
-                    label: '클러스터',
-                    count: clusterObjectCount,
-                    tone: 'running',
-                    tooltip: `Kubernetes 클러스터 ${clusterObjectCount}개\n집계 기준: 그룹 안의 고유 클러스터 객체 수`
-                }]
-            }
-            const clusters = [node]
-            const clusterNames = new Set(clusters.map(cluster => String(cluster.data?.Name || '')).filter(Boolean))
-            const kubernetesNodes = scopedNodes('node', new Set<string>(), clusterNames)
-            if (!kubernetesNodes.length) return []
-            return [{
-                key: 'nodes',
-                label: '노드',
-                count: kubernetesNodes.length,
-                tone: 'running',
-                tooltip: `Kubernetes 노드 ${kubernetesNodes.length}개\n집계 기준: 해당 클러스터에 속한 Kubernetes Node 수`
-            }]
-        }
-        const workloadStatusBadges = (node: Node): TopologyStatusBadge[] => {
-            // A workload number badge represents only the current Pods that
-            // double-click can actually reveal. Replica/Available values remain
-            // in the detail panel and must not fabricate a topology child count.
-            return podStatusBadges(node) || []
-        }
-        const storageStatusBadges = (node: Node): TopologyStatusBadge[] => {
-            const resources = node.children.filter(child => {
-                const type = normalizedType(child)
-                return !isTopologyGroup(child) && (type === 'persistentvolume' || type === 'persistentvolumeclaim')
-            })
-            const counts = resources.reduce((result, resource) => {
-                const phase = String(firstRawValue(resource.data || {}, ['K8s.Extra.Status.Phase', 'K8s.Status', 'Status', 'Phase']) || '').toLowerCase()
-                if (phase === 'lost' || phase === 'failed') result.problem += 1
-                else if (phase === 'pending' || phase === 'released') result.warning += 1
-                else if (phase === 'bound' || phase === 'available') result.running += 1
-                return result
-            }, { problem: 0, warning: 0, running: 0 })
-            return [
-                counts.problem ? { key: 'problem', label: 'Lost·Failed', count: counts.problem, tone: 'problem' as const, tooltip: `Lost·Failed ${counts.problem}\n집계 기준: 현재 Phase가 Lost 또는 Failed인 PVC·PV` } : undefined,
-                counts.warning ? { key: 'warning', label: 'Pending·Released', count: counts.warning, tone: 'warning' as const, tooltip: `Pending·Released ${counts.warning}\n집계 기준: 현재 Phase가 Pending 또는 Released인 PVC·PV` } : undefined,
-                counts.running ? { key: 'running', label: 'Bound·Available', count: counts.running, tone: 'running' as const, tooltip: `Bound·Available ${counts.running}\n집계 기준: 현재 Phase가 Bound 또는 Available인 PVC·PV` } : undefined
-            ].filter(Boolean) as TopologyStatusBadge[]
-        }
-        const storageExpansionBadges = (node: Node): TopologyStatusBadge[] => {
-            const type = normalizedType(node)
-            const childType = type === 'storageclass'
-                ? 'persistentvolumeclaim'
-                : type === 'persistentvolumeclaim'
-                    ? 'persistentvolume'
-                    : ''
-            if (!childType) return []
-            const childCount = node.children.filter(child => !isTopologyGroup(child) && normalizedType(child) === childType).length
-            if (childCount < 1) return []
-            return [{
-                key: 'children',
-                label: childType === 'persistentvolumeclaim' ? '하위 PVC' : '연결된 PV',
-                count: childCount,
-                tone: 'running',
-                tooltip: childType === 'persistentvolumeclaim'
-                    ? `하위 PVC ${childCount}개`
-                    : `연결된 PV ${childCount}개`
-            }]
-        }
-        const aggregateStatusKind = (node: Node): 'cluster' | 'namespace' | 'workload' | 'storage-group' | 'storage-expand' | undefined => {
-            if (!isKubernetesResource(node)) return undefined
-            const type = normalizedType(node)
-            if (type === 'cluster') return 'cluster'
-            if (type === 'namespace') return 'namespace'
-            if (isWorkloadControllerNode(node)) return 'workload'
-            if (isTopologyGroup(node) && (type === 'persistentvolume' || type === 'persistentvolumeclaim' || type === 'storageclass')) return 'storage-group'
-            if (!isTopologyGroup(node) && (type === 'storageclass' || type === 'persistentvolumeclaim')) return 'storage-expand'
-            return undefined
-        }
-        const topologyStatusBadges = (node: Node): TopologyStatusBadge[] | undefined => {
-            const kind = aggregateStatusKind(node)
-            if (!kind) return undefined
-            if (kind === 'cluster') return clusterNodeCountBadge(node)
-            if (kind === 'namespace') return namespaceStatusBadges(node)
-            if (kind === 'workload') return workloadStatusBadges(node)
-            if (kind === 'storage-expand') return storageExpansionBadges(node)
-            return storageStatusBadges(node)
+        const topologyStatusBadges = (wrapper: NodeWrapper): TopologyStatusBadge[] | undefined => {
+            if (!isKubernetesResource(wrapper.wrapped)) return undefined
+            return kubernetesTopologyCountBadges(wrapper.wrapped, self.renderedKubernetesBadgeChildren(wrapper))
         }
 
         const cardTextX = (d: D3Node) => cardIconX(d) + 43
-        const displayedStatusBadgeCount = (node: Node): number => {
-            const badges = topologyStatusBadges(node)
-            if (!badges?.length) return 0
-            return badges.length <= topologyVisibleStatusBadgeLimit
-                ? badges.length
-                : topologyVisibleStatusBadgeLimit + 1
-        }
         const cardTextRightPadding = (d: D3Node) => {
-            if (aggregateStatusKind(d.data.wrapped)) {
-                const badgeCount = displayedStatusBadgeCount(d.data.wrapped)
-                if (badgeCount === 0) return 18
-                return topologyStatusBadgeSingleReserveWidth
-                    + Math.max(0, badgeCount - 1) * topologyStatusBadgeStep
-            }
+            // Kubernetes badges are top-right overlays. Their count must never
+            // reduce or shift the independent name/type text region.
+            if (isKubernetesResource(d.data.wrapped)) return 18
             const hasBadge = d.data.wrapped.children.length > 0
                 || self.props.nodeAttrs(d.data.wrapped).badges.length > 0
             return hasBadge ? 50 : 18
         }
-        // 표시되는 배지 수만큼만 우측 공간을 예약합니다. 배지가 없는
-        // `kube-public` 같은 짧은 이름에 최대 배지 폭을 강제하지 않습니다.
         const cardTextAvailableWidth = (d: D3Node) => Math.max(72, cardWidthForNode(d) / 2 - cardTextX(d) - cardTextRightPadding(d))
         const cardTitleX = (d: D3Node) => {
             const left = cardTextX(d)
@@ -4283,10 +4440,10 @@ export class Topology extends React.Component<Props, {}> {
                 return self.groupListHeight(filtered.length)
             }
             if (isGroupContainerNode(d)) return this.groupContainerHeightForGroup(d.data.wrapped.children)
-            return isWorkloadControllerNode(d.data.wrapped) ? topologyWorkloadCardHeight : topologyCardHeight
+            return isKubernetesThreeLineCardNode(d.data.wrapped) ? topologyWorkloadCardHeight : topologyCardHeight
         }
         const cardTopY = -topologyCardHeight / 2
-        const cardTopYForNode = (d: D3Node) => isWorkloadControllerNode(d.data.wrapped)
+        const cardTopYForNode = (d: D3Node) => isKubernetesThreeLineCardNode(d.data.wrapped)
             ? -topologyWorkloadCardHeight / 2
             : cardTopY
         // 그룹 카드의 가까운 백플레이트가 앞 카드에서 분리되는 오른쪽/아래 간격입니다.
@@ -4476,6 +4633,19 @@ export class Topology extends React.Component<Props, {}> {
             })
         }
 
+        function kubernetesNodeNamespace(nodeData: any): string {
+            return String(
+                nodeData.Namespace
+                || nodeData.namespace
+                || nodeData.K8s?.Namespace
+                || nodeData.K8s?.namespace
+                || nodeData.K8s?.Extra?.ObjectMeta?.Namespace
+                || nodeData.K8s?.Extra?.ObjectMeta?.namespace
+                || nodeData.K8s?.Extra?.metadata?.namespace
+                || ''
+            ).trim()
+        }
+
         function getNodeDisplayName(d: D3Node) {
             const attrsName = self.props.nodeAttrs(d.data.wrapped).name
             const nodeData = d.data.wrapped.data || {}
@@ -4491,24 +4661,8 @@ export class Topology extends React.Component<Props, {}> {
 
             if (d.data.type !== WrapperType.Group && String(nodeData.Manager || '').toLowerCase() === 'k8s') {
                 const storageType = String(nodeData.Type || '').toLowerCase()
-                if (storageType === 'storageclass') {
-                    return `${attrsName}\nStorageClass`
-                }
-                if (storageType === 'persistentvolumeclaim') {
-                    const namespace = String(
-                        nodeData.Namespace
-                        || nodeData.namespace
-                        || nodeData.K8s?.Namespace
-                        || nodeData.K8s?.namespace
-                        || nodeData.K8s?.Extra?.ObjectMeta?.Namespace
-                        || nodeData.K8s?.Extra?.ObjectMeta?.namespace
-                        || nodeData.K8s?.Extra?.metadata?.namespace
-                        || ''
-                    ).trim()
-                    return `${attrsName}\nPVC${namespace ? ` · ${namespace}` : ''}`
-                }
-                if (storageType === 'persistentvolume') {
-                    return `${attrsName}\nPV`
+                if (isKubernetesStorageType(storageType)) {
+                    return kubernetesTopologyNodeText(attrsName, storageType, kubernetesNodeNamespace(nodeData)).accessibleName
                 }
             }
 
@@ -4843,37 +4997,41 @@ export class Topology extends React.Component<Props, {}> {
                     if (fitsOneLine) {
                         return [value]
                     }
-
-                    const midpoint = Math.ceil(value.length / 2)
-                    let splitIndex = value.lastIndexOf("-", midpoint)
-                    if (splitIndex < Math.max(6, midpoint - 12)) {
-                        splitIndex = value.lastIndexOf("_", midpoint)
+                    let low = 1
+                    let high = value.length - 1
+                    let maximumFit = 1
+                    while (low <= high) {
+                        const mid = Math.floor((low + high) / 2)
+                        title.text(value.substring(0, mid))
+                        if (textNode.getComputedTextLength() <= availableWidth) {
+                            maximumFit = mid
+                            low = mid + 1
+                        } else {
+                            high = mid - 1
+                        }
                     }
-                    if (splitIndex < Math.max(6, midpoint - 12)) {
-                        splitIndex = value.indexOf("-", midpoint)
-                    }
-                    if (splitIndex < 6) {
-                        splitIndex = midpoint
-                    }
+                    const prefix = value.substring(0, maximumFit)
+                    const separatorIndexes = [prefix.lastIndexOf('-'), prefix.lastIndexOf('_'), prefix.lastIndexOf(' ')]
+                    const preferredSeparator = Math.max(...separatorIndexes)
+                    const splitIndex = preferredSeparator >= Math.max(6, maximumFit - 12)
+                        ? preferredSeparator + 1
+                        : maximumFit
                     const first = value.substring(0, splitIndex).replace(/[-_\s]+$/, "")
                     const second = value.substring(splitIndex).replace(/^[-_\s]+/, "")
                     return (second ? [first, second] : [value]).slice(0, 2)
                 }
 
                 const explicitLines = fullText.split("\n").filter((line) => line.length > 0)
-                if (isWorkloadCard) {
-                    const workloadText = kubernetesWorkloadNodeText(
+                if (isWorkloadCard || isStorageCard) {
+                    const resourceText = kubernetesTopologyNodeText(
                         d.data.wrapped.data?.Name || explicitLines[0] || d.data.wrapped.id,
-                        d.data.wrapped.data?.Type
+                        d.data.wrapped.data?.Type,
+                        kubernetesNodeNamespace(d.data.wrapped.data || {})
                     )
-                    const workloadNameLines = splitLongName(workloadText.name).slice(0, 2)
-                    targetLines = [workloadNameLines[0] || workloadText.name, workloadNameLines[1] || "\u00a0", workloadText.kind]
+                    const resourceNameLines = splitLongName(resourceText.name).slice(0, 2)
+                    targetLines = [resourceNameLines[0] || resourceText.name, resourceNameLines[1] || "\u00a0", resourceText.kind]
                     secondaryLineIndex = 2
-                    secondaryLineClass = "node-card-title-workload-kind"
-                } else if (isStorageCard && explicitLines.length > 1) {
-                    targetLines = explicitLines.slice(0, 2)
-                    secondaryLineIndex = 1
-                    secondaryLineClass = "node-card-title-storage-secondary"
+                    secondaryLineClass = "node-card-title-kubernetes-kind"
                 } else if (fullText.indexOf("\n") < 0) {
                     targetLines = splitLongName(fullText)
                 } else {
@@ -4882,20 +5040,20 @@ export class Topology extends React.Component<Props, {}> {
 
                 const fittedLines = targetLines.map((line, index) => {
                     const secondaryFontSize = index === secondaryLineIndex
-                        ? isWorkloadCard ? topologyWorkloadKindFontSize : isStorageCard ? 14 : 17
+                        ? (isWorkloadCard || isStorageCard) ? topologyWorkloadKindFontSize : 17
                         : index === 1 && isScopedGroupCard
                             ? 15
                         : undefined
                     return fitLine(line, secondaryFontSize)
                 })
-                const titleY = isWorkloadCard ? -topologyWorkloadTitleLineGap : fittedLines.length > 1 ? -4 : 7
+                const titleY = isWorkloadCard || isStorageCard ? -topologyWorkloadTitleLineGap : fittedLines.length > 1 ? -4 : 7
                 title.attr("y", titleY)
                 title.text(null)
                 fittedLines.forEach((line, index) => {
                     title.append("tspan")
                         .attr("class", index === secondaryLineIndex ? secondaryLineClass : null)
                         .attr("x", textX)
-                        .attr("dy", index === 0 ? 0 : isWorkloadCard ? topologyWorkloadTitleLineGap : topologyCardTitleLineGap)
+                        .attr("dy", index === 0 ? 0 : isWorkloadCard || isStorageCard ? topologyWorkloadTitleLineGap : topologyCardTitleLineGap)
                         .text(line)
                 })
 
@@ -5413,34 +5571,14 @@ export class Topology extends React.Component<Props, {}> {
         interface DisplayBadge {
             key: string
             count: number
-            tone: string
-            tooltip: string
             displayText?: string
-        }
-        const compactStatusBadges = (badges: TopologyStatusBadge[]): DisplayBadge[] => {
-            if (badges.length <= topologyVisibleStatusBadgeLimit) {
-                return badges
-            }
-            const hidden = badges.slice(topologyVisibleStatusBadgeLimit)
-            return [
-                ...badges.slice(0, topologyVisibleStatusBadgeLimit),
-                {
-                    key: 'overflow',
-                    count: hidden.length,
-                    tone: 'overflow',
-                    displayText: `+${hidden.length}`,
-                    tooltip: hidden.map(item => item.tooltip).join('\n\n')
-                }
-            ]
+            tone: string
+            label?: string
+            tooltip: string | TopologyStatusBadgeTooltip
         }
         const displayBadges = (d: D3Node): DisplayBadge[] => {
-            const statusBadges = topologyStatusBadges(d.data.wrapped)
-            if (statusBadges !== undefined) return compactStatusBadges(statusBadges)
-            const type = normalizedType(d.data.wrapped)
-            if (isKubernetesResource(d.data.wrapped)
-                && (type === 'pod' || type === 'node' || type === 'persistentvolume' || type === 'persistentvolumeclaim')) {
-                return []
-            }
+            const statusBadges = topologyStatusBadges(d.data)
+            if (statusBadges !== undefined) return statusBadges
             const count = isKubernetesPod(d.data.wrapped)
                 ? d.data.wrapped.children.filter(child => isCurrentKubernetesPod(child)).length
                 : d.data.wrapped.children.length
@@ -5449,35 +5587,44 @@ export class Topology extends React.Component<Props, {}> {
                 : []
         }
 
+        const badgeGroupSummary = (d: D3Node, badges: DisplayBadge[]): TopologyStatusBadgeGroupSummary => {
+            if (isKubernetesResource(d.data.wrapped)) {
+                return kubernetesTopologyBadgeGroupSummary(
+                    d.data.wrapped,
+                    badges as any,
+                    self.renderedKubernetesBadgeChildren(d.data))
+            }
+            const total = badges.filter(item => item.key !== 'self-problem').reduce((sum, item) => sum + item.count, 0)
+            return {
+                title: '하위 자원 상태',
+                totalLabel: `하위 자원 총 ${total}개`,
+                states: badges.filter(item => item.count > 0).map(item => ({
+                    key: item.key,
+                    tone: item.tone,
+                    label: item.tone === 'problem'
+                        ? '자체 이상'
+                        : item.tone === 'warning'
+                            ? '하위 자원 이상'
+                            : item.tone === 'inactive' ? '비활성' : '정상',
+                    count: item.count
+                }))
+            }
+        }
+
         const renderStatusBadges = function (d: D3Node) {
             const root = select(this)
             const badges = isGroupContainerNode(d) || isGroupListNode(d) ? [] : displayBadges(d)
-            let badge = root.selectAll<SVGGElement, DisplayBadge>("g.node-exco-badge")
-                .data(badges, (item: DisplayBadge) => item.key)
-            badge.exit().remove()
-            const badgeEnter = badge.enter()
-                .append("g")
-                .attr("class", "node-exco-badge")
-            badgeEnter.append("circle")
-                .attr("class", "node-exco-circle")
-                .attr("cy", -cardHeightForNode(d) / 2 + 12)
-                .attr("r", 15)
-            badgeEnter.append("text")
-                .attr("class", "node-exco-children")
-                .attr("y", -cardHeightForNode(d) / 2 + 17)
-            badgeEnter.append("title")
-            badge = badgeEnter.merge(badge as any)
-            badge
-                .attr("class", item => `node-exco-badge is-${item.tone}`)
-                .attr("transform", (_item, index) => `translate(${(index - Math.max(0, badges.length - 1)) * 34},0)`)
-            badge.select("circle")
-                .attr("cx", cardWidthForNode(d) / 2 - 12)
-            badge.select("text")
-                .attr("x", cardWidthForNode(d) / 2 - 12)
-                .style("font-size", item => item.displayText || item.count >= 100 ? "12px" : null)
-                .text(item => item.displayText || item.count)
-            badge.select("title")
-                .text(item => item.tooltip)
+            if (badges.length > 0) {
+                ReactDOM.render(<TopologyStatusBadgeRail
+                    badges={badges}
+                    summary={badgeGroupSummary(d, badges)}
+                    x={cardWidthForNode(d) / 2 - 12}
+                    // Keep the badge rail anchored to the top border. Badges remain
+                    // independent from the name/type layout at every badge count.
+                    y={-cardHeightForNode(d) / 2} />, this)
+            } else {
+                ReactDOM.unmountComponentAtNode(this)
+            }
             root.style("opacity", badges.length > 0 ? 1 : 0)
         }
 
@@ -5928,6 +6075,7 @@ export class Topology extends React.Component<Props, {}> {
         this.renderNodes(root)
         this.renderGroups()
         this.renderLinks()
+        this.applyTopologyNodeFocus()
 
         this.invalidated = false
     }

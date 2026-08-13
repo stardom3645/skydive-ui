@@ -59,6 +59,7 @@
     --netdive-detail-metric-font-size: 15px;
     --netdive-detail-progress-height: 6px;
     --netdive-detail-result-state-width: 84px;
+    --netdive-detail-condition-state-width: 20%;
     --netdive-detail-result-value-width: 72px;
     --netdive-detail-resource-height: 60px;
     --netdive-detail-resource-icon-size: 26px;

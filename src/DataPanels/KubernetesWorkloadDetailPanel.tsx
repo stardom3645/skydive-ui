@@ -15,6 +15,7 @@ import {
     kubernetesReplicaSetRelationsForDeployment
 } from '../KubernetesWorkloadOwnership'
 import { isCurrentKubernetesPod } from '../KubernetesPodLifecycle'
+import { kubernetesResourceSelfStatus } from '../KubernetesTopologyBadgeAggregation'
 import { kubernetesLabelValue, matchesKubernetesSelector } from '../KubernetesSelectors'
 import {
     KubernetesDaemonSetPlacementSnapshot,
@@ -458,7 +459,7 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
             return {
                 tone: 'warning',
                 label: translate('kubernetesHealthWarning'),
-                conclusion: '노드 배치 상태 확인 필요',
+                conclusion: '노드 배치 확인 필요',
                 progress: updating ? translate('kubernetesRolloutInProgress') : '배치 상태 확인 필요',
                 progressTone: 'warning'
             }
@@ -658,12 +659,13 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
         const topologyPodSummary = aggregateKubernetesPods(pods)
         const problemPods = topologyPodSummary.currentProblems
         const daemonPlacement = kubernetesDaemonSetPlacementSnapshot(status)
+        const selfStatus = kubernetesResourceSelfStatus(this.props.node, extra)
         const metrics = this.metrics(kind, spec, status, daemonPlacement)
         const metricProblem = metrics.some(metric => metric.problem)
         const critical = kind === 'job' && Number(status.Failed || 0) > 0 && Number(status.Active || 0) === 0
         const warning = metricProblem || problemPods > 0
-        const statusTone = critical ? 'danger' : warning ? 'warning' : 'success'
-        const statusLabel = critical ? translate('kubernetesHealthCritical') : warning ? translate('kubernetesHealthWarning') : translate('kubernetesHealthNormal')
+        const statusTone = critical ? 'danger' : selfStatus.state === 'problem' || warning ? 'warning' : selfStatus.state === 'healthy' ? 'success' : 'default'
+        const statusLabel = critical ? translate('kubernetesHealthCritical') : selfStatus.state === 'problem' || warning ? translate('kubernetesHealthWarning') : selfStatus.state === 'healthy' ? translate('kubernetesHealthNormal') : translate('kubernetesHealthUnknown')
         const conclusion = critical ? translate('kubernetesWorkloadFailedConclusion') : warning ? translate('kubernetesWorkloadWarningConclusion') : translate('kubernetesWorkloadNormalConclusion')
         const health = kind === 'deployment'
             ? this.deploymentHealth(spec, status)
@@ -714,8 +716,8 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
                 }
             })
         ]
-        const verdictTone = (health ? health.tone : statusTone) as DetailBadgeTone
-        const verdictLabel = health ? health.label : statusLabel
+        const verdictTone = (selfStatus.state === 'unknown' ? 'default' : health ? health.tone : statusTone) as DetailBadgeTone
+        const verdictLabel = selfStatus.state === 'unknown' ? translate('kubernetesHealthUnknown') : health ? health.label : statusLabel
         const impact = health ? health.conclusion : conclusion
         const desiredReplicas = intOrUndefined(spec.Replicas)
         const readyReplicas = intOrUndefined(status.ReadyReplicas)

@@ -1,8 +1,8 @@
 import * as React from 'react'
-import { Tooltip } from 'antd'
 
 import { Node } from '../../Topology'
 import { aggregatePods, getPodClassification, kubernetesPodTime } from '../../KubernetesPodLifecycle'
+import { DetailInfoTooltip } from './DetailComponents'
 import './KubernetesStatusPolicy.css'
 
 export type KubernetesStateTone = 'danger' | 'warning' | 'history' | 'success' | 'default'
@@ -18,8 +18,11 @@ export interface KubernetesStateItem {
 export const KubernetesStateSeparation = ({ items }: { items: KubernetesStateItem[] }) => (
     <div className="netdive-k8s-state-separation">
         {items.map(item => {
-            const content = <div className={`is-${item.tone}`}><span>{item.label}</span><strong>{item.value}</strong></div>
-            return item.tooltip ? <Tooltip key={item.key} title={item.tooltip} placement="top">{content}</Tooltip> : <React.Fragment key={item.key}>{content}</React.Fragment>
+            const content = <div className={`is-${item.tone}`}>
+                <span>{item.label}<DetailInfoTooltip description={item.tooltip} ariaLabel={`${String(item.label)} 상세 정보`} /></span>
+                <strong>{item.value}</strong>
+            </div>
+            return <React.Fragment key={item.key}>{content}</React.Fragment>
         })}
     </div>
 )

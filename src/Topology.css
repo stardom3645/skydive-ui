@@ -411,13 +411,7 @@ svg {
     font-weight: 600;
 }
 
-.node-card-title .node-card-title-workload-kind {
-    fill: #667085;
-    font-size: 14px;
-    font-weight: 500;
-}
-
-.node-card-title .node-card-title-storage-secondary {
+.node-card-title .node-card-title-kubernetes-kind {
     fill: #667085;
     font-size: 14px;
     font-weight: 500;
@@ -1016,22 +1010,9 @@ svg {
     stroke: #b42318;
 }
 
-.node-exco-badge.is-history .node-exco-circle {
-    fill: #e4e7ec;
-    stroke: #d0d5dd;
-}
-
-.node-exco-badge.is-history .node-exco-children {
-    fill: #667085;
-}
-
-.node-exco-badge.is-overflow .node-exco-circle {
-    fill: #f2f4f7;
-    stroke: #d0d5dd;
-}
-
-.node-exco-badge.is-overflow .node-exco-children {
-    fill: #475467;
+.node-exco-badge.is-inactive .node-exco-circle {
+    fill: #98a2b3;
+    stroke: #667085;
 }
 
 .node-exco-children {
@@ -1040,6 +1021,288 @@ svg {
     text-anchor: middle;
     font-weight: bold;
     font-family: var(--netdive-font-family);
+}
+
+.netdive-topology-badge-tooltip .ant-tooltip-inner {
+    width: 260px;
+    max-width: 300px;
+    padding: 10px 12px;
+    white-space: normal;
+}
+
+.netdive-topology-badge-tooltip__content {
+    font-family: var(--netdive-font-family);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.netdive-topology-badge-tooltip__title {
+    color: #ffffff;
+    font-weight: 650;
+    line-height: 1.4;
+}
+
+.netdive-topology-badge-tooltip__description {
+    margin-top: 4px;
+    color: rgba(255, 255, 255, 0.78);
+    overflow-wrap: anywhere;
+}
+
+.netdive-topology-badge-tooltip__summary,
+.netdive-topology-badge-tooltip__details {
+    margin-top: 8px;
+    padding-top: 7px;
+    border-top: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.netdive-topology-badge-tooltip__details-title {
+    margin-bottom: 3px;
+    color: rgba(255, 255, 255, 0.68);
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.netdive-topology-badge-tooltip__row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    min-width: 0;
+}
+
+.netdive-topology-badge-tooltip__row > span {
+    min-width: 0;
+    color: rgba(255, 255, 255, 0.82);
+    overflow-wrap: anywhere;
+}
+
+.netdive-topology-badge-tooltip__row > strong {
+    min-width: 0;
+    flex: 0 0 auto;
+    color: #ffffff;
+    font-weight: 650;
+}
+
+.netdive-topology-badge-tooltip__row.is-description {
+    display: grid;
+    grid-template-columns: 8px minmax(0, 1fr);
+    align-items: start;
+    justify-content: initial;
+    gap: 6px;
+}
+
+.netdive-topology-badge-tooltip__row.is-description + .netdive-topology-badge-tooltip__row.is-description {
+    margin-top: 4px;
+}
+
+.netdive-topology-badge-tooltip__row.is-description > strong {
+    text-align: left;
+    font-weight: 550;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+    word-break: keep-all;
+}
+
+.netdive-topology-badge-tooltip__bullet {
+    text-align: center;
+    line-height: 1.45;
+}
+
+.netdive-topology-badge-summary__total {
+    margin-top: 4px;
+    color: rgba(255, 255, 255, 0.78);
+}
+
+.netdive-topology-badge-summary__states {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-top: 8px;
+    padding-top: 7px;
+    border-top: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.netdive-topology-badge-summary__state {
+    display: grid;
+    grid-template-columns: 12px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 7px;
+    color: rgba(255, 255, 255, 0.84);
+}
+
+.netdive-topology-badge-summary__state strong {
+    color: #ffffff;
+    font-weight: 650;
+}
+
+.netdive-topology-badge-summary__marker {
+    display: block;
+    overflow: visible;
+}
+
+.netdive-topology-numeric-badge-group__trigger {
+    pointer-events: all;
+}
+
+.netdive-topology-status-legend-trigger {
+    display: inline-flex;
+    flex: 0 0 auto;
+    width: 48px;
+    height: 48px;
+    padding: 0;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--netdive-appbar-text);
+    cursor: pointer;
+    transition: color 0.15s ease-out, background-color 0.15s ease-out, border-color 0.15s ease-out;
+}
+
+.netdive-topology-status-legend-trigger:hover,
+.netdive-topology-status-legend-trigger:focus-visible {
+    color: var(--netdive-appbar-text);
+    border-color: transparent;
+    background: rgba(0, 0, 0, 0.04);
+}
+
+.netdive-topology-status-legend-trigger:focus-visible {
+    outline: 2px solid var(--netdive-action-btn-border-hover);
+    outline-offset: 1px;
+}
+
+.netdive-topology-status-legend-trigger .anticon {
+    display: inline-flex;
+    font-size: 18px;
+}
+
+.netdive-topology-status-legend-popover .ant-popover-inner {
+    border-radius: 6px;
+}
+
+.netdive-topology-status-legend-popover .ant-popover-inner-content {
+    padding: 14px 16px;
+}
+
+.netdive-topology-status-legend {
+    width: 348px;
+    color: #344054;
+    font-family: var(--netdive-font-family);
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.netdive-topology-status-legend__tabs.ant-tabs > .ant-tabs-nav {
+    margin: 0 0 12px;
+}
+
+.netdive-topology-status-legend__tabs.ant-tabs > .ant-tabs-nav .ant-tabs-tab {
+    padding-top: 2px;
+}
+
+.netdive-topology-status-legend__tabs .ant-tabs-content-holder {
+    display: block;
+    min-height: 260px;
+}
+
+.netdive-topology-status-legend__panel {
+    min-width: 0;
+}
+
+.netdive-topology-status-legend__title {
+    margin-bottom: 12px;
+    color: #101828;
+    font-weight: 650;
+}
+
+.netdive-topology-status-legend__items {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.netdive-topology-status-legend__item {
+    display: grid;
+    grid-template-columns: 32px minmax(0, 1fr);
+    min-height: 38px;
+    align-items: start;
+    gap: 10px;
+}
+
+.netdive-topology-status-legend__badge {
+    display: block;
+    overflow: visible;
+    align-self: center;
+}
+
+.netdive-topology-status-legend__item-copy {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.netdive-topology-status-legend__item-copy > strong {
+    color: #101828;
+    font-size: 12px;
+    font-weight: 650;
+    line-height: 1.4;
+}
+
+.netdive-topology-status-legend__item-copy > small {
+    color: #667085;
+    font-size: 11px;
+    font-weight: 400;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+
+.netdive-topology-status-legend__description {
+    margin-top: 9px;
+    padding-top: 9px;
+    border-top: 1px solid #eaecf0;
+    color: #667085;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.netdive-topology-node-legend__items {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.netdive-topology-node-legend__item {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 3px;
+    padding: 10px 0;
+    border-bottom: 1px solid #f2f4f7;
+}
+
+.netdive-topology-node-legend__item:first-child {
+    padding-top: 0;
+}
+
+.netdive-topology-node-legend__item:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+}
+
+.netdive-topology-node-legend__item > strong {
+    color: #101828;
+    font-size: 12px;
+    font-weight: 650;
+    line-height: 1.4;
+}
+
+.netdive-topology-node-legend__item > span {
+    color: #667085;
+    font-size: 11px;
+    line-height: 1.5;
+    word-break: keep-all;
 }
 
 .group .group-brace {
@@ -1065,23 +1328,89 @@ svg {
     opacity: 0;
 }
 
-.context-menu {
-    font-size: 16px;
+.netdive-resource-context-menu-portal {
+    position: fixed;
+    z-index: 2147483656;
 }
 
-.context-menu rect {
-    fill: #ffffff;
-    stroke: #dbe5f2;
-    stroke-width: 1px;
+.netdive-resource-context-menu.ant-dropdown {
+    position: static;
+    display: block;
+    width: 220px;
+    min-width: 0;
+    overflow: hidden;
+    border-radius: 4px;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
-.context-menu-item rect {
-    fill: #f8fbff;
-    stroke: none;
+.netdive-resource-context-menu__header {
+    padding: 9px 12px 7px;
+    border-bottom: 1px solid #f0f0f0;
+    background: #fff;
 }
 
-.context-menu-item text.disabled {
-    fill: #888;
+.netdive-resource-context-menu__name.ant-typography {
+    display: -webkit-box;
+    overflow: hidden;
+    margin: 0;
+    color: rgba(0, 0, 0, 0.85);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 17px;
+    overflow-wrap: anywhere;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.netdive-resource-action-menu.ant-menu {
+    width: 100%;
+    padding: 3px 0 5px;
+    border-right: 0;
+    border-radius: 0 0 4px 4px;
+    box-shadow: none;
+}
+
+.netdive-resource-action-menu .ant-menu-item-group-title {
+    height: 25px;
+    padding: 7px 12px 3px;
+    color: rgba(0, 0, 0, 0.45);
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 15px;
+}
+
+.netdive-resource-action-menu .ant-menu-item {
+    height: 32px;
+    margin: 0;
+    padding: 5px 12px !important;
+    color: rgba(0, 0, 0, 0.65);
+    font-size: 12px;
+    line-height: 22px;
+}
+
+.netdive-resource-action-menu .ant-menu-item:hover,
+.netdive-resource-action-menu .ant-menu-item-active {
+    color: #1890ff;
+    background: #e6f7ff;
+}
+
+.netdive-resource-action-menu .ant-menu-item-divider {
+    margin: 3px 0;
+    background-color: #f0f0f0;
+}
+
+.netdive-resource-action-menu .ant-menu-item .anticon {
+    min-width: 16px;
+    margin-right: 9px;
+    font-size: 14px;
+    vertical-align: -0.125em;
+}
+
+.topology-focus-dim {
+    /* Compose with each element's existing visibility instead of replacing
+       opacity. Hidden/event-filtered edges therefore remain hidden. */
+    filter: opacity(16%);
 }
 
 .MuiTableCell-root {

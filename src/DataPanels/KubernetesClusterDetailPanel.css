@@ -94,80 +94,6 @@
 .netdive-k8s-cluster-detail__availability-alerts:empty { display: none; }
 .netdive-k8s-cluster-detail__availability-value .netdive-detail-badge.ant-tag { flex: 0 0 auto; padding: 0 4px; font-size: var(--netdive-detail-font-supporting-text); line-height: var(--netdive-detail-line-supporting-text); white-space: nowrap; }
 
-.netdive-k8s-cluster-detail__abnormal-status {
-    margin: -2px 14px 9px;
-}
-
-.netdive-k8s-cluster-detail__abnormal-status-title {
-    display: block;
-    margin-bottom: 5px;
-    color: #475467;
-    font-size: var(--netdive-detail-font-supporting-text);
-    font-weight: var(--netdive-detail-weight-section-title);
-    line-height: var(--netdive-detail-line-supporting-text);
-}
-
-.netdive-k8s-cluster-detail__abnormal-status-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    border-top: 1px solid #eef1f5;
-    border-bottom: 1px solid #eef1f5;
-}
-
-.netdive-k8s-cluster-detail__abnormal-status-grid.items-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.netdive-k8s-cluster-detail__abnormal-status-grid.items-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.netdive-k8s-cluster-detail__abnormal-status-grid.items-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-
-.netdive-k8s-cluster-detail__abnormal-status-item {
-    display: flex;
-    min-width: 0;
-    min-height: 43px;
-    align-items: center;
-    flex-direction: column;
-    justify-content: center;
-    gap: 2px;
-    padding: 5px 4px;
-    border-right: 1px solid #eef1f5;
-    text-align: center;
-    border-top: 0;
-    border-bottom: 0;
-    border-left: 0;
-    outline: none;
-    background: transparent;
-    font: inherit;
-}
-
-.netdive-k8s-cluster-detail__abnormal-status-item:last-child {
-    border-right: 0;
-}
-.netdive-k8s-cluster-detail__abnormal-status-item:not(:disabled) { cursor: pointer; }
-.netdive-k8s-cluster-detail__abnormal-status-item:not(:disabled):hover { background: #f8fafc; }
-
-.netdive-k8s-cluster-detail__abnormal-status-item > span {
-    overflow: hidden;
-    color: #667085;
-    font-size: var(--netdive-detail-font-supporting-text);
-    font-weight: var(--netdive-detail-weight-supporting-text);
-    line-height: var(--netdive-detail-line-supporting-text);
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.netdive-k8s-cluster-detail__abnormal-status-item > strong {
-    color: #101828;
-    font-size: var(--netdive-detail-font-body-label);
-    font-variant-numeric: tabular-nums;
-    font-weight: var(--netdive-detail-weight-body-label);
-    line-height: var(--netdive-detail-line-body-label);
-}
-
-.netdive-k8s-cluster-detail__abnormal-status-item > strong b { font-size: 15px; font-weight: var(--netdive-detail-weight-primary-value); line-height: var(--netdive-detail-line-primary-value); }
-.netdive-k8s-cluster-detail__abnormal-status-item.is-warning > strong {
-    color: #d97706;
-}
-.netdive-k8s-cluster-detail__abnormal-status-item.is-danger > strong { color: #d92d20; }
-.netdive-k8s-cluster-detail__abnormal-status-item.is-default > strong { color: #667085; }
-
 .netdive-k8s-cluster-detail__status-popover .ant-popover-inner { min-width: 180px; border-radius: 8px; }
 .netdive-k8s-cluster-detail__status-popover .ant-popover-title { min-height: 34px; padding: 8px 12px; color: #344054; font-size: var(--netdive-detail-font-body-label); font-weight: var(--netdive-detail-weight-section-title); }
 .netdive-k8s-cluster-detail__status-popover .ant-popover-inner-content { padding: 6px 12px 8px; }
@@ -175,72 +101,9 @@
 .netdive-k8s-cluster-detail__status-distribution > div:last-child { border-bottom: 0; }
 .netdive-k8s-cluster-detail__status-distribution strong { color: #101828; font-size: 15px; font-variant-numeric: tabular-nums; font-weight: var(--netdive-detail-weight-primary-value); line-height: var(--netdive-detail-line-primary-value); }
 
-.netdive-k8s-cluster-detail__pod-status-summary {
-    margin: 0 14px 9px;
-    border: 1px solid #eef1f5;
-    border-radius: 7px;
-    background: #fff;
-    overflow: hidden;
+.netdive-k8s-cluster-detail__instability {
+    margin: 0 0 10px;
 }
-
-.netdive-k8s-cluster-detail__pod-status-title {
-    display: block;
-    padding: 8px 10px 7px;
-    border-bottom: 1px solid #eef1f5;
-    color: #344054;
-    font-size: var(--netdive-detail-font-supporting-text);
-    font-weight: var(--netdive-detail-weight-section-title);
-}
-
-.netdive-k8s-cluster-detail__pod-status-group {
-    padding: 7px 10px 8px;
-    border-bottom: 1px solid #eef1f5;
-}
-
-.netdive-k8s-cluster-detail__pod-status-group:last-child { border-bottom: 0; }
-.netdive-k8s-cluster-detail__pod-status-group-head {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 8px;
-    margin-bottom: 6px;
-}
-.netdive-k8s-cluster-detail__pod-status-group-head b { color: #475467; font-size: var(--netdive-detail-font-supporting-text); font-weight: var(--netdive-detail-weight-section-title); }
-.netdive-k8s-cluster-detail__pod-status-group-head small { color: #98a2b3; font-size: var(--netdive-detail-font-supporting-text); text-align: right; }
-.netdive-k8s-cluster-detail__pod-status-items {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1px 12px;
-}
-.netdive-k8s-cluster-detail__pod-status-items button {
-    display: flex;
-    min-width: 0;
-    min-height: 29px;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 4px 2px;
-    border: 0;
-    border-bottom: 1px solid #f2f4f7;
-    outline: 0;
-    background: transparent;
-    color: #667085;
-    font: inherit;
-    cursor: pointer;
-}
-.netdive-k8s-cluster-detail__pod-status-items button:hover { color: #1677ff; background: #f8fafc; }
-.netdive-k8s-cluster-detail__pod-status-items span {
-    min-width: 0;
-    overflow: hidden;
-    font-size: var(--netdive-detail-font-supporting-text);
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-.netdive-k8s-cluster-detail__pod-status-items strong { flex: 0 0 auto; color: inherit; font-size: 15px; font-variant-numeric: tabular-nums; font-weight: var(--netdive-detail-weight-primary-value); line-height: var(--netdive-detail-line-primary-value); }
-.netdive-k8s-cluster-detail__pod-status-group.is-current .netdive-k8s-cluster-detail__pod-status-items strong { color: #d97706; }
-.netdive-k8s-cluster-detail__pod-status-group.is-history .netdive-k8s-cluster-detail__pod-status-items strong { color: #667085; }
-
-.netdive-k8s-cluster-detail__instability,
 .netdive-k8s-cluster-detail__history-section {
     margin: 0 14px 10px;
 }
@@ -249,35 +112,6 @@
 }
 .netdive-k8s-cluster-detail__history-section.is-expanded {
     margin-bottom: 16px;
-}
-.netdive-k8s-cluster-detail__instability > .ant-divider,
-.netdive-k8s-cluster-detail__history-section > .ant-divider {
-    margin: 7px 0;
-    border-color: #eef1f5;
-}
-.netdive-k8s-cluster-detail__instability .ant-select {
-    min-width: 108px;
-}
-.netdive-k8s-cluster-detail__instability-head {
-    display: flex;
-    min-height: 28px;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    margin-bottom: 5px;
-}
-.netdive-k8s-cluster-detail__instability-head > .ant-space:first-child {
-    flex: 0 0 auto;
-}
-.netdive-k8s-cluster-detail__instability-head > .ant-space:first-child .ant-typography {
-    margin: 0;
-    color: #344054;
-    font-size: var(--netdive-detail-font-supporting-text);
-    font-weight: var(--netdive-detail-weight-section-title);
-}
-.netdive-k8s-cluster-detail__instability-head-actions {
-    min-width: 0;
-    white-space: nowrap;
 }
 .netdive-k8s-cluster-detail__collection-summary {
     min-width: 0;
@@ -297,48 +131,6 @@
     white-space: nowrap;
 }
 
-.netdive-k8s-cluster-detail__instability-cards {
-    margin-bottom: 7px;
-}
-.netdive-k8s-cluster-detail__instability-cards button {
-    display: flex;
-    width: 100%;
-    height: 50px;
-    align-items: center;
-    justify-content: center;
-    flex-direction: column;
-    gap: 2px;
-    padding: 6px 8px;
-    border: 1px solid #f0f0f0;
-    border-radius: 6px;
-    outline: 0;
-    color: #475467;
-    font: inherit;
-    text-align: center;
-    background: #fafafa;
-    cursor: pointer;
-}
-.netdive-k8s-cluster-detail__instability-cards button:disabled { cursor: default; }
-.netdive-k8s-cluster-detail__instability-cards button:not(:disabled):hover { border-color: #b2ccff; background: #f0f5ff; }
-.netdive-k8s-cluster-detail__instability-cards button span {
-    width: 100%;
-    font-size: var(--netdive-detail-font-supporting-text);
-    font-weight: var(--netdive-detail-weight-section-title);
-    line-height: var(--netdive-detail-line-supporting-text);
-    text-align: center;
-}
-.netdive-k8s-cluster-detail__instability-cards button strong {
-    width: 100%;
-    color: #344054;
-    font-size: var(--netdive-detail-font-primary-value);
-    font-variant-numeric: tabular-nums;
-    font-weight: var(--netdive-detail-weight-primary-value);
-    line-height: var(--netdive-detail-line-primary-value);
-    text-align: center;
-}
-.netdive-k8s-cluster-detail__instability-cards button strong.is-warning { color: #b54708; }
-.netdive-k8s-cluster-detail__instability-cards button strong.is-danger { color: #d92d20; }
-.netdive-k8s-cluster-detail__instability-cards button strong.is-zero { color: #667085; }
 .netdive-k8s-cluster-detail__instability-event {
     display: flex;
     min-width: 0;
@@ -372,18 +164,9 @@
     font-size: var(--netdive-detail-font-supporting-text);
     line-height: var(--netdive-detail-line-primary-value);
 }
-.netdive-k8s-cluster-detail__instability-empty {
-    min-height: 26px;
-    padding: 2px 0 4px;
-    color: #667085;
-    font-size: var(--netdive-detail-font-supporting-text);
-    line-height: var(--netdive-detail-line-supporting-text);
-    cursor: default;
-    user-select: text;
-}
 .netdive-k8s-cluster-detail__instability-detail-trigger {
     display: flex;
-    width: 100%;
+    width: calc(100% - 28px);
     min-height: 28px;
     align-items: center;
     justify-content: space-between;
@@ -396,6 +179,8 @@
     text-align: left;
     background: transparent;
     cursor: pointer;
+    margin-right: 14px;
+    margin-left: 14px;
 }
 .netdive-k8s-cluster-detail__instability-detail-trigger:hover,
 .netdive-k8s-cluster-detail__instability-detail-trigger:focus-visible {
@@ -415,6 +200,8 @@
     color: #667085;
     font-size: var(--netdive-detail-font-supporting-text);
     background: #fff;
+    margin-right: 14px;
+    margin-left: 14px;
 }
 .netdive-k8s-cluster-detail__instability-fetch-state.is-error { color: #b42318; }
 .netdive-k8s-cluster-detail__instability-fetch-state .ant-btn {
@@ -439,7 +226,6 @@
     border-radius: 7px;
     background: #f8fafc;
 }
-.netdive-k8s-cluster-detail__history-info { margin: 0 2px; color: #98a2b3; font-size: var(--netdive-detail-font-supporting-text); cursor: help; }
 .netdive-k8s-cluster-detail__history-total {
     padding: 2px 0;
     color: #667085;
@@ -692,11 +478,6 @@
     align-items: center;
     gap: 5px;
 }
-.netdive-k8s-cluster-detail__capacity-section-title .anticon {
-    color: #98a2b3;
-    font-size: var(--netdive-detail-font-supporting-text);
-    cursor: help;
-}
 .netdive-k8s-cluster-detail__limits-metric {
     margin-top: 8px;
 }
@@ -705,11 +486,6 @@
     align-items: center;
     gap: 4px;
     line-height: var(--netdive-detail-line-supporting-text);
-}
-.netdive-k8s-cluster-detail__metric-label-with-info .anticon {
-    flex: 0 0 auto;
-    color: #98a2b3;
-    font-size: var(--netdive-detail-font-supporting-text);
 }
 .netdive-k8s-cluster-detail__request-insight {
     margin-top: 8px;
@@ -766,18 +542,6 @@
     height: 24px;
     padding: 0 4px 0 0;
     font-size: var(--netdive-detail-font-supporting-text);
-}
-.netdive-k8s-cluster-detail__metric-info { margin-left: 4px; color: #98a2b3; font-size: var(--netdive-detail-font-supporting-text); cursor: help; }
-
-.netdive-k8s-cluster-detail__capacity-tooltip {
-    max-width: min(280px, calc(100vw - 24px));
-}
-
-.netdive-k8s-cluster-detail__capacity-tooltip .ant-tooltip-inner {
-    max-width: 100%;
-    overflow-wrap: anywhere;
-    white-space: pre-line;
-    word-break: keep-all;
 }
 
 .netdive-k8s-cluster-detail__capacity > .netdive-k8s-cluster-detail__capacity-compare-divider {

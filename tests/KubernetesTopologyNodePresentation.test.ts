@@ -1,6 +1,9 @@
 import { strict as assert } from 'assert'
 import {
+    isKubernetesStorageType,
+    isKubernetesThreeLineTopologyType,
     isKubernetesWorkloadType,
+    kubernetesTopologyNodeText,
     kubernetesWorkloadNodeText
 } from '../src/KubernetesTopologyNodePresentation'
 
@@ -29,5 +32,21 @@ describe('Kubernetes workload topology node presentation', () => {
             kubernetesWorkloadNodeText('very-long-stateful-workload-controller-name', 'statefulset').name,
             'very-long-stateful-workload-controller-name'
         )
+    })
+
+    it('uses the same three-line text contract for StorageClass, PVC and PV', () => {
+        assert.equal(isKubernetesStorageType('storageclass'), true)
+        assert.equal(isKubernetesStorageType('persistentvolumeclaim'), true)
+        assert.equal(isKubernetesStorageType('persistentvolume'), true)
+        assert.equal(isKubernetesThreeLineTopologyType('persistentvolumeclaim'), true)
+        assert.deepEqual(kubernetesTopologyNodeText('local-path', 'storageclass'), {
+            name: 'local-path', kind: 'StorageClass', accessibleName: 'local-path\nStorageClass'
+        })
+        assert.deepEqual(kubernetesTopologyNodeText('data', 'persistentvolumeclaim', 'monitoring'), {
+            name: 'data', kind: 'PVC · monitoring', accessibleName: 'data\nPVC · monitoring'
+        })
+        assert.deepEqual(kubernetesTopologyNodeText('pvc-uid', 'persistentvolume', 'ignored'), {
+            name: 'pvc-uid', kind: 'PV', accessibleName: 'pvc-uid\nPV'
+        })
     })
 })

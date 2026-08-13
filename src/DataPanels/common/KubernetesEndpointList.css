@@ -1,0 +1,48 @@
+.netdive-k8s-endpoint-list {
+    display: grid;
+    min-width: 0;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.netdive-k8s-endpoint-list__item {
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid var(--netdive-detail-card-border);
+    border-radius: var(--netdive-detail-card-radius);
+    background: var(--netdive-detail-hover);
+}
+
+.netdive-k8s-endpoint-list__item > header {
+    display: flex;
+    min-width: 0;
+    min-height: 42px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px var(--netdive-detail-card-padding-x);
+    border-bottom: 1px solid var(--netdive-detail-row-divider);
+}
+
+.netdive-k8s-endpoint-list__address {
+    display: flex;
+    min-width: 0;
+    flex: 1 1 auto;
+    align-items: center;
+    gap: 4px;
+    color: var(--netdive-detail-text);
+    font-size: var(--netdive-detail-font-body-label);
+    font-weight: 600;
+    line-height: var(--netdive-detail-line-body-label);
+}
+
+.netdive-k8s-endpoint-list__item .netdive-detail-kv { padding: 0 var(--netdive-detail-card-padding-x); }
+
+.netdive-k8s-endpoint-list__link.ant-btn {
+    width: 100%;
+    height: auto;
+    min-width: 0;
+    padding: 0;
+    color: inherit;
+    text-align: left;
+}

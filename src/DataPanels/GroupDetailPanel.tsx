@@ -10,6 +10,11 @@ import {
     KubernetesPodStatusEntry,
     KubernetesPodStatusGroup
 } from '../KubernetesPodLifecycle'
+import {
+    kubernetesTopologyBadgeGroupSummary,
+    kubernetesTopologyCountBadges
+} from '../KubernetesTopologyBadgeAggregation'
+import { TopologyStatusBadgeGroup } from '../TopologyStatusBadge'
 import { DetailBadge, DetailEmpty, DetailSection } from './common'
 import './GroupDetailPanel.css'
 
@@ -23,6 +28,7 @@ interface Props {
     onNodeFocus: (node: Node) => void
     onNodesSelect: (nodes: Node[]) => void
     onNodeDeselect: (node: Node) => void
+    topologyBadgeChildren?: (node: Node) => Node[]
 }
 
 interface State {
@@ -199,6 +205,13 @@ class GroupDetailPanel extends React.Component<Props, State> {
         const networkSummary = this.vmNetworkSummary(node)
         const ip = networkSummary ? networkSummary.text : ipOf(node)
         const visible = this.isNodeVisible(node)
+        const badgeChildren = this.props.topologyBadgeChildren
+            ? this.props.topologyBadgeChildren(node)
+            : undefined
+        const topologyBadges = String(node.data?.Manager || '').toLowerCase() === 'k8s'
+            ? kubernetesTopologyCountBadges(node, badgeChildren)
+            : []
+        const topologyBadgeSummary = kubernetesTopologyBadgeGroupSummary(node, topologyBadges, badgeChildren)
         const tone: 'warning' | 'default' | 'danger' = status.className === 'is-warning'
             ? 'warning'
             : status.className === 'is-history'
@@ -240,6 +253,10 @@ class GroupDetailPanel extends React.Component<Props, State> {
                         </span>
                     )}
                 </span>
+                <TopologyStatusBadgeGroup
+                    badges={topologyBadges}
+                    summary={topologyBadgeSummary}
+                    className="netdive-group-detail-topologyBadges" />
                 <Tooltip title="상세 보기">
                     <Button
                         type="text"

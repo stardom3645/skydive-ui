@@ -8,7 +8,7 @@ import { HistoryOutlined } from '@ant-design/icons'
 import { translate } from '../Config'
 import { session } from '../Store'
 import { Node } from '../Topology'
-import { getPodClassification } from '../KubernetesPodLifecycle'
+import { getPodClassification, registerKubernetesPodCurrentStatusDetail } from '../KubernetesPodLifecycle'
 import { kubernetesLabelValue, matchesKubernetesSelector } from '../KubernetesSelectors'
 import { kubernetesOperationalPodDataset } from '../KubernetesNodeDetailAggregation'
 import { resolveKubernetesPodTopController } from '../KubernetesWorkloadOwnership'
@@ -29,6 +29,7 @@ import {
     DetailSectionCard,
     KubernetesConditionRows,
     KubernetesContainerDetails,
+    kubernetesContainerStateReason,
     KubernetesMetadataRows,
     KubernetesRecentEvents,
     KubernetesStateSeparation,
@@ -144,7 +145,10 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
             if (!response.ok) throw new Error(`pod detail unavailable: ${response.status}`)
             return response.json()
         }).then(detail => {
-            if (this.state.requestKey === requestKey) this.setState({ detail: mergeKubernetesPodDetail(fallback, detail), loading: false, error: false })
+            if (this.state.requestKey === requestKey) {
+                registerKubernetesPodCurrentStatusDetail(detail)
+                this.setState({ detail: mergeKubernetesPodDetail(fallback, detail), loading: false, error: false })
+            }
         }).catch(() => {
             if (this.state.requestKey === requestKey) this.setState({ detail: this.detailFromTopology(), loading: false, error: true })
         })
@@ -356,7 +360,7 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
                 const name = port?.Name ?? port?.name
                 return number === undefined ? '' : `${name ? `${name} · ` : ''}${number}/${protocol}`
             }).filter(Boolean)
-            const reason = container.waitingReason || container.terminatedReason || container.lastTerminatedReason
+            const reason = kubernetesContainerStateReason(container)
             const has = (key: string) => Object.prototype.hasOwnProperty.call(container, key)
             const resources = container.resources || {
                 Requests: {
@@ -384,7 +388,7 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
                     tone: runtime.tone,
                     readyLabel: runtime.readyLabel,
                     restartCount: Number(container.restartCount || 0),
-                    reason: reason || undefined,
+                    reason,
                     exitCode: container.exitCode
                 }
             }
@@ -402,6 +406,11 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
         const currentImpact = terminalPod
             ? '실행 대상 아님'
             : podReady === false || critical ? '가용성 영향 확인 필요' : '확인된 가용성 영향 없음'
+        const currentImpactTooltip = terminalPod
+            ? '완료되었거나 종료된 파드이므로 현재 실행 대상의 가용성 영향 판정에서 제외합니다.'
+            : podReady === false || critical
+                ? `파드 준비 상태와 현재 컨테이너 이상을 확인해야 합니다. 일반 컨테이너 ${readyContainers}/${applicationContainers.length}개가 준비되었습니다.`
+                : `현재 파드 상태로 인해 확인된 서비스 가용성 영향이 없습니다. 일반 컨테이너 ${readyContainers}/${applicationContainers.length}개가 준비되었습니다.`
         const basicRows = [
             { label: '파드 이름', value: <DetailLongValue value={detail.name || this.props.node.id} copy />, wrap: true },
             { label: '네임스페이스', value: detail.namespace || translate('kubernetesNotCollected') },
@@ -419,7 +428,11 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
         const nodeTarget = detail.node ? this.resourceForReference(detail.node) : undefined
         const services = this.serviceTargets(detail)
         const pvcs = this.pvcTargets(detail)
-        const volumePresentations = kubernetesPodVolumePresentations(this.podSpec())
+        const volumePresentations = kubernetesPodVolumePresentations(
+            this.podSpec(),
+            containers,
+            !this.state.loading && !this.state.error
+        )
         const recentEventGroups = collectKubernetesEventGroups([
             detail.events,
             detail.recentEvents,
@@ -446,7 +459,7 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
                     rawStatusLabel="파드 상태"
                     rawStatusTooltip={`Kubernetes Pod phase를 사용자용 상태로 변환한 값입니다. 원본 Phase: ${detail.phase || '확인 불가'}`}
                     impact={currentImpact}
-                    impactTooltip={`준비 상태와 현재 컨테이너 이상 여부를 기준으로 판단합니다. 일반 컨테이너 ${readyContainers}/${applicationContainers.length}개가 준비되었습니다.`}
+                    impactTooltip={currentImpactTooltip}
                     metrics={[
                         { key: 'container-ready', label: '준비 컨테이너', value: terminalPod ? '해당 없음' : applicationContainers.length ? `${readyContainers}/${applicationContainers.length}` : '확인 불가', tone: !terminalPod && readyContainers < applicationContainers.length ? 'warning' : 'default', tooltip: '일반 컨테이너만 대상으로 Ready 상태인 수를 계산합니다. 초기화 컨테이너는 별도로 구분합니다.' },
                         { key: 'pod-ready', label: '준비 상태', value: terminalPod ? '해당 없음' : podReady === undefined ? '미확인' : podReady ? '준비됨' : '준비되지 않음', tone: !terminalPod && podReady === false ? 'danger' : 'default', tooltip: 'Pod Ready Condition을 사용자용 상태로 해석한 결과입니다.' }

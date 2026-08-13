@@ -1,8 +1,7 @@
 import * as React from 'react'
 import { Progress, Table, Tooltip, Typography } from 'antd'
-import { InfoCircleOutlined } from '@ant-design/icons'
 
-import { DetailCopyButton } from './DetailComponents'
+import { DetailCopyButton, DetailInfoTooltip } from './DetailComponents'
 import {
     cpuBasisRatios,
     formatPodCpuUsage,
@@ -151,9 +150,7 @@ export const KubernetesPodUsageTable = ({
                 title: metric === 'cpu'
                     ? <span className="netdive-k8s-pod-usage-table__usage-title">
                         <span>사용량</span>
-                        <Tooltip title="mCore는 Core의 1/1000 단위이며 1000 mCore = 1 Core">
-                            <InfoCircleOutlined aria-label="CPU 단위 설명" />
-                        </Tooltip>
+                        <DetailInfoTooltip description="mCore는 Core의 1/1000 단위이며 1000 mCore = 1 Core" ariaLabel="CPU 단위 설명" />
                     </span>
                     : '사용량',
                 key: 'usage',

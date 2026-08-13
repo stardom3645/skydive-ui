@@ -1,9 +1,7 @@
 import * as React from 'react'
-import { Tooltip } from 'antd'
-import { InfoCircleOutlined } from '@ant-design/icons'
 
 import { translate } from '../../Config'
-import { DetailBadge, DetailBadgeTone } from './DetailComponents'
+import { DetailBadge, DetailBadgeTone, DetailInfoTooltip } from './DetailComponents'
 import './KubernetesAnalysisConfidence.css'
 
 export type KubernetesAnalysisConfidenceState = 'sufficient' | 'partial' | 'insufficient' | 'unavailable'
@@ -46,10 +44,10 @@ export const KubernetesAnalysisConfidence = ({ state, collected, missing, contex
     return <div className="netdive-k8s-confidence">
         <div className="netdive-k8s-confidence__label">
             <span>{translate('kubernetesAnalysisConfidence')}</span>
-            <Tooltip title={<CriteriaTooltip contextNote={contextNote} />} placement="top"><InfoCircleOutlined /></Tooltip>
+            <DetailInfoTooltip description={<CriteriaTooltip contextNote={contextNote} />} ariaLabel="분석 신뢰도 기준 정보" />
         </div>
         <div className="netdive-k8s-confidence__result">
-            <Tooltip title={evidence} placement="top"><span><DetailBadge tone={meta.tone}><i />{label}</DetailBadge></span></Tooltip>
+            <span><DetailBadge tone={meta.tone}><i />{label}</DetailBadge><DetailInfoTooltip description={evidence} ariaLabel="현재 분석 신뢰도 정보" /></span>
             <small>{translate(meta.summaryKey)}</small>
         </div>
     </div>

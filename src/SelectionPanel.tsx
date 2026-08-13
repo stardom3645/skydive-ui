@@ -76,6 +76,7 @@ interface Props {
   onGroupChildFocus?: (node: Node) => void
   onGroupChildrenDisplayChange?: (nodes: Node[], visible: boolean) => void
   onContextNavigate?: (node: Node) => void
+  topologyBadgeChildren?: (node: Node) => Node[]
 }
 
 interface State {
@@ -179,7 +180,7 @@ class SelectionPanel extends React.Component<Props, State> {
         && String(el.data?.Manager || '').toLowerCase() === 'k8s'
       const kubernetesType = String(el.data?.Type || '').toLowerCase()
       const isKubernetesLongNameResource = isKubernetesNode
-        || ['deployment', 'statefulset', 'daemonset', 'job', 'cronjob'].indexOf(kubernetesType) >= 0
+        || ['deployment', 'statefulset', 'daemonset', 'job', 'cronjob', 'persistentvolumeclaim', 'persistentvolume', 'storageclass'].indexOf(kubernetesType) >= 0
       const fullTitle = isKubernetesResource
         ? String(el.data?.Name || el.data?.K8s?.Name || title).replace(/\s*\n\s*/g, ' ').trim()
         : title
@@ -546,6 +547,7 @@ class SelectionPanel extends React.Component<Props, State> {
                   nodeAttrs={(node: Node) => this.props.config.nodeAttrs(node)}
                   nodeDisplayName={this.props.nodeDisplayName}
                   vmNetworkMap={this.props.vmNetworkMap}
+                  topologyBadgeChildren={this.props.topologyBadgeChildren}
                   onNodeSelect={(node: Node) => {
                     this.setState({ preferredTabID: el.id })
                     this.props.onGroupChildToggle && this.props.onGroupChildToggle(node)

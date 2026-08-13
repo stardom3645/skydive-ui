@@ -10,7 +10,8 @@ import { HistoryOutlined } from '@ant-design/icons'
 import { translate } from '../Config'
 import { session } from '../Store'
 import { Node } from '../Topology'
-import { aggregatePods, getPodClassification } from '../KubernetesPodLifecycle'
+import { aggregatePods, getPodClassification, registerKubernetesPodCurrentStatusSnapshots } from '../KubernetesPodLifecycle'
+import { kubernetesResourceSelfStatus } from '../KubernetesTopologyBadgeAggregation'
 import { kubernetesOperationalPodDataset, KUBERNETES_NODE_SIGNAL_WINDOW_MS } from '../KubernetesNodeDetailAggregation'
 import {
     kubernetesNamespaceContainerResourceCoverage,
@@ -198,7 +199,10 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
             if (!response.ok) throw new Error(`namespace detail unavailable: ${response.status}`)
             return response.json()
         }).then(detail => {
-            if (this.state.requestKey === requestKey) this.setState({ detail: { ...fallback, ...detail }, loading: false, error: false })
+            if (this.state.requestKey === requestKey) {
+                registerKubernetesPodCurrentStatusSnapshots(detail?.pods)
+                this.setState({ detail: { ...fallback, ...detail }, loading: false, error: false })
+            }
         }).catch(() => {
             if (this.state.requestKey === requestKey) this.setState({ detail: this.detailFromTopology(), loading: false, error: true })
         })
@@ -400,19 +404,23 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
             ? connectedServices.length === 0 ? 0 : undefined
             : Number(detail.endpointUnavailableServiceCount)
         const normalizedPhase = String(detail.phase || '').toLowerCase()
+        const selfStatus = kubernetesResourceSelfStatus(this.props.node, {
+            ...detail,
+            collectionState: this.state.loading ? 'uncollected' : this.state.error ? 'failed' : 'collected'
+        })
         const terminating = !!detail.terminating || normalizedPhase === 'terminating'
         const hasProblem = terminating || problemCount > 0 || Number(endpointUnavailable || 0) > 0
-        const statusKnown = normalizedPhase === 'active' || normalizedPhase === 'terminating'
-        const statusTone = terminating ? 'danger' : hasProblem ? 'warning' : statusKnown ? 'success' : 'default'
+        const statusKnown = selfStatus.state !== 'unknown'
+        const statusTone = terminating ? 'danger' : selfStatus.state === 'problem' || hasProblem ? 'warning' : statusKnown ? 'success' : 'default'
         const statusLabel = terminating
             ? translate('kubernetesHealthCritical')
-            : hasProblem ? translate('kubernetesHealthWarning') : statusKnown ? translate('kubernetesHealthNormal') : translate('kubernetesHealthUnknown')
+            : selfStatus.state === 'problem' || hasProblem ? translate('kubernetesHealthWarning') : statusKnown ? translate('kubernetesHealthNormal') : translate('kubernetesHealthUnknown')
         const impactAnalysisKnown = endpointUnavailable !== undefined
             && workloadHealth.evaluatedWorkloads.length === workloadHealth.workloads.length
         const conclusion = terminating
             ? translate('kubernetesNamespaceTerminatingConclusion')
             : Number(endpointUnavailable || 0) > 0 ? translate('kubernetesNamespaceEndpointImpact').replace('{count}', String(endpointUnavailable))
-            : workloadHealth.unavailableWorkloads.length > 0 ? `현재 미가용 워크로드 ${workloadHealth.unavailableWorkloads.length}개가 확인됐습니다.`
+            : workloadHealth.unavailableWorkloads.length > 0 ? `워크로드 ${workloadHealth.unavailableWorkloads.length}개 미가용`
             : impactAnalysisKnown ? '확인된 영향 없음' : '영향 분석 데이터 없음'
         const topologyResourceCoverage = kubernetesNamespaceContainerResourceCoverage(activeConnectedPods)
         const resourceCoverage = kubernetesNamespaceResourceCoverageFromDetail(detail.resourceConfiguration) || topologyResourceCoverage

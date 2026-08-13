@@ -72,10 +72,15 @@ import SettingsEthernetIcon from '@material-ui/icons/SettingsEthernet'
 import ChevronRightIcon from '@material-ui/icons/ChevronRight'
 import CheckIcon from '@material-ui/icons/Check'
 import { Tooltip } from 'antd'
-import { BulbOutlined, ClusterOutlined, GlobalOutlined } from '@ant-design/icons'
+import { BulbOutlined, ClusterOutlined, FilterOutlined, GlobalOutlined } from '@ant-design/icons'
 
 import { styles } from './AppStyles'
 import { Topology, Node, NodeAttrs, LinkAttrs, LinkTagState, Link } from './Topology'
+import { TopologyStatusBadgeLegend } from './TopologyStatusBadge'
+import {
+  isInactiveMoldKubernetesClusterState,
+  kubernetesTopologyHasInactiveClusterAncestor
+} from './KubernetesTopologyBadgeAggregation'
 import { isCurrentKubernetesPod } from './KubernetesPodLifecycle'
 import AutoCompleteInput from './AutoComplete'
 import {
@@ -287,6 +292,7 @@ interface State {
   isRecentViewedNodesCollapsed: boolean
   topologyZoom: number
   groupVisibleNodeIDs: Set<string>
+  kubernetesProblemsOnly: boolean
 }
 
 interface VMConsoleResponse {
@@ -480,7 +486,8 @@ class App extends React.Component<Props, State> {
       recentViewedNodes: getSavedRecentViewedNodes(),
       isRecentViewedNodesCollapsed: true,
       topologyZoom: 1,
-      groupVisibleNodeIDs: new Set<string>()
+      groupVisibleNodeIDs: new Set<string>(),
+      kubernetesProblemsOnly: false
     }
 
     this.synced = false
@@ -793,6 +800,7 @@ class App extends React.Component<Props, State> {
         : (data.selectedId ? [data.selectedId] : clusters.filter((cluster: MoldKubernetesCluster) => cluster.collectionEnabled).map((cluster: MoldKubernetesCluster) => cluster.id))
       const manuallyDisabledIds = getManuallyDisabledKubernetesClusterIDs()
       const autoEnableIds = clusters
+        .filter((cluster: MoldKubernetesCluster) => !isInactiveMoldKubernetesClusterState(cluster.state))
         .map((cluster: MoldKubernetesCluster) => cluster.id)
         .filter((id: string) => id && !selectedIds.includes(id) && !manuallyDisabledIds.has(id) && !this.kubernetesAutoEnableAttemptedIds.has(id))
 
@@ -808,7 +816,7 @@ class App extends React.Component<Props, State> {
           kubernetesLoading: true,
           kubernetesMessage: translate("kubernetesAutoCollectionStarting"),
           moldIntegrationConnected: true
-        })
+        }, () => this.refreshTopologyForMoldClusterState())
         this.fetchKubernetesAPI("/api/mold/kubernetes-clusters/select", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -826,7 +834,7 @@ class App extends React.Component<Props, State> {
             kubernetesLoading: false,
             kubernetesMessage: translate("kubernetesAutoCollectionFailed"),
             moldIntegrationConnected: true
-          })
+          }, () => this.refreshTopologyForMoldClusterState())
           console.debug("Failed to auto-enable kubernetes clusters", err)
         })
         return
@@ -836,7 +844,7 @@ class App extends React.Component<Props, State> {
         kubernetesSelectedIds: selectedIds,
         kubernetesLoading: false,
         moldIntegrationConnected: true
-      })
+      }, () => this.refreshTopologyForMoldClusterState())
     }).catch((err) => {
       if (requestSeq !== this.kubernetesRequestSeq) {
         return
@@ -848,6 +856,12 @@ class App extends React.Component<Props, State> {
       })
       console.debug("Failed to refresh kubernetes clusters", err)
     })
+  }
+
+  private refreshTopologyForMoldClusterState() {
+    if (!this.tc) return
+    this.reconcileKubernetesWorkloadHierarchy()
+    this.tc.renderTree()
   }
 
   private saveKubernetesClusterSelection(selectedIds: string[], changedClusterID?: string, successMessage?: string) {
@@ -1550,6 +1564,22 @@ class App extends React.Component<Props, State> {
     const storageClasses = nodes.filter(node => isKubernetes(node) && String(node.data?.Type || "").toLowerCase() === "storageclass")
     const persistentVolumeClaims = nodes.filter(node => isKubernetes(node) && String(node.data?.Type || "").toLowerCase() === "persistentvolumeclaim")
     const persistentVolumes = nodes.filter(node => isKubernetes(node) && String(node.data?.Type || "").toLowerCase() === "persistentvolume")
+    clusters.forEach(clusterNode => {
+      const keys = [
+        clusterNode.id,
+        clusterNode.data?.Name,
+        clusterNode.data?.ClusterID,
+        clusterNode.data?.ClusterId,
+        clusterNode.data?.ClusterName,
+        clusterNode.data?.K8s?.ClusterID,
+        clusterNode.data?.K8s?.ClusterName
+      ].map(value => String(value || '').trim().toLowerCase()).filter(Boolean)
+      const configured = this.state.kubernetesClusters.find(cluster =>
+        [cluster.id, cluster.name]
+          .map(value => String(value || '').trim().toLowerCase())
+          .some(value => !!value && keys.includes(value)))
+      if (configured) clusterNode.data.MoldClusterState = configured.state
+    })
     const clusterKeys = (node: Node): string[] => {
       const type = String(node.data?.Type || "").toLowerCase()
       return [
@@ -1729,6 +1759,7 @@ class App extends React.Component<Props, State> {
     if (!isTopologyNodeVisibleInLayer(node.data, node.tags, this.isKubernetesLayerActive())) return false
     if (!isKubernetesTopologyData(node.data, node.tags)) return true
     const type = String(node.data?.Type || "").toLowerCase()
+    if (type !== "cluster" && kubernetesTopologyHasInactiveClusterAncestor(node)) return false
     if (KUBERNETES_INTERMEDIATE_RELATION_TYPES.has(type)) return false
     if (type === "cluster" || type === "node" || type === "namespace") return true
     if (KUBERNETES_WORKLOAD_TYPES.has(type)) return true
@@ -1859,10 +1890,6 @@ class App extends React.Component<Props, State> {
 
   sortNodesFnc(a: Node, b: Node) {
     return this.config.nodeSortFnc(a, b)
-  }
-
-  onShowNodeContextMenu(node: Node) {
-    return this.config.nodeMenu(node)
   }
 
   _refreshTopology() {
@@ -2946,6 +2973,12 @@ class App extends React.Component<Props, State> {
     }
   
     this.tc.collapseAllNodes()
+  }
+
+  toggleKubernetesProblemsOnly() {
+    const enabled = !this.state.kubernetesProblemsOnly
+    this.setState({ kubernetesProblemsOnly: enabled })
+    if (this.tc) this.tc.setKubernetesProblemsOnly(enabled)
   }
 
   onTopologyZoomChange(zoom: number) {
@@ -5229,6 +5262,22 @@ class App extends React.Component<Props, State> {
                     <UnfoldLessIcon />
                   </IconButton>
                 </Tooltip>
+                {this.isKubernetesLayerActive() &&
+                  <Tooltip title={this.state.kubernetesProblemsOnly ? "전체 자원 보기" : "이상 자원만 보기"}>
+                    <IconButton
+                      color="inherit"
+                      aria-pressed={this.state.kubernetesProblemsOnly}
+                      aria-label={this.state.kubernetesProblemsOnly ? "전체 자원 보기" : "이상 자원만 보기"}
+                      onClick={this.toggleKubernetesProblemsOnly.bind(this)}
+                      className={clsx(
+                        classes.topologyIconButton,
+                        this.state.kubernetesProblemsOnly && classes.topologyIconButtonActive
+                      )}
+                    >
+                      <FilterOutlined />
+                    </IconButton>
+                  </Tooltip>
+                }
               </div>
               {this.renderTopologyZoomControls(classes)}
               <Tooltip title={translate("topologyZoomFit")}>
@@ -5250,6 +5299,7 @@ class App extends React.Component<Props, State> {
               </Tooltip>
             </div>
             <div className={classes.grow} />
+            <TopologyStatusBadgeLegend />
             {this.renderMenuButtons(classes)}
           </Toolbar>
         </AppBar>
@@ -5272,12 +5322,14 @@ class App extends React.Component<Props, State> {
         {this.renderKubernetesDialogs(classes)}
         <main className={classes.content}>
           <Container maxWidth="xl" className={classes.container}>
-            <Topology className={classes.topology} ref={node => this.tc = node}
+            <Topology className={classes.topology} ref={node => {
+              this.tc = node
+              if (node) node.setKubernetesProblemsOnly(this.state.kubernetesProblemsOnly)
+            }}
               nodeAttrs={this.nodeAttrs.bind(this)}
               linkAttrs={this.linkAttrs.bind(this)}
               onNodeSelected={this.onNodeSelected.bind(this)}
               sortNodesFnc={this.sortNodesFnc.bind(this)}
-              onShowNodeContextMenu={this.onShowNodeContextMenu.bind(this)}
               weightTitles={this.config.weightTitles()}
               groupSize={this.config.groupSize.bind(this.config)}
               groupThreshold={this.config.groupThreshold.bind(this.config)}
@@ -5305,6 +5357,7 @@ class App extends React.Component<Props, State> {
                   vmNameMap={this.state.vmNameMap} vmNetworkMap={this.state.vmNetworkMap} vmDetailMap={this.state.vmDetailMap} managementServers={this.state.managementServers}
                   groupVisibleNodeIDs={this.state.groupVisibleNodeIDs}
                   nodeDisplayName={this.nodeDisplayName.bind(this)}
+                  topologyBadgeChildren={(node: Node) => this.tc ? this.tc.topologyBadgeChildren(node) : []}
                   onGroupChildToggle={this.toggleGroupChildDisplayFromPanel.bind(this)}
                   onGroupChildFocus={this.focusGroupChildFromPanel.bind(this)}
                   onGroupChildrenDisplayChange={this.setGroupChildrenDisplayFromPanel.bind(this)}

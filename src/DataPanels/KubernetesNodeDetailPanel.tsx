@@ -10,6 +10,7 @@ import { translate } from '../Config'
 import { session } from '../Store'
 import { Node } from '../Topology'
 import { resolveKubernetesPodTopController } from '../KubernetesWorkloadOwnership'
+import { kubernetesResourceSelfStatus } from '../KubernetesTopologyBadgeAggregation'
 import {
     kubernetesNodeConditionIsHealthy,
     kubernetesNodeLocalStorageDependencies,
@@ -697,6 +698,10 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
         const data = this.props.node.data || {}
         const name = detail.name || firstValue(data, ['Name', 'K8s.Name']) || this.props.node.id
         const ready = this.ready()
+        const selfStatus = kubernetesResourceSelfStatus(this.props.node, {
+            ...detail,
+            collectionState: this.state.loading ? 'uncollected' : this.state.error ? 'failed' : 'collected'
+        })
         const statusLabel = ready === true ? translate('kubernetesNodeReady') : ready === false ? translate('kubernetesNodeNotReady') : translate('kubernetesHealthUnknown')
         const connected = this.connectedKubernetesResources()
         const currentPodCount = connected.pods.length
@@ -790,16 +795,16 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
         const currentImpact = ready === false || Number(problemCount || 0) > 0 ? '현재 영향 확인 필요' : '확인된 영향 없음'
         const netdiveTone: DetailBadgeTone = ready === false
             ? 'danger'
-            : Number(problemCount || 0) > 0 || detail.unschedulable
+            : selfStatus.state === 'problem' || Number(problemCount || 0) > 0 || detail.unschedulable
             ? 'warning'
-            : ready === true
+            : selfStatus.state === 'healthy' && ready === true
             ? 'success'
             : 'default'
         const netdiveVerdict = ready === false
             ? translate('kubernetesHealthCritical')
-            : Number(problemCount || 0) > 0 || detail.unschedulable
+            : selfStatus.state === 'problem' || Number(problemCount || 0) > 0 || detail.unschedulable
             ? translate('kubernetesHealthWarning')
-            : ready === true
+            : selfStatus.state === 'healthy' && ready === true
             ? translate('kubernetesHealthNormal')
             : translate('kubernetesHealthUnknown')
         const workloadModalColumns: any[] = [

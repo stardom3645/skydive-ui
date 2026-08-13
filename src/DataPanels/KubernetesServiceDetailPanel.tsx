@@ -1,5 +1,4 @@
 import * as React from 'react'
-import { Tooltip } from 'antd'
 import InfoIcon from '@material-ui/icons/Info'
 import LinkIcon from '@material-ui/icons/Link'
 import SettingsEthernetIcon from '@material-ui/icons/SettingsEthernet'
@@ -10,25 +9,28 @@ import { session } from '../Store'
 import { Node } from '../Topology'
 import { kubernetesLabelValue, matchesKubernetesSelector } from '../KubernetesSelectors'
 import { resolveKubernetesPodController } from '../KubernetesWorkloadOwnership'
+import { aggregateKubernetesServiceOperationalStatus } from '../KubernetesServiceDetailAggregation'
 import {
     BasicInfoRows,
     collectKubernetesEventGroups,
     CompactEmptyState,
     DetailAdvancedInfo,
     DetailBadgeTone,
-    DetailCopyButton,
+    DetailLongValue,
     DetailInlineSectionHeader,
     DetailLayerIcon,
     DetailSectionCard,
     DetailStatusIndicator,
     KubernetesRecentEvents,
+    KubernetesEndpointList,
     KubernetesMetadataRows,
     KubernetesSelectorSummary,
     KUBERNETES_DETAIL_LABELS,
     RelatedResourceGrid,
     StatusEvidenceList,
     StatusEvidenceRow,
-    StatusSummaryGrid
+    StatusSummaryGrid,
+    kubernetesTrafficPolicyLabel
 } from './common'
 import './KubernetesServiceDetailPanel.css'
 
@@ -62,7 +64,6 @@ const firstValue = (data: any, paths: string[]): string => {
     if (Array.isArray(value)) return value.map(String).join(', ')
     return typeof value === 'object' ? JSON.stringify(value) : String(value)
 }
-const optionalNumber = (value: any): React.ReactNode => value === undefined || value === null ? '–' : Number(value)
 const targetPort = (value: any): string => {
     if (value === undefined || value === null || value === '') return ''
     if (typeof value !== 'object') return String(value)
@@ -362,85 +363,45 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
         })
     }
 
-    private renderPorts(ports: any[]) {
+    private renderPorts(ports: any[], serviceType: string) {
         if (!ports.length) return <CompactEmptyState description={translate('kubernetesServicePortsUnavailable')} compact />
-        return <div className="netdive-k8s-service-detail__ports">
-            <div className="netdive-k8s-service-detail__port-head"><span>{translate('kubernetesPortName')}</span><span>{translate('kubernetesServicePort')}</span><span>{translate('kubernetesTargetPort')}</span><span>NodePort</span></div>
-            {ports.map((port, index) => {
-                const servicePort = port.Port ?? port.port
-                return <div className="netdive-k8s-service-detail__port" key={`${port.Name || port.name || index}:${servicePort}`}>
-                    <strong>{port.Name || port.name || translate('kubernetesNone')}</strong>
-                    <span>{servicePort === undefined || servicePort === null || servicePort === '' ? translate('kubernetesNone') : `${servicePort} / ${port.Protocol || port.protocol || 'TCP'}`}</span>
-                    <span>{targetPort(port.TargetPort ?? port.targetPort) || translate('kubernetesNone')}</span>
-                    <span>{Number(port.NodePort ?? port.nodePort ?? 0) || '–'}</span>
-                </div>
-            })}
-        </div>
+        const nodePortApplicable = ['nodeport', 'loadbalancer'].indexOf(String(serviceType || '').toLowerCase()) >= 0
+        return <BasicInfoRows density="compact" labelWidth={122} rows={ports.map((port, index) => {
+            const servicePort = port.Port ?? port.port
+            const nodePort = Number(port.NodePort ?? port.nodePort ?? 0)
+            const parts = [
+                `서비스 ${servicePort === undefined || servicePort === null || servicePort === '' ? translate('kubernetesNone') : `${servicePort}/${port.Protocol || port.protocol || 'TCP'}`}`,
+                `대상 ${targetPort(port.TargetPort ?? port.targetPort) || translate('kubernetesNone')}`,
+                ...(nodePortApplicable ? [`NodePort ${nodePort || '해당 없음'}`] : [])
+            ]
+            return {
+                key: `${port.Name || port.name || index}:${servicePort}`,
+                label: port.Name || port.name || `포트 ${index + 1}`,
+                value: parts.join(' · '),
+                wrap: true
+            }
+        })} />
     }
 
     private renderEndpoints(detail: any) {
         const endpoints = Array.isArray(detail.endpoints) ? detail.endpoints : []
-        if (detail.endpointDataAvailable && endpoints.length) {
-            return <div className="netdive-k8s-service-detail__endpoints">{endpoints.map((endpoint: any, index: number) => {
-                const ready = endpoint.ready === true
-                const podReference = {
-                    uid: endpoint.podUid || endpoint.targetRef?.uid || endpoint.targetRef?.UID,
-                    kind: endpoint.targetRef?.kind || endpoint.targetRef?.Kind || 'Pod',
-                    name: endpoint.podName || endpoint.targetRef?.name || endpoint.targetRef?.Name
-                }
-                const podTarget = this.resourceForReference(podReference)
-                const podName = podReference.name || endpoint.address || translate('kubernetesNotCollected')
-                const nodeName = endpoint.nodeName || ''
-                const nodeTarget = this.resourceByName('node', nodeName)
-                return <div className="netdive-k8s-service-detail__endpoint" key={`${endpoint.address}:${index}`}>
-                    <div className="netdive-k8s-service-detail__endpoint-primary">
-                        <Tooltip title={podName} placement="top">
-                            {podTarget ? <button type="button" onClick={() => this.openResource(podTarget)}>{podName}</button> : <strong>{podName}</strong>}
-                        </Tooltip>
-                        <DetailStatusIndicator tone={ready ? 'success' : 'danger'}>{ready ? 'Ready' : 'NotReady'}</DetailStatusIndicator>
-                    </div>
-                    <div className="netdive-k8s-service-detail__endpoint-secondary">
-                        <span className="netdive-k8s-service-detail__endpoint-ip"><small>{endpoint.address || translate('kubernetesNotCollected')}</small>{endpoint.address && <DetailCopyButton value={String(endpoint.address)} tooltip={translate('copy')} />}</span>
-                        {(endpoint.port || endpoint.protocol) && <span><small>{[endpoint.port, endpoint.protocol].filter(Boolean).join(' / ')}</small></span>}
-                    </div>
-                    <div className="netdive-k8s-service-detail__endpoint-node">
-                        <span>{translate('kubernetesScheduledNodes')}</span>
-                        <Tooltip title={nodeName || translate('kubernetesNotCollected')} placement="top">
-                            {nodeTarget ? <button type="button" onClick={() => this.openResource(nodeTarget)}>{nodeName}</button> : <b>{nodeName || translate('kubernetesNotCollected')}</b>}
-                        </Tooltip>
-                    </div>
-                    {(endpoint.serving !== undefined || endpoint.terminating !== undefined || endpoint.zone || endpoint.sliceName) && <div className="netdive-k8s-service-detail__endpoint-meta">
-                        {endpoint.serving !== undefined && <span>Serving {endpoint.serving ? 'True' : 'False'}</span>}
-                        {endpoint.terminating !== undefined && <span>Terminating {endpoint.terminating ? 'True' : 'False'}</span>}
-                        {endpoint.zone && <span>Zone {endpoint.zone}</span>}
-                        {endpoint.sliceName && <span>Slice {endpoint.sliceName}</span>}
-                    </div>}
-                </div>
-            })}</div>
-        }
-        const pods = Array.isArray(detail.selectedPods) ? detail.selectedPods : []
-        if (!pods.length) return <CompactEmptyState description={translate('kubernetesServiceEndpointsUnavailable')} compact />
-        return <div className="netdive-k8s-service-detail__endpoints">{pods.map((pod: any) => {
-            const podTarget = this.resourceForReference(pod)
-            const nodeTarget = this.resourceByName('node', pod.nodeName)
-            return <div className="netdive-k8s-service-detail__endpoint" key={pod.uid || pod.name}>
-                <div className="netdive-k8s-service-detail__endpoint-primary">
-                    <Tooltip title={pod.name} placement="top">
-                        {podTarget ? <button type="button" onClick={() => this.openResource(podTarget)}>{pod.name}</button> : <strong>{pod.name}</strong>}
-                    </Tooltip>
-                    <DetailStatusIndicator tone={pod.ready === true ? 'success' : pod.ready === false ? 'danger' : 'default'}>{pod.ready === true ? 'Ready' : pod.ready === false ? 'NotReady' : translate('kubernetesUnknown')}</DetailStatusIndicator>
-                </div>
-                <div className="netdive-k8s-service-detail__endpoint-secondary">
-                    <span className="netdive-k8s-service-detail__endpoint-ip"><small>{translate('kubernetesNotCollected')}</small></span>
-                </div>
-                <div className="netdive-k8s-service-detail__endpoint-node">
-                    <span>{translate('kubernetesScheduledNodes')}</span>
-                    <Tooltip title={pod.nodeName || translate('kubernetesNotCollected')} placement="top">
-                        {nodeTarget ? <button type="button" onClick={() => this.openResource(nodeTarget)}>{pod.nodeName}</button> : <b>{pod.nodeName || translate('kubernetesNotCollected')}</b>}
-                    </Tooltip>
-                </div>
-            </div>
-        })}</div>
+        return <KubernetesEndpointList
+            collected={detail.endpointDataAvailable === true}
+            endpoints={endpoints.map((endpoint: any) => ({
+                ...endpoint,
+                targetKind: endpoint.targetKind || endpoint.targetRef?.kind || endpoint.targetRef?.Kind || (endpoint.podName ? 'Pod' : undefined),
+                targetName: endpoint.targetName || endpoint.podName || endpoint.targetRef?.name || endpoint.targetRef?.Name
+            }))}
+            isTargetClickable={endpoint => !!this.resourceForReference({ uid: (endpoint as any).targetUid || (endpoint as any).podUid, kind: endpoint.targetKind, name: endpoint.targetName || endpoint.podName })}
+            isNodeClickable={endpoint => !!this.resourceByName('node', String(endpoint.nodeName || ''))}
+            onTargetClick={endpoint => {
+                const target = this.resourceForReference({ uid: (endpoint as any).targetUid || (endpoint as any).podUid, kind: endpoint.targetKind, name: endpoint.targetName || endpoint.podName })
+                if (target) this.openResource(target)
+            }}
+            onNodeClick={endpoint => {
+                const target = this.resourceByName('node', String(endpoint.nodeName || ''))
+                if (target) this.openResource(target)
+            }} />
     }
 
     render() {
@@ -449,32 +410,9 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
         const endpoints = Array.isArray(detail.endpoints) ? detail.endpoints : []
         const pods = Array.isArray(detail.selectedPods) ? detail.selectedPods : []
         const ports = Array.isArray(detail.ports) ? detail.ports : []
-        const isExternalName = String(detail.type || '').toLowerCase() === 'externalname'
-        const endpointCount = endpointKnown ? Number(detail.endpointCount === undefined ? endpoints.length : detail.endpointCount) : undefined
-        const readyEndpointCount = endpointKnown
-            ? Number(detail.readyEndpointCount === undefined ? endpoints.filter((endpoint: any) => endpoint.ready === true).length : detail.readyEndpointCount)
-            : undefined
-        const hasReadyEndpoints = endpointKnown && Number(readyEndpointCount || 0) > 0
-        const hasEndpointsWithoutReady = endpointKnown && Number(endpointCount || 0) > 0 && Number(readyEndpointCount || 0) === 0
-        const hasNoEndpoints = endpointKnown && Number(endpointCount || 0) === 0
-        const statusTone = hasReadyEndpoints || isExternalName ? 'success' : hasEndpointsWithoutReady || hasNoEndpoints ? 'danger' : 'default'
-        const statusLabel = hasReadyEndpoints || isExternalName
-            ? translate('kubernetesHealthNormal')
-            : hasEndpointsWithoutReady
-                ? translate('kubernetesServiceStatusDanger')
-                : hasNoEndpoints
-                    ? translate('kubernetesHealthWarning')
-                    : translate('kubernetesHealthUnknown')
-        const conclusion = hasReadyEndpoints
-            ? translate('kubernetesServiceReadyEndpointsServing').replace('{count}', String(readyEndpointCount))
-            : hasEndpointsWithoutReady
-                ? translate('kubernetesServiceNoReadyEndpointAvailable')
-                : hasNoEndpoints
-                    ? translate('kubernetesServiceNoEndpoints')
-                    : isExternalName
-                        ? translate('kubernetesServiceExternalNameConfigured')
-                        : translate('kubernetesServiceStatusUnavailable')
-        const readySummary = endpointKnown ? `${Number(readyEndpointCount || 0)}/${Number(endpointCount || 0)}` : '–'
+        const operational = aggregateKubernetesServiceOperationalStatus(detail)
+        const endpointCount = operational.endpointCount
+        const readyEndpointCount = operational.readyEndpointCount
         const selectedPodByName = new Map<string, any>()
         pods.forEach((pod: any) => {
             if (pod?.name) selectedPodByName.set(String(pod.name), pod)
@@ -524,22 +462,22 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
         const normalizedList = (value: any): string => stringList(value).filter(item => item.trim().toLowerCase() !== 'none').join(', ') || translate('kubernetesNone')
         const networkRows = [
             { label: 'Cluster IP', value: isHeadless ? `${translate('kubernetesNone')} · Headless` : clusterIpValue, textValue: clusterIps.join(', '), copyText: clusterIps[0] },
-            { label: 'External IP', value: normalizedList(detail.externalIps), textValue: stringList(detail.externalIps).join(', ') },
-            { label: 'LoadBalancer', value: normalizedList(ingress), textValue: ingress.join(', ') },
-            { label: 'ExternalName', value: displayOptional(detail.externalName), textValue: detail.externalName },
-            { label: translate('kubernetesExternalTrafficPolicy'), value: displayOptional(detail.externalTrafficPolicy) },
-            { label: translate('kubernetesInternalTrafficPolicy'), value: displayOptional(detail.internalTrafficPolicy) },
+            ...(stringList(detail.externalIps).length ? [{ label: 'External IP', value: normalizedList(detail.externalIps), textValue: stringList(detail.externalIps).join(', ') }] : []),
+            ...(ingress.length ? [{ label: 'LoadBalancer', value: normalizedList(ingress), textValue: ingress.join(', ') }] : []),
+            ...(detail.externalName ? [{ label: 'ExternalName', value: displayOptional(detail.externalName), textValue: detail.externalName }] : []),
+            ...(detail.externalTrafficPolicy ? [{ label: translate('kubernetesExternalTrafficPolicy'), value: kubernetesTrafficPolicyLabel(detail.externalTrafficPolicy), tooltip: 'Service 외부 트래픽이 전달될 수 있는 노드 범위를 나타냅니다.', tooltipRawValue: detail.externalTrafficPolicy }] : []),
+            { label: translate('kubernetesInternalTrafficPolicy'), value: kubernetesTrafficPolicyLabel(detail.internalTrafficPolicy || 'Cluster'), tooltip: '클러스터 내부 트래픽이 전달될 수 있는 Endpoint 범위를 나타냅니다.', tooltipRawValue: detail.internalTrafficPolicy || 'Cluster' },
             { label: translate('kubernetesSessionAffinity'), value: displayOptional(detail.sessionAffinity) }
         ]
         const podTargets = pods.map((reference: any) => this.resourceForReference(reference)).filter((resource: Node | undefined): resource is Node => !!resource)
         const workloadTargets = this.workloadTargets(podTargets)
-        const connectedReadyNodeNames = new Set<string>(readyEndpointNodeNames.filter(Boolean))
-        const nodeTargets = Array.from(connectedReadyNodeNames).map(name => this.resourceByName('node', name)).filter((resource: Node | undefined): resource is Node => !!resource)
         const endpointSliceTargets = this.endpointSliceTargets(detail)
+        const endpointSliceReferences = Array.isArray(detail.endpointSlices) ? detail.endpointSlices : []
         const serviceName = String(detail.name || this.props.node.id)
         const ingressTargets = this.ingressTargets(serviceName)
+        const ingressReferences = Array.isArray(detail.ingresses) ? detail.ingresses : []
         const basicRows = [
-            { label: translate('kubernetesServiceName'), value: <Tooltip title={serviceName} placement="top"><span className="netdive-k8s-service-detail__service-name">{serviceName}</span></Tooltip>, textValue: serviceName, copyText: serviceName },
+            { label: translate('kubernetesServiceName'), value: <DetailLongValue value={serviceName} maxLines={2} />, copyText: serviceName },
             { label: translate('kubernetesTopologyNamespaces'), value: displayOptional(detail.namespace) },
             { label: translate('kubernetesServiceType'), value: displayOptional(serviceTypeValue) },
             { label: 'Cluster IP', value: clusterIpValue, textValue: clusterIps.join(', '), copyText: clusterIps[0] }
@@ -555,7 +493,7 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
             detail.recentEvents,
             detail.serviceEvents,
             firstRaw(this.props.node.data || {}, ['K8s.Extra.Events', 'K8s.Events', 'Events'])
-        ], SERVICE_EVENT_TONES)
+        ], SERVICE_EVENT_TONES, { combineSources: true, sinceMs: 60 * 60 * 1000, fallbackResourceKind: 'Service', fallbackResourceName: serviceName, fallbackResourceUid: detail.uid })
         return <div className="netdive-k8s-service-detail">
             {this.returnClusterNode() && <div className="netdive-k8s-service-detail__return">
                 <button type="button" onClick={this.returnToClusterServices}><LeftOutlined />서비스 목록</button>
@@ -577,17 +515,16 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
 
             <DetailSectionCard icon={this.topologyIcon(this.props.node)} title={translate('kubernetesServiceOperationalStatus')}>
                 <StatusSummaryGrid
-                    verdict={statusLabel}
-                    verdictTone={statusTone as DetailBadgeTone}
+                    verdict={operational.verdict}
+                    verdictTone={operational.tone as DetailBadgeTone}
                     rawStatus={detail.type || '–'}
                     rawStatusLabel={translate('kubernetesServiceType')}
-                    impact={conclusion}
-                    impactTooltip={conclusion}
+                    rawStatusTooltip="Kubernetes Service가 트래픽을 노출하는 방식을 나타냅니다."
+                    impact={operational.impact}
+                    impactTooltip={operational.impactDescription}
                     metrics={[
-                        { key: 'ports', label: translate('kubernetesServicePorts'), value: optionalNumber(detail.ports === undefined ? undefined : ports.length), tooltip: 'Service가 외부에 제공하는 포트 수입니다.' },
-                        { key: 'endpoints', label: translate('kubernetesAllEndpoints'), value: endpointKnown ? optionalNumber(endpointCount) : '–', tooltip: '현재 수집된 전체 Endpoint 수입니다.' },
-                        { key: 'ready', label: translate('kubernetesReadyEndpoints'), value: readySummary, tone: hasEndpointsWithoutReady ? 'danger' : endpointKnown && Number(readyEndpointCount || 0) < Number(endpointCount || 0) ? 'warning' : 'default', tooltip: '트래픽을 전달할 수 있는 Ready Endpoint 수입니다.' },
-                        { key: 'pods', label: translate('kubernetesTargetPods'), value: optionalNumber(detail.selectedPods === undefined ? undefined : pods.length), tooltip: 'Selector 또는 토폴로지 관계로 연결된 Pod 수입니다.' }
+                        { key: 'problems', label: '현재 문제', value: operational.currentProblemCount === undefined ? '확인 불가' : operational.currentProblemCount, tone: Number(operational.currentProblemCount || 0) > 0 ? 'danger' : 'default', tooltip: 'Ready가 아닌 Endpoint 수를 기준으로 현재 문제를 집계합니다. Endpoint 자체가 없으면 제공 대상 없음 1건으로 표시합니다.' },
+                        { key: 'ready', label: 'Ready Endpoint', value: operational.readySummary, tone: operational.tone === 'danger' ? 'danger' : endpointKnown && Number(readyEndpointCount || 0) < Number(endpointCount || 0) ? 'warning' : 'default', tooltip: operational.selectorlessDirectEndpoints ? 'Pod selector 없이 직접 Endpoint 주소로 트래픽을 제공하는 Service입니다.' : '전체 Endpoint 중 현재 트래픽을 전달할 수 있는 Ready Endpoint 수입니다.' }
                     ]}
                 />
             </DetailSectionCard>
@@ -623,27 +560,30 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
                 </React.Fragment>}
             </DetailSectionCard>
             <DetailSectionCard icon={<SettingsEthernetIcon />} title={translate('kubernetesServicePortsTraffic')}>
-                {this.renderPorts(ports)}
+                {this.renderPorts(ports, String(detail.type || ''))}
                 <DetailInlineSectionHeader title={translate('kubernetesServiceNetworkExposure')} />
                 <BasicInfoRows density="compact" rows={networkRows} labelWidth={122} />
             </DetailSectionCard>
             <RelatedResourceGrid
                 icon={<LinkIcon />}
                 title={translate('hostConnectedResources')}
-                emptyText={translate('hostNoConnectedResources')}
+                emptyText={detail.endpointDataAvailable === true && detail.podRelationshipAvailable === true && detail.ingressRelationshipAvailable === true
+                    ? '실제 Kubernetes 관계로 확인된 연결 자원이 없습니다.'
+                    : '연결 자원 관계가 모두 수집되지 않았습니다.'}
                 groups={[{
                     key: 'kubernetes',
-                    title: translate('kubernetesConnectedResourceGroup'),
-                    icon: <img src="assets/icons/k8s.png" alt="" />,
                     items: [
-                        ...(podTargets.length ? [{ key: 'pods', label: translate('kubernetesTopologyPods'), count: podTargets.length, icon: this.topologyIcon(podTargets[0]), iconTone: 'kubernetes' as const, onClick: () => this.openResourceList(podTargets) }] : []),
+                        ...(pods.length ? [{ key: 'pods', label: translate('kubernetesTopologyPods'), count: pods.length, icon: podTargets.length ? this.topologyIcon(podTargets[0]) : <img src="assets/icons/k8s.png" alt="" />, iconTone: 'kubernetes' as const, onClick: podTargets.length ? () => this.openResourceList(podTargets) : undefined }] : []),
                         ...(workloadTargets.length ? [{ key: 'workloads', label: translate('kubernetesTopologyWorkloadControllers'), count: workloadTargets.length, icon: <DetailLayerIcon glyph={'\uf5fd'} />, iconTone: 'kubernetes' as const, onClick: () => this.openResourceList(workloadTargets) }] : []),
-                        ...(nodeTargets.length ? [{ key: 'nodes', label: translate('kubernetesTopologyNodes'), count: nodeTargets.length, icon: this.topologyIcon(nodeTargets[0]), iconTone: 'kubernetes' as const, onClick: () => this.openResourceList(nodeTargets) }] : []),
-                        ...(endpointSliceTargets.length ? [{ key: 'endpoint-slices', label: 'EndpointSlice', count: endpointSliceTargets.length, icon: this.topologyIcon(endpointSliceTargets[0]), iconTone: 'kubernetes' as const, onClick: () => this.openResource(endpointSliceTargets[0]) }] : []),
-                        ...(ingressTargets.length ? [{ key: 'ingresses', label: 'Ingress', count: ingressTargets.length, icon: this.topologyIcon(ingressTargets[0]), iconTone: 'kubernetes' as const, onClick: () => this.openResource(ingressTargets[0]) }] : [])
+                        ...(endpointSliceReferences.length ? [{ key: 'endpoint-slices', label: 'EndpointSlice', count: endpointSliceReferences.length, icon: endpointSliceTargets.length ? this.topologyIcon(endpointSliceTargets[0]) : <img src="assets/icons/k8s.png" alt="" />, iconTone: 'kubernetes' as const, onClick: endpointSliceTargets.length ? () => this.openResourceList(endpointSliceTargets) : undefined }] : []),
+                        ...(ingressReferences.length ? [{ key: 'ingresses', label: 'Ingress', count: ingressReferences.length, icon: ingressTargets.length ? this.topologyIcon(ingressTargets[0]) : <img src="assets/icons/k8s.png" alt="" />, iconTone: 'kubernetes' as const, onClick: ingressTargets.length ? () => this.openResourceList(ingressTargets) : undefined }] : [])
                     ]
                 }]} />
-            <DetailSectionCard icon={<HistoryOutlined />} title={translate('kubernetesServiceRecentEvents')}><KubernetesRecentEvents groups={recentEventGroups} emptyText="최근 발생한 중요 이벤트가 없습니다." onResourceClick={group => {
+            <DetailSectionCard icon={<HistoryOutlined />} title={translate('kubernetesServiceRecentEvents')}><KubernetesRecentEvents
+                groups={recentEventGroups}
+                lookbackLabel={detail.eventDataAvailable === true || recentEventGroups.length ? '최근 1시간' : undefined}
+                emptyText={detail.eventDataAvailable === true || recentEventGroups.length ? undefined : '최근 이벤트 데이터가 수집되지 않았습니다.'}
+                onResourceClick={group => {
                 const target = this.resourceForReference({ uid: group.resourceUid, name: group.resourceName, kind: group.resourceKind })
                 if (target) this.focusResources([target])
             }} /></DetailSectionCard>

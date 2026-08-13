@@ -1,6 +1,13 @@
 import { strict as assert } from 'assert'
 import {
     kubernetesCreationTimestamp,
+    kubernetesContainerStateReason,
+    kubernetesImpactLabel,
+    kubernetesDefaultStorageClass,
+    kubernetesBooleanSettingLabel,
+    kubernetesReclaimPolicyLabel,
+    kubernetesVolumeBindingModeLabel,
+    kubernetesVolumeBindingModePresentation,
     formatKubernetesTimestamp,
     kubernetesDaemonSetNodeLabel,
     kubernetesReplicaLabel,
@@ -11,10 +18,52 @@ import {
     kubernetesMetadataKeyLabel,
     kubernetesMetadataValueDescription,
     kubernetesNamespacePhaseLabel,
+    kubernetesPvcPhaseLabel,
+    kubernetesPvPhaseLabel,
+    kubernetesVolumeModeLabel,
+    kubernetesVolumeSourceTypeLabel,
+    kubernetesAccessModesLabel,
     kubernetesResourceConfigurationCollectionState
 } from '../src/DataPanels/common/KubernetesDataPresentation'
 
 describe('Kubernetes data presentation', () => {
+    it('shows only an actual reason from the current container state', () => {
+        assert.equal(kubernetesContainerStateReason({ state: 'RUNNING', lastTerminatedReason: 'OOMKilled' }), undefined)
+        assert.equal(kubernetesContainerStateReason({ state: 'RUNNING' }), undefined)
+        assert.equal(kubernetesContainerStateReason({ state: 'WAITING', waitingReason: 'CrashLoopBackOff' }), 'CrashLoopBackOff')
+        assert.equal(kubernetesContainerStateReason({ state: 'TERMINATED', terminatedReason: 'OOMKilled' }), 'OOMKilled')
+        assert.equal(kubernetesContainerStateReason({ state: 'WAITING', waitingReason: '' }), undefined)
+    })
+
+    it('uses one compact label for no-impact operational states', () => {
+        assert.equal(kubernetesImpactLabel('확인된 가용성 영향 없음'), '영향 없음')
+        assert.equal(kubernetesImpactLabel('확인된 영향 없음'), '영향 없음')
+        assert.equal(kubernetesImpactLabel('현재 영향 없음'), '영향 없음')
+        assert.equal(kubernetesImpactLabel('목표 복제본 충족'), '목표 복제본 충족')
+        assert.equal(kubernetesImpactLabel('가용성 영향 확인 필요'), '가용성 영향 확인 필요')
+        assert.equal(kubernetesImpactLabel('워크로드 2개 미가용'), '2개 미가용')
+    })
+
+    it('formats StorageClass policy values without losing their raw meaning', () => {
+        assert.equal(kubernetesReclaimPolicyLabel('Delete'), '삭제')
+        assert.equal(kubernetesReclaimPolicyLabel('Retain'), '유지')
+        assert.equal(kubernetesVolumeBindingModeLabel('WaitForFirstConsumer'), '사용 시 바인딩')
+        assert.equal(kubernetesVolumeBindingModeLabel('Immediate'), '즉시 바인딩')
+        assert.deepEqual(kubernetesVolumeBindingModePresentation('WaitForFirstConsumer'), {
+            label: '사용 시 바인딩',
+            description: '이 스토리지 클래스를 사용하는 파드의 배치 위치가 결정된 후 볼륨을 바인딩합니다.',
+            rawValue: 'WaitForFirstConsumer'
+        })
+        assert.equal(kubernetesDefaultStorageClass({ 'storageclass.kubernetes.io/is-default-class': 'true' }, false), true)
+        assert.equal(kubernetesDefaultStorageClass({ 'storageclass.beta.kubernetes.io/is-default-class': 'false' }, true), false)
+        assert.equal(kubernetesDefaultStorageClass(undefined, true), true)
+        assert.equal(kubernetesDefaultStorageClass(undefined), undefined)
+        assert.equal(kubernetesBooleanSettingLabel(true, { collected: true, enabledLabel: '지원', disabledLabel: '지원하지 않음' }), '지원')
+        assert.equal(kubernetesBooleanSettingLabel(false, { collected: true, enabledLabel: '지원', disabledLabel: '지원하지 않음' }), '지원하지 않음')
+        assert.equal(kubernetesBooleanSettingLabel(undefined, { collected: true, enabledLabel: '지원', disabledLabel: '지원하지 않음' }), '설정되지 않음')
+        assert.equal(kubernetesBooleanSettingLabel(undefined, { collected: false, enabledLabel: '지원', disabledLabel: '지원하지 않음' }), '수집되지 않음')
+    })
+
     it('keeps single-container resource values distinct without duplicate state text', () => {
         const format = (value: number) => `${value} unit`
         assert.equal(kubernetesSingleResourceValuePresentation({ configuredContainers: 1, collected: true, aggregate: 100, format }), '100 unit')
@@ -94,8 +143,8 @@ describe('Kubernetes data presentation', () => {
             { key: 'services', label: '서비스', state: 'uncollected' }
         ])
         assert.equal(partial.label, '부분 수집')
-        assert.ok(partial.detail.includes('워크로드·파드: 부분 수집'))
-        assert.ok(partial.detail.includes('서비스: 수집되지 않음'))
+        assert.ok(partial.detail.includes('부분 수집: 워크로드·파드'))
+        assert.ok(partial.detail.includes('수집되지 않음: 서비스'))
     })
 
     it('does not report full collection when one source is absent', () => {
@@ -105,8 +154,19 @@ describe('Kubernetes data presentation', () => {
         ])
         assert.equal(partial.label, '부분 수집')
         assert.equal(partial.tone, 'warning')
-        assert.ok(partial.detail.includes('객체 상태: 수집됨'))
-        assert.ok(partial.detail.includes('Requests/Limits: 수집되지 않음'))
+        assert.ok(partial.detail.includes('수집됨: 객체 상태'))
+        assert.ok(partial.detail.includes('수집되지 않음: Requests/Limits'))
+    })
+
+    it('reports collection failure only when essential resource evidence is absent', () => {
+        const failed = kubernetesCollectionPresentation([
+            { key: 'object', label: 'PVC 기본 정보', collected: false, essential: true },
+            { key: 'events', label: '최근 불안정성', collected: true }
+        ])
+        assert.equal(failed.label, '수집 실패')
+        assert.equal(failed.tone, 'danger')
+        assert.ok(failed.detail.includes('수집됨: 최근 불안정성'))
+        assert.ok(failed.detail.includes('수집되지 않음: PVC 기본 정보'))
     })
 
     it('keeps Requests/Limits collection state shared across resource panels', () => {
@@ -126,6 +186,27 @@ describe('Kubernetes data presentation', () => {
     it('uses the shared Korean Namespace phase vocabulary', () => {
         assert.equal(kubernetesNamespacePhaseLabel('Active'), '활성')
         assert.equal(kubernetesNamespacePhaseLabel('Terminating'), '종료 중')
+    })
+
+    it('uses shared Korean PVC storage vocabulary without losing Kubernetes values', () => {
+        assert.equal(kubernetesPvcPhaseLabel('Bound'), '바인딩 완료')
+        assert.equal(kubernetesPvcPhaseLabel('Pending'), '바인딩 대기')
+        assert.equal(kubernetesPvcPhaseLabel('Lost'), '바인딩 손실')
+        assert.equal(kubernetesVolumeModeLabel('Filesystem'), '파일시스템')
+        assert.equal(kubernetesVolumeModeLabel('Block'), '블록')
+        assert.equal(kubernetesAccessModesLabel(['ReadWriteOnce']), '단일 노드 읽기/쓰기')
+        assert.equal(kubernetesAccessModesLabel(['ReadOnlyMany', 'ReadWriteMany']), '다중 노드 읽기 전용, 다중 노드 읽기/쓰기')
+        assert.equal(kubernetesAccessModesLabel(['ReadWriteOncePod']), '단일 파드 읽기/쓰기')
+    })
+
+    it('uses shared Korean PV phase and volume-source vocabulary', () => {
+        assert.equal(kubernetesPvPhaseLabel('Available'), '사용 가능')
+        assert.equal(kubernetesPvPhaseLabel('Bound'), '바인딩 완료')
+        assert.equal(kubernetesPvPhaseLabel('Released'), '클레임 해제')
+        assert.equal(kubernetesPvPhaseLabel('Failed'), '바인딩 실패')
+        assert.equal(kubernetesVolumeSourceTypeLabel('HostPath'), '호스트 경로')
+        assert.equal(kubernetesVolumeSourceTypeLabel('Local'), '로컬 볼륨')
+        assert.equal(kubernetesVolumeSourceTypeLabel('CSI'), 'CSI')
     })
 
     it('describes long kubectl metadata without repeating its JSON value', () => {

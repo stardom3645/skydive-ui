@@ -81,6 +81,8 @@ export interface KubernetesMetadataRowItem {
     excludedKeys?: string[]
     modalTitle: React.ReactNode
     description?: React.ReactNode
+    /** Distinguishes an explicitly collected empty map from absent metadata. */
+    collected?: boolean
 }
 
 export interface KubernetesMetadataRowsProps {
@@ -95,10 +97,16 @@ export interface KubernetesMetadataRowsProps {
 export const KubernetesMetadataRows = ({ items, labelWidth = 122 }: KubernetesMetadataRowsProps) => {
     const [selectedKey, setSelectedKey] = React.useState<React.Key | undefined>()
     const normalized = items.map(item => ({ ...item, entries: normalizeKubernetesMetadata(item.data, item.excludedKeys) }))
-    const selected = normalized.find(item => item.key === selectedKey && item.entries.length > 0)
+    const selected = normalized.find(item => item.key === selectedKey && item.collected !== false && item.entries.length > 0)
     const labelColumn = typeof labelWidth === 'number' ? `${labelWidth}px` : labelWidth
     return <div className="netdive-detail-metadata-rows">
         {normalized.map(item => {
+            if (item.collected === false) return <div
+                key={item.key}
+                className="netdive-detail-metadata-row is-empty"
+                style={{ gridTemplateColumns: `${labelColumn} minmax(0, 1fr) 24px` }}>
+                <strong>{item.label}</strong><span>수집되지 않음</span><span aria-hidden="true" />
+            </div>
             if (item.entries.length === 0) return <div
                 key={item.key}
                 className="netdive-detail-metadata-row is-empty"

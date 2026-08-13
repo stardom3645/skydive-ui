@@ -29,6 +29,21 @@ export interface KubernetesPodClassification {
     deletionTimestamp: boolean
 }
 
+export interface KubernetesPodCurrentStatusSnapshot {
+    uid: string
+    name?: string
+    namespace?: string
+    phase?: string
+    reason?: string
+    nodeName?: string
+    ready?: boolean
+    problem?: boolean
+    crashLoop?: boolean
+    currentOOMKilled?: boolean
+    deleting?: boolean
+    observedAt?: string
+}
+
 export interface KubernetesPodTime {
     value?: number
     text: string
@@ -86,7 +101,7 @@ export interface KubernetesPodAggregate {
  * phase, reason, conditions or container states independently.
  */
 export const KUBERNETES_POD_DOMAIN_RULES = Object.freeze({
-    activePhases: ['pending', 'running'],
+    activePhases: ['pending', 'running', 'unknown'],
     terminatedPhases: ['succeeded', 'failed'],
     actionableWaitingReasons: [
         'crashloopbackoff',
@@ -118,6 +133,82 @@ const arrayValue = (data: any, paths: string[]): any[] => {
 
 const normalized = (value: any): string => String(value || '').trim().toLowerCase()
 
+// Namespace and Pod detail APIs observe Kubernetes directly and are fresher
+// than topology snapshots. Keeping the latest UID-scoped observation here lets
+// Namespace, Deployment and Pod panels share one current-state decision.
+const currentPodStatusByUID = new Map<string, KubernetesPodCurrentStatusSnapshot>()
+
+const podUID = (node: Node): string => String(firstValue(node.data || {}, [
+    'K8s.Extra.ObjectMeta.UID', 'K8s.UID', 'UID'
+]) || node.id)
+
+export const registerKubernetesPodCurrentStatusSnapshots = (snapshots: any[]): void => {
+    ;(Array.isArray(snapshots) ? snapshots : []).forEach(snapshot => {
+        const uid = String(snapshot?.uid ?? snapshot?.UID ?? '').trim()
+        if (!uid) return
+        const candidate: KubernetesPodCurrentStatusSnapshot = {
+            uid,
+            name: snapshot?.name ?? snapshot?.Name,
+            namespace: snapshot?.namespace ?? snapshot?.Namespace,
+            phase: snapshot?.phase ?? snapshot?.Phase,
+            reason: snapshot?.reason ?? snapshot?.Reason,
+            nodeName: snapshot?.nodeName ?? snapshot?.NodeName,
+            ready: typeof (snapshot?.ready ?? snapshot?.Ready) === 'boolean' ? (snapshot?.ready ?? snapshot?.Ready) : undefined,
+            problem: typeof (snapshot?.problem ?? snapshot?.Problem) === 'boolean' ? (snapshot?.problem ?? snapshot?.Problem) : undefined,
+            crashLoop: typeof (snapshot?.crashLoop ?? snapshot?.CrashLoop) === 'boolean' ? (snapshot?.crashLoop ?? snapshot?.CrashLoop) : undefined,
+            currentOOMKilled: typeof (snapshot?.currentOOMKilled ?? snapshot?.CurrentOOMKilled) === 'boolean' ? (snapshot?.currentOOMKilled ?? snapshot?.CurrentOOMKilled) : undefined,
+            deleting: typeof (snapshot?.deleting ?? snapshot?.Deleting) === 'boolean' ? (snapshot?.deleting ?? snapshot?.Deleting) : undefined,
+            observedAt: snapshot?.observedAt ?? snapshot?.ObservedAt
+        }
+        const previous = currentPodStatusByUID.get(uid)
+        const previousTime = previous?.observedAt ? Date.parse(previous.observedAt) : 0
+        const candidateTime = candidate.observedAt ? Date.parse(candidate.observedAt) : Date.now()
+        if (!previous || !Number.isFinite(previousTime) || !Number.isFinite(candidateTime) || candidateTime >= previousTime) {
+            currentPodStatusByUID.set(uid, candidate)
+        }
+    })
+}
+
+export const registerKubernetesPodCurrentStatusDetail = (detail: any): void => {
+    if (!detail) return
+    const conditions = Array.isArray(detail.conditions) ? detail.conditions : []
+    const readyCondition = conditions.find((condition: any) => normalized(condition?.type ?? condition?.Type) === 'ready')
+    const containers = (Array.isArray(detail.containers) ? detail.containers : [])
+        .filter((container: any) => normalized(container?.type) === 'application')
+    const ready = readyCondition
+        ? normalized(readyCondition.status ?? readyCondition.Status) === 'true'
+        : containers.length > 0 && containers.every((container: any) => container?.ready === true)
+            ? true
+            : undefined
+    const actionable = new Set(KUBERNETES_POD_DOMAIN_RULES.actionableWaitingReasons)
+    const waitingReasons = containers
+        .map((container: any) => normalized(container?.waitingReason))
+        .filter(Boolean)
+    const crashLoop = waitingReasons.indexOf('crashloopbackoff') >= 0
+    const currentOOMKilled = containers.some((container: any) =>
+        normalized(container?.state) === 'terminated' && normalized(container?.terminatedReason) === 'oomkilled')
+    const phase = normalized(detail.phase)
+    registerKubernetesPodCurrentStatusSnapshots([{
+        uid: detail.uid,
+        name: detail.name,
+        namespace: detail.namespace,
+        phase: detail.phase,
+        reason: detail.reason,
+        nodeName: detail.nodeName,
+        ready,
+        problem: phase === 'pending' || phase === 'failed' || phase === 'unknown'
+            || (phase === 'running' && ready === false)
+            || waitingReasons.some(reason => actionable.has(reason))
+            || currentOOMKilled,
+        crashLoop,
+        currentOOMKilled,
+        observedAt: detail.observedAt || new Date().toISOString()
+    }])
+}
+
+export const kubernetesPodCurrentStatusSnapshot = (node: Node): KubernetesPodCurrentStatusSnapshot | undefined =>
+    currentPodStatusByUID.get(podUID(node))
+
 const podStatuses = (data: any): any[] => ([] as any[]).concat(
     arrayValue(data, ['K8s.Extra.Status.InitContainerStatuses']),
     arrayValue(data, ['K8s.Extra.Status.ContainerStatuses']),
@@ -127,10 +218,15 @@ const podStatuses = (data: any): any[] => ([] as any[]).concat(
 const podConditions = (data: any): any[] =>
     arrayValue(data, ['K8s.Extra.Status.Conditions', 'K8s.Conditions', 'Conditions'])
 
-const podReady = (data: any): boolean | undefined => {
+export const kubernetesPodReady = (data: any): boolean | undefined => {
     const ready = podConditions(data).find(condition => normalized(condition?.Type || condition?.type) === 'ready')
-    if (!ready) return undefined
-    return normalized(ready?.Status ?? ready?.status) === 'true'
+    if (ready) return normalized(ready?.Status ?? ready?.status) === 'true'
+    // Only application containers participate in the Pod readiness fallback.
+    // Completed init containers and ephemeral containers cannot make a current
+    // Running Pod Not Ready.
+    const statuses = arrayValue(data, ['K8s.Extra.Status.ContainerStatuses'])
+    if (statuses.length > 0 && statuses.every(status => (status?.Ready ?? status?.ready) === true)) return true
+    return undefined
 }
 
 const dateValue = (value: any): number | undefined => {
@@ -182,11 +278,12 @@ const terminalCategory = (phase: string, rawReason: string, reasons: string[]): 
 // topology badges must consume these flags rather than inspect phase/reason.
 export const getPodClassification = (node: Node): KubernetesPodClassification => {
     const data = node.data || {}
-    const phase = normalized(firstValue(data, ['K8s.Extra.Status.Phase', 'K8s.Phase', 'Phase', 'K8s.Status', 'Status']))
-    const reason = normalized(firstValue(data, ['K8s.Extra.Status.Reason', 'K8s.Reason', 'Reason']))
-    const deletionTimestamp = isTerminating(data)
+    const currentStatus = kubernetesPodCurrentStatusSnapshot(node)
+    const phase = normalized(currentStatus?.phase || firstValue(data, ['K8s.Extra.Status.Phase', 'K8s.Phase', 'Phase', 'K8s.Status', 'Status']))
+    const reason = normalized(currentStatus?.reason || firstValue(data, ['K8s.Extra.Status.Reason', 'K8s.Reason', 'Reason']))
+    const deletionTimestamp = currentStatus?.deleting !== undefined ? currentStatus.deleting : isTerminating(data)
     const terminalReason = reason === 'evicted' || reason === 'completed'
-    const activePod = !deletionTimestamp && !terminalReason && (phase === 'pending' || phase === 'running')
+    const activePod = !deletionTimestamp && !terminalReason && (phase === 'pending' || phase === 'running' || phase === 'unknown')
     const statuses = podStatuses(data)
     const waitingReasons = waitingReasonsOf(data)
     const historicalReasons = terminatedReasonsOf(data)
@@ -204,7 +301,12 @@ export const getPodClassification = (node: Node): KubernetesPodClassification =>
             problemReasons.push('oomkilled')
         }
     })
-    if (podReady(data) === false) problemReasons.push('ready=false')
+    const ready = currentStatus?.ready !== undefined ? currentStatus.ready : kubernetesPodReady(data)
+    if (ready === false) problemReasons.push('ready=false')
+    if (currentStatus?.crashLoop === true) problemReasons.push('crashloopbackoff')
+    if (currentStatus?.currentOOMKilled === true) problemReasons.push('oomkilled')
+    if (currentStatus?.problem === true && problemReasons.length === 0) problemReasons.push('api-current-problem')
+    if (currentStatus?.problem === false) problemReasons.splice(0, problemReasons.length)
     const uniqueProblemReasons = Array.from(new Set(problemReasons))
     const evicted = reason === 'evicted'
     const completed = phase === 'succeeded' || reason === 'completed'

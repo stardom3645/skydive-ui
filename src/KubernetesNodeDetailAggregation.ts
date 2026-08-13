@@ -1,5 +1,6 @@
 import type { Node } from './Topology'
 import { resolveKubernetesPodTopController } from './KubernetesWorkloadOwnership'
+import { getPodClassification, kubernetesPodCurrentStatusSnapshot, kubernetesPodReady } from './KubernetesPodLifecycle'
 
 export const KUBERNETES_NODE_SIGNAL_WINDOW_MS = 60 * 60 * 1000
 export const KUBERNETES_LONG_TERMINATING_MS = 5 * 60 * 1000
@@ -36,21 +37,9 @@ const podStatuses = (node: Node): any[] => ([] as any[]).concat(
     values(node.data || {}, ['K8s.Extra.Status.EphemeralContainerStatuses'])
 )
 
-const podConditions = (node: Node): any[] => values(node.data || {}, [
-    'K8s.Extra.Status.Conditions', 'K8s.Conditions', 'Conditions'
-])
-
 const podUID = (node: Node): string => String(firstRaw(node.data || {}, [
     'K8s.Extra.ObjectMeta.UID', 'K8s.UID', 'UID'
 ]) || node.id)
-
-const podPhase = (node: Node): string => normalized(firstRaw(node.data || {}, [
-    'K8s.Extra.Status.Phase', 'K8s.Phase', 'Phase', 'K8s.Status', 'Status'
-]))
-
-const podReason = (node: Node): string => normalized(firstRaw(node.data || {}, [
-    'K8s.Extra.Status.Reason', 'K8s.Reason', 'Reason'
-]))
 
 const podNodeName = (node: Node): string => String(firstRaw(node.data || {}, [
     'K8s.Extra.Spec.NodeName', 'K8s.Spec.NodeName', 'K8s.NodeName', 'K8s.Node', 'NodeName'
@@ -84,9 +73,8 @@ const deletionTimestamp = (node: Node): number | undefined => dateValue(firstRaw
 ]))
 
 const readyState = (node: Node): boolean | undefined => {
-    const condition = podConditions(node).find(item => normalized(item?.Type || item?.type) === 'ready')
-    if (!condition) return undefined
-    return normalized(condition?.Status ?? condition?.status) === 'true'
+    const current = kubernetesPodCurrentStatusSnapshot(node)
+    return current?.ready !== undefined ? current.ready : kubernetesPodReady(node.data || {})
 }
 
 const waitingReasons = (node: Node): string[] => podStatuses(node)
@@ -171,14 +159,14 @@ export const kubernetesOperationalPodDataset = (
         'createcontainerconfigerror', 'createcontainererror', 'runcontainererror',
         'containerstatusunknown'
     ])
-
     scopedPods.forEach(pod => {
-        const phase = podPhase(pod)
-        const reason = podReason(pod)
+        const classification = getPodClassification(pod)
+        const currentStatus = kubernetesPodCurrentStatusSnapshot(pod)
+        const phase = classification.phase
+        const reason = classification.reason
         const deletingAt = deletionTimestamp(pod)
         const terminatingTooLong = deletingAt !== undefined && now - deletingAt >= KUBERNETES_LONG_TERMINATING_MS
-        const terminal = phase === 'succeeded' || phase === 'failed' || reason === 'evicted' || reason === 'completed'
-        const active = deletingAt === undefined && !terminal
+        const active = classification.activePod
         const ready = readyState(pod)
         const podWaitingReasons = waitingReasons(pod)
         const records = terminationRecords(pod)
@@ -188,18 +176,20 @@ export const kubernetesOperationalPodDataset = (
         const hasRestartHistory = active && restartCount(pod) > 0
         const recentRestart = hasRestartHistory && explicitRestartTimes(pod).some(timestamp => withinWindow(timestamp, now))
         const waitingProblem = podWaitingReasons.some(waiting => actionableWaitingReasons.has(waiting))
-        const problem = phase === 'pending'
+        const topologyProblem = classification.problemPod
+            || phase === 'pending'
             || phase === 'failed'
             || phase === 'unknown'
             || reason === 'evicted'
-            || (phase === 'running' && ready === false)
             || waitingProblem
+        const currentStateProblem = currentStatus?.problem !== undefined ? currentStatus.problem : topologyProblem
+        const problem = currentStateProblem
             || terminatingTooLong
             || currentOrRecentOOM
 
         if (active) activePods.push(pod)
-        if (active && phase === 'running') runningPods.push(pod)
-        if (active && phase === 'pending') pendingPods.push(pod)
+        if (classification.runningPod) runningPods.push(pod)
+        if (classification.pendingPod) pendingPods.push(pod)
         if (phase === 'failed') failedPods.push(pod)
         if (phase === 'succeeded') succeededPods.push(pod)
         if (phase === 'unknown') unknownPods.push(pod)

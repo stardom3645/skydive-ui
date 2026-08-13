@@ -18,6 +18,7 @@ export {
     DetailModalAction,
     DetailLayerIcon,
     DetailInlineSectionHeader,
+    DetailInfoTooltip,
     DetailMetricRow,
     DetailMetricSummaryRow,
     DetailPanelHeader,
@@ -59,9 +60,23 @@ export {
     kubernetesMetadataKeyLabel,
     kubernetesMetadataValueDescription,
     kubernetesContainerKindLabel,
+    kubernetesContainerStateReason,
+    kubernetesImpactLabel,
+    kubernetesDefaultStorageClass,
+    kubernetesBooleanSettingLabel,
+    kubernetesReclaimPolicyLabel,
+    kubernetesVolumeBindingModeLabel,
+    kubernetesVolumeBindingModePresentation,
     kubernetesDaemonSetNodeLabel,
     kubernetesNamespacePhaseLabel,
     kubernetesPodPhaseLabel,
+    kubernetesPvcPhaseLabel,
+    kubernetesPvPhaseLabel,
+    kubernetesVolumeModeLabel,
+    kubernetesAccessModeLabel,
+    kubernetesAccessModesLabel,
+    kubernetesTrafficPolicyLabel,
+    kubernetesVolumeSourceTypeLabel,
     kubernetesReplicaLabel,
     kubernetesSingleResourceValuePresentation,
     kubernetesResourceConfigurationCollectionState
@@ -73,11 +88,16 @@ export type {
     KubernetesConfiguredResourceTotalOptions,
     KubernetesConfigurationCoveragePresentation,
     KubernetesConfigurationState,
+    KubernetesBooleanSettingOptions,
     KubernetesResourceConfigurationCollectionMetric
 } from './KubernetesDataPresentation'
 export type { KubernetesReplicaTerm } from './KubernetesDataPresentation'
 export type { KubernetesDaemonSetNodeTerm } from './KubernetesDataPresentation'
 export { KUBERNETES_DAEMONSET_PLACEMENT_ROLLOUT_TITLE } from './KubernetesDataPresentation'
+export { KubernetesStructuredDataModalAction } from './KubernetesStructuredDataModalAction'
+export type { KubernetesStructuredDataModalActionProps } from './KubernetesStructuredDataModalAction'
+export { KubernetesConnectedResourceModal } from './KubernetesConnectedResourceModal'
+export type { KubernetesConnectedResourceModalProps } from './KubernetesConnectedResourceModal'
 
 export { KubernetesReplicaSummary } from './KubernetesReplicaSummary'
 export type { KubernetesReplicaSummaryProps } from './KubernetesReplicaSummary'
@@ -91,6 +111,8 @@ export { KubernetesContainerDetails } from './KubernetesContainerDetails'
 export type { KubernetesContainerDetailItem, KubernetesContainerDetailsProps, KubernetesContainerRuntimeDetail } from './KubernetesContainerDetails'
 export { KubernetesVolumeDetailModal, KubernetesVolumeList } from './KubernetesVolumeList'
 export type { KubernetesVolumeDetailModalProps, KubernetesVolumeListProps } from './KubernetesVolumeList'
+export { KubernetesEndpointList } from './KubernetesEndpointList'
+export type { KubernetesEndpointItem, KubernetesEndpointListProps } from './KubernetesEndpointList'
 
 export { kubernetesSchedulingMetadata, normalizeKubernetesSchedulingConfiguration } from './KubernetesSchedulingPresentation'
 export type { KubernetesSchedulingConfiguration } from './KubernetesSchedulingPresentation'
@@ -242,6 +264,7 @@ export type {
     DetailMetaInfoItem,
     DetailMetadataSummaryProps,
     DetailPanelHeaderProps,
+    DetailInfoTooltipProps,
     DetailOperationalMetric,
     DetailOperationalSummaryProps,
     DetailResourceCardProps,

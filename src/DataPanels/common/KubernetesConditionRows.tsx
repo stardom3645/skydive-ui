@@ -18,7 +18,9 @@ export interface KubernetesConditionRowsProps {
 /** Shared Kubernetes Condition renderer. Resource panels supply only the
  * semantic True/False policy and user-facing wording for their Condition set. */
 export const KubernetesConditionRows = ({ conditions, definitions = {}, showRawValue = true }: KubernetesConditionRowsProps) =>
-    <StatusEvidenceList columnHeaders={{ state: '상태', value: showRawValue ? '원본 값' : undefined }}>
+    <StatusEvidenceList
+        stateColumnAlignment="center"
+        columnHeaders={{ state: '상태', value: showRawValue ? '원본 값' : undefined }}>
         {conditions.map(condition => {
             const presentation = kubernetesConditionPresentation(condition, definitions)
             return <StatusEvidenceRow

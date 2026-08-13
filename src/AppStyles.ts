@@ -2973,6 +2973,11 @@ export const styles = (theme: Theme) => createStyles({
       fontSize: 18
     }
   },
+  topologyIconButtonActive: {
+    color: 'var(--netdive-action-btn-text) !important',
+    backgroundColor: 'var(--netdive-action-btn-hover) !important',
+    boxShadow: 'inset 0 -2px 0 var(--netdive-action-btn-border-hover)'
+  },
   topologyTextIconButton: {
     width: 52,
     '& span': {

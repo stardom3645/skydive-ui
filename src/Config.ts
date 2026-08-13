@@ -2109,7 +2109,7 @@ export const i18nMap = {
         "kubernetesSingleSwitch": "단일 스위치",
         "kubernetesRiskReview": "확인",
         "kubernetesHeroControlPlaneFailure": "Control Plane {count}대 장애",
-        "kubernetesHeroWorkerFailure": "Worker Node {count}대 장애",
+        "kubernetesHeroWorkerFailure": "노드 {count}대 장애",
         "kubernetesHeroPodFailure": "Failed 파드 {count}개",
         "kubernetesHeroServiceImpact": "서비스 {count}개 영향",
         "kubernetesHeroNetworkConcentration": "네트워크 경로 집중",
@@ -3422,70 +3422,9 @@ class DefaultConfig {
     }
 
     nodeMenu(node: Node): Array<MenuItem> {
-        var captures = node.data.Captures?.length
-        const alreadyCaptured = captures > 0;
-
-        // 캡처 비허용 타입 정의
-        const nodeType = typeof node.data.Type === "string" ? node.data.Type.toLowerCase() : "";
-        const manager = typeof node.data.Manager === "string" ? node.data.Manager.toLowerCase() : "";
-        const disallowedCaptureTypes = ["switch", "switchport", "host", "libvirt", "tuntap", "system", "ovsbridge", "ovsport"];
-        const isDisallowed = manager === "k8s" || !node.data.TID || disallowedCaptureTypes.includes(nodeType);
-
-        return [
-            {
-                class: "",
-                text: translate("capture"),
-                disabled: alreadyCaptured || isDisallowed,
-                callback: () => {
-                    if (isDisallowed) return;
-                    const api = new window.API.CapturesApi(window.App.apiConf);
-                    api.createCapture({ GremlinQuery: `G.V('${node.id}')` }).then(result => {
-                        console.log(result);
-                    });
-                }
-            },
-            {
-                class: "",
-                text: translate("delete-captures"),
-                disabled: !captures,
-                callback: () => {
-                    const api = new window.API.CapturesApi(window.App.apiConf);
-
-                    const captureIDs = [...node.data.Captures.map(c => c.ID)];
-                    const isOvsPort = node.data.Type === "ovsport";
-
-                    Promise.all(
-                        captureIDs.map(captureID => {
-                            return api.deleteCapture(captureID).then(result => {
-                                console.log("Deleted:", captureID);
-                                return captureID;
-                            });
-                        })
-                    ).then(deletedIDs => {
-                        node.data = {
-                            ...node.data,
-                            Captures: node.data.Captures.filter(c => !deletedIDs.includes(c.ID))
-                        };
-
-                        if ((node as any).metadata) {
-                            delete (node as any).metadata.Captures;
-                            delete (node as any).metadata.CaptureState;
-                            (node as any).metadata = { ...(node as any).metadata };
-                        }
-
-                        // OVS 포트 노드면 전체 리프레시
-                        if (isOvsPort) {
-                            window.refreshTopology?.();
-                        }
-                    });
-                }
-            },
-
-            //{ class: "", text: "Capture all", disabled: true, callback: () => { console.log("Capture all") } },
-            //{ class: "", text: "Injection", disabled: false, callback: () => { console.log("Injection") } },
-            //{ class: "", text: "Flows", disabled: false, callback: () => { console.log("Flows") } },
-            //{ class: "", text: "Filter NS(demo)", disabled: false, callback: () => { window.App.loadExtraConfig("/assets/nsconfig.js") } }
-        ]
+        // 우클릭 메뉴는 Topology의 공통 탐색 메뉴가 담당합니다.
+        // 캡처 작업은 상세 패널에서만 제공합니다.
+        return []
     }
 
     nodeTags(data: any): Array<string> {

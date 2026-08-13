@@ -22,6 +22,7 @@
 
 .netdive-k8s-state-separation > div:last-child { border-right: 0; }
 .netdive-k8s-state-separation span { color: #667085; font-size: var(--netdive-detail-font-supporting-text); font-weight: var(--netdive-detail-weight-supporting-text); line-height: var(--netdive-detail-line-supporting-text); }
+.netdive-k8s-state-separation > div > span { display: inline-flex; align-items: center; justify-content: center; gap: 4px; }
 .netdive-k8s-state-separation strong { color: #475467; font-size: var(--netdive-detail-font-body-label); font-variant-numeric: tabular-nums; font-weight: var(--netdive-detail-weight-status-tag); line-height: var(--netdive-detail-line-body-label); }
 .netdive-k8s-state-separation > div.is-danger strong { color: #b42318; }
 .netdive-k8s-state-separation > div.is-warning strong { color: #b54708; }

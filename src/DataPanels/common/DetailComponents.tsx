@@ -2,6 +2,8 @@ import * as React from 'react'
 import { Button, Card, Collapse, Dropdown, Empty, Menu, Modal, Progress, Tabs, Tag, Tooltip, Typography } from 'antd'
 import { CopyOutlined, DownOutlined, EllipsisOutlined, InfoCircleOutlined, RightOutlined } from '@ant-design/icons'
 
+import { kubernetesImpactLabel } from './KubernetesDataPresentation'
+
 import './DetailComponents.css'
 
 const joinClassNames = (...classNames: Array<string | undefined | false>) => classNames.filter(Boolean).join(' ')
@@ -197,11 +199,10 @@ export const DetailSection = ({
                 {icon && <span className="netdive-detail-section__icon">{icon}</span>}
                 <div className="netdive-detail-section__title-block">
                     <Typography.Text className="netdive-detail-section__title">{title}</Typography.Text>
-                    {description && (descriptionTooltip
-                        ? <Tooltip title={<DetailTooltipContent description={descriptionTooltip} />} overlayClassName="netdive-operational-tooltip">
-                            <Typography.Text className="netdive-detail-section__description">{description}</Typography.Text>
-                        </Tooltip>
-                        : <Typography.Text className="netdive-detail-section__description">{description}</Typography.Text>)}
+                    {description && <span className="netdive-detail-section__description-row">
+                        <Typography.Text className="netdive-detail-section__description">{description}</Typography.Text>
+                        <DetailInfoTooltip description={descriptionTooltip} ariaLabel="섹션 설명" />
+                    </span>}
                 </div>
             </div>
             {(action || collapsible) && (
@@ -281,6 +282,8 @@ export interface DetailKeyValueRow {
     textValue?: string
     copyText?: string
     tooltip?: React.ReactNode
+    tooltipDetail?: React.ReactNode
+    tooltipRawValue?: React.ReactNode
     wrap?: boolean
     labelWrap?: boolean
 }
@@ -342,8 +345,8 @@ export const DetailKeyValueList = ({
     return (
         <div className={joinClassNames('netdive-detail-kv', density === 'compact' && 'netdive-detail-kv--compact', className)}>
             {rows.map((row, index) => {
-                const value = row.tooltip || row.textValue
-                    ? <Tooltip title={row.tooltip || row.textValue} placement="top"><span className="netdive-detail-kv__value-text">{row.value}</span></Tooltip>
+                const value = row.textValue
+                    ? <Tooltip title={row.textValue} placement="top"><span className="netdive-detail-kv__value-text">{row.value}</span></Tooltip>
                     : <span className="netdive-detail-kv__value-text">{row.value}</span>
                 return (
                     <div
@@ -353,6 +356,11 @@ export const DetailKeyValueList = ({
                         <Typography.Text className={joinClassNames('netdive-detail-kv__label', row.labelWrap && 'netdive-detail-kv__label--wrap')}>{row.label}</Typography.Text>
                         <div className="netdive-detail-kv__value">
                             {value}
+                            <DetailInfoTooltip
+                                description={row.tooltip}
+                                detail={row.tooltipDetail}
+                                rawValue={row.tooltipRawValue}
+                                ariaLabel={`${String(row.label)} 상세 정보`} />
                             {row.copyText && (
                                 <DetailCopyButton
                                     value={row.copyText}
@@ -401,14 +409,18 @@ export type DetailBadgeTone = 'default' | 'info' | 'success' | 'warning' | 'dang
 export interface DetailBadgeProps {
     children: React.ReactNode
     tone?: DetailBadgeTone
+    tooltip?: React.ReactNode
     className?: string
 }
 
-export const DetailBadge = ({ children, tone = 'default', className }: DetailBadgeProps) => (
-    <Tag className={joinClassNames('netdive-detail-badge', `netdive-detail-badge--${tone}`, className)}>
+export const DetailBadge = ({ children, tone = 'default', tooltip, className }: DetailBadgeProps) => {
+    const badge = <Tag className={joinClassNames('netdive-detail-badge', `netdive-detail-badge--${tone}`, className)}>
         {children}
     </Tag>
-)
+    return tooltip
+        ? <span className="netdive-detail-badge-with-info">{badge}<DetailInfoTooltip description={tooltip} ariaLabel="상태 정보" /></span>
+        : badge
+}
 
 export interface DetailOperationalMetric {
     key?: React.Key
@@ -419,6 +431,9 @@ export interface DetailOperationalMetric {
     tooltipRawValue?: React.ReactNode
     tone?: DetailBadgeTone
     onClick?: () => void
+    /** Allows panels to omit a KPI whose evidence was not collected while the
+     * shared collection-status row explains the missing source once. */
+    visible?: boolean
 }
 
 export interface DetailOperationalSummaryProps {
@@ -434,6 +449,8 @@ export interface DetailOperationalSummaryProps {
     rawStatusTooltip?: React.ReactNode
     impactTooltip?: React.ReactNode
     metrics?: DetailOperationalMetric[]
+    summaryTitle?: React.ReactNode
+    metricsTitle?: React.ReactNode
     className?: string
 }
 
@@ -465,11 +482,59 @@ const operationalTooltip = (
     ? <DetailTooltipContent description={description} detail={detail} rawValue={rawValue} />
     : undefined
 
-const operationalTooltipTrigger = (content: React.ReactElement, description?: React.ReactNode, detail?: React.ReactNode, rawValue?: React.ReactNode) => {
+const DETAIL_TOOLTIP_PORTAL_ID = 'netdive-detail-tooltip-portal'
+
+/** A viewport-fixed portal keeps transient Ant Tooltip overlays out of the
+ * document's scrollable width. This prevents a wide tooltip near the panel
+ * edge from briefly adding a horizontal scrollbar and shifting the panel. */
+const detailTooltipPopupContainer = (): HTMLElement => {
+    if (typeof document === 'undefined') return undefined as any
+    const existing = document.getElementById(DETAIL_TOOLTIP_PORTAL_ID)
+    if (existing) return existing
+    const portal = document.createElement('div')
+    portal.id = DETAIL_TOOLTIP_PORTAL_ID
+    document.body.appendChild(portal)
+    return portal
+}
+
+export interface DetailInfoTooltipProps {
+    description?: React.ReactNode
+    detail?: React.ReactNode
+    rawValue?: React.ReactNode
+    ariaLabel?: string
+    className?: string
+}
+
+/** Icon-only information trigger. Keeping the Tooltip child limited to this
+ * fixed icon ensures Ant Design positions its arrow against the visible hint,
+ * not the center of a surrounding value or row. */
+export const DetailInfoTooltip = ({
+    description,
+    detail,
+    rawValue,
+    ariaLabel = '상세 정보',
+    className
+}: DetailInfoTooltipProps) => {
     const title = operationalTooltip(description, detail, rawValue)
-    return title
-        ? <Tooltip title={title} placement="top" overlayClassName="netdive-operational-tooltip">{content}</Tooltip>
-        : content
+    if (!title) return null
+    return <Tooltip
+        title={title}
+        placement="top"
+        arrowPointAtCenter
+        trigger={['hover', 'focus']}
+        overlayClassName="netdive-operational-tooltip"
+        getPopupContainer={detailTooltipPopupContainer}
+        autoAdjustOverflow>
+        <span
+            className={joinClassNames('netdive-detail-info-tooltip-trigger', className)}
+            role="img"
+            aria-label={ariaLabel}
+            tabIndex={0}
+            onClick={event => event.stopPropagation()}
+            onKeyDown={event => event.stopPropagation()}>
+            <InfoCircleOutlined />
+        </span>
+    </Tooltip>
 }
 
 export const KUBERNETES_DETAIL_LABELS = Object.freeze({
@@ -534,22 +599,26 @@ export const DetailOperationalSummary = ({
     rawStatusTooltip,
     impactTooltip,
     metrics = [],
+    summaryTitle,
+    metricsTitle,
     className
 }: DetailOperationalSummaryProps) => {
+    const visibleMetrics = metrics.filter(metric => metric.visible !== false)
     const stateLabel = (label: React.ReactNode, stateTooltip?: React.ReactNode) => (
         <span className="netdive-operational-summary__label">
             {label}
-            {stateTooltip && operationalTooltipTrigger(
-                <InfoCircleOutlined className="netdive-operational-summary__info" />,
-                stateTooltip
-            )}
+            <DetailInfoTooltip
+                description={stateTooltip}
+                className="netdive-operational-summary__info"
+                ariaLabel={`${String(label)} 상세 정보`} />
         </span>
     )
     const content = (
-        <div className={joinClassNames('netdive-operational-summary', className)}>
+        <div className={joinClassNames('netdive-operational-summary', !!(summaryTitle || metricsTitle) && 'has-section-hierarchy', className)}>
+            {summaryTitle && <DetailCardSubsectionHeader title={summaryTitle} first />}
             <div className="netdive-operational-summary__states">
                 <div className="netdive-operational-summary__state netdive-operational-summary__state--verdict">
-                    {stateLabel(verdictLabel, verdictTooltip)}
+                    {stateLabel(verdictLabel, verdictTooltip || tooltip)}
                     <strong className={`is-${verdictTone}`}><i />{verdict}</strong>
                 </div>
                 <div className="netdive-operational-summary__state">
@@ -558,11 +627,12 @@ export const DetailOperationalSummary = ({
                 </div>
                 <div className="netdive-operational-summary__state">
                     {stateLabel(impactLabel, impactTooltip)}
-                    <strong>{impact}</strong>
+                    <strong>{typeof impact === 'string' ? kubernetesImpactLabel(impact) : impact}</strong>
                 </div>
             </div>
-            {metrics.length > 0 && <div className={`netdive-operational-summary__metrics items-${Math.min(4, metrics.length)}`}>
-                {metrics.map((metric, index) => {
+            {visibleMetrics.length > 0 && metricsTitle && <DetailCardSubsectionHeader title={metricsTitle} />}
+            {visibleMetrics.length > 0 && <div className={`netdive-operational-summary__metrics items-${Math.min(4, visibleMetrics.length)}`}>
+                {visibleMetrics.map((metric, index) => {
                     const metricContent = (
                         <button
                             type="button"
@@ -572,12 +642,12 @@ export const DetailOperationalSummary = ({
                             onClick={metric.onClick}>
                             <span className="netdive-operational-summary__label">
                                 {metric.label}
-                                {(metric.tooltip || metric.tooltipDetail || metric.tooltipRawValue) && operationalTooltipTrigger(
-                                    <InfoCircleOutlined className="netdive-operational-summary__info" />,
-                                    metric.tooltip,
-                                    metric.tooltipDetail,
-                                    metric.tooltipRawValue
-                                )}
+                                <DetailInfoTooltip
+                                    description={metric.tooltip}
+                                    detail={metric.tooltipDetail}
+                                    rawValue={metric.tooltipRawValue}
+                                    className="netdive-operational-summary__info"
+                                    ariaLabel={`${String(metric.label)} 상세 정보`} />
                             </span>
                             <strong>{metric.value}</strong>
                         </button>
@@ -587,9 +657,7 @@ export const DetailOperationalSummary = ({
             </div>}
         </div>
     )
-    return tooltip
-        ? operationalTooltipTrigger(content, tooltip)
-        : content
+    return content
 }
 
 export interface DetailMetricRowProps {
@@ -660,20 +728,21 @@ export interface ResourceMetricBlockProps {
     basis?: React.ReactNode
     basisTooltip?: React.ReactNode
     tooltip?: React.ReactNode
-    tooltipOverlayClassName?: string
     children: React.ReactNode
     className?: string
 }
 
-export const ResourceMetricBlock = ({ title, basis, basisTooltip, tooltip, tooltipOverlayClassName, children, className }: ResourceMetricBlockProps) => (
+export const ResourceMetricBlock = ({ title, basis, basisTooltip, tooltip, children, className }: ResourceMetricBlockProps) => (
     <section className={joinClassNames('netdive-detail-resource-metric-block', className)}>
         <div className="netdive-detail-resource-metric-block__header">
-            {tooltip
-                ? <Tooltip title={tooltip} placement="top" overlayClassName={tooltipOverlayClassName}><Typography.Text strong>{title}</Typography.Text></Tooltip>
-                : <Typography.Text strong>{title}</Typography.Text>}
-            {basis && (basisTooltip
-                ? <Tooltip title={basisTooltip} placement="top" overlayClassName="netdive-detail-tooltip"><small className="netdive-detail-resource-metric-block__basis">기준: {basis}</small></Tooltip>
-                : <small className="netdive-detail-resource-metric-block__basis">기준: {basis}</small>)}
+            <span className="netdive-detail-resource-metric-block__title">
+                <Typography.Text strong>{title}</Typography.Text>
+                <DetailInfoTooltip description={tooltip} ariaLabel={`${String(title)} 상세 정보`} />
+            </span>
+            {basis && <small className="netdive-detail-resource-metric-block__basis">
+                기준: {basis}
+                <DetailInfoTooltip description={basisTooltip} ariaLabel={`${String(title)} 기준 정보`} />
+            </small>}
         </div>
         <div className="netdive-detail-resource-metric-block__body">{children}</div>
     </section>
@@ -703,6 +772,7 @@ export interface StatusEvidenceRowProps {
     tooltipDetail?: React.ReactNode
     tooltipRawValue?: React.ReactNode
     onClick?: () => void
+    actionIndicator?: boolean
     className?: string
 }
 
@@ -807,11 +877,10 @@ export const DetailMetricSummaryRow = ({ items, className, columns, variant = 'd
                 (index + 1) % columnCount === 0 && 'is-row-end',
                 index >= columnCount && 'is-wrapped-row'
             )}>
-                <span>{item.label}</span><strong>{item.value}</strong>
+                <span>{item.label}<DetailInfoTooltip description={item.tooltip} ariaLabel={`${String(item.label)} 상세 정보`} /></span>
+                <strong>{item.value}</strong>
             </span>
-            return item.tooltip
-                ? <Tooltip key={item.key === undefined ? index : item.key} title={<DetailTooltipContent description={item.tooltip} />} overlayClassName="netdive-operational-tooltip">{content}</Tooltip>
-                : <React.Fragment key={item.key === undefined ? index : item.key}>{content}</React.Fragment>
+            return <React.Fragment key={item.key === undefined ? index : item.key}>{content}</React.Fragment>
         })}
     </div>
 }
@@ -824,7 +893,13 @@ export const DetailMetaInfoRow = ({ items, className }: { items: DetailMetaInfoI
                 : <strong>{item.value}</strong>
             return <span key={item.key === undefined ? index : item.key}>
                 <span>{item.label}</span>
-                {operationalTooltipTrigger(value, item.tooltip, item.tooltipDetail)}
+                <span className="netdive-detail-meta-info-row__value">
+                    {value}
+                    <DetailInfoTooltip
+                        description={item.tooltip}
+                        detail={item.tooltipDetail}
+                        className="netdive-detail-meta-info-row__info" />
+                </span>
             </span>
         })}
     </div>
@@ -865,11 +940,10 @@ export const DetailCollectionStatusRow = ({
 }: DetailCollectionStatusRowProps) => (
     <div className={joinClassNames('netdive-detail-collection-status-row', className)}>
         <span>{label}</span>
-        {operationalTooltipTrigger(
-            <DetailStatusIndicator tone={tone}>{value}</DetailStatusIndicator>,
-            tooltip,
-            tooltipDetail
-        )}
+        <span className="netdive-detail-collection-status-row__value">
+            <DetailStatusIndicator tone={tone}>{value}</DetailStatusIndicator>
+            <DetailInfoTooltip description={tooltip} detail={tooltipDetail} ariaLabel={`${String(label)} 상세 정보`} />
+        </span>
     </div>
 )
 
@@ -900,24 +974,27 @@ export interface StatusEvidenceListProps {
         secondaryValue?: React.ReactNode
         valueTooltip?: React.ReactNode
         secondaryValueTooltip?: React.ReactNode
+        action?: boolean
     }
+    stateColumnAlignment?: 'start' | 'center'
     className?: string
 }
 
-export const StatusEvidenceList = ({ children, columnHeaders, className }: StatusEvidenceListProps) => {
+export const StatusEvidenceList = ({ children, columnHeaders, stateColumnAlignment = 'start', className }: StatusEvidenceListProps) => {
     const withoutValue = !!columnHeaders && columnHeaders.value === undefined
-    return <div className={joinClassNames('netdive-detail-evidence-list', columnHeaders?.secondaryValue !== undefined && 'has-secondary-value', withoutValue && 'without-value', className)}>
-        {columnHeaders && <div className={joinClassNames('netdive-detail-evidence-list__column-headers', columnHeaders.secondaryValue !== undefined && 'has-secondary-value', withoutValue && 'without-value')}>
+    return <div className={joinClassNames('netdive-detail-evidence-list', columnHeaders?.secondaryValue !== undefined && 'has-secondary-value', withoutValue && 'without-value', stateColumnAlignment === 'center' && 'has-centered-state-column', className)}>
+        {columnHeaders && <div className={joinClassNames('netdive-detail-evidence-list__column-headers', columnHeaders.secondaryValue !== undefined && 'has-secondary-value', withoutValue && 'without-value', columnHeaders.action && 'has-action')}>
             <span aria-hidden="true" />
             <span>{columnHeaders.state}</span>
             {columnHeaders.value !== undefined && <span className="netdive-detail-evidence-list__header-label">
                 {columnHeaders.value}
-                {columnHeaders.valueTooltip && <Tooltip title={<DetailTooltipContent description={columnHeaders.valueTooltip} />} overlayClassName="netdive-operational-tooltip"><InfoCircleOutlined /></Tooltip>}
+                <DetailInfoTooltip description={columnHeaders.valueTooltip} ariaLabel={`${String(columnHeaders.value)} 열 정보`} />
             </span>}
             {columnHeaders.secondaryValue !== undefined && <span className="netdive-detail-evidence-list__header-label">
                 {columnHeaders.secondaryValue}
-                {columnHeaders.secondaryValueTooltip && <Tooltip title={<DetailTooltipContent description={columnHeaders.secondaryValueTooltip} />} overlayClassName="netdive-operational-tooltip"><InfoCircleOutlined /></Tooltip>}
+                <DetailInfoTooltip description={columnHeaders.secondaryValueTooltip} ariaLabel={`${String(columnHeaders.secondaryValue)} 열 정보`} />
             </span>}
+            {columnHeaders.action && <span aria-hidden="true" />}
         </div>}
         {children}
     </div>
@@ -940,6 +1017,7 @@ export const StatusEvidenceRow = ({
     tooltipDetail,
     tooltipRawValue,
     onClick,
+    actionIndicator = false,
     className
 }: StatusEvidenceRowProps) => {
     const renderedState = status
@@ -948,16 +1026,15 @@ export const StatusEvidenceRow = ({
     const renderedValue = valuesUnavailable ? '확인 불가' : value
     const renderedSecondaryValue = valuesUnavailable ? '확인 불가' : secondaryValue
     const content = (
-        <div className={joinClassNames('netdive-detail-evidence-row', secondaryValue !== undefined && 'has-secondary-value', hideValue && 'without-value', valuesUnavailable && 'has-unavailable-values', `netdive-detail-evidence-row--${tone}`, className)}>
+        <div className={joinClassNames('netdive-detail-evidence-row', secondaryValue !== undefined && 'has-secondary-value', hideValue && 'without-value', valuesUnavailable && 'has-unavailable-values', actionIndicator && onClick && 'has-action', `netdive-detail-evidence-row--${tone}`, className)}>
             <div className="netdive-detail-evidence-row__info">
                 <span className="netdive-detail-evidence-row__title">
                     {title}
-                    {(tooltip || tooltipDetail || tooltipRawValue) && <Tooltip
-                        title={<DetailTooltipContent description={tooltip} detail={tooltipDetail} rawValue={tooltipRawValue} />}
-                        placement="top"
-                        overlayClassName="netdive-detail-tooltip">
-                        <InfoCircleOutlined />
-                    </Tooltip>}
+                    <DetailInfoTooltip
+                        description={tooltip}
+                        detail={tooltipDetail}
+                        rawValue={tooltipRawValue}
+                        ariaLabel={`${String(title)} 상세 정보`} />
                 </span>
                 {evidence && <small className="netdive-detail-evidence-row__evidence">{evidence}</small>}
                 {metadata && metadata.length > 0 && <dl className="netdive-detail-evidence-row__metadata">
@@ -970,6 +1047,7 @@ export const StatusEvidenceRow = ({
             <div className="netdive-detail-evidence-row__state">{renderedState}</div>
             {!hideValue && <strong className={joinClassNames('netdive-detail-evidence-row__value', `is-${valueVariant}`)}>{renderedValue}</strong>}
             {secondaryValue !== undefined && <strong className={joinClassNames('netdive-detail-evidence-row__value', 'netdive-detail-evidence-row__secondary-value', `is-${secondaryValueVariant}`)}>{renderedSecondaryValue}</strong>}
+            {actionIndicator && onClick && <RightOutlined className="netdive-detail-evidence-row__action" />}
         </div>
     )
     if (!onClick) return content
@@ -1227,7 +1305,7 @@ export interface ConnectedResourceItem {
 
 export interface ConnectedResourceGroup {
     key?: React.Key
-    title: React.ReactNode
+    title?: React.ReactNode
     icon?: React.ReactNode
     items: ConnectedResourceItem[]
     hint?: React.ReactNode
@@ -1246,12 +1324,12 @@ export const ConnectedResourcesSection = ({ title, icon, groups, emptyText = '-'
     return (
         <DetailSection icon={icon} title={title} className={joinClassNames('netdive-connected-resources', className)}>
             {visibleGroups.length ? <div className="netdive-connected-resources__groups">{visibleGroups.map((group, groupIndex) => (
-                <div className="netdive-connected-resources__group" key={group.key !== undefined ? group.key : groupIndex}>
-                    <div className="netdive-connected-resources__group-header">
+                <div className={joinClassNames('netdive-connected-resources__group', !(group.title || group.icon) && 'is-headerless')} key={group.key !== undefined ? group.key : groupIndex}>
+                    {(group.title || group.icon) && <div className="netdive-connected-resources__group-header">
                         {group.icon && <span className="netdive-connected-resources__group-icon">{group.icon}</span>}
                         <Typography.Text className="netdive-connected-resources__group-title">{group.title}</Typography.Text>
                         {group.hint && <span className="netdive-connected-resources__group-hint">{group.hint}</span>}
-                    </div>
+                    </div>}
                     <DetailResourceGrid compact>{group.items.map((item, itemIndex) => {
                         const card = <DetailResourceCard
                             key={item.key !== undefined ? item.key : itemIndex}

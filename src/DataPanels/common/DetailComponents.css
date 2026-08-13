@@ -241,15 +241,32 @@
 }
 
 .netdive-detail-section__description.ant-typography {
-    margin-top: 3px;
     color: #667085;
     font-size: var(--netdive-detail-font-supporting-text);
     font-weight: var(--netdive-detail-weight-supporting-text);
     line-height: var(--netdive-detail-line-supporting-text);
 }
 
+.netdive-detail-section__description-row {
+    display: inline-flex;
+    min-width: 0;
+    align-items: center;
+    gap: 4px;
+    margin-top: 3px;
+}
+
 .netdive-operational-summary {
     padding: 8px 14px 1px;
+}
+
+.netdive-operational-summary.has-section-hierarchy {
+    padding: 1px 0;
+}
+
+.netdive-operational-summary.has-section-hierarchy .netdive-operational-summary__states,
+.netdive-operational-summary.has-section-hierarchy .netdive-operational-summary__metrics {
+    margin-right: var(--netdive-detail-card-body-padding-x);
+    margin-left: var(--netdive-detail-card-body-padding-x);
 }
 
 .netdive-operational-summary__states {
@@ -298,7 +315,22 @@
 
 .netdive-detail-tooltip,
 .netdive-operational-tooltip {
-    max-width: 320px;
+    max-width: min(320px, calc(100vw - 24px));
+}
+
+#netdive-detail-tooltip-portal {
+    position: fixed;
+    z-index: 1070;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    pointer-events: none;
+    contain: layout style size;
+}
+
+#netdive-detail-tooltip-portal .ant-tooltip {
+    pointer-events: none;
 }
 
 .netdive-detail-tooltip .ant-tooltip-inner,
@@ -835,6 +867,10 @@
     box-shadow: none;
 }
 
+.netdive-connected-resources__group.is-headerless {
+    padding-top: 10px;
+}
+
 .netdive-connected-resources__group-header {
     display: flex;
     align-items: center;
@@ -1250,6 +1286,16 @@ button.netdive-detail-metric-row:focus-visible {
     line-height: var(--netdive-detail-line-section-title);
 }
 
+.netdive-detail-resource-metric-block__title,
+.netdive-detail-resource-metric-block__basis,
+.netdive-detail-collection-status-row__value,
+.netdive-detail-metric-summary-row__item > span {
+    display: inline-flex;
+    min-width: 0;
+    align-items: center;
+    gap: 4px;
+}
+
 .netdive-detail-resource-metric-block__basis {
     flex: 0 0 auto;
     color: var(--netdive-detail-text-secondary);
@@ -1484,12 +1530,50 @@ button.netdive-detail-metric-row:focus-visible {
     border-top: 1px solid var(--netdive-detail-row-divider);
 }
 
-.netdive-detail-meta-info-row > span > :last-child {
+.netdive-detail-meta-info-row > span > .netdive-detail-meta-info-row__value {
+    display: inline-flex;
     min-width: 0;
+    align-items: center;
     justify-self: end;
-    overflow-wrap: anywhere;
+    justify-content: flex-end;
+    max-width: 100%;
     text-align: right;
+}
+
+.netdive-detail-meta-info-row__value {
+    display: inline-flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 5px;
+    overflow-wrap: anywhere;
     white-space: normal;
+}
+
+.netdive-detail-info-tooltip-trigger {
+    display: inline-flex;
+    flex: 0 0 auto;
+    width: 14px;
+    height: 14px;
+    align-items: center;
+    justify-content: center;
+    color: var(--netdive-detail-text-tertiary);
+    font-size: var(--netdive-detail-font-supporting-text);
+    line-height: 1;
+    cursor: help;
+}
+
+.netdive-detail-info-tooltip-trigger > .anticon,
+.netdive-detail-info-tooltip-trigger > .anticon > svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.netdive-detail-meta-info-row__info {
+    flex: 0 0 auto;
+    color: var(--netdive-detail-text-tertiary);
+    font-size: var(--netdive-detail-font-supporting-text);
 }
 
 .netdive-detail-meta-info-row > span > :first-child {
@@ -1567,7 +1651,10 @@ button.netdive-detail-metric-row:focus-visible {
 }
 
 .netdive-k8s-selector-summary > span {
+    display: inline-flex;
     min-width: 0;
+    align-items: center;
+    gap: 4px;
     overflow-wrap: anywhere;
     white-space: normal;
 }
@@ -1943,9 +2030,11 @@ button.netdive-detail-metric-row:focus-visible {
 }
 
 .netdive-detail-metadata-row > span {
-    color: var(--netdive-detail-text);
-    font-size: var(--netdive-detail-font-supporting-text);
-    line-height: var(--netdive-detail-line-supporting-text);
+    align-self: center;
+    color: #101828;
+    font-size: var(--netdive-detail-font-body-label);
+    font-weight: var(--netdive-detail-weight-body-label);
+    line-height: var(--netdive-detail-line-body-label);
 }
 
 .netdive-detail-metadata-row > .anticon {
@@ -1963,10 +2052,6 @@ button.netdive-detail-metric-row:focus-visible {
 .netdive-detail-metadata-row.is-interactive:focus-visible {
     outline: none;
     background: var(--netdive-detail-hover);
-}
-
-.netdive-detail-metadata-row.is-empty > span {
-    color: var(--netdive-detail-text-tertiary);
 }
 
 .netdive-detail-resource-metric-grid {
@@ -2008,9 +2093,49 @@ button.netdive-detail-metric-row:focus-visible {
     grid-template-columns: minmax(0, 1fr) 82px 88px 76px;
 }
 
+.netdive-detail-evidence-list__column-headers.has-action,
+.netdive-detail-evidence-row.has-action {
+    grid-template-columns:
+        minmax(0, 1fr)
+        var(--netdive-detail-result-state-width)
+        var(--netdive-detail-result-value-width)
+        14px;
+}
+
 .netdive-detail-evidence-list__column-headers.without-value,
 .netdive-detail-evidence-row.without-value {
     grid-template-columns: minmax(0, 1fr) var(--netdive-detail-result-state-width);
+}
+
+/* Condition and equivalent state/evidence lists keep their state column on a
+ * stable center line. The description consumes all remaining space while the
+ * optional raw-result column retains the shared right edge. */
+.netdive-detail-evidence-list.has-centered-state-column .netdive-detail-evidence-list__column-headers,
+.netdive-detail-evidence-list.has-centered-state-column .netdive-detail-evidence-row {
+    grid-template-columns:
+        minmax(0, 1fr)
+        minmax(72px, var(--netdive-detail-condition-state-width))
+        var(--netdive-detail-result-value-width);
+}
+
+.netdive-detail-evidence-list.has-centered-state-column .netdive-detail-evidence-list__column-headers.without-value,
+.netdive-detail-evidence-list.has-centered-state-column .netdive-detail-evidence-row.without-value {
+    grid-template-columns:
+        minmax(0, 1fr)
+        minmax(72px, var(--netdive-detail-condition-state-width));
+}
+
+.netdive-detail-evidence-list.has-centered-state-column .netdive-detail-evidence-list__column-headers > span:nth-child(2) {
+    text-align: center;
+}
+
+.netdive-detail-evidence-list.has-centered-state-column .netdive-detail-evidence-row__state {
+    justify-content: center;
+}
+
+.netdive-detail-evidence-list.has-centered-state-column .netdive-detail-evidence-row__state .netdive-detail-status-indicator {
+    width: auto;
+    justify-content: center;
 }
 
 .netdive-detail-evidence-list__column-headers > span:nth-child(2) {
@@ -2053,6 +2178,11 @@ button.netdive-detail-metric-row:focus-visible {
 .netdive-detail-evidence-row__interactive:focus-visible {
     outline: none;
     background: var(--netdive-detail-hover);
+}
+
+.netdive-detail-evidence-row__action {
+    color: var(--netdive-detail-text-tertiary);
+    font-size: var(--netdive-detail-font-supporting-text);
 }
 
 .netdive-detail-evidence-row {
@@ -2556,6 +2686,13 @@ button.netdive-detail-metric-row:focus-visible {
     font-weight: var(--netdive-detail-weight-status-tag);
     line-height: var(--netdive-detail-line-status-tag);
     background: #f5f5f5;
+}
+
+.netdive-detail-badge-with-info {
+    display: inline-flex;
+    min-width: 0;
+    align-items: center;
+    gap: 4px;
 }
 
 .netdive-detail-badge--info.ant-tag {

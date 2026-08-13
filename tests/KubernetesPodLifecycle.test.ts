@@ -1,5 +1,10 @@
 import { strict as assert } from 'assert'
-import { aggregatePods, getPodClassification } from '../src/KubernetesPodLifecycle'
+import {
+    aggregatePods,
+    getPodClassification,
+    kubernetesPodReady,
+    registerKubernetesPodCurrentStatusSnapshots
+} from '../src/KubernetesPodLifecycle'
 
 const podNode = (
     id: string,
@@ -55,6 +60,30 @@ const podNode = (
 })
 
 describe('KubernetesPodLifecycle domain aggregation', () => {
+    it('prefers the latest API readiness snapshot over stale topology state', () => {
+        const pod = podNode('dashboard-ready-api', 'Running', { ready: false })
+        registerKubernetesPodCurrentStatusSnapshots([{
+            uid: 'dashboard-ready-api',
+            phase: 'Running',
+            ready: true,
+            problem: false,
+            observedAt: '2026-08-10T12:00:00Z'
+        }])
+        const classification = getPodClassification(pod)
+        const aggregate = aggregatePods([pod])
+        assert.equal(classification.runningPod, true)
+        assert.equal(classification.problemPod, false)
+        assert.equal(aggregate.running, 1)
+        assert.equal(aggregate.currentProblems, 0)
+    })
+
+    it('uses only application container readiness when Ready Condition is absent', () => {
+        const data = podNode('container-ready-fallback', 'Running').data
+        data.K8s.Extra.Status.InitContainerStatuses = [{ Ready: false, State: { Terminated: { Reason: 'Completed' } } }]
+        data.K8s.Extra.Status.ContainerStatuses = [{ Ready: true, State: { Running: {} } }]
+        assert.equal(kubernetesPodReady(data), true)
+    })
+
     it('keeps Evicted history out of active Pod allocation and problems', () => {
         const pods: any[] = []
         for (let index = 0; index < 13; index++) {

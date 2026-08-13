@@ -1,5 +1,6 @@
 import {
     kubernetesContainerKindLabel,
+    kubernetesContainerStateReason,
     kubernetesPodPhaseLabel
 } from './DataPanels/common/KubernetesDataPresentation'
 
@@ -36,7 +37,7 @@ export interface KubernetesPodContainerRuntimePresentation {
 export const kubernetesPodContainerRuntime = (container: any): KubernetesPodContainerRuntimePresentation => {
     const state = String(container?.state || '').toUpperCase()
     const kind = String(container?.type || '').toUpperCase()
-    const reason = String(container?.waitingReason || container?.terminatedReason || '')
+    const reason = kubernetesContainerStateReason(container) || ''
     const exitCode = container?.exitCode
     if (state === 'TERMINATED') {
         const completed = reason.toLowerCase() === 'completed' || Number(exitCode) === 0
@@ -76,7 +77,15 @@ export const mergeKubernetesPodDetail = (fallback: any, apiDetail: any): any => 
     fallbackContainers.forEach((container: any) => byKey.set(`${container.type || 'APPLICATION'}:${container.name}`, container))
     apiContainers.forEach((container: any) => {
         const key = `${container.type || 'APPLICATION'}:${container.name}`
-        byKey.set(key, { ...(byKey.get(key) || {}), ...container })
+        // A container returned by the Pod detail API was built from Pod spec.
+        // Omitted ResourceList keys therefore mean "unset", not "uncollected".
+        byKey.set(key, {
+            ...(byKey.get(key) || {}),
+            ...container,
+            resourcesCollected: container.resourcesCollected === undefined
+                ? true
+                : !!container.resourcesCollected
+        })
     })
     return {
         ...fallback,
@@ -169,31 +178,44 @@ const volumeSource = (volume: any): { sourceType: string, references: Kubernetes
     return { sourceType: '알 수 없음', references: [] }
 }
 
-export const kubernetesPodVolumePresentations = (spec: any): KubernetesPodVolumePresentation[] => {
+export const kubernetesPodVolumePresentations = (
+    spec: any,
+    supplementalContainers?: any[],
+    supplementalMountsCollected = false
+): KubernetesPodVolumePresentation[] => {
     const volumes = list(spec, 'Volumes', 'volumes')
-    const mountsCollected = ['InitContainers', 'initContainers', 'Containers', 'containers', 'EphemeralContainers', 'ephemeralContainers']
+    const specMountsCollected = ['InitContainers', 'initContainers', 'Containers', 'containers', 'EphemeralContainers', 'ephemeralContainers']
         .some(key => !!spec && Object.prototype.hasOwnProperty.call(spec, key))
-    const containers = ([] as Array<{ container: any, kind: string }>).concat(
+    const specContainers = ([] as Array<{ container: any, kind: string }>).concat(
         list(spec, 'InitContainers', 'initContainers').map(container => ({ container, kind: '초기화 컨테이너' })),
         list(spec, 'Containers', 'containers').map(container => ({ container, kind: '일반 컨테이너' })),
         list(spec, 'EphemeralContainers', 'ephemeralContainers').map(container => ({ container, kind: '임시 컨테이너' }))
     )
+    const detailContainers = Array.isArray(supplementalContainers) ? supplementalContainers.map(container => ({
+        container,
+        kind: kubernetesContainerKindLabel(value(container, 'Type', 'type'))
+    })) : []
+    const containers = specContainers.concat(detailContainers)
+    const mountsCollected = specMountsCollected || (supplementalMountsCollected && detailContainers.length > 0)
     const byName = new Map<string, KubernetesPodVolumePresentation>()
     volumes.forEach(volume => {
         const name = String(value(volume, 'Name', 'name') || '')
         if (!name || byName.has(name)) return
         const source = volumeSource(volume)
-        const mounts: KubernetesPodVolumeMount[] = []
+        const mountsByIdentity = new Map<string, KubernetesPodVolumeMount>()
         containers.forEach(item => list(item.container, 'VolumeMounts', 'volumeMounts').forEach(mount => {
             if (String(value(mount, 'Name', 'name') || '') !== name) return
-            mounts.push({
+            const presentation = {
                 containerName: String(value(item.container, 'Name', 'name') || ''),
                 containerKind: item.kind,
                 path: String(value(mount, 'MountPath', 'mountPath') || ''),
                 readOnly: value(mount, 'ReadOnly', 'readOnly') === true,
                 subPath: String(value(mount, 'SubPath', 'subPath') || '') || undefined
-            })
+            }
+            const identity = [presentation.containerKind, presentation.containerName, presentation.path, presentation.subPath || ''].join('\u0001')
+            mountsByIdentity.set(identity, presentation)
         }))
+        const mounts = Array.from(mountsByIdentity.values())
         byName.set(name, {
             key: name,
             name,
