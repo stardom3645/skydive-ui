@@ -21,6 +21,7 @@ import Websocket from 'react-websocket'
 import { debounce } from 'throttle-debounce'
 import { resolveKubernetesPodController } from './KubernetesWorkloadOwnership'
 import { isKubernetesTopologyData, isTopologyNodeVisibleInLayer } from './KubernetesInfrastructureEvidence'
+import { TopologyPendingEdges } from './TopologyPendingEdges'
 
 import { withStyles } from '@material-ui/core/styles'
 import CssBaseline from '@material-ui/core/CssBaseline'
@@ -71,11 +72,11 @@ import AccountTreeIcon from '@material-ui/icons/AccountTree'
 import SettingsEthernetIcon from '@material-ui/icons/SettingsEthernet'
 import ChevronRightIcon from '@material-ui/icons/ChevronRight'
 import CheckIcon from '@material-ui/icons/Check'
-import { Tooltip } from 'antd'
-import { BulbOutlined, ClusterOutlined, FilterOutlined, GlobalOutlined } from '@ant-design/icons'
+import { Checkbox as AntCheckbox, Dropdown as AntDropdown, Menu as AntMenu, Tooltip } from 'antd'
+import { BulbOutlined, ClusterOutlined, EyeOutlined, FilterOutlined, GlobalOutlined } from '@ant-design/icons'
 
 import { styles } from './AppStyles'
-import { Topology, Node, NodeAttrs, LinkAttrs, LinkTagState, Link } from './Topology'
+import { Topology, Node, NodeAttrs, LinkAttrs, LinkTagState, Link, isTopologyDownNode } from './Topology'
 import { TopologyStatusBadgeLegend } from './TopologyStatusBadge'
 import {
   isInactiveMoldKubernetesClusterState,
@@ -189,6 +190,7 @@ const KUBERNETES_DETAIL_ONLY_TYPES = new Set([
 const RECENT_VIEWED_NODES_STORAGE_KEY = "netdive-recent-viewed-nodes"
 const KUBERNETES_MANUALLY_DISABLED_STORAGE_KEY = "netdive-kubernetes-manually-disabled-clusters"
 const INITIAL_TOPOLOGY_LAYER_STORAGE_KEY = "netdive-initial-topology-layer"
+const TOPOLOGY_DISPLAY_OPTIONS_STORAGE_KEY = "netdive-topology-display-options"
 
 const getSavedNetdiveTheme = (): NetdiveTheme => {
   const savedTheme = localStorage.getItem("netdive-theme")
@@ -226,6 +228,22 @@ const getManuallyDisabledKubernetesClusterIDs = (): Set<string> => {
 
 const saveManuallyDisabledKubernetesClusterIDs = (ids: Set<string>) => {
   localStorage.setItem(KUBERNETES_MANUALLY_DISABLED_STORAGE_KEY, JSON.stringify(Array.from(ids)))
+}
+
+const getSavedTopologyDisplayOptions = (): TopologyDisplayOptions => {
+  try {
+    const raw = localStorage.getItem(TOPOLOGY_DISPLAY_OPTIONS_STORAGE_KEY)
+    const parsed = raw ? JSON.parse(raw) : {}
+    return {
+      hideDownNodes: parsed?.hideDownNodes === true
+    }
+  } catch (e) {
+    return { hideDownNodes: false }
+  }
+}
+
+const saveTopologyDisplayOptions = (options: TopologyDisplayOptions) => {
+  localStorage.setItem(TOPOLOGY_DISPLAY_OPTIONS_STORAGE_KEY, JSON.stringify(options))
 }
 
 interface State {
@@ -293,6 +311,11 @@ interface State {
   topologyZoom: number
   groupVisibleNodeIDs: Set<string>
   kubernetesProblemsOnly: boolean
+  topologyDisplayOptions: TopologyDisplayOptions
+}
+
+interface TopologyDisplayOptions {
+  hideDownNodes: boolean
 }
 
 interface VMConsoleResponse {
@@ -419,6 +442,7 @@ class App extends React.Component<Props, State> {
   private moldInventoryFailureLogged: boolean
   private moldInventoryUnavailable: boolean
   private initialTopologyLayerPending: boolean
+  private pendingTopologyEdges = new TopologyPendingEdges<any>()
 
   constructor(props) {
     super(props)
@@ -487,7 +511,8 @@ class App extends React.Component<Props, State> {
       isRecentViewedNodesCollapsed: true,
       topologyZoom: 1,
       groupVisibleNodeIDs: new Set<string>(),
-      kubernetesProblemsOnly: false
+      kubernetesProblemsOnly: false,
+      topologyDisplayOptions: getSavedTopologyDisplayOptions()
     }
 
     this.synced = false
@@ -1492,6 +1517,7 @@ class App extends React.Component<Props, State> {
       return false
     }
 
+    this.pendingTopologyEdges.removeForNode(node.ID)
     this.tc.delNode(node.ID)
 
     return true
@@ -1504,6 +1530,15 @@ class App extends React.Component<Props, State> {
 
     let parent = this.tc.nodes.get(edge.Parent)
     let child = this.tc.nodes.get(edge.Child)
+
+    if (!parent || !child) {
+      // Do not lose a live relation when its endpoint is not installed yet.
+      // It will be replayed as soon as either endpoint receives NodeAdded.
+      this.pendingTopologyEdges.defer(edge)
+      return false
+    }
+
+    this.pendingTopologyEdges.remove(edge.ID)
 
     if (parent && child) {
       const parentType = String(parent.data?.Type || "").toLowerCase()
@@ -1550,6 +1585,15 @@ class App extends React.Component<Props, State> {
     }
 
     return true
+  }
+
+  private replayPendingTopologyEdges(endpointNodeID?: string): boolean {
+    if (!this.tc) return false
+    return this.pendingTopologyEdges.replayReady(
+      nodeID => !!this.tc && this.tc.nodes.has(nodeID),
+      edge => this.addEdge(edge),
+      endpointNodeID
+    ) > 0
   }
 
   private reconcileKubernetesWorkloadHierarchy() {
@@ -1772,9 +1816,33 @@ class App extends React.Component<Props, State> {
     return false
   }
 
+  private topologyDisplayNodeVisible(node: Node): boolean {
+    if (this.isKubernetesLayerActive()) return true
+    return !this.state.topologyDisplayOptions.hideDownNodes || !isTopologyDownNode(node)
+  }
+
+  private setTopologyDisplayOption<K extends keyof TopologyDisplayOptions>(key: K, value: TopologyDisplayOptions[K]) {
+    this.setState(prevState => ({
+      topologyDisplayOptions: {
+        ...prevState.topologyDisplayOptions,
+        [key]: value
+      }
+    }), () => {
+      saveTopologyDisplayOptions(this.state.topologyDisplayOptions)
+      if (this.tc) this.tc.refreshDisplayFilters()
+    })
+  }
+
   updatedEdge(edge: any): boolean {
     if (!this.tc) {
       return false
+    }
+
+    if (this.config.isHierarchyLink(edge.Metadata) || this.pendingTopologyEdges.has(edge.ID)) {
+      // Hierarchy edges are represented by Node.parent, not by Topology.links.
+      // Re-apply the full edge so an endpoint/relation update cannot leave a
+      // stale root-level switch port behind.
+      return this.addEdge(edge)
     }
 
     this.tc.updateLink(edge.ID, edge.Metadata)
@@ -1787,7 +1855,18 @@ class App extends React.Component<Props, State> {
       return false
     }
 
-    this.tc.delLink(edge.ID)
+    this.pendingTopologyEdges.remove(edge.ID)
+
+    if (this.config.isHierarchyLink(edge.Metadata)) {
+      const child = this.tc.nodes.get(edge.Child)
+      // Only detach the relationship being deleted. A newer ownership edge
+      // may already have moved the child to another parent.
+      if (child && child.parent && child.parent.id === edge.Parent) {
+        this.tc.setParent(child, this.tc.root)
+      }
+    } else {
+      this.tc.delLink(edge.ID)
+    }
 
     return true
   }
@@ -1905,9 +1984,16 @@ class App extends React.Component<Props, State> {
     switch (data.Type) {
       case "SyncReply":
         this.state.suggestions = []
+        // SyncReply is authoritative; pending events from the previous graph
+        // snapshot must never be replayed into the rebuilt tree.
+        this.pendingTopologyEdges.clear()
         if (this.tc) {
-          this.tc.resetTree()
-          this.parseTopology(data.Obj)
+          this.tc.resetTree(true)
+          try {
+            this.parseTopology(data.Obj)
+          } finally {
+            this.tc.completeTopologySync()
+          }
         }
         this.synced = true
         break
@@ -1916,6 +2002,7 @@ class App extends React.Component<Props, State> {
           return
         }
         if (this.addNode(data.Obj)) {
+          this.replayPendingTopologyEdges(data.Obj.ID)
           this.refreshTopology()
         }
         break
@@ -2500,7 +2587,8 @@ class App extends React.Component<Props, State> {
       return
     }
 
-    if (tag !== this.activeNodeTagName()) {
+    const layerChanged = tag !== this.activeNodeTagName()
+    if (layerChanged) {
       this.clearSelectionForLayerChange()
     }
 
@@ -2510,7 +2598,13 @@ class App extends React.Component<Props, State> {
     this.setState(this.state)
     this.pruneRecentViewedNodes()
 
-    this.tc.zoomFit()
+    // Layer visibility and its D3 exit/enter transitions must settle before
+    // measuring bounds. Run Fit once for an actual layer transition only;
+    // normal topology refreshes and reselecting the active layer keep the
+    // user's current viewport.
+    if (layerChanged) {
+      this.tc.zoomFitAfterRender()
+    }
   }
 
   private activeNodeTagName(): string {
@@ -2774,7 +2868,7 @@ class App extends React.Component<Props, State> {
       <span className={clsx(classes.recentViewedNodeIcon, toneClass)}>
         {item.iconHref
           ? <img src={item.iconHref} alt="" />
-          : this.infrastructureIcon(glyph, tone)}
+          : this.infrastructureIcon(glyph, "connected-resource")}
       </span>
     )
   }
@@ -3701,6 +3795,52 @@ class App extends React.Component<Props, State> {
     )
   }
 
+  renderTopologyDisplayOptions(classes: any) {
+    // Down is an infrastructure health state. Kubernetes uses its own shared
+    // status/attention filters, so this display option is intentionally not
+    // exposed or applied on the Kubernetes layer.
+    if (this.isKubernetesLayerActive()) return null
+
+    const hideDownNodes = this.state.topologyDisplayOptions.hideDownNodes
+    const menu = (
+      <AntMenu
+        selectable={false}
+        onClick={({ key, domEvent }) => {
+          domEvent.stopPropagation()
+          if (key === 'hide-down-nodes') {
+            this.setTopologyDisplayOption('hideDownNodes', !hideDownNodes)
+          }
+        }}>
+        <AntMenu.Item key="hide-down-nodes">
+          <AntCheckbox checked={hideDownNodes} onChange={() => undefined} style={{ pointerEvents: 'none' }}>
+            다운된 노드 숨기기
+          </AntCheckbox>
+        </AntMenu.Item>
+      </AntMenu>
+    )
+
+    return (
+      <AntDropdown
+        overlay={menu}
+        overlayClassName="netdive-mold-dropdown netdive-topology-display-options"
+        trigger={['click']}
+        placement="bottomLeft"
+        getPopupContainer={() => document.body}>
+        <Button
+          aria-haspopup="true"
+          aria-label="표시 옵션"
+          className={clsx(classes.layerFilterButton, classes.displayOptionsButton)}>
+          <span className={classes.layerFilterButtonIcon}><EyeOutlined /></span>
+          <span className={classes.layerFilterButtonText}>
+            <span className={classes.layerFilterButtonLabel}>표시 옵션</span>
+            <span className={classes.layerFilterButtonSummary}>{hideDownNodes ? 'Down 숨김' : '전체 노드'}</span>
+          </span>
+          <span className={classes.layerFilterButtonChevron}><KeyboardArrowDown fontSize="small" /></span>
+        </Button>
+      </AntDropdown>
+    )
+  }
+
   renderNodeTagButtons(classes: any) {
     return (
       <Container className={classes.nodeTagsPanel}>
@@ -3789,7 +3929,7 @@ class App extends React.Component<Props, State> {
 
   renderMenuButtons(classes: any) {
     return (
-      <div>
+      <div className={classes.toolbarUtilityActions}>
         {this.state.timeContext &&
           <Chip
             icon={<RestoreIcon />}
@@ -3932,6 +4072,7 @@ class App extends React.Component<Props, State> {
     localStorage.setItem("language", "ko")
     localStorage.setItem("netdive-theme", "light")
     localStorage.setItem(INITIAL_TOPOLOGY_LAYER_STORAGE_KEY, "infrastructure")
+    localStorage.removeItem(TOPOLOGY_DISPLAY_OPTIONS_STORAGE_KEY)
     window.location.reload()
   }
 
@@ -4291,6 +4432,14 @@ class App extends React.Component<Props, State> {
     this.tc.focusInfrastructureNodes(nodeIDs, anchorNodeID, revealTargets)
   }
 
+  navigateInfrastructureConnectedResources(nodeIDs: string[], anchorNodeID?: string, individual: boolean = false) {
+    if (!this.tc || nodeIDs.length === 0) {
+      return
+    }
+    this.syncTopologyNodeTagForNodes(nodeIDs)
+    this.tc.navigateConnectedResources(nodeIDs, anchorNodeID, individual)
+  }
+
   /**
    * Kubernetes 위험/복원력 근거 전용 강조 경로입니다.
    * 현재 레이어, 노드 집합, 펼침 상태를 유지하며 이미 렌더링된
@@ -4321,6 +4470,7 @@ class App extends React.Component<Props, State> {
 
   private infrastructureIcon(glyph: string, tone: string, badge?: string) {
     const colors: Record<string, string> = {
+      "connected-resource": "var(--netdive-detail-connected-resource-icon)",
       host: "#3b82f6",
       "user-vm": "#41a878",
       "system-vm": "#6d4bd8",
@@ -5241,6 +5391,7 @@ class App extends React.Component<Props, State> {
             <span className={classes.toolbarSectionDivider} />
             {this.renderLayerFilterMenu(classes)}
             {this.renderConnectionDisplayMenu(classes)}
+            {this.renderTopologyDisplayOptions(classes)}
             <span className={classes.toolbarSectionDivider} />
             <div className={classes.toolbarActionCluster}>
               <div className={classes.toolbarActionGroup}>
@@ -5336,6 +5487,7 @@ class App extends React.Component<Props, State> {
               groupType={this.config.groupType.bind(this.config)}
               groupName={this.config.groupName.bind(this.config)}
               nodeVisible={this.kubernetesTopologyNodeVisible.bind(this)}
+              displayNodeVisible={this.topologyDisplayNodeVisible.bind(this)}
               onClick={this.onTopologyClick.bind(this)}
               onLinkSelected={this.onLinkSelected.bind(this)}
               onLinkTagChange={this.onLinkTagChange.bind(this)}

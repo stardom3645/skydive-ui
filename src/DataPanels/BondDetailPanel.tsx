@@ -13,7 +13,7 @@ import {
 import { translate } from '../Config'
 import Tools from '../Tools'
 import { Link, Node } from '../Topology'
-import { DetailBadge, DetailEmpty, DetailKeyValueList, DetailResourceCard, DetailResourceGrid, DetailSection } from './common'
+import { connectedResourcePopoverItems, DetailBadge, DetailEmpty, DetailKeyValueList, DetailResourceCard, DetailResourceGrid, DetailSection, InfrastructureConnectedResourceNavigationMode, navigateInfrastructureConnectedResources } from './common'
 import './BondDetailPanel.css'
 
 interface Props {
@@ -161,11 +161,8 @@ class BondDetailPanel extends React.Component<Props, State> {
         return Array.from(slaves.values())
     }
 
-    private focusNodeIDs(nodeIDs: string[]) {
-        const app = (window as any).App
-        if (app && typeof app.focusInfrastructureNodeIDs === 'function' && nodeIDs.length > 0) {
-            app.focusInfrastructureNodeIDs(nodeIDs, this.props.node.id)
-        }
+    private focusNodeIDs(nodeIDs: string[], mode: InfrastructureConnectedResourceNavigationMode = 'summary') {
+        navigateInfrastructureConnectedResources(nodeIDs, this.props.node.id, mode)
     }
 
     private renderConnectedResources(slaves: Node[]) {
@@ -184,6 +181,8 @@ class BondDetailPanel extends React.Component<Props, State> {
                         icon={resource.icon}
                         iconTone={resource.iconTone}
                         interactive={resource.nodes.length > 0}
+                        resources={connectedResourcePopoverItems(resource.nodes, { anchorNodeID: this.props.node.id, icon: resource.icon })}
+                        resourcesTitle={resource.label}
                         onClick={() => this.focusNodeIDs(resource.nodes.map(node => node.id))} />
                 ))}
             </DetailResourceGrid>
@@ -214,7 +213,7 @@ class BondDetailPanel extends React.Component<Props, State> {
                                     type="button"
                                     className="netdive-bond-detail__slave"
                                     key={slave.id}
-                                    onClick={() => this.focusNodeIDs([slave.id])}>
+                                    onClick={() => this.focusNodeIDs([slave.id], 'item')}>
                                     <span className="netdive-bond-detail__slave-main">
                                         <span className="netdive-bond-detail__slave-name">{name}</span>
                                         {bondState && <span className="netdive-bond-detail__slave-role">{bondState}</span>}

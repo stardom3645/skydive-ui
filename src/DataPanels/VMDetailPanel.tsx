@@ -13,13 +13,15 @@ import { session } from '../Store'
 import { styles } from './VMDetailPanelStyles'
 import HostResourceTrendPanel from './HostResourceTrendPanel'
 import {
+    connectedResourcePopoverItems,
     DetailBadge,
     DetailEmpty,
     DetailKeyValueList,
     DetailResourceCard,
     DetailResourceGrid,
     DetailResourceIconTone,
-    DetailSection
+    DetailSection,
+    navigateInfrastructureConnectedResources
 } from './common'
 
 interface Props {
@@ -533,10 +535,7 @@ class VMDetailPanel extends React.Component<Props> {
     }
 
     private focusNodeIDs(nodeIDs: string[]) {
-        const app = (window as any).App
-        if (app && typeof app.focusInfrastructureNodeIDs === 'function' && nodeIDs.length > 0) {
-            app.focusInfrastructureNodeIDs(nodeIDs, this.props.node.id)
-        }
+        navigateInfrastructureConnectedResources(nodeIDs, this.props.node.id, 'summary')
     }
 
     private layerIcon(glyph: string) {
@@ -621,6 +620,8 @@ class VMDetailPanel extends React.Component<Props> {
             <DetailResourceGrid>
                 {visible.map(item => {
                     const canFocus = !!item.onClick || (!!item.nodeIDs && item.nodeIDs.length > 0)
+                    const topologyNodes = (window as any).App?.tc?.nodes
+                    const resourceNodes = (item.nodeIDs || []).map(nodeID => topologyNodes?.get?.(nodeID)).filter((node): node is Node => !!node)
                     return (
                         <DetailResourceCard
                             key={item.label}
@@ -629,6 +630,8 @@ class VMDetailPanel extends React.Component<Props> {
                             icon={item.icon || <InfoIcon />}
                             iconTone={item.iconTone}
                             interactive={canFocus}
+                            resources={connectedResourcePopoverItems(resourceNodes, { anchorNodeID: this.props.node.id, icon: item.icon })}
+                            resourcesTitle={item.label}
                             onClick={() => {
                                 if (item.onClick) {
                                     item.onClick()

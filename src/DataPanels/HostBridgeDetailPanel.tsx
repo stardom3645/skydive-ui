@@ -14,7 +14,7 @@ import {
 import { translate } from '../Config'
 import Tools from '../Tools'
 import { Link, Node } from '../Topology'
-import { DetailBadge, DetailEmpty, DetailKeyValueList, DetailResourceCard, DetailResourceGrid, DetailSection } from './common'
+import { connectedResourcePopoverItems, DetailBadge, DetailEmpty, DetailKeyValueList, DetailResourceCard, DetailResourceGrid, DetailSection, InfrastructureConnectedResourceNavigationMode, navigateInfrastructureConnectedResources } from './common'
 import './HostBridgeDetailPanel.css'
 
 interface Props {
@@ -207,11 +207,8 @@ class HostBridgeDetailPanel extends React.Component<Props, State> {
         return vmName && vmName !== interfaceName ? `${interfaceName} (${vmName})` : interfaceName
     }
 
-    private focusNodeIDs(nodeIDs: string[]) {
-        const app = (window as any).App
-        if (app && typeof app.focusInfrastructureNodeIDs === 'function' && nodeIDs.length > 0) {
-            app.focusInfrastructureNodeIDs(nodeIDs, this.props.node.id)
-        }
+    private focusNodeIDs(nodeIDs: string[], mode: InfrastructureConnectedResourceNavigationMode = 'summary') {
+        navigateInfrastructureConnectedResources(nodeIDs, this.props.node.id, mode)
     }
 
     private renderConnectedResources(members: Node[]) {
@@ -225,7 +222,10 @@ class HostBridgeDetailPanel extends React.Component<Props, State> {
                 {resources.map(resource => (
                     <DetailResourceCard
                         key={String(resource.label)} label={resource.label} value={String(resource.nodes.length)} icon={resource.icon} iconTone={resource.iconTone}
-                        interactive={resource.nodes.length > 0} onClick={() => this.focusNodeIDs(resource.nodes.map(node => node.id))} />
+                        interactive={resource.nodes.length > 0}
+                        resources={connectedResourcePopoverItems(resource.nodes, { anchorNodeID: this.props.node.id, icon: resource.icon })}
+                        resourcesTitle={resource.label}
+                        onClick={() => this.focusNodeIDs(resource.nodes.map(node => node.id))} />
                 ))}
             </DetailResourceGrid>
         )
@@ -248,7 +248,7 @@ class HostBridgeDetailPanel extends React.Component<Props, State> {
                     const name = this.memberDisplayName(member)
                     const state = this.stateValue(member.data || {})
                     return (
-                        <button type="button" className="netdive-host-bridge-detail__member" key={member.id} onClick={() => this.focusNodeIDs([member.id])}>
+                        <button type="button" className="netdive-host-bridge-detail__member" key={member.id} onClick={() => this.focusNodeIDs([member.id], 'item')}>
                             <span className="netdive-host-bridge-detail__member-main">
                                 <span className="netdive-host-bridge-detail__member-name" title={name}>{name}</span>
                                 {this.isUplinkInterface(member) && <DetailBadge tone="info">{translate('bridgeUplink')}</DetailBadge>}

@@ -18,6 +18,7 @@
 import * as React from "react"
 import * as ReactDOM from "react-dom"
 import { Avatar, Button, Card, Input, List, Tag, Typography } from 'antd'
+import { NodeIndexOutlined } from '@ant-design/icons'
 import { hierarchy } from 'd3-hierarchy'
 import { Selection, select, selectAll, event } from 'd3-selection'
 import { line, linkVertical, curveCatmullRom, curveCardinalClosed } from 'd3-shape'
@@ -143,7 +144,7 @@ const isCompactGroupListType = (type?: any): boolean => {
     return ["device", "nic", "interface", "tun", "tap", "tuntap", "bridge", "ovsbridge", "openvswitch", "port", "switchport"].includes(normalized)
 }
 
-const topologyNodeStatus = (node: any): { label: string, className: string, kind: "ok" | "bad" | "warning" | "unknown" } => {
+export const topologyNodeStatus = (node: any): { label: string, className: string, kind: "ok" | "bad" | "warning" | "unknown" } => {
     const data = node?.data || {}
     const raw = String(data.State || data.Status || data.state || data.status || "").toLowerCase()
     if (/running|up|active|정상/.test(raw)) {
@@ -156,6 +157,15 @@ const topologyNodeStatus = (node: any): { label: string, className: string, kind
         return { label: raw.includes("stop") || /중지/.test(raw) ? "Stopped" : "Error", className: "is-bad", kind: "bad" }
     }
     return { label: "Unknown", className: "is-unknown", kind: "unknown" }
+}
+
+/** Display filters must distinguish an explicit Down state from other
+ * problem/inactive states. Error, Failed and Stopped remain visible unless a
+ * future option explicitly targets them. */
+export const isTopologyDownNode = (node: any): boolean => {
+    const data = node?.data || {}
+    const raw = String(data.State || data.Status || data.state || data.status || '').trim().toLowerCase()
+    return raw === 'down'
 }
 
 const groupStatusSummary = (children: any[]): string => {
@@ -571,6 +581,7 @@ interface Props {
     groupSize?: number | ((node: Node) => number)
     groupThreshold?: number | ((node: Node) => number)
     nodeVisible?: (node: Node) => boolean
+    displayNodeVisible?: (node: Node) => boolean
     onLinkSelected: (link: Link, isSelected: boolean) => void
     onLinkTagChange: (tags: Map<string, LinkTagState>) => void
     onNodeClicked: (node: Node) => void
@@ -590,7 +601,10 @@ type TopologyFocusMode = 'connections' | 'problems'
 
 interface TopologyNodeFocus {
     mode: TopologyFocusMode
-    anchorID: string
+    // Keep the selected resource identity outside of the rendered SVG. The
+    // rendered node/link sets are derived again after every topology refresh.
+    focusedNodeID: string
+    focusedNodeName: string
     nodeIDs: Set<string>
     relationLinkIDs: Set<string>
     visibleRelationLinkIDs: Set<string>
@@ -650,6 +664,7 @@ export class Topology extends React.Component<Props, {}> {
     private kubernetesProblemsExpandedSnapshot: Map<string, boolean> | null
     private kubernetesProblemsGroupSnapshot: Map<string, NodeState> | null
     private topologyNodeFocus: TopologyNodeFocus | null
+    private topologySyncInProgress: boolean
 
     root: Node
     nodes: Map<string, Node>
@@ -683,6 +698,7 @@ export class Topology extends React.Component<Props, {}> {
         this.kubernetesProblemsExpandedSnapshot = null
         this.kubernetesProblemsGroupSnapshot = null
         this.topologyNodeFocus = null
+        this.topologySyncInProgress = false
         this.topologyContextMenuRoot = null
         this.groupNavigatorRenderKeys = new Map<string, string>()
         this.zoomFitTimeoutID = 0
@@ -859,7 +875,6 @@ export class Topology extends React.Component<Props, {}> {
             .on("click", () => {
                 this.clearRaisedLinkLabel()
                 this.hideNodeContextMenu()
-                this.clearTopologyNodeFocus()
                 this.props.onClick()
             })
 
@@ -1006,12 +1021,19 @@ export class Topology extends React.Component<Props, {}> {
         return { expanded: false, selected: false, mouseover: false, groupOffset: 0, groupFullSize: false }
     }
 
-    resetTree() {
+    resetTree(preserveTopologyFocus = false) {
+        this.topologySyncInProgress = preserveTopologyFocus
         this.unpinNodes()
         this.unselectAllNodes()
         this.unselectAllLinks()
         this.initTree()
         this.renderTree()
+    }
+
+    completeTopologySync() {
+        this.topologySyncInProgress = false
+        this.refreshTopologyNodeFocus()
+        this.applyTopologyNodeFocus()
     }
 
     private initTree() {
@@ -1186,6 +1208,10 @@ export class Topology extends React.Component<Props, {}> {
         } else {
             this.nodeTagStates.set(this.nodeTagActive, true)
         }
+        this.invalidate()
+    }
+
+    refreshDisplayFilters() {
         this.invalidate()
     }
 
@@ -1435,6 +1461,16 @@ export class Topology extends React.Component<Props, {}> {
 
             return [nodeType, gid]
         }
+        const canonicalGroupMembers = (parent: Node, sample: Node, nodeType: string): Node[] =>
+            (parent.children || []).filter(candidate => {
+                const candidateType = this.props.groupType ? this.props.groupType(candidate) : candidate.data.Type
+                const canonicalVisible = !this.props.nodeVisible || this.props.nodeVisible(candidate)
+                const activeLayer = candidate.tags.some(tag => this.nodeTagStates.get(tag))
+                return canonicalVisible
+                    && activeLayer
+                    && String(candidateType) === String(nodeType)
+                    && candidate.getWeight() === sample.getWeight()
+            })
         const bypassTopologyGroup = (child: Node): boolean =>
             String(child.data?.Manager || '').toLowerCase() === 'k8s'
             && String(child.data?.Type || '').toLowerCase() === 'pod'
@@ -1475,6 +1511,11 @@ export class Topology extends React.Component<Props, {}> {
 
                 var wrapped = new Node(gid, [], groupData, state, () => { return child.wrapped.getWeight() })
                 wrapper = new NodeWrapper(gid, WrapperType.Group, wrapped, node)
+                // Display-only filtering must not alter group identity, title
+                // count, detail rows, or status Badge totals. Keep the full
+                // canonical membership while wrapper.children contains only
+                // cards that are currently rendered.
+                wrapper.wrapped.children = canonicalGroupMembers(node.wrapped, child.wrapped, nodeType)
             }
 
             child.wrapped.tags.forEach(tag => {
@@ -1483,7 +1524,9 @@ export class Topology extends React.Component<Props, {}> {
                 }
             })
 
-            wrapper.wrapped.children.push(child.wrapped)
+            if (!wrapper.wrapped.children.some(member => member.id === child.wrapped.id)) {
+                wrapper.wrapped.children.push(child.wrapped)
+            }
             wrapper.children.push(child)
 
             groups.set(gid, wrapper)
@@ -1560,7 +1603,9 @@ export class Topology extends React.Component<Props, {}> {
         var cloned = new NodeWrapper(node.id, WrapperType.Normal, node, parent)
 
         var matchTags = node.tags.some(tag => this.nodeTagStates.get(tag))
-        const baseNodeVisible = node.id === "root" || !this.props.nodeVisible || this.props.nodeVisible(node)
+        const canonicalNodeVisible = node.id === "root" || !this.props.nodeVisible || this.props.nodeVisible(node)
+        const displayNodeVisible = node.id === "root" || !this.props.displayNodeVisible || this.props.displayNodeVisible(node)
+        const baseNodeVisible = canonicalNodeVisible && displayNodeVisible
         const attentionPathVisible = !this.kubernetesProblemsOnly
             || node.id === "root"
             || !isKubernetesTopologyData(node.data, node.tags)
@@ -1573,6 +1618,12 @@ export class Topology extends React.Component<Props, {}> {
             return [cloned, null]
         }
 
+        const filteredDisplayBranch = node.id !== "root" && !displayNodeVisible
+        if (filteredDisplayBranch) {
+            // Display options prune the complete branch. Promoting children of
+            // a hidden intermediate node would leave orphan resources behind.
+            return [null, []]
+        }
         const filteredKubernetesNode = node.id !== "root"
             && isKubernetesTopologyData(node.data, node.tags)
             && !nodeIsVisible
@@ -1809,7 +1860,9 @@ export class Topology extends React.Component<Props, {}> {
             const targetKubernetesRelationship = String(link.target.data?.Manager || '').toLowerCase() === 'k8s'
                 && this.props.nodeVisible
                 && !this.props.nodeVisible(link.target)
-            if (sourceKubernetesRelationship || targetKubernetesRelationship) {
+            const sourceDisplayFiltered = !this.displayBranchVisible(link.source)
+            const targetDisplayFiltered = !this.displayBranchVisible(link.target)
+            if (sourceKubernetesRelationship || targetKubernetesRelationship || sourceDisplayFiltered || targetDisplayFiltered) {
                 return
             }
 
@@ -1846,6 +1899,15 @@ export class Topology extends React.Component<Props, {}> {
         this.visibleLinksCache = links
 
         return links
+    }
+
+    private displayBranchVisible(node: Node): boolean {
+        let current: Node | null = node
+        while (current && current !== this.root) {
+            if (this.props.displayNodeVisible && !this.props.displayNodeVisible(current)) return false
+            current = current.parent
+        }
+        return true
     }
 
     private sceneSizeX() {
@@ -2296,9 +2358,6 @@ export class Topology extends React.Component<Props, {}> {
             return
         }
         const currentVisibleID = this.visibleNodeIDForID(id)
-        if (active && this.topologyNodeFocus && this.topologyNodeFocus.anchorID !== id) {
-            this.clearTopologyNodeFocus()
-        }
         let unselectedNodes: Node[] = []
         let shouldUnselectLinks = false
         if (!this.isCtrlPressed && active && !keepExisting) {
@@ -2439,7 +2498,26 @@ export class Topology extends React.Component<Props, {}> {
         }
     }
 
-    private applyZoomFit() {
+    private renderedNodeBounds(nodeIDs: Set<string>): { x: number, y: number, width: number, height: number } | null {
+        let minX = Infinity
+        let minY = Infinity
+        let maxX = -Infinity
+        let maxY = -Infinity
+
+        this.gNodes.selectAll<SVGGElement, D3Node>('g.node').each(function(d: D3Node) {
+            if (!d || !nodeIDs.has(d.data.id)) return
+            const bounds = this.getBBox()
+            minX = Math.min(minX, d.x + bounds.x)
+            minY = Math.min(minY, d.y + bounds.y)
+            maxX = Math.max(maxX, d.x + bounds.x + bounds.width)
+            maxY = Math.max(maxY, d.y + bounds.y + bounds.height)
+        })
+
+        if (![minX, minY, maxX, maxY].every(Number.isFinite)) return null
+        return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
+    }
+
+    private applyZoomFit(nodeIDs?: Set<string>) {
         if (!this.gNodes) {
             return
         }
@@ -2448,7 +2526,12 @@ export class Topology extends React.Component<Props, {}> {
         if (!element) {
             return
         }
-        var bounds = element.getBBox()
+        // Connection focus is a visual subset of the current topology. Its Fit
+        // must use only the highlighted rendered cards; dimmed nodes stay in
+        // the graph for context but must not expand the measured bounds.
+        var bounds = nodeIDs && nodeIDs.size > 0
+            ? this.renderedNodeBounds(nodeIDs) || element.getBBox()
+            : element.getBBox()
 
         var viewSize = this.viewSize()
 
@@ -2479,6 +2562,11 @@ export class Topology extends React.Component<Props, {}> {
     zoomFit() {
         this.cancelScheduledZoomFit()
         this.applyZoomFit()
+    }
+
+    private zoomFitFocusedNodes(nodeIDs: Set<string>) {
+        this.cancelScheduledZoomFit()
+        this.applyZoomFit(nodeIDs)
     }
 
     /**
@@ -2634,6 +2722,18 @@ export class Topology extends React.Component<Props, {}> {
     private renderedKubernetesBadgeChildren(wrapper: NodeWrapper): Node[] {
         if (wrapper.type === WrapperType.Group) return wrapper.wrapped.children
 
+        const canonical = this.synthesizedKubernetesBadgeChildren(wrapper.wrapped)
+        const displayFilterChangedLevel = canonical.some(child => {
+            if (child.data?.IsTopologyGroup) {
+                return (child.children || []).some(member => !this.displayBranchVisible(member))
+            }
+            return !this.displayBranchVisible(child)
+        })
+        // Visibility options affect cards only. Preserve the canonical direct
+        // level for Badge aggregation even while one of its resources/branches
+        // is hidden from the canvas.
+        if (displayFilterChangedLevel) return canonical
+
         // normalizeTreeHeight inserts Hidden wrappers only to align visual
         // levels. They are not a Badge aggregation level: walk through them
         // until the first actually rendered resource/group node. Otherwise a
@@ -2661,7 +2761,7 @@ export class Topology extends React.Component<Props, {}> {
             .map(child => child.wrapped)
         return rendered.length > 0
             ? rendered
-            : this.synthesizedKubernetesBadgeChildren(wrapper.wrapped)
+            : canonical
     }
 
     topologyBadgeChildren(node: Node): Node[] {
@@ -2727,26 +2827,38 @@ export class Topology extends React.Component<Props, {}> {
         const visibleRelationLinkIDs = new Set<string>()
         const hierarchyLinkKeys = new Set<string>()
 
-        // Derive hierarchy neighbors from paths that are actually rendered.
-        // Hidden normalization wrappers and non-rendered descendants can never
-        // enter the 1-hop set through this path.
-        this.gHieraLinks.selectAll('path.hiera-link').each((link: any) => {
-            const sourceID = link?.source?.data?.id
-            const targetID = link?.target?.data?.id
-            if (!sourceID || !targetID || (sourceID !== d.data.id && targetID !== d.data.id)) return
-            nodeIDs.add(sourceID)
-            nodeIDs.add(targetID)
-            hierarchyLinkKeys.add(this.hierarchyLinkKey(sourceID, targetID))
-        })
+        // Keep the complete direct ancestry path from the focused node to the
+        // topology root. "Direct" here means the same parent lineage: include
+        // parent, grandparent, and every higher ancestor, but never siblings or
+        // another branch. Hidden wrappers only align visual levels.
+        let upper: D3Node | undefined = d
+        while (upper?.parent && upper.parent.data.wrapped !== this.root) {
+            const parent = upper.parent
+            hierarchyLinkKeys.add(this.hierarchyLinkKey(parent.data.id, upper.data.id))
+            if (parent.data.type !== WrapperType.Hidden) {
+                nodeIDs.add(parent.data.id)
+            }
+            upper = parent
+        }
+        const includeFirstVisibleChildren = (parent: D3Node) => {
+            ;(parent.children || []).forEach(child => {
+                hierarchyLinkKeys.add(this.hierarchyLinkKey(parent.data.id, child.data.id))
+                if (child.data.type === WrapperType.Hidden) includeFirstVisibleChildren(child)
+                else nodeIDs.add(child.data.id)
+            })
+        }
+        includeFirstVisibleChildren(d)
 
-        // Read only currently rendered and visible relation paths. This keeps
-        // connection focus independent from link filters and never makes a
-        // hidden/event-only edge visible.
+        // Read every relation in the current rendered topology set. An
+        // EventBased relation can have opacity 0 until its endpoint is selected,
+        // but its directly connected parent/resource must still participate in
+        // connection focus. The edge remains hidden; focus never changes the
+        // user's link visibility setting.
         this.gLinks.selectAll('path.link').each((link: Link) => {
-            if (!link || this.linkDisplayOpacity(link) <= 0) return
-            const path = select(`#link-${link.id}`).attr('d')
-            if (!path) return
-            visibleRelationLinkIDs.add(link.id)
+            if (!link) return
+            if (this.linkDisplayOpacity(link) > 0) {
+                visibleRelationLinkIDs.add(link.id)
+            }
             const sourceID = link.source.id
             const targetID = link.target.id
             if (sourceID === d.data.id || targetID === d.data.id) {
@@ -2758,9 +2870,88 @@ export class Topology extends React.Component<Props, {}> {
         return { nodeIDs, relationLinkIDs, visibleRelationLinkIDs, hierarchyLinkKeys }
     }
 
+    /**
+     * Opens the existing connection-focus mode for a resource reached from a
+     * detail table. Targets are revealed first so a collapsed port/NIC group
+     * cannot reduce the relation to its visual group placeholder.
+     */
+    focusNodeConnections(nodeID: string, relatedNodeIDs: string[] = []): boolean {
+        const node = this.nodes.get(nodeID)
+        if (!node) return false
+
+        this.focusInfrastructureNodes([nodeID, ...relatedNodeIDs], undefined, true)
+        this.clearInfrastructureFocus()
+        const rendered = this.renderedFocusNode(nodeID)
+        if (!rendered) return false
+
+        const connectionFocus = this.connectionFocus(rendered)
+        this.topologyNodeFocus = {
+            mode: 'connections',
+            focusedNodeID: nodeID,
+            focusedNodeName: this.displayedNodeName(node),
+            ...connectionFocus
+        }
+        this.applyTopologyNodeFocus()
+        this.forceUpdate()
+        this.zoomFitFocusedNodes(connectionFocus.nodeIDs)
+        return true
+    }
+
+    private topologyFocusTargetExists(focusedNodeID: string): boolean {
+        return this.nodes.has(focusedNodeID)
+            || this.groups.has(focusedNodeID)
+            || this.d3nodes?.has(focusedNodeID)
+    }
+
+    private renderedFocusNode(focusedNodeID: string): D3Node | undefined {
+        const rendered = this.d3nodes?.get(focusedNodeID)
+        if (rendered) return rendered
+
+        // A real resource can temporarily be represented by its collapsed
+        // group. Keep the original focused resource identity while applying
+        // the focus to its current visual representative.
+        if (this.nodes.has(focusedNodeID)) {
+            return this.d3nodes?.get(this.visibleNodeIDForID(focusedNodeID))
+        }
+        return undefined
+    }
+
+    private refreshTopologyNodeFocus() {
+        const focus = this.topologyNodeFocus
+        if (!focus) return
+
+        if (!this.topologyFocusTargetExists(focus.focusedNodeID)) {
+            // A SyncReply rebuilds the topology in two steps: reset first,
+            // then repopulate nodes and edges. The empty intermediate render
+            // must not be mistaken for deletion of the focused resource.
+            if (this.topologySyncInProgress) return
+            this.topologyNodeFocus = null
+            this.forceUpdate()
+            return
+        }
+
+        const rendered = this.renderedFocusNode(focus.focusedNodeID)
+        if (!rendered) {
+            // Preserve the UI state while a still-existing target is outside
+            // the current rendered expansion/filter. No stale DOM classes are
+            // used as the source of truth.
+            return
+        }
+
+        if (focus.mode === 'connections') {
+            const current = this.connectionFocus(rendered)
+            this.topologyNodeFocus = {
+                ...focus,
+                ...current
+            }
+        }
+    }
+
     private clearTopologyNodeFocus() {
+        const hadFocus = !!this.topologyNodeFocus
         this.topologyNodeFocus = null
         this.applyTopologyNodeFocus()
+        if (hadFocus) this.forceUpdate()
     }
 
     private toggleTopologyNodeFocus(
@@ -2771,23 +2962,31 @@ export class Topology extends React.Component<Props, {}> {
         visibleRelationLinkIDs = new Set<string>(),
         hierarchyLinkKeys = new Set<string>()
     ) {
-        if (this.topologyNodeFocus?.mode === mode && this.topologyNodeFocus.anchorID === d.data.id) {
+        if (this.topologyNodeFocus?.mode === mode && this.topologyNodeFocus.focusedNodeID === d.data.id) {
             this.clearTopologyNodeFocus()
             return
         }
         this.topologyNodeFocus = {
             mode,
-            anchorID: d.data.id,
+            focusedNodeID: d.data.id,
+            focusedNodeName: this.displayedNodeName(d.data.wrapped),
             nodeIDs,
             relationLinkIDs,
             visibleRelationLinkIDs,
             hierarchyLinkKeys
         }
         this.applyTopologyNodeFocus()
+        this.forceUpdate()
+        if (mode === 'connections') {
+            this.zoomFitFocusedNodes(nodeIDs)
+        }
     }
 
     private applyTopologyNodeFocus() {
-        const focus = this.topologyNodeFocus
+        const storedFocus = this.topologyNodeFocus
+        const focus = storedFocus && this.renderedFocusNode(storedFocus.focusedNodeID)
+            ? storedFocus
+            : null
         const focused = (id?: string) => !focus || (!!id && focus.nodeIDs.has(id))
         this.gNodes?.selectAll('g.node')
             .classed('topology-focus-dim', (d: D3Node) => !focused(d?.data?.id))
@@ -2844,9 +3043,11 @@ export class Topology extends React.Component<Props, {}> {
             { key: 'center', text: '화면 중앙으로 이동', section: 'navigation', callback: () => this.centerNode(node) }
         ]
         if (connectionFocus.nodeIDs.size > 1) {
+            const connectionFocusActive = this.topologyNodeFocus?.mode === 'connections'
+                && this.topologyNodeFocus.focusedNodeID === d.data.id
             items.push({
                 key: 'connections',
-                text: '연결 자원 보기',
+                text: connectionFocusActive ? '연결 관계 강조 해제' : '연결 자원 강조',
                 section: 'navigation',
                 callback: () => this.toggleTopologyNodeFocus(
                     'connections',
@@ -2929,9 +3130,6 @@ export class Topology extends React.Component<Props, {}> {
         event.stopPropagation()
         this.clearRaisedLinkLabel()
         this.hideNodeContextMenu()
-        if (this.topologyNodeFocus && this.topologyNodeFocus.anchorID !== d.data.id) {
-            this.clearTopologyNodeFocus()
-        }
 
         if (this.props.onNodeClicked) {
             this.props.onNodeClicked(d.data.wrapped)
@@ -3315,6 +3513,80 @@ export class Topology extends React.Component<Props, {}> {
             this.syncContainerMiniCardActiveClass()
             this.syncContainerMiniLinkVisibility()
         }
+    }
+
+    /**
+     * Navigation contract shared by infrastructure connected-resource cards.
+     * A single resource (or an explicit list row) reveals and selects the real
+     * node. A multi-resource summary selects its existing type group when all
+     * targets belong to the same rendered group; otherwise it keeps the
+     * established multi-target fit behavior without changing grouping rules.
+     */
+    navigateConnectedResources(nodeIDs: string[], anchorNodeID?: string, individual: boolean = false) {
+        const uniqueNodeIDs = Array.from(new Set(nodeIDs)).filter(id => this.nodes.has(id))
+        if (uniqueNodeIDs.length === 0) return
+
+        if (individual || uniqueNodeIDs.length === 1) {
+            const targetID = uniqueNodeIDs[0]
+            const target = this.nodes.get(targetID)
+            if (!target) return
+
+            this.focusInfrastructureNodes([targetID], anchorNodeID, true)
+            this.selectNode(targetID, true)
+            this.centerNode(target)
+            return
+        }
+
+        const resolveCommonGroup = (): NodeWrapper | undefined => {
+            const targetGroups = uniqueNodeIDs
+                .map(id => this.nodeGroup.get(id))
+                .filter((group): group is NodeWrapper => !!group)
+            return targetGroups.length === uniqueNodeIDs.length
+                && targetGroups.every(group => group.id === targetGroups[0].id)
+                ? targetGroups[0]
+                : undefined
+        }
+        let commonGroup = resolveCommonGroup()
+
+        // A collapsed common parent can prevent its existing child type group
+        // from being materialized in nodeGroup. Reveal only that ancestor path,
+        // render once, and resolve the same group again.
+        if (!commonGroup) {
+            const targetNodes = uniqueNodeIDs
+                .map(id => this.nodes.get(id))
+                .filter((node): node is Node => !!node)
+            const commonParent = targetNodes.length === uniqueNodeIDs.length
+                && targetNodes[0].parent
+                && targetNodes.every(node => node.parent?.id === targetNodes[0].parent?.id)
+                ? targetNodes[0].parent
+                : undefined
+            if (commonParent) {
+                let ancestor: Node | null | undefined = commonParent
+                while (ancestor) {
+                    ancestor.state.expanded = true
+                    ancestor = ancestor.parent
+                }
+                this.renderTree()
+                commonGroup = resolveCommonGroup()
+            }
+        }
+
+        if (commonGroup) {
+            // Reveal only the existing ancestor path. The resource-type group
+            // itself remains collapsed and therefore stays the navigation
+            // target; no new grouping or unrelated expansion is introduced.
+            let ancestor = commonGroup.parent
+            while (ancestor && ancestor.wrapped !== this.root) {
+                ancestor.wrapped.state.expanded = true
+                ancestor = ancestor.parent
+            }
+            this.renderTree()
+            this.selectNode(commonGroup.id, true)
+            this.centerNode(commonGroup.wrapped)
+            return
+        }
+
+        this.focusInfrastructureNodes(uniqueNodeIDs, anchorNodeID)
     }
 
     private infrastructureLayerBounds(nodeIDs: string[]): DOMRect | null {
@@ -5635,7 +5907,6 @@ export class Topology extends React.Component<Props, {}> {
             .duration(animDuration)
             .style("opacity", 1)
             .attr("transform", (d: D3Node) => `translate(${d.x},${d.y})`)
-            .attr("class", nodeClass)
 
         node
             .filter((d: D3Node) => d.data.wrapped.state.selected)
@@ -6075,12 +6346,16 @@ export class Topology extends React.Component<Props, {}> {
         this.renderNodes(root)
         this.renderGroups()
         this.renderLinks()
+        this.refreshTopologyNodeFocus()
         this.applyTopologyNodeFocus()
 
         this.invalidated = false
     }
 
     render() {
+        const connectionFocus = this.topologyNodeFocus?.mode === 'connections'
+            ? this.topologyNodeFocus
+            : null
         return (
             <div
                 className={this.props.className}
@@ -6089,6 +6364,32 @@ export class Topology extends React.Component<Props, {}> {
             >
                 <ResizeObserver
                     onResize={(rect) => { this.onResize(rect) }} />
+                {connectionFocus && <div
+                    className="topology-connection-focus-status"
+                    role="status"
+                    aria-live="polite">
+                    <NodeIndexOutlined
+                        className="topology-connection-focus-status__icon"
+                        aria-hidden="true" />
+                    <span className="topology-connection-focus-status__label">연결 관계 강조</span>
+                    <span className="topology-connection-focus-status__separator" aria-hidden="true" />
+                    <span className="topology-connection-focus-status__name" title={connectionFocus.focusedNodeName}>
+                        {connectionFocus.focusedNodeName}
+                    </span>
+                    <span className="topology-connection-focus-status__actions">
+                        <span className="topology-connection-focus-status__exit-hint">
+                            <kbd className="topology-connection-focus-status__keycap">ESC</kbd>
+                        </span>
+                        <button
+                            type="button"
+                            className="topology-connection-focus-status__release"
+                            aria-label="연결 관계 강조 해제"
+                            title="연결 관계 강조 해제"
+                            onClick={() => this.clearTopologyNodeFocus()}>
+                            해제
+                        </button>
+                    </span>
+                </div>}
             </div>
         )
     }

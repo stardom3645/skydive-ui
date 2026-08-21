@@ -1,8 +1,13 @@
 import * as React from 'react'
-import { Button, Card, Collapse, Dropdown, Empty, Menu, Modal, Progress, Tabs, Tag, Tooltip, Typography } from 'antd'
+import { Badge, Button, Card, Collapse, Dropdown, Empty, List, Menu, Modal, Popover, Progress, Tabs, Tag, Tooltip, Typography } from 'antd'
 import { CopyOutlined, DownOutlined, EllipsisOutlined, InfoCircleOutlined, RightOutlined } from '@ant-design/icons'
+import type { Node, NodeAttrs } from '../../Topology'
 
-import { kubernetesImpactLabel } from './KubernetesDataPresentation'
+import {
+    isKubernetesRecentInstabilityLabel,
+    kubernetesImpactLabel,
+    kubernetesOperationalValueTone
+} from './KubernetesDataPresentation'
 
 import './DetailComponents.css'
 
@@ -487,7 +492,7 @@ const DETAIL_TOOLTIP_PORTAL_ID = 'netdive-detail-tooltip-portal'
 /** A viewport-fixed portal keeps transient Ant Tooltip overlays out of the
  * document's scrollable width. This prevents a wide tooltip near the panel
  * edge from briefly adding a horizontal scrollbar and shifting the panel. */
-const detailTooltipPopupContainer = (): HTMLElement => {
+export const detailTooltipPopupContainer = (): HTMLElement => {
     if (typeof document === 'undefined') return undefined as any
     const existing = document.getElementById(DETAIL_TOOLTIP_PORTAL_ID)
     if (existing) return existing
@@ -633,12 +638,17 @@ export const DetailOperationalSummary = ({
             {visibleMetrics.length > 0 && metricsTitle && <DetailCardSubsectionHeader title={metricsTitle} />}
             {visibleMetrics.length > 0 && <div className={`netdive-operational-summary__metrics items-${Math.min(4, visibleMetrics.length)}`}>
                 {visibleMetrics.map((metric, index) => {
+                    const metricTone = kubernetesOperationalValueTone(metric.label, metric.value, metric.tone)
                     const metricContent = (
                         <button
                             type="button"
                             aria-disabled={!metric.onClick}
                             tabIndex={metric.onClick ? 0 : -1}
-                            className={`netdive-operational-summary__metric is-${metric.tone || 'default'}`}
+                            className={joinClassNames(
+                                'netdive-operational-summary__metric',
+                                `is-${metricTone}`,
+                                isKubernetesRecentInstabilityLabel(metric.label) && 'is-recent-instability'
+                            )}
                             onClick={metric.onClick}>
                             <span className="netdive-operational-summary__label">
                                 {metric.label}
@@ -953,18 +963,35 @@ export interface DetailStatusIndicatorProps {
     tone?: DetailBadgeTone
     children: React.ReactNode
     className?: string
+    variant?: 'default' | 'table'
 }
 
 export const DetailStatusIndicator = ({
     tone = 'default',
     children,
-    className
-}: DetailStatusIndicatorProps) => (
-    <span className={joinClassNames('netdive-detail-status-indicator', `is-${tone}`, className)}>
+    className,
+    variant = 'default'
+}: DetailStatusIndicatorProps) => {
+    if (variant === 'table') {
+        const status = tone === 'success'
+            ? 'success'
+            : tone === 'danger'
+                ? 'error'
+                : tone === 'warning'
+                    ? 'warning'
+                    : tone === 'info'
+                        ? 'processing'
+                        : 'default'
+        return <Badge
+            className={joinClassNames('netdive-detail-table-status', className)}
+            status={status}
+            text={children} />
+    }
+    return <span className={joinClassNames('netdive-detail-status-indicator', `is-${tone}`, className)}>
         <i />
         <span>{children}</span>
     </span>
-)
+}
 
 export interface StatusEvidenceListProps {
     children: React.ReactNode
@@ -1123,6 +1150,17 @@ export interface DetailResourceCardProps {
     copyTooltip?: React.ReactNode
     labelTooltip?: React.ReactNode
     selected?: boolean
+    resources?: DetailResourcePopoverItem[]
+    resourcesTitle?: React.ReactNode
+}
+
+export interface DetailResourcePopoverItem {
+    key?: React.Key
+    name: React.ReactNode
+    description?: React.ReactNode
+    icon?: React.ReactNode
+    onClick?: () => void
+    tooltip?: React.ReactNode
 }
 
 export type DetailResourceIconTone = 'host' | 'user-vm' | 'system-vm' | 'router' | 'network' | 'interface' | 'bridge' | 'switch' | 'kubernetes'
@@ -1136,6 +1174,181 @@ export const DetailLayerIcon = ({ glyph, className }: DetailLayerIconProps) => (
     <span className={joinClassNames('netdive-detail-layer-icon', 'fa', 'fas', 'fa-fw', className)} aria-hidden="true">{glyph}</span>
 )
 
+export interface InfrastructureTopologyIconProps {
+    node?: Node
+    nodeAttrs: (node: Node) => NodeAttrs
+    fallbackType?: string
+    fallbackName?: string
+    className?: string
+}
+
+export type InfrastructureConnectedResourceNavigationMode = 'summary' | 'item'
+
+/** Shared navigation entry point for infrastructure connected-resource UI. */
+export const navigateInfrastructureConnectedResources = (
+    nodeIDs: string[],
+    anchorNodeID?: string,
+    mode: InfrastructureConnectedResourceNavigationMode = 'summary'
+) => {
+    const ids = Array.from(new Set(nodeIDs)).filter(Boolean)
+    if (ids.length === 0) return
+    const app = (window as any).App
+    if (app && typeof app.navigateInfrastructureConnectedResources === 'function') {
+        app.navigateInfrastructureConnectedResources(ids, anchorNodeID, mode === 'item')
+        return
+    }
+    // Compatibility for integrations that have not yet exposed the new
+    // navigation entry point. A single target still requests path reveal.
+    if (app && typeof app.focusInfrastructureNodeIDs === 'function') {
+        app.focusInfrastructureNodeIDs(ids, anchorNodeID, mode === 'item' || ids.length === 1)
+    }
+}
+
+const InfrastructureSwitchLayerIcon = ({ className }: { className?: string }) => (
+    <svg
+        className={joinClassNames('netdive-detail-topology-icon-switch', className)}
+        viewBox="0 0 64 64"
+        aria-hidden="true">
+        <rect className="netdive-detail-topology-icon-switch__body" x="9" y="21.5" width="46" height="21" rx="3" ry="3" />
+        {[17, 21.7, 26.4, 31.1, 35.8, 40.5, 45.2].map(x => (
+            <rect
+                key={x}
+                className="netdive-detail-topology-icon-switch__detail"
+                x={x}
+                y="29"
+                width="4"
+                height="6"
+                rx="0.6"
+                ry="0.6" />
+        ))}
+        <path
+            className="netdive-detail-topology-icon-switch__detail"
+            d="M13.5 30.75a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 1 0 0-2.5M50.7 31.2a.8.8 0 1 0 0 1.6.8.8 0 1 0 0-1.6M52.8 31.2a.8.8 0 1 0 0 1.6.8.8 0 1 0 0-1.6" />
+    </svg>
+)
+
+/** Uses the infrastructure layer glyph resolved by nodeAttrs.
+ *
+ * Infrastructure resource nodes may override their symbol with a resource
+ * image (for example, a physical switch).  The left-hand topology hierarchy
+ * deliberately keeps a stable icon per layer, so connected-resource cards
+ * must use the resolved layer glyph instead of that resource image.  The card
+ * keeps its own container styling; only the inner layer symbol is shared.
+ */
+export const InfrastructureTopologyIcon = ({
+    node,
+    nodeAttrs,
+    fallbackType = 'device',
+    fallbackName = fallbackType,
+    className
+}: InfrastructureTopologyIconProps) => {
+    const resource = node || ({
+        id: `detail-icon-${fallbackType}`,
+        data: { Type: fallbackType, Name: fallbackName }
+    } as Node)
+    const attrs = nodeAttrs(resource)
+    if (attrs.iconClass === 'network-switch-icon') {
+        return <InfrastructureSwitchLayerIcon className={className} />
+    }
+    return <span
+        className={joinClassNames('netdive-detail-topology-icon', className)}
+        aria-hidden="true">{attrs.icon}</span>
+}
+
+const topologyNodeName = (node: Node): string => {
+    const data: any = node.data || {}
+    const metadata = data.Metadata || data.metadata || {}
+    return String(
+        data.DisplayName || data.displayName || data.Name || data.name
+        || metadata.Name || metadata.name || node.id
+    )
+}
+
+const topologyNodeContext = (node: Node): string => {
+    const data: any = node.data || {}
+    const metadata = data.Metadata || data.metadata || {}
+    const namespace = data.Namespace || data.namespace || metadata.Namespace || metadata.namespace
+    if (namespace) return String(namespace)
+    let current = node.parent
+    while (current) {
+        const type = String(current.data?.Type || current.data?.type || '').toLowerCase()
+        if (type === 'host') return topologyNodeName(current)
+        current = current.parent
+    }
+    return ''
+}
+
+export interface ConnectedResourcePopoverItemsOptions {
+    anchorNodeID?: string
+    nodeAttrs?: (node: Node) => NodeAttrs
+    icon?: React.ReactNode
+    getName?: (node: Node) => React.ReactNode
+    getDescription?: (node: Node) => React.ReactNode
+}
+
+/** Shared resource-to-list projection. It keeps topology navigation on the
+ * existing reveal/select/center path so a row always resolves to the real node. */
+export const connectedResourcePopoverItems = (
+    nodes: Node[],
+    options: ConnectedResourcePopoverItemsOptions = {}
+): DetailResourcePopoverItem[] => {
+    const unique = new Map<string, Node>()
+    nodes.forEach(node => { if (node?.id) unique.set(node.id, node) })
+    return Array.from(unique.values()).map(node => {
+        const name = options.getName ? options.getName(node) : topologyNodeName(node)
+        const description = options.getDescription ? options.getDescription(node) : topologyNodeContext(node)
+        return {
+            key: node.id,
+            name,
+            description: description || undefined,
+            icon: options.nodeAttrs
+                ? <InfrastructureTopologyIcon node={node} nodeAttrs={options.nodeAttrs} />
+                : options.icon,
+            onClick: () => navigateInfrastructureConnectedResources([node.id], options.anchorNodeID, 'item'),
+            tooltip: typeof name === 'string' ? name : undefined
+        }
+    })
+}
+
+const DetailConnectedResourcePopover = ({
+    title,
+    items,
+    onNavigate
+}: {
+    title: React.ReactNode
+    items: DetailResourcePopoverItem[]
+    onNavigate: (item: DetailResourcePopoverItem) => void
+}) => {
+    const displayTitle = typeof title === 'string'
+        ? title.replace(/^연결(?:된)?\s+/, '').replace(/^Connected\s+/i, '')
+        : title
+    return <div className="netdive-connected-resource-popover">
+    <Typography.Text className="netdive-connected-resource-popover__title">
+        연결된 {displayTitle} ({items.length})
+    </Typography.Text>
+    <List
+        className="netdive-connected-resource-popover__list"
+        size="small"
+        dataSource={items}
+        renderItem={(item, index) => <List.Item key={item.key !== undefined ? item.key : index}>
+            <Button
+                type="text"
+                className="netdive-connected-resource-popover__item"
+                disabled={!item.onClick}
+                onClick={() => onNavigate(item)}>
+                {item.icon && <span className="netdive-connected-resource-popover__icon">{item.icon}</span>}
+                <span className="netdive-connected-resource-popover__text">
+                    <Tooltip title={item.tooltip} placement="top">
+                        <Typography.Text className="netdive-connected-resource-popover__name">{item.name}</Typography.Text>
+                    </Tooltip>
+                    {item.description && <Typography.Text className="netdive-connected-resource-popover__description">{item.description}</Typography.Text>}
+                </span>
+                {item.onClick && <RightOutlined className="netdive-connected-resource-popover__row-action" />}
+            </Button>
+        </List.Item>} />
+</div>
+}
+
 export const DetailResourceCard = ({
     label,
     value,
@@ -1148,9 +1361,17 @@ export const DetailResourceCard = ({
     copyText,
     copyTooltip,
     labelTooltip,
-    selected = false
-}: DetailResourceCardProps) => (
-    <Button
+    selected = false,
+    resources = [],
+    resourcesTitle
+}: DetailResourceCardProps) => {
+    const [resourcesOpen, setResourcesOpen] = React.useState(false)
+    const hasResourceList = resources.length > 1
+    const navigateResource = (item: DetailResourcePopoverItem) => {
+        setResourcesOpen(false)
+        if (item.onClick) item.onClick()
+    }
+    return <Button
         type="text"
         block
         disabled={!interactive}
@@ -1200,11 +1421,38 @@ export const DetailResourceCard = ({
                 <CopyOutlined />
             </span>
         </Tooltip>}
-        <span className={joinClassNames('netdive-detail-resource__action', !interactive && 'netdive-detail-resource__action--hidden')}>
+        {hasResourceList ? <Popover
+            content={<DetailConnectedResourcePopover title={resourcesTitle || label} items={resources} onNavigate={navigateResource} />}
+            placement="rightTop"
+            trigger="click"
+            visible={resourcesOpen}
+            onVisibleChange={setResourcesOpen}
+            overlayClassName="netdive-connected-resource-popover-overlay"
+            getPopupContainer={() => document.body}
+            autoAdjustOverflow>
+            <span
+                className={joinClassNames('netdive-detail-resource__action', 'netdive-detail-resource__list-action', resourcesOpen && 'is-open')}
+                role="button"
+                tabIndex={0}
+                aria-label="연결 자원 목록 보기"
+                onClick={event => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                }}
+                onKeyDown={event => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        setResourcesOpen(open => !open)
+                    }
+                }}>
+                <DownOutlined />
+            </span>
+        </Popover> : <span className={joinClassNames('netdive-detail-resource__action', !interactive && 'netdive-detail-resource__action--hidden')}>
             <RightOutlined />
-        </span>
+        </span>}
     </Button>
-)
+}
 
 export interface DetailResourceGridProps {
     children: React.ReactNode
@@ -1301,6 +1549,8 @@ export interface ConnectedResourceItem {
     onClick?: () => void
     tooltip?: React.ReactNode
     selected?: boolean
+    resources?: DetailResourcePopoverItem[]
+    resourcesTitle?: React.ReactNode
 }
 
 export interface ConnectedResourceGroup {
@@ -1340,8 +1590,11 @@ export const ConnectedResourcesSection = ({ title, icon, groups, emptyText = '-'
                             className="netdive-connected-resources__item"
                             interactive={!!item.onClick}
                             selected={item.selected}
-                            onClick={item.onClick} />
-                        return item.tooltip && item.onClick ? <Tooltip key={item.key !== undefined ? item.key : itemIndex} title={item.tooltip} placement="top">{card}</Tooltip> : card
+                            onClick={item.onClick}
+                            labelTooltip={item.tooltip}
+                            resources={item.resources}
+                            resourcesTitle={item.resourcesTitle} />
+                        return card
                     })}</DetailResourceGrid>
                 </div>
             ))}</div> : <DetailEmpty description={emptyText} compact />}
@@ -1349,14 +1602,9 @@ export const ConnectedResourcesSection = ({ title, icon, groups, emptyText = '-'
     )
 }
 
-export interface ConnectedResourceListItem {
+export interface ConnectedResourceListItem extends DetailResourcePopoverItem {
     key?: React.Key
     kind?: React.ReactNode
-    name: React.ReactNode
-    description?: React.ReactNode
-    icon?: React.ReactNode
-    onClick?: () => void
-    tooltip?: React.ReactNode
     className?: string
 }
 

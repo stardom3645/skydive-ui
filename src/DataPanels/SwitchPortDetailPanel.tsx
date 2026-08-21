@@ -1,14 +1,15 @@
 import * as React from 'react'
-import { ApartmentOutlined, ApiOutlined, InfoCircleOutlined, LinkOutlined } from '@ant-design/icons'
+import { ApiOutlined, InfoCircleOutlined } from '@ant-design/icons'
 
-import { Link, Node } from '../Topology'
+import { Link, Node, NodeAttrs } from '../Topology'
 import { translate } from '../Config'
 import { switchDisplayName, switchTextValue } from '../SwitchNodeUtils'
-import { DetailKeyValueList, DetailResourceCard, DetailResourceGrid, DetailSection } from './common'
+import { connectedResourcePopoverItems, DetailKeyValueList, DetailResourceCard, DetailResourceGrid, DetailSection, InfrastructureTopologyIcon, navigateInfrastructureConnectedResources } from './common'
 import './SwitchPortDetailPanel.css'
 
 interface Props {
     node: Node
+    nodeAttrs: (node: Node) => NodeAttrs
 }
 
 class SwitchPortDetailPanel extends React.Component<Props> {
@@ -58,14 +59,36 @@ class SwitchPortDetailPanel extends React.Component<Props> {
         return Array.from(peers.values())
     }
 
+    private hostAncestor(node?: Node): Node | undefined {
+        let current = node
+        while (current) {
+            if (this.nodeType(current) === 'host') return current
+            current = current.parent || undefined
+        }
+        return undefined
+    }
+
+    private connectedHosts(peers: Node[]): Node[] {
+        const hosts = new Map<string, Node>()
+        peers.forEach(peer => {
+            const host = this.hostAncestor(peer)
+            if (host) hosts.set(host.id, host)
+        })
+        return Array.from(hosts.values())
+    }
+
     private text(data: any, keys: string[]): string {
         return switchTextValue(data, keys)
     }
 
-    private basicRows(parentSwitch?: Node) {
+    private basicRows(parentSwitch: Node | undefined, connectedHosts: Node[]) {
         const data = this.data()
         const name = this.text(data, ['Name', 'name', 'IfName', 'InterfaceName']) || this.props.node.id
         const parentName = parentSwitch ? switchDisplayName(parentSwitch.data, parentSwitch.id) : ''
+        const connectedHostNames = connectedHosts.map(host => (
+            this.text(host.data || {}, ['Name', 'name', 'Hostname', 'HostName']) || host.id
+        ))
+        const connectedHostSummary = connectedHostNames.join(', ')
         const type = this.text(data, ['Type', 'type']) || 'switchport'
         const mac = this.text(data, ['MAC', 'Mac', 'MacAddress', 'HardwareAddr'])
         const state = this.text(data, ['State', 'state', 'Status', 'status'])
@@ -75,6 +98,7 @@ class SwitchPortDetailPanel extends React.Component<Props> {
         return [
             { key: 'name', label: translate('Name'), value: name, textValue: name, copyText: name },
             { key: 'switch', label: translate('phy-switch'), value: parentName, textValue: parentName },
+            { key: 'connected-host', label: translate('switchPortMappingHost'), value: connectedHostSummary, textValue: connectedHostSummary, copyText: connectedHostSummary || undefined },
             { key: 'type', label: translate('Type'), value: type, textValue: type },
             { key: 'mac', label: translate('MAC'), value: mac, textValue: mac, copyText: mac || undefined },
             { key: 'state', label: translate('State'), value: state, textValue: state },
@@ -84,17 +108,13 @@ class SwitchPortDetailPanel extends React.Component<Props> {
     }
 
     private focusNodeIDs(nodeIDs: string[]) {
-        const app = (window as any).App
-        if (app && typeof app.focusInfrastructureNodeIDs === 'function' && nodeIDs.length > 0) {
-            app.focusInfrastructureNodeIDs(nodeIDs, this.props.node.id)
-        }
+        navigateInfrastructureConnectedResources(nodeIDs, this.props.node.id, 'summary')
     }
 
-    private renderConnectedResources(parentSwitch?: Node) {
-        const peers = this.connectedPeers(parentSwitch)
+    private renderConnectedResources(parentSwitch: Node | undefined, peers: Node[]) {
         const resources = [
-            { label: translate('phy-switch'), nodes: parentSwitch ? [parentSwitch] : [], icon: <ApartmentOutlined />, iconTone: 'switch' as const },
-            { label: translate('switchPortConnectedNodes'), nodes: peers, icon: <LinkOutlined />, iconTone: 'network' as const }
+            { label: translate('phy-switch'), nodes: parentSwitch ? [parentSwitch] : [], fallbackType: 'switch', iconTone: 'switch' as const },
+            { label: translate('switchPortConnectedNodes'), nodes: peers, fallbackType: 'device', iconTone: 'interface' as const }
         ]
 
         return (
@@ -104,9 +124,14 @@ class SwitchPortDetailPanel extends React.Component<Props> {
                         key={String(resource.label)}
                         label={resource.label}
                         value={String(resource.nodes.length)}
-                        icon={resource.icon}
+                        icon={<InfrastructureTopologyIcon
+                            node={resource.nodes[0]}
+                            nodeAttrs={this.props.nodeAttrs}
+                            fallbackType={resource.fallbackType} />}
                         iconTone={resource.iconTone}
                         interactive={resource.nodes.length > 0}
+                        resources={connectedResourcePopoverItems(resource.nodes, { anchorNodeID: this.props.node.id, nodeAttrs: this.props.nodeAttrs })}
+                        resourcesTitle={resource.label}
                         onClick={() => this.focusNodeIDs(resource.nodes.map(node => node.id))}
                     />
                 ))}
@@ -116,13 +141,15 @@ class SwitchPortDetailPanel extends React.Component<Props> {
 
     render() {
         const parentSwitch = this.parentSwitch()
+        const peers = this.connectedPeers(parentSwitch)
+        const connectedHosts = this.connectedHosts(peers)
         return (
             <div className="netdive-switch-port-detail">
                 <DetailSection icon={<InfoCircleOutlined />} title={translate('switchBasicInfo')}>
-                    <DetailKeyValueList rows={this.basicRows(parentSwitch)} copyTooltip={translate('copy')} />
+                    <DetailKeyValueList rows={this.basicRows(parentSwitch, connectedHosts)} copyTooltip={translate('copy')} />
                 </DetailSection>
                 <DetailSection icon={<ApiOutlined />} title={translate('hostConnectedResources')}>
-                    {this.renderConnectedResources(parentSwitch)}
+                    {this.renderConnectedResources(parentSwitch, peers)}
                 </DetailSection>
             </div>
         )

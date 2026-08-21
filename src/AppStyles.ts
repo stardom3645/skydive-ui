@@ -2264,34 +2264,34 @@ export const styles = (theme: Theme) => createStyles({
     }
   },
   recentViewedNodeIconKubernetes: {
-    color: '#2563eb',
-    background: '#eff6ff',
-    border: '1px solid #dbeafe',
+    color: 'var(--netdive-detail-connected-resource-icon)',
+    background: 'var(--netdive-detail-connected-resource-icon-bg)',
+    border: '1px solid var(--netdive-detail-connected-resource-icon-border)',
   },
   recentViewedNodeIconHost: {
-    color: '#2563eb',
-    background: 'rgba(239, 246, 255, 0.82)',
-    border: '1px solid rgba(219, 234, 254, 0.95)',
+    color: 'var(--netdive-detail-connected-resource-icon)',
+    background: 'var(--netdive-detail-connected-resource-icon-bg)',
+    border: '1px solid var(--netdive-detail-connected-resource-icon-border)',
   },
   recentViewedNodeIconUserVM: {
-    color: '#16a34a',
-    background: 'rgba(240, 253, 244, 0.82)',
-    border: '1px solid rgba(220, 252, 231, 0.95)',
+    color: 'var(--netdive-detail-connected-resource-icon)',
+    background: 'var(--netdive-detail-connected-resource-icon-bg)',
+    border: '1px solid var(--netdive-detail-connected-resource-icon-border)',
   },
   recentViewedNodeIconSystemVM: {
-    color: '#4f46e5',
-    background: 'rgba(238, 242, 255, 0.82)',
-    border: '1px solid rgba(224, 231, 255, 0.95)',
+    color: 'var(--netdive-detail-connected-resource-icon)',
+    background: 'var(--netdive-detail-connected-resource-icon-bg)',
+    border: '1px solid var(--netdive-detail-connected-resource-icon-border)',
   },
   recentViewedNodeIconRouter: {
-    color: '#7c3aed',
-    background: 'rgba(245, 243, 255, 0.82)',
-    border: '1px solid rgba(237, 233, 254, 0.95)',
+    color: 'var(--netdive-detail-connected-resource-icon)',
+    background: 'var(--netdive-detail-connected-resource-icon-bg)',
+    border: '1px solid var(--netdive-detail-connected-resource-icon-border)',
   },
   recentViewedNodeIconNetwork: {
-    color: '#0284c7',
-    background: 'rgba(240, 249, 255, 0.82)',
-    border: '1px solid rgba(224, 242, 254, 0.95)',
+    color: 'var(--netdive-detail-connected-resource-icon)',
+    background: 'var(--netdive-detail-connected-resource-icon-bg)',
+    border: '1px solid var(--netdive-detail-connected-resource-icon-border)',
   },
   recentViewedNodeText: {
     minWidth: 0,
@@ -2897,16 +2897,24 @@ export const styles = (theme: Theme) => createStyles({
     '&:hover': {
       backgroundColor: 'var(--netdive-search-hover)',
     },
-    marginRight: theme.spacing(1.5),
+    marginRight: theme.spacing(0.5),
     marginLeft: 0,
-    width: '100%',
-    [theme.breakpoints.up('sm')]: {
-      marginLeft: 0,
-      width: 'auto',
-    },
+    width: 'auto',
+    maxWidth: 360,
+    minWidth: 150,
+    flex: '1 2 320px',
     lineHeight: 1,
     fontSize: '2rem',
-    minWidth: 320
+    '@media (max-width: 1450px)': {
+      minWidth: 110,
+      maxWidth: 260,
+      paddingLeft: theme.spacing(0.5),
+      paddingRight: theme.spacing(0.5),
+    },
+    '@media (max-width: 1150px)': {
+      minWidth: 72,
+      maxWidth: 190,
+    }
   },
   filtersPanel: {
     position: 'absolute',
@@ -2971,6 +2979,10 @@ export const styles = (theme: Theme) => createStyles({
     },
     '& svg': {
       fontSize: 18
+    },
+    '@media (max-width: 1450px)': {
+      width: 40,
+      height: 42,
     }
   },
   topologyIconButtonActive: {
@@ -2992,6 +3004,9 @@ export const styles = (theme: Theme) => createStyles({
       '& span': {
         fontSize: 11
       }
+    },
+    '@media (max-width: 1450px)': {
+      width: 46,
     }
   },
   topologyZoomButtonText: {
@@ -3028,6 +3043,10 @@ export const styles = (theme: Theme) => createStyles({
     },
     [theme.breakpoints.down('sm')]: {
       display: 'none'
+    },
+    '@media (max-width: 1450px)': {
+      width: 42,
+      height: 42,
     }
   },
   topologyStandaloneButton: {
@@ -3039,12 +3058,19 @@ export const styles = (theme: Theme) => createStyles({
     boxShadow: '0 1px 2px rgba(15, 23, 42, 0.03)',
     '&:hover': {
       borderColor: '#bfdbfe'
+    },
+    '@media (max-width: 1450px)': {
+      width: 44,
+      height: 44,
     }
   },
   layerFilterButton: {
     height: 48,
-    minWidth: 240,
-    marginLeft: theme.spacing(1.5),
+    minWidth: 140,
+    maxWidth: 240,
+    width: 'auto',
+    flex: '1 1 220px',
+    marginLeft: 0,
     padding: theme.spacing(0, 1.5),
     border: '1px solid #d7e2f0',
     borderRadius: 10,
@@ -3072,6 +3098,35 @@ export const styles = (theme: Theme) => createStyles({
       gridTemplateColumns: '20px minmax(0, 1fr) 16px',
       alignItems: 'center',
       columnGap: 10
+    },
+    '@media (max-width: 1450px)': {
+      minWidth: 112,
+      maxWidth: 200,
+      height: 44,
+      paddingLeft: 8,
+      paddingRight: 8,
+      '& .MuiButton-label': {
+        gridTemplateColumns: '18px minmax(0, 1fr) 14px',
+        columnGap: 6,
+      }
+    },
+    '@media (max-width: 1150px)': {
+      minWidth: 76,
+      maxWidth: 128,
+    }
+  },
+  displayOptionsButton: {
+    minWidth: 130,
+    maxWidth: 190,
+    flexBasis: 170,
+    marginLeft: 0,
+    '@media (max-width: 1450px)': {
+      minWidth: 104,
+      maxWidth: 160,
+    },
+    '@media (max-width: 1150px)': {
+      minWidth: 72,
+      maxWidth: 112,
     }
   },
   layerFilterButtonIcon: {
@@ -3113,7 +3168,10 @@ export const styles = (theme: Theme) => createStyles({
     color: 'var(--netdive-detail-muted)',
     fontSize: 11,
     fontWeight: 600,
-    lineHeight: 1.1
+    lineHeight: 1.1,
+    '@media (max-width: 1150px)': {
+      display: 'none'
+    }
   },
   layerFilterButtonChevron: {
     display: 'inline-flex',
@@ -3197,9 +3255,15 @@ export const styles = (theme: Theme) => createStyles({
     height: 64,
     minHeight: 64,
     boxSizing: 'border-box',
-    paddingLeft: 24,
-    paddingRight: 24,
+    minWidth: 0,
+    paddingLeft: 16,
+    paddingRight: 16,
     gap: theme.spacing(1),
+    '@media (max-width: 1450px)': {
+      paddingLeft: 10,
+      paddingRight: 10,
+      gap: 4,
+    }
   },
   toolbarSectionDivider: {
     flex: '0 0 auto',
@@ -3211,6 +3275,9 @@ export const styles = (theme: Theme) => createStyles({
     opacity: 0.9,
     [theme.breakpoints.down('sm')]: {
       display: 'none'
+    },
+    '@media (max-width: 1150px)': {
+      display: 'none'
     }
   },
   toolbarActionCluster: {
@@ -3219,9 +3286,15 @@ export const styles = (theme: Theme) => createStyles({
     gap: theme.spacing(1.05),
     marginLeft: theme.spacing(1),
     height: 48,
+    flex: '0 0 auto',
     [theme.breakpoints.down('sm')]: {
       gap: theme.spacing(0.55),
       marginLeft: theme.spacing(0.5)
+    },
+    '@media (max-width: 1450px)': {
+      gap: 4,
+      marginLeft: 4,
+      height: 44,
     }
   },
   toolbarActionGroup: {
@@ -3234,6 +3307,7 @@ export const styles = (theme: Theme) => createStyles({
     borderRadius: 10,
     backgroundColor: '#ffffff',
     boxShadow: '0 1px 2px rgba(15, 23, 42, 0.03)',
+    flex: '0 0 auto',
     '& > *:not(:first-child)': {
       borderLeft: '1px solid var(--netdive-action-btn-border)'
     },
@@ -3241,6 +3315,9 @@ export const styles = (theme: Theme) => createStyles({
       '& $topologyTextIconButton': {
         width: 40
       }
+    },
+    '@media (max-width: 1450px)': {
+      height: 44,
     }
   },
   toolbarZoomGroup: {
@@ -3252,7 +3329,27 @@ export const styles = (theme: Theme) => createStyles({
     border: '1px solid #d7e2f0',
     borderRadius: 10,
     backgroundColor: '#ffffff',
-    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.03)'
+    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.03)',
+    flex: '0 0 auto',
+    '@media (max-width: 1450px)': {
+      height: 44,
+    }
+  },
+  toolbarUtilityActions: {
+    display: 'inline-flex',
+    flex: '0 0 auto',
+    alignItems: 'center',
+    whiteSpace: 'nowrap',
+    '& .MuiIconButton-root': {
+      flex: '0 0 auto',
+    },
+    '@media (max-width: 1450px)': {
+      '& .MuiIconButton-root': {
+        width: 42,
+        height: 42,
+        padding: 8,
+      }
+    }
   },
   title: {
     paddingTop: 15,

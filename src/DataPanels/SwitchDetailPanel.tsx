@@ -1,7 +1,7 @@
 import * as React from 'react'
-import { ApiOutlined, ApartmentOutlined, DesktopOutlined, InfoCircleOutlined, LinkOutlined } from '@ant-design/icons'
+import { ApartmentOutlined, InfoCircleOutlined, LinkOutlined, PartitionOutlined } from '@ant-design/icons'
 
-import { Link, Node } from '../Topology'
+import { Link, Node, NodeAttrs } from '../Topology'
 import { translate } from '../Config'
 import {
     switchDisplayName,
@@ -9,11 +9,13 @@ import {
     switchManagementAddress,
     switchTextValue
 } from '../SwitchNodeUtils'
-import { DetailEmpty, DetailKeyValueList, DetailResourceCard, DetailResourceGrid, DetailSection } from './common'
+import { buildInfrastructurePortMappings, InfrastructurePortMapping } from '../InfrastructurePortMapping'
+import { connectedResourcePopoverItems, DetailEmpty, DetailKeyValueList, DetailResourceCard, DetailResourceGrid, DetailSection, InfrastructurePortMappingTable, InfrastructureTopologyIcon, navigateInfrastructureConnectedResources } from './common'
 import './SwitchDetailPanel.css'
 
 interface Props {
     node: Node
+    nodeAttrs: (node: Node) => NodeAttrs
 }
 
 class SwitchDetailPanel extends React.Component<Props> {
@@ -65,6 +67,10 @@ class SwitchDetailPanel extends React.Component<Props> {
         return links && typeof links.values === 'function' ? Array.from(links.values()) as Link[] : []
     }
 
+    private portMappings(): InfrastructurePortMapping[] {
+        return buildInfrastructurePortMappings(this.props.node, this.topologyNodes(), this.topologyLinks())
+    }
+
     private isSwitchPort(node: Node): boolean {
         const type = String(node.data?.Type || node.data?.type || '').toLowerCase()
         return type === 'switchport' || type === 'port'
@@ -108,18 +114,21 @@ class SwitchDetailPanel extends React.Component<Props> {
     }
 
     private focusNodeIDs(nodeIDs: string[]) {
-        const app = (window as any).App
-        if (app && typeof app.focusInfrastructureNodeIDs === 'function' && nodeIDs.length > 0) {
-            app.focusInfrastructureNodeIDs(nodeIDs, this.props.node.id)
-        }
+        navigateInfrastructureConnectedResources(nodeIDs, this.props.node.id, 'summary')
+    }
+
+    private focusPortMapping(mapping: InfrastructurePortMapping) {
+        const targetNodeID = mapping.switchPortNodeID || mapping.hostNicNodeID || mapping.hostNodeID
+        if (!targetNodeID) return
+        navigateInfrastructureConnectedResources([targetNodeID], this.props.node.id, 'item')
     }
 
     private renderConnectedResources() {
         const ports = this.switchPorts()
         const hosts = this.connectedHosts(ports)
         const resources = [
-            { label: translate('infrastructureHosts'), nodes: hosts, icon: <DesktopOutlined />, iconTone: 'host' as const },
-            { label: translate('phy-switch-ports'), nodes: ports, icon: <ApiOutlined />, iconTone: 'interface' as const }
+            { label: translate('infrastructureHosts'), nodes: hosts, fallbackType: 'host', iconTone: 'host' as const },
+            { label: translate('phy-switch-ports'), nodes: ports, fallbackType: 'switchport', iconTone: 'interface' as const }
         ]
 
         return (
@@ -129,9 +138,14 @@ class SwitchDetailPanel extends React.Component<Props> {
                         key={String(resource.label)}
                         label={resource.label}
                         value={String(resource.nodes.length)}
-                        icon={resource.icon}
+                        icon={<InfrastructureTopologyIcon
+                            node={resource.nodes[0]}
+                            nodeAttrs={this.props.nodeAttrs}
+                            fallbackType={resource.fallbackType} />}
                         iconTone={resource.iconTone}
                         interactive={resource.nodes.length > 0}
+                        resources={connectedResourcePopoverItems(resource.nodes, { anchorNodeID: this.props.node.id, nodeAttrs: this.props.nodeAttrs })}
+                        resourcesTitle={resource.label}
                         onClick={() => this.focusNodeIDs(resource.nodes.map(node => node.id))}
                     />
                 ))}
@@ -144,6 +158,14 @@ class SwitchDetailPanel extends React.Component<Props> {
             <div className="netdive-switch-detail">
                 <DetailSection icon={<InfoCircleOutlined />} title={translate('switchBasicInfo')}>
                     <DetailKeyValueList rows={this.basicRows()} copyTooltip={translate('copy')} />
+                </DetailSection>
+                <DetailSection
+                    icon={<PartitionOutlined />}
+                    title={translate('switchPortMapping')}
+                    description={translate('switchPortMappingDescription')}>
+                    <InfrastructurePortMappingTable
+                        mappings={this.portMappings()}
+                        onNavigate={mapping => this.focusPortMapping(mapping)} />
                 </DetailSection>
                 <DetailSection icon={<LinkOutlined />} title={translate('hostConnectedResources')}>
                     {this.renderConnectedResources()}

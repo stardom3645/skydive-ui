@@ -15,7 +15,7 @@ import { translate } from '../Config'
 import Tools from '../Tools'
 import { switchDisplayName, switchLLDPData, switchTextValue } from '../SwitchNodeUtils'
 import { Link, Node } from '../Topology'
-import { DetailBadge, DetailEmpty, DetailKeyValueList, DetailResourceCard, DetailResourceGrid, DetailSection } from './common'
+import { connectedResourcePopoverItems, DetailBadge, DetailEmpty, DetailKeyValueList, DetailResourceCard, DetailResourceGrid, DetailSection, navigateInfrastructureConnectedResources } from './common'
 import './NicDetailPanel.css'
 
 interface Props {
@@ -153,10 +153,7 @@ class NicDetailPanel extends React.Component<Props, State> {
     }
 
     private focusNodeIDs(nodeIDs: string[]) {
-        const app = (window as any).App
-        if (app && typeof app.focusInfrastructureNodeIDs === 'function' && nodeIDs.length > 0) {
-            app.focusInfrastructureNodeIDs(nodeIDs, this.props.node.id)
-        }
+        navigateInfrastructureConnectedResources(nodeIDs, this.props.node.id, 'summary')
     }
 
     private renderConnectedResources(peers: Node[]) {
@@ -175,6 +172,8 @@ class NicDetailPanel extends React.Component<Props, State> {
                         icon={resource.icon}
                         iconTone={resource.iconTone}
                         interactive={resource.nodes.length > 0}
+                        resources={connectedResourcePopoverItems(resource.nodes, { anchorNodeID: this.props.node.id, icon: resource.icon })}
+                        resourcesTitle={resource.label}
                         onClick={() => this.focusNodeIDs(resource.nodes.map(node => node.id))} />
                 ))}
             </DetailResourceGrid>

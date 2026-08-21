@@ -2,12 +2,12 @@ import * as React from 'react'
 import { Menu, Typography } from 'antd'
 import {
     AimOutlined,
-    ApartmentOutlined,
     CopyOutlined,
     DownOutlined,
     EyeOutlined,
     UpOutlined,
-    WarningOutlined
+    WarningOutlined,
+    NodeIndexOutlined
 } from '@ant-design/icons'
 
 export type TopologyContextMenuSection = 'navigation' | 'topology'
@@ -28,7 +28,7 @@ interface Props {
 const actionIcon = (key: string): React.ReactNode => ({
     detail: <EyeOutlined />,
     center: <AimOutlined />,
-    connections: <ApartmentOutlined />,
+    connections: <NodeIndexOutlined />,
     copy: <CopyOutlined />,
     expand: <DownOutlined />,
     collapse: <UpOutlined />,

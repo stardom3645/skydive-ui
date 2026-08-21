@@ -12,6 +12,7 @@ import { kubernetesPvcOperationalPresentation } from '../KubernetesPersistentVol
 import { kubernetesPvNodeAffinityPresentation, kubernetesPvOperationalPresentation, kubernetesPvSourcePresentation } from '../KubernetesPersistentVolumeDetailAggregation'
 import {
     BasicInfoRows,
+    connectedResourcePopoverItems,
     collectKubernetesEventGroups,
     DetailAdvancedInfo,
     DetailBadge,
@@ -586,23 +587,23 @@ class KubernetesStorageDetailPanel extends React.Component<Props, State> {
             }
         ]
         const directItems: any[] = type === 'storageclass' ? [
-            { key: 'pvcs', label: 'PVC', count: storageClassPVCs.length, icon: this.storageResourceIcon('persistentvolumeclaim'), iconTone: 'kubernetes' as const, onClick: storageClassPVCs.length ? () => this.setState({ relatedModal: 'pvc' }) : undefined },
-            { key: 'pvs', label: 'PV', count: storageClassPVs.length, icon: this.storageResourceIcon('persistentvolume'), iconTone: 'kubernetes' as const, onClick: storageClassPVs.length ? () => this.setState({ relatedModal: 'pv' }) : undefined }
+            { key: 'pvcs', label: 'PVC', count: storageClassPVCs.length, icon: this.storageResourceIcon('persistentvolumeclaim'), iconTone: 'kubernetes' as const, resources: connectedResourcePopoverItems(storageClassPVCs, { anchorNodeID: this.props.node.id, nodeAttrs: this.props.nodeAttrs }), onClick: storageClassPVCs.length ? () => this.setState({ relatedModal: 'pvc' }) : undefined },
+            { key: 'pvs', label: 'PV', count: storageClassPVs.length, icon: this.storageResourceIcon('persistentvolume'), iconTone: 'kubernetes' as const, resources: connectedResourcePopoverItems(storageClassPVs, { anchorNodeID: this.props.node.id, nodeAttrs: this.props.nodeAttrs }), onClick: storageClassPVs.length ? () => this.setState({ relatedModal: 'pv' }) : undefined }
         ] : [
-            ...(pv ? [{ key: 'pv', label: 'PV', count: 1, icon: this.storageResourceIcon('persistentvolume'), iconTone: 'kubernetes' as const, tooltip: resourceTooltip('PV', [pv]), onClick: () => this.focus([pv]) }] : []),
-            ...(pvc ? [{ key: 'pvc', label: 'PVC', count: 1, icon: this.storageResourceIcon('persistentvolumeclaim'), iconTone: 'kubernetes' as const, tooltip: resourceTooltip('PVC', [pvc]), onClick: () => this.focus([pvc]) }] : []),
-            ...(storageClass ? [{ key: 'storage-class', label: 'StorageClass', count: 1, icon: this.storageResourceIcon('storageclass'), iconTone: 'kubernetes' as const, tooltip: resourceTooltip('StorageClass', [storageClass]), onClick: () => this.focus([storageClass]) }] : []),
-            ...(nodes.length ? [{ key: 'nodes', label: '노드', count: nodes.length, icon: this.topologyIcon(nodes[0]), iconTone: 'kubernetes' as const, tooltip: resourceTooltip('노드', nodes), onClick: () => this.focus(nodes) }] : [])
+            ...(pv ? [{ key: 'pv', label: 'PV', count: 1, icon: this.storageResourceIcon('persistentvolume'), iconTone: 'kubernetes' as const, resources: connectedResourcePopoverItems([pv], { anchorNodeID: this.props.node.id, nodeAttrs: this.props.nodeAttrs }), tooltip: resourceTooltip('PV', [pv]), onClick: () => this.focus([pv]) }] : []),
+            ...(pvc ? [{ key: 'pvc', label: 'PVC', count: 1, icon: this.storageResourceIcon('persistentvolumeclaim'), iconTone: 'kubernetes' as const, resources: connectedResourcePopoverItems([pvc], { anchorNodeID: this.props.node.id, nodeAttrs: this.props.nodeAttrs }), tooltip: resourceTooltip('PVC', [pvc]), onClick: () => this.focus([pvc]) }] : []),
+            ...(storageClass ? [{ key: 'storage-class', label: 'StorageClass', count: 1, icon: this.storageResourceIcon('storageclass'), iconTone: 'kubernetes' as const, resources: connectedResourcePopoverItems([storageClass], { anchorNodeID: this.props.node.id, nodeAttrs: this.props.nodeAttrs }), tooltip: resourceTooltip('StorageClass', [storageClass]), onClick: () => this.focus([storageClass]) }] : []),
+            ...(nodes.length ? [{ key: 'nodes', label: '노드', count: nodes.length, icon: this.topologyIcon(nodes[0]), iconTone: 'kubernetes' as const, resources: connectedResourcePopoverItems(nodes, { anchorNodeID: this.props.node.id, nodeAttrs: this.props.nodeAttrs }), tooltip: resourceTooltip('노드', nodes), onClick: () => this.focus(nodes) }] : [])
         ]
         const indirectItems: any[] = [
-            ...(pods.length ? [{ key: 'pods', label: '파드', count: pods.length, icon: this.topologyIcon(pods[0]), iconTone: 'kubernetes' as const, tooltip: resourceTooltip('파드', pods), onClick: () => this.focus(pods) }] : []),
-            ...(workloads.length ? [{ key: 'workloads', label: '상위 워크로드', count: workloads.length, icon: this.topologyIcon(workloads[0]), iconTone: 'kubernetes' as const, tooltip: resourceTooltip('상위 워크로드', workloads), onClick: () => this.focus(workloads) }] : [])
+            ...(pods.length ? [{ key: 'pods', label: '파드', count: pods.length, icon: this.topologyIcon(pods[0]), iconTone: 'kubernetes' as const, resources: connectedResourcePopoverItems(pods, { anchorNodeID: this.props.node.id, nodeAttrs: this.props.nodeAttrs }), tooltip: resourceTooltip('파드', pods), onClick: () => this.focus(pods) }] : []),
+            ...(workloads.length ? [{ key: 'workloads', label: '상위 워크로드', count: workloads.length, icon: this.topologyIcon(workloads[0]), iconTone: 'kubernetes' as const, resources: connectedResourcePopoverItems(workloads, { anchorNodeID: this.props.node.id, nodeAttrs: this.props.nodeAttrs }), tooltip: resourceTooltip('상위 워크로드', workloads), onClick: () => this.focus(workloads) }] : [])
         ]
         const pvcRelatedItems: any[] = type === 'persistentvolumeclaim' ? [
-            { key: 'pv', label: 'PV', count: pv ? 1 : 0, icon: this.storageResourceIcon('persistentvolume'), iconTone: 'kubernetes' as const, onClick: pv ? () => this.setState({ relatedModal: 'pv' }) : undefined },
-            { key: 'storage-class', label: '스토리지 클래스', count: storageClass ? 1 : 0, icon: this.storageResourceIcon('storageclass'), iconTone: 'kubernetes' as const, onClick: storageClass ? () => this.setState({ relatedModal: 'storageclass' }) : undefined },
-            { key: 'pods', label: '파드', count: pods.length, icon: pods.length ? this.topologyIcon(pods[0]) : <img className="netdive-detail-topology-icon-image" src="assets/icons/pod.png" alt="" />, iconTone: 'kubernetes' as const, onClick: pods.length ? () => this.setState({ relatedModal: 'pod' }) : undefined },
-            { key: 'workloads', label: '상위 워크로드', count: workloads.length, icon: workloads.length ? this.topologyIcon(workloads[0]) : <AccountTreeIcon />, iconTone: 'kubernetes' as const, onClick: workloads.length ? () => this.setState({ relatedModal: 'workload' }) : undefined }
+            { key: 'pv', label: 'PV', count: pv ? 1 : 0, icon: this.storageResourceIcon('persistentvolume'), iconTone: 'kubernetes' as const, resources: connectedResourcePopoverItems(pv ? [pv] : [], { anchorNodeID: this.props.node.id, nodeAttrs: this.props.nodeAttrs }), onClick: pv ? () => this.setState({ relatedModal: 'pv' }) : undefined },
+            { key: 'storage-class', label: '스토리지 클래스', count: storageClass ? 1 : 0, icon: this.storageResourceIcon('storageclass'), iconTone: 'kubernetes' as const, resources: connectedResourcePopoverItems(storageClass ? [storageClass] : [], { anchorNodeID: this.props.node.id, nodeAttrs: this.props.nodeAttrs }), onClick: storageClass ? () => this.setState({ relatedModal: 'storageclass' }) : undefined },
+            { key: 'pods', label: '파드', count: pods.length, icon: pods.length ? this.topologyIcon(pods[0]) : <img className="netdive-detail-topology-icon-image" src="assets/icons/pod.png" alt="" />, iconTone: 'kubernetes' as const, resources: connectedResourcePopoverItems(pods, { anchorNodeID: this.props.node.id, nodeAttrs: this.props.nodeAttrs }), onClick: pods.length ? () => this.setState({ relatedModal: 'pod' }) : undefined },
+            { key: 'workloads', label: '상위 워크로드', count: workloads.length, icon: workloads.length ? this.topologyIcon(workloads[0]) : <AccountTreeIcon />, iconTone: 'kubernetes' as const, resources: connectedResourcePopoverItems(workloads, { anchorNodeID: this.props.node.id, nodeAttrs: this.props.nodeAttrs }), onClick: workloads.length ? () => this.setState({ relatedModal: 'workload' }) : undefined }
         ] : []
         const relatedGroups = type === 'storageclass'
             ? [{ key: 'usage', items: directItems }]

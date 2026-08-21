@@ -12,6 +12,7 @@ import { resolveKubernetesPodController } from '../KubernetesWorkloadOwnership'
 import { aggregateKubernetesServiceOperationalStatus } from '../KubernetesServiceDetailAggregation'
 import {
     BasicInfoRows,
+    connectedResourcePopoverItems,
     collectKubernetesEventGroups,
     CompactEmptyState,
     DetailAdvancedInfo,
@@ -573,10 +574,10 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
                 groups={[{
                     key: 'kubernetes',
                     items: [
-                        ...(pods.length ? [{ key: 'pods', label: translate('kubernetesTopologyPods'), count: pods.length, icon: podTargets.length ? this.topologyIcon(podTargets[0]) : <img src="assets/icons/k8s.png" alt="" />, iconTone: 'kubernetes' as const, onClick: podTargets.length ? () => this.openResourceList(podTargets) : undefined }] : []),
-                        ...(workloadTargets.length ? [{ key: 'workloads', label: translate('kubernetesTopologyWorkloadControllers'), count: workloadTargets.length, icon: <DetailLayerIcon glyph={'\uf5fd'} />, iconTone: 'kubernetes' as const, onClick: () => this.openResourceList(workloadTargets) }] : []),
-                        ...(endpointSliceReferences.length ? [{ key: 'endpoint-slices', label: 'EndpointSlice', count: endpointSliceReferences.length, icon: endpointSliceTargets.length ? this.topologyIcon(endpointSliceTargets[0]) : <img src="assets/icons/k8s.png" alt="" />, iconTone: 'kubernetes' as const, onClick: endpointSliceTargets.length ? () => this.openResourceList(endpointSliceTargets) : undefined }] : []),
-                        ...(ingressReferences.length ? [{ key: 'ingresses', label: 'Ingress', count: ingressReferences.length, icon: ingressTargets.length ? this.topologyIcon(ingressTargets[0]) : <img src="assets/icons/k8s.png" alt="" />, iconTone: 'kubernetes' as const, onClick: ingressTargets.length ? () => this.openResourceList(ingressTargets) : undefined }] : [])
+                        ...(pods.length ? [{ key: 'pods', label: translate('kubernetesTopologyPods'), count: pods.length, icon: podTargets.length ? this.topologyIcon(podTargets[0]) : <img src="assets/icons/k8s.png" alt="" />, iconTone: 'kubernetes' as const, resources: connectedResourcePopoverItems(podTargets, { anchorNodeID: this.props.node.id, nodeAttrs: this.props.nodeAttrs }), onClick: podTargets.length ? () => this.openResourceList(podTargets) : undefined }] : []),
+                        ...(workloadTargets.length ? [{ key: 'workloads', label: translate('kubernetesTopologyWorkloadControllers'), count: workloadTargets.length, icon: <DetailLayerIcon glyph={'\uf5fd'} />, iconTone: 'kubernetes' as const, resources: connectedResourcePopoverItems(workloadTargets, { anchorNodeID: this.props.node.id, nodeAttrs: this.props.nodeAttrs }), onClick: () => this.openResourceList(workloadTargets) }] : []),
+                        ...(endpointSliceReferences.length ? [{ key: 'endpoint-slices', label: 'EndpointSlice', count: endpointSliceReferences.length, icon: endpointSliceTargets.length ? this.topologyIcon(endpointSliceTargets[0]) : <img src="assets/icons/k8s.png" alt="" />, iconTone: 'kubernetes' as const, resources: connectedResourcePopoverItems(endpointSliceTargets, { anchorNodeID: this.props.node.id, nodeAttrs: this.props.nodeAttrs }), onClick: endpointSliceTargets.length ? () => this.openResourceList(endpointSliceTargets) : undefined }] : []),
+                        ...(ingressReferences.length ? [{ key: 'ingresses', label: 'Ingress', count: ingressReferences.length, icon: ingressTargets.length ? this.topologyIcon(ingressTargets[0]) : <img src="assets/icons/k8s.png" alt="" />, iconTone: 'kubernetes' as const, resources: connectedResourcePopoverItems(ingressTargets, { anchorNodeID: this.props.node.id, nodeAttrs: this.props.nodeAttrs }), onClick: ingressTargets.length ? () => this.openResourceList(ingressTargets) : undefined }] : [])
                     ]
                 }]} />
             <DetailSectionCard icon={<HistoryOutlined />} title={translate('kubernetesServiceRecentEvents')}><KubernetesRecentEvents

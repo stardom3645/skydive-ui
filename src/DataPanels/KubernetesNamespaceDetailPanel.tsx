@@ -24,6 +24,7 @@ import {
 } from '../KubernetesNamespaceDetailAggregation'
 import {
     BasicInfoRows,
+    connectedResourcePopoverItems,
     classifyKubernetesPod,
     collectKubernetesEventGroups,
     CompactEmptyState,
@@ -717,11 +718,11 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
                         title: translate('kubernetesConnectedResourceGroup'),
                         icon: <img src="assets/icons/k8s.png" alt="" />,
                         items: [
-                            { key: 'workloads', label: translate('kubernetesTopologyWorkloadControllers'), count: connectedWorkloads.length, icon: <DetailLayerIcon glyph={'\uf5fd'} />, iconTone: 'kubernetes' as const, onClick: connectedWorkloads.length ? () => this.setState({ activeDetailTab: 'workloads' }) : undefined },
-                            { key: 'pods', label: translate('kubernetesTopologyPods'), count: activeConnectedPods.length, icon: activeConnectedPods.length ? this.topologyIcon(activeConnectedPods[0]) : <DetailLayerIcon glyph={'\uf1b3'} />, iconTone: 'kubernetes' as const, onClick: activeConnectedPods.length ? () => this.setState({ activeDetailTab: 'pods' }) : undefined },
-                            { key: 'services', label: translate('kubernetesTopologyServices'), count: connectedServices.length, icon: connectedServices.length ? this.topologyIcon(connectedServices[0]) : <DetailLayerIcon glyph={'\uf233'} />, iconTone: 'kubernetes' as const, onClick: connectedServices.length ? () => this.setState({ activeDetailTab: 'services' }) : undefined },
-                            { key: 'pvcs', label: 'PVC', count: connectedClaims.length, icon: connectedClaims.length ? this.topologyIcon(connectedClaims[0]) : <DetailLayerIcon glyph={'\uf1c0'} />, iconTone: 'kubernetes' as const, onClick: connectedClaims.length ? () => this.setState({ activeDetailTab: 'storage' }) : undefined, tooltip: 'Namespace → PVC 관계로 집계합니다. PV와 StorageClass는 직접 자원 수에 포함하지 않습니다.' },
-                            ...(this.namespaceResources('ingress').length ? [{ key: 'ingress', label: 'Ingress', count: this.namespaceResources('ingress').length, icon: <DetailLayerIcon glyph={'\uf0c1'} />, iconTone: 'kubernetes' as const, onClick: () => this.setState({ activeDetailTab: 'ingress' as const }) }] : [])
+                            { key: 'workloads', label: translate('kubernetesTopologyWorkloadControllers'), count: connectedWorkloads.length, icon: <DetailLayerIcon glyph={'\uf5fd'} />, iconTone: 'kubernetes' as const, resources: connectedResourcePopoverItems(connectedWorkloads, { anchorNodeID: this.props.node.id, nodeAttrs: this.props.nodeAttrs }), onClick: connectedWorkloads.length ? () => this.setState({ activeDetailTab: 'workloads' }) : undefined },
+                            { key: 'pods', label: translate('kubernetesTopologyPods'), count: activeConnectedPods.length, icon: activeConnectedPods.length ? this.topologyIcon(activeConnectedPods[0]) : <DetailLayerIcon glyph={'\uf1b3'} />, iconTone: 'kubernetes' as const, resources: connectedResourcePopoverItems(activeConnectedPods, { anchorNodeID: this.props.node.id, nodeAttrs: this.props.nodeAttrs }), onClick: activeConnectedPods.length ? () => this.setState({ activeDetailTab: 'pods' }) : undefined },
+                            { key: 'services', label: translate('kubernetesTopologyServices'), count: connectedServices.length, icon: connectedServices.length ? this.topologyIcon(connectedServices[0]) : <DetailLayerIcon glyph={'\uf233'} />, iconTone: 'kubernetes' as const, resources: connectedResourcePopoverItems(connectedServices, { anchorNodeID: this.props.node.id, nodeAttrs: this.props.nodeAttrs }), onClick: connectedServices.length ? () => this.setState({ activeDetailTab: 'services' }) : undefined },
+                            { key: 'pvcs', label: 'PVC', count: connectedClaims.length, icon: connectedClaims.length ? this.topologyIcon(connectedClaims[0]) : <DetailLayerIcon glyph={'\uf1c0'} />, iconTone: 'kubernetes' as const, resources: connectedResourcePopoverItems(connectedClaims, { anchorNodeID: this.props.node.id, nodeAttrs: this.props.nodeAttrs }), onClick: connectedClaims.length ? () => this.setState({ activeDetailTab: 'storage' }) : undefined, tooltip: 'Namespace → PVC 관계로 집계합니다. PV와 StorageClass는 직접 자원 수에 포함하지 않습니다.' },
+                            ...(this.namespaceResources('ingress').length ? [{ key: 'ingress', label: 'Ingress', count: this.namespaceResources('ingress').length, icon: <DetailLayerIcon glyph={'\uf0c1'} />, iconTone: 'kubernetes' as const, resources: connectedResourcePopoverItems(this.namespaceResources('ingress'), { anchorNodeID: this.props.node.id, nodeAttrs: this.props.nodeAttrs }), onClick: () => this.setState({ activeDetailTab: 'ingress' as const }) }] : [])
                         ]
                     }
                 ]} />

@@ -23,10 +23,23 @@ import {
     kubernetesVolumeModeLabel,
     kubernetesVolumeSourceTypeLabel,
     kubernetesAccessModesLabel,
-    kubernetesResourceConfigurationCollectionState
+    kubernetesResourceConfigurationCollectionState,
+    kubernetesRecentInstabilityTone
 } from '../src/DataPanels/common/KubernetesDataPresentation'
 
 describe('Kubernetes data presentation', () => {
+    it('uses one recent-instability tone across every operational status card', () => {
+        assert.equal(kubernetesRecentInstabilityTone(0, 'default'), 'success')
+        assert.equal(kubernetesRecentInstabilityTone('없음', 'default'), 'success')
+        assert.equal(kubernetesRecentInstabilityTone('0건', 'warning'), 'success')
+        assert.equal(kubernetesRecentInstabilityTone(1, 'warning'), 'warning')
+        assert.equal(kubernetesRecentInstabilityTone(3, 'danger'), 'danger')
+        assert.equal(kubernetesRecentInstabilityTone('확인 불가', 'warning'), 'default')
+        assert.equal(kubernetesRecentInstabilityTone('미수집', 'danger'), 'default')
+        assert.equal(kubernetesRecentInstabilityTone('stale', 'danger'), 'default')
+        assert.equal(kubernetesRecentInstabilityTone('unavailable', 'warning'), 'default')
+    })
+
     it('shows only an actual reason from the current container state', () => {
         assert.equal(kubernetesContainerStateReason({ state: 'RUNNING', lastTerminatedReason: 'OOMKilled' }), undefined)
         assert.equal(kubernetesContainerStateReason({ state: 'RUNNING' }), undefined)
@@ -40,7 +53,7 @@ describe('Kubernetes data presentation', () => {
         assert.equal(kubernetesImpactLabel('확인된 영향 없음'), '영향 없음')
         assert.equal(kubernetesImpactLabel('현재 영향 없음'), '영향 없음')
         assert.equal(kubernetesImpactLabel('목표 복제본 충족'), '목표 복제본 충족')
-        assert.equal(kubernetesImpactLabel('가용성 영향 확인 필요'), '가용성 영향 확인 필요')
+        assert.equal(kubernetesImpactLabel('가용성 영향 확인 필요'), '가용성 확인 필요')
         assert.equal(kubernetesImpactLabel('워크로드 2개 미가용'), '2개 미가용')
     })
 

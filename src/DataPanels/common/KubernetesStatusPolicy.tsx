@@ -3,6 +3,7 @@ import * as React from 'react'
 import { Node } from '../../Topology'
 import { aggregatePods, getPodClassification, kubernetesPodTime } from '../../KubernetesPodLifecycle'
 import { DetailInfoTooltip } from './DetailComponents'
+import { kubernetesOperationalValueTone } from './KubernetesDataPresentation'
 import './KubernetesStatusPolicy.css'
 
 export type KubernetesStateTone = 'danger' | 'warning' | 'history' | 'success' | 'default'
@@ -18,7 +19,8 @@ export interface KubernetesStateItem {
 export const KubernetesStateSeparation = ({ items }: { items: KubernetesStateItem[] }) => (
     <div className="netdive-k8s-state-separation">
         {items.map(item => {
-            const content = <div className={`is-${item.tone}`}>
+            const tone = kubernetesOperationalValueTone(item.label, item.value, item.tone)
+            const content = <div className={`is-${tone}`}>
                 <span>{item.label}<DetailInfoTooltip description={item.tooltip} ariaLabel={`${String(item.label)} 상세 정보`} /></span>
                 <strong>{item.value}</strong>
             </div>

@@ -1,5 +1,42 @@
 export type KubernetesConfigurationState = 'configured' | 'partial' | 'unset' | 'uncollected'
 
+export type KubernetesOperationalValueTone = 'default' | 'info' | 'success' | 'warning' | 'danger' | 'history'
+
+const KUBERNETES_UNAVAILABLE_STATUS_VALUES = new Set([
+    '확인 불가', '미확인', '미수집', '수집되지 않음', '수집 실패',
+    'unknown', 'stale', 'unavailable'
+])
+
+/** Shared visual policy for the repeated "최근 불안정성" operational value.
+ * Resource panels keep their own counts and severity decisions; this helper
+ * only removes presentation drift for zero/none and unavailable evidence. */
+export const kubernetesRecentInstabilityTone = (
+    value: any,
+    severityTone: KubernetesOperationalValueTone = 'warning'
+): KubernetesOperationalValueTone => {
+    const text = value === undefined || value === null ? '' : String(value).trim()
+    const normalized = text.toLowerCase()
+    if (!text || KUBERNETES_UNAVAILABLE_STATUS_VALUES.has(normalized)) return 'default'
+    if (normalized === '없음' || /^0(?:\s*(?:건|개|회))?$/.test(normalized)) return 'success'
+    const numeric = typeof value === 'number' ? value : Number(text)
+    if (Number.isFinite(numeric)) {
+        if (numeric <= 0) return 'success'
+        return severityTone === 'danger' ? 'danger' : 'warning'
+    }
+    return severityTone === 'danger' ? 'danger' : severityTone === 'default' ? 'warning' : severityTone
+}
+
+export const isKubernetesRecentInstabilityLabel = (label: any): boolean =>
+    typeof label === 'string' && label.trim() === '최근 불안정성'
+
+export const kubernetesOperationalValueTone = (
+    label: any,
+    value: any,
+    tone: KubernetesOperationalValueTone = 'default'
+): KubernetesOperationalValueTone => isKubernetesRecentInstabilityLabel(label)
+    ? kubernetesRecentInstabilityTone(value, tone)
+    : tone
+
 const valueByPath = (data: any, path: string): any => path.split('.').reduce((value, key) =>
     value === undefined || value === null ? undefined : value[key], data)
 
@@ -247,6 +284,7 @@ const KUBERNETES_NO_IMPACT_LABELS = new Set([
 export const kubernetesImpactLabel = (value: string): string => {
     const normalized = value.trim()
     if (KUBERNETES_NO_IMPACT_LABELS.has(normalized)) return '영향 없음'
+    if (normalized === '가용성 영향 확인 필요') return '가용성 확인 필요'
     const unavailableWorkloads = normalized.match(/^워크로드\s+(\d+)개\s+미가용$/)
     // `현재 영향` is already the KPI label, so repeating the resource
     // kind needlessly consumes the narrow three-column value area.

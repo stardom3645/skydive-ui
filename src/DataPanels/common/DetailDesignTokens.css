@@ -23,6 +23,8 @@
     --netdive-detail-success: #12b76a;
     --netdive-detail-warning: #f79009;
     --netdive-detail-danger: #d92d20;
+    --netdive-detail-table-header-bg: #f8fafc;
+    --netdive-detail-table-row-hover: #f0f5ff;
     /* Shared semantic typography hierarchy. Detail-panel text must never be
      * reduced below the supporting-text size to solve density constraints. */
     --netdive-detail-font-panel-title: 15px;
@@ -63,6 +65,12 @@
     --netdive-detail-result-value-width: 72px;
     --netdive-detail-resource-height: 60px;
     --netdive-detail-resource-icon-size: 26px;
+    /* Kubernetes connected-resource cards established this shared navigation
+     * color. Infrastructure cards reuse the same tokens so resource color is
+     * not confused with success/warning/error status colors. */
+    --netdive-detail-connected-resource-icon: #326ce5;
+    --netdive-detail-connected-resource-icon-bg: rgba(239, 246, 255, 0.96);
+    --netdive-detail-connected-resource-icon-border: rgba(191, 219, 254, 0.9);
     --netdive-detail-resource-value-min-width: 24px;
     --netdive-detail-resource-action-width: 11px;
     --netdive-detail-resource-column-gap: 5px;

@@ -164,3 +164,13 @@
   background-color: #e6f7ff;
   font-weight: 400;
 }
+
+.netdive-topology-display-options .ant-dropdown-menu {
+  min-width: 220px;
+}
+
+.netdive-topology-display-options .ant-dropdown-menu-item .ant-checkbox-wrapper {
+  width: 100%;
+  color: inherit;
+  font-size: inherit;
+}

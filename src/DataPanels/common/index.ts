@@ -19,6 +19,9 @@ export {
     DetailLayerIcon,
     DetailInlineSectionHeader,
     DetailInfoTooltip,
+    InfrastructureTopologyIcon,
+    connectedResourcePopoverItems,
+    navigateInfrastructureConnectedResources,
     DetailMetricRow,
     DetailMetricSummaryRow,
     DetailPanelHeader,
@@ -62,6 +65,9 @@ export {
     kubernetesContainerKindLabel,
     kubernetesContainerStateReason,
     kubernetesImpactLabel,
+    kubernetesRecentInstabilityTone,
+    kubernetesOperationalValueTone,
+    isKubernetesRecentInstabilityLabel,
     kubernetesDefaultStorageClass,
     kubernetesBooleanSettingLabel,
     kubernetesReclaimPolicyLabel,
@@ -113,6 +119,10 @@ export { KubernetesVolumeDetailModal, KubernetesVolumeList } from './KubernetesV
 export type { KubernetesVolumeDetailModalProps, KubernetesVolumeListProps } from './KubernetesVolumeList'
 export { KubernetesEndpointList } from './KubernetesEndpointList'
 export type { KubernetesEndpointItem, KubernetesEndpointListProps } from './KubernetesEndpointList'
+export { InfrastructurePortMappingTable } from './InfrastructurePortMappingTable'
+export type { InfrastructurePortMappingTableProps } from './InfrastructurePortMappingTable'
+export { DetailTable } from './DetailTable'
+export type { DetailTableProps } from './DetailTable'
 
 export { kubernetesSchedulingMetadata, normalizeKubernetesSchedulingConfiguration } from './KubernetesSchedulingPresentation'
 export type { KubernetesSchedulingConfiguration } from './KubernetesSchedulingPresentation'
@@ -243,6 +253,7 @@ export type {
     ConnectedResourceItem,
     ConnectedResourceListGroup,
     ConnectedResourceListItem,
+    ConnectedResourcePopoverItemsOptions,
     ConnectedResourceListSectionProps,
     ConnectedResourcesSectionProps,
     CollapsibleSummaryRowProps,
@@ -269,6 +280,8 @@ export type {
     DetailOperationalSummaryProps,
     DetailResourceCardProps,
     DetailResourceIconTone,
+    InfrastructureConnectedResourceNavigationMode,
+    DetailResourcePopoverItem,
     DetailResourceGridProps,
     DetailSectionProps,
     DetailStatusIndicatorProps,

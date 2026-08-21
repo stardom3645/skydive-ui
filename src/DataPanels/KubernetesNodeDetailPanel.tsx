@@ -21,6 +21,7 @@ import {
 } from '../KubernetesNodeDetailAggregation'
 import {
     BasicInfoRows,
+    connectedResourcePopoverItems,
     CollapsibleSummaryRow,
     CompactEmptyState,
     collectKubernetesEventGroups,
@@ -975,8 +976,8 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
                     title: translate('kubernetesConnectedResourceGroup'),
                     icon: <img src="assets/icons/k8s.png" alt="" />,
                     items: [
-                        { key: 'pods', label: 'Pod', count: connected.pods.length, icon: <DetailLayerIcon glyph={'\uf1b3'} />, iconTone: 'kubernetes', onClick: connected.pods.length ? () => this.setState({ podModalOpen: true }) : undefined, tooltip: '전체 Pod 목록 보기' },
-                        { key: 'workloads', label: KUBERNETES_DETAIL_LABELS.workloadController, count: workloads.length, icon: <DetailLayerIcon glyph={'\uf5fd'} />, iconTone: 'kubernetes', onClick: workloads.length ? () => this.setState({ workloadModalOpen: true, workloadFilter: 'all' }) : undefined, tooltip: KUBERNETES_DETAIL_LABELS.workloadController }
+                        { key: 'pods', label: 'Pod', count: connected.pods.length, icon: <DetailLayerIcon glyph={'\uf1b3'} />, iconTone: 'kubernetes', resources: connectedResourcePopoverItems(connected.pods, { anchorNodeID: this.props.node.id, nodeAttrs: this.props.nodeAttrs }), onClick: connected.pods.length ? () => this.setState({ podModalOpen: true }) : undefined, tooltip: '전체 Pod 목록 보기' },
+                        { key: 'workloads', label: KUBERNETES_DETAIL_LABELS.workloadController, count: workloads.length, icon: <DetailLayerIcon glyph={'\uf5fd'} />, iconTone: 'kubernetes', resources: connectedResourcePopoverItems(workloads.map(item => item.node).filter((node): node is Node => !!node), { anchorNodeID: this.props.node.id, nodeAttrs: this.props.nodeAttrs }), onClick: workloads.length ? () => this.setState({ workloadModalOpen: true, workloadFilter: 'all' }) : undefined, tooltip: KUBERNETES_DETAIL_LABELS.workloadController }
                     ]
                 }]} />
 

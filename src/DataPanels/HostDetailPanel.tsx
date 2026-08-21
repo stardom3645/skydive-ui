@@ -10,6 +10,7 @@ v12 Changes:
 - Preserve v11 typography.
 */
 import * as React from 'react'
+import { PartitionOutlined } from '@ant-design/icons'
 import IconButton from '@material-ui/core/IconButton'
 import Drawer from '@material-ui/core/Drawer'
 import SvgIcon from '@material-ui/core/SvgIcon'
@@ -26,19 +27,25 @@ import KeyboardArrowRightIcon from '@material-ui/icons/KeyboardArrowRight'
 import KeyboardArrowDownIcon from '@material-ui/icons/KeyboardArrowDown'
 import { withStyles } from '@material-ui/core/styles'
 
-import { Node } from '../Topology'
+import { Link, Node, NodeAttrs } from '../Topology'
+import { buildInfrastructureHostPortMappings, InfrastructureHostPortMapping } from '../InfrastructurePortMapping'
 import { session } from '../Store'
 import { translate } from '../Config'
 import { styles } from './HostDetailPanelStyles'
 
 import HostResourceTrendPanel from './HostResourceTrendPanel'
 import {
+    connectedResourcePopoverItems,
     DetailEmpty,
     DetailKeyValueList,
+    DetailNavigationTabs,
+    InfrastructureTopologyIcon,
+    navigateInfrastructureConnectedResources,
     DetailResourceCard,
     DetailResourceGrid,
     DetailResourceIconTone,
-    DetailSection
+    DetailSection,
+    InfrastructurePortMappingTable
 } from './common'
 
 interface Props {
@@ -48,9 +55,11 @@ interface Props {
     moldInventory?: any
     infrastructureHostSummaries?: Record<string, any>
     kubernetesClusters?: any[]
+    nodeAttrs: (node: Node) => NodeAttrs
 }
 
 interface State {
+    activeDetailTab: 'overview' | 'network-connections'
     moldDetail?: any
     moldDetailLoadedFor?: string
     listeningServicesVisibleCount?: number
@@ -689,7 +698,7 @@ const getByPath = (value: any, path: string): any => {
 }
 
 class HostDetailPanel extends React.Component<Props, State> {
-    state: State = {}
+    state: State = { activeDetailTab: 'overview' }
     private kubernetesNodePickerRef = React.createRef<HTMLDivElement>()
 
     componentDidMount() {
@@ -704,6 +713,7 @@ class HostDetailPanel extends React.Component<Props, State> {
     componentDidUpdate(prevProps: Props) {
         if (prevProps.node.id !== this.props.node.id) {
             this.setState({
+                activeDetailTab: 'overview',
                 listeningServicesVisibleCount: undefined,
                 showAllSocketProcesses: false,
                 kubernetesNodePickerOpen: false,
@@ -1108,11 +1118,8 @@ class HostDetailPanel extends React.Component<Props, State> {
     }
 
     private focusConnectedResource(actionKey?: InfrastructureFocusKey, nodeIDs: string[] = []) {
-        const app = (window as any).App
         const ids = nodeIDs.length ? nodeIDs : this.hostInfrastructureNodeIDs(actionKey)
-        if (app && typeof app.focusInfrastructureNodeIDs === 'function' && ids.length > 0) {
-            app.focusInfrastructureNodeIDs(ids, this.props.node.id)
-        }
+        navigateInfrastructureConnectedResources(ids, this.props.node.id, 'summary')
     }
 
     private openKubernetesNodePicker() {
@@ -1174,7 +1181,7 @@ class HostDetailPanel extends React.Component<Props, State> {
         return map
     }
 
-    private topologyLinks(): any[] {
+    private topologyLinks(): Link[] {
         const app = (window as any).App
         const links = app?.tc?.links
         if (links instanceof Map) {
@@ -1184,6 +1191,23 @@ class HostDetailPanel extends React.Component<Props, State> {
             return links
         }
         return []
+    }
+
+    private switchPortConnections(): InfrastructureHostPortMapping[] {
+        return buildInfrastructureHostPortMappings(
+            this.selectedTopologyHostNode(),
+            this.topologyNodes(),
+            this.topologyLinks()
+        )
+    }
+
+    private focusSwitchPortConnection(mapping: InfrastructureHostPortMapping) {
+        // This table is the host-side view of a remote switch relationship.
+        // Navigate to the actual switch rather than selecting the local NIC
+        // that already belongs to the currently open host.
+        const targetNodeID = mapping.switchNodeID || mapping.switchPortNodeID || mapping.hostNicNodeID || mapping.bondInterfaceNodeID
+        if (!targetNodeID) return
+        navigateInfrastructureConnectedResources([targetNodeID], this.props.node.id, 'item')
     }
 
     private endpointID(endpoint: any): string {
@@ -1973,6 +1997,8 @@ class HostDetailPanel extends React.Component<Props, State> {
             <DetailResourceGrid compact={compact}>
                 {visible.map(item => {
                     const numericValue = Number(item.value)
+                    const topologyNodeMap = this.topologyNodeMap()
+                    const resourceNodes = (item.nodeIDs || []).map(nodeID => topologyNodeMap.get(nodeID)).filter((node): node is Node => !!node)
                     const hasZeroValue = item.value !== '' && !Number.isNaN(numericValue) && numericValue === 0
                     const canFocus = !hasZeroValue && (
                         (!!item.onClick)
@@ -1987,6 +2013,8 @@ class HostDetailPanel extends React.Component<Props, State> {
                             iconTone={item.iconTone}
                             className={classes.connectedResourceCompactCard}
                             interactive={canFocus}
+                            resources={connectedResourcePopoverItems(resourceNodes, { anchorNodeID: this.props.node.id, nodeAttrs: this.props.nodeAttrs })}
+                            resourcesTitle={item.label}
                             onClick={() => {
                                 if (item.onClick) {
                                     item.onClick()
@@ -2014,13 +2042,14 @@ class HostDetailPanel extends React.Component<Props, State> {
         )
     }
 
-    private infrastructureIcon(glyph: string) {
-        const { classes } = this.props
-        return (
-            <span className={`${classes.connectedResourceFaIcon} fa fas fa-fw`}>
-                {glyph}
-            </span>
-        )
+    private infrastructureTopologyIcon(nodeIDs: string[], fallbackType: string, fallbackName?: string) {
+        const nodeMap = this.topologyNodeMap()
+        const representative = nodeIDs.map(nodeID => nodeMap.get(nodeID)).find((node): node is Node => !!node)
+        return <InfrastructureTopologyIcon
+            node={representative}
+            nodeAttrs={this.props.nodeAttrs}
+            fallbackType={fallbackType}
+            fallbackName={fallbackName} />
     }
 
     private kubernetesIcon(className?: string) {
@@ -2142,11 +2171,15 @@ class HostDetailPanel extends React.Component<Props, State> {
             { label: translate('hostRecentStateChange'), value: formatDate(firstValue(data, ['StateChangedAt', 'LastStateChange', 'StatusChangedAt'])) }
         ]
 
+        const userVMNodeIDs = this.hostInfrastructureNodeIDs('userVMs')
+        const systemVMNodeIDs = this.hostInfrastructureNodeIDs('systemVMs')
+        const routerNodeIDs = this.hostInfrastructureNodeIDs('routers')
+        const networkObjectNodeIDs = this.hostInfrastructureNodeIDs('networkObjects')
         const connectedResources: OverviewCardItem[] = [
-            { label: translate('infrastructureUserVMs'), description: translate('infrastructureUserVMsDescription'), value: vmCount !== undefined ? String(vmCount) : '', icon: this.infrastructureIcon('\uf108'), iconTone: 'user-vm', actionKey: 'userVMs', nodeIDs: this.hostInfrastructureNodeIDs('userVMs') },
-            { label: translate('infrastructureSystemVMs'), description: translate('infrastructureSystemVMsDescription'), value: systemVmCount !== undefined ? String(systemVmCount) : '', icon: this.infrastructureIcon('\uf085'), iconTone: 'system-vm', actionKey: 'systemVMs', nodeIDs: this.hostInfrastructureNodeIDs('systemVMs') },
-            { label: translate('infrastructureRouters'), description: translate('infrastructureRoutersDescription'), value: virtualRouterCount !== undefined ? String(virtualRouterCount) : '', icon: this.infrastructureIcon('\uf4d7'), iconTone: 'router', actionKey: 'routers', nodeIDs: this.hostInfrastructureNodeIDs('routers') },
-            { label: translate('infrastructureNetworkObjects'), description: translate('infrastructureNetworkObjectsDescription'), value: networkCount !== undefined ? String(networkCount) : '', icon: this.infrastructureIcon('\uf6ff'), iconTone: 'network', actionKey: 'networkObjects', nodeIDs: this.hostInfrastructureNodeIDs('networkObjects') }
+            { label: translate('infrastructureUserVMs'), description: translate('infrastructureUserVMsDescription'), value: vmCount !== undefined ? String(vmCount) : '', icon: this.infrastructureTopologyIcon(userVMNodeIDs, 'libvirt', 'virtual-machine'), iconTone: 'user-vm', actionKey: 'userVMs', nodeIDs: userVMNodeIDs },
+            { label: translate('infrastructureSystemVMs'), description: translate('infrastructureSystemVMsDescription'), value: systemVmCount !== undefined ? String(systemVmCount) : '', icon: this.infrastructureTopologyIcon(systemVMNodeIDs, 'libvirt', 'ccvm'), iconTone: 'system-vm', actionKey: 'systemVMs', nodeIDs: systemVMNodeIDs },
+            { label: translate('infrastructureRouters'), description: translate('infrastructureRoutersDescription'), value: virtualRouterCount !== undefined ? String(virtualRouterCount) : '', icon: this.infrastructureTopologyIcon(routerNodeIDs, 'libvirt', 'r-router'), iconTone: 'router', actionKey: 'routers', nodeIDs: routerNodeIDs },
+            { label: translate('infrastructureNetworkObjects'), description: translate('infrastructureNetworkObjectsDescription'), value: networkCount !== undefined ? String(networkCount) : '', icon: this.infrastructureTopologyIcon(networkObjectNodeIDs, 'vxlan', 'network'), iconTone: 'network', actionKey: 'networkObjects', nodeIDs: networkObjectNodeIDs }
         ]
         const kubernetesNodes = this.hostKubernetesNodes()
         const kubernetesClusters = this.hostKubernetesClusters(kubernetesNodes)
@@ -2181,6 +2214,15 @@ class HostDetailPanel extends React.Component<Props, State> {
 
         return (
             <div className={classes.root}>
+                <DetailNavigationTabs
+                    activeKey={this.state.activeDetailTab}
+                    tabs={[
+                        { key: 'overview', label: translate('hostOverviewTab') },
+                        { key: 'network-connections', label: translate('hostNetworkConnectionsTab') }
+                    ]}
+                    onChange={activeDetailTab => this.setState({ activeDetailTab: activeDetailTab as State['activeDetailTab'] })}
+                />
+                {this.state.activeDetailTab === 'overview' ? <React.Fragment>
                 {this.renderSection(<InfoIcon />, translate('hostBasicInfo'), '', this.renderRows(basicRows))}
                 {hasConnectedMetrics && this.renderSection(
                     <DeviceHubIcon />,
@@ -2217,6 +2259,17 @@ class HostDetailPanel extends React.Component<Props, State> {
                         <span>{translate('hostMoldMissing')}</span>
                     </div>
                 )}
+                </React.Fragment> : <React.Fragment>
+                    {this.renderSection(
+                        <PartitionOutlined />,
+                        translate('hostSwitchPortConnections'),
+                        translate('hostSwitchPortConnectionsDescription'),
+                        <InfrastructurePortMappingTable
+                            perspective="host"
+                            mappings={this.switchPortConnections()}
+                            onNavigate={mapping => this.focusSwitchPortConnection(mapping as InfrastructureHostPortMapping)} />
+                    )}
+                </React.Fragment>}
                 {this.renderKubernetesNodePicker()}
             </div>
         )

@@ -102,6 +102,23 @@
     font-weight: 900;
 }
 
+.netdive-detail-topology-icon-switch {
+    display: block;
+    width: 18px;
+    height: 18px;
+    color: currentColor;
+}
+
+.netdive-detail-topology-icon-switch__body {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 3px;
+}
+
+.netdive-detail-topology-icon-switch__detail {
+    fill: currentColor;
+}
+
 .netdive-detail-topology-icon.font-brands {
     font-family: "Font Awesome 5 Brands";
 }
@@ -443,6 +460,8 @@
 
 .netdive-operational-summary__metric.is-warning > strong { color: #b54708; }
 .netdive-operational-summary__metric.is-danger > strong { color: #b42318; }
+.netdive-operational-summary__metric.is-recent-instability.is-success > strong { color: #067647; }
+.netdive-operational-summary__metric.is-recent-instability.is-default > strong { color: #98a2b3; }
 
 @media (max-width: 380px) {
     .netdive-operational-summary__states {
@@ -2348,6 +2367,33 @@ button.netdive-detail-metric-row:focus-visible {
     color: var(--netdive-detail-text-tertiary);
 }
 
+/* Matches Mold's Ant Badge based table status: the semantic color belongs to
+ * the dot while the label keeps the normal table text hierarchy. */
+.netdive-detail-table-status.ant-badge-status {
+    display: inline-flex;
+    min-width: 0;
+    align-items: center;
+    color: var(--netdive-detail-text-secondary);
+    white-space: nowrap;
+}
+
+.netdive-detail-table-status .ant-badge-status-dot {
+    width: 12px;
+    height: 12px;
+    flex: 0 0 12px;
+    margin-top: 0;
+}
+
+.netdive-detail-table-status .ant-badge-status-text {
+    min-width: 0;
+    margin-left: 6px;
+    color: var(--netdive-detail-text-secondary);
+    font-size: var(--netdive-detail-font-body-label);
+    font-weight: var(--netdive-detail-weight-supporting-text);
+    line-height: var(--netdive-detail-line-body-label);
+    white-space: nowrap;
+}
+
 .netdive-detail-evidence-row--warning .netdive-detail-evidence-row__value { color: #b54708; }
 .netdive-detail-evidence-row--danger .netdive-detail-evidence-row__value { color: #b42318; }
 
@@ -2542,48 +2588,18 @@ button.netdive-detail-metric-row:focus-visible {
     line-height: 1;
 }
 
-.netdive-detail-resource__icon--host {
-    color: #2563eb;
-    background: rgba(239, 246, 255, 0.96);
-    box-shadow: inset 0 0 0 1px rgba(191, 219, 254, 0.9);
-}
-
-.netdive-detail-resource__icon--user-vm {
-    color: #41a878;
-    background: rgba(240, 253, 244, 0.96);
-    box-shadow: inset 0 0 0 1px rgba(187, 247, 208, 0.9);
-}
-
+.netdive-detail-resource__icon--host,
+.netdive-detail-resource__icon--user-vm,
 .netdive-detail-resource__icon--system-vm,
 .netdive-detail-resource__icon--router,
-.netdive-detail-resource__icon--bridge {
-    color: #6d4bd8;
-    background: rgba(245, 243, 255, 0.96);
-    box-shadow: inset 0 0 0 1px rgba(221, 214, 254, 0.95);
-}
-
-.netdive-detail-resource__icon--network {
-    color: #ea580c;
-    background: rgba(255, 247, 237, 0.96);
-    box-shadow: inset 0 0 0 1px rgba(254, 215, 170, 0.92);
-}
-
-.netdive-detail-resource__icon--interface {
-    color: #0f766e;
-    background: rgba(240, 253, 250, 0.96);
-    box-shadow: inset 0 0 0 1px rgba(153, 246, 228, 0.9);
-}
-
-.netdive-detail-resource__icon--switch {
-    color: #475569;
-    background: rgba(248, 250, 252, 0.96);
-    box-shadow: inset 0 0 0 1px rgba(203, 213, 225, 0.9);
-}
-
+.netdive-detail-resource__icon--bridge,
+.netdive-detail-resource__icon--network,
+.netdive-detail-resource__icon--interface,
+.netdive-detail-resource__icon--switch,
 .netdive-detail-resource__icon--kubernetes {
-    color: #326ce5;
-    background: rgba(239, 246, 255, 0.96);
-    box-shadow: inset 0 0 0 1px rgba(191, 219, 254, 0.9);
+    color: var(--netdive-detail-connected-resource-icon);
+    background: var(--netdive-detail-connected-resource-icon-bg);
+    box-shadow: inset 0 0 0 1px var(--netdive-detail-connected-resource-icon-border);
 }
 
 .netdive-detail-resource__text {
@@ -2666,6 +2682,143 @@ button.netdive-detail-metric-row:focus-visible {
     color: #1677ff;
     font-size: 11px;
     opacity: 0.78;
+}
+
+.netdive-detail-resource.ant-btn > .netdive-detail-resource__list-action {
+    height: 28px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: color 140ms ease, background-color 140ms ease;
+}
+
+.netdive-detail-resource.ant-btn > .netdive-detail-resource__list-action:hover,
+.netdive-detail-resource.ant-btn > .netdive-detail-resource__list-action:focus-visible,
+.netdive-detail-resource.ant-btn > .netdive-detail-resource__list-action.is-open {
+    outline: none;
+    color: #0958d9;
+    background: #e6f4ff;
+    opacity: 1;
+}
+
+.netdive-detail-resource__list-action .anticon {
+    transition: transform 160ms ease;
+}
+
+.netdive-detail-resource__list-action.is-open .anticon {
+    transform: rotate(180deg);
+}
+
+.netdive-connected-resource-popover-overlay.ant-popover {
+    max-width: min(340px, calc(100vw - 24px));
+}
+
+.netdive-connected-resource-popover-overlay .ant-popover-inner-content {
+    padding: 0;
+}
+
+.netdive-connected-resource-popover {
+    width: 300px;
+    max-width: calc(100vw - 48px);
+}
+
+.netdive-connected-resource-popover__title.ant-typography {
+    display: block;
+    padding: 11px 13px 9px;
+    border-bottom: 1px solid var(--netdive-detail-row-divider);
+    color: var(--netdive-detail-text);
+    font-size: var(--netdive-detail-font-body-label);
+    font-weight: var(--netdive-detail-weight-section-title);
+    line-height: var(--netdive-detail-line-body-label);
+}
+
+.netdive-connected-resource-popover__list.ant-list {
+    max-height: 300px;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+.netdive-connected-resource-popover__list .ant-list-item {
+    padding: 0;
+}
+
+.netdive-connected-resource-popover__item.ant-btn {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr) 14px;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    height: auto;
+    min-height: 50px;
+    padding: 7px 10px;
+    border-radius: 0;
+    color: var(--netdive-detail-text);
+    text-align: left;
+}
+
+.netdive-connected-resource-popover__item.ant-btn:not(:disabled):hover,
+.netdive-connected-resource-popover__item.ant-btn:not(:disabled):focus {
+    color: var(--netdive-detail-text);
+    background: var(--netdive-detail-table-row-hover);
+}
+
+.netdive-connected-resource-popover__icon {
+    display: inline-flex;
+    width: 28px;
+    height: 28px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--netdive-detail-connected-resource-icon-border);
+    border-radius: 7px;
+    color: var(--netdive-detail-connected-resource-icon);
+    background: var(--netdive-detail-connected-resource-icon-bg);
+    line-height: 1;
+}
+
+.netdive-connected-resource-popover__icon > *,
+.netdive-connected-resource-popover__icon svg {
+    display: inline-flex;
+    width: 16px;
+    height: 16px;
+    align-items: center;
+    justify-content: center;
+    margin: auto;
+    line-height: 1;
+}
+
+.netdive-connected-resource-popover__text {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.netdive-connected-resource-popover__name.ant-typography,
+.netdive-connected-resource-popover__description.ant-typography {
+    display: block;
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.netdive-connected-resource-popover__name.ant-typography {
+    color: var(--netdive-detail-text);
+    font-size: var(--netdive-detail-font-body-label);
+    font-weight: var(--netdive-detail-weight-body-label);
+    line-height: var(--netdive-detail-line-body-label);
+}
+
+.netdive-connected-resource-popover__description.ant-typography {
+    color: var(--netdive-detail-text-secondary);
+    font-size: var(--netdive-detail-font-supporting-text);
+    font-weight: var(--netdive-detail-weight-supporting-text);
+    line-height: var(--netdive-detail-line-supporting-text);
+}
+
+.netdive-connected-resource-popover__row-action {
+    color: var(--netdive-detail-primary);
+    font-size: 10px;
 }
 
 .netdive-detail-resource--copyable.ant-btn > .netdive-detail-resource__action {
@@ -2826,11 +2979,11 @@ button.netdive-detail-metric-row:focus-visible {
 
 .netdive-detail-table .ant-table-thead > tr > th {
     padding: 9px 12px;
-    color: #667085;
-    font-size: var(--netdive-detail-font-supporting-text);
+    color: var(--netdive-detail-text-secondary);
+    font-size: var(--netdive-detail-font-body-label);
     font-weight: var(--netdive-detail-weight-status-tag);
-    line-height: var(--netdive-detail-line-supporting-text);
-    background: #f8fafc;
+    line-height: var(--netdive-detail-line-body-label);
+    background: var(--netdive-detail-table-header-bg);
     white-space: normal;
 }
 
@@ -2846,6 +2999,186 @@ button.netdive-detail-metric-row:focus-visible {
 
 .netdive-detail-table .ant-table-tbody > tr:last-child > td {
     border-bottom: 0;
+}
+
+.netdive-detail-search-table {
+    min-width: 0;
+    width: 100%;
+}
+
+.netdive-detail-search-table__toolbar {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 10px;
+    padding: 12px var(--netdive-detail-card-body-padding-x);
+    border-bottom: 1px solid var(--netdive-detail-row-divider);
+}
+
+.netdive-detail-search-table__toolbar .ant-input-affix-wrapper {
+    min-width: 0;
+    flex: 1 1 auto;
+    height: 32px;
+    border-radius: 6px;
+}
+
+.netdive-detail-search-table__primary {
+    color: var(--netdive-detail-text);
+    font-weight: var(--netdive-detail-weight-section-title);
+}
+
+.netdive-detail-search-table__table .ant-table-tbody > tr > td.netdive-detail-search-table__nowrap {
+    overflow: hidden;
+    overflow-wrap: normal;
+    white-space: nowrap;
+    word-break: keep-all;
+}
+
+.netdive-detail-search-table__table .ant-table-thead > tr > th,
+.netdive-detail-search-table__table .ant-table-tbody > tr > td {
+    padding-top: 8px;
+    padding-right: 5px;
+    padding-bottom: 8px;
+    padding-left: 5px;
+}
+
+.netdive-detail-search-table__table .ant-table-thead > tr > th {
+    overflow: hidden;
+    text-overflow: clip;
+    white-space: nowrap;
+    word-break: keep-all;
+}
+
+/* Port-mapping headers use Ant Table's native sortable-column structure, as
+ * Mold ListView does. Keep its title and sorter on one baseline in the narrow
+ * detail panel without recreating the header chrome. */
+.netdive-detail-search-table__table .ant-table-column-sorters {
+    min-width: 0;
+    padding: 0;
+    gap: 1px;
+}
+
+.netdive-detail-search-table__table .ant-table-column-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: clip;
+    white-space: nowrap;
+}
+
+.netdive-detail-search-table__table .ant-table-column-sorter {
+    margin-left: 1px;
+    flex: 0 0 auto;
+}
+
+.netdive-detail-search-table__nowrap-value {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.netdive-detail-search-table__middle-value {
+    display: flex;
+    min-width: 0;
+    max-width: 100%;
+    align-items: baseline;
+    white-space: nowrap;
+}
+
+.netdive-detail-search-table__middle-head {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.netdive-detail-search-table__middle-tail {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+.netdive-detail-table-value-tooltip.ant-tooltip {
+    max-width: min(420px, calc(100vw - 24px));
+}
+
+.netdive-detail-table-value-tooltip .ant-tooltip-inner {
+    max-width: min(420px, calc(100vw - 24px));
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: normal;
+}
+
+.netdive-detail-search-table__table .ant-table-thead > tr > th.netdive-detail-search-table__fixed-column,
+.netdive-detail-search-table__table .ant-table-tbody > tr > td.netdive-detail-search-table__fixed-column {
+    padding-right: 4px;
+    padding-left: 4px;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.netdive-detail-search-table__fixed-column .netdive-detail-badge {
+    margin-right: 0;
+}
+
+.netdive-detail-search-table__stacked-cell {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.netdive-detail-search-table__stacked-cell > strong {
+    min-width: 0;
+}
+
+.netdive-detail-search-table__stacked-secondary {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 5px;
+    color: var(--netdive-detail-text-secondary);
+    font-size: var(--netdive-detail-font-supporting-text);
+    font-weight: var(--netdive-detail-weight-supporting-text);
+    line-height: var(--netdive-detail-line-supporting-text);
+}
+
+.netdive-detail-search-table__stacked-label {
+    flex: 0 0 auto;
+    color: var(--netdive-detail-text-tertiary);
+}
+
+.netdive-detail-search-table__stacked-value {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.netdive-detail-search-table__table .ant-table-tbody > tr.is-interactive {
+    cursor: pointer;
+}
+
+.netdive-detail-search-table__table .ant-table-tbody > tr.is-interactive:hover > td,
+.netdive-detail-search-table__table .ant-table-tbody > tr.is-interactive:focus > td {
+    background: var(--netdive-detail-table-row-hover);
+}
+
+.netdive-detail-search-table__table .ant-table-tbody > tr.is-interactive:focus {
+    outline: 2px solid var(--netdive-action-btn-border-hover);
+    outline-offset: -2px;
+}
+
+@media (max-width: 430px) {
+    .netdive-detail-search-table__toolbar {
+        align-items: stretch;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .netdive-detail-search-table .ant-table-thead > tr > th,
+    .netdive-detail-search-table .ant-table-tbody > tr > td {
+        padding-right: 7px;
+        padding-left: 7px;
+    }
 }
 
 .netdive-list-modal {

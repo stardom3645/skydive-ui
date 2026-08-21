@@ -25,6 +25,7 @@ export const styles = makeStyles((theme: Theme) =>
     },
     container: {
       flexGrow: 1,
+      minWidth: 0,
       position: 'relative',
     },
     paper: {
@@ -43,7 +44,9 @@ export const styles = makeStyles((theme: Theme) =>
       margin: theme.spacing(0.5, 0.25),
     },
     inputRoot: {
-      flexWrap: 'wrap',
+      flexWrap: 'nowrap',
+      minWidth: 0,
+      overflow: 'hidden',
       color: 'var(--netdive-search-muted)',
       minHeight: 34,
       paddingLeft: theme.spacing(1)
@@ -51,10 +54,11 @@ export const styles = makeStyles((theme: Theme) =>
     inputInput: {
       transition: theme.transitions.create('width'),
       width: '100%',
+      minWidth: 0,
       fontSize: 14,
       color: 'var(--netdive-search-text)',
       [theme.breakpoints.up('md')]: {
-        width: 220,
+        width: '100%',
       },
     }
   })
