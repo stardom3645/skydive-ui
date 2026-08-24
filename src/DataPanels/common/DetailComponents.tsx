@@ -1380,6 +1380,7 @@ export const DetailResourceCard = ({
             interactive ? 'netdive-detail-resource--interactive' : 'netdive-detail-resource--static',
             selected && 'netdive-detail-resource--selected',
             copyText && 'netdive-detail-resource--copyable',
+            hasResourceList && 'netdive-detail-resource--with-resource-list',
             className
         )}
         aria-pressed={interactive ? selected : undefined}

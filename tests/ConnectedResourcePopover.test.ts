@@ -14,6 +14,12 @@ describe('Connected resource popover', () => {
         assert.ok(source.includes('autoAdjustOverflow'))
         assert.ok(source.includes('getPopupContainer={() => document.body}'))
         assert.ok(source.includes('event.stopPropagation()'))
+        const css = read('src/DataPanels/common/DetailComponents.css')
+        assert.ok(css.includes('.netdive-detail-resource--with-resource-list.ant-btn'))
+        assert.ok(css.includes('grid-template-columns: minmax(0, 1fr) max-content 32%'))
+        assert.ok(css.includes('grid-column: 3'))
+        assert.ok(css.includes('justify-content: center'))
+        assert.ok(css.includes('stroke-width: 32'))
     })
 
     it('navigates each list row through the existing real-node item path', () => {
@@ -24,6 +30,17 @@ describe('Connected resource popover', () => {
         const css = read('src/DataPanels/common/DetailComponents.css')
         assert.ok(css.includes('max-height: 300px'))
         assert.ok(css.includes('overflow-y: auto'))
+    })
+
+    it('centers every topology icon inside the fixed popover icon square', () => {
+        const css = read('src/DataPanels/common/DetailComponents.css')
+        assert.ok(css.includes('.netdive-connected-resource-popover__icon {'))
+        assert.ok(css.includes('flex: 0 0 28px'))
+        assert.ok(css.includes('.netdive-connected-resource-popover__icon > *'))
+        assert.ok(css.includes('position: static'))
+        assert.ok(css.includes('transform: none'))
+        assert.ok(css.includes('.netdive-connected-resource-popover__icon img'))
+        assert.ok(css.includes('.netdive-connected-resource-popover__icon svg'))
     })
 
     it('is wired to both infrastructure and Kubernetes summary cards', () => {

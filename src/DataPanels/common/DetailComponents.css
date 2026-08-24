@@ -1188,6 +1188,13 @@
         var(--netdive-detail-resource-action-width);
 }
 
+.netdive-detail-resource--with-resource-list.ant-btn {
+    /* 32% of the content box produces an approximately 30% card hit area
+     * after the card border and left padding are accounted for. */
+    grid-template-columns: minmax(0, 1fr) max-content 32%;
+    padding-right: 0;
+}
+
 .netdive-detail-resource.ant-btn::before {
     display: none;
 }
@@ -2685,8 +2692,14 @@ button.netdive-detail-metric-row:focus-visible {
 }
 
 .netdive-detail-resource.ant-btn > .netdive-detail-resource__list-action {
-    height: 28px;
-    border-radius: 6px;
+    grid-column: 3;
+    align-self: stretch;
+    width: 100%;
+    min-width: 0;
+    height: 100%;
+    padding-right: 0;
+    border-radius: 0 10px 10px 0;
+    justify-content: center;
     cursor: pointer;
     transition: color 140ms ease, background-color 140ms ease;
 }
@@ -2701,7 +2714,15 @@ button.netdive-detail-metric-row:focus-visible {
 }
 
 .netdive-detail-resource__list-action .anticon {
+    font-size: 12px;
     transition: transform 160ms ease;
+}
+
+.netdive-detail-resource__list-action .anticon svg {
+    stroke: currentColor;
+    stroke-width: 32;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
 .netdive-detail-resource__list-action.is-open .anticon {
@@ -2762,7 +2783,9 @@ button.netdive-detail-metric-row:focus-visible {
 }
 
 .netdive-connected-resource-popover__icon {
-    display: inline-flex;
+    display: flex;
+    box-sizing: border-box;
+    flex: 0 0 28px;
     width: 28px;
     height: 28px;
     align-items: center;
@@ -2772,17 +2795,36 @@ button.netdive-detail-metric-row:focus-visible {
     color: var(--netdive-detail-connected-resource-icon);
     background: var(--netdive-detail-connected-resource-icon-bg);
     line-height: 1;
+    vertical-align: middle;
 }
 
 .netdive-connected-resource-popover__icon > *,
 .netdive-connected-resource-popover__icon svg {
     display: inline-flex;
+    position: static;
     width: 16px;
     height: 16px;
     align-items: center;
     justify-content: center;
     margin: auto;
     line-height: 1;
+    transform: none;
+    vertical-align: middle;
+}
+
+.netdive-connected-resource-popover__icon img {
+    display: block;
+    width: 16px;
+    height: 16px;
+    margin: auto;
+    object-fit: contain;
+    line-height: normal;
+    vertical-align: middle;
+}
+
+.netdive-connected-resource-popover__icon svg {
+    display: block;
+    margin: auto;
 }
 
 .netdive-connected-resource-popover__text {
