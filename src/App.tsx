@@ -303,6 +303,7 @@ interface State {
   infrastructureAgentRestartSelectedHostIDs: string[]
   infrastructureAgentRestartHosts: InfrastructureAgentRestartHost[]
   infrastructureAgentRestartStatus: InfrastructureAgentRestartStatus | null
+  infrastructureAgentRestartAuthorized: boolean | null
   isScreenConfigOpen: boolean
   isPreferencesPanelOpen: boolean
   kubernetesClusters: MoldKubernetesCluster[]
@@ -536,6 +537,7 @@ class App extends React.Component<Props, State> {
       infrastructureAgentRestartSelectedHostIDs: [],
       infrastructureAgentRestartHosts: [],
       infrastructureAgentRestartStatus: null,
+      infrastructureAgentRestartAuthorized: null,
       isScreenConfigOpen: false,
       isPreferencesPanelOpen: false,
       kubernetesClusters: [],
@@ -686,7 +688,7 @@ class App extends React.Component<Props, State> {
     if (!target || !target.closest) {
       return
     }
-    if (target.closest('[data-netdive-side-panel="true"], [data-netdive-link-tags="true"], [data-netdive-recent-nodes="true"], [class*="kubernetesManagerPanel"], [class*="sideSettingsPanel"], [data-netdive-drawer="true"], .MuiDialog-root')) {
+    if (target.closest('[data-netdive-side-panel="true"], [data-netdive-link-tags="true"], [data-netdive-recent-nodes="true"], [class*="kubernetesManagerPanel"], [class*="sideSettingsPanel"], [data-netdive-drawer="true"], .MuiDialog-root, .ant-modal-root')) {
       return
     }
     if (isLinkTagsExpanded) {
@@ -4226,7 +4228,15 @@ class App extends React.Component<Props, State> {
         type="button"
         role="menuitem"
         className={clsx(classes.drawerIntegrationItem, active && classes.drawerMenuItemActive)}
-        onClick={onClick}>
+        onClick={(event) => {
+          // The flyout is also exposed through :focus-within for keyboard
+          // navigation. Once an action is committed, release that focus so
+          // the menu closes instead of covering the opened panel.
+          event.currentTarget.blur()
+          if (onClick) {
+            onClick()
+          }
+        }}>
         <span className={classes.drawerMenuIcon}>{icon}</span>
         <span className={classes.drawerIntegrationMain}>
           <span className={classes.drawerMenuLabel}>{label}</span>
@@ -4281,14 +4291,13 @@ class App extends React.Component<Props, State> {
       isPreferencesPanelOpen: false,
       isHelpOpen: false,
       isAboutOpen: false
-    }, () => {
-      if (this.canManageInfrastructureAgents()) {
-        this.refreshInfrastructureAgentRestartStatus()
-      }
-    })
+    }, () => this.refreshInfrastructureAgentRestartStatus())
   }
 
   private canManageInfrastructureAgents(): boolean {
+    if (this.state.infrastructureAgentRestartAuthorized !== null) {
+      return this.state.infrastructureAgentRestartAuthorized
+    }
     const permissions = Array.isArray(this.props.session.permissions) ? this.props.session.permissions : []
     return permissions.some((permission: any) =>
       permission && permission.Object === "infrastructure-agent" && permission.Action === "write" && permission.Allowed === true
@@ -4330,13 +4339,16 @@ class App extends React.Component<Props, State> {
   private refreshInfrastructureAgentRestartStatus() {
     this.fetchInfrastructureAgentRestartAPI().then((data) => {
       this.setState({
+        infrastructureAgentRestartAuthorized: true,
         infrastructureAgentRestartHosts: Array.isArray(data?.hosts) ? data.hosts : [],
         infrastructureAgentRestartStatus: data?.status || null
       }, () => this.scheduleInfrastructureAgentRestartPoll())
     }).catch((error) => {
-      if (error?.status !== 403) {
-        console.debug("Failed to refresh infrastructure Agent restart status", error)
+      if (error?.status === 403) {
+        this.setState({ infrastructureAgentRestartAuthorized: false })
+        return
       }
+      console.debug("Failed to refresh infrastructure Agent restart status", error)
     })
   }
 
@@ -4468,6 +4480,7 @@ class App extends React.Component<Props, State> {
       <AntModal
         title={translate("infrastructureAgentRestartTitle")}
         visible={this.state.infrastructureAgentRestartDialogOpen}
+        zIndex={1400}
         confirmLoading={this.state.infrastructureAgentRestartLoading}
         okText={translate("infrastructureAgentRestartExecute")}
         cancelText={translate("cancel")}
