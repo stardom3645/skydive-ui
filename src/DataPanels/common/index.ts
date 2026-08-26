@@ -280,6 +280,7 @@ export type {
     DetailOperationalSummaryProps,
     DetailResourceCardProps,
     DetailResourceIconTone,
+    DetailResourcePopoverWidthVariant,
     InfrastructureConnectedResourceNavigationMode,
     DetailResourcePopoverItem,
     DetailResourceGridProps,

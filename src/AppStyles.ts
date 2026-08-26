@@ -19,6 +19,13 @@ import { createStyles, Theme } from '@material-ui/core'
 
 const drawerWidth = 60
 const topologyLevelMenuWidth = 188
+// Density ratios are applied to the currently established infrastructure
+// summary dimensions so KPI/overview/host variants stay proportionate.
+const infrastructureKpiCompactRatio = 0.76
+const infrastructureOverviewCompactRatio = 0.82
+const infrastructureIconCompactRatio = 0.88
+const infrastructureGapCompactRatio = 0.88
+const infrastructurePanelCompactWidth = 'min(880px, calc(100vw - 106px))'
 
 export const styles = (theme: Theme) => createStyles({
   app: {
@@ -1175,11 +1182,65 @@ export const styles = (theme: Theme) => createStyles({
     boxShadow: 'var(--netdive-detail-shadow)',
     overflow: 'auto'
   },
+  infrastructureManagerPanel: {
+    right: 'auto',
+    width: infrastructurePanelCompactWidth,
+    maxWidth: 'none',
+    gap: theme.spacing(1.5 * infrastructureOverviewCompactRatio),
+    padding: theme.spacing(2 * 0.9)
+  },
   kubernetesManagerHeader: {
     display: 'flex',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: theme.spacing(2)
+  },
+  infrastructureAgentRestartActions: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: theme.spacing(1),
+    flexShrink: 0
+  },
+  infrastructureAgentRestartStatus: {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr)',
+    border: '1px solid var(--netdive-detail-border)',
+    borderRadius: 'var(--netdive-detail-radius-sm)',
+    background: 'var(--netdive-detail-surface-subtle)',
+    overflow: 'hidden'
+  },
+  infrastructureAgentRestartStatusItem: {
+    minWidth: 0,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing(1),
+    padding: theme.spacing(1, 1.25),
+    color: 'var(--netdive-detail-muted)',
+    fontSize: 12,
+    '& + &': {
+      borderLeft: '1px solid var(--netdive-detail-divider)'
+    },
+    '& strong': {
+      minWidth: 0,
+      color: 'var(--netdive-detail-text)',
+      fontSize: 12,
+      fontWeight: 600,
+      textAlign: 'right',
+      whiteSpace: 'nowrap',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis'
+    },
+    '& .ant-tag': {
+      marginRight: 0
+    }
+  },
+  infrastructureAgentRestartSuccess: {
+    color: '#20a464'
+  },
+  infrastructureAgentRestartFailure: {
+    color: '#d4380d'
   },
   kubernetesManagerTitle: {
     fontSize: 20,
@@ -1241,6 +1302,38 @@ export const styles = (theme: Theme) => createStyles({
       fontSize: 34,
       lineHeight: 1,
       fontWeight: 900
+    }
+  },
+  infrastructureSummaryCardCompact: {
+    minHeight: 74 * infrastructureKpiCompactRatio,
+    gap: theme.spacing(0.75 * infrastructureGapCompactRatio),
+    padding: theme.spacing(0.85 * infrastructureKpiCompactRatio, 0.95 * infrastructureKpiCompactRatio),
+    borderRadius: 12,
+    '& $infrastructureCardIcon': {
+      fontSize: 28 * infrastructureIconCompactRatio,
+      '& img': {
+        width: 30 * infrastructureIconCompactRatio,
+        height: 30 * infrastructureIconCompactRatio
+      }
+    },
+    '& small': {
+      overflow: 'hidden',
+      fontSize: 12.5,
+      lineHeight: 1.25,
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap'
+    },
+    '& strong': {
+      marginTop: 3 * 0.75,
+      fontSize: 26 * infrastructureIconCompactRatio
+    }
+  },
+  infrastructureSummaryGrid: {
+    width: '100%',
+    margin: 0,
+    gap: theme.spacing(0.8 * infrastructureGapCompactRatio),
+    [theme.breakpoints.down('sm')]: {
+      width: '100%'
     }
   },
   kubernetesTopologySummaryCard: {
@@ -1400,21 +1493,24 @@ export const styles = (theme: Theme) => createStyles({
   },
   infrastructureOverviewGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-    gap: theme.spacing(1.25),
+    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+    width: '100%',
+    margin: 0,
+    gap: theme.spacing(0.9 * infrastructureGapCompactRatio),
     [theme.breakpoints.down('sm')]: {
-      gridTemplateColumns: '1fr'
+      gridTemplateColumns: '1fr',
+      width: '100%'
     }
   },
   infrastructureOverviewCard: {
-    minHeight: 112,
+    minHeight: 80 * infrastructureOverviewCompactRatio,
     width: '100%',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: theme.spacing(1.25),
-    padding: theme.spacing(1.45, 1.55),
-    borderRadius: 14,
+    gap: theme.spacing(0.72 * infrastructureGapCompactRatio),
+    padding: theme.spacing(0.68 * infrastructureOverviewCompactRatio, 0.9 * 0.92),
+    borderRadius: 12,
     border: '1px solid var(--netdive-detail-border)',
     backgroundColor: 'var(--netdive-detail-section-bg)',
     cursor: 'pointer',
@@ -1435,26 +1531,30 @@ export const styles = (theme: Theme) => createStyles({
     },
     '& strong': {
       color: 'var(--netdive-detail-title)',
-      fontSize: 15,
+      fontSize: 14 * 0.92,
       fontWeight: 900
     },
     '& small': {
+      display: 'block',
+      overflow: 'hidden',
       color: 'var(--netdive-detail-muted)',
-      fontSize: 13,
-      lineHeight: 1.42,
-      fontWeight: 700
+      fontSize: 11.5 * 0.9,
+      lineHeight: 1.3 * 0.84,
+      fontWeight: 600,
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap'
     },
     '& em': {
       flexShrink: 0,
       display: 'flex',
       alignItems: 'center',
-      gap: theme.spacing(0.9),
+      gap: theme.spacing(0.45 * infrastructureGapCompactRatio),
       color: 'var(--netdive-detail-title)',
       fontStyle: 'normal',
       fontWeight: 900
     },
     '& em strong': {
-      fontSize: 24,
+      fontSize: 21 * 0.9,
       lineHeight: 1
     },
     '& em svg': {
@@ -1465,16 +1565,16 @@ export const styles = (theme: Theme) => createStyles({
   infrastructureOverviewCardMain: {
     display: 'flex',
     alignItems: 'center',
-    gap: theme.spacing(1.25),
+    gap: theme.spacing(0.68 * infrastructureGapCompactRatio),
     minWidth: 0,
     '& > span:last-child': {
       minWidth: 0,
       display: 'flex',
       flexDirection: 'column',
-      gap: 3
+      gap: 1.5 * 0.8
     },
     '& $infrastructureCardIcon': {
-      fontSize: 30
+      fontSize: 25 * infrastructureIconCompactRatio
     }
   },
   infrastructureOverviewCardActive: {
@@ -1483,7 +1583,7 @@ export const styles = (theme: Theme) => createStyles({
     boxShadow: '0 8px 18px rgba(26, 115, 232, 0.1)'
   },
   infrastructureOverviewCardValueText: {
-    fontSize: '20px !important'
+    fontSize: `${20 * 0.9}px !important`
   },
   infrastructureViewToggle: {
     '& .MuiToggleButton-root': {
@@ -1504,7 +1604,7 @@ export const styles = (theme: Theme) => createStyles({
     overflowY: 'auto',
     display: 'grid',
     gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-    gap: theme.spacing(0.8),
+    gap: theme.spacing(0.65 * infrastructureGapCompactRatio),
     paddingRight: theme.spacing(0.5),
     alignContent: 'start',
     [theme.breakpoints.down('sm')]: {
@@ -1515,7 +1615,7 @@ export const styles = (theme: Theme) => createStyles({
     }
   },
   infrastructureHostCard: {
-    padding: theme.spacing(0.9, 1),
+    padding: theme.spacing(0.75 * 0.85, 0.85 * 0.9),
     borderRadius: 12,
     border: '1px solid var(--netdive-detail-border)',
     backgroundColor: 'var(--netdive-detail-section-bg)',
@@ -1529,42 +1629,42 @@ export const styles = (theme: Theme) => createStyles({
   infrastructureHostOverviewGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-    gap: theme.spacing(0.7),
-    marginTop: theme.spacing(0.7),
+    gap: theme.spacing(0.55 * infrastructureGapCompactRatio),
+    marginTop: theme.spacing(0.55 * infrastructureOverviewCompactRatio),
     [theme.breakpoints.down('sm')]: {
       gridTemplateColumns: '1fr'
     },
     '& $infrastructureOverviewCard': {
-      minHeight: 96,
+      minHeight: 78 * infrastructureOverviewCompactRatio,
       backgroundColor: 'var(--netdive-detail-bg)'
     }
   },
   infrastructureHostOverviewCardCompact: {
-    minHeight: 76,
-    gap: theme.spacing(0.8),
-    padding: theme.spacing(0.85, 0.95),
-    borderRadius: 12,
+    minHeight: 78 * infrastructureOverviewCompactRatio,
+    gap: theme.spacing(0.6 * infrastructureGapCompactRatio),
+    padding: theme.spacing(0.65 * infrastructureOverviewCompactRatio, 0.75 * 0.9),
+    borderRadius: 10,
     '& strong': {
-      fontSize: 12.5
+      fontSize: 12 * 0.96
     },
     '& small': {
-      fontSize: 11,
-      lineHeight: 1.28
+      fontSize: 10.5 * 0.95,
+      lineHeight: 1.2 * 0.88
     },
     '& em': {
-      gap: theme.spacing(0.45)
+      gap: theme.spacing(0.45 * infrastructureGapCompactRatio)
     },
     '& em strong': {
-      fontSize: 19
+      fontSize: 17 * 0.9
     },
     '& em svg': {
       fontSize: 16
     },
     '& $infrastructureOverviewCardMain': {
-      gap: theme.spacing(0.8)
+      gap: theme.spacing(0.6 * infrastructureGapCompactRatio)
     },
     '& $infrastructureCardIcon': {
-      fontSize: 24
+      fontSize: 20 * infrastructureIconCompactRatio
     }
   },
   kubernetesTableHeader: {

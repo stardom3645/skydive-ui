@@ -52,8 +52,16 @@ describe('Infrastructure LLDP port mapping', () => {
             "compareMappingField('source')"
         ].forEach(sorter => assert.ok(source.includes(sorter), `missing Ant sorter: ${sorter}`))
         assert.ok(source.includes('netdive-detail-search-table__stacked-cell'))
+        assert.ok(source.includes('netdive-detail-search-table__surface'))
         assert.ok(source.match(/title: translate\('switchPortMappingSource'\)/g)!.length >= 2)
         assert.ok(source.includes('<DetailBadge tone={source.tone}>{source.label}</DetailBadge>'))
+
+        const styles = fs.readFileSync(
+            path.resolve(__dirname, '../src/DataPanels/common/DetailComponents.css'),
+            'utf8'
+        )
+        assert.ok(styles.includes('.netdive-detail-search-table__surface'))
+        assert.ok(styles.includes('margin: 0 var(--netdive-detail-card-body-padding-x) 12px'))
     })
 
     it('navigates the host-side switch mapping to the remote switch before the local NIC', () => {

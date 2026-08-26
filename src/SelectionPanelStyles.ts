@@ -59,6 +59,9 @@ export const styles = (theme: Theme) => createStyles({
   tabs: {
     height: `100%`,
     backgroundColor: 'var(--netdive-detail-bg)',
+    '& .MuiTabs-scroller, & .MuiTabs-flexContainer': {
+      width: '100%'
+    },
     '& .MuiTabs-indicator': {
       height: 2,
       backgroundColor: '#1677ff'
@@ -68,8 +71,13 @@ export const styles = (theme: Theme) => createStyles({
     }
   },
   tabRoot: {
-    minWidth: 210,
-    maxWidth: 320,
+    // Keep the single selected resource wider than the legacy tab, while
+    // reserving the right-side header action rail outside the active line.
+    width: 'calc(100% - 136px)',
+    minWidth: 0,
+    maxWidth: 'calc(100% - 136px)',
+    flex: '0 1 calc(100% - 136px)',
+    flexBasis: 'calc(100% - 136px)',
     minHeight: 60,
     height: 60,
     paddingTop: 0,

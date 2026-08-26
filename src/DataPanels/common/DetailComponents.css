@@ -1170,7 +1170,7 @@
     width: 100%;
     min-width: 0;
     height: var(--netdive-detail-resource-height);
-    padding: 0 9px;
+    padding: 0 0 0 9px;
     border: 1px solid #eef0f4;
     border-radius: 10px;
     color: #101828;
@@ -1189,10 +1189,8 @@
 }
 
 .netdive-detail-resource--with-resource-list.ant-btn {
-    /* 32% of the content box produces an approximately 30% card hit area
-     * after the card border and left padding are accounted for. */
-    grid-template-columns: minmax(0, 1fr) max-content 32%;
-    padding-right: 0;
+    /* Multi-resource cards share the same label / count / action columns as
+     * single and empty cards. Only the action behavior changes. */
 }
 
 .netdive-detail-resource.ant-btn::before {
@@ -2641,6 +2639,19 @@ button.netdive-detail-metric-row:focus-visible {
     -webkit-line-clamp: 2;
 }
 
+.netdive-detail-resource__label-lines {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.netdive-detail-resource__label-lines > span {
+    display: block;
+    max-width: 100%;
+    white-space: nowrap;
+}
+
 .netdive-detail-resource__description.ant-typography {
     color: #667085;
     font-size: var(--netdive-detail-font-supporting-text);
@@ -2683,9 +2694,11 @@ button.netdive-detail-metric-row:focus-visible {
     grid-column: 3;
     display: inline-flex;
     flex: 0 0 auto;
+    align-self: stretch;
     align-items: center;
     justify-content: center;
-    width: var(--netdive-detail-resource-action-width);
+    width: 100%;
+    height: 100%;
     color: #1677ff;
     font-size: 11px;
     opacity: 0.78;
@@ -2730,7 +2743,8 @@ button.netdive-detail-metric-row:focus-visible {
 }
 
 .netdive-connected-resource-popover-overlay.ant-popover {
-    max-width: min(340px, calc(100vw - 24px));
+    min-width: 260px;
+    max-width: calc(100vw - 24px);
 }
 
 .netdive-connected-resource-popover-overlay .ant-popover-inner-content {
@@ -2738,22 +2752,26 @@ button.netdive-detail-metric-row:focus-visible {
 }
 
 .netdive-connected-resource-popover {
-    width: 300px;
-    max-width: calc(100vw - 48px);
+    width: 100%;
+    max-width: 100%;
 }
 
 .netdive-connected-resource-popover__title.ant-typography {
     display: block;
-    padding: 11px 13px 9px;
+    min-width: 0;
+    padding: 11px 14px 9px;
     border-bottom: 1px solid var(--netdive-detail-row-divider);
     color: var(--netdive-detail-text);
     font-size: var(--netdive-detail-font-body-label);
     font-weight: var(--netdive-detail-weight-section-title);
     line-height: var(--netdive-detail-line-body-label);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .netdive-connected-resource-popover__list.ant-list {
-    max-height: 300px;
+    max-height: 208px;
     overflow-x: hidden;
     overflow-y: auto;
 }
@@ -2766,11 +2784,11 @@ button.netdive-detail-metric-row:focus-visible {
     display: grid;
     grid-template-columns: 28px minmax(0, 1fr) 14px;
     align-items: center;
-    gap: 8px;
+    gap: 9px;
     width: 100%;
     height: auto;
     min-height: 50px;
-    padding: 7px 10px;
+    padding: 7px 12px;
     border-radius: 0;
     color: var(--netdive-detail-text);
     text-align: left;
@@ -2782,7 +2800,7 @@ button.netdive-detail-metric-row:focus-visible {
     background: var(--netdive-detail-table-row-hover);
 }
 
-.netdive-connected-resource-popover__icon {
+.netdive-connected-resource-popover__item.ant-btn > .netdive-connected-resource-popover__icon {
     display: flex;
     box-sizing: border-box;
     flex: 0 0 28px;
@@ -3053,8 +3071,7 @@ button.netdive-detail-metric-row:focus-visible {
     min-width: 0;
     align-items: center;
     gap: 10px;
-    padding: 12px var(--netdive-detail-card-body-padding-x);
-    border-bottom: 1px solid var(--netdive-detail-row-divider);
+    padding: 12px var(--netdive-detail-card-body-padding-x) 10px;
 }
 
 .netdive-detail-search-table__toolbar .ant-input-affix-wrapper {
@@ -3062,6 +3079,22 @@ button.netdive-detail-metric-row:focus-visible {
     flex: 1 1 auto;
     height: 32px;
     border-radius: 6px;
+}
+
+/* Keep feature tables visually subordinate to the section card. The shared
+ * inset aligns the table with its search field instead of letting the table
+ * border merge with the section's outer border. */
+.netdive-detail-search-table__surface {
+    min-width: 0;
+    margin: 0 var(--netdive-detail-card-body-padding-x) 12px;
+    overflow: hidden;
+    border: 1px solid var(--netdive-detail-row-divider);
+    border-radius: 7px;
+    background: #fff;
+}
+
+.netdive-detail-search-table__surface .netdive-detail-empty.ant-empty {
+    padding: 14px 10px;
 }
 
 .netdive-detail-search-table__primary {

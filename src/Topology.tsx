@@ -48,6 +48,12 @@ import {
     TopologyStatusBadgeRail,
     TopologyStatusBadgeTooltip
 } from './TopologyStatusBadge'
+import {
+    topologyRelationPathClosure,
+    topologyNetworkRootPathClosure,
+    TopologyRankedRelationEdge,
+    TopologyRelationPathEdge,
+} from './TopologyConnectionFocus'
 import TopologyContextMenu, { TopologyContextMenuAction } from './TopologyContextMenu'
 const flextree = require('d3-flextree').flextree;
 
@@ -605,6 +611,7 @@ interface TopologyNodeFocus {
     // rendered node/link sets are derived again after every topology refresh.
     focusedNodeID: string
     focusedNodeName: string
+    relatedNodeIDs?: string[]
     nodeIDs: Set<string>
     relationLinkIDs: Set<string>
     visibleRelationLinkIDs: Set<string>
@@ -2821,11 +2828,30 @@ export class Topology extends React.Component<Props, {}> {
         return `${sourceID}->${targetID}`
     }
 
-    private connectionFocus(d: D3Node): Pick<TopologyNodeFocus, 'nodeIDs' | 'relationLinkIDs' | 'visibleRelationLinkIDs' | 'hierarchyLinkKeys'> {
+    private connectionFocus(d: D3Node, relatedNodeIDs: string[] = []): Pick<TopologyNodeFocus, 'nodeIDs' | 'relationLinkIDs' | 'visibleRelationLinkIDs' | 'hierarchyLinkKeys'> {
         const nodeIDs = new Set<string>([d.data.id])
         const relationLinkIDs = new Set<string>()
         const visibleRelationLinkIDs = new Set<string>()
         const hierarchyLinkKeys = new Set<string>()
+        const renderedNodeIDs = new Set<string>()
+        const renderedGroupNodeIDs = new Set<string>()
+        const renderedNodeLevels = new Map<string, number>()
+        const relationPathEdges = new Array<TopologyRelationPathEdge>()
+        const rankedRelationEdges = new Array<TopologyRankedRelationEdge>()
+        const hierarchyPathPrefix = 'hierarchy:'
+
+        this.gNodes.selectAll<SVGGElement, D3Node>('g.node').each((rendered: D3Node) => {
+            if (!rendered?.data?.id) return
+            renderedNodeIDs.add(rendered.data.id)
+            if (rendered.data.type === WrapperType.Group) renderedGroupNodeIDs.add(rendered.data.id)
+            renderedNodeLevels.set(rendered.data.id, Number.isFinite(rendered.y) ? rendered.y : 0)
+        })
+        relatedNodeIDs.forEach(relatedNodeID => {
+            const renderedRelatedID = renderedNodeIDs.has(relatedNodeID)
+                ? relatedNodeID
+                : this.visibleNodeIDForID(relatedNodeID)
+            if (renderedNodeIDs.has(renderedRelatedID)) nodeIDs.add(renderedRelatedID)
+        })
 
         // Keep the complete direct ancestry path from the focused node to the
         // topology root. "Direct" here means the same parent lineage: include
@@ -2859,12 +2885,57 @@ export class Topology extends React.Component<Props, {}> {
             if (this.linkDisplayOpacity(link) > 0) {
                 visibleRelationLinkIDs.add(link.id)
             }
-            const sourceID = link.source.id
-            const targetID = link.target.id
+            const rawSourceID = link.source.id
+            const rawTargetID = link.target.id
+            const sourceID = renderedNodeIDs.has(rawSourceID) ? rawSourceID : this.visibleNodeIDForID(rawSourceID)
+            const targetID = renderedNodeIDs.has(rawTargetID) ? rawTargetID : this.visibleNodeIDForID(rawTargetID)
+            if (!renderedNodeIDs.has(sourceID) || !renderedNodeIDs.has(targetID) || sourceID === targetID) return
+            relationPathEdges.push({ id: link.id, sourceID, targetID })
+            const sourceLevel = renderedNodeLevels.get(sourceID) || 0
+            const targetLevel = renderedNodeLevels.get(targetID) || 0
+            rankedRelationEdges.push({ id: link.id, sourceID, targetID, sourceLevel, targetLevel })
             if (sourceID === d.data.id || targetID === d.data.id) {
                 nodeIDs.add(sourceID)
                 nodeIDs.add(targetID)
                 relationLinkIDs.add(link.id)
+            }
+        })
+
+        // A physical network route can cross both relation links and real
+        // resource hierarchy links (for example Switch -> SwitchPort). Add
+        // those rendered resource-to-resource edges to the same path graph.
+        // UI grouping edges are deliberately excluded: traversing through a
+        // group would pull unrelated sibling resources into the route.
+        this.gHieraLinks.selectAll('path.hiera-link').each((link: any) => {
+            const sourceID = link?.source?.data?.id
+            const targetID = link?.target?.data?.id
+            if (!renderedNodeIDs.has(sourceID) || !renderedNodeIDs.has(targetID)) return
+            if (renderedGroupNodeIDs.has(sourceID) || renderedGroupNodeIDs.has(targetID)) return
+            const key = this.hierarchyLinkKey(sourceID, targetID)
+            rankedRelationEdges.push({
+                id: hierarchyPathPrefix + key,
+                sourceID,
+                targetID,
+                sourceLevel: renderedNodeLevels.get(sourceID) || 0,
+                targetLevel: renderedNodeLevels.get(targetID) || 0
+            })
+        })
+
+        // Preserve the existing ancestry/direct-neighbor targets, then add
+        // only the rendered graph nodes and edges required to connect the
+        // focused resource to those targets. This keeps vnet/NIC, virtual
+        // bridge, bond and host-bridge hops visible without highlighting
+        // unrelated branches of the same network.
+        const relationPaths = topologyRelationPathClosure(d.data.id, nodeIDs, relationPathEdges)
+        relationPaths.nodeIDs.forEach(nodeID => nodeIDs.add(nodeID))
+        relationPaths.linkIDs.forEach(linkID => relationLinkIDs.add(linkID))
+        const networkRootPaths = topologyNetworkRootPathClosure(d.data.id, rankedRelationEdges)
+        networkRootPaths.nodeIDs.forEach(nodeID => nodeIDs.add(nodeID))
+        networkRootPaths.linkIDs.forEach(linkID => {
+            if (linkID.startsWith(hierarchyPathPrefix)) {
+                hierarchyLinkKeys.add(linkID.slice(hierarchyPathPrefix.length))
+            } else {
+                relationLinkIDs.add(linkID)
             }
         })
         return { nodeIDs, relationLinkIDs, visibleRelationLinkIDs, hierarchyLinkKeys }
@@ -2884,11 +2955,12 @@ export class Topology extends React.Component<Props, {}> {
         const rendered = this.renderedFocusNode(nodeID)
         if (!rendered) return false
 
-        const connectionFocus = this.connectionFocus(rendered)
+        const connectionFocus = this.connectionFocus(rendered, relatedNodeIDs)
         this.topologyNodeFocus = {
             mode: 'connections',
             focusedNodeID: nodeID,
             focusedNodeName: this.displayedNodeName(node),
+            relatedNodeIDs: Array.from(new Set(relatedNodeIDs)),
             ...connectionFocus
         }
         this.applyTopologyNodeFocus()
@@ -2939,7 +3011,7 @@ export class Topology extends React.Component<Props, {}> {
         }
 
         if (focus.mode === 'connections') {
-            const current = this.connectionFocus(rendered)
+            const current = this.connectionFocus(rendered, focus.relatedNodeIDs)
             this.topologyNodeFocus = {
                 ...focus,
                 ...current

@@ -72,6 +72,6 @@
     --netdive-detail-connected-resource-icon-bg: rgba(239, 246, 255, 0.96);
     --netdive-detail-connected-resource-icon-border: rgba(191, 219, 254, 0.9);
     --netdive-detail-resource-value-min-width: 24px;
-    --netdive-detail-resource-action-width: 11px;
+    --netdive-detail-resource-action-width: 32%;
     --netdive-detail-resource-column-gap: 5px;
 }

@@ -1152,6 +1152,7 @@ export interface DetailResourceCardProps {
     selected?: boolean
     resources?: DetailResourcePopoverItem[]
     resourcesTitle?: React.ReactNode
+    resourcesPopoverWidth?: DetailResourcePopoverWidthVariant
 }
 
 export interface DetailResourcePopoverItem {
@@ -1164,6 +1165,7 @@ export interface DetailResourcePopoverItem {
 }
 
 export type DetailResourceIconTone = 'host' | 'user-vm' | 'system-vm' | 'router' | 'network' | 'interface' | 'bridge' | 'switch' | 'kubernetes'
+export type DetailResourcePopoverWidthVariant = 'default' | 'wide'
 
 export interface DetailLayerIconProps {
     glyph: string
@@ -1335,7 +1337,16 @@ const DetailConnectedResourcePopover = ({
                 type="text"
                 className="netdive-connected-resource-popover__item"
                 disabled={!item.onClick}
-                onClick={() => onNavigate(item)}>
+                onClick={event => {
+                    // The popover is rendered through a React portal, so its
+                    // synthetic click still bubbles to the summary card in
+                    // the React tree. Stop it here to keep list-row navigation
+                    // on the concrete resource instead of immediately running
+                    // the card's group-navigation action afterwards.
+                    event.preventDefault()
+                    event.stopPropagation()
+                    onNavigate(item)
+                }}>
                 {item.icon && <span className="netdive-connected-resource-popover__icon">{item.icon}</span>}
                 <span className="netdive-connected-resource-popover__text">
                     <Tooltip title={item.tooltip} placement="top">
@@ -1347,6 +1358,20 @@ const DetailConnectedResourcePopover = ({
             </Button>
         </List.Item>} />
 </div>
+}
+
+const detailResourceLabelLines: Record<string, string[]> = {
+    '네임스페이스': ['네임', '스페이스'],
+    StorageClass: ['Storage', 'Class']
+}
+
+/** Keeps narrow connected-resource cards from breaking resource kinds at an
+ * arbitrary character while preserving the shared two-line card height. */
+const renderDetailResourceLabel = (label: React.ReactNode): React.ReactNode => {
+    if (typeof label !== 'string' || !detailResourceLabelLines[label]) return label
+    return <span className="netdive-detail-resource__label-lines">
+        {detailResourceLabelLines[label].map(line => <span key={line}>{line}</span>)}
+    </span>
 }
 
 export const DetailResourceCard = ({
@@ -1363,15 +1388,32 @@ export const DetailResourceCard = ({
     labelTooltip,
     selected = false,
     resources = [],
-    resourcesTitle
+    resourcesTitle,
+    resourcesPopoverWidth = 'default'
 }: DetailResourceCardProps) => {
+    const connectedResourcePopoverSize = resourcesPopoverWidth === 'wide'
+        ? { min: 360, max: 600, ratio: 1.85 }
+        : { min: 260, max: 440, ratio: 1.35 }
     const [resourcesOpen, setResourcesOpen] = React.useState(false)
+    const [resourceListWidth, setResourceListWidth] = React.useState<number>()
+    const resourceCardRef = React.useRef<HTMLButtonElement | null>(null)
     const hasResourceList = resources.length > 1
     const navigateResource = (item: DetailResourcePopoverItem) => {
         setResourcesOpen(false)
         if (item.onClick) item.onClick()
     }
+    const handleResourcesVisibleChange = (open: boolean) => {
+        if (open && resourceCardRef.current) {
+            const cardWidth = resourceCardRef.current.getBoundingClientRect().width
+            setResourceListWidth(Math.min(
+                connectedResourcePopoverSize.max,
+                Math.max(connectedResourcePopoverSize.min, Math.round(cardWidth * connectedResourcePopoverSize.ratio))
+            ))
+        }
+        setResourcesOpen(open)
+    }
     return <Button
+        ref={resourceCardRef}
         type="text"
         block
         disabled={!interactive}
@@ -1395,9 +1437,9 @@ export const DetailResourceCard = ({
             <span className="netdive-detail-resource__text">
                 {interactive || labelTooltip !== undefined
                     ? <Tooltip title={labelTooltip !== undefined ? labelTooltip : typeof label === 'string' ? label : undefined} placement="top">
-                        <Typography.Text className="netdive-detail-resource__label">{label}</Typography.Text>
+                        <Typography.Text className="netdive-detail-resource__label">{renderDetailResourceLabel(label)}</Typography.Text>
                     </Tooltip>
-                    : <Typography.Text className="netdive-detail-resource__label">{label}</Typography.Text>}
+                    : <Typography.Text className="netdive-detail-resource__label">{renderDetailResourceLabel(label)}</Typography.Text>}
                 {description && <Typography.Text className="netdive-detail-resource__description">{description}</Typography.Text>}
             </span>
         </span>
@@ -1424,11 +1466,12 @@ export const DetailResourceCard = ({
         </Tooltip>}
         {hasResourceList ? <Popover
             content={<DetailConnectedResourcePopover title={resourcesTitle || label} items={resources} onNavigate={navigateResource} />}
-            placement="rightTop"
+            placement="bottomRight"
             trigger="click"
             visible={resourcesOpen}
-            onVisibleChange={setResourcesOpen}
+            onVisibleChange={handleResourcesVisibleChange}
             overlayClassName="netdive-connected-resource-popover-overlay"
+            overlayStyle={resourceListWidth ? { width: resourceListWidth } : undefined}
             getPopupContainer={() => document.body}
             autoAdjustOverflow>
             <span

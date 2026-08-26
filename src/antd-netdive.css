@@ -118,6 +118,17 @@
   line-height: 1;
 }
 
+/* ArrowLeftOutlined has a long diagonal path that rasterizes unevenly at the
+ * shared 18px action size. Keep the Ant icon and 32px hit area, but use its
+ * crisp native 16px optical size for the shared previous-selection action. */
+.netdive-ant-theme .netdive-action-icon-button .netdive-action-icon--previous {
+  font-size: 16px;
+}
+
+.netdive-ant-theme .netdive-action-icon-button .netdive-action-icon--previous svg {
+  display: block;
+}
+
 /* Mold's shared Ant Dropdown contract. The overlay is portalled to body, so
  * these rules intentionally live outside .netdive-ant-theme. Values mirror
  * ablestack-cloud/ui/src/style/vars.less rather than a detail-panel skin. */

@@ -225,26 +225,28 @@ export class InfrastructurePortMappingTable extends React.PureComponent<Infrastr
                     value={this.state.search}
                     onChange={event => this.setState({ search: event.target.value })} />
             </div>
-            {mappings.length === 0
-                ? <DetailEmpty description={translate(hostPerspective ? 'hostSwitchPortConnectionsNoSearchResults' : 'switchPortMappingNoSearchResults')} compact />
-                : <div className="netdive-detail-table-scroll">
-                    <DetailTable<InfrastructurePortMapping>
-                        className="netdive-detail-search-table__table"
-                        columns={columns}
-                        dataSource={mappings}
-                        rowKey="key"
-                        onRow={mapping => this.props.onNavigate ? ({
-                            className: 'is-interactive',
-                            tabIndex: 0,
-                            onClick: () => this.props.onNavigate!(mapping),
-                            onKeyDown: event => {
-                                if (event.key === 'Enter' || event.key === ' ') {
-                                    event.preventDefault()
-                                    this.props.onNavigate!(mapping)
+            <div className="netdive-detail-search-table__surface">
+                {mappings.length === 0
+                    ? <DetailEmpty description={translate(hostPerspective ? 'hostSwitchPortConnectionsNoSearchResults' : 'switchPortMappingNoSearchResults')} compact />
+                    : <div className="netdive-detail-table-scroll">
+                        <DetailTable<InfrastructurePortMapping>
+                            className="netdive-detail-search-table__table"
+                            columns={columns}
+                            dataSource={mappings}
+                            rowKey="key"
+                            onRow={mapping => this.props.onNavigate ? ({
+                                className: 'is-interactive',
+                                tabIndex: 0,
+                                onClick: () => this.props.onNavigate!(mapping),
+                                onKeyDown: event => {
+                                    if (event.key === 'Enter' || event.key === ' ') {
+                                        event.preventDefault()
+                                        this.props.onNavigate!(mapping)
+                                    }
                                 }
-                            }
-                        }) : ({})} />
-                </div>}
+                            }) : ({})} />
+                    </div>}
+            </div>
         </div>
     }
 }

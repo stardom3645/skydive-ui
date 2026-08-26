@@ -72,8 +72,20 @@ import AccountTreeIcon from '@material-ui/icons/AccountTree'
 import SettingsEthernetIcon from '@material-ui/icons/SettingsEthernet'
 import ChevronRightIcon from '@material-ui/icons/ChevronRight'
 import CheckIcon from '@material-ui/icons/Check'
-import { Checkbox as AntCheckbox, Dropdown as AntDropdown, Menu as AntMenu, Tooltip } from 'antd'
-import { BulbOutlined, ClusterOutlined, EyeOutlined, FilterOutlined, GlobalOutlined } from '@ant-design/icons'
+import {
+  Alert as AntAlert,
+  Button as AntButton,
+  Checkbox as AntCheckbox,
+  Dropdown as AntDropdown,
+  Menu as AntMenu,
+  Modal as AntModal,
+  Radio as AntRadio,
+  Select as AntSelect,
+  Tag as AntTag,
+  Tooltip,
+  notification as antNotification
+} from 'antd'
+import { BulbOutlined, ClusterOutlined, EyeOutlined, FilterOutlined, GlobalOutlined, ReloadOutlined } from '@ant-design/icons'
 
 import { styles } from './AppStyles'
 import { Topology, Node, NodeAttrs, LinkAttrs, LinkTagState, Link, isTopologyDownNode } from './Topology'
@@ -92,6 +104,7 @@ import {
 } from './Store'
 import { withRouter } from 'react-router-dom'
 import SelectionPanel from './SelectionPanel'
+import { appendSelectionHistory, previousSelectionTarget, SelectionHistoryItem } from './SelectionHistory'
 import { Configuration } from './api/configuration'
 import * as api from './api/api'
 import { StatusApi, APIInfoApi, ConfigApi } from './api'
@@ -284,6 +297,12 @@ interface State {
   isInfrastructurePanelOpen: boolean
   infrastructureFocus: InfrastructureFocusKey | ""
   infrastructureViewMode: InfrastructureViewMode
+  infrastructureAgentRestartDialogOpen: boolean
+  infrastructureAgentRestartLoading: boolean
+  infrastructureAgentRestartScope: "all" | "selected"
+  infrastructureAgentRestartSelectedHostIDs: string[]
+  infrastructureAgentRestartHosts: InfrastructureAgentRestartHost[]
+  infrastructureAgentRestartStatus: InfrastructureAgentRestartStatus | null
   isScreenConfigOpen: boolean
   isPreferencesPanelOpen: boolean
   kubernetesClusters: MoldKubernetesCluster[]
@@ -312,6 +331,7 @@ interface State {
   groupVisibleNodeIDs: Set<string>
   kubernetesProblemsOnly: boolean
   topologyDisplayOptions: TopologyDisplayOptions
+  selectionHistory: SelectionHistoryItem[]
 }
 
 interface TopologyDisplayOptions {
@@ -410,6 +430,29 @@ interface InfrastructureHostSummary {
   networkObjectNodeIDs: string[]
 }
 
+interface InfrastructureAgentRestartHost {
+  id: string
+  name: string
+}
+
+interface InfrastructureAgentRestartTargetResult {
+  id: string
+  name: string
+  success: boolean
+  error?: string
+}
+
+interface InfrastructureAgentRestartStatus {
+  running: boolean
+  lastStartedAt?: string
+  lastCompletedAt?: string
+  lastResult: "never" | "running" | "success" | "partial" | "failed"
+  total: number
+  succeeded: number
+  failed: number
+  targets?: InfrastructureAgentRestartTargetResult[]
+}
+
 class App extends React.Component<Props, State> {
 
   tc: Topology | null
@@ -420,6 +463,7 @@ class App extends React.Component<Props, State> {
   bumpRevision: typeof bumpRevision
   checkAuthID: number
   vmNameMapRefreshID: number
+  infrastructureAgentRestartPollID: number
   apiConf: Configuration
   wsContext: WSContext
   connected: boolean
@@ -443,6 +487,7 @@ class App extends React.Component<Props, State> {
   private moldInventoryUnavailable: boolean
   private initialTopologyLayerPending: boolean
   private pendingTopologyEdges = new TopologyPendingEdges<any>()
+  private selectionHistoryNavigating = false
 
   constructor(props) {
     super(props)
@@ -485,6 +530,12 @@ class App extends React.Component<Props, State> {
       isInfrastructurePanelOpen: false,
       infrastructureFocus: "",
       infrastructureViewMode: "all",
+      infrastructureAgentRestartDialogOpen: false,
+      infrastructureAgentRestartLoading: false,
+      infrastructureAgentRestartScope: "all",
+      infrastructureAgentRestartSelectedHostIDs: [],
+      infrastructureAgentRestartHosts: [],
+      infrastructureAgentRestartStatus: null,
       isScreenConfigOpen: false,
       isPreferencesPanelOpen: false,
       kubernetesClusters: [],
@@ -512,7 +563,8 @@ class App extends React.Component<Props, State> {
       topologyZoom: 1,
       groupVisibleNodeIDs: new Set<string>(),
       kubernetesProblemsOnly: false,
-      topologyDisplayOptions: getSavedTopologyDisplayOptions()
+      topologyDisplayOptions: getSavedTopologyDisplayOptions(),
+      selectionHistory: []
     }
 
     this.synced = false
@@ -618,6 +670,9 @@ class App extends React.Component<Props, State> {
     }
     if (this.vmNameMapRefreshID) {
       window.clearInterval(this.vmNameMapRefreshID)
+    }
+    if (this.infrastructureAgentRestartPollID) {
+      window.clearTimeout(this.infrastructureAgentRestartPollID)
     }
     this.clearKubernetesTestProgress()
   }
@@ -1945,6 +2000,7 @@ class App extends React.Component<Props, State> {
 
   onNodeSelected(node: Node, active: boolean) {
     if (active) {
+      this.recordSelectionHistory(node)
       this.props.selectElement(node)
       this.addRecentViewedNode(node)
       this.openSelection()
@@ -1956,6 +2012,45 @@ class App extends React.Component<Props, State> {
       this.props.unselectElement(node)
       this.syncGroupVisibleNodeIDs()
     }
+  }
+
+  private recordSelectionHistory(node: Node) {
+    // Synthetic group nodes are navigation containers rather than real
+    // resources. Keep the quick-back stack focused on actual topology nodes.
+    if (this.selectionHistoryNavigating || !this.tc || !this.tc.nodes.has(node.id)) return
+    const item: SelectionHistoryItem = { id: node.id, name: this.nodeDisplayName(node) }
+    this.setState((currentState) => ({
+      selectionHistory: appendSelectionHistory(currentState.selectionHistory, item)
+    }))
+  }
+
+  private previousSelection() {
+    if (!this.tc) return undefined
+    return previousSelectionTarget(
+      this.state.selectionHistory,
+      this.selectedNodeID(),
+      id => !!this.tc && this.tc.nodes.has(id)
+    )
+  }
+
+  private navigateToPreviousSelection() {
+    if (!this.tc) return
+    const target = this.previousSelection()
+    if (!target) return
+    this.setState({ selectionHistory: this.state.selectionHistory.slice(0, target.index + 1) }, () => {
+      if (!this.tc || !this.tc.nodes.has(target.item.id)) {
+        this.navigateToPreviousSelection()
+        return
+      }
+      this.selectionHistoryNavigating = true
+      try {
+        this.syncTopologyNodeTagForNodes([target.item.id])
+        this.tc.navigateConnectedResources([target.item.id], undefined, true)
+        this.openSelection()
+      } finally {
+        this.selectionHistoryNavigating = false
+      }
+    })
   }
 
   onLinkSelected(link: Link, active: boolean) {
@@ -4186,7 +4281,229 @@ class App extends React.Component<Props, State> {
       isPreferencesPanelOpen: false,
       isHelpOpen: false,
       isAboutOpen: false
+    }, () => {
+      if (this.canManageInfrastructureAgents()) {
+        this.refreshInfrastructureAgentRestartStatus()
+      }
     })
+  }
+
+  private canManageInfrastructureAgents(): boolean {
+    const permissions = Array.isArray(this.props.session.permissions) ? this.props.session.permissions : []
+    return permissions.some((permission: any) =>
+      permission && permission.Object === "infrastructure-agent" && permission.Action === "write" && permission.Allowed === true
+    )
+  }
+
+  private fetchInfrastructureAgentRestartAPI(options: RequestInit = {}): Promise<any> {
+    const controller = new AbortController()
+    const timeoutID = window.setTimeout(() => controller.abort(), 90000)
+    return fetch("/api/infrastructure/agents/restart", {
+      credentials: "same-origin",
+      cache: "no-store",
+      ...options,
+      signal: controller.signal
+    }).then(async (response) => {
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        const error: any = new Error(data?.message || `Agent restart API failed: ${response.status}`)
+        error.status = response.status
+        error.data = data
+        throw error
+      }
+      return data
+    }).finally(() => window.clearTimeout(timeoutID))
+  }
+
+  private scheduleInfrastructureAgentRestartPoll() {
+    if (this.infrastructureAgentRestartPollID) {
+      window.clearTimeout(this.infrastructureAgentRestartPollID)
+    }
+    if (!this.state.isInfrastructurePanelOpen || !this.state.infrastructureAgentRestartStatus?.running) {
+      return
+    }
+    this.infrastructureAgentRestartPollID = window.setTimeout(() => {
+      this.refreshInfrastructureAgentRestartStatus()
+    }, 2000)
+  }
+
+  private refreshInfrastructureAgentRestartStatus() {
+    this.fetchInfrastructureAgentRestartAPI().then((data) => {
+      this.setState({
+        infrastructureAgentRestartHosts: Array.isArray(data?.hosts) ? data.hosts : [],
+        infrastructureAgentRestartStatus: data?.status || null
+      }, () => this.scheduleInfrastructureAgentRestartPoll())
+    }).catch((error) => {
+      if (error?.status !== 403) {
+        console.debug("Failed to refresh infrastructure Agent restart status", error)
+      }
+    })
+  }
+
+  private openInfrastructureAgentRestartDialog() {
+    if (this.state.infrastructureAgentRestartStatus?.running) {
+      return
+    }
+    this.setState({
+      infrastructureAgentRestartDialogOpen: true,
+      infrastructureAgentRestartScope: "all",
+      infrastructureAgentRestartSelectedHostIDs: []
+    })
+  }
+
+  private refreshInfrastructureAfterAgentRestart() {
+    window.setTimeout(() => {
+      this.sync()
+      this.refreshVmNameMap()
+      this.refreshVmNetworkMap()
+      this.refreshVmDetailMap()
+      this.refreshMoldInventory()
+      this.refreshManagementServers()
+    }, 2000)
+  }
+
+  private executeInfrastructureAgentRestart() {
+    const selected = this.state.infrastructureAgentRestartSelectedHostIDs
+    if (this.state.infrastructureAgentRestartScope === "selected" && selected.length === 0) {
+      return
+    }
+    const hostIds = this.state.infrastructureAgentRestartScope === "selected" ? selected : []
+    this.setState({ infrastructureAgentRestartLoading: true })
+    this.fetchInfrastructureAgentRestartAPI({
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hostIds })
+    }).then((data) => {
+      const status = data?.status as InfrastructureAgentRestartStatus
+      const failedTargets = (status?.targets || []).filter((target) => !target.success)
+      const failureDetails = failedTargets.length > 0 ? (
+        <div>
+          {failedTargets.map((target) => <div key={target.id || target.name}>{target.name}: {target.error || translate("infrastructureAgentRestartUnknownFailure")}</div>)}
+        </div>
+      ) : undefined
+      if (status?.lastResult === "success") {
+        antNotification.success({
+          message: translate("infrastructureAgentRestartSuccess"),
+          description: `${status.succeeded}/${status.total} ${translate("infrastructureAgentRestartHostsSucceeded")}`
+        })
+      } else if (status?.lastResult === "partial") {
+        antNotification.warning({
+          message: translate("infrastructureAgentRestartPartial"),
+          description: failureDetails,
+          duration: 0
+        })
+      } else {
+        antNotification.error({
+          message: translate("infrastructureAgentRestartFailed"),
+          description: failureDetails,
+          duration: 0
+        })
+      }
+      this.setState({
+        infrastructureAgentRestartDialogOpen: false,
+        infrastructureAgentRestartLoading: false,
+        infrastructureAgentRestartStatus: status
+      })
+      this.refreshInfrastructureAfterAgentRestart()
+      this.refreshInfrastructureAgentRestartStatus()
+    }).catch((error) => {
+      const status = error?.data?.status as InfrastructureAgentRestartStatus | undefined
+      const failedTargets = (status?.targets || []).filter((target) => !target.success)
+      antNotification.error({
+        message: translate("infrastructureAgentRestartFailed"),
+        description: failedTargets.length > 0
+          ? <div>{failedTargets.map((target) => <div key={target.id || target.name}>{target.name}: {target.error}</div>)}</div>
+          : (error?.message || translate("infrastructureAgentRestartUnknownFailure")),
+        duration: 0
+      })
+      this.setState({
+        infrastructureAgentRestartLoading: false,
+        infrastructureAgentRestartStatus: status || this.state.infrastructureAgentRestartStatus
+      })
+    })
+  }
+
+  private infrastructureAgentRestartResultTag(status: InfrastructureAgentRestartStatus) {
+    if (status.running) {
+      return <AntTag color="processing">{translate("infrastructureAgentRestartRunning")}</AntTag>
+    }
+    const result = status.lastResult
+    const color = result === "success" ? "success" : result === "partial" ? "warning" : result === "failed" ? "error" : "default"
+    return <AntTag color={color}>{translate(`infrastructureAgentRestartResult_${result}`)}</AntTag>
+  }
+
+  private renderInfrastructureAgentRestartStatus(classes: any) {
+    const status = this.state.infrastructureAgentRestartStatus
+    if (!this.canManageInfrastructureAgents() || !status) {
+      return null
+    }
+    const lastTime = status.lastCompletedAt || status.lastStartedAt
+    const failedTargets = (status.targets || []).filter((target) => !target.success)
+    const failedValue = <span className={status.failed > 0 ? classes.infrastructureAgentRestartFailure : undefined}>{status.failed}</span>
+    return (
+      <div className={classes.infrastructureAgentRestartStatus}>
+        <div className={classes.infrastructureAgentRestartStatusItem}>
+          <span>{translate("infrastructureAgentRestartLastTime")}</span>
+          <strong>{lastTime ? new Date(lastTime).toLocaleString(currentLanguage === "ko" ? "ko-KR" : "en-US") : translate("infrastructureAgentRestartNever")}</strong>
+        </div>
+        <div className={classes.infrastructureAgentRestartStatusItem}>
+          <span>{translate("infrastructureAgentRestartLastResult")}</span>
+          {this.infrastructureAgentRestartResultTag(status)}
+        </div>
+        <div className={classes.infrastructureAgentRestartStatusItem}>
+          <span>{translate("infrastructureAgentRestartTargetSummary")}</span>
+          <strong>
+            {status.total} / <span className={classes.infrastructureAgentRestartSuccess}>{status.succeeded}</span> / {failedTargets.length > 0
+              ? <Tooltip placement="topRight" title={<div>{failedTargets.map((target) => <div key={target.id || target.name}>{target.name}: {target.error || translate("infrastructureAgentRestartUnknownFailure")}</div>)}</div>}>{failedValue}</Tooltip>
+              : failedValue}
+          </strong>
+        </div>
+      </div>
+    )
+  }
+
+  private renderInfrastructureAgentRestartDialog() {
+    const specific = this.state.infrastructureAgentRestartScope === "selected"
+    return (
+      <AntModal
+        title={translate("infrastructureAgentRestartTitle")}
+        visible={this.state.infrastructureAgentRestartDialogOpen}
+        confirmLoading={this.state.infrastructureAgentRestartLoading}
+        okText={translate("infrastructureAgentRestartExecute")}
+        cancelText={translate("cancel")}
+        okButtonProps={{ disabled: this.state.infrastructureAgentRestartLoading || (specific && this.state.infrastructureAgentRestartSelectedHostIDs.length === 0) }}
+        cancelButtonProps={{ disabled: this.state.infrastructureAgentRestartLoading }}
+        closable={!this.state.infrastructureAgentRestartLoading}
+        maskClosable={!this.state.infrastructureAgentRestartLoading}
+        onCancel={() => this.setState({ infrastructureAgentRestartDialogOpen: false })}
+        onOk={() => this.executeInfrastructureAgentRestart()}>
+        <AntAlert
+          type="warning"
+          showIcon
+          message={translate("infrastructureAgentRestartWarning")}
+          style={{ marginBottom: 20 }}
+        />
+        <div style={{ marginBottom: 8, fontWeight: 600 }}>{translate("infrastructureAgentRestartScope")}</div>
+        <AntRadio.Group
+          value={this.state.infrastructureAgentRestartScope}
+          onChange={(event) => this.setState({ infrastructureAgentRestartScope: event.target.value })}>
+          <AntRadio value="all">{translate("infrastructureAgentRestartAllHosts")}</AntRadio>
+          <AntRadio value="selected">{translate("infrastructureAgentRestartSpecificHosts")}</AntRadio>
+        </AntRadio.Group>
+        {specific &&
+          <AntSelect
+            mode="multiple"
+            showSearch
+            optionFilterProp="children"
+            style={{ width: "100%", marginTop: 16 }}
+            placeholder={translate("infrastructureAgentRestartSelectHosts")}
+            value={this.state.infrastructureAgentRestartSelectedHostIDs}
+            onChange={(values: string[]) => this.setState({ infrastructureAgentRestartSelectedHostIDs: values })}>
+            {this.state.infrastructureAgentRestartHosts.map((host) => <AntSelect.Option key={host.id} value={host.id}>{host.name}</AntSelect.Option>)}
+          </AntSelect>
+        }
+      </AntModal>
+    )
   }
 
   private infrastructureSummary(): InfrastructureSummary {
@@ -4468,17 +4785,10 @@ class App extends React.Component<Props, State> {
     this.tc.selectNode(nodeID, true)
   }
 
-  private infrastructureIcon(glyph: string, tone: string, badge?: string) {
-    const colors: Record<string, string> = {
-      "connected-resource": "var(--netdive-detail-connected-resource-icon)",
-      host: "#3b82f6",
-      "user-vm": "#41a878",
-      "system-vm": "#6d4bd8",
-      network: "#3f7ee8",
-      router: "#7c4bd3"
-    }
+  private infrastructureIcon(glyph: string, _tone: string, badge?: string) {
+    const primaryResourceIconColor = "var(--netdive-detail-connected-resource-icon)"
     return (
-      <span className={clsx("fa", "fas", "fa-fw")} style={{ color: colors[tone] || "#3f7ee8" }}>
+      <span className={clsx("fa", "fas", "fa-fw")} style={{ color: primaryResourceIconColor }}>
         {glyph}
         {badge && <i>{badge}</i>}
       </span>
@@ -4528,14 +4838,14 @@ class App extends React.Component<Props, State> {
       return (
         <button
           type="button"
-          className={classes.infrastructureSummaryCard}
+          className={clsx(classes.infrastructureSummaryCard, classes.infrastructureSummaryCardCompact)}
           onClick={() => this.focusInfrastructureNodeIDs(nodeIDs)}>
           {content}
         </button>
       )
     }
     return (
-      <div className={classes.infrastructureSummaryCard}>
+      <div className={clsx(classes.infrastructureSummaryCard, classes.infrastructureSummaryCardCompact)}>
         {content}
       </div>
     )
@@ -4726,7 +5036,10 @@ class App extends React.Component<Props, State> {
           <span className={classes.infrastructureCardIcon}>{icon}</span>
           <span>
             <strong>{label}</strong>
-            <small>{description}</small>
+            {description &&
+              <Tooltip title={description} placement="top">
+                <small>{description}</small>
+              </Tooltip>}
           </span>
         </span>
         <em>
@@ -4802,17 +5115,31 @@ class App extends React.Component<Props, State> {
     const summary = this.infrastructureSummary()
     const hostSummaries = Object.values(summary.hostsById)
     return (
-      <Paper className={classes.kubernetesManagerPanel} data-netdive-side-panel="true">
+      <Paper className={clsx(classes.kubernetesManagerPanel, classes.infrastructureManagerPanel)} data-netdive-side-panel="true">
         <div className={classes.kubernetesManagerHeader}>
           <div>
             <div className={classes.kubernetesManagerTitle}>{translate("infrastructurePanelTitle")}</div>
             <div className={classes.kubernetesManagerDescription}>{translate("infrastructurePanelDescription")}</div>
           </div>
-          <IconButton size="small" onClick={() => this.setState({ isInfrastructurePanelOpen: false })}>
-            <CloseIcon fontSize="small" />
-          </IconButton>
+          <div className={classes.infrastructureAgentRestartActions}>
+            {this.canManageInfrastructureAgents() &&
+              <AntButton
+                type="default"
+                size="small"
+                icon={<ReloadOutlined spin={this.state.infrastructureAgentRestartStatus?.running || this.state.infrastructureAgentRestartLoading} />}
+                loading={this.state.infrastructureAgentRestartLoading}
+                disabled={this.state.infrastructureAgentRestartStatus?.running}
+                onClick={() => this.openInfrastructureAgentRestartDialog()}>
+                {translate("infrastructureAgentRestartTitle")}
+              </AntButton>
+            }
+            <IconButton size="small" onClick={() => this.setState({ isInfrastructurePanelOpen: false })}>
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          </div>
         </div>
-        <div className={classes.kubernetesSummaryGrid}>
+        {this.renderInfrastructureAgentRestartStatus(classes)}
+        <div className={clsx(classes.kubernetesSummaryGrid, classes.infrastructureSummaryGrid)}>
           {this.renderInfrastructureSummaryCard(classes, this.infrastructureIcon("\uf233", "host"), translate("infrastructureHosts"), summary.hosts, summary.hostNodeIDs)}
           {this.renderInfrastructureSummaryCard(classes, this.infrastructureIcon("\uf108", "user-vm"), translate("infrastructureUserVMs"), summary.userVMs, summary.userVMNodeIDs)}
           {this.renderInfrastructureSummaryCard(classes, this.infrastructureIcon("\uf085", "system-vm"), translate("infrastructureSystemVMs"), summary.systemVMs, summary.systemVMNodeIDs)}
@@ -4840,7 +5167,7 @@ class App extends React.Component<Props, State> {
             {this.renderInfrastructureOverviewCard(classes, "userVMs", this.infrastructureIcon("\uf108", "user-vm"), translate("infrastructureUserVMs"), translate("infrastructureUserVMsDescription"), summary.userVMs, summary)}
             {this.renderInfrastructureOverviewCard(classes, "systemVMs", this.infrastructureIcon("\uf085", "system-vm"), translate("infrastructureSystemVMs"), translate("infrastructureSystemVMsDescription"), summary.systemVMs, summary)}
             {this.renderInfrastructureOverviewCard(classes, "totalNodes", this.infrastructureIcon("\uf233", "host"), translate("infrastructureTotalNodes"), translate("infrastructureTotalNodesDescription"), summary.totalNodes, summary)}
-            {this.renderInfrastructureOverviewCard(classes, "", this.infrastructureIcon("\uf0ac", "network"), translate("infrastructureShowAll"), translate("infrastructureShowAllDescription"), translate("all"), summary)}
+            {this.renderInfrastructureOverviewCard(classes, "", this.infrastructureIcon("\uf0ac", "network"), translate("infrastructureShowAll"), "", translate("all"), summary)}
           </div>
         }
         {this.state.infrastructureViewMode === "hosts" &&
@@ -4849,6 +5176,7 @@ class App extends React.Component<Props, State> {
             {hostSummaries.map((host) => this.renderInfrastructureHostSummary(classes, host))}
           </div>
         }
+        {this.renderInfrastructureAgentRestartDialog()}
       </Paper>
     )
   }
@@ -5505,6 +5833,8 @@ class App extends React.Component<Props, State> {
               square={true}>
               {!this.state.isTimetravelOpen &&
                 <SelectionPanel onLocation={this.onSelectionLocation.bind(this)} onClose={this.onSelectionClose.bind(this)} config={this.config}
+                  previousSelectionName={this.previousSelection()?.item.name}
+                  onPreviousSelection={this.navigateToPreviousSelection.bind(this)}
                   buttonsContent={this.actionButtons.bind(this)} panelsContent={this.dataPanels.bind(this)} moldInventory={this.state.moldInventory} infrastructureHostSummaries={infrastructureHostSummaries} kubernetesClusters={this.state.kubernetesClusters}
                   vmNameMap={this.state.vmNameMap} vmNetworkMap={this.state.vmNetworkMap} vmDetailMap={this.state.vmDetailMap} managementServers={this.state.managementServers}
                   groupVisibleNodeIDs={this.state.groupVisibleNodeIDs}

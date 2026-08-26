@@ -44,6 +44,7 @@ import {
     DetailResourceCard,
     DetailResourceGrid,
     DetailResourceIconTone,
+    DetailResourcePopoverWidthVariant,
     DetailSection,
     InfrastructurePortMappingTable
 } from './common'
@@ -95,6 +96,7 @@ interface OverviewCardItem {
     actionKey?: InfrastructureFocusKey
     nodeIDs?: string[]
     onClick?: () => void
+    resourcesPopoverWidth?: DetailResourcePopoverWidthVariant
 }
 
 interface SocketServiceItem {
@@ -2002,7 +2004,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                     const hasZeroValue = item.value !== '' && !Number.isNaN(numericValue) && numericValue === 0
                     const canFocus = !hasZeroValue && (
                         (!!item.onClick)
-                        || (!!item.actionKey && !!item.nodeIDs && item.nodeIDs.length > 0)
+                        || (!!item.nodeIDs && item.nodeIDs.length > 0)
                     )
                     return (
                         <DetailResourceCard
@@ -2015,6 +2017,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                             interactive={canFocus}
                             resources={connectedResourcePopoverItems(resourceNodes, { anchorNodeID: this.props.node.id, nodeAttrs: this.props.nodeAttrs })}
                             resourcesTitle={item.label}
+                            resourcesPopoverWidth={item.resourcesPopoverWidth}
                             onClick={() => {
                                 if (item.onClick) {
                                     item.onClick()
@@ -2192,7 +2195,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                 icon: this.kubernetesNodeIcon(),
                 iconTone: 'kubernetes',
                 nodeIDs: kubernetesNodes.map(item => item.id),
-                onClick: () => this.openKubernetesNodePicker()
+                resourcesPopoverWidth: 'wide'
             }
         ]
         const resolvedPhysicalNicCount = physicalNicCount !== undefined ? physicalNicCount : this.interfaceCountByPattern([/\bnic\b/, /\beth\d+\b/, /\benp/, /\bens/, /\beno/])

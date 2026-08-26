@@ -20,8 +20,8 @@ import Tabs from '@material-ui/core/Tabs'
 import Tab from '@material-ui/core/Tab'
 import { connect } from 'react-redux'
 import { withStyles } from '@material-ui/core/styles'
-import { Button, Tooltip } from 'antd'
-import { CloseOutlined, EnvironmentOutlined } from '@ant-design/icons'
+import { Button, Divider, Tooltip } from 'antd'
+import { ArrowLeftOutlined, CloseOutlined, EnvironmentOutlined } from '@ant-design/icons'
 
 import { Node, Link } from './Topology'
 import DataPanel from './StdDataPanel'
@@ -77,6 +77,8 @@ interface Props {
   onGroupChildrenDisplayChange?: (nodes: Node[], visible: boolean) => void
   onContextNavigate?: (node: Node) => void
   topologyBadgeChildren?: (node: Node) => Node[]
+  previousSelectionName?: string
+  onPreviousSelection?: () => void
 }
 
 interface State {
@@ -139,6 +141,13 @@ class SelectionPanel extends React.Component<Props, State> {
 
   private renderTabs(classes: any) {
     return this.props.selection.map((el: Node | Link, i: number) => {
+      // Selection can retain related or previously opened objects for
+      // topology interactions, but the shared detail header always represents
+      // only the object whose panel is currently active.
+      if (this.state.tab !== i) {
+        return null
+      }
+
       var className = classes.tabIconFree
 
       if (el.type === 'node') {
@@ -200,6 +209,7 @@ class SelectionPanel extends React.Component<Props, State> {
 
       return (
         <Tab className={`${classes.tabRoot}${isKubernetesCluster ? ' netdive-cluster-selection-tab' : ''}`} icon={tabIcon}
+          value={i}
           key={"tab-" + i}
           label={
             <DetailPanelHeader
@@ -536,6 +546,19 @@ class SelectionPanel extends React.Component<Props, State> {
                 aria-label={translate("pinNode")} />
             </Tooltip>
             {this.props.buttonsContent && this.props.buttonsContent(el)}
+            <Divider type="vertical" />
+            <Tooltip title={this.props.previousSelectionName
+              ? translate("previousSelectionNamedTooltip").replace('{name}', this.props.previousSelectionName)
+              : translate("previousSelectionTooltip")}>
+              <Button
+                type="text"
+                shape="circle"
+                className="netdive-action-icon-button"
+                icon={<ArrowLeftOutlined className="netdive-action-icon--previous" />}
+                disabled={!this.props.previousSelectionName || !this.props.onPreviousSelection}
+                onClick={this.props.onPreviousSelection}
+                aria-label={translate("previousSelectionTooltip")} />
+            </Tooltip>
           </div>
           {el.type === 'node' && this.renderNodeContext(el as Node)}
           {this.props.panelsContent && this.props.panelsContent(el)}
