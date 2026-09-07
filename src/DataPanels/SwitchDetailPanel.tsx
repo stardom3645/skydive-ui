@@ -23,10 +23,11 @@ interface Props {
 
 interface State {
     manualMappings: ManualPortMappingRecord[]
+	allManualMappings: ManualPortMappingRecord[]
 }
 
 class SwitchDetailPanel extends React.Component<Props> {
-    state: State = { manualMappings: [] }
+    state: State = { manualMappings: [], allManualMappings: [] }
 
     componentDidMount() {
         this.loadManualMappings()
@@ -34,18 +35,19 @@ class SwitchDetailPanel extends React.Component<Props> {
 
     componentDidUpdate(prevProps: Props) {
         if (prevProps.node.id !== this.props.node.id) {
-            this.setState({ manualMappings: [] }, this.loadManualMappings)
+            this.setState({ manualMappings: [], allManualMappings: [] }, this.loadManualMappings)
         }
     }
 
     private loadManualMappings = async () => {
         const switchNodeID = this.props.node.id
         try {
-            const manualMappings = await listManualPortMappings(this.props.session, { switchNodeId: switchNodeID })
-            if (this.props.node.id === switchNodeID) this.setState({ manualMappings })
+            const allManualMappings = await listManualPortMappings(this.props.session)
+            const manualMappings = allManualMappings.filter(mapping => mapping.switchNodeId === switchNodeID)
+            if (this.props.node.id === switchNodeID) this.setState({ manualMappings, allManualMappings })
         } catch (error) {
             console.warn('[ManualPortMapping] failed to load switch mappings', error)
-            if (this.props.node.id === switchNodeID) this.setState({ manualMappings: [] })
+            if (this.props.node.id === switchNodeID) this.setState({ manualMappings: [], allManualMappings: [] })
         }
     }
 
@@ -98,11 +100,21 @@ class SwitchDetailPanel extends React.Component<Props> {
     }
 
     private portMappings(): InfrastructurePortMapping[] {
-        return buildInfrastructurePortMappings(this.props.node, this.topologyNodes(), this.topologyLinks(), this.state.manualMappings)
+        const automaticallyConnectedNICs = new Set(this.allAutomaticPortMappings()
+            .map(mapping => mapping.hostNicNodeID)
+            .filter((nodeID): nodeID is string => !!nodeID))
+        const supplementalMappings = this.state.manualMappings
+            .filter(mapping => !automaticallyConnectedNICs.has(mapping.hostNicNodeId))
+        return buildInfrastructurePortMappings(this.props.node, this.topologyNodes(), this.topologyLinks(), supplementalMappings)
     }
 
-    private automaticPortMappings(): InfrastructurePortMapping[] {
-        return buildInfrastructurePortMappings(this.props.node, this.topologyNodes(), this.topologyLinks())
+    private allAutomaticPortMappings(): InfrastructurePortMapping[] {
+        const nodes = this.topologyNodes()
+        const links = this.topologyLinks()
+        return nodes
+            .filter(node => String(node.data?.Type || node.data?.type || '').toLowerCase() === 'switch')
+            .reduce<InfrastructurePortMapping[]>((mappings, switchNode) =>
+                mappings.concat(buildInfrastructurePortMappings(switchNode, nodes, links)), [])
     }
 
     private isSwitchPort(node: Node): boolean {
@@ -194,14 +206,16 @@ class SwitchDetailPanel extends React.Component<Props> {
                     <DetailKeyValueList rows={this.basicRows()} copyTooltip={translate('copy')} />
                 </DetailSection>
                 <DetailSection
+                    className="netdive-switch-port-mapping-section"
                     icon={<PartitionOutlined />}
                     title={translate('switchPortMapping')}
                     description={translate('switchPortMappingDescription')}
                     action={<ManualPortMappingManager
                         switchNode={this.props.node}
                         nodes={this.topologyNodes()}
-                        automaticMappings={this.automaticPortMappings()}
+                        automaticMappings={this.allAutomaticPortMappings()}
                         mappings={this.state.manualMappings}
+                        allMappings={this.state.allManualMappings}
                         session={this.props.session}
                         onChanged={this.loadManualMappings} />}>
                     <InfrastructurePortMappingTable

@@ -26,13 +26,14 @@ export interface ManualPortMappingRecord {
 	id: number
 	switchNodeId: string
 	switchName?: string
-	switchPortNodeId: string
-	switchPortName?: string
+	switchPortNodeId?: string
+	switchPortName: string
 	hostNodeId: string
 	hostName?: string
 	hostNicNodeId: string
 	hostNicName?: string
 	enabled: boolean
+	disabledReason?: string
 	createdAt: string
 	updatedAt: string
 }
@@ -92,35 +93,36 @@ const automaticPortIdentity = (mappings: InfrastructurePortMapping[]) => ({
         .filter(Boolean))
 })
 
-const conflictsWithAutomaticPort = (
-    mapping: Pick<ManualPortMappingRecord, 'switchPortNodeId' | 'switchPortName'>,
+const conflictsWithAutomaticRelation = (
+    mapping: Pick<ManualPortMappingRecord, 'switchPortNodeId' | 'switchPortName' | 'hostNicNodeId'>,
     automaticMappings: InfrastructurePortMapping[]
 ): boolean => {
     const automatic = automaticPortIdentity(automaticMappings)
-    return automatic.nodeIDs.has(mapping.switchPortNodeId)
+    return (!!mapping.switchPortNodeId && automatic.nodeIDs.has(mapping.switchPortNodeId))
         || automatic.names.has(normalizedPortName(mapping.switchPortName))
+		|| automaticMappings.some(automaticMapping => automaticMapping.hostNicNodeID === mapping.hostNicNodeId)
 }
 
-/** Ports eligible for administrator-supplied supplemental mappings. Automatic
- * LLDP relationships are read-only and already assigned manual ports stay out
- * of the create list. The mapping being edited may retain its current port. */
-export const manualMappingPortCandidates = (
-    switchNode: Node,
-    nodes: Node[],
+export type ManualPortNameConflict = 'automatic' | 'manual' | undefined
+
+/** Validate a free-form manual port name against the read-only LLDP rows and
+ * active manual mappings for the same switch. */
+export const manualPortNameConflict = (
+    switchNodeID: string,
+    switchPortName: string,
     automaticMappings: InfrastructurePortMapping[],
     manualMappings: ManualPortMappingRecord[],
     editingID?: number
-): Node[] => {
-    const automatic = automaticPortIdentity(automaticMappings)
-    const manuallyAssigned = new Set(manualMappings
-        .filter(mapping => mapping.enabled && mapping.id !== editingID)
-        .map(mapping => mapping.switchPortNodeId))
-
-    return nodes.filter(node => isSwitchPort(node)
-        && isDescendantOf(node, switchNode.id)
-        && !automatic.nodeIDs.has(node.id)
-        && !automatic.names.has(normalizedPortName(portName(node)))
-        && !manuallyAssigned.has(node.id))
+): ManualPortNameConflict => {
+    const normalizedName = normalizedPortName(switchPortName)
+    if (!normalizedName) return undefined
+    const switchAutomaticMappings = automaticMappings.filter(mapping => mapping.switchNodeID === switchNodeID)
+    if (automaticPortIdentity(switchAutomaticMappings).names.has(normalizedName)) return 'automatic'
+    if (manualMappings.some(mapping => mapping.enabled
+        && mapping.id !== editingID
+        && mapping.switchNodeId === switchNodeID
+        && normalizedPortName(mapping.switchPortName) === normalizedName)) return 'manual'
+    return undefined
 }
 
 const hostName = (node: Node): string => switchTextValue(node.data || {}, ['Name', 'name', 'Hostname', 'HostName']) || node.id
@@ -261,7 +263,7 @@ export const buildInfrastructurePortMappings = (
 	const mergedMappings = [
 		...automaticMappings,
 		...activeManualMappings
-			.filter(mapping => !conflictsWithAutomaticPort(mapping, automaticMappings))
+			.filter(mapping => !conflictsWithAutomaticRelation(mapping, automaticMappings))
 			.map(manualMappingToInfrastructure)
 	]
 
@@ -295,7 +297,7 @@ export const buildInfrastructureHostPortMappings = (
 	const mappings = [
 		...automaticMappings,
 		...activeManualMappings
-			.filter(mapping => !conflictsWithAutomaticPort(mapping, allAutomaticMappings))
+			.filter(mapping => !conflictsWithAutomaticRelation(mapping, allAutomaticMappings))
 			.map(manualMappingToInfrastructure)
 	]
         .map(mapping => {
@@ -319,7 +321,7 @@ export const manualMappingToInfrastructure = (mapping: ManualPortMappingRecord):
 	key: `manual:${mapping.id}`,
 	switchName: mapping.switchName || mapping.switchNodeId,
 	switchNodeID: mapping.switchNodeId,
-	switchPortName: mapping.switchPortName || mapping.switchPortNodeId,
+	switchPortName: mapping.switchPortName || mapping.switchPortNodeId || '',
 	switchPortNodeID: mapping.switchPortNodeId,
 	hostName: mapping.hostName || mapping.hostNodeId,
 	hostNodeID: mapping.hostNodeId,

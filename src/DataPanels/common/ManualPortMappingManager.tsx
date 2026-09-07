@@ -1,11 +1,11 @@
 import * as React from 'react'
-import { Alert, Button, Modal, Popconfirm, Select, Space, Table } from 'antd'
+import { Alert, Button, Input, Modal, Popconfirm, Select, Space, Table } from 'antd'
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons'
 
 import { translate } from '../../Config'
 import {
 	InfrastructurePortMapping,
-	manualMappingPortCandidates,
+	manualPortNameConflict,
 	ManualPortMappingRecord
 } from '../../InfrastructurePortMapping'
 import {
@@ -21,13 +21,14 @@ interface Props {
 	nodes: Node[]
 	automaticMappings: InfrastructurePortMapping[]
 	mappings: ManualPortMappingRecord[]
+	allMappings: ManualPortMappingRecord[]
 	session?: session
 	onChanged: () => Promise<void> | void
 }
 
 interface State {
 	visible: boolean
-	selectedPortID: string
+	switchPortName: string
 	selectedNICID: string
 	editingID?: number
 	saving: boolean
@@ -51,20 +52,9 @@ const isPhysicalNIC = (node: Node): boolean => ['device', 'nic', 'interface', 'e
 export class ManualPortMappingManager extends React.PureComponent<Props, State> {
 	state: State = {
 		visible: false,
-		selectedPortID: '',
+		switchPortName: '',
 		selectedNICID: '',
 		saving: false
-	}
-
-	private switchPorts(): Node[] {
-		return manualMappingPortCandidates(
-			this.props.switchNode,
-			this.props.nodes,
-			this.props.automaticMappings,
-			this.props.mappings,
-			this.state.editingID
-		)
-			.sort((left, right) => nodeName(left).localeCompare(nodeName(right), undefined, { numeric: true }))
 	}
 
 	private hostNICs(): Array<{ node: Node, host: Node }> {
@@ -78,39 +68,61 @@ export class ManualPortMappingManager extends React.PureComponent<Props, State> 
 			})
 	}
 
-	private resetForm = () => this.setState({ selectedPortID: '', selectedNICID: '', editingID: undefined, error: undefined })
+	private automaticallyConnectedNICs(): Set<string> {
+		return new Set(this.props.automaticMappings
+			.map(mapping => mapping.hostNicNodeID)
+			.filter((nodeID): nodeID is string => !!nodeID))
+	}
+
+	private resetForm = () => this.setState({ switchPortName: '', selectedNICID: '', editingID: undefined, error: undefined })
 
 	private open = () => this.setState({ visible: true, error: undefined })
 
 	private close = () => this.setState({ visible: false, error: undefined }, this.resetForm)
 
-	private edit = (mapping: ManualPortMappingRecord) => {
-		const portRemainsEligible = manualMappingPortCandidates(
-			this.props.switchNode,
-			this.props.nodes,
-			this.props.automaticMappings,
-			this.props.mappings,
-			mapping.id
-		).some(port => port.id === mapping.switchPortNodeId)
-		this.setState({
-			selectedPortID: portRemainsEligible ? mapping.switchPortNodeId : '',
-			selectedNICID: mapping.hostNicNodeId,
-			editingID: mapping.id,
-			error: undefined
-		})
-	}
+	private edit = (mapping: ManualPortMappingRecord) => this.setState({
+		switchPortName: mapping.switchPortName,
+		selectedNICID: mapping.hostNicNodeId,
+		editingID: mapping.id,
+		error: undefined
+	})
 
 	private save = async () => {
-		const port = this.switchPorts().find(node => node.id === this.state.selectedPortID)
+		const switchPortName = this.state.switchPortName.trim()
 		const nic = this.hostNICs().find(item => item.node.id === this.state.selectedNICID)
-		if (!port || !nic) {
+		if (!switchPortName) {
+			this.setState({ error: translate('manualPortMappingPortRequired') })
+			return
+		}
+		if (!nic) {
 			this.setState({ error: translate('manualPortMappingSelectionRequired') })
+			return
+		}
+		if (this.automaticallyConnectedNICs().has(nic.node.id)) {
+			this.setState({ error: translate('manualPortMappingNICAutomaticConflict') })
+			return
+		}
+		if (this.props.allMappings.some(mapping => mapping.id !== this.state.editingID && mapping.hostNicNodeId === nic.node.id)) {
+			this.setState({ error: translate('manualPortMappingNICDuplicate') })
+			return
+		}
+		const conflict = manualPortNameConflict(
+			this.props.switchNode.id,
+			switchPortName,
+			this.props.automaticMappings,
+			this.props.mappings,
+			this.state.editingID
+		)
+		if (conflict) {
+			this.setState({ error: translate(conflict === 'automatic'
+				? 'manualPortMappingAutomaticConflict'
+				: 'manualPortMappingDuplicate') })
 			return
 		}
 		this.setState({ saving: true, error: undefined })
 		const input = {
 			switchNodeId: this.props.switchNode.id,
-			switchPortNodeId: port.id,
+			switchPortName,
 			hostNodeId: nic.host.id,
 			hostNicNodeId: nic.node.id,
 			enabled: true
@@ -142,7 +154,8 @@ export class ManualPortMappingManager extends React.PureComponent<Props, State> 
 
 	render() {
 		const editing = this.state.editingID !== undefined
-		const assignedNICs = new Set(this.props.mappings.filter(item => item.id !== this.state.editingID).map(item => item.hostNicNodeId))
+		const assignedNICs = new Set(this.props.allMappings.filter(item => item.id !== this.state.editingID).map(item => item.hostNicNodeId))
+		const automaticallyConnectedNICs = this.automaticallyConnectedNICs()
 		const columns = [
 			{ title: translate('switchPortMappingPort'), dataIndex: 'switchPortName', key: 'port' },
 			{ title: translate('switchPortMappingHost'), dataIndex: 'hostName', key: 'host' },
@@ -175,14 +188,12 @@ export class ManualPortMappingManager extends React.PureComponent<Props, State> 
 					<div className="netdive-manual-port-mapping-manager__form">
 						<label>
 							<span>{translate('switchPortMappingPort')}</span>
-							<Select
-								showSearch
-								optionFilterProp="children"
+							<Input
+								maxLength={255}
 								placeholder={translate('manualPortMappingSelectPort')}
-								value={this.state.selectedPortID || undefined}
-								onChange={(value: string) => this.setState({ selectedPortID: value, error: undefined })}>
-								{this.switchPorts().map(port => <Select.Option key={port.id} value={port.id}>{nodeName(port)}</Select.Option>)}
-							</Select>
+								value={this.state.switchPortName}
+								onChange={event => this.setState({ switchPortName: event.target.value, error: undefined })}
+								onBlur={() => this.setState(state => ({ switchPortName: state.switchPortName.trim() }))} />
 						</label>
 						<label>
 							<span>{translate('switchPortMappingNic')}</span>
@@ -192,12 +203,17 @@ export class ManualPortMappingManager extends React.PureComponent<Props, State> 
 								placeholder={translate('manualPortMappingSelectNic')}
 								value={this.state.selectedNICID || undefined}
 								onChange={(value: string) => this.setState({ selectedNICID: value, error: undefined })}>
-								{this.hostNICs().map(item => <Select.Option key={item.node.id} value={item.node.id} disabled={assignedNICs.has(item.node.id)}>{nodeName(item.host)} / {nodeName(item.node)}</Select.Option>)}
+								{this.hostNICs().map(item => <Select.Option key={item.node.id} value={item.node.id} disabled={assignedNICs.has(item.node.id) || automaticallyConnectedNICs.has(item.node.id)}>{nodeName(item.host)} / {nodeName(item.node)}</Select.Option>)}
 							</Select>
 						</label>
 						<div className="netdive-manual-port-mapping-manager__form-actions">
 							{editing && <Button size="small" onClick={this.resetForm}>{translate('manualPortMappingCancelEdit')}</Button>}
-							<Button size="small" type="primary" loading={this.state.saving} onClick={this.save}>
+							<Button
+								className="netdive-manual-port-mapping-manager__submit"
+								size="small"
+								type="primary"
+								loading={this.state.saving}
+								onClick={this.save}>
 								{translate(editing ? 'manualPortMappingUpdate' : 'manualPortMappingAdd')}
 							</Button>
 						</div>

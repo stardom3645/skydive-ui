@@ -3,7 +3,7 @@ import { session } from './Store'
 
 export interface ManualPortMappingInput {
 	switchNodeId: string
-	switchPortNodeId: string
+	switchPortName: string
 	hostNodeId: string
 	hostNicNodeId: string
 	enabled?: boolean

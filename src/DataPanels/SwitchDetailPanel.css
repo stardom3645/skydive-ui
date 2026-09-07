@@ -5,6 +5,36 @@
     padding-bottom: 8px;
 }
 
+.netdive-switch-port-mapping-section .netdive-detail-section__header {
+    align-items: flex-start;
+}
+
+.netdive-switch-port-mapping-section .netdive-detail-section__heading {
+    flex: 1 1 auto;
+    align-items: flex-start;
+}
+
+.netdive-switch-port-mapping-section .netdive-detail-section__title-block {
+    width: 100%;
+}
+
+.netdive-switch-port-mapping-section .netdive-detail-section__description-row,
+.netdive-switch-port-mapping-section .netdive-detail-section__description.ant-typography {
+    white-space: normal;
+}
+
+.netdive-switch-port-mapping-section .netdive-detail-section__description.ant-typography {
+    overflow-wrap: anywhere;
+}
+
+.netdive-switch-port-mapping-section .netdive-detail-section__actions {
+    flex: 0 0 auto;
+}
+
+.netdive-switch-port-mapping-section .netdive-detail-section__actions .ant-btn {
+    white-space: nowrap;
+}
+
 .netdive-manual-port-mapping-manager {
     display: flex;
     flex-direction: column;
@@ -39,6 +69,15 @@
 .netdive-manual-port-mapping-manager__form-actions {
     display: flex;
     gap: 6px;
+}
+
+.netdive-manual-port-mapping-manager__submit.ant-btn {
+    font-family: var(--netdive-font-family);
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: 0;
+    line-height: 22px;
+    text-shadow: none;
 }
 
 @media (max-width: 720px) {

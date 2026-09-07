@@ -6,7 +6,7 @@ import {
     buildInfrastructureHostPortMappings,
     buildInfrastructurePortMappings,
     infrastructurePortConnectionState,
-    manualMappingPortCandidates
+    manualPortNameConflict
 } from '../src/InfrastructurePortMapping'
 import type { Link, Node } from '../src/Topology'
 
@@ -227,12 +227,20 @@ describe('Infrastructure LLDP port mapping', () => {
 			switchPortNodeId: unconnectedPort.id,
 			switchPortName: 'xg2'
 		}
+		const automaticNICConflict = {
+			...conflictingManual,
+			id: 9,
+			switchPortNodeId: undefined,
+			switchPortName: 'xg3',
+			hostNicNodeId: automaticNIC.id,
+			hostNicName: 'eno1'
+		}
 
 		const switchResult = buildInfrastructurePortMappings(
 			sw,
 			[sw, automaticPort, unconnectedPort, host, automaticNIC, manualNIC],
 			[link('lldp-1', automaticPort, automaticNIC)],
-			[conflictingManual, supplementalManual]
+			[conflictingManual, supplementalManual, automaticNICConflict]
 		)
 		assert.strictEqual(switchResult.length, 2)
 		assert.strictEqual(switchResult[0].source, 'automatic')
@@ -244,23 +252,20 @@ describe('Infrastructure LLDP port mapping', () => {
 			host,
 			[sw, automaticPort, unconnectedPort, host, automaticNIC, manualNIC],
 			[link('lldp-1', automaticPort, automaticNIC)],
-			[conflictingManual, supplementalManual]
+			[conflictingManual, supplementalManual, automaticNICConflict]
 		)
 		assert.strictEqual(hostResult.length, 2)
 		assert.deepStrictEqual(hostResult.map(mapping => mapping.source), ['automatic', 'manual'])
 	})
 
-	it('offers only ports without automatic or other active manual mappings', () => {
+	it('rejects free-form port names already used by automatic or active manual mappings', () => {
 		const sw = node('switch-1', { Type: 'switch', Name: 'leaf-1' })
 		const automaticPort = node('port-1', { Type: 'switchport', Name: 'xg1' }, sw)
-		const availablePort = node('port-2', { Type: 'switchport', Name: 'xg2' }, sw)
-		const manualPort = node('port-3', { Type: 'switchport', Name: 'xg3' }, sw)
 		const host = node('host-1', { Type: 'host', Name: 'compute-1' })
 		const automaticNIC = node('nic-1', { Type: 'device', Name: 'eno1' }, host)
 		const manual = {
 			id: 9,
 			switchNodeId: sw.id,
-			switchPortNodeId: manualPort.id,
 			switchPortName: 'xg3',
 			hostNodeId: host.id,
 			hostNicNodeId: 'nic-2',
@@ -268,29 +273,44 @@ describe('Infrastructure LLDP port mapping', () => {
 			createdAt: '2026-09-07T00:00:00Z',
 			updatedAt: '2026-09-07T00:00:00Z'
 		}
-		const nodes = [sw, automaticPort, availablePort, manualPort, host, automaticNIC]
+		const nodes = [sw, automaticPort, host, automaticNIC]
 		const automatic = buildInfrastructurePortMappings(sw, nodes, [link('lldp-1', automaticPort, automaticNIC)])
+		const otherSwitchAutomatic = {
+			...automatic[0],
+			key: 'switch-2::port-9::nic-9',
+			switchNodeID: 'switch-2',
+			switchPortName: 'xg9'
+		}
 
-		assert.deepStrictEqual(
-			manualMappingPortCandidates(sw, nodes, automatic, [manual]).map(port => port.id),
-			['port-2']
-		)
-		assert.deepStrictEqual(
-			manualMappingPortCandidates(sw, nodes, automatic, [manual], manual.id).map(port => port.id),
-			['port-2', 'port-3']
-		)
+		const allAutomatic = automatic.concat(otherSwitchAutomatic)
+		assert.strictEqual(manualPortNameConflict(sw.id, ' XG1 ', allAutomatic, [manual]), 'automatic')
+		assert.strictEqual(manualPortNameConflict(sw.id, ' xg3 ', allAutomatic, [manual]), 'manual')
+		assert.strictEqual(manualPortNameConflict(sw.id, 'xg3', allAutomatic, [manual], manual.id), undefined)
+		assert.strictEqual(manualPortNameConflict(sw.id, 'xg9', allAutomatic, [manual]), undefined)
+		assert.strictEqual(manualPortNameConflict(sw.id, 'Gi1/0/24', allAutomatic, [manual]), undefined)
 	})
 
 	it('wires manual CRUD management to the switch detail without changing topology links', () => {
 		const panel = fs.readFileSync(path.resolve(__dirname, '../src/DataPanels/SwitchDetailPanel.tsx'), 'utf8')
 		const manager = fs.readFileSync(path.resolve(__dirname, '../src/DataPanels/common/ManualPortMappingManager.tsx'), 'utf8')
+		const styles = fs.readFileSync(path.resolve(__dirname, '../src/DataPanels/SwitchDetailPanel.css'), 'utf8')
 		assert.ok(panel.includes('<ManualPortMappingManager'))
+		assert.ok(panel.includes('className="netdive-switch-port-mapping-section"'))
 		assert.ok(panel.includes('listManualPortMappings'))
+		assert.ok(panel.includes('allMappings={this.state.allManualMappings}'))
 		assert.ok(manager.includes('createManualPortMapping'))
 		assert.ok(manager.includes('updateManualPortMapping'))
 		assert.ok(manager.includes('disableManualPortMapping'))
 		assert.ok(manager.includes("translate('manualPortMappingGuidance')"))
-		assert.ok(manager.includes('manualMappingPortCandidates'))
+		assert.ok(manager.includes('<Input'))
+		assert.ok(manager.includes('switchPortName.trim()'))
+		assert.ok(manager.includes('manualPortNameConflict'))
+		assert.ok(manager.includes('automaticallyConnectedNICs.has(item.node.id)'))
+		assert.ok(manager.includes('className="netdive-manual-port-mapping-manager__submit"'))
 		assert.ok(!manager.includes('window.App.tc.links.set'))
+		assert.ok(styles.includes('.netdive-switch-port-mapping-section .netdive-detail-section__heading'))
+		assert.ok(styles.includes('overflow-wrap: anywhere'))
+		assert.ok(styles.includes('.netdive-manual-port-mapping-manager__submit.ant-btn'))
+		assert.ok(styles.includes('text-shadow: none'))
 	})
 })
