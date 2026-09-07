@@ -38,7 +38,6 @@ import {
     kubernetesTopologyNodeText
 } from './KubernetesTopologyNodePresentation'
 import {
-    kubernetesTopologyNodeNeedsAttention,
     kubernetesTopologyAttentionPathIDs,
     kubernetesTopologyBadgeGroupSummary,
     kubernetesTopologyCountBadges
@@ -1209,7 +1208,9 @@ export class Topology extends React.Component<Props, {}> {
         for (const [key, state] of this.nodeTagStates.entries()) {
             this.nodeTagStates.set(key, false)
         }
-        if (this.nodeTagStates.has(tag)) {
+        // Kubernetes is a permanent product layer, not a data-dependent tag.
+        // Allow entering its empty state before any cluster/resource arrives.
+        if (this.nodeTagStates.has(tag) || tag.toLowerCase() === 'kubernetes') {
             this.nodeTagStates.set(tag, true)
             this.nodeTagActive = tag
         } else {
@@ -2780,48 +2781,111 @@ export class Topology extends React.Component<Props, {}> {
         return this.synthesizedKubernetesBadgeChildren(node)
     }
 
-    private nodeNeedsAttention(node: Node): boolean {
-        if (isKubernetesTopologyData(node.data)) {
-            return kubernetesTopologyNodeNeedsAttention(node)
-        }
-        const kind = topologyNodeStatus(node).kind
-        return kind === 'bad' || kind === 'unknown'
+    private isKubernetesProblemPathTarget(node: Node): boolean {
+        if (this.nodeTagActive.toLowerCase() !== 'kubernetes') return false
+        if (isKubernetesTopologyData(node.data)) return true
+        return !!node.data?.IsTopologyGroup
+            && (node.children || []).some(child => isKubernetesTopologyData(child.data))
     }
 
-    private subtreeNeedsAttention(node: Node, visiting = new Set<string>()): boolean {
-        if (visiting.has(node.id)) return false
-        visiting.add(node.id)
-        const needed = this.nodeNeedsAttention(node)
-            || (node.children || []).some(child => this.subtreeNeedsAttention(child, visiting))
-        visiting.delete(node.id)
-        return needed
+    private problemPathResourceIDs(node: Node): Set<string> {
+        if (!this.isKubernetesProblemPathTarget(node)) return new Set<string>()
+        return kubernetesTopologyAttentionPathIDs(
+            [node],
+            candidate => !this.props.nodeVisible || this.props.nodeVisible(candidate))
     }
 
-    private problemPathNodeIDs(d: D3Node): Set<string> {
-        const result = new Set<string>([d.data.id])
-        const canonicalIDs = isKubernetesTopologyData(d.data.wrapped.data)
-            ? kubernetesTopologyAttentionPathIDs(
-                [d.data.wrapped],
-                node => !this.props.nodeVisible || this.props.nodeVisible(node))
-            : new Set<string>()
+    private problemPathFocus(d: D3Node): Pick<TopologyNodeFocus, 'nodeIDs' | 'relationLinkIDs' | 'visibleRelationLinkIDs' | 'hierarchyLinkKeys'> {
+        const nodeIDs = new Set<string>([d.data.id])
+        const hierarchyLinkKeys = new Set<string>()
+        const canonicalIDs = this.problemPathResourceIDs(d.data.wrapped)
 
         const visit = (current: D3Node): boolean => {
             let retainedChild = false
             ;(current.children || []).forEach(child => {
-                if (visit(child)) retainedChild = true
+                if (!visit(child)) return
+                retainedChild = true
+                hierarchyLinkKeys.add(this.hierarchyLinkKey(current.data.id, child.data.id))
             })
             const wrapped = current.data.wrapped
             const groupedAttention = current.data.type === WrapperType.Group
-                && (wrapped.children || []).some(child => canonicalIDs.has(child.id) || this.subtreeNeedsAttention(child))
+                && (wrapped.children || []).some(child => canonicalIDs.has(child.id))
             const retained = canonicalIDs.has(wrapped.id)
-                || this.nodeNeedsAttention(wrapped)
                 || groupedAttention
                 || retainedChild
-            if (retained) result.add(current.data.id)
+            if (retained) nodeIDs.add(current.data.id)
             return retained
         }
         visit(d)
-        return result
+        return {
+            nodeIDs,
+            relationLinkIDs: new Set<string>(),
+            visibleRelationLinkIDs: new Set<string>(),
+            hierarchyLinkKeys
+        }
+    }
+
+    private expandProblemPathResources(problemResourceIDs: Set<string>) {
+        problemResourceIDs.forEach(id => {
+            const node = this.nodes.get(id)
+            if (node && (node.children || []).some(child => problemResourceIDs.has(child.id))) {
+                node.state.expanded = true
+            }
+        })
+
+        // Synthetic resource groups are materialized one rendered level at a
+        // time. Expand only groups that contain a retained problem-path node;
+        // unrelated sibling branches remain present but are dimmed.
+        const maxExpansionPasses = 12
+        let requiresFinalRender = false
+        for (let pass = 0; pass < maxExpansionPasses; pass += 1) {
+            this.renderTree()
+            requiresFinalRender = false
+            let changed = false
+            problemResourceIDs.forEach(id => {
+                const group = this.nodeGroup.get(id)
+                if (!group) return
+                const state = this.groupStates.get(group.id)
+                if (!state || (state.expanded && state.groupFullSize)) return
+                state.expanded = true
+                state.groupFullSize = true
+                state.groupOffset = 0
+                changed = true
+            })
+            if (!changed) break
+            requiresFinalRender = true
+        }
+        if (requiresFinalRender) this.renderTree()
+    }
+
+    private toggleProblemPathFocus(d: D3Node) {
+        // "Problem path" is a Kubernetes execution-topology action. The
+        // infrastructure layer has different status semantics and must never
+        // expose or execute this mode.
+        if (!this.isKubernetesProblemPathTarget(d.data.wrapped)) return
+
+        if (this.topologyNodeFocus?.mode === 'problems'
+            && this.topologyNodeFocus.focusedNodeID === d.data.id) {
+            this.clearTopologyNodeFocus()
+            return
+        }
+
+        const problemResourceIDs = this.problemPathResourceIDs(d.data.wrapped)
+        if (problemResourceIDs.size === 0) return
+
+        const focusedNodeID = d.data.id
+        this.clearTopologyNodeFocus()
+        this.expandProblemPathResources(problemResourceIDs)
+        const rendered = this.renderedFocusNode(focusedNodeID)
+        if (!rendered) return
+        const problemFocus = this.problemPathFocus(rendered)
+        this.toggleTopologyNodeFocus(
+            'problems',
+            rendered,
+            problemFocus.nodeIDs,
+            problemFocus.relationLinkIDs,
+            problemFocus.visibleRelationLinkIDs,
+            problemFocus.hierarchyLinkKeys)
     }
 
     private hierarchyLinkKey(sourceID: string, targetID: string): string {
@@ -2834,8 +2898,8 @@ export class Topology extends React.Component<Props, {}> {
         const visibleRelationLinkIDs = new Set<string>()
         const hierarchyLinkKeys = new Set<string>()
         const renderedNodeIDs = new Set<string>()
-        const renderedGroupNodeIDs = new Set<string>()
         const renderedNodeLevels = new Map<string, number>()
+        const explicitTargetNodeIDs = new Set<string>()
         const relationPathEdges = new Array<TopologyRelationPathEdge>()
         const rankedRelationEdges = new Array<TopologyRankedRelationEdge>()
         const hierarchyPathPrefix = 'hierarchy:'
@@ -2843,77 +2907,54 @@ export class Topology extends React.Component<Props, {}> {
         this.gNodes.selectAll<SVGGElement, D3Node>('g.node').each((rendered: D3Node) => {
             if (!rendered?.data?.id) return
             renderedNodeIDs.add(rendered.data.id)
-            if (rendered.data.type === WrapperType.Group) renderedGroupNodeIDs.add(rendered.data.id)
             renderedNodeLevels.set(rendered.data.id, Number.isFinite(rendered.y) ? rendered.y : 0)
         })
         relatedNodeIDs.forEach(relatedNodeID => {
             const renderedRelatedID = renderedNodeIDs.has(relatedNodeID)
                 ? relatedNodeID
                 : this.visibleNodeIDForID(relatedNodeID)
-            if (renderedNodeIDs.has(renderedRelatedID)) nodeIDs.add(renderedRelatedID)
+            if (renderedNodeIDs.has(renderedRelatedID)) explicitTargetNodeIDs.add(renderedRelatedID)
         })
 
-        // Keep the complete direct ancestry path from the focused node to the
-        // topology root. "Direct" here means the same parent lineage: include
-        // parent, grandparent, and every higher ancestor, but never siblings or
-        // another branch. Hidden wrappers only align visual levels.
-        let upper: D3Node | undefined = d
-        while (upper?.parent && upper.parent.data.wrapped !== this.root) {
-            const parent = upper.parent
-            hierarchyLinkKeys.add(this.hierarchyLinkKey(parent.data.id, upper.data.id))
-            if (parent.data.type !== WrapperType.Hidden) {
-                nodeIDs.add(parent.data.id)
-            }
-            upper = parent
-        }
-        const includeFirstVisibleChildren = (parent: D3Node) => {
-            ;(parent.children || []).forEach(child => {
-                hierarchyLinkKeys.add(this.hierarchyLinkKey(parent.data.id, child.data.id))
-                if (child.data.type === WrapperType.Hidden) includeFirstVisibleChildren(child)
-                else nodeIDs.add(child.data.id)
-            })
-        }
-        includeFirstVisibleChildren(d)
-
-        // Read every relation in the current rendered topology set. An
-        // EventBased relation can have opacity 0 until its endpoint is selected,
-        // but its directly connected parent/resource must still participate in
-        // connection focus. The edge remains hidden; focus never changes the
-        // user's link visibility setting.
+        // Keep the exact set of network traffic lines that was visible before
+        // focus. Only these edges may receive the visual highlight treatment.
         this.gLinks.selectAll('path.link').each((link: Link) => {
-            if (!link) return
-            if (this.linkDisplayOpacity(link) > 0) {
-                visibleRelationLinkIDs.add(link.id)
-            }
-            const rawSourceID = link.source.id
-            const rawTargetID = link.target.id
-            const sourceID = renderedNodeIDs.has(rawSourceID) ? rawSourceID : this.visibleNodeIDForID(rawSourceID)
-            const targetID = renderedNodeIDs.has(rawTargetID) ? rawTargetID : this.visibleNodeIDForID(rawTargetID)
+            if (!link || this.linkDisplayOpacity(link) <= 0) return
+            visibleRelationLinkIDs.add(link.id)
+        })
+
+        // Path discovery and edge rendering deliberately use different sets.
+        // The complete relationship graph is needed to reach Host, SwitchPort
+        // and Switch even when an intermediate relation is currently hidden;
+        // hidden relations are never promoted into visible traffic lines.
+        this.links.forEach((link: Link) => {
+            if (!link || link.data?.KubernetesPlacementLink) return
+            const sourceKubernetesRelationship = String(link.source.data?.Manager || '').toLowerCase() === 'k8s'
+                && this.props.nodeVisible
+                && !this.props.nodeVisible(link.source)
+            const targetKubernetesRelationship = String(link.target.data?.Manager || '').toLowerCase() === 'k8s'
+                && this.props.nodeVisible
+                && !this.props.nodeVisible(link.target)
+            if (sourceKubernetesRelationship || targetKubernetesRelationship) return
+            if (!this.displayBranchVisible(link.source) || !this.displayBranchVisible(link.target)) return
+            const sourceID = this.closestVisibleNodeID(link.source)
+            const targetID = this.closestVisibleNodeID(link.target)
             if (!renderedNodeIDs.has(sourceID) || !renderedNodeIDs.has(targetID) || sourceID === targetID) return
             relationPathEdges.push({ id: link.id, sourceID, targetID })
             const sourceLevel = renderedNodeLevels.get(sourceID) || 0
             const targetLevel = renderedNodeLevels.get(targetID) || 0
             rankedRelationEdges.push({ id: link.id, sourceID, targetID, sourceLevel, targetLevel })
-            if (sourceID === d.data.id || targetID === d.data.id) {
-                nodeIDs.add(sourceID)
-                nodeIDs.add(targetID)
-                relationLinkIDs.add(link.id)
-            }
         })
 
-        // A physical network route can cross both relation links and real
-        // resource hierarchy links (for example Switch -> SwitchPort). Add
-        // those rendered resource-to-resource edges to the same path graph.
-        // UI grouping edges are deliberately excluded: traversing through a
-        // group would pull unrelated sibling resources into the route.
+        // Resource hierarchy can bridge discovery-only gaps such as
+        // Switch -> SwitchPort. It contributes nodes to the calculated route,
+        // but its dotted lines are not promoted as network traffic edges.
         this.gHieraLinks.selectAll('path.hiera-link').each((link: any) => {
             const sourceID = link?.source?.data?.id
             const targetID = link?.target?.data?.id
             if (!renderedNodeIDs.has(sourceID) || !renderedNodeIDs.has(targetID)) return
-            if (renderedGroupNodeIDs.has(sourceID) || renderedGroupNodeIDs.has(targetID)) return
-            const key = this.hierarchyLinkKey(sourceID, targetID)
             rankedRelationEdges.push({
-                id: hierarchyPathPrefix + key,
+                id: hierarchyPathPrefix + this.hierarchyLinkKey(sourceID, targetID),
                 sourceID,
                 targetID,
                 sourceLevel: renderedNodeLevels.get(sourceID) || 0,
@@ -2921,20 +2962,19 @@ export class Topology extends React.Component<Props, {}> {
             })
         })
 
-        // Preserve the existing ancestry/direct-neighbor targets, then add
-        // only the rendered graph nodes and edges required to connect the
-        // focused resource to those targets. This keeps vnet/NIC, virtual
-        // bridge, bond and host-bridge hops visible without highlighting
-        // unrelated branches of the same network.
-        const relationPaths = topologyRelationPathClosure(d.data.id, nodeIDs, relationPathEdges)
+        // Explicit targets supplied by a navigation entry point are connected
+        // by their shortest real relation paths. Direct neighbors are not
+        // preselected: doing so would turn connection focus into recursive
+        // "highlight every related resource" behavior.
+        const relationPaths = topologyRelationPathClosure(d.data.id, explicitTargetNodeIDs, relationPathEdges)
         relationPaths.nodeIDs.forEach(nodeID => nodeIDs.add(nodeID))
-        relationPaths.linkIDs.forEach(linkID => relationLinkIDs.add(linkID))
+        relationPaths.linkIDs.forEach(linkID => {
+            if (visibleRelationLinkIDs.has(linkID)) relationLinkIDs.add(linkID)
+        })
         const networkRootPaths = topologyNetworkRootPathClosure(d.data.id, rankedRelationEdges)
         networkRootPaths.nodeIDs.forEach(nodeID => nodeIDs.add(nodeID))
         networkRootPaths.linkIDs.forEach(linkID => {
-            if (linkID.startsWith(hierarchyPathPrefix)) {
-                hierarchyLinkKeys.add(linkID.slice(hierarchyPathPrefix.length))
-            } else {
+            if (!linkID.startsWith(hierarchyPathPrefix) && visibleRelationLinkIDs.has(linkID)) {
                 relationLinkIDs.add(linkID)
             }
         })
@@ -2952,6 +2992,10 @@ export class Topology extends React.Component<Props, {}> {
 
         this.focusInfrastructureNodes([nodeID, ...relatedNodeIDs], undefined, true)
         this.clearInfrastructureFocus()
+        // Connection focus has a single anchor resource. Keep the global
+        // topology selection in sync so the same resource is shown in the
+        // right-hand detail panel.
+        this.selectNode(nodeID, true)
         const rendered = this.renderedFocusNode(nodeID)
         if (!rendered) return false
 
@@ -3016,6 +3060,16 @@ export class Topology extends React.Component<Props, {}> {
                 ...focus,
                 ...current
             }
+        } else if (focus.mode === 'problems') {
+            if (this.problemPathResourceIDs(rendered.data.wrapped).size === 0) {
+                this.topologyNodeFocus = null
+                this.forceUpdate()
+                return
+            }
+            this.topologyNodeFocus = {
+                ...focus,
+                ...this.problemPathFocus(rendered)
+            }
         }
     }
 
@@ -3037,6 +3091,22 @@ export class Topology extends React.Component<Props, {}> {
         if (this.topologyNodeFocus?.mode === mode && this.topologyNodeFocus.focusedNodeID === d.data.id) {
             this.clearTopologyNodeFocus()
             return
+        }
+
+        if (mode === 'connections') {
+            // Selecting first opens the detail panel and can also reveal the
+            // focused member of a collapsed group. Recalculate from the final
+            // rendered anchor so node and edge focus use that same selection.
+            this.selectNode(d.data.id, true)
+            const rendered = this.renderedFocusNode(d.data.id)
+            if (rendered) {
+                const current = this.connectionFocus(rendered)
+                nodeIDs = current.nodeIDs
+                relationLinkIDs = current.relationLinkIDs
+                visibleRelationLinkIDs = current.visibleRelationLinkIDs
+                hierarchyLinkKeys = current.hierarchyLinkKeys
+                d = rendered
+            }
         }
         this.topologyNodeFocus = {
             mode,
@@ -3067,23 +3137,17 @@ export class Topology extends React.Component<Props, {}> {
             .classed('topology-focus-dim', (link: any) => {
                 if (!focus) return false
                 const key = this.hierarchyLinkKey(link?.source?.data?.id, link?.target?.data?.id)
-                return focus.mode === 'connections'
-                    ? !focus.hierarchyLinkKeys.has(key)
-                    : !(focused(link?.source?.data?.id) && focused(link?.target?.data?.id))
+                return !focus.hierarchyLinkKeys.has(key)
             })
             .classed('topology-focus-hit', (link: any) => {
                 if (!focus) return false
                 const key = this.hierarchyLinkKey(link?.source?.data?.id, link?.target?.data?.id)
-                return focus.mode === 'connections'
-                    ? focus.hierarchyLinkKeys.has(key)
-                    : focused(link?.source?.data?.id) && focused(link?.target?.data?.id)
+                return focus.hierarchyLinkKeys.has(key)
             })
 
         const linkFocused = (link: Link) => {
             if (!focus) return true
-            if (focus.mode === 'connections') return focus.relationLinkIDs.has(link.id)
-            return focused(this.visibleNodeIDForID(link.source.id))
-                && focused(this.visibleNodeIDForID(link.target.id))
+            return focus.relationLinkIDs.has(link.id)
         }
         this.gLinks?.selectAll('path.link')
             .classed('topology-focus-dim', (link: Link) => !!focus
@@ -3107,8 +3171,11 @@ export class Topology extends React.Component<Props, {}> {
     private contextMenuItems(d: D3Node): TopologyContextMenuAction[] {
         const node = d.data.wrapped
         const hasChildren = this.hierarchyChildrenAvailable(d)
-        const hasProblemPath = this.subtreeNeedsAttention(node)
+        const hasProblemPath = this.isKubernetesProblemPathTarget(node)
+            && this.problemPathResourceIDs(node).size > 0
         const isExpanded = !!node.state.expanded
+        const problemFocusActive = this.topologyNodeFocus?.mode === 'problems'
+            && this.topologyNodeFocus.focusedNodeID === d.data.id
         const connectionFocus = this.connectionFocus(d)
         const items: TopologyContextMenuAction[] = [
             { key: 'detail', text: '상세 보기', section: 'navigation', callback: () => this.props.onNodeClicked(node) },
@@ -3142,9 +3209,9 @@ export class Topology extends React.Component<Props, {}> {
         if (hasProblemPath) {
             items.push({
                 key: 'problems',
-                text: '이상 경로 보기',
+                text: problemFocusActive ? '이상 경로 보기 해제' : '이상 경로 보기',
                 section: 'topology',
-                callback: () => this.toggleTopologyNodeFocus('problems', d, this.problemPathNodeIDs(d))
+                callback: () => this.toggleProblemPathFocus(d)
             })
         }
         return items
@@ -6428,6 +6495,10 @@ export class Topology extends React.Component<Props, {}> {
         const connectionFocus = this.topologyNodeFocus?.mode === 'connections'
             ? this.topologyNodeFocus
             : null
+        const emptyKubernetesLayer = this.nodeTagActive.toLowerCase() === 'kubernetes'
+            && !Array.from(this.nodes.values()).some(node =>
+                node.tags.some(tag => tag.toLowerCase() === 'kubernetes')
+                && (!this.props.nodeVisible || this.props.nodeVisible(node)))
         return (
             <div
                 className={this.props.className}
@@ -6436,6 +6507,13 @@ export class Topology extends React.Component<Props, {}> {
             >
                 <ResizeObserver
                     onResize={(rect) => { this.onResize(rect) }} />
+                {emptyKubernetesLayer && <div
+                    className="topology-empty-layer"
+                    role="status"
+                    aria-live="polite">
+                    <strong>표시할 Kubernetes 리소스가 없습니다.</strong>
+                    <span>클러스터가 연결되거나 수집되면 이 화면에 자동으로 표시됩니다.</span>
+                </div>}
                 {connectionFocus && <div
                     className="topology-connection-focus-status"
                     role="status"

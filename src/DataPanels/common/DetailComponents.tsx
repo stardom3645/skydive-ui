@@ -1164,6 +1164,26 @@ export interface DetailResourcePopoverItem {
     tooltip?: React.ReactNode
 }
 
+const connectedResourceNameText = (name: React.ReactNode): string => (
+    typeof name === 'string' || typeof name === 'number' ? String(name).trim() : ''
+)
+
+/** Keeps resource lists predictable regardless of graph collection order.
+ * Numeric comparison makes names such as xg2 and xg10 read naturally. */
+const sortConnectedResourceItems = <T extends DetailResourcePopoverItem>(items: T[]): T[] => (
+    items.slice().sort((left, right) => {
+        const leftName = connectedResourceNameText(left.name)
+        const rightName = connectedResourceNameText(right.name)
+        if (!leftName && !rightName) return 0
+        if (!leftName) return 1
+        if (!rightName) return -1
+        return leftName.localeCompare(rightName, undefined, {
+            numeric: true,
+            sensitivity: 'base'
+        })
+    })
+)
+
 export type DetailResourceIconTone = 'host' | 'user-vm' | 'system-vm' | 'router' | 'network' | 'interface' | 'bridge' | 'switch' | 'kubernetes'
 export type DetailResourcePopoverWidthVariant = 'default' | 'wide'
 
@@ -1296,7 +1316,7 @@ export const connectedResourcePopoverItems = (
 ): DetailResourcePopoverItem[] => {
     const unique = new Map<string, Node>()
     nodes.forEach(node => { if (node?.id) unique.set(node.id, node) })
-    return Array.from(unique.values()).map(node => {
+    return sortConnectedResourceItems(Array.from(unique.values()).map(node => {
         const name = options.getName ? options.getName(node) : topologyNodeName(node)
         const description = options.getDescription ? options.getDescription(node) : topologyNodeContext(node)
         return {
@@ -1309,7 +1329,7 @@ export const connectedResourcePopoverItems = (
             onClick: () => navigateInfrastructureConnectedResources([node.id], options.anchorNodeID, 'item'),
             tooltip: typeof name === 'string' ? name : undefined
         }
-    })
+    }))
 }
 
 const DetailConnectedResourcePopover = ({
@@ -1324,6 +1344,7 @@ const DetailConnectedResourcePopover = ({
     const displayTitle = typeof title === 'string'
         ? title.replace(/^연결(?:된)?\s+/, '').replace(/^Connected\s+/i, '')
         : title
+    const sortedItems = sortConnectedResourceItems(items)
     return <div className="netdive-connected-resource-popover">
     <Typography.Text className="netdive-connected-resource-popover__title">
         연결된 {displayTitle} ({items.length})
@@ -1331,7 +1352,7 @@ const DetailConnectedResourcePopover = ({
     <List
         className="netdive-connected-resource-popover__list"
         size="small"
-        dataSource={items}
+        dataSource={sortedItems}
         renderItem={(item, index) => <List.Item key={item.key !== undefined ? item.key : index}>
             <Button
                 type="text"
@@ -1677,7 +1698,7 @@ export const ConnectedResourceListSection = ({ title, icon, groups, emptyText = 
                         {group.icon && <span className="netdive-connected-resource-list__group-icon">{group.icon}</span>}
                         <Typography.Text>{group.title}</Typography.Text>
                     </div>}
-                    <div className="netdive-connected-resource-list__items">{group.items.map((item, itemIndex) => {
+                    <div className="netdive-connected-resource-list__items">{sortConnectedResourceItems(group.items).map((item, itemIndex) => {
                         const rowContent = <span className="netdive-connected-resource-list__item-layout">
                                 {item.icon && <span className="netdive-connected-resource-list__item-icon">{item.icon}</span>}
                                 <span className="netdive-connected-resource-list__item-main">

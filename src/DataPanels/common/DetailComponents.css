@@ -3145,6 +3145,14 @@ button.netdive-detail-metric-row:focus-visible {
     flex: 0 0 auto;
 }
 
+/* Keep every port-mapping header readable beside Ant's two-state sorter.
+ * The status/source columns receive their width in the column definition;
+ * this rule prevents the sorter wrapper from reserving excess inline space. */
+.netdive-detail-search-table__table .ant-table-column-sorter-inner {
+    width: 10px;
+    font-size: 9px;
+}
+
 .netdive-detail-search-table__nowrap-value {
     display: block;
     min-width: 0;

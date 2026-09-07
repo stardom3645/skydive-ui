@@ -55,7 +55,6 @@ import DialogTitle from '@material-ui/core/DialogTitle'
 import DialogContent from '@material-ui/core/DialogContent'
 import DialogActions from '@material-ui/core/DialogActions'
 import Button from '@material-ui/core/Button'
-import Switch from '@material-ui/core/Switch'
 import Chip from '@material-ui/core/Chip'
 import Popover from '@material-ui/core/Popover'
 import UnfoldMoreIcon from '@material-ui/icons/UnfoldMore'
@@ -64,7 +63,6 @@ import InfoIcon from '@material-ui/icons/Info'
 import LibraryBooksIcon from '@material-ui/icons/LibraryBooks'
 import Brightness4Icon from '@material-ui/icons/Brightness4'
 import CloseIcon from '@material-ui/icons/Close'
-import FileCopyIcon from '@material-ui/icons/FileCopy'
 import CheckCircleIcon from '@material-ui/icons/CheckCircle'
 import ErrorOutlineIcon from '@material-ui/icons/ErrorOutline'
 import RefreshIcon from '@material-ui/icons/Refresh'
@@ -77,15 +75,28 @@ import {
   Button as AntButton,
   Checkbox as AntCheckbox,
   Dropdown as AntDropdown,
+  Input as AntInput,
   Menu as AntMenu,
   Modal as AntModal,
   Radio as AntRadio,
   Select as AntSelect,
+  Space as AntSpace,
+  Switch as AntSwitch,
   Tag as AntTag,
   Tooltip,
   notification as antNotification
 } from 'antd'
-import { BulbOutlined, ClusterOutlined, EyeOutlined, FilterOutlined, GlobalOutlined, ReloadOutlined } from '@ant-design/icons'
+import {
+  BulbOutlined,
+  ClusterOutlined,
+  CopyOutlined,
+  EyeOutlined,
+  FilterOutlined,
+  GlobalOutlined,
+  InfoCircleOutlined,
+  ReloadOutlined,
+  SearchOutlined
+} from '@ant-design/icons'
 
 import { styles } from './AppStyles'
 import { Topology, Node, NodeAttrs, LinkAttrs, LinkTagState, Link, isTopologyDownNode } from './Topology'
@@ -114,6 +125,8 @@ import VMConsoleButton from './ActionButtons/VMConsole'
 import CapturePanel from './DataPanels/Capture'
 import CaptureStatusPanel, { SimpleCaptureSession } from './DataPanels/CaptureStatus'
 import FlowPanel from './DataPanels/Flow'
+import { DetailSection } from './DataPanels/common/DetailComponents'
+import DetailTable from './DataPanels/common/DetailTable'
 import TimetravelPanel from './TimetravelPanel'
 
 import LanguageToggle from './LanguageToggle'
@@ -274,6 +287,7 @@ interface State {
   activeFilter: Filter | null
   suggestions: Array<string>
   anchorEl: Map<string, null | HTMLElement>
+  dismissedDrawerMenuGroup: string | null
   isSelectionOpen: boolean
   isTimetravelOpen: boolean
   wsContext: WSContext
@@ -454,6 +468,29 @@ interface InfrastructureAgentRestartStatus {
   targets?: InfrastructureAgentRestartTargetResult[]
 }
 
+interface KubernetesCollectionCellTextProps {
+  value: string
+  displayValue?: string
+  className: string
+}
+
+/** Delayed table tooltip rendered outside clipped cells. Keeping Tooltip
+ * uncontrolled preserves Ant 4's native hover/focus trigger behavior. */
+const KubernetesCollectionCellText = ({ value, displayValue = value, className }: KubernetesCollectionCellTextProps) => {
+  return <Tooltip
+    title={value}
+    placement="topLeft"
+    trigger={['hover', 'focus']}
+    mouseEnterDelay={0.7}
+    mouseLeaveDelay={0}
+    overlayClassName="netdive-kubernetes-collection-cell-tooltip"
+    getPopupContainer={() => document.body}
+    autoAdjustOverflow
+    destroyTooltipOnHide>
+    <span className={className}>{displayValue}</span>
+  </Tooltip>
+}
+
 class App extends React.Component<Props, State> {
 
   tc: Topology | null
@@ -502,6 +539,7 @@ class App extends React.Component<Props, State> {
       filters: new Array<Filter>(),
       suggestions: new Array<string>(),
       anchorEl: new Map<string, null | HTMLElement>(),
+      dismissedDrawerMenuGroup: null,
       isSelectionOpen: false,
       isTimetravelOpen: false,
       wsContext: { GremlinFilter: null, Time: null },
@@ -656,6 +694,12 @@ class App extends React.Component<Props, State> {
       this.refreshVmDetailMap()
       this.refreshMoldInventory()
       this.refreshManagementServers()
+      // Mold cluster lifecycle can change without a topology websocket event.
+      // Keep the topology badge and collection table in sync without showing
+      // the foreground loading state on every background refresh.
+      if (!this.state.kubernetesLoading) {
+        this.refreshKubernetesClusters(true)
+      }
     }, 10000)
   }
 
@@ -864,9 +908,11 @@ class App extends React.Component<Props, State> {
     })
   }
 
-  private refreshKubernetesClusters() {
+  private refreshKubernetesClusters(silent = false) {
     const requestSeq = ++this.kubernetesRequestSeq
-    this.setState({ kubernetesLoading: true, kubernetesMessage: "" })
+    if (!silent) {
+      this.setState({ kubernetesLoading: true, kubernetesMessage: "" })
+    }
     this.fetchKubernetesAPI("/api/mold/kubernetes-clusters", { cache: "no-store" }).then((data) => {
       if (requestSeq !== this.kubernetesRequestSeq) {
         return
@@ -1314,8 +1360,18 @@ class App extends React.Component<Props, State> {
     return summary
   }
 
+  private isKubernetesCollectionRequested(cluster: MoldKubernetesCluster) {
+    return this.state.kubernetesSelectedIds.length > 0
+      ? this.state.kubernetesSelectedIds.includes(cluster.id)
+      : cluster.collectionEnabled
+  }
+
   private isKubernetesCollectionEnabled(cluster: MoldKubernetesCluster) {
-    return this.state.kubernetesSelectedIds.length > 0 ? this.state.kubernetesSelectedIds.includes(cluster.id) : cluster.collectionEnabled
+    // selectedIds is the persisted collection policy, while Mold lifecycle is
+    // the effective runtime gate. A stopped cluster remains selected so it can
+    // resume automatically, but must not look like it is currently collecting.
+    return this.isKubernetesCollectionRequested(cluster)
+      && !isInactiveMoldKubernetesClusterState(cluster.state)
   }
 
   private localizeMoldState(state: string) {
@@ -1332,6 +1388,9 @@ class App extends React.Component<Props, State> {
   }
 
   private collectionStateLabel(cluster: MoldKubernetesCluster) {
+    if (isInactiveMoldKubernetesClusterState(cluster.state)) {
+      return translate("collectionStopped")
+    }
     const enabled = this.isKubernetesCollectionEnabled(cluster)
     const last = this.state.kubernetesLastTests[cluster.id]
     if (enabled && last && !last.ok) {
@@ -4246,17 +4305,48 @@ class App extends React.Component<Props, State> {
     )
   }
 
-  private renderDrawerMenuGroup(classes: any, icon: React.ReactNode, label: string, items: React.ReactNode, active?: boolean, customHeader?: React.ReactNode) {
+  private renderDrawerMenuGroup(classes: any, id: string, icon: React.ReactNode, label: string, items: React.ReactNode, active?: boolean, customHeader?: React.ReactNode) {
     return (
-      <div className={classes.drawerMenuGroup}>
+      <div
+        className={clsx(classes.drawerMenuGroup, this.state.dismissedDrawerMenuGroup === id && classes.drawerMenuGroupDismissed)}
+        onMouseLeave={() => {
+          if (this.state.dismissedDrawerMenuGroup === id) {
+            this.setState({ dismissedDrawerMenuGroup: null })
+          }
+        }}>
         <button
           type="button"
           aria-label={label}
           aria-haspopup="menu"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={(event) => {
+            // Pointer clicks must not leave :focus-within pinned on a drawer
+            // group. Keyboard focus remains available for navigation.
+            if (event.detail > 0) {
+              event.currentTarget.blur()
+            }
+          }}
           className={clsx(classes.drawerMenuItem, active && classes.drawerMenuItemActive)}>
           <span className={classes.drawerMenuIcon}>{icon}</span>
         </button>
-        <div className={clsx(classes.drawerFlyout, customHeader && classes.drawerPreferencesFlyout)} role="menu" aria-label={label}>
+        <div
+          className={clsx(classes.drawerFlyout, customHeader && classes.drawerPreferencesFlyout)}
+          role="menu"
+          aria-label={label}
+          onClickCapture={(event) => {
+            const target = event.target as HTMLElement
+            if (!target.closest("button")) {
+              return
+            }
+            const flyout = event.currentTarget
+            this.setState({ dismissedDrawerMenuGroup: id })
+            window.requestAnimationFrame(() => {
+              const activeElement = document.activeElement as HTMLElement | null
+              if (activeElement && flyout.contains(activeElement)) {
+                activeElement.blur()
+              }
+            })
+          }}>
           {customHeader || <div className={classes.drawerFlyoutTitle}>{label}</div>}
           <div className={classes.drawerFlyoutItems}>{items}</div>
         </div>
@@ -4433,45 +4523,6 @@ class App extends React.Component<Props, State> {
         infrastructureAgentRestartStatus: status || this.state.infrastructureAgentRestartStatus
       })
     })
-  }
-
-  private infrastructureAgentRestartResultTag(status: InfrastructureAgentRestartStatus) {
-    if (status.running) {
-      return <AntTag color="processing">{translate("infrastructureAgentRestartRunning")}</AntTag>
-    }
-    const result = status.lastResult
-    const color = result === "success" ? "success" : result === "partial" ? "warning" : result === "failed" ? "error" : "default"
-    return <AntTag color={color}>{translate(`infrastructureAgentRestartResult_${result}`)}</AntTag>
-  }
-
-  private renderInfrastructureAgentRestartStatus(classes: any) {
-    const status = this.state.infrastructureAgentRestartStatus
-    if (!this.canManageInfrastructureAgents() || !status) {
-      return null
-    }
-    const lastTime = status.lastCompletedAt || status.lastStartedAt
-    const failedTargets = (status.targets || []).filter((target) => !target.success)
-    const failedValue = <span className={status.failed > 0 ? classes.infrastructureAgentRestartFailure : undefined}>{status.failed}</span>
-    return (
-      <div className={classes.infrastructureAgentRestartStatus}>
-        <div className={classes.infrastructureAgentRestartStatusItem}>
-          <span>{translate("infrastructureAgentRestartLastTime")}</span>
-          <strong>{lastTime ? new Date(lastTime).toLocaleString(currentLanguage === "ko" ? "ko-KR" : "en-US") : translate("infrastructureAgentRestartNever")}</strong>
-        </div>
-        <div className={classes.infrastructureAgentRestartStatusItem}>
-          <span>{translate("infrastructureAgentRestartLastResult")}</span>
-          {this.infrastructureAgentRestartResultTag(status)}
-        </div>
-        <div className={classes.infrastructureAgentRestartStatusItem}>
-          <span>{translate("infrastructureAgentRestartTargetSummary")}</span>
-          <strong>
-            {status.total} / <span className={classes.infrastructureAgentRestartSuccess}>{status.succeeded}</span> / {failedTargets.length > 0
-              ? <Tooltip placement="topRight" title={<div>{failedTargets.map((target) => <div key={target.id || target.name}>{target.name}: {target.error || translate("infrastructureAgentRestartUnknownFailure")}</div>)}</div>}>{failedValue}</Tooltip>
-              : failedValue}
-          </strong>
-        </div>
-      </div>
-    )
   }
 
   private renderInfrastructureAgentRestartDialog() {
@@ -4840,11 +4891,11 @@ class App extends React.Component<Props, State> {
     const clickable = nodeIDs.length > 0
     const content = (
       <>
-        <span className={classes.infrastructureCardIcon}>{icon}</span>
-        <span>
+        <span className={classes.infrastructureSummaryCardInfo}>
+          <span className={classes.infrastructureCardIcon}>{icon}</span>
           <small>{label}</small>
-          <strong>{value}</strong>
         </span>
+        <strong className={classes.infrastructureSummaryCardValue}>{value}</strong>
       </>
     )
     if (clickable) {
@@ -4868,14 +4919,14 @@ class App extends React.Component<Props, State> {
     return (
       <button
         type="button"
-        className={clsx(classes.infrastructureSummaryCard, classes.kubernetesTopologySummaryCard)}
+        className={classes.kubernetesTopologySummaryCard}
         onClick={onClick || (() => this.focusInfrastructureNodeIDs(nodeIDs))}
         disabled={nodeIDs.length === 0}>
-        <span className={classes.infrastructureCardIcon}>{icon}</span>
-        <span>
+        <span className={classes.kubernetesTopologySummaryInfo}>
+          <span className={classes.infrastructureCardIcon}>{icon}</span>
           <small>{label}</small>
-          <strong>{value}</strong>
         </span>
+        <strong>{value}</strong>
       </button>
     )
   }
@@ -4988,28 +5039,24 @@ class App extends React.Component<Props, State> {
       .sort((a, b) => `${a.clusterLabel}/${a.namespace}/${a.name}`.localeCompare(`${b.clusterLabel}/${b.namespace}/${b.name}`))
 
     return (
-      <section className={classes.kubernetesResourceExplorer}>
-        <div className={classes.kubernetesResourceExplorerHeader}>
-          <div>
-            <strong>{this.state.kubernetesResourceExplorerTitle || 'Kubernetes Services'}</strong>
-            <small>실행 계층과 분리된 Kubernetes 관계 리소스를 탐색합니다.</small>
-          </div>
-          {this.state.kubernetesServiceExplorerOpen && <Button size="small" onClick={() => this.setState({
+      <DetailSection
+        title={this.state.kubernetesResourceExplorerTitle || 'Kubernetes Services'}
+        description="실행 계층과 분리된 Kubernetes 관계 리소스를 탐색합니다."
+        action={this.state.kubernetesServiceExplorerOpen && <AntButton size="small" onClick={() => this.setState({
               kubernetesServiceExplorerOpen: false,
               kubernetesServiceSearch: '',
               kubernetesResourceExplorerNodeIDs: [],
               kubernetesResourceExplorerTitle: ''
             })}>
               전체 서비스
-            </Button>}
-        </div>
-        <TextField
-          size="small"
-          variant="outlined"
+            </AntButton>}
+        bodyClassName={classes.kubernetesResourceExplorer}>
+        <AntInput
+          allowClear
+          prefix={<SearchOutlined />}
           value={this.state.kubernetesServiceSearch}
           onChange={(event) => this.setState({ kubernetesServiceSearch: event.target.value })}
-          placeholder="서비스 이름, 클러스터 또는 네임스페이스 검색"
-          fullWidth />
+          placeholder="서비스 이름, 클러스터 또는 네임스페이스 검색" />
         <div className={classes.kubernetesResourceExplorerList}>
           {services.length === 0 && <div className={classes.kubernetesEmptyRow}>검색 결과가 없습니다.</div>}
           {services.map(item => (
@@ -5034,7 +5081,7 @@ class App extends React.Component<Props, State> {
             </button>
           ))}
         </div>
-      </section>
+      </DetailSection>
     )
   }
 
@@ -5129,36 +5176,41 @@ class App extends React.Component<Props, State> {
     const hostSummaries = Object.values(summary.hostsById)
     return (
       <Paper className={clsx(classes.kubernetesManagerPanel, classes.infrastructureManagerPanel)} data-netdive-side-panel="true">
-        <div className={classes.kubernetesManagerHeader}>
-          <div>
+        <div className={classes.infrastructurePanelHeaderBlock}>
+          <div className={classes.kubernetesManagerHeader}>
             <div className={classes.kubernetesManagerTitle}>{translate("infrastructurePanelTitle")}</div>
-            <div className={classes.kubernetesManagerDescription}>{translate("infrastructurePanelDescription")}</div>
+            <div className={classes.infrastructureAgentRestartActions}>
+              <IconButton size="small" onClick={() => this.setState({ isInfrastructurePanelOpen: false })}>
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </div>
           </div>
-          <div className={classes.infrastructureAgentRestartActions}>
+          <div className={classes.kubernetesManagerDescription}>{translate("infrastructurePanelDescription")}</div>
+        </div>
+        <div className={classes.infrastructureSummarySection}>
+          <div className={classes.infrastructureSummarySectionHeader}>
+            <div className={classes.kubernetesSectionTitle}>{translate("infrastructureSummaryStatus")}</div>
             {this.canManageInfrastructureAgents() &&
-              <AntButton
-                type="default"
-                size="small"
-                icon={<ReloadOutlined spin={this.state.infrastructureAgentRestartStatus?.running || this.state.infrastructureAgentRestartLoading} />}
-                loading={this.state.infrastructureAgentRestartLoading}
-                disabled={this.state.infrastructureAgentRestartStatus?.running}
-                onClick={() => this.openInfrastructureAgentRestartDialog()}>
-                {translate("infrastructureAgentRestartTitle")}
-              </AntButton>
+              <div className={classes.kubernetesTableActions}>
+                <Button
+                  size="small"
+                  className={classes.kubernetesRefreshButton}
+                  startIcon={<RefreshIcon fontSize="small" className={(this.state.infrastructureAgentRestartStatus?.running || this.state.infrastructureAgentRestartLoading) ? classes.infrastructureRestartSpinning : undefined} />}
+                  disabled={this.state.infrastructureAgentRestartStatus?.running || this.state.infrastructureAgentRestartLoading}
+                  onClick={() => this.openInfrastructureAgentRestartDialog()}>
+                  {translate("infrastructureAgentRestartAction")}
+                </Button>
+              </div>
             }
-            <IconButton size="small" onClick={() => this.setState({ isInfrastructurePanelOpen: false })}>
-              <CloseIcon fontSize="small" />
-            </IconButton>
+          </div>
+          <div className={clsx(classes.kubernetesSummaryGrid, classes.infrastructureSummaryGrid)}>
+            {this.renderInfrastructureSummaryCard(classes, this.infrastructureIcon("\uf233", "host"), translate("infrastructureHosts"), summary.hosts, summary.hostNodeIDs)}
+            {this.renderInfrastructureSummaryCard(classes, this.infrastructureIcon("\uf108", "user-vm"), translate("infrastructureUserVMs"), summary.userVMs, summary.userVMNodeIDs)}
+            {this.renderInfrastructureSummaryCard(classes, this.infrastructureIcon("\uf085", "system-vm"), translate("infrastructureSystemVMs"), summary.systemVMs, summary.systemVMNodeIDs)}
+            {this.renderInfrastructureSummaryCard(classes, this.infrastructureIcon("\uf0e8", "network"), translate("infrastructureNetworkLinks"), summary.links)}
           </div>
         </div>
-        {this.renderInfrastructureAgentRestartStatus(classes)}
-        <div className={clsx(classes.kubernetesSummaryGrid, classes.infrastructureSummaryGrid)}>
-          {this.renderInfrastructureSummaryCard(classes, this.infrastructureIcon("\uf233", "host"), translate("infrastructureHosts"), summary.hosts, summary.hostNodeIDs)}
-          {this.renderInfrastructureSummaryCard(classes, this.infrastructureIcon("\uf108", "user-vm"), translate("infrastructureUserVMs"), summary.userVMs, summary.userVMNodeIDs)}
-          {this.renderInfrastructureSummaryCard(classes, this.infrastructureIcon("\uf085", "system-vm"), translate("infrastructureSystemVMs"), summary.systemVMs, summary.systemVMNodeIDs)}
-          {this.renderInfrastructureSummaryCard(classes, this.infrastructureIcon("\uf0e8", "network"), translate("infrastructureNetworkLinks"), summary.links)}
-        </div>
-        <div className={classes.kubernetesTableHeader}>
+        <div className={clsx(classes.kubernetesTableHeader, classes.infrastructureOverviewSectionHeader)}>
           <div>
             <div className={classes.kubernetesSectionTitle}>{translate("infrastructureOverview")}</div>
             <div className={classes.kubernetesSectionHint}>{translate("infrastructureOverviewDescription")}</div>
@@ -5413,8 +5465,93 @@ class App extends React.Component<Props, State> {
       return null
     }
     const summary = this.kubernetesTopologySummary()
+    const collectionColumns: any[] = [
+      {
+        title: translate("kubernetesClusterName"),
+        key: "name",
+        width: "15%",
+        render: (_value: any, cluster: MoldKubernetesCluster) => <KubernetesCollectionCellText
+          value={cluster.name || cluster.id}
+          className={classes.kubernetesNameCell} />
+      },
+      {
+        title: translate("kubernetesMoldClusterId"),
+        key: "id",
+        width: "10%",
+        render: (_value: any, cluster: MoldKubernetesCluster) => <KubernetesCollectionCellText
+          value={cluster.id || "-"}
+          displayValue={this.compactIdentifier(cluster.id)}
+          className={classes.kubernetesMutedCell} />
+      },
+      {
+        title: translate("moldStatus"),
+        key: "state",
+        width: "8%",
+        render: (_value: any, cluster: MoldKubernetesCluster) => <AntTag>{this.localizeMoldState(cluster.state)}</AntTag>
+      },
+      {
+        title: translate("kubernetesApiServer"),
+        key: "apiServer",
+        width: "18%",
+        render: (_value: any, cluster: MoldKubernetesCluster) => <span className={classes.kubernetesApiCell}>
+          <Tooltip title={cluster.apiServer || "-"}>
+            <span>{this.middleEllipsis(cluster.apiServer, 32)}</span>
+          </Tooltip>
+          {cluster.apiServer && <Tooltip title={this.state.kubernetesCopiedClusterId === cluster.id ? translate("copied") : translate("copy")}>
+            <AntButton
+              type="text"
+              size="small"
+              icon={<CopyOutlined />}
+              aria-label={translate("copy")}
+              onClick={() => this.copyKubernetesAPIServer(cluster)} />
+          </Tooltip>}
+        </span>
+      },
+      {
+        title: translate("netdiveCollection"),
+        key: "collection",
+        width: "11%",
+        render: (_value: any, cluster: MoldKubernetesCluster) => <span className={classes.kubernetesSwitchCell}>
+          <AntSwitch
+            size="small"
+            checked={this.isKubernetesCollectionEnabled(cluster)}
+            disabled={isInactiveMoldKubernetesClusterState(cluster.state)}
+            onChange={(checked) => this.onKubernetesCollectionToggle(cluster, checked)} />
+          <span>{this.collectionStateLabel(cluster)}</span>
+        </span>
+      },
+      {
+        title: translate("kubernetesLastConnectionTest"),
+        key: "lastTest",
+        width: "14%",
+        render: (_value: any, cluster: MoldKubernetesCluster) => {
+          const last = this.state.kubernetesLastTests[cluster.id]
+          const label = last ? `${last.ok ? translate("success") : translate("failed")} · ${last.checkedAt}` : "-"
+          return <Tooltip title={label}><span className={classes.kubernetesMutedCell}>{label}</span></Tooltip>
+        }
+      },
+      {
+        title: translate("kubernetesLastCollectionStatus"),
+        key: "collectionStatus",
+        width: "12%",
+        render: (_value: any, cluster: MoldKubernetesCluster) => <span className={classes.kubernetesMutedCell}>{this.collectionStateLabel(cluster)}</span>
+      },
+      {
+        title: translate("kubernetesActions"),
+        key: "actions",
+        width: "12%",
+        render: (_value: any, cluster: MoldKubernetesCluster) => {
+          const last = this.state.kubernetesLastTests[cluster.id]
+          const disabled = this.state.kubernetesTestLoading || this.state.kubernetesTestAllLoading
+          return <span className={classes.kubernetesActionCell}>
+            <AntButton type="link" size="small" onClick={() => this.testKubernetesConnection(cluster.id, true)} disabled={disabled}>{translate("connectionTest")}</AntButton>
+            {last && !last.ok && <AntButton type="link" size="small" onClick={() => this.testKubernetesConnection(cluster.id, true)} disabled={disabled}>{translate("retry")}</AntButton>}
+          </span>
+        }
+      }
+    ]
     return (
-      <Paper className={classes.kubernetesManagerPanel} data-netdive-side-panel="true">
+      <Paper className={clsx(classes.kubernetesManagerPanel, classes.kubernetesManagerPanelCompact)} data-netdive-side-panel="true">
         <div className={classes.kubernetesManagerHeader}>
           <div>
             <div className={classes.kubernetesManagerTitle}>{translate("kubernetesManagerTitle")}</div>
@@ -5445,98 +5582,40 @@ class App extends React.Component<Props, State> {
           )}
         </div>
         {this.renderKubernetesServiceExplorer(classes)}
-        <div className={classes.kubernetesTableHeader}>
-          <div className={classes.kubernetesSectionTitleArea}>
-            <div className={classes.kubernetesSectionTitleRow}>
-              <div className={classes.kubernetesSectionTitle}>{translate("kubernetesCollectionManagementSection")}</div>
-              <Button
-                size="small"
-                className={classes.kubernetesPolicyButton}
-                startIcon={<InfoIcon fontSize="small" />}
-                onClick={() => this.setState({ kubernetesPolicyDialogOpen: true })}>
-                {translate("kubernetesCollectionPolicy")}
-              </Button>
-            </div>
-            <div className={classes.kubernetesSectionHint}>{this.state.kubernetesMessage || translate("kubernetesClusterListDescription")}</div>
-          </div>
-          <div className={classes.kubernetesTableActions}>
-            <Button
+        <DetailSection
+          title={translate("kubernetesCollectionManagementSection")}
+          description={this.state.kubernetesMessage || translate("kubernetesClusterListDescription")}
+          action={<AntSpace size={6}>
+            <AntButton
               size="small"
-              className={classes.kubernetesRefreshButton}
-              startIcon={<RefreshIcon fontSize="small" />}
-              onClick={this.refreshKubernetesClusters.bind(this)}>
+              className={classes.collectionSecondaryActionButton}
+              icon={<InfoCircleOutlined />}
+              onClick={() => this.setState({ kubernetesPolicyDialogOpen: true })}>
+              {translate("kubernetesCollectionPolicy")}
+            </AntButton>
+            <AntButton
+              size="small"
+              className={classes.collectionSecondaryActionButton}
+              icon={<ReloadOutlined />}
+              onClick={() => this.refreshKubernetesClusters()}>
               {translate("refresh")}
-            </Button>
-            <Button
+            </AntButton>
+            <AntButton
               size="small"
-              className={classes.kubernetesTestAllButton}
-              startIcon={this.kubernetesIcon()}
+              className={classes.collectionSecondaryActionButton}
+              icon={<ClusterOutlined />}
               onClick={this.testAllKubernetesConnections.bind(this)}
               disabled={this.state.kubernetesTestLoading || this.state.kubernetesTestAllLoading || this.state.kubernetesClusters.length === 0}>
               {this.state.kubernetesTestAllLoading ? translate("kubernetesTestAllRunning") : translate("kubernetesTestAll")}
-            </Button>
-          </div>
-        </div>
-        <div className={classes.kubernetesTableWrap}>
-          <div className={classes.kubernetesTable}>
-            <div className={classes.kubernetesTableHead}>
-              <span>{translate("kubernetesClusterName")}</span>
-              <span>{translate("kubernetesMoldClusterId")}</span>
-              <span>{translate("moldStatus")}</span>
-              <span>{translate("kubernetesApiServer")}</span>
-              <span>{translate("netdiveCollection")}</span>
-              <span>{translate("kubernetesLastConnectionTest")}</span>
-              <span>{translate("kubernetesLastCollectionStatus")}</span>
-              <span>{translate("kubernetesActions")}</span>
-            </div>
-            {this.state.kubernetesClusters.length === 0 &&
-              <div className={classes.kubernetesEmptyRow}>{this.state.kubernetesLoading ? translate("loading") : translate("kubernetesNoClusters")}</div>
-            }
-            {this.state.kubernetesClusters.map((cluster) => {
-              const last = this.state.kubernetesLastTests[cluster.id]
-              const collectionEnabled = this.isKubernetesCollectionEnabled(cluster)
-              return (
-                <div className={classes.kubernetesTableRow} key={cluster.id}>
-                  <Tooltip title={cluster.name || cluster.id}>
-                    <span className={classes.kubernetesNameCell}>{cluster.name || cluster.id}</span>
-                  </Tooltip>
-                  <Tooltip title={cluster.id || "-"}>
-                    <span className={classes.kubernetesMutedCell}>{this.compactIdentifier(cluster.id)}</span>
-                  </Tooltip>
-                  <span><span className={classes.kubernetesPill}>{this.localizeMoldState(cluster.state)}</span></span>
-                  <span className={classes.kubernetesApiCell}>
-                    <Tooltip title={cluster.apiServer || "-"}>
-                      <span>{this.middleEllipsis(cluster.apiServer, 32)}</span>
-                    </Tooltip>
-                    {cluster.apiServer &&
-                      <Tooltip title={this.state.kubernetesCopiedClusterId === cluster.id ? translate("copied") : translate("copy")}>
-                        <IconButton size="small" onClick={() => this.copyKubernetesAPIServer(cluster)}>
-                          <FileCopyIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    }
-                  </span>
-                  <span className={classes.kubernetesSwitchCell}>
-                    <Switch
-                      color="primary"
-                      size="small"
-                      checked={collectionEnabled}
-                      onChange={(event) => this.onKubernetesCollectionToggle(cluster, event.target.checked)} />
-                    <span>{this.collectionStateLabel(cluster)}</span>
-                  </span>
-                  <Tooltip title={last ? `${last.ok ? translate("success") : translate("failed")} · ${last.checkedAt}` : "-"}>
-                    <span className={classes.kubernetesMutedCell}>{last ? `${last.ok ? translate("success") : translate("failed")} · ${last.checkedAt}` : "-"}</span>
-                  </Tooltip>
-                  <span className={classes.kubernetesMutedCell}>{this.collectionStateLabel(cluster)}</span>
-                  <span className={classes.kubernetesActionCell}>
-                    <Button size="small" onClick={() => this.testKubernetesConnection(cluster.id, true)} disabled={this.state.kubernetesTestLoading || this.state.kubernetesTestAllLoading}>{translate("connectionTest")}</Button>
-                    {last && !last.ok && <Button size="small" onClick={() => this.testKubernetesConnection(cluster.id, true)} disabled={this.state.kubernetesTestLoading || this.state.kubernetesTestAllLoading}>{translate("retry")}</Button>}
-                  </span>
-                </div>
-              )
-            })}
-          </div>
-        </div>
+            </AntButton>
+          </AntSpace>}>
+          <DetailTable<MoldKubernetesCluster>
+            className={classes.kubernetesCollectionTable}
+            rowKey="id"
+            columns={collectionColumns}
+            dataSource={this.state.kubernetesClusters}
+            locale={{ emptyText: this.state.kubernetesLoading ? translate("loading") : translate("kubernetesNoClusters") }} />
+        </DetailSection>
       </Paper>
     )
   }
@@ -5648,6 +5727,7 @@ class App extends React.Component<Props, State> {
         </div>
         {this.renderDrawerMenuGroup(
           classes,
+          "collection",
           <AccountTreeIcon />,
           translate("collectionSection"),
           <React.Fragment>
@@ -5658,6 +5738,7 @@ class App extends React.Component<Props, State> {
         )}
         {this.renderDrawerMenuGroup(
           classes,
+          "preferences",
           <Brightness4Icon />,
           translate("preferences"),
           <React.Fragment>
@@ -5692,6 +5773,7 @@ class App extends React.Component<Props, State> {
         )}
         {this.renderDrawerMenuGroup(
           classes,
+          "help",
           <LibraryBooksIcon />,
           translate("helpSection"),
           <React.Fragment>

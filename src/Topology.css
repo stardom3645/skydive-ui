@@ -1420,6 +1420,40 @@ svg {
     filter: opacity(16%);
 }
 
+.links .link.topology-focus-hit {
+    filter: none !important;
+    stroke-width: 2.8;
+}
+
+.link-label.topology-focus-hit {
+    filter: none !important;
+}
+
+.topology-empty-layer {
+    position: absolute;
+    z-index: 4;
+    top: 50%;
+    left: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    transform: translate(-50%, -50%);
+    color: #667085;
+    text-align: center;
+    pointer-events: none;
+}
+
+.topology-empty-layer strong {
+    color: #344054;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.topology-empty-layer span {
+    font-size: 12px;
+}
+
 .topology-connection-focus-status {
     position: absolute;
     z-index: 12;

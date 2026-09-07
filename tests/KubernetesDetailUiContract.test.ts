@@ -389,6 +389,30 @@ describe('Kubernetes detail UI contract', () => {
         assert.ok(topologyCss.includes('.node-exco-badge.is-inactive .node-exco-circle'))
     })
 
+    it('uses Mold lifecycle as the effective per-cluster collection state', () => {
+        const app = read('src/App.tsx')
+        const aggregation = read('src/KubernetesTopologyBadgeAggregation.ts')
+        assert.ok(app.includes('private isKubernetesCollectionRequested'))
+        assert.ok(app.includes('&& !isInactiveMoldKubernetesClusterState(cluster.state)'))
+        assert.ok(app.includes('disabled={isInactiveMoldKubernetesClusterState(cluster.state)}'))
+        assert.ok(app.includes('this.refreshKubernetesClusters(true)'))
+        assert.ok(aggregation.includes("'K8s.moldState', 'K8s.MoldState'"))
+    })
+
+    it('keeps collection table text selectable and long ID tooltips unclipped', () => {
+        const app = read('src/App.tsx')
+        const antCss = read('src/antd-netdive.css')
+        assert.ok(app.includes('const KubernetesCollectionCellText'))
+        assert.ok(app.includes('title={value}'))
+        assert.ok(app.includes("trigger={['hover', 'focus']}"))
+        assert.ok(app.includes('mouseEnterDelay={0.7}'))
+        assert.ok(!app.includes('visible={!selectionActive'))
+        assert.ok(app.includes('getPopupContainer={() => document.body}'))
+        assert.ok(antCss.includes('.netdive-kubernetes-collection-cell-tooltip.ant-tooltip'))
+        assert.ok(antCss.includes('z-index: 1400'))
+        assert.ok(antCss.includes('overflow-wrap: anywhere'))
+    })
+
     it('uses the shared operational tooltip hierarchy for cluster and node KPIs', () => {
         const common = read('src/DataPanels/common/DetailComponents.tsx')
         const commonCss = read('src/DataPanels/common/DetailComponents.css')

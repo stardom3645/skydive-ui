@@ -210,7 +210,8 @@ export const kubernetesResourceSelfStatus = (node: Node, observation?: any): Kub
     const sources = observation ? [observation, node.data || {}] : [node.data || {}]
     const type = resourceType(node)
     const moldClusterState = normalized(firstScalarFrom(sources, [
-        'moldClusterState', 'MoldClusterState', 'moldState', 'MoldState'
+        'moldClusterState', 'MoldClusterState', 'moldState', 'MoldState',
+        'K8s.moldClusterState', 'K8s.MoldClusterState', 'K8s.moldState', 'K8s.MoldState'
     ]))
     const topologySelfState = normalized(firstScalarFrom(sources, [
         'selfState', 'SelfState', 'state', 'State', 'status', 'Status', 'K8s.State', 'K8s.Status'

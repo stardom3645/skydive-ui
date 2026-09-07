@@ -86,6 +86,18 @@
   background: rgba(15, 23, 42, 0.92);
 }
 
+.netdive-kubernetes-collection-cell-tooltip.ant-tooltip {
+  z-index: 1400;
+  max-width: min(480px, calc(100vw - 24px));
+}
+
+.netdive-kubernetes-collection-cell-tooltip .ant-tooltip-inner {
+  max-width: min(480px, calc(100vw - 24px));
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
 .netdive-ant-theme .netdive-action-icon-button.ant-btn {
   width: 32px;
   min-width: 32px;

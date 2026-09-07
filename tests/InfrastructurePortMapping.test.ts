@@ -53,8 +53,19 @@ describe('Infrastructure LLDP port mapping', () => {
         ].forEach(sorter => assert.ok(source.includes(sorter), `missing Ant sorter: ${sorter}`))
         assert.ok(source.includes('netdive-detail-search-table__stacked-cell'))
         assert.ok(source.includes('netdive-detail-search-table__surface'))
+        assert.ok(source.includes('scroll={{ y: PORT_MAPPING_TABLE_BODY_HEIGHT }}'))
         assert.ok(source.match(/title: translate\('switchPortMappingSource'\)/g)!.length >= 2)
         assert.ok(source.includes('<DetailBadge tone={source.tone}>{source.label}</DetailBadge>'))
+        ;[
+            "width: '21%'",
+            "width: '22%'",
+            "width: '20%'",
+            "width: '19%'",
+            "width: '16%'",
+            "width: '28%'",
+            "width: '34%'",
+            "width: '18%'"
+        ].forEach(width => assert.ok(source.includes(width), `missing optimized column width: ${width}`))
 
         const styles = fs.readFileSync(
             path.resolve(__dirname, '../src/DataPanels/common/DetailComponents.css'),
@@ -62,6 +73,8 @@ describe('Infrastructure LLDP port mapping', () => {
         )
         assert.ok(styles.includes('.netdive-detail-search-table__surface'))
         assert.ok(styles.includes('margin: 0 var(--netdive-detail-card-body-padding-x) 12px'))
+        assert.ok(styles.includes('.netdive-detail-search-table__table .ant-table-column-sorter-inner'))
+        assert.ok(styles.includes('width: 10px'))
     })
 
     it('navigates the host-side switch mapping to the remote switch before the local NIC', () => {

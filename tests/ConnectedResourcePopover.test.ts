@@ -67,6 +67,15 @@ describe('Connected resource popover', () => {
         assert.ok(css.includes('overflow-y: auto'))
     })
 
+    it('sorts shared connected-resource lists by display name using natural numeric order', () => {
+        const source = read('src/DataPanels/common/DetailComponents.tsx')
+        assert.ok(source.includes('const sortConnectedResourceItems'))
+        assert.ok(source.includes('leftName.localeCompare(rightName, undefined'))
+        assert.ok(source.includes('numeric: true'))
+        assert.ok(source.includes('dataSource={sortedItems}'))
+        assert.ok(source.includes('sortConnectedResourceItems(group.items).map'))
+    })
+
     it('centers every topology icon inside the fixed popover icon square', () => {
         const css = read('src/DataPanels/common/DetailComponents.css')
         assert.ok(css.includes('.netdive-connected-resource-popover__item.ant-btn > .netdive-connected-resource-popover__icon {'))

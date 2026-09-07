@@ -26,6 +26,11 @@ interface State {
     search: string
 }
 
+// Keep large port inventories inside the mapping card. Ant Table only adds a
+// vertical scrollbar after the body reaches this height, so short lists retain
+// their natural height while the column header stays visible for long lists.
+const PORT_MAPPING_TABLE_BODY_HEIGHT = 288
+
 const connectionPresentation = (state: InfrastructurePortConnectionState) => {
     if (state === 'connected') return { label: translate('switchPortMappingConnected'), tone: 'success' as const }
     if (state === 'disconnected') return { label: translate('switchPortMappingDisconnected'), tone: 'danger' as const }
@@ -103,7 +108,7 @@ export class InfrastructurePortMappingTable extends React.PureComponent<Infrastr
                 title: translate('switchPortMappingPort'),
                 dataIndex: 'switchPortName',
                 key: 'switchPortName',
-                width: '20%',
+                width: '22%',
                 sorter: compareMappingField('switchPortName'),
                 render: (value: string) => <strong className="netdive-detail-search-table__primary">{value}</strong>
             },
@@ -111,7 +116,7 @@ export class InfrastructurePortMappingTable extends React.PureComponent<Infrastr
                 title: translate('switchPortMappingHost'),
                 dataIndex: 'hostName',
                 key: 'hostName',
-                width: '25%',
+                width: '21%',
                 sorter: compareMappingField('hostName'),
                 className: 'netdive-detail-search-table__nowrap',
                 render: (value: string) => singleLineValue(value)
@@ -120,7 +125,7 @@ export class InfrastructurePortMappingTable extends React.PureComponent<Infrastr
                 title: translate('switchPortMappingNic'),
                 dataIndex: 'hostNicName',
                 key: 'hostNicName',
-                width: '24%',
+                width: '22%',
                 sorter: compareMappingField('hostNicName'),
                 className: 'netdive-detail-search-table__nowrap',
                 render: (value: string) => singleLineValue(value, translate('switchPortMappingUncollected'))
@@ -129,7 +134,7 @@ export class InfrastructurePortMappingTable extends React.PureComponent<Infrastr
                 title: translate('switchPortMappingState'),
                 dataIndex: 'connectionState',
                 key: 'connectionState',
-                width: '16%',
+                width: '19%',
                 sorter: compareMappingField('connectionState'),
                 className: 'netdive-detail-search-table__fixed-column',
                 render: (value: InfrastructurePortConnectionState) => {
@@ -141,7 +146,7 @@ export class InfrastructurePortMappingTable extends React.PureComponent<Infrastr
                 title: translate('switchPortMappingSource'),
                 dataIndex: 'source',
                 key: 'source',
-                width: '15%',
+                width: '16%',
                 sorter: compareMappingField('source'),
                 className: 'netdive-detail-search-table__fixed-column',
                 render: (value: InfrastructurePortMappingSource) => {
@@ -155,7 +160,7 @@ export class InfrastructurePortMappingTable extends React.PureComponent<Infrastr
                 title: translate('switchPortMappingNic'),
                 dataIndex: 'hostNicName',
                 key: 'hostNicName',
-                width: '30%',
+                width: '28%',
                 sorter: compareMappingField('hostNicName'),
                 className: 'netdive-detail-search-table__nowrap',
                 render: (value: string, mapping: InfrastructurePortMapping) => <div className="netdive-detail-search-table__stacked-cell">
@@ -174,7 +179,7 @@ export class InfrastructurePortMappingTable extends React.PureComponent<Infrastr
                 title: translate('hostSwitchPortConnectedSwitch'),
                 dataIndex: 'switchName',
                 key: 'switchName',
-                width: '36%',
+                width: '34%',
                 sorter: compareMappingField('switchName'),
                 className: 'netdive-detail-search-table__nowrap',
                 render: (value: string, mapping: InfrastructurePortMapping) => <div className="netdive-detail-search-table__stacked-cell">
@@ -193,7 +198,7 @@ export class InfrastructurePortMappingTable extends React.PureComponent<Infrastr
                 title: translate('switchPortMappingState'),
                 dataIndex: 'connectionState',
                 key: 'connectionState',
-                width: '18%',
+                width: '20%',
                 sorter: compareMappingField('connectionState'),
                 className: 'netdive-detail-search-table__fixed-column',
                 render: (value: InfrastructurePortConnectionState) => {
@@ -205,7 +210,7 @@ export class InfrastructurePortMappingTable extends React.PureComponent<Infrastr
                 title: translate('switchPortMappingSource'),
                 dataIndex: 'source',
                 key: 'source',
-                width: '16%',
+                width: '18%',
                 sorter: compareMappingField('source'),
                 className: 'netdive-detail-search-table__fixed-column',
                 render: (value: InfrastructurePortMappingSource) => {
@@ -234,6 +239,7 @@ export class InfrastructurePortMappingTable extends React.PureComponent<Infrastr
                             columns={columns}
                             dataSource={mappings}
                             rowKey="key"
+                            scroll={{ y: PORT_MAPPING_TABLE_BODY_HEIGHT }}
                             onRow={mapping => this.props.onNavigate ? ({
                                 className: 'is-interactive',
                                 tabIndex: 0,

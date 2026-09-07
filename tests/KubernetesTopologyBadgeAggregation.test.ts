@@ -337,6 +337,16 @@ describe('Kubernetes topology count badge aggregation', () => {
         expect(kubernetesTopologyAttentionPathIDs([stopped, running]).has(stopped.id)).to.equal(false)
     })
 
+    it('reads the Mold lifecycle emitted inside Kubernetes topology metadata', () => {
+        const running = resource('nested-running-cluster', 'cluster')
+        running.data.K8s.MoldState = 'Running'
+        expect(kubernetesResourceSelfStatus(running).state).to.equal('healthy')
+
+        const stopped = resource('nested-stopped-cluster', 'cluster')
+        stopped.data.K8s.MoldState = 'Stopped'
+        expect(kubernetesResourceSelfStatus(stopped).state).to.equal('inactive')
+    })
+
     it('keeps running collection failures out of inactive while preserving failure states', () => {
         const unavailable = resource('running-unavailable', 'cluster', { state: 'running' })
         unavailable.data.CollectionState = 'unavailable'

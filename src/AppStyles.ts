@@ -414,6 +414,14 @@ export const styles = (theme: Theme) => createStyles({
       transform: 'translateX(0)'
     }
   },
+  drawerMenuGroupDismissed: {
+    '& $drawerFlyout, &:hover $drawerFlyout, &:focus-within $drawerFlyout': {
+      opacity: 0,
+      visibility: 'hidden',
+      pointerEvents: 'none',
+      transform: 'translateX(-4px)'
+    }
+  },
   drawerFlyout: {
     position: 'absolute',
     left: 'calc(100% + 10px)',
@@ -1182,6 +1190,55 @@ export const styles = (theme: Theme) => createStyles({
     boxShadow: 'var(--netdive-detail-shadow)',
     overflow: 'auto'
   },
+  kubernetesManagerPanelCompact: {
+    right: 'auto',
+    width: 'min(1100px, calc(100vw - 106px))',
+    maxWidth: 'none',
+    gap: 'calc(var(--netdive-detail-panel-gap) * .67)',
+    padding: 'calc(var(--netdive-detail-card-body-padding-x) * .72)',
+    borderRadius: 16,
+    '& $kubernetesManagerTitle': {
+      fontSize: 19,
+      fontWeight: 800,
+      lineHeight: 1.25
+    },
+    '& $kubernetesManagerDescription': {
+      marginTop: 4,
+      color: 'var(--netdive-detail-text-secondary)',
+      fontSize: 12,
+      fontWeight: 400,
+      lineHeight: 1.4
+    },
+    '& $kubernetesSectionTitle': {
+      fontSize: 14
+    },
+    '& $kubernetesSectionHint': {
+      marginTop: 3,
+      fontSize: 11.5
+    },
+    '& .netdive-detail-section.ant-card > .ant-card-head': {
+      minHeight: 38,
+      padding: '0 calc(var(--netdive-detail-card-padding-x) * .75)'
+    },
+    '& .netdive-detail-section.ant-card > .ant-card-head .ant-card-head-title': {
+      padding: '4px 0'
+    },
+    '& .netdive-detail-section__title.ant-typography': {
+      color: 'var(--netdive-detail-text)',
+      fontSize: 15,
+      fontWeight: 700,
+      lineHeight: '19px'
+    },
+    '& .netdive-detail-section__description-row': {
+      marginTop: 2
+    },
+    '& .netdive-detail-section__description.ant-typography': {
+      color: 'var(--netdive-detail-text-tertiary)',
+      fontSize: 'var(--netdive-detail-font-supporting-text)',
+      fontWeight: 400,
+      lineHeight: '14px'
+    }
+  },
   infrastructureManagerPanel: {
     right: 'auto',
     width: infrastructurePanelCompactWidth,
@@ -1202,45 +1259,32 @@ export const styles = (theme: Theme) => createStyles({
     gap: theme.spacing(1),
     flexShrink: 0
   },
-  infrastructureAgentRestartStatus: {
-    display: 'grid',
-    gridTemplateColumns: 'minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr)',
-    border: '1px solid var(--netdive-detail-border)',
-    borderRadius: 'var(--netdive-detail-radius-sm)',
-    background: 'var(--netdive-detail-surface-subtle)',
-    overflow: 'hidden'
-  },
-  infrastructureAgentRestartStatusItem: {
-    minWidth: 0,
+  infrastructurePanelHeaderBlock: {
     display: 'flex',
-    alignItems: 'center',
+    flexDirection: 'column',
+    gap: theme.spacing(0.45)
+  },
+  infrastructureSummarySection: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: theme.spacing(0.4)
+  },
+  infrastructureSummarySectionHeader: {
+    minHeight: 32,
+    display: 'flex',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    gap: theme.spacing(1),
-    padding: theme.spacing(1, 1.25),
-    color: 'var(--netdive-detail-muted)',
-    fontSize: 12,
-    '& + &': {
-      borderLeft: '1px solid var(--netdive-detail-divider)'
-    },
-    '& strong': {
-      minWidth: 0,
-      color: 'var(--netdive-detail-text)',
-      fontSize: 12,
-      fontWeight: 600,
-      textAlign: 'right',
-      whiteSpace: 'nowrap',
-      overflow: 'hidden',
-      textOverflow: 'ellipsis'
-    },
-    '& .ant-tag': {
-      marginRight: 0
-    }
+    gap: theme.spacing(1.5)
   },
-  infrastructureAgentRestartSuccess: {
-    color: '#20a464'
+  '@keyframes infrastructureRestartSpin': {
+    from: { transform: 'rotate(0deg)' },
+    to: { transform: 'rotate(360deg)' }
   },
-  infrastructureAgentRestartFailure: {
-    color: '#d4380d'
+  infrastructureRestartSpinning: {
+    animation: '$infrastructureRestartSpin 900ms linear infinite'
+  },
+  infrastructureOverviewSectionHeader: {
+    marginTop: theme.spacing(1.25)
   },
   kubernetesManagerTitle: {
     fontSize: 20,
@@ -1263,6 +1307,7 @@ export const styles = (theme: Theme) => createStyles({
   },
   kubernetesTopologySummaryGrid: {
     gridTemplateColumns: 'repeat(6, minmax(0, 1fr))',
+    gap: 'var(--netdive-detail-resource-column-gap)',
     [theme.breakpoints.down('md')]: {
       gridTemplateColumns: 'repeat(2, minmax(0, 1fr))'
     }
@@ -1306,9 +1351,16 @@ export const styles = (theme: Theme) => createStyles({
   },
   infrastructureSummaryCardCompact: {
     minHeight: 74 * infrastructureKpiCompactRatio,
-    gap: theme.spacing(0.75 * infrastructureGapCompactRatio),
-    padding: theme.spacing(0.85 * infrastructureKpiCompactRatio, 0.95 * infrastructureKpiCompactRatio),
+    justifyContent: 'space-between',
+    gap: theme.spacing(1 * infrastructureGapCompactRatio),
+    padding: theme.spacing(0.85 * infrastructureKpiCompactRatio, 1.2 * infrastructureKpiCompactRatio),
     borderRadius: 12,
+    '& $infrastructureSummaryCardInfo': {
+      minWidth: 0,
+      display: 'flex',
+      alignItems: 'center',
+      gap: theme.spacing(1 * infrastructureGapCompactRatio)
+    },
     '& $infrastructureCardIcon': {
       fontSize: 28 * infrastructureIconCompactRatio,
       '& img': {
@@ -1326,8 +1378,16 @@ export const styles = (theme: Theme) => createStyles({
     '& strong': {
       marginTop: 3 * 0.75,
       fontSize: 26 * infrastructureIconCompactRatio
+    },
+    '& $infrastructureSummaryCardValue': {
+      flexShrink: 0,
+      marginTop: 0,
+      marginRight: theme.spacing(0.75),
+      textAlign: 'right'
     }
   },
+  infrastructureSummaryCardInfo: {},
+  infrastructureSummaryCardValue: {},
   infrastructureSummaryGrid: {
     width: '100%',
     margin: 0,
@@ -1337,31 +1397,89 @@ export const styles = (theme: Theme) => createStyles({
     }
   },
   kubernetesTopologySummaryCard: {
+    minWidth: 0,
+    minHeight: 'var(--netdive-detail-resource-height)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 'var(--netdive-detail-resource-column-gap)',
+    padding: '0 var(--netdive-detail-card-body-padding-x)',
+    border: '1px solid var(--netdive-detail-card-border)',
+    borderRadius: 'var(--netdive-detail-card-radius)',
+    backgroundColor: '#fff',
+    boxShadow: 'var(--netdive-detail-card-shadow)',
+    color: 'var(--netdive-detail-text)',
+    font: 'inherit',
     cursor: 'pointer',
     textAlign: 'left',
     transition: 'background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease',
     '&:hover': {
-      borderColor: 'rgba(26, 115, 232, 0.28)',
-      backgroundColor: 'var(--netdive-menu-active)'
+      borderColor: 'var(--netdive-detail-connected-resource-icon-border)',
+      backgroundColor: 'var(--netdive-detail-hover)'
     },
     '&:disabled': {
       cursor: 'default',
-      opacity: 0.52,
-      backgroundColor: 'var(--netdive-detail-section-bg)'
+      opacity: 0.58,
+      backgroundColor: '#fff'
     },
     '&:disabled:hover': {
-      borderColor: 'var(--netdive-detail-border)',
-      backgroundColor: 'var(--netdive-detail-section-bg)'
+      borderColor: 'var(--netdive-detail-card-border)',
+      backgroundColor: '#fff'
+    },
+    '& $infrastructureCardIcon': {
+      width: 'var(--netdive-detail-resource-icon-size)',
+      height: 'var(--netdive-detail-resource-icon-size)',
+      flex: '0 0 var(--netdive-detail-resource-icon-size)',
+      borderColor: 'var(--netdive-detail-connected-resource-icon-border)',
+      borderRadius: 'calc(var(--netdive-detail-card-radius) - 2px)',
+      color: 'var(--netdive-detail-connected-resource-icon)',
+      backgroundColor: 'var(--netdive-detail-connected-resource-icon-bg)',
+      fontSize: 16,
+      '& img': {
+        width: 17,
+        height: 17
+      }
+    },
+    '& small': {
+      overflow: 'hidden',
+      color: 'var(--netdive-detail-text)',
+      fontSize: 'var(--netdive-detail-font-body-label)',
+      fontWeight: 'var(--netdive-detail-weight-body-label)',
+      lineHeight: 'var(--netdive-detail-line-body-label)',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap'
+    },
+    '& strong': {
+      flex: '0 0 auto',
+      color: 'var(--netdive-detail-text)',
+      fontSize: 20,
+      fontWeight: 800,
+      lineHeight: 1
     }
+  },
+  kubernetesTopologySummaryInfo: {
+    minWidth: 0,
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 'var(--netdive-detail-resource-column-gap)'
   },
   kubernetesResourceExplorer: {
     display: 'flex',
     flexDirection: 'column',
-    gap: theme.spacing(1),
-    padding: theme.spacing(1.25),
-    border: '1px solid var(--netdive-detail-border)',
-    borderRadius: 12,
-    backgroundColor: 'var(--netdive-detail-section-bg)'
+    gap: 'calc(var(--netdive-detail-panel-gap) * .4)',
+    padding: '6px calc(var(--netdive-detail-card-body-padding-x) * .72)',
+    backgroundColor: '#fff',
+    '& .ant-input-affix-wrapper': {
+      borderColor: 'var(--netdive-detail-card-border)',
+      borderRadius: 'calc(var(--netdive-detail-card-radius) - 2px)',
+      fontSize: 'var(--netdive-detail-font-body-label)'
+    },
+    '& .ant-input-prefix': {
+      color: 'var(--netdive-detail-text-secondary)'
+    },
+    '& $kubernetesEmptyRow': {
+      padding: theme.spacing(1.25)
+    }
   },
   kubernetesResourceExplorerHeader: {
     display: 'flex',
@@ -1375,20 +1493,20 @@ export const styles = (theme: Theme) => createStyles({
     },
     '& strong': {
       color: 'var(--netdive-detail-title)',
-      fontSize: 14,
+      fontSize: 13,
       fontWeight: 800
     },
     '& small': {
       color: 'var(--netdive-detail-muted)',
-      fontSize: 11
+      fontSize: 10.5
     }
   },
   kubernetesResourceExplorerList: {
     display: 'flex',
-    maxHeight: 260,
+    maxHeight: 220,
     flexDirection: 'column',
     overflowY: 'auto',
-    borderTop: '1px solid var(--netdive-detail-border)'
+    borderTop: '1px solid var(--netdive-detail-card-border)'
   },
   kubernetesResourceExplorerItem: {
     display: 'grid',
@@ -1396,17 +1514,17 @@ export const styles = (theme: Theme) => createStyles({
     alignItems: 'center',
     gap: theme.spacing(1),
     width: '100%',
-    minHeight: 66,
-    padding: theme.spacing(0.75, 1),
+    minHeight: 52,
+    padding: theme.spacing(0.5, 0.8),
     border: 0,
-    borderBottom: '1px solid var(--netdive-detail-border)',
+    borderBottom: '1px solid var(--netdive-detail-card-border)',
     color: 'inherit',
     font: 'inherit',
     textAlign: 'left',
     background: 'transparent',
     cursor: 'pointer',
     '&:hover': {
-      backgroundColor: 'var(--netdive-menu-active)'
+      backgroundColor: 'var(--netdive-detail-table-row-hover)'
     },
     '& > span:nth-child(2)': {
       display: 'flex',
@@ -1565,7 +1683,7 @@ export const styles = (theme: Theme) => createStyles({
   infrastructureOverviewCardMain: {
     display: 'flex',
     alignItems: 'center',
-    gap: theme.spacing(0.68 * infrastructureGapCompactRatio),
+    gap: theme.spacing(1.1 * infrastructureGapCompactRatio),
     minWidth: 0,
     '& > span:last-child': {
       minWidth: 0,
@@ -1661,7 +1779,7 @@ export const styles = (theme: Theme) => createStyles({
       fontSize: 16
     },
     '& $infrastructureOverviewCardMain': {
-      gap: theme.spacing(0.6 * infrastructureGapCompactRatio)
+      gap: theme.spacing(0.95 * infrastructureGapCompactRatio)
     },
     '& $infrastructureCardIcon': {
       fontSize: 20 * infrastructureIconCompactRatio
@@ -1758,6 +1876,36 @@ export const styles = (theme: Theme) => createStyles({
       backgroundColor: '#eff6ff'
     }
   },
+  collectionSecondaryActionButton: {
+    height: 30,
+    minHeight: 30,
+    padding: theme.spacing(0, 1.05),
+    borderColor: '#bfdbfe',
+    borderRadius: 8,
+    backgroundColor: '#ffffff',
+    color: '#2563eb',
+    fontSize: 12,
+    fontWeight: 700,
+    lineHeight: 1,
+    whiteSpace: 'nowrap',
+    boxShadow: 'none',
+    transition: 'background-color 160ms ease, border-color 160ms ease, color 160ms ease',
+    '& .anticon': {
+      color: 'inherit',
+      fontSize: 14
+    },
+    '&:hover, &:focus, &.ant-btn:hover, &.ant-btn:focus': {
+      borderColor: '#93c5fd',
+      backgroundColor: '#eff6ff',
+      color: '#1677ff'
+    },
+    '&[disabled], &.ant-btn[disabled], &.ant-btn[disabled]:hover': {
+      borderColor: 'var(--netdive-detail-card-border)',
+      backgroundColor: '#ffffff',
+      color: 'var(--netdive-detail-text-tertiary)',
+      boxShadow: 'none'
+    }
+  },
   kubernetesTestAllButton: {
     padding: theme.spacing(0, 1.2),
     border: '1px solid #2563eb',
@@ -1780,30 +1928,70 @@ export const styles = (theme: Theme) => createStyles({
     border: '1px solid var(--netdive-detail-border)',
     borderRadius: 14,
     overflow: 'auto',
-    backgroundColor: 'var(--netdive-detail-bg)'
+    backgroundColor: 'var(--netdive-detail-bg)',
+    '& $kubernetesEmptyRow': {
+      padding: theme.spacing(1.25)
+    }
+  },
+  kubernetesCollectionTable: {
+    '& .ant-table': {
+      borderRadius: 0
+    },
+    '& .ant-table-container, & .ant-table-content': {
+      overflowX: 'hidden !important'
+    },
+    '& .ant-table-thead > tr > th': {
+      height: 36,
+      padding: '6px 8px',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap'
+    },
+    '& .ant-table-tbody > tr > td': {
+      height: 38,
+      maxWidth: 'none',
+      padding: '5px 8px',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap'
+    },
+    '& .ant-tag': {
+      marginRight: 0,
+      borderRadius: 999,
+      fontSize: 'var(--netdive-detail-font-status-tag)',
+      fontWeight: 'var(--netdive-detail-weight-status-tag)',
+      lineHeight: 'var(--netdive-detail-line-status-tag)'
+    },
+    '& .ant-btn-link': {
+      height: 24,
+      padding: '0 4px',
+      fontSize: 'var(--netdive-detail-font-body-label)',
+      fontWeight: 'var(--netdive-detail-weight-status-tag)'
+    }
   },
   kubernetesTable: {
-    minWidth: 1080
+    minWidth: 1020
   },
   kubernetesTableHead: {
     display: 'grid',
     gridTemplateColumns: '1.55fr 0.9fr 0.8fr 1.7fr 1.1fr 1.15fr 1fr 1.25fr',
     gap: theme.spacing(1),
-    padding: theme.spacing(1.1, 1.25),
+    padding: theme.spacing(0.75, 1),
     borderBottom: '1px solid var(--netdive-detail-border)',
     backgroundColor: 'var(--netdive-detail-section-bg)',
     color: 'var(--netdive-detail-muted)',
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: 900
   },
   kubernetesTableRow: {
-    minHeight: 70,
+    minHeight: 54,
     display: 'grid',
     gridTemplateColumns: '1.55fr 0.9fr 0.8fr 1.7fr 1.1fr 1.15fr 1fr 1.25fr',
     alignItems: 'center',
-    gap: theme.spacing(1),
-    padding: theme.spacing(1, 1.25),
+    gap: theme.spacing(0.8),
+    padding: theme.spacing(0.55, 1),
     borderBottom: '1px solid var(--netdive-detail-border)',
+    fontSize: 12,
     '&:last-child': {
       borderBottom: 'none'
     }
@@ -1814,6 +2002,8 @@ export const styles = (theme: Theme) => createStyles({
     fontSize: 13
   },
   kubernetesNameCell: {
+    display: 'block',
+    width: '100%',
     minWidth: 0,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
@@ -1822,6 +2012,8 @@ export const styles = (theme: Theme) => createStyles({
     color: 'var(--netdive-detail-title)'
   },
   kubernetesMutedCell: {
+    display: 'block',
+    width: '100%',
     minWidth: 0,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
@@ -1841,34 +2033,50 @@ export const styles = (theme: Theme) => createStyles({
     fontWeight: 900
   },
   kubernetesApiCell: {
+    width: '100%',
     minWidth: 0,
     display: 'inline-flex',
     alignItems: 'center',
     gap: theme.spacing(0.35),
     color: 'var(--netdive-detail-text)',
     fontSize: 12,
-    '& .MuiIconButton-root': {
+    '& .MuiIconButton-root, & .ant-btn': {
       padding: 3,
       color: 'var(--netdive-detail-muted)'
+    },
+    '& > span:first-child': {
+      minWidth: 0,
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap'
     }
   },
   kubernetesSwitchCell: {
+    width: '100%',
     display: 'inline-flex',
     alignItems: 'center',
     gap: theme.spacing(0.5),
     color: 'var(--netdive-detail-text)',
     fontSize: 12,
-    fontWeight: 800
+    fontWeight: 800,
+    '& > span:last-child': {
+      minWidth: 0,
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap'
+    }
   },
   kubernetesActionCell: {
+    width: '100%',
+    overflow: 'hidden',
     display: 'inline-flex',
     alignItems: 'center',
-    gap: theme.spacing(0.5),
-    '& .MuiButton-root': {
+    gap: 2,
+    '& .MuiButton-root, & .ant-btn': {
       minWidth: 0,
-      padding: theme.spacing(0.35, 0.65),
+      padding: theme.spacing(0.25, 0.35),
       color: 'var(--netdive-menu-active-text)',
-      fontSize: 11,
+      fontSize: 10.5,
       fontWeight: 800
     }
   },
