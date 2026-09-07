@@ -101,6 +101,10 @@ class SwitchDetailPanel extends React.Component<Props> {
         return buildInfrastructurePortMappings(this.props.node, this.topologyNodes(), this.topologyLinks(), this.state.manualMappings)
     }
 
+    private automaticPortMappings(): InfrastructurePortMapping[] {
+        return buildInfrastructurePortMappings(this.props.node, this.topologyNodes(), this.topologyLinks())
+    }
+
     private isSwitchPort(node: Node): boolean {
         const type = String(node.data?.Type || node.data?.type || '').toLowerCase()
         return type === 'switchport' || type === 'port'
@@ -196,6 +200,7 @@ class SwitchDetailPanel extends React.Component<Props> {
                     action={<ManualPortMappingManager
                         switchNode={this.props.node}
                         nodes={this.topologyNodes()}
+                        automaticMappings={this.automaticPortMappings()}
                         mappings={this.state.manualMappings}
                         session={this.props.session}
                         onChanged={this.loadManualMappings} />}>

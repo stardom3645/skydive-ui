@@ -203,7 +203,7 @@ export const i18nMap = {
         "switchManagementAddress": "Management address",
         "switchNoLldp": "No LLDP information has been collected.",
         "switchPortMapping": "Port mapping",
-        "switchPortMappingDescription": "Automatic LLDP relationships and administrator-managed switch-to-host port mappings.",
+        "switchPortMappingDescription": "Automatic LLDP relationships and manual supplements for ports without an automatic connection.",
         "switchPortMappingSearch": "Search switch port, host, or host NIC",
         "switchPortMappingEmpty": "No LLDP port mapping information has been collected for this switch.",
         "switchPortMappingNoSearchResults": "No port mapping matches this search.",
@@ -221,6 +221,7 @@ export const i18nMap = {
         "switchPortMappingUncollected": "Not collected",
         "manualPortMappingManage": "Manage manual mappings",
         "manualPortMappingTitle": "Manual switch port mapping",
+        "manualPortMappingGuidance": "Only switch ports without an automatic LLDP connection can be mapped manually.",
         "manualPortMappingSelectPort": "Select a switch port",
         "manualPortMappingSelectNic": "Select a host and NIC",
         "manualPortMappingSelectionRequired": "Select both a switch port and a host NIC.",
@@ -233,7 +234,7 @@ export const i18nMap = {
         "manualPortMappingAdd": "Add mapping",
         "manualPortMappingEmpty": "No active manual mappings.",
         "hostSwitchPortConnections": "Switch port connections",
-        "hostSwitchPortConnectionsDescription": "Host NIC-to-switch port relationships collected from the current LLDP topology.",
+        "hostSwitchPortConnectionsDescription": "Host NIC-to-switch port relationships from LLDP and supplemental manual mappings.",
         "hostSwitchPortConnectionsSearch": "Search host NIC, bond, switch, or switch port",
         "hostSwitchPortConnectionsEmpty": "No switch or port connection information was collected from LLDP.",
         "hostSwitchPortConnectionsNoSearchResults": "No switch port connection matches this search.",
@@ -1510,7 +1511,7 @@ export const i18nMap = {
         "switchManagementAddress": "관리 주소",
         "switchNoLldp": "수집된 LLDP 정보가 없습니다.",
         "switchPortMapping": "포트 매핑",
-        "switchPortMappingDescription": "LLDP 자동 연결과 관리자가 등록한 스위치-호스트 포트 연결 관계입니다.",
+        "switchPortMappingDescription": "LLDP 자동 연결과 자동 미수집 포트를 보완한 수동 연결 관계입니다.",
         "switchPortMappingSearch": "스위치 포트, 호스트, 호스트 NIC 검색",
         "switchPortMappingEmpty": "이 스위치의 LLDP 포트 매핑 정보가 수집되지 않았습니다.",
         "switchPortMappingNoSearchResults": "검색 조건과 일치하는 포트 매핑이 없습니다.",
@@ -1528,6 +1529,7 @@ export const i18nMap = {
         "switchPortMappingUncollected": "수집되지 않음",
         "manualPortMappingManage": "수동 매핑 관리",
         "manualPortMappingTitle": "스위치 포트 수동 매핑",
+        "manualPortMappingGuidance": "LLDP로 자동 연결되지 않은 스위치 포트만 수동으로 등록할 수 있습니다.",
         "manualPortMappingSelectPort": "스위치 포트를 선택하세요",
         "manualPortMappingSelectNic": "호스트와 NIC를 선택하세요",
         "manualPortMappingSelectionRequired": "스위치 포트와 호스트 NIC를 모두 선택하세요.",
@@ -1540,7 +1542,7 @@ export const i18nMap = {
         "manualPortMappingAdd": "매핑 추가",
         "manualPortMappingEmpty": "활성 수동 매핑이 없습니다.",
         "hostSwitchPortConnections": "스위치 포트 연결",
-        "hostSwitchPortConnectionsDescription": "현재 LLDP 토폴로지에서 수집된 호스트 NIC와 스위치 포트 연결 관계입니다.",
+        "hostSwitchPortConnectionsDescription": "LLDP 자동 연결과 이를 보완한 수동 호스트 NIC-스위치 포트 연결 관계입니다.",
         "hostSwitchPortConnectionsSearch": "호스트 NIC, 본딩, 스위치, 스위치 포트 검색",
         "hostSwitchPortConnectionsEmpty": "LLDP에서 수집된 스위치/포트 연결 정보가 없습니다.",
         "hostSwitchPortConnectionsNoSearchResults": "검색 조건과 일치하는 스위치 포트 연결이 없습니다.",
@@ -3070,6 +3072,22 @@ class DefaultConfig {
     filters(): Promise<Array<Filter>> {
         var promise = new Promise<Array<Filter>>(resolve => {
 
+            // Empty Gremlin value results are encoded as null by some analyzer
+            // versions.  Other clients can wrap the JSON array in a data/result
+            // property, so never iterate over the raw response directly.
+            const topologyValues = (response: any): Array<string> => {
+                const values = Array.isArray(response)
+                    ? response
+                    : Array.isArray(response?.data)
+                        ? response.data
+                        : Array.isArray(response?.result)
+                            ? response.result
+                            : []
+                return values
+                    .filter((value: any) => value !== null && value !== undefined)
+                    .map((value: any) => String(value))
+            }
+
             const nf = (name: string, type: string, tag: string, limit: number) => {
                 return {
                     id: name,
@@ -3091,18 +3109,22 @@ class DefaultConfig {
             // https://github.com/skydive-project/skydive/pull/2338
             var api = new window.API.TopologyApi(window.App.apiConf)
             api.searchTopology({ GremlinQuery: `G.V().Has("Type", "host").Values("Name")` }).then(result => {
-                for (let name of result) {
+                for (let name of topologyValues(result)) {
                     filters.push(nf(name, "host", "infrastucture", 1))
                 }
 
                 api.searchTopology({ GremlinQuery: `G.V().Has("Type", "namespace").Values("Name")` }).then(result => {
-                    if (result) {
-                        for (let name of result) {
-                            filters.push(nf(name, "namespace", "kubernetes", 10))
-                        }
-                        resolve(filters)
+                    for (let name of topologyValues(result)) {
+                        filters.push(nf(name, "namespace", "kubernetes", 10))
                     }
+                    resolve(filters)
+                }).catch(error => {
+                    console.warn('[TopologyFilters] failed to load namespaces', error)
+                    resolve(filters)
                 })
+            }).catch(error => {
+                console.warn('[TopologyFilters] failed to load hosts', error)
+                resolve(filters)
             })
         })
 

@@ -3,7 +3,11 @@ import { Alert, Button, Modal, Popconfirm, Select, Space, Table } from 'antd'
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons'
 
 import { translate } from '../../Config'
-import { ManualPortMappingRecord } from '../../InfrastructurePortMapping'
+import {
+	InfrastructurePortMapping,
+	manualMappingPortCandidates,
+	ManualPortMappingRecord
+} from '../../InfrastructurePortMapping'
 import {
 	createManualPortMapping,
 	disableManualPortMapping,
@@ -15,6 +19,7 @@ import { Node } from '../../Topology'
 interface Props {
 	switchNode: Node
 	nodes: Node[]
+	automaticMappings: InfrastructurePortMapping[]
 	mappings: ManualPortMappingRecord[]
 	session?: session
 	onChanged: () => Promise<void> | void
@@ -41,15 +46,6 @@ const ancestorOfType = (node: Node | undefined, type: string): Node | undefined 
 	return undefined
 }
 
-const belongsTo = (node: Node, ancestorID: string): boolean => {
-	let current = node.parent
-	while (current) {
-		if (current.id === ancestorID) return true
-		current = current.parent
-	}
-	return false
-}
-
 const isPhysicalNIC = (node: Node): boolean => ['device', 'nic', 'interface', 'ethernet'].includes(nodeType(node))
 
 export class ManualPortMappingManager extends React.PureComponent<Props, State> {
@@ -61,8 +57,13 @@ export class ManualPortMappingManager extends React.PureComponent<Props, State> 
 	}
 
 	private switchPorts(): Node[] {
-		return this.props.nodes
-			.filter(node => ['switchport', 'port'].includes(nodeType(node)) && belongsTo(node, this.props.switchNode.id))
+		return manualMappingPortCandidates(
+			this.props.switchNode,
+			this.props.nodes,
+			this.props.automaticMappings,
+			this.props.mappings,
+			this.state.editingID
+		)
 			.sort((left, right) => nodeName(left).localeCompare(nodeName(right), undefined, { numeric: true }))
 	}
 
@@ -83,12 +84,21 @@ export class ManualPortMappingManager extends React.PureComponent<Props, State> 
 
 	private close = () => this.setState({ visible: false, error: undefined }, this.resetForm)
 
-	private edit = (mapping: ManualPortMappingRecord) => this.setState({
-		selectedPortID: mapping.switchPortNodeId,
-		selectedNICID: mapping.hostNicNodeId,
-		editingID: mapping.id,
-		error: undefined
-	})
+	private edit = (mapping: ManualPortMappingRecord) => {
+		const portRemainsEligible = manualMappingPortCandidates(
+			this.props.switchNode,
+			this.props.nodes,
+			this.props.automaticMappings,
+			this.props.mappings,
+			mapping.id
+		).some(port => port.id === mapping.switchPortNodeId)
+		this.setState({
+			selectedPortID: portRemainsEligible ? mapping.switchPortNodeId : '',
+			selectedNICID: mapping.hostNicNodeId,
+			editingID: mapping.id,
+			error: undefined
+		})
+	}
 
 	private save = async () => {
 		const port = this.switchPorts().find(node => node.id === this.state.selectedPortID)
@@ -132,7 +142,6 @@ export class ManualPortMappingManager extends React.PureComponent<Props, State> 
 
 	render() {
 		const editing = this.state.editingID !== undefined
-		const assignedPorts = new Set(this.props.mappings.filter(item => item.id !== this.state.editingID).map(item => item.switchPortNodeId))
 		const assignedNICs = new Set(this.props.mappings.filter(item => item.id !== this.state.editingID).map(item => item.hostNicNodeId))
 		const columns = [
 			{ title: translate('switchPortMappingPort'), dataIndex: 'switchPortName', key: 'port' },
@@ -161,6 +170,7 @@ export class ManualPortMappingManager extends React.PureComponent<Props, State> 
 				destroyOnClose
 				onCancel={this.close}>
 				<div className="netdive-manual-port-mapping-manager">
+					<Alert type="info" showIcon message={translate('manualPortMappingGuidance')} />
 					{this.state.error && <Alert type="error" showIcon message={this.state.error} />}
 					<div className="netdive-manual-port-mapping-manager__form">
 						<label>
@@ -171,7 +181,7 @@ export class ManualPortMappingManager extends React.PureComponent<Props, State> 
 								placeholder={translate('manualPortMappingSelectPort')}
 								value={this.state.selectedPortID || undefined}
 								onChange={(value: string) => this.setState({ selectedPortID: value, error: undefined })}>
-								{this.switchPorts().map(port => <Select.Option key={port.id} value={port.id} disabled={assignedPorts.has(port.id)}>{nodeName(port)}</Select.Option>)}
+								{this.switchPorts().map(port => <Select.Option key={port.id} value={port.id}>{nodeName(port)}</Select.Option>)}
 							</Select>
 						</label>
 						<label>
