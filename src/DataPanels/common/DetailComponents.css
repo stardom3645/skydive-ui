@@ -184,6 +184,17 @@
     min-height: 22px;
 }
 
+.netdive-detail-section__header--full-width-description {
+    flex-wrap: wrap;
+}
+
+.netdive-detail-section__header--full-width-description > .netdive-detail-section__description-row {
+    flex: 1 0 100%;
+    margin-top: 1px;
+    padding-left: 24px;
+    white-space: normal;
+}
+
 .netdive-detail-section__header--collapsible {
     cursor: pointer;
 }
@@ -3066,12 +3077,50 @@ button.netdive-detail-metric-row:focus-visible {
     width: 100%;
 }
 
+.netdive-detail-search-table__topbar {
+    display: flex;
+    min-width: 0;
+    align-items: stretch;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px var(--netdive-detail-card-body-padding-x) 8px;
+}
+
+.netdive-detail-search-table__topbar.is-host-perspective {
+    display: block;
+    padding-top: 12px;
+    padding-bottom: 10px;
+}
+
+.netdive-detail-search-table__summary {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+}
+
+.netdive-detail-search-table__summary-badge.ant-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 0 6px;
+    border-color: var(--netdive-detail-row-divider);
+    border-radius: 999px;
+    color: var(--netdive-detail-text-secondary);
+    background: var(--netdive-detail-table-header-bg);
+}
+
+.netdive-detail-search-table__summary-badge .ant-badge-status-dot {
+    width: 6px;
+    height: 6px;
+}
+
 .netdive-detail-search-table__toolbar {
     display: flex;
     min-width: 0;
+    width: 100%;
     align-items: center;
-    gap: 10px;
-    padding: 12px var(--netdive-detail-card-body-padding-x) 10px;
 }
 
 .netdive-detail-search-table__toolbar .ant-input-affix-wrapper {
@@ -3251,12 +3300,6 @@ button.netdive-detail-metric-row:focus-visible {
 }
 
 @media (max-width: 430px) {
-    .netdive-detail-search-table__toolbar {
-        align-items: stretch;
-        flex-direction: column;
-        gap: 6px;
-    }
-
     .netdive-detail-search-table .ant-table-thead > tr > th,
     .netdive-detail-search-table .ant-table-tbody > tr > td {
         padding-right: 7px;

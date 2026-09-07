@@ -161,6 +161,7 @@ export interface DetailSectionProps {
     children: React.ReactNode
     className?: string
     bodyClassName?: string
+    fullWidthDescription?: boolean
     collapsible?: boolean
     collapsed?: boolean
     onToggle?: () => void
@@ -175,6 +176,7 @@ export const DetailSection = ({
     children,
     className,
     bodyClassName,
+    fullWidthDescription = false,
     collapsible = false,
     collapsed = false,
     onToggle
@@ -194,7 +196,11 @@ export const DetailSection = ({
 
     const header = (
         <div
-            className={joinClassNames('netdive-detail-section__header', collapsible && 'netdive-detail-section__header--collapsible')}
+            className={joinClassNames(
+                'netdive-detail-section__header',
+                collapsible && 'netdive-detail-section__header--collapsible',
+                fullWidthDescription && 'netdive-detail-section__header--full-width-description'
+            )}
             onClick={collapsible ? toggle : undefined}
             onKeyDown={handleHeaderKeyDown}
             role={collapsible ? 'button' : undefined}
@@ -204,7 +210,7 @@ export const DetailSection = ({
                 {icon && <span className="netdive-detail-section__icon">{icon}</span>}
                 <div className="netdive-detail-section__title-block">
                     <Typography.Text className="netdive-detail-section__title">{title}</Typography.Text>
-                    {description && <span className="netdive-detail-section__description-row">
+                    {description && !fullWidthDescription && <span className="netdive-detail-section__description-row">
                         <Typography.Text className="netdive-detail-section__description">{description}</Typography.Text>
                         <DetailInfoTooltip description={descriptionTooltip} ariaLabel="섹션 설명" />
                     </span>}
@@ -225,6 +231,10 @@ export const DetailSection = ({
                     )}
                 </div>
             )}
+            {description && fullWidthDescription && <span className="netdive-detail-section__description-row">
+                <Typography.Text className="netdive-detail-section__description">{description}</Typography.Text>
+                <DetailInfoTooltip description={descriptionTooltip} ariaLabel="섹션 설명" />
+            </span>}
         </div>
     )
 

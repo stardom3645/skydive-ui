@@ -45,6 +45,33 @@ export interface InfrastructureHostPortMapping extends InfrastructurePortMapping
 
 const nodeType = (node?: Node): string => String(node?.data?.Type || node?.data?.type || '').trim().toLowerCase()
 
+const nodeDataText = (node: Node, keys: string[]): string => {
+    for (const key of keys) {
+        const value = node.data?.[key]
+        if (value !== undefined && value !== null && String(value).trim()) return String(value).trim().toLowerCase()
+    }
+    return ''
+}
+
+/** Manual mappings target physical host interfaces. Link state is deliberately
+ * not part of this predicate: a down physical NIC is still a valid mapping
+ * candidate when LLDP is unavailable or the remote switch port is disabled. */
+export const isManualPortMappingNICEligible = (node: Node): boolean => {
+    if (!['device', 'nic', 'interface', 'ethernet'].includes(nodeType(node))) return false
+
+    const explicitPhysical = node.data?.IsPhysical ?? node.data?.isPhysical
+    if (explicitPhysical === false || String(explicitPhysical).trim().toLowerCase() === 'false') return false
+
+    const driver = nodeDataText(node, ['Driver', 'driver'])
+    const encapsulation = nodeDataText(node, ['EncapType', 'encapType', 'EncapsulationType'])
+    if (/^(bonding|bridge|openvswitch|veth|tun|tap|dummy|loopback|macvlan|ipvlan|team|vrf)$/.test(driver)) return false
+    if (encapsulation === 'loopback') return false
+
+    const name = nodeDataText(node, ['Name', 'name', 'IfName', 'InterfaceName'])
+    return !/^(lo|bond\d*|team\d*|br\d*|br-|virbr|docker|cni\d*|flannel\.|cali|veth|tap|tun|ovs-system)/.test(name)
+        && !/\.\d+$/.test(name)
+}
+
 const isSwitchPort = (node?: Node): boolean => ['switchport', 'port'].includes(nodeType(node))
 
 const normalizedPortName = (value?: string): string => String(value || '').trim().toLowerCase()
@@ -207,6 +234,7 @@ export const buildInfrastructurePortMappings = (
 ): InfrastructurePortMapping[] => {
     const mappings = new Map<string, InfrastructurePortMapping>()
     const switchPorts = new Map<string, Node>()
+    const nodesByID = new Map(nodes.map(node => [node.id, node]))
 
     nodes.forEach(node => {
         if (isSwitchPort(node) && isDescendantOf(node, switchNode.id)) switchPorts.set(node.id, node)
@@ -264,7 +292,7 @@ export const buildInfrastructurePortMappings = (
 		...automaticMappings,
 		...activeManualMappings
 			.filter(mapping => !conflictsWithAutomaticRelation(mapping, automaticMappings))
-			.map(manualMappingToInfrastructure)
+			.map(mapping => manualMappingToInfrastructure(mapping, nodesByID.get(mapping.hostNicNodeId)))
 	]
 
 	return mergedMappings.sort((left, right) => {
@@ -298,7 +326,7 @@ export const buildInfrastructureHostPortMappings = (
 		...automaticMappings,
 		...activeManualMappings
 			.filter(mapping => !conflictsWithAutomaticRelation(mapping, allAutomaticMappings))
-			.map(manualMappingToInfrastructure)
+			.map(mapping => manualMappingToInfrastructure(mapping, nodesByID.get(mapping.hostNicNodeId)))
 	]
         .map(mapping => {
             const nic = mapping.hostNicNodeID ? nodesByID.get(mapping.hostNicNodeID) : undefined
@@ -317,7 +345,7 @@ export const buildInfrastructureHostPortMappings = (
     })
 }
 
-export const manualMappingToInfrastructure = (mapping: ManualPortMappingRecord): InfrastructurePortMapping => ({
+export const manualMappingToInfrastructure = (mapping: ManualPortMappingRecord, hostNIC?: Node): InfrastructurePortMapping => ({
 	key: `manual:${mapping.id}`,
 	switchName: mapping.switchName || mapping.switchNodeId,
 	switchNodeID: mapping.switchNodeId,
@@ -327,7 +355,7 @@ export const manualMappingToInfrastructure = (mapping: ManualPortMappingRecord):
 	hostNodeID: mapping.hostNodeId,
 	hostNicName: mapping.hostNicName || mapping.hostNicNodeId,
 	hostNicNodeID: mapping.hostNicNodeId,
-	connectionState: 'unknown',
+	connectionState: hostNIC ? infrastructurePortConnectionState(hostNIC) : 'unknown',
 	source: 'manual',
 	relationLinkID: '',
 	manualMappingID: mapping.id

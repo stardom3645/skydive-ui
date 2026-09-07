@@ -6,6 +6,8 @@ import {
     buildInfrastructureHostPortMappings,
     buildInfrastructurePortMappings,
     infrastructurePortConnectionState,
+    isManualPortMappingNICEligible,
+    manualMappingToInfrastructure,
     manualPortNameConflict
 } from '../src/InfrastructurePortMapping'
 import type { Link, Node } from '../src/Topology'
@@ -67,6 +69,9 @@ describe('Infrastructure LLDP port mapping', () => {
             "width: '34%'",
             "width: '18%'"
         ].forEach(width => assert.ok(source.includes(width), `missing optimized column width: ${width}`))
+        assert.ok(source.includes('netdive-detail-search-table__summary'))
+        assert.ok(source.includes('netdive-detail-search-table__topbar'))
+        assert.ok(!source.includes("title: translate('manualPortMappingActions')"))
 
         const styles = fs.readFileSync(
             path.resolve(__dirname, '../src/DataPanels/common/DetailComponents.css'),
@@ -74,6 +79,9 @@ describe('Infrastructure LLDP port mapping', () => {
         )
         assert.ok(styles.includes('.netdive-detail-search-table__surface'))
         assert.ok(styles.includes('margin: 0 var(--netdive-detail-card-body-padding-x) 12px'))
+        assert.ok(styles.includes('.netdive-detail-search-table__topbar'))
+        assert.ok(styles.includes('flex-direction: column'))
+        assert.ok(styles.includes('gap: 6px'))
         assert.ok(styles.includes('.netdive-detail-search-table__table .ant-table-column-sorter-inner'))
         assert.ok(styles.includes('width: 10px'))
     })
@@ -137,6 +145,28 @@ describe('Infrastructure LLDP port mapping', () => {
         const nic = node('nic-1', { Type: 'device', State: 'UP' })
         assert.strictEqual(infrastructurePortConnectionState(port, nic), 'disconnected')
         assert.strictEqual(infrastructurePortConnectionState(node('unknown', { Type: 'device' })), 'unknown')
+    })
+
+    it('keeps down physical NICs selectable while excluding logical interfaces', () => {
+        const downNIC = node('nic-down', { Type: 'device', Name: 'eno2', State: 'DOWN', Driver: 'ixgbe' })
+        assert.strictEqual(isManualPortMappingNICEligible(downNIC), true)
+        assert.strictEqual(isManualPortMappingNICEligible(node('nic-unknown', { Type: 'device', Name: 'eno3' })), true)
+        assert.strictEqual(isManualPortMappingNICEligible(node('loopback', { Type: 'device', Name: 'lo', EncapType: 'loopback' })), false)
+        assert.strictEqual(isManualPortMappingNICEligible(node('bond', { Type: 'device', Name: 'bond0', Driver: 'bonding' })), false)
+        assert.strictEqual(isManualPortMappingNICEligible(node('veth', { Type: 'device', Name: 'veth1234', Driver: 'veth' })), false)
+        assert.strictEqual(isManualPortMappingNICEligible(node('vlan', { Type: 'device', Name: 'eno1.100' })), false)
+
+        const manual = manualMappingToInfrastructure({
+            id: 1,
+            switchNodeId: 'switch-1',
+            switchPortName: 'xg7',
+            hostNodeId: 'host-1',
+            hostNicNodeId: downNIC.id,
+            enabled: true,
+            createdAt: '',
+            updatedAt: ''
+        }, downNIC)
+        assert.strictEqual(manual.connectionState, 'disconnected')
     })
 
     it('does not treat ownership edges as LLDP port mappings', () => {
@@ -294,10 +324,12 @@ describe('Infrastructure LLDP port mapping', () => {
 		const panel = fs.readFileSync(path.resolve(__dirname, '../src/DataPanels/SwitchDetailPanel.tsx'), 'utf8')
 		const manager = fs.readFileSync(path.resolve(__dirname, '../src/DataPanels/common/ManualPortMappingManager.tsx'), 'utf8')
 		const styles = fs.readFileSync(path.resolve(__dirname, '../src/DataPanels/SwitchDetailPanel.css'), 'utf8')
+		const globalStyles = fs.readFileSync(path.resolve(__dirname, '../src/index.css'), 'utf8')
 		assert.ok(panel.includes('<ManualPortMappingManager'))
 		assert.ok(panel.includes('className="netdive-switch-port-mapping-section"'))
 		assert.ok(panel.includes('listManualPortMappings'))
 		assert.ok(panel.includes('allMappings={this.state.allManualMappings}'))
+		assert.ok(panel.includes('fullWidthDescription'))
 		assert.ok(manager.includes('createManualPortMapping'))
 		assert.ok(manager.includes('updateManualPortMapping'))
 		assert.ok(manager.includes('disableManualPortMapping'))
@@ -306,11 +338,46 @@ describe('Infrastructure LLDP port mapping', () => {
 		assert.ok(manager.includes('switchPortName.trim()'))
 		assert.ok(manager.includes('manualPortNameConflict'))
 		assert.ok(manager.includes('automaticallyConnectedNICs.has(item.node.id)'))
+		assert.ok(manager.includes("<Select.OptGroup label={translate('manualPortMappingAvailableNics')}>"))
+		assert.ok(manager.includes("<Select.OptGroup label={translate('manualPortMappingUnavailableNics')}>"))
+		assert.ok(manager.includes("'manualPortMappingNicAutoInUse'"))
+		assert.ok(manager.includes("'manualPortMappingNicManualInUse'"))
 		assert.ok(manager.includes('className="netdive-manual-port-mapping-manager__submit"'))
+		assert.ok(manager.includes('<Button className="netdive-manual-port-mapping-trigger"'))
+		assert.ok(!manager.includes('<Button type="primary" className="netdive-manual-port-mapping-trigger"'))
+		assert.ok(manager.includes('<Dropdown'))
+		assert.ok(manager.includes("translate('manualPortMappingMenuAdd')"))
+		assert.ok(manager.includes("translate('manualPortMappingMenuList')"))
+		assert.ok(manager.includes("view: 'form' | 'list'"))
+		assert.ok(manager.includes("this.state.view === 'form'"))
+		assert.ok(manager.includes("this.setState({ saving: false, view: 'list' }, this.resetForm)"))
+		assert.ok(manager.includes('infrastructurePortConnectionState(item.node)'))
+		assert.ok(manager.includes("'manualPortMappingNicDown'"))
+		assert.ok(manager.includes("translate('manualPortMappingNicDownHelp')"))
+		assert.ok(manager.includes("'manualPortMappingNicUnknown'"))
+		assert.ok(manager.includes('dropdownClassName="netdive-manual-port-mapping-nic-dropdown"'))
+		assert.ok(manager.includes('wrapClassName="netdive-manual-port-mapping-modal"'))
 		assert.ok(!manager.includes('window.App.tc.links.set'))
 		assert.ok(styles.includes('.netdive-switch-port-mapping-section .netdive-detail-section__heading'))
+		assert.ok(styles.includes('row-gap: 6px'))
 		assert.ok(styles.includes('overflow-wrap: anywhere'))
+		assert.ok(!styles.includes('padding-right: 148px'))
 		assert.ok(styles.includes('.netdive-manual-port-mapping-manager__submit.ant-btn'))
-		assert.ok(styles.includes('text-shadow: none'))
+		assert.ok(styles.includes('min-width: 88px'))
+		const submitStyles = styles.match(/\.netdive-manual-port-mapping-manager__submit\.ant-btn\s*\{([^}]+)\}/)![1]
+		assert.ok(submitStyles.includes('font-family: var(--netdive-mold-font-family) !important'))
+		assert.ok(submitStyles.includes('font-size: 14px'))
+		assert.ok(submitStyles.includes('font-weight: 400'))
+		assert.ok(submitStyles.includes('letter-spacing: normal'))
+		assert.ok(submitStyles.includes('line-height: 1.5'))
+		assert.ok(!submitStyles.includes('text-shadow'))
+		assert.ok(styles.includes('.netdive-manual-port-mapping-nic-dropdown .ant-select-item-option'))
+		assert.ok(styles.includes('font-family: var(--netdive-mold-font-family) !important'))
+		assert.ok(styles.includes('font-size: 14px'))
+		assert.ok(styles.includes('font-weight: 400'))
+		const chevronStyles = styles.match(/\.netdive-manual-port-mapping-trigger__chevron\.anticon\s*\{([^}]+)\}/)![1]
+		assert.ok(chevronStyles.includes('font-size: 10px'))
+		assert.ok(chevronStyles.includes('vertical-align: baseline'))
+		assert.ok(globalStyles.includes('--netdive-mold-font-family: "Chinese Quote"'))
 	})
 })

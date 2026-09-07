@@ -210,6 +210,7 @@ class SwitchDetailPanel extends React.Component<Props> {
                     icon={<PartitionOutlined />}
                     title={translate('switchPortMapping')}
                     description={translate('switchPortMappingDescription')}
+                    fullWidthDescription
                     action={<ManualPortMappingManager
                         switchNode={this.props.node}
                         nodes={this.topologyNodes()}

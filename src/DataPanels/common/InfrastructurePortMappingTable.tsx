@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Input, Tooltip } from 'antd'
+import { Badge, Input, Tooltip } from 'antd'
 import { SearchOutlined } from '@ant-design/icons'
 
 import {
@@ -38,7 +38,7 @@ const connectionPresentation = (state: InfrastructurePortConnectionState) => {
 }
 
 const sourcePresentation = (source: InfrastructurePortMappingSource) => {
-    if (source === 'manual') return { label: translate('switchPortMappingManual'), tone: 'info' as const }
+    if (source === 'manual') return { label: translate('switchPortMappingManual'), tone: 'warning' as const }
     if (source === 'mismatch') return { label: translate('switchPortMappingMismatch'), tone: 'warning' as const }
     return { label: translate('switchPortMappingAutomatic'), tone: 'default' as const }
 }
@@ -98,11 +98,13 @@ export class InfrastructurePortMappingTable extends React.PureComponent<Infrastr
 
     render() {
         const hostPerspective = this.props.perspective === 'host'
-        if (this.props.mappings.length === 0) {
+        if (hostPerspective && this.props.mappings.length === 0) {
             return <DetailEmpty description={translate(hostPerspective ? 'hostSwitchPortConnectionsEmpty' : 'switchPortMappingEmpty')} compact />
         }
 
         const mappings = this.filteredMappings()
+        const automaticCount = this.props.mappings.filter(mapping => mapping.source === 'automatic').length
+        const manualCount = this.props.mappings.filter(mapping => mapping.source === 'manual').length
         const switchColumns = [
             {
                 title: translate('switchPortMappingPort'),
@@ -222,17 +224,34 @@ export class InfrastructurePortMappingTable extends React.PureComponent<Infrastr
         const columns = hostPerspective ? hostColumns : switchColumns
 
         return <div className="netdive-detail-search-table">
-            <div className="netdive-detail-search-table__toolbar">
-                <Input
-                    allowClear
-                    prefix={<SearchOutlined />}
-                    placeholder={translate(hostPerspective ? 'hostSwitchPortConnectionsSearch' : 'switchPortMappingSearch')}
-                    value={this.state.search}
-                    onChange={event => this.setState({ search: event.target.value })} />
+            <div className={`netdive-detail-search-table__topbar${hostPerspective ? ' is-host-perspective' : ''}`}>
+                {!hostPerspective && <div className="netdive-detail-search-table__summary" aria-label={translate('switchPortMappingSummary')}>
+                    <DetailBadge className="netdive-detail-search-table__summary-badge">
+                        {translate('all')} {this.props.mappings.length}
+                    </DetailBadge>
+                    <DetailBadge className="netdive-detail-search-table__summary-badge">
+                        <Badge status="success" /> {translate('switchPortMappingAutomatic')} {automaticCount}
+                    </DetailBadge>
+                    <DetailBadge className="netdive-detail-search-table__summary-badge">
+                        <Badge status="warning" /> {translate('switchPortMappingManual')} {manualCount}
+                    </DetailBadge>
+                </div>}
+                <div className="netdive-detail-search-table__toolbar">
+                    <Input
+                        allowClear
+                        prefix={<SearchOutlined />}
+                        placeholder={translate(hostPerspective ? 'hostSwitchPortConnectionsSearch' : 'switchPortMappingSearch')}
+                        value={this.state.search}
+                        onChange={event => this.setState({ search: event.target.value })} />
+                </div>
             </div>
             <div className="netdive-detail-search-table__surface">
                 {mappings.length === 0
-                    ? <DetailEmpty description={translate(hostPerspective ? 'hostSwitchPortConnectionsNoSearchResults' : 'switchPortMappingNoSearchResults')} compact />
+                    ? <DetailEmpty description={translate(hostPerspective
+                        ? 'hostSwitchPortConnectionsNoSearchResults'
+                        : this.props.mappings.length === 0
+                            ? 'switchPortMappingEmpty'
+                            : 'switchPortMappingNoSearchResults')} compact />
                     : <div className="netdive-detail-table-scroll">
                         <DetailTable<InfrastructurePortMapping>
                             className="netdive-detail-search-table__table"
