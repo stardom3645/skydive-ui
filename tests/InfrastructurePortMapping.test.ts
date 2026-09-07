@@ -198,4 +198,58 @@ describe('Infrastructure LLDP port mapping', () => {
         assert.strictEqual(result[0].bondInterfaceName, '')
         assert.strictEqual(result[0].bondInterfaceNodeID, undefined)
     })
+
+	it('uses an active manual mapping as the switch-port correction without changing LLDP data', () => {
+		const sw = node('switch-1', { Type: 'switch', Name: 'leaf-1' })
+		const port = node('port-1', { Type: 'switchport', Name: 'xg1' }, sw)
+		const host = node('host-1', { Type: 'host', Name: 'compute-1' })
+		const automaticNIC = node('nic-1', { Type: 'device', Name: 'eno1' }, host)
+		const manualNIC = node('nic-2', { Type: 'device', Name: 'eno2' }, host)
+		const manual = {
+			id: 7,
+			switchNodeId: sw.id,
+			switchName: 'leaf-1',
+			switchPortNodeId: port.id,
+			switchPortName: 'xg1',
+			hostNodeId: host.id,
+			hostName: 'compute-1',
+			hostNicNodeId: manualNIC.id,
+			hostNicName: 'eno2',
+			enabled: true,
+			createdAt: '2026-09-07T00:00:00Z',
+			updatedAt: '2026-09-07T00:00:00Z'
+		}
+
+		const switchResult = buildInfrastructurePortMappings(
+			sw,
+			[sw, port, host, automaticNIC, manualNIC],
+			[link('lldp-1', port, automaticNIC)],
+			[manual]
+		)
+		assert.strictEqual(switchResult.length, 1)
+		assert.strictEqual(switchResult[0].source, 'manual')
+		assert.strictEqual(switchResult[0].hostNicNodeID, 'nic-2')
+		assert.strictEqual(switchResult[0].manualMappingID, 7)
+
+		const hostResult = buildInfrastructureHostPortMappings(
+			host,
+			[sw, port, host, automaticNIC, manualNIC],
+			[link('lldp-1', port, automaticNIC)],
+			[manual]
+		)
+		assert.strictEqual(hostResult.length, 1)
+		assert.strictEqual(hostResult[0].source, 'manual')
+		assert.strictEqual(hostResult[0].hostNicName, 'eno2')
+	})
+
+	it('wires manual CRUD management to the switch detail without changing topology links', () => {
+		const panel = fs.readFileSync(path.resolve(__dirname, '../src/DataPanels/SwitchDetailPanel.tsx'), 'utf8')
+		const manager = fs.readFileSync(path.resolve(__dirname, '../src/DataPanels/common/ManualPortMappingManager.tsx'), 'utf8')
+		assert.ok(panel.includes('<ManualPortMappingManager'))
+		assert.ok(panel.includes('listManualPortMappings'))
+		assert.ok(manager.includes('createManualPortMapping'))
+		assert.ok(manager.includes('updateManualPortMapping'))
+		assert.ok(manager.includes('disableManualPortMapping'))
+		assert.ok(!manager.includes('window.App.tc.links.set'))
+	})
 })

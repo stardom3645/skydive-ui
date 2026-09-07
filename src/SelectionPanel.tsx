@@ -650,7 +650,7 @@ class SelectionPanel extends React.Component<Props, State> {
               : isVMNode(el)
               ? <VMDetailPanel node={el as Node} session={this.props.session} moldInventory={this.props.moldInventory} vmNameMap={this.props.vmNameMap} vmNetworkMap={this.props.vmNetworkMap} vmDetailMap={this.props.vmDetailMap} />
               : isSwitchNode(el)
-              ? <SwitchDetailPanel node={el as Node} nodeAttrs={(node: Node) => this.props.config.nodeAttrs(node)} />
+              ? <SwitchDetailPanel node={el as Node} nodeAttrs={(node: Node) => this.props.config.nodeAttrs(node)} session={this.props.session} />
               : renderDataPanels(el)
             }
           </TabPanel>

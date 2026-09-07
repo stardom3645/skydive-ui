@@ -121,6 +121,7 @@ export { KubernetesEndpointList } from './KubernetesEndpointList'
 export type { KubernetesEndpointItem, KubernetesEndpointListProps } from './KubernetesEndpointList'
 export { InfrastructurePortMappingTable } from './InfrastructurePortMappingTable'
 export type { InfrastructurePortMappingTableProps } from './InfrastructurePortMappingTable'
+export { ManualPortMappingManager } from './ManualPortMappingManager'
 export { DetailTable } from './DetailTable'
 export type { DetailTableProps } from './DetailTable'
 

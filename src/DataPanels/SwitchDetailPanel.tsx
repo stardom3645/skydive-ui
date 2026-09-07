@@ -2,6 +2,7 @@ import * as React from 'react'
 import { ApartmentOutlined, InfoCircleOutlined, LinkOutlined, PartitionOutlined } from '@ant-design/icons'
 
 import { Link, Node, NodeAttrs } from '../Topology'
+import { session } from '../Store'
 import { translate } from '../Config'
 import {
     switchDisplayName,
@@ -9,16 +10,45 @@ import {
     switchManagementAddress,
     switchTextValue
 } from '../SwitchNodeUtils'
-import { buildInfrastructurePortMappings, InfrastructurePortMapping } from '../InfrastructurePortMapping'
-import { connectedResourcePopoverItems, DetailEmpty, DetailKeyValueList, DetailResourceCard, DetailResourceGrid, DetailSection, InfrastructurePortMappingTable, InfrastructureTopologyIcon, navigateInfrastructureConnectedResources } from './common'
+import { buildInfrastructurePortMappings, InfrastructurePortMapping, ManualPortMappingRecord } from '../InfrastructurePortMapping'
+import { listManualPortMappings } from '../ManualPortMappingAPI'
+import { connectedResourcePopoverItems, DetailEmpty, DetailKeyValueList, DetailResourceCard, DetailResourceGrid, DetailSection, InfrastructurePortMappingTable, InfrastructureTopologyIcon, ManualPortMappingManager, navigateInfrastructureConnectedResources } from './common'
 import './SwitchDetailPanel.css'
 
 interface Props {
     node: Node
     nodeAttrs: (node: Node) => NodeAttrs
+    session?: session
+}
+
+interface State {
+    manualMappings: ManualPortMappingRecord[]
 }
 
 class SwitchDetailPanel extends React.Component<Props> {
+    state: State = { manualMappings: [] }
+
+    componentDidMount() {
+        this.loadManualMappings()
+    }
+
+    componentDidUpdate(prevProps: Props) {
+        if (prevProps.node.id !== this.props.node.id) {
+            this.setState({ manualMappings: [] }, this.loadManualMappings)
+        }
+    }
+
+    private loadManualMappings = async () => {
+        const switchNodeID = this.props.node.id
+        try {
+            const manualMappings = await listManualPortMappings(this.props.session, { switchNodeId: switchNodeID })
+            if (this.props.node.id === switchNodeID) this.setState({ manualMappings })
+        } catch (error) {
+            console.warn('[ManualPortMapping] failed to load switch mappings', error)
+            if (this.props.node.id === switchNodeID) this.setState({ manualMappings: [] })
+        }
+    }
+
     private data(): any {
         return this.props.node.data || {}
     }
@@ -68,7 +98,7 @@ class SwitchDetailPanel extends React.Component<Props> {
     }
 
     private portMappings(): InfrastructurePortMapping[] {
-        return buildInfrastructurePortMappings(this.props.node, this.topologyNodes(), this.topologyLinks())
+        return buildInfrastructurePortMappings(this.props.node, this.topologyNodes(), this.topologyLinks(), this.state.manualMappings)
     }
 
     private isSwitchPort(node: Node): boolean {
@@ -162,7 +192,13 @@ class SwitchDetailPanel extends React.Component<Props> {
                 <DetailSection
                     icon={<PartitionOutlined />}
                     title={translate('switchPortMapping')}
-                    description={translate('switchPortMappingDescription')}>
+                    description={translate('switchPortMappingDescription')}
+                    action={<ManualPortMappingManager
+                        switchNode={this.props.node}
+                        nodes={this.topologyNodes()}
+                        mappings={this.state.manualMappings}
+                        session={this.props.session}
+                        onChanged={this.loadManualMappings} />}>
                     <InfrastructurePortMappingTable
                         mappings={this.portMappings()}
                         onNavigate={mapping => this.focusPortMapping(mapping)} />

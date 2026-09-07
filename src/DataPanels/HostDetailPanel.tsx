@@ -28,7 +28,8 @@ import KeyboardArrowDownIcon from '@material-ui/icons/KeyboardArrowDown'
 import { withStyles } from '@material-ui/core/styles'
 
 import { Link, Node, NodeAttrs } from '../Topology'
-import { buildInfrastructureHostPortMappings, InfrastructureHostPortMapping } from '../InfrastructurePortMapping'
+import { buildInfrastructureHostPortMappings, InfrastructureHostPortMapping, ManualPortMappingRecord } from '../InfrastructurePortMapping'
+import { listManualPortMappings } from '../ManualPortMappingAPI'
 import { session } from '../Store'
 import { translate } from '../Config'
 import { styles } from './HostDetailPanelStyles'
@@ -68,6 +69,7 @@ interface State {
     kubernetesNodePickerOpen?: boolean
     kubernetesNodePickerQuery?: string
     kubernetesNodePickerExpanded?: Record<string, boolean>
+    manualPortMappings?: ManualPortMappingRecord[]
 }
 
 type InfrastructureFocusKey = 'networkObjects' | 'routers' | 'userVMs' | 'systemVMs'
@@ -705,6 +707,7 @@ class HostDetailPanel extends React.Component<Props, State> {
 
     componentDidMount() {
         this.loadMoldHostDetail()
+        this.loadManualPortMappings()
         document.addEventListener('mousedown', this.handleDocumentMouseDown, true)
     }
 
@@ -720,9 +723,11 @@ class HostDetailPanel extends React.Component<Props, State> {
                 showAllSocketProcesses: false,
                 kubernetesNodePickerOpen: false,
                 kubernetesNodePickerQuery: '',
-                kubernetesNodePickerExpanded: {}
+                kubernetesNodePickerExpanded: {},
+                manualPortMappings: []
             })
             this.loadMoldHostDetail()
+            this.loadManualPortMappings()
         }
     }
 
@@ -1195,11 +1200,23 @@ class HostDetailPanel extends React.Component<Props, State> {
         return []
     }
 
+    private loadManualPortMappings = async () => {
+        const hostNodeID = this.selectedTopologyHostNode().id
+        try {
+            const manualPortMappings = await listManualPortMappings(this.props.session, { hostNodeId: hostNodeID })
+            if (this.selectedTopologyHostNode().id === hostNodeID) this.setState({ manualPortMappings })
+        } catch (error) {
+            console.warn('[ManualPortMapping] failed to load host mappings', error)
+            if (this.selectedTopologyHostNode().id === hostNodeID) this.setState({ manualPortMappings: [] })
+        }
+    }
+
     private switchPortConnections(): InfrastructureHostPortMapping[] {
         return buildInfrastructureHostPortMappings(
             this.selectedTopologyHostNode(),
             this.topologyNodes(),
-            this.topologyLinks()
+            this.topologyLinks(),
+            this.state.manualPortMappings || []
         )
     }
 

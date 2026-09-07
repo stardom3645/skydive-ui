@@ -4,3 +4,45 @@
     gap: 14px;
     padding-bottom: 8px;
 }
+
+.netdive-manual-port-mapping-manager {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.netdive-manual-port-mapping-manager__form {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr) auto;
+    gap: 10px;
+    align-items: end;
+    padding: 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #f8fafc;
+}
+
+.netdive-manual-port-mapping-manager__form label {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 5px;
+    color: #475569;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.netdive-manual-port-mapping-manager__form .ant-select {
+    width: 100%;
+}
+
+.netdive-manual-port-mapping-manager__form-actions {
+    display: flex;
+    gap: 6px;
+}
+
+@media (max-width: 720px) {
+    .netdive-manual-port-mapping-manager__form {
+        grid-template-columns: 1fr;
+    }
+}

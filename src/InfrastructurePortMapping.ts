@@ -22,6 +22,22 @@ export interface InfrastructurePortMapping {
     connectionState: InfrastructurePortConnectionState
     source: InfrastructurePortMappingSource
     relationLinkID: string
+	manualMappingID?: number
+}
+
+export interface ManualPortMappingRecord {
+	id: number
+	switchNodeId: string
+	switchName?: string
+	switchPortNodeId: string
+	switchPortName?: string
+	hostNodeId: string
+	hostName?: string
+	hostNicNodeId: string
+	hostNicName?: string
+	enabled: boolean
+	createdAt: string
+	updatedAt: string
 }
 
 export interface InfrastructureHostPortMapping extends InfrastructurePortMapping {
@@ -144,7 +160,8 @@ const peerFor = (link: Link, nodeID: string): Node | undefined => {
 export const buildInfrastructurePortMappings = (
     switchNode: Node,
     nodes: Node[],
-    links: Link[]
+    links: Link[],
+	manualMappings: ManualPortMappingRecord[] = []
 ): InfrastructurePortMapping[] => {
     const mappings = new Map<string, InfrastructurePortMapping>()
     const switchPorts = new Map<string, Node>()
@@ -198,7 +215,16 @@ export const buildInfrastructurePortMappings = (
         if (directPeer && !isSwitchPort(directPeer)) addMapping(link, undefined, directPeer)
     })
 
-    return Array.from(mappings.values()).sort((left, right) => {
+    const automaticMappings = Array.from(mappings.values())
+	const activeManualMappings = manualMappings
+		.filter(mapping => mapping.enabled && mapping.switchNodeId === switchNode.id)
+	const manuallyAssignedPorts = new Set(activeManualMappings.map(mapping => mapping.switchPortNodeId))
+	const mergedMappings = [
+		...automaticMappings.filter(mapping => !mapping.switchPortNodeID || !manuallyAssignedPorts.has(mapping.switchPortNodeID)),
+		...activeManualMappings.map(manualMappingToInfrastructure)
+	]
+
+	return mergedMappings.sort((left, right) => {
         const portOrder = left.switchPortName.localeCompare(right.switchPortName, undefined, { numeric: true })
         if (portOrder !== 0) return portOrder
         const hostOrder = left.hostName.localeCompare(right.hostName)
@@ -212,15 +238,23 @@ export const buildInfrastructurePortMappings = (
 export const buildInfrastructureHostPortMappings = (
     hostNode: Node,
     nodes: Node[],
-    links: Link[]
+    links: Link[],
+	manualMappings: ManualPortMappingRecord[] = []
 ): InfrastructureHostPortMapping[] => {
     const nodesByID = new Map(nodes.map(node => [node.id, node]))
-    const mappings = nodes
+	const automaticMappings = nodes
         .filter(node => nodeType(node) === 'switch')
         .reduce<InfrastructurePortMapping[]>((all, switchNode) => {
             return all.concat(buildInfrastructurePortMappings(switchNode, nodes, links))
         }, [])
-        .filter(mapping => mapping.hostNodeID === hostNode.id)
+		.filter(mapping => mapping.hostNodeID === hostNode.id)
+	const activeManualMappings = manualMappings
+		.filter(mapping => mapping.enabled && mapping.hostNodeId === hostNode.id)
+	const manuallyAssignedPorts = new Set(activeManualMappings.map(mapping => mapping.switchPortNodeId))
+	const mappings = [
+		...automaticMappings.filter(mapping => !mapping.switchPortNodeID || !manuallyAssignedPorts.has(mapping.switchPortNodeID)),
+		...activeManualMappings.map(manualMappingToInfrastructure)
+	]
         .map(mapping => {
             const nic = mapping.hostNicNodeID ? nodesByID.get(mapping.hostNicNodeID) : undefined
             const bond = bondForNic(nic, hostNode, nodes, links)
@@ -237,3 +271,19 @@ export const buildInfrastructureHostPortMappings = (
         return left.switchPortName.localeCompare(right.switchPortName, undefined, { numeric: true })
     })
 }
+
+export const manualMappingToInfrastructure = (mapping: ManualPortMappingRecord): InfrastructurePortMapping => ({
+	key: `manual:${mapping.id}`,
+	switchName: mapping.switchName || mapping.switchNodeId,
+	switchNodeID: mapping.switchNodeId,
+	switchPortName: mapping.switchPortName || mapping.switchPortNodeId,
+	switchPortNodeID: mapping.switchPortNodeId,
+	hostName: mapping.hostName || mapping.hostNodeId,
+	hostNodeID: mapping.hostNodeId,
+	hostNicName: mapping.hostNicName || mapping.hostNicNodeId,
+	hostNicNodeID: mapping.hostNicNodeId,
+	connectionState: 'unknown',
+	source: 'manual',
+	relationLinkID: '',
+	manualMappingID: mapping.id
+})
