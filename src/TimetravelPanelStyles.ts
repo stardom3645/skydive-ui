@@ -62,5 +62,9 @@ export const styles = (theme: Theme) => createStyles({
   content: {
     overflow: "auto",
     height: "100%"
+  },
+  errorAlert: {
+    marginBottom: theme.spacing(1.5),
+    fontSize: 13
   }
 })

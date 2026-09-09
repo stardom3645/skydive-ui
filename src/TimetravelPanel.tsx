@@ -27,6 +27,7 @@ import TimelineConnector from '@material-ui/lab/TimelineConnector'
 import TimelineContent from '@material-ui/lab/TimelineContent';
 import TimelineOppositeContent from '@material-ui/lab/TimelineOppositeContent'
 import TimelineDot from '@material-ui/lab/TimelineDot'
+import Alert from '@material-ui/lab/Alert'
 import Paper from '@material-ui/core/Paper'
 import TextField from '@material-ui/core/TextField'
 import Autocomplete from '@material-ui/lab/Autocomplete'
@@ -35,7 +36,7 @@ import Chip from '@material-ui/core/Chip'
 import Grid from '@material-ui/core/Grid'
 
 import { Node } from './Topology'
-import ConfigReducer from './Config'
+import ConfigReducer, { translate } from './Config'
 import { Configuration } from './api/configuration'
 import { TopologyApi } from './api'
 
@@ -52,6 +53,7 @@ interface State {
   data: Array<any>
   nodeType: string
   timeContext: Date
+  error?: string
 }
 
 class TimetravelPanel extends React.Component<Props, State> {
@@ -75,12 +77,17 @@ class TimetravelPanel extends React.Component<Props, State> {
     this.state = {
       data: new Array<any>(),
       nodeType: "",
-      timeContext: localeIso()
+      timeContext: localeIso(),
+      error: undefined
     }
+  }
+
+  componentDidMount() {
     this.refreshData()
   }
 
   refreshData() {
+    this.setState({ error: undefined })
     var conf = new Configuration({ basePath: this.props.session.endpoint + "/api", accessToken: this.props.session.token })
     var api = new TopologyApi(conf)
 
@@ -97,17 +104,21 @@ class TimetravelPanel extends React.Component<Props, State> {
     }
 
     api.searchTopology({ GremlinQuery: nodes + `.Dedup().Valuemap('Name', 'Type', '@CreatedAt')` }).then((result: Array<any>) => {
-      if (result) {
+      if (Array.isArray(result)) {
         this.setState({
           data: result.sort((a, b) => {
             let n = b['@CreatedAt'] - a['@CreatedAt']
             if (n) return n
-            return b['Name'].localeCompare(a['Name'])
-          })
+            return String(b['Name'] || '').localeCompare(String(a['Name'] || ''))
+          }),
+          error: undefined
         })
       } else {
         this.setState({ data: [] })
       }
+    }).catch((error: any) => {
+      console.warn('[Timetravel] historical topology query failed', error?.status || error)
+      this.setState({ data: [], error: translate('timetravelLoadFailed') })
     })
   }
 
@@ -225,6 +236,9 @@ class TimetravelPanel extends React.Component<Props, State> {
               />
             </Grid>
           </Grid>
+          {this.state.error && <Alert severity="warning" variant="outlined" className={classes.errorAlert}>
+            {this.state.error}
+          </Alert>}
           <div className={classes.content}>
             <Timeline align="alternate" className={classes.root}>
               {this.state.data.map((node: any, i: number) =>

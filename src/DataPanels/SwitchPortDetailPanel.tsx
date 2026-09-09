@@ -94,6 +94,7 @@ class SwitchPortDetailPanel extends React.Component<Props> {
         const state = this.text(data, ['State', 'state', 'Status', 'status'])
         const mtu = this.text(data, ['MTU', 'Mtu', 'mtu'])
         const probe = this.text(data, ['Probe', 'probe'])
+        const probeDisplay = probe.toLowerCase() === 'manual' ? translate('manualProbe') : probe
 
         return [
             { key: 'name', label: translate('Name'), value: name, textValue: name, copyText: name },
@@ -103,7 +104,7 @@ class SwitchPortDetailPanel extends React.Component<Props> {
             { key: 'mac', label: translate('MAC'), value: mac, textValue: mac, copyText: mac || undefined },
             { key: 'state', label: translate('State'), value: state, textValue: state },
             { key: 'mtu', label: translate('MTU'), value: mtu, textValue: mtu },
-            { key: 'probe', label: translate('switchProbe'), value: probe, textValue: probe }
+            { key: 'probe', label: translate('switchProbe'), value: probeDisplay, textValue: probeDisplay }
         ].filter(row => row.textValue !== '' && row.textValue !== '-')
     }
 

@@ -81,6 +81,9 @@ const isOwnershipLink = (link: Link): boolean => {
     return relation === 'ownership' || relation === 'vownership'
 }
 
+export const isManualPortMappingTopologyLink = (link: Link): boolean => !!link.data?.ManualPortMapping
+export const isManualPortMappingTopologyNode = (node: Node): boolean => !!node.data?.ManualPortMappingPort
+
 const isDescendantOf = (node: Node, ancestorID: string): boolean => {
     let current: Node | null | undefined = node.parent
     while (current) {
@@ -121,10 +124,12 @@ const automaticPortIdentity = (mappings: InfrastructurePortMapping[]) => ({
 })
 
 const conflictsWithAutomaticRelation = (
-    mapping: Pick<ManualPortMappingRecord, 'switchPortNodeId' | 'switchPortName' | 'hostNicNodeId'>,
+    mapping: Pick<ManualPortMappingRecord, 'switchNodeId' | 'switchPortNodeId' | 'switchPortName' | 'hostNicNodeId'>,
     automaticMappings: InfrastructurePortMapping[]
 ): boolean => {
-    const automatic = automaticPortIdentity(automaticMappings)
+    const switchAutomaticMappings = automaticMappings
+        .filter(automaticMapping => automaticMapping.switchNodeID === mapping.switchNodeId)
+    const automatic = automaticPortIdentity(switchAutomaticMappings)
     return (!!mapping.switchPortNodeId && automatic.nodeIDs.has(mapping.switchPortNodeId))
         || automatic.names.has(normalizedPortName(mapping.switchPortName))
 		|| automaticMappings.some(automaticMapping => automaticMapping.hostNicNodeID === mapping.hostNicNodeId)
@@ -270,7 +275,7 @@ export const buildInfrastructurePortMappings = (
     }
 
     links.forEach(link => {
-        if (isOwnershipLink(link)) return
+        if (isOwnershipLink(link) || isManualPortMappingTopologyLink(link)) return
 
         switchPorts.forEach(port => {
             const peer = peerFor(link, port.id)
@@ -345,12 +350,17 @@ export const buildInfrastructureHostPortMappings = (
     })
 }
 
+export const MANUAL_PORT_MAPPING_TOPOLOGY_LINK_PREFIX = 'manual-port-mapping-'
+export const MANUAL_PORT_MAPPING_TOPOLOGY_PORT_PREFIX = 'manual-switch-port-'
+export const manualPortMappingTopologyPortID = (mappingID: number): string =>
+	`${MANUAL_PORT_MAPPING_TOPOLOGY_PORT_PREFIX}${mappingID}`
+
 export const manualMappingToInfrastructure = (mapping: ManualPortMappingRecord, hostNIC?: Node): InfrastructurePortMapping => ({
 	key: `manual:${mapping.id}`,
 	switchName: mapping.switchName || mapping.switchNodeId,
 	switchNodeID: mapping.switchNodeId,
 	switchPortName: mapping.switchPortName || mapping.switchPortNodeId || '',
-	switchPortNodeID: mapping.switchPortNodeId,
+	switchPortNodeID: mapping.switchPortNodeId || manualPortMappingTopologyPortID(mapping.id),
 	hostName: mapping.hostName || mapping.hostNodeId,
 	hostNodeID: mapping.hostNodeId,
 	hostNicName: mapping.hostNicName || mapping.hostNicNodeId,
@@ -360,3 +370,88 @@ export const manualMappingToInfrastructure = (mapping: ManualPortMappingRecord, 
 	relationLinkID: '',
 	manualMappingID: mapping.id
 })
+
+export interface ManualPortMappingTopologyLink {
+	id: string
+	switchNodeID: string
+	portNodeID: string
+	portData: {
+		Type: 'switchport'
+		Name: string
+		Probe: 'manual'
+		ManualPortMapping: true
+		ManualPortMappingPort: true
+		ManualPortMappingID: number
+		SwitchNodeID: string
+	}
+	sourceNodeID: string
+	targetNodeID: string
+	tags: string[]
+	data: {
+		RelationType: 'manual'
+		ManualPortMapping: true
+		ManualPortMappingID: number
+		SwitchPortName: string
+	}
+}
+
+/** Build UI-only topology links for active supplemental mappings. The stored
+ * mapping remains intact when LLDP appears, but AUTO suppresses its visual link
+ * for as long as the automatic relation exists. */
+export const buildManualPortMappingTopologyLinks = (
+	manualMappings: ManualPortMappingRecord[],
+	nodes: Node[],
+	links: Link[]
+): ManualPortMappingTopologyLink[] => {
+	const nodesByID = new Map(nodes.map(node => [node.id, node]))
+	const collectedLinks = links.filter(link => !isManualPortMappingTopologyLink(link))
+	const automaticMappings = nodes
+		.filter(node => nodeType(node) === 'switch')
+		.reduce<InfrastructurePortMapping[]>((all, switchNode) =>
+			all.concat(buildInfrastructurePortMappings(switchNode, nodes, collectedLinks)), [])
+	const usedSwitchPorts = new Set<string>()
+	const usedNICs = new Set<string>()
+
+	return manualMappings
+		.filter(mapping => mapping.enabled)
+		.slice()
+		.sort((left, right) => left.id - right.id)
+		.reduce<ManualPortMappingTopologyLink[]>((result, mapping) => {
+			const switchNode = nodesByID.get(mapping.switchNodeId)
+			const hostNIC = nodesByID.get(mapping.hostNicNodeId)
+			const switchPortName = String(mapping.switchPortName || '').trim()
+			const switchPortKey = `${mapping.switchNodeId}::${normalizedPortName(switchPortName)}`
+			if (!switchNode || nodeType(switchNode) !== 'switch' || !hostNIC || !switchPortName) return result
+			if (!isHostNic(hostNIC) || hostAncestor(hostNIC)?.id !== mapping.hostNodeId) return result
+			if (conflictsWithAutomaticRelation(mapping, automaticMappings)) return result
+			if (usedSwitchPorts.has(switchPortKey) || usedNICs.has(mapping.hostNicNodeId)) return result
+
+			usedSwitchPorts.add(switchPortKey)
+			usedNICs.add(mapping.hostNicNodeId)
+			const portNodeID = manualPortMappingTopologyPortID(mapping.id)
+			result.push({
+				id: `${MANUAL_PORT_MAPPING_TOPOLOGY_LINK_PREFIX}${mapping.id}`,
+				switchNodeID: mapping.switchNodeId,
+				portNodeID,
+				portData: {
+					Type: 'switchport',
+					Name: switchPortName,
+					Probe: 'manual',
+					ManualPortMapping: true,
+					ManualPortMappingPort: true,
+					ManualPortMappingID: mapping.id,
+					SwitchNodeID: mapping.switchNodeId
+				},
+				sourceNodeID: portNodeID,
+				targetNodeID: mapping.hostNicNodeId,
+				tags: ['layer2'],
+				data: {
+					RelationType: 'manual',
+					ManualPortMapping: true,
+					ManualPortMappingID: mapping.id,
+					SwitchPortName: switchPortName
+				}
+			})
+			return result
+		}, [])
+}

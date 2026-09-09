@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { Avatar, Button, Input, List, Space, Tooltip, Typography } from 'antd'
 import { DownOutlined, RightOutlined } from '@ant-design/icons'
+import { translate } from '../Config'
 import { Node, NodeAttrs } from '../Topology'
 import {
     aggregateKubernetesPods,
@@ -194,6 +195,11 @@ class GroupDetailPanel extends React.Component<Props, State> {
     private renderNodeItem(node: Node, lifecycle?: KubernetesPodLifecycle, podEntry?: KubernetesPodStatusEntry) {
         const attrs = this.props.nodeAttrs(node)
         const name = this.displayName(node)
+        const manualPort = !!node.data?.ManualPortMappingPort
+        const type = String(node.data?.Type || node.data?.type || '').trim().toLowerCase()
+        const portMethod = type === 'switchport' || type === 'port'
+            ? translate(manualPort ? 'switchPortMappingManual' : 'switchPortMappingAutomatic')
+            : ''
         const genericStatus = statusOf(node)
         const status = lifecycle
             ? lifecycle.kind === 'problem'
@@ -228,9 +234,12 @@ class GroupDetailPanel extends React.Component<Props, State> {
                     shape="square"
                     icon={<span className={attrs.iconClass || 'fa'}>{attrs.href ? '' : attrs.icon}</span>} />
                 <span className="netdive-group-detail-main">
-                    <Tooltip title={name}>
-                        <Typography.Text className="netdive-group-detail-name" ellipsis={true}>{name}</Typography.Text>
-                    </Tooltip>
+                    <span className="netdive-group-detail-nameRow">
+                        <Tooltip title={name}>
+                            <Typography.Text className="netdive-group-detail-name" ellipsis={true}>{name}</Typography.Text>
+                        </Tooltip>
+                        {portMethod && <DetailBadge className="netdive-group-detail-portMethodTag">{portMethod}</DetailBadge>}
+                    </span>
                     {(status.visible || ip || (lifecycle && lifecycle.kind !== 'running')) && (
                         <span className="netdive-group-detail-meta">
                             {status.visible && <DetailBadge className={`netdive-group-detail-tag ${status.className}`} tone={tone}>{status.label}</DetailBadge>}

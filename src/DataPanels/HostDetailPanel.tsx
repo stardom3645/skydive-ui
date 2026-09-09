@@ -10,7 +10,7 @@ v12 Changes:
 - Preserve v11 typography.
 */
 import * as React from 'react'
-import { PartitionOutlined } from '@ant-design/icons'
+import { ArrowsAltOutlined, PartitionOutlined } from '@ant-design/icons'
 import IconButton from '@material-ui/core/IconButton'
 import Drawer from '@material-ui/core/Drawer'
 import SvgIcon from '@material-ui/core/SvgIcon'
@@ -70,6 +70,7 @@ interface State {
     kubernetesNodePickerQuery?: string
     kubernetesNodePickerExpanded?: Record<string, boolean>
     manualPortMappings?: ManualPortMappingRecord[]
+    portMappingExpanded: boolean
 }
 
 type InfrastructureFocusKey = 'networkObjects' | 'routers' | 'userVMs' | 'systemVMs'
@@ -702,7 +703,7 @@ const getByPath = (value: any, path: string): any => {
 }
 
 class HostDetailPanel extends React.Component<Props, State> {
-    state: State = { activeDetailTab: 'overview' }
+    state: State = { activeDetailTab: 'overview', portMappingExpanded: false }
     private kubernetesNodePickerRef = React.createRef<HTMLDivElement>()
 
     componentDidMount() {
@@ -724,7 +725,8 @@ class HostDetailPanel extends React.Component<Props, State> {
                 kubernetesNodePickerOpen: false,
                 kubernetesNodePickerQuery: '',
                 kubernetesNodePickerExpanded: {},
-                manualPortMappings: []
+                manualPortMappings: [],
+                portMappingExpanded: false
             })
             this.loadMoldHostDetail()
             this.loadManualPortMappings()
@@ -1959,9 +1961,9 @@ class HostDetailPanel extends React.Component<Props, State> {
         )
     }
 
-    private renderSection(icon: React.ReactNode, title: string, description: string, children: React.ReactNode, className = '', action?: React.ReactNode) {
+    private renderSection(icon: React.ReactNode, title: string, description: string, children: React.ReactNode, className = '', action?: React.ReactNode, fullWidthDescription = false) {
         return (
-            <DetailSection icon={icon} title={title} description={description} action={action} className={className}>
+            <DetailSection icon={icon} title={title} description={description} action={action} className={className} fullWidthDescription={fullWidthDescription}>
                 {children}
             </DetailSection>
         )
@@ -2231,6 +2233,7 @@ class HostDetailPanel extends React.Component<Props, State> {
         const visibleNetworkMetrics = networkMetrics.filter(item => item.value)
         const hasNetworkSummary = visibleNetworkMetrics.length > 1
         const hasRecentSignals = eventRows.some(row => !isBlank(row.value))
+        const switchPortConnections = this.switchPortConnections()
 
         return (
             <div className={classes.root}>
@@ -2286,8 +2289,24 @@ class HostDetailPanel extends React.Component<Props, State> {
                         translate('hostSwitchPortConnectionsDescription'),
                         <InfrastructurePortMappingTable
                             perspective="host"
-                            mappings={this.switchPortConnections()}
-                            onNavigate={mapping => this.focusSwitchPortConnection(mapping as InfrastructureHostPortMapping)} />
+                            mappings={switchPortConnections}
+                            expandable
+                            expanded={this.state.portMappingExpanded}
+                            onExpandedChange={portMappingExpanded => this.setState({ portMappingExpanded })}
+                            onNavigate={mapping => this.focusSwitchPortConnection(mapping as InfrastructureHostPortMapping)} />,
+                        'netdive-host-switch-port-mapping-section',
+                        <div className="netdive-port-mapping-header-actions">
+                            <AntTooltip title={translate('switchPortMappingExpandView')}>
+                                <Button
+                                    className="netdive-port-mapping-expand-trigger"
+                                    icon={<ArrowsAltOutlined />}
+                                    disabled={switchPortConnections.length === 0}
+                                    onClick={() => this.setState({ portMappingExpanded: true })}>
+                                    {translate('switchPortMappingExpandView')}
+                                </Button>
+                            </AntTooltip>
+                        </div>,
+                        true
                     )}
                 </React.Fragment>}
                 {this.renderKubernetesNodePicker()}

@@ -196,6 +196,7 @@ export const i18nMap = {
         "switchManagementIp": "Management IP",
         "switchType": "Type",
         "switchProbe": "Collection probe",
+        "manualProbe": "Manual",
         "switchLldpInfo": "LLDP information",
         "switchChassisId": "Chassis ID",
         "switchChassisIdType": "Chassis ID type",
@@ -206,6 +207,7 @@ export const i18nMap = {
         "switchPortMappingDescription": "LLDP automatic connections and administrator-defined switch-to-host port relationships.",
         "switchPortMappingSearch": "Search switch port, host, or host NIC",
         "switchPortMappingSummary": "Port mapping summary",
+        "switchPortMappingExpandView": "Expand view",
         "switchPortMappingEmpty": "No LLDP port mapping information has been collected for this switch.",
         "switchPortMappingNoSearchResults": "No port mapping matches this search.",
         "switchPortMappingPort": "Switch port",
@@ -245,8 +247,9 @@ export const i18nMap = {
 		"manualPortMappingDuplicate": "A manual mapping with this switch port name already exists.",
         "manualPortMappingActions": "Actions",
         "manualPortMappingEdit": "Edit manual mapping",
-        "manualPortMappingDelete": "Disable manual mapping",
-        "manualPortMappingDeleteConfirm": "Disable this manual mapping?",
+        "manualPortMappingDelete": "Delete manual mapping",
+        "manualPortMappingDeleteConfirm": "Delete this manual mapping?",
+        "manualPortMappingDeleteOk": "Delete",
         "manualPortMappingCancelEdit": "Cancel edit",
         "manualPortMappingUpdate": "Update",
         "manualPortMappingAdd": "Add mapping",
@@ -454,6 +457,9 @@ export const i18nMap = {
         "infrastructureLayerSummary": "Network · Host · VM",
         "kubernetesLayerSummary": "Cluster · Node · Pod",
         "close": "Close",
+        "showSelection": "Show selection",
+        "unselectAll": "Unselect all",
+        "timetravelLoadFailed": "Historical topology is unavailable. Check the graph storage configuration.",
         "removeFromSelection": "Remove from selection",
         "pinNode": "Pin node",
         "previousSelectionTooltip": "Return to previous selection",
@@ -1522,6 +1528,7 @@ export const i18nMap = {
         "switchManagementIp": "관리 IP",
         "switchType": "타입",
         "switchProbe": "수집 Probe",
+        "manualProbe": "수동",
         "switchLldpInfo": "LLDP 정보",
         "switchChassisId": "Chassis ID",
         "switchChassisIdType": "Chassis ID 유형",
@@ -1532,6 +1539,7 @@ export const i18nMap = {
         "switchPortMappingDescription": "LLDP 자동 연결과 관리자가 등록한 스위치-호스트 포트 연결 관계입니다.",
         "switchPortMappingSearch": "스위치 포트, 호스트, 호스트 NIC 검색",
         "switchPortMappingSummary": "포트 매핑 요약",
+        "switchPortMappingExpandView": "확대 보기",
         "switchPortMappingEmpty": "이 스위치의 LLDP 포트 매핑 정보가 수집되지 않았습니다.",
         "switchPortMappingNoSearchResults": "검색 조건과 일치하는 포트 매핑이 없습니다.",
         "switchPortMappingPort": "스위치 포트",
@@ -1571,8 +1579,9 @@ export const i18nMap = {
 		"manualPortMappingDuplicate": "동일한 스위치 포트명의 수동 매핑이 이미 존재합니다.",
         "manualPortMappingActions": "작업",
         "manualPortMappingEdit": "수동 매핑 수정",
-        "manualPortMappingDelete": "수동 매핑 비활성화",
-        "manualPortMappingDeleteConfirm": "이 수동 매핑을 비활성화하시겠습니까?",
+        "manualPortMappingDelete": "수동 매핑 삭제",
+        "manualPortMappingDeleteConfirm": "이 수동 매핑을 삭제하시겠습니까?",
+        "manualPortMappingDeleteOk": "삭제",
         "manualPortMappingCancelEdit": "수정 취소",
         "manualPortMappingUpdate": "수정",
         "manualPortMappingAdd": "매핑 추가",
@@ -1780,6 +1789,9 @@ export const i18nMap = {
         "infrastructureLayerSummary": "네트워크 · 호스트 · VM",
         "kubernetesLayerSummary": "클러스터 · 노드 · 파드",
         "close": "닫기",
+        "showSelection": "선택 항목",
+        "unselectAll": "선택 해제",
+        "timetravelLoadFailed": "과거 토폴로지를 불러올 수 없습니다. 그래프 저장소 설정을 확인하세요.",
         "removeFromSelection": "선택 해제",
         "pinNode": "노드 위치로 이동",
         "previousSelectionTooltip": "이전 선택으로 돌아가기",
@@ -4227,6 +4239,11 @@ class DefaultConfig {
 
         if (link.data.Directed) {
             attrs.directed = true
+        }
+
+        if (link.data.ManualPortMapping) {
+            attrs.classes = ['manual-port-mapping']
+            attrs.label = ''
         }
 
         return attrs

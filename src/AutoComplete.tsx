@@ -157,7 +157,7 @@ export default function Autocomplete(props: AutocompleteProps) {
       }) => {
         const { onChange, ...inputProps } = getInputProps({
           onKeyDown: handleKeyDown,
-          placeholder: placeholder,
+          placeholder: selectedItem.length > 0 ? '' : placeholder,
         })
         return (
           <div className={classes.container}>

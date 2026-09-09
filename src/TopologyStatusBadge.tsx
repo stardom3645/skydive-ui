@@ -209,6 +209,19 @@ const topologyNodeLegendContent = () => <div className="netdive-topology-status-
  * and tone classes instead of maintaining a second legend-only badge style. */
 export const TopologyStatusBadgeLegend = () => {
     const [open, setOpen] = React.useState(false)
+
+    React.useEffect(() => {
+        if (!open) return undefined
+        const closeOnOutsideMouseDown = (event: MouseEvent) => {
+            const target = event.target as Element | null
+            if (!target?.closest) return
+            if (target.closest('.netdive-topology-status-legend-trigger, .netdive-topology-status-legend-popover')) return
+            setOpen(false)
+        }
+        document.addEventListener('mousedown', closeOnOutsideMouseDown, true)
+        return () => document.removeEventListener('mousedown', closeOnOutsideMouseDown, true)
+    }, [open])
+
     return <Popover
         content={<div className="netdive-topology-status-legend">
             <Tabs className="netdive-topology-status-legend__tabs" defaultActiveKey="status">

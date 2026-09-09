@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Badge, Input, Tooltip } from 'antd'
+import { Badge, Input, Modal, Tooltip } from 'antd'
 import { SearchOutlined } from '@ant-design/icons'
 
 import {
@@ -20,6 +20,9 @@ export interface InfrastructurePortMappingTableProps {
     mappings: InfrastructurePortMapping[]
     onNavigate?: (mapping: InfrastructurePortMapping) => void
     perspective?: 'switch' | 'host'
+    expandable?: boolean
+    expanded?: boolean
+    onExpandedChange?: (expanded: boolean) => void
 }
 
 interface State {
@@ -30,6 +33,7 @@ interface State {
 // vertical scrollbar after the body reaches this height, so short lists retain
 // their natural height while the column header stays visible for long lists.
 const PORT_MAPPING_TABLE_BODY_HEIGHT = 288
+const EXPANDED_PORT_MAPPING_TABLE_BODY_HEIGHT = 480
 
 const connectionPresentation = (state: InfrastructurePortConnectionState) => {
     if (state === 'connected') return { label: translate('switchPortMappingConnected'), tone: 'success' as const }
@@ -38,7 +42,7 @@ const connectionPresentation = (state: InfrastructurePortConnectionState) => {
 }
 
 const sourcePresentation = (source: InfrastructurePortMappingSource) => {
-    if (source === 'manual') return { label: translate('switchPortMappingManual'), tone: 'warning' as const }
+    if (source === 'manual') return { label: translate('switchPortMappingManual'), tone: 'default' as const }
     if (source === 'mismatch') return { label: translate('switchPortMappingMismatch'), tone: 'warning' as const }
     return { label: translate('switchPortMappingAutomatic'), tone: 'default' as const }
 }
@@ -138,7 +142,7 @@ export class InfrastructurePortMappingTable extends React.PureComponent<Infrastr
                 key: 'connectionState',
                 width: '19%',
                 sorter: compareMappingField('connectionState'),
-                className: 'netdive-detail-search-table__fixed-column',
+                className: 'netdive-detail-search-table__fixed-column netdive-detail-search-table__connection-state-column',
                 render: (value: InfrastructurePortConnectionState) => {
                     const status = connectionPresentation(value)
                     return <DetailStatusIndicator tone={status.tone} variant="table">{status.label}</DetailStatusIndicator>
@@ -202,7 +206,7 @@ export class InfrastructurePortMappingTable extends React.PureComponent<Infrastr
                 key: 'connectionState',
                 width: '20%',
                 sorter: compareMappingField('connectionState'),
-                className: 'netdive-detail-search-table__fixed-column',
+                className: 'netdive-detail-search-table__fixed-column netdive-detail-search-table__connection-state-column',
                 render: (value: InfrastructurePortConnectionState) => {
                     const status = connectionPresentation(value)
                     return <DetailStatusIndicator tone={status.tone} variant="table">{status.label}</DetailStatusIndicator>
@@ -223,56 +227,85 @@ export class InfrastructurePortMappingTable extends React.PureComponent<Infrastr
         ]
         const columns = hostPerspective ? hostColumns : switchColumns
 
-        return <div className="netdive-detail-search-table">
-            <div className={`netdive-detail-search-table__topbar${hostPerspective ? ' is-host-perspective' : ''}`}>
-                {!hostPerspective && <div className="netdive-detail-search-table__summary" aria-label={translate('switchPortMappingSummary')}>
-                    <DetailBadge className="netdive-detail-search-table__summary-badge">
-                        {translate('all')} {this.props.mappings.length}
-                    </DetailBadge>
-                    <DetailBadge className="netdive-detail-search-table__summary-badge">
-                        <Badge status="success" /> {translate('switchPortMappingAutomatic')} {automaticCount}
-                    </DetailBadge>
-                    <DetailBadge className="netdive-detail-search-table__summary-badge">
-                        <Badge status="warning" /> {translate('switchPortMappingManual')} {manualCount}
-                    </DetailBadge>
-                </div>}
-                <div className="netdive-detail-search-table__toolbar">
-                    <Input
-                        allowClear
-                        prefix={<SearchOutlined />}
-                        placeholder={translate(hostPerspective ? 'hostSwitchPortConnectionsSearch' : 'switchPortMappingSearch')}
-                        value={this.state.search}
-                        onChange={event => this.setState({ search: event.target.value })} />
-                </div>
-            </div>
-            <div className="netdive-detail-search-table__surface">
-                {mappings.length === 0
-                    ? <DetailEmpty description={translate(hostPerspective
-                        ? 'hostSwitchPortConnectionsNoSearchResults'
-                        : this.props.mappings.length === 0
-                            ? 'switchPortMappingEmpty'
-                            : 'switchPortMappingNoSearchResults')} compact />
-                    : <div className="netdive-detail-table-scroll">
-                        <DetailTable<InfrastructurePortMapping>
-                            className="netdive-detail-search-table__table"
-                            columns={columns}
-                            dataSource={mappings}
-                            rowKey="key"
-                            scroll={{ y: PORT_MAPPING_TABLE_BODY_HEIGHT }}
-                            onRow={mapping => this.props.onNavigate ? ({
-                                className: 'is-interactive',
-                                tabIndex: 0,
-                                onClick: () => this.props.onNavigate!(mapping),
-                                onKeyDown: event => {
-                                    if (event.key === 'Enter' || event.key === ' ') {
-                                        event.preventDefault()
-                                        this.props.onNavigate!(mapping)
-                                    }
-                                }
-                            }) : ({})} />
-                    </div>}
-            </div>
+        const summary = <div className="netdive-detail-search-table__summary" aria-label={translate('switchPortMappingSummary')}>
+            <DetailBadge className="netdive-detail-search-table__summary-badge">
+                {translate('all')} {this.props.mappings.length}
+            </DetailBadge>
+            <DetailBadge className="netdive-detail-search-table__summary-badge">
+                <Badge status="success" /> {translate('switchPortMappingAutomatic')} {automaticCount}
+            </DetailBadge>
+            <DetailBadge className="netdive-detail-search-table__summary-badge">
+                <Badge status="warning" /> {translate('switchPortMappingManual')} {manualCount}
+            </DetailBadge>
         </div>
+        const toolbar = <div className="netdive-detail-search-table__toolbar">
+            <Input
+                allowClear
+                prefix={<SearchOutlined />}
+                placeholder={translate(hostPerspective ? 'hostSwitchPortConnectionsSearch' : 'switchPortMappingSearch')}
+                value={this.state.search}
+                onChange={event => this.setState({ search: event.target.value })} />
+        </div>
+        const tableSurface = (expanded: boolean) => <div className="netdive-detail-search-table__surface">
+            {mappings.length === 0
+                ? <DetailEmpty description={translate(hostPerspective
+                    ? 'hostSwitchPortConnectionsNoSearchResults'
+                    : this.props.mappings.length === 0
+                        ? 'switchPortMappingEmpty'
+                        : 'switchPortMappingNoSearchResults')} compact />
+                : <div className="netdive-detail-table-scroll">
+                    <DetailTable<InfrastructurePortMapping>
+                        className="netdive-detail-search-table__table"
+                        columns={columns}
+                        dataSource={mappings}
+                        rowKey="key"
+                        scroll={{ y: expanded
+                            ? EXPANDED_PORT_MAPPING_TABLE_BODY_HEIGHT
+                            : PORT_MAPPING_TABLE_BODY_HEIGHT }}
+                        onRow={mapping => this.props.onNavigate ? ({
+                            className: 'is-interactive',
+                            tabIndex: 0,
+                            onClick: () => {
+                                if (expanded) this.props.onExpandedChange?.(false)
+                                this.props.onNavigate!(mapping)
+                            },
+                            onKeyDown: event => {
+                                if (event.key === 'Enter' || event.key === ' ') {
+                                    event.preventDefault()
+                                    if (expanded) this.props.onExpandedChange?.(false)
+                                    this.props.onNavigate!(mapping)
+                                }
+                            }
+                        }) : ({})} />
+                </div>}
+        </div>
+
+        return <>
+            <div className="netdive-detail-search-table">
+                <div className={`netdive-detail-search-table__topbar${hostPerspective ? ' is-host-perspective' : ''}`}>
+                    {summary}
+                    {toolbar}
+                </div>
+                {tableSurface(false)}
+            </div>
+            {this.props.expandable && <Modal
+                visible={!!this.props.expanded}
+                title={translate(hostPerspective ? 'hostSwitchPortConnections' : 'switchPortMapping')}
+                footer={null}
+                width={1000}
+                centered
+                destroyOnClose
+                wrapClassName="netdive-port-mapping-expanded-modal"
+                onCancel={() => this.props.onExpandedChange?.(false)}>
+                <div className="netdive-detail-search-table is-expanded">
+                    <div className="netdive-detail-search-table__topbar">
+                        {summary}
+                        {toolbar}
+                    </div>
+                    {tableSurface(true)}
+                </div>
+            </Modal>}
+        </>
     }
 }
 

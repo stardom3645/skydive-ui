@@ -22,6 +22,13 @@ import { debounce } from 'throttle-debounce'
 import { resolveKubernetesPodController } from './KubernetesWorkloadOwnership'
 import { isKubernetesTopologyData, isTopologyNodeVisibleInLayer } from './KubernetesInfrastructureEvidence'
 import { TopologyPendingEdges } from './TopologyPendingEdges'
+import {
+  buildManualPortMappingTopologyLinks,
+  isManualPortMappingTopologyLink,
+  isManualPortMappingTopologyNode,
+  ManualPortMappingRecord
+} from './InfrastructurePortMapping'
+import { listManualPortMappings } from './ManualPortMappingAPI'
 
 import { withStyles } from '@material-ui/core/styles'
 import CssBaseline from '@material-ui/core/CssBaseline'
@@ -33,7 +40,6 @@ import Typography from '@material-ui/core/Typography'
 import KeyboardArrowDown from '@material-ui/icons/KeyboardArrowDown'
 import RemoveShoppingCartIcon from '@material-ui/icons/RemoveShoppingCart'
 import AccessTimeIcon from '@material-ui/icons/AccessTime'
-import RestoreIcon from '@material-ui/icons/Restore'
 import Divider from '@material-ui/core/Divider'
 import Container from '@material-ui/core/Container'
 import Paper from '@material-ui/core/Paper'
@@ -55,7 +61,6 @@ import DialogTitle from '@material-ui/core/DialogTitle'
 import DialogContent from '@material-ui/core/DialogContent'
 import DialogActions from '@material-ui/core/DialogActions'
 import Button from '@material-ui/core/Button'
-import Chip from '@material-ui/core/Chip'
 import Popover from '@material-ui/core/Popover'
 import UnfoldMoreIcon from '@material-ui/icons/UnfoldMore'
 import UnfoldLessIcon from '@material-ui/icons/UnfoldLess'
@@ -525,6 +530,9 @@ class App extends React.Component<Props, State> {
   private moldInventoryUnavailable: boolean
   private initialTopologyLayerPending: boolean
   private pendingTopologyEdges = new TopologyPendingEdges<any>()
+  private manualPortMappings: ManualPortMappingRecord[] = []
+  private manualPortMappingRequestID = 0
+  private manualPortMappingRefreshID?: number
   private selectionHistoryNavigating = false
 
   constructor(props) {
@@ -688,6 +696,7 @@ class App extends React.Component<Props, State> {
     this.refreshManagementServers()
     this.refreshVMConsoleEnabled()
     this.refreshKubernetesClusters()
+    this.refreshManualPortMappingLinks()
     this.vmNameMapRefreshID = window.setInterval(() => {
       this.refreshVmNameMap()
       this.refreshVmNetworkMap()
@@ -720,7 +729,115 @@ class App extends React.Component<Props, State> {
     if (this.infrastructureAgentRestartPollID) {
       window.clearTimeout(this.infrastructureAgentRestartPollID)
     }
+    if (this.manualPortMappingRefreshID) {
+      window.clearTimeout(this.manualPortMappingRefreshID)
+    }
     this.clearKubernetesTestProgress()
+  }
+
+  refreshManualPortMappingLinks = async () => {
+    const requestID = ++this.manualPortMappingRequestID
+    try {
+      const mappings = await listManualPortMappings(this.props.session)
+      if (requestID !== this.manualPortMappingRequestID) return
+      this.manualPortMappings = mappings
+      if (this.reconcileManualPortMappingLinks()) this.refreshTopology()
+    } catch (error) {
+      if (requestID === this.manualPortMappingRequestID) {
+        console.warn('[ManualPortMapping] failed to refresh topology links', error)
+      }
+    }
+  }
+
+  private scheduleManualPortMappingRefresh() {
+    if (this.manualPortMappingRefreshID) {
+      window.clearTimeout(this.manualPortMappingRefreshID)
+    }
+    // The analyzer reconciles the SQLite record synchronously when an LLDP
+    // relation arrives. Reload shortly after the topology event so a cached
+    // MANUAL row cannot reappear if that AUTO edge is removed later.
+    this.manualPortMappingRefreshID = window.setTimeout(() => {
+      this.manualPortMappingRefreshID = undefined
+      this.refreshManualPortMappingLinks()
+    }, 100)
+  }
+
+  private reconcileManualPortMappingLinks(): boolean {
+    const topology = this.tc
+    if (!topology) return false
+    const nodes = Array.from(topology.nodes.values())
+    const links = Array.from(topology.links.values())
+    const desiredLinks = buildManualPortMappingTopologyLinks(this.manualPortMappings, nodes, links)
+    const desiredIDs = new Set(desiredLinks.map(link => link.id))
+    const desiredPortIDs = new Set(desiredLinks.map(link => link.portNodeID))
+    let changed = false
+
+    links.forEach(link => {
+      if (isManualPortMappingTopologyLink(link) && !desiredIDs.has(link.id)) {
+        if (this.props.selection.some(selected => selected.type === 'link' && selected.id === link.id)) {
+          this.props.unselectElement(link)
+        }
+        topology.delLink(link.id)
+        changed = true
+      }
+    })
+
+    nodes.forEach(node => {
+      if (isManualPortMappingTopologyNode(node) && !desiredPortIDs.has(node.id)) {
+        if (this.props.selection.some(selected => selected.type === 'node' && selected.id === node.id)) {
+          this.props.unselectElement(node)
+        }
+        topology.delNode(node.id)
+        changed = true
+      }
+    })
+
+    desiredLinks.forEach(desired => {
+      const switchNode = topology.nodes.get(desired.switchNodeID)
+      if (!switchNode) return
+      let portNode = topology.nodes.get(desired.portNodeID)
+      if (!portNode) {
+        portNode = topology.addNode(
+          desired.portNodeID,
+          this.config.nodeTags(desired.portData),
+          desired.portData,
+          (node: Node): number => this.config.nodeAttrs(node).weight)
+        changed = true
+      } else if (portNode.data?.Name !== desired.portData.Name) {
+        topology.updateNode(desired.portNodeID, desired.portData)
+        changed = true
+      }
+      if (portNode.parent?.id !== switchNode.id) {
+        topology.setParent(portNode, switchNode)
+        changed = true
+      }
+    })
+
+    desiredLinks.forEach(desired => {
+      const source = topology.nodes.get(desired.sourceNodeID)
+      const target = topology.nodes.get(desired.targetNodeID)
+      if (!source || !target) return
+      const current = topology.links.get(desired.id)
+      if (current
+        && current.source.id === desired.sourceNodeID
+        && current.target.id === desired.targetNodeID) {
+        if (current.data?.SwitchPortName !== desired.data.SwitchPortName) {
+          topology.updateLink(desired.id, desired.data)
+          changed = true
+        }
+        return
+      }
+      if (current) {
+        if (this.props.selection.some(selected => selected.type === 'link' && selected.id === current.id)) {
+          this.props.unselectElement(current)
+        }
+        topology.delLink(desired.id)
+      }
+      topology.addLink(desired.id, source, target, desired.tags, desired.data)
+      changed = true
+    })
+
+    return changed
   }
 
   private onDocumentMouseDown(event: MouseEvent) {
@@ -2019,6 +2136,7 @@ class App extends React.Component<Props, State> {
     }
 
     this.reconcileKubernetesWorkloadHierarchy()
+    this.reconcileManualPortMappingLinks()
 
     if (this.initialTopologyLayerPending) {
       const initialTag = this.state.initialTopologyLayer === "kubernetes" && this.tc.nodeTagStates.has("kubernetes")
@@ -2129,6 +2247,7 @@ class App extends React.Component<Props, State> {
 
   _refreshTopology() {
     if (this.tc) {
+      this.reconcileManualPortMappingLinks()
       this.reconcileKubernetesWorkloadHierarchy()
       this.tc.renderTree();
       this.pruneRecentViewedNodes()
@@ -2152,6 +2271,7 @@ class App extends React.Component<Props, State> {
           }
         }
         this.synced = true
+        this.refreshManualPortMappingLinks()
         break
       case "NodeAdded":
         if (!this.synced) {
@@ -2183,6 +2303,9 @@ class App extends React.Component<Props, State> {
         if (!this.synced) {
           return
         }
+        if (String(data.Obj?.Metadata?.RelationType || '').toLowerCase() !== 'ownership') {
+          this.scheduleManualPortMappingRefresh()
+        }
         if (this.addEdge(data.Obj)) {
           this.refreshTopology()
 
@@ -2195,6 +2318,10 @@ class App extends React.Component<Props, State> {
       case "EdgeUpdated":
         if (!this.synced) {
           return
+        }
+
+        if (String(data.Obj?.Metadata?.RelationType || '').toLowerCase() !== 'ownership') {
+          this.scheduleManualPortMappingRefresh()
         }
 
         if (this.updatedEdge(data.Obj)) {
@@ -4086,26 +4213,6 @@ class App extends React.Component<Props, State> {
   renderMenuButtons(classes: any) {
     return (
       <div className={classes.toolbarUtilityActions}>
-        {this.state.timeContext &&
-          <Chip
-            icon={<RestoreIcon />}
-            label={this.state.timeContext.toString().split(" (")[0]}
-            color="primary"
-            onClick={() => this.openTimetravel()}
-            onDelete={() => this.resetTimetravel()}
-          />
-        }
-        {!this.state.timeContext &&
-          <IconButton
-            aria-controls="menu-time"
-            aria-haspopup="true"
-            onClick={() => this.openTimetravel()}
-            color="inherit">
-            <Badge color="secondary">
-              <RestoreIcon />
-            </Badge>
-          </IconButton>
-        }
         <IconButton
           aria-controls="menu-selection"
           aria-haspopup="true"
@@ -4133,7 +4240,7 @@ class App extends React.Component<Props, State> {
             <ListItemIcon>
               <KeyboardArrowDown fontSize="small" />
             </ListItemIcon>
-            <Typography>Show selection</Typography>
+            <Typography>{translate('showSelection')}</Typography>
           </MenuItem>
           <Divider />
           {this.renderSelectionMenuItem(classes)}
@@ -4142,7 +4249,7 @@ class App extends React.Component<Props, State> {
             <ListItemIcon>
               <RemoveShoppingCartIcon fontSize="small" />
             </ListItemIcon>
-            <Typography>Unselect all</Typography>
+            <Typography>{translate('unselectAll')}</Typography>
           </MenuItem>
         </Menu>
         {/* <IconButton
@@ -4915,11 +5022,11 @@ class App extends React.Component<Props, State> {
     )
   }
 
-  private renderKubernetesTopologySummaryCard(classes: any, icon: React.ReactNode, label: string, value: number, nodeIDs: string[], onClick?: () => void) {
+  private renderKubernetesTopologySummaryCard(classes: any, icon: React.ReactNode, label: string, value: number, nodeIDs: string[], onClick?: () => void, multilineLabel = false) {
     return (
       <button
         type="button"
-        className={classes.kubernetesTopologySummaryCard}
+        className={clsx(classes.kubernetesTopologySummaryCard, multilineLabel && classes.kubernetesTopologySummaryCardMultiline)}
         onClick={onClick || (() => this.focusInfrastructureNodeIDs(nodeIDs))}
         disabled={nodeIDs.length === 0}>
         <span className={classes.kubernetesTopologySummaryInfo}>
@@ -5565,7 +5672,7 @@ class App extends React.Component<Props, State> {
           {this.renderKubernetesTopologySummaryCard(classes, this.infrastructureIcon("\uf542", "network"), translate("kubernetesTopologyClusters"), summary.clusters, summary.clusterNodeIDs)}
           {this.renderKubernetesTopologySummaryCard(classes, this.infrastructureIcon("\uf233", "host"), translate("kubernetesTopologyNodes"), summary.nodes, summary.nodeNodeIDs)}
           {this.renderKubernetesTopologySummaryCard(classes, this.infrastructureIcon("\uf07b", "network"), translate("kubernetesTopologyNamespaces"), summary.namespaces, summary.namespaceNodeIDs)}
-          {this.renderKubernetesTopologySummaryCard(classes, this.infrastructureIcon("\uf5fd", "system-vm"), translate("kubernetesTopologyWorkloadControllers"), summary.workloads, summary.workloadNodeIDs)}
+          {this.renderKubernetesTopologySummaryCard(classes, this.infrastructureIcon("\uf5fd", "system-vm"), translate("kubernetesTopologyWorkloadControllers"), summary.workloads, summary.workloadNodeIDs, undefined, true)}
           {this.renderKubernetesTopologySummaryCard(classes, this.infrastructureIcon("\uf1b3", "network"), translate("kubernetesTopologyPods"), summary.pods, summary.podNodeIDs)}
           {this.renderKubernetesTopologySummaryCard(
             classes,

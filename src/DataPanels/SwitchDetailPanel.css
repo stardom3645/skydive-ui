@@ -3,7 +3,7 @@
     flex-direction: column;
     gap: 14px;
     padding-bottom: 8px;
-    font-family: var(--netdive-mold-font-family);
+    font-family: var(--netdive-font-family);
 }
 
 .netdive-switch-detail .ant-typography,
@@ -19,7 +19,7 @@
 .netdive-manual-port-mapping-modal .ant-table,
 .netdive-manual-port-mapping-dropdown,
 .netdive-manual-port-mapping-nic-dropdown {
-    font-family: var(--netdive-mold-font-family) !important;
+    font-family: var(--netdive-font-family) !important;
 }
 
 .netdive-switch-detail .ant-btn,
@@ -33,7 +33,7 @@
 .netdive-switch-port-mapping-section .netdive-detail-section__header {
     align-items: flex-start;
     column-gap: 18px;
-    row-gap: 6px;
+    row-gap: 4px;
 }
 
 .netdive-switch-port-mapping-section.ant-card > .ant-card-head .ant-card-head-title {
@@ -47,7 +47,7 @@
 }
 
 .netdive-switch-port-mapping-section .netdive-detail-section__icon {
-    color: var(--netdive-detail-primary);
+    color: var(--netdive-detail-text);
 }
 
 .netdive-switch-port-mapping-section .netdive-detail-section__title.ant-typography {
@@ -63,6 +63,10 @@
     white-space: normal;
 }
 
+.netdive-switch-port-mapping-section .netdive-detail-section__header--full-width-description > .netdive-detail-section__description-row {
+    margin-top: 0;
+}
+
 .netdive-switch-port-mapping-section .netdive-detail-section__description.ant-typography {
     overflow-wrap: anywhere;
 }
@@ -70,20 +74,25 @@
 .netdive-switch-port-mapping-section .netdive-detail-section__actions {
     flex: 0 0 auto;
     margin-left: 10px;
+    transform: translateY(-2px);
 }
 
 .netdive-switch-port-mapping-section .netdive-detail-section__actions .ant-btn {
     white-space: nowrap;
 }
 
+.netdive-switch-port-mapping-section__actions {
+    min-width: 0;
+}
+
 .netdive-manual-port-mapping-trigger.ant-btn {
     display: inline-flex;
-    height: 32px;
+    height: 28px;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    padding: 0 12px;
-    font-size: 14px;
+    gap: 5px;
+    padding: 0 9px;
+    font-size: 13px;
     font-weight: 400;
     letter-spacing: normal;
     line-height: 1.5;
@@ -115,10 +124,34 @@
     font-weight: 400;
 }
 
+.netdive-manual-port-mapping-delete-confirm {
+    min-width: 260px;
+    font-family: var(--netdive-font-family) !important;
+}
+
+.netdive-manual-port-mapping-delete-confirm .ant-popover-message-title {
+    white-space: nowrap;
+}
+
 .netdive-manual-port-mapping-manager {
     display: flex;
     flex-direction: column;
     gap: 12px;
+}
+
+/* Match Ant's modal body typography at the text-bearing elements. The shared
+ * detail table stylesheet makes option content 12px, and the popup container
+ * can live inside a bold form label rather than under document.body. */
+.netdive-manual-port-mapping-modal .ant-modal,
+.netdive-manual-port-mapping-modal .ant-input,
+.netdive-manual-port-mapping-modal .ant-select,
+.netdive-manual-port-mapping-nic-dropdown,
+.netdive-manual-port-mapping-nic-dropdown .ant-select-item-option-content,
+.netdive-manual-port-mapping-modal .netdive-manual-port-mapping-manager__submit.ant-btn {
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.5715;
+    letter-spacing: normal;
 }
 
 .netdive-manual-port-mapping-manager__form {
@@ -197,19 +230,21 @@
     display: flex;
     height: 32px;
     align-items: center;
+    justify-content: flex-end;
     gap: 6px;
     padding-right: 2px;
+}
+
+.netdive-manual-port-mapping-manager__cancel.ant-btn {
+    min-width: 76px;
+    height: 32px;
+    padding: 0 12px;
 }
 
 .netdive-manual-port-mapping-manager__submit.ant-btn {
     min-width: 88px;
     height: 32px;
     padding: 0 14px;
-    font-family: var(--netdive-mold-font-family) !important;
-    font-size: 14px;
-    font-weight: 400;
-    letter-spacing: normal;
-    line-height: 1.5;
 }
 
 @media (max-width: 720px) {

@@ -6282,6 +6282,7 @@ export class Topology extends React.Component<Props, {}> {
             .attr("d", linkPath)
 
         const linkLabelClass = (d: Link) => new Array<string>().concat("link-label",
+            this.props.linkAttrs(d).classes,
             this.isLinkNodeSelected(d) ? "link-label-priority" : "").join(" ")
 
         const linkLabelPosition = (d: Link) => {

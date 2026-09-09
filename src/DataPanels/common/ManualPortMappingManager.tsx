@@ -197,7 +197,14 @@ export class ManualPortMappingManager extends React.PureComponent<Props, State> 
 				title: translate('manualPortMappingActions'), key: 'actions', width: 86,
 				render: (_: any, mapping: ManualPortMappingRecord) => <Space size={2}>
 					<Button type="text" size="small" icon={<EditOutlined />} aria-label={translate('manualPortMappingEdit')} onClick={() => this.edit(mapping)} />
-					<Popconfirm title={translate('manualPortMappingDeleteConfirm')} onConfirm={() => this.disable(mapping)}>
+					<Popconfirm
+						title={translate('manualPortMappingDeleteConfirm')}
+						okText={translate('manualPortMappingDeleteOk')}
+						cancelText={translate('cancel')}
+						placement="bottomRight"
+						overlayClassName="netdive-manual-port-mapping-delete-confirm"
+						getPopupContainer={() => document.body}
+						onConfirm={() => this.disable(mapping)}>
 						<Button type="text" danger size="small" icon={<DeleteOutlined />} aria-label={translate('manualPortMappingDelete')} />
 					</Popconfirm>
 				</Space>
@@ -209,6 +216,7 @@ export class ManualPortMappingManager extends React.PureComponent<Props, State> 
 				overlay={managementMenu}
 				overlayClassName="netdive-manual-port-mapping-dropdown"
 				placement="bottomRight"
+				getPopupContainer={() => document.body}
 				trigger={['click']}>
 				<Button className="netdive-manual-port-mapping-trigger" onClick={event => event.preventDefault()}>
 					<PlusOutlined />
@@ -246,6 +254,7 @@ export class ManualPortMappingManager extends React.PureComponent<Props, State> 
 							<span>{translate('switchPortMappingNic')}</span>
 							<Select
 								showSearch
+								optionLabelProp="label"
 								dropdownClassName="netdive-manual-port-mapping-nic-dropdown"
 								filterOption={(input, option) => String(option?.title || '').toLowerCase().includes(input.trim().toLowerCase())}
 								placeholder={translate('manualPortMappingSelectNic')}
@@ -267,6 +276,7 @@ export class ManualPortMappingManager extends React.PureComponent<Props, State> 
 											return <Select.Option
 												key={item.node.id}
 												value={item.node.id}
+												label={`${nodeName(item.host)} / ${nodeName(item.node)}`}
 												title={`${nodeName(item.host)} / ${nodeName(item.node)} ${stateLabel}`}>
 												<span className="netdive-manual-port-mapping-manager__nic-option">
 													<span>{nodeName(item.host)} / {nodeName(item.node)}</span>
@@ -288,7 +298,7 @@ export class ManualPortMappingManager extends React.PureComponent<Props, State> 
 							</Select>
 						</label>
 						<div className="netdive-manual-port-mapping-manager__form-actions">
-							{editing && <Button size="small" onClick={this.openList}>{translate('manualPortMappingCancelEdit')}</Button>}
+							{editing && <Button className="netdive-manual-port-mapping-manager__cancel" onClick={this.openList}>{translate('manualPortMappingCancelEdit')}</Button>}
 							<Button
 								className="netdive-manual-port-mapping-manager__submit"
 								type="primary"

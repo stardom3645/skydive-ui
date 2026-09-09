@@ -1,5 +1,6 @@
 import * as React from 'react'
-import { ApartmentOutlined, InfoCircleOutlined, LinkOutlined, PartitionOutlined } from '@ant-design/icons'
+import { Button, Tooltip } from 'antd'
+import { ApartmentOutlined, ArrowsAltOutlined, InfoCircleOutlined, LinkOutlined, PartitionOutlined } from '@ant-design/icons'
 
 import { Link, Node, NodeAttrs } from '../Topology'
 import { session } from '../Store'
@@ -24,10 +25,11 @@ interface Props {
 interface State {
     manualMappings: ManualPortMappingRecord[]
 	allManualMappings: ManualPortMappingRecord[]
+    portMappingExpanded: boolean
 }
 
 class SwitchDetailPanel extends React.Component<Props> {
-    state: State = { manualMappings: [], allManualMappings: [] }
+    state: State = { manualMappings: [], allManualMappings: [], portMappingExpanded: false }
 
     componentDidMount() {
         this.loadManualMappings()
@@ -35,7 +37,7 @@ class SwitchDetailPanel extends React.Component<Props> {
 
     componentDidUpdate(prevProps: Props) {
         if (prevProps.node.id !== this.props.node.id) {
-            this.setState({ manualMappings: [], allManualMappings: [] }, this.loadManualMappings)
+            this.setState({ manualMappings: [], allManualMappings: [], portMappingExpanded: false }, this.loadManualMappings)
         }
     }
 
@@ -49,6 +51,11 @@ class SwitchDetailPanel extends React.Component<Props> {
             console.warn('[ManualPortMapping] failed to load switch mappings', error)
             if (this.props.node.id === switchNodeID) this.setState({ manualMappings: [], allManualMappings: [] })
         }
+    }
+
+    private manualMappingsChanged = async () => {
+        await this.loadManualMappings()
+        await (window as any).App?.refreshManualPortMappingLinks?.()
     }
 
     private data(): any {
@@ -211,16 +218,30 @@ class SwitchDetailPanel extends React.Component<Props> {
                     title={translate('switchPortMapping')}
                     description={translate('switchPortMappingDescription')}
                     fullWidthDescription
-                    action={<ManualPortMappingManager
-                        switchNode={this.props.node}
-                        nodes={this.topologyNodes()}
-                        automaticMappings={this.allAutomaticPortMappings()}
-                        mappings={this.state.manualMappings}
-                        allMappings={this.state.allManualMappings}
-                        session={this.props.session}
-                        onChanged={this.loadManualMappings} />}>
+                    action={<div className="netdive-switch-port-mapping-section__actions netdive-port-mapping-header-actions">
+                        <ManualPortMappingManager
+                            switchNode={this.props.node}
+                            nodes={this.topologyNodes()}
+                            automaticMappings={this.allAutomaticPortMappings()}
+                            mappings={this.state.manualMappings}
+                            allMappings={this.state.allManualMappings}
+                            session={this.props.session}
+                            onChanged={this.manualMappingsChanged} />
+                        <Tooltip title={translate('switchPortMappingExpandView')}>
+                            <Button
+                                className="netdive-port-mapping-expand-trigger"
+                                icon={<ArrowsAltOutlined />}
+                                disabled={this.portMappings().length === 0}
+                                onClick={() => this.setState({ portMappingExpanded: true })}>
+                                {translate('switchPortMappingExpandView')}
+                            </Button>
+                        </Tooltip>
+                    </div>}>
                     <InfrastructurePortMappingTable
                         mappings={this.portMappings()}
+                        expandable
+                        expanded={this.state.portMappingExpanded}
+                        onExpandedChange={portMappingExpanded => this.setState({ portMappingExpanded })}
                         onNavigate={mapping => this.focusPortMapping(mapping)} />
                 </DetailSection>
                 <DetailSection icon={<LinkOutlined />} title={translate('hostConnectedResources')}>

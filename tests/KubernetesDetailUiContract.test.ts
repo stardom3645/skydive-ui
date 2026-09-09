@@ -302,6 +302,8 @@ describe('Kubernetes detail UI contract', () => {
         assert.ok(badgeView.includes('숫자는 현재 단계의 자원 상태 개수를 나타냅니다.'))
         assert.ok(badgeView.includes('trigger="click"'))
         assert.ok(badgeView.includes('<Tooltip title="토폴로지 범례" placement="bottom"'))
+        assert.ok(badgeView.includes("document.addEventListener('mousedown', closeOnOutsideMouseDown, true)"))
+        assert.ok(badgeView.includes("target.closest('.netdive-topology-status-legend-trigger, .netdive-topology-status-legend-popover')"))
         assert.ok(badgeView.includes('<Tabs.TabPane tab="상태 배지" key="status">'))
         assert.ok(badgeView.includes('<Tabs.TabPane tab="노드 표현" key="node">'))
         assert.ok(badgeView.includes('className="netdive-topology-status-legend__tabs"'))

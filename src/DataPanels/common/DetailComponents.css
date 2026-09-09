@@ -3107,13 +3107,47 @@ button.netdive-detail-metric-row:focus-visible {
     padding: 0 6px;
     border-color: var(--netdive-detail-row-divider);
     border-radius: 999px;
-    color: var(--netdive-detail-text-secondary);
+    color: #475467;
     background: var(--netdive-detail-table-header-bg);
+    font-weight: 500;
 }
 
 .netdive-detail-search-table__summary-badge .ant-badge-status-dot {
     width: 6px;
     height: 6px;
+}
+
+.netdive-port-mapping-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.netdive-port-mapping-header-actions .ant-btn {
+    display: inline-flex;
+    height: 28px;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 0 9px;
+    border-color: var(--netdive-detail-row-divider);
+    border-radius: 6px;
+    color: var(--netdive-detail-text-secondary);
+    background: #fff;
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.5;
+}
+
+.netdive-port-mapping-header-actions .ant-btn > .anticon + span {
+    margin-left: 0;
+}
+
+.netdive-port-mapping-header-actions .ant-btn:hover,
+.netdive-port-mapping-header-actions .ant-btn:focus {
+    border-color: #1890ff;
+    color: #1890ff;
+    background: #fff;
 }
 
 .netdive-detail-search-table__toolbar {
@@ -3140,6 +3174,38 @@ button.netdive-detail-metric-row:focus-visible {
     border: 1px solid var(--netdive-detail-row-divider);
     border-radius: 7px;
     background: #fff;
+}
+
+.netdive-port-mapping-expanded-modal,
+.netdive-port-mapping-expanded-modal .ant-modal,
+.netdive-port-mapping-expanded-modal .ant-btn,
+.netdive-port-mapping-expanded-modal .ant-input,
+.netdive-port-mapping-expanded-modal .ant-table,
+.netdive-port-mapping-expanded-modal .ant-tag {
+    font-family: var(--netdive-font-family) !important;
+}
+
+.netdive-port-mapping-expanded-modal .ant-modal {
+    max-width: calc(100vw - 32px);
+}
+
+.netdive-port-mapping-expanded-modal .ant-modal-body {
+    padding: 16px 20px 20px;
+}
+
+.netdive-detail-search-table.is-expanded .netdive-detail-search-table__topbar {
+    padding: 0 0 10px;
+}
+
+.netdive-detail-search-table.is-expanded .netdive-detail-search-table__surface {
+    margin: 0;
+}
+
+.netdive-detail-search-table.is-expanded .netdive-detail-search-table__table .ant-table-thead > tr > th,
+.netdive-detail-search-table.is-expanded .netdive-detail-search-table__table .ant-table-tbody > tr > td {
+    max-width: none;
+    padding-right: 12px;
+    padding-left: 12px;
 }
 
 .netdive-detail-search-table__surface .netdive-detail-empty.ant-empty {
@@ -3251,6 +3317,10 @@ button.netdive-detail-metric-row:focus-visible {
 
 .netdive-detail-search-table__fixed-column .netdive-detail-badge {
     margin-right: 0;
+}
+
+.netdive-detail-search-table__table .ant-table-tbody > tr > td.netdive-detail-search-table__connection-state-column {
+    text-align: left;
 }
 
 .netdive-detail-search-table__stacked-cell {

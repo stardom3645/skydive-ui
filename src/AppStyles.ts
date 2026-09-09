@@ -1457,6 +1457,15 @@ export const styles = (theme: Theme) => createStyles({
       lineHeight: 1
     }
   },
+  kubernetesTopologySummaryCardMultiline: {
+    '& small': {
+      display: '-webkit-box',
+      lineHeight: 1.2,
+      whiteSpace: 'normal',
+      WebkitBoxOrient: 'vertical',
+      WebkitLineClamp: 2
+    }
+  },
   kubernetesTopologySummaryInfo: {
     minWidth: 0,
     display: 'inline-flex',
@@ -1503,7 +1512,7 @@ export const styles = (theme: Theme) => createStyles({
   },
   kubernetesResourceExplorerList: {
     display: 'flex',
-    maxHeight: 220,
+    maxHeight: 236,
     flexDirection: 'column',
     overflowY: 'auto',
     borderTop: '1px solid var(--netdive-detail-card-border)'
@@ -1514,7 +1523,7 @@ export const styles = (theme: Theme) => createStyles({
     alignItems: 'center',
     gap: theme.spacing(1),
     width: '100%',
-    minHeight: 52,
+    minHeight: 56,
     padding: theme.spacing(0.5, 0.8),
     border: 0,
     borderBottom: '1px solid var(--netdive-detail-card-border)',
@@ -1535,6 +1544,7 @@ export const styles = (theme: Theme) => createStyles({
       overflow: 'hidden',
       color: 'var(--netdive-detail-title)',
       fontSize: 12,
+      lineHeight: 1.2,
       textOverflow: 'ellipsis',
       whiteSpace: 'nowrap'
     },
@@ -1542,6 +1552,7 @@ export const styles = (theme: Theme) => createStyles({
       overflow: 'hidden',
       color: 'var(--netdive-detail-muted)',
       fontSize: 10.5,
+      lineHeight: 1.2,
       textOverflow: 'ellipsis',
       whiteSpace: 'nowrap'
     },

@@ -158,6 +158,14 @@ svg {
     marker-end: unset;
 }
 
+.links .manual-port-mapping {
+    stroke: #d48806;
+    stroke-width: 2;
+    stroke-dasharray: 8 6;
+    marker-start: none;
+    marker-end: none;
+}
+
 .link.infra-focus-dim,
 .link-overlay.infra-focus-dim,
 .link-label.infra-focus-dim,
