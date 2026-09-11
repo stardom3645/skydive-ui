@@ -26,6 +26,7 @@ import {
   buildManualPortMappingTopologyLinks,
   isManualPortMappingTopologyLink,
   isManualPortMappingTopologyNode,
+  manualPortMappingTopologyPortID,
   ManualPortMappingRecord
 } from './InfrastructurePortMapping'
 import { listManualPortMappings } from './ManualPortMappingAPI'
@@ -95,16 +96,28 @@ import {
   BulbOutlined,
   ClusterOutlined,
   CopyOutlined,
+  DashboardOutlined,
   EyeOutlined,
+  ExclamationCircleFilled,
   FilterOutlined,
   GlobalOutlined,
   InfoCircleOutlined,
+  MinusCircleFilled,
+  QuestionCircleFilled,
   ReloadOutlined,
-  SearchOutlined
+  SearchOutlined,
+  SafetyCertificateFilled
 } from '@ant-design/icons'
 
 import { styles } from './AppStyles'
-import { Topology, Node, NodeAttrs, LinkAttrs, LinkTagState, Link, isTopologyDownNode } from './Topology'
+import { Topology, Node, NodeAttrs, LinkAttrs, LinkTagState, Link, isTopologyDownNode, topologyNodeStatus } from './Topology'
+import { StatusSummaryEntry, SummaryStatus, statusSummaryEntries, statusSummaryCounts, statusSummaryResourceCounts, filterStatusSummary } from './StatusSummary'
+import {
+  TopologyResourceCategory,
+  TopologyResourceDomain,
+  infrastructureResourceCategory,
+  kubernetesResourceCategory
+} from './TopologyResourceClassification'
 import { TopologyStatusBadgeLegend } from './TopologyStatusBadge'
 import {
   isInactiveMoldKubernetesClusterState,
@@ -130,7 +143,7 @@ import VMConsoleButton from './ActionButtons/VMConsole'
 import CapturePanel from './DataPanels/Capture'
 import CaptureStatusPanel, { SimpleCaptureSession } from './DataPanels/CaptureStatus'
 import FlowPanel from './DataPanels/Flow'
-import { DetailSection } from './DataPanels/common/DetailComponents'
+import { DetailSection, DetailStatusIndicator, DetailPanelHeader, DetailInlineSectionHeader } from './DataPanels/common/DetailComponents'
 import DetailTable from './DataPanels/common/DetailTable'
 import TimetravelPanel from './TimetravelPanel'
 
@@ -141,6 +154,7 @@ import ConfigReducer, { Filter } from './Config'
 import { fetchVmNameMap } from "./api";
 
 import { translate } from "./Config"
+import EventHistory, { ChangeEvent } from './EventHistory'
 
 export let currentLanguage: "en" | "ko" = "ko";
 
@@ -222,6 +236,7 @@ const RECENT_VIEWED_NODES_STORAGE_KEY = "netdive-recent-viewed-nodes"
 const KUBERNETES_MANUALLY_DISABLED_STORAGE_KEY = "netdive-kubernetes-manually-disabled-clusters"
 const INITIAL_TOPOLOGY_LAYER_STORAGE_KEY = "netdive-initial-topology-layer"
 const TOPOLOGY_DISPLAY_OPTIONS_STORAGE_KEY = "netdive-topology-display-options"
+const STATUS_SUMMARY_MENU_ENABLED = false
 
 const getSavedNetdiveTheme = (): NetdiveTheme => {
   const savedTheme = localStorage.getItem("netdive-theme")
@@ -314,6 +329,12 @@ interface State {
   netdiveTheme: NetdiveTheme
   initialTopologyLayer: InitialTopologyLayer
   isInfrastructurePanelOpen: boolean
+  isStatusSummaryOpen: boolean
+  isEventHistoryOpen: boolean
+  statusSummaryFilter: SummaryStatus | 'all'
+  statusSummaryResourceDomain: TopologyResourceDomain | 'all'
+  statusSummaryResourceCategory: TopologyResourceCategory | 'all'
+  statusSummarySearch: string
   infrastructureFocus: InfrastructureFocusKey | ""
   infrastructureViewMode: InfrastructureViewMode
   infrastructureAgentRestartDialogOpen: boolean
@@ -575,6 +596,12 @@ class App extends React.Component<Props, State> {
       netdiveTheme: getSavedNetdiveTheme(),
       initialTopologyLayer: getSavedInitialTopologyLayer(),
       isInfrastructurePanelOpen: false,
+      isStatusSummaryOpen: false,
+      isEventHistoryOpen: false,
+      statusSummaryFilter: 'all',
+      statusSummaryResourceDomain: 'all',
+      statusSummaryResourceCategory: 'all',
+      statusSummarySearch: '',
       infrastructureFocus: "",
       infrastructureViewMode: "all",
       infrastructureAgentRestartDialogOpen: false,
@@ -842,7 +869,7 @@ class App extends React.Component<Props, State> {
 
   private onDocumentMouseDown(event: MouseEvent) {
     const isLinkTagsExpanded = !this.state.isLinkTagsCollapsed && this.state.linkTagStates.size !== 0
-    if (!this.state.isInfrastructurePanelOpen && !this.state.isKubernetesManagerOpen && !this.state.isScreenConfigOpen && !this.state.isPreferencesPanelOpen && !this.state.isHelpOpen && !this.state.isAboutOpen && !isLinkTagsExpanded) {
+    if (!this.state.isEventHistoryOpen && !this.state.isStatusSummaryOpen && !this.state.isInfrastructurePanelOpen && !this.state.isKubernetesManagerOpen && !this.state.isScreenConfigOpen && !this.state.isPreferencesPanelOpen && !this.state.isHelpOpen && !this.state.isAboutOpen && !isLinkTagsExpanded) {
       return
     }
     const target = event.target as Element | null
@@ -860,6 +887,8 @@ class App extends React.Component<Props, State> {
 
   private closeSidePanels(extraState: { isSelectionOpen?: boolean, isTimetravelOpen?: boolean, isLinkTagsCollapsed?: boolean } = {}) {
     this.setState({
+      isEventHistoryOpen: false,
+      isStatusSummaryOpen: false,
       isSelectionOpen: extraState.isSelectionOpen !== undefined ? extraState.isSelectionOpen : this.state.isSelectionOpen,
       isTimetravelOpen: extraState.isTimetravelOpen !== undefined ? extraState.isTimetravelOpen : this.state.isTimetravelOpen,
       isLinkTagsCollapsed: extraState.isLinkTagsCollapsed !== undefined ? extraState.isLinkTagsCollapsed : this.state.isLinkTagsCollapsed,
@@ -1441,7 +1470,8 @@ class App extends React.Component<Props, State> {
       if (node.data.Manager !== "k8s") {
         return
       }
-      switch (node.data.Type) {
+      const primaryCategory = kubernetesResourceCategory(node)
+      switch (primaryCategory || node.data.Type) {
         case "cluster":
           summary.clusters += 1
           summary.clusterNodeIDs.push(node.id)
@@ -1855,7 +1885,10 @@ class App extends React.Component<Props, State> {
         [cluster.id, cluster.name]
           .map(value => String(value || '').trim().toLowerCase())
           .some(value => !!value && keys.includes(value)))
-      if (configured) clusterNode.data.MoldClusterState = configured.state
+      if (configured) {
+        clusterNode.data.MoldClusterState = configured.state
+        clusterNode.data.MoldClusterID = configured.id
+      }
     })
     const clusterKeys = (node: Node): string[] => {
       const type = String(node.data?.Type || "").toLowerCase()
@@ -2251,6 +2284,7 @@ class App extends React.Component<Props, State> {
       this.reconcileKubernetesWorkloadHierarchy()
       this.tc.renderTree();
       this.pruneRecentViewedNodes()
+      if (this.state.isStatusSummaryOpen || this.state.isEventHistoryOpen) this.forceUpdate()
     }
   }
 
@@ -2272,6 +2306,7 @@ class App extends React.Component<Props, State> {
         }
         this.synced = true
         this.refreshManualPortMappingLinks()
+        if (this.state.isStatusSummaryOpen || this.state.isEventHistoryOpen) this.forceUpdate()
         break
       case "NodeAdded":
         if (!this.synced) {
@@ -4286,6 +4321,8 @@ class App extends React.Component<Props, State> {
 
   openAboutDialog() {
     this.setState({
+      isEventHistoryOpen: false,
+      isStatusSummaryOpen: false,
       isInfrastructurePanelOpen: false,
       isKubernetesManagerOpen: false,
       isScreenConfigOpen: false,
@@ -4301,6 +4338,8 @@ class App extends React.Component<Props, State> {
 
   openHelpDialog() {
     this.setState({
+      isEventHistoryOpen: false,
+      isStatusSummaryOpen: false,
       isInfrastructurePanelOpen: false,
       isKubernetesManagerOpen: false,
       isScreenConfigOpen: false,
@@ -4463,6 +4502,8 @@ class App extends React.Component<Props, State> {
 
   private openKubernetesManager() {
     this.setState({
+      isEventHistoryOpen: false,
+      isStatusSummaryOpen: false,
       isInfrastructurePanelOpen: false,
       isKubernetesManagerOpen: true,
       isScreenConfigOpen: false,
@@ -4482,6 +4523,8 @@ class App extends React.Component<Props, State> {
 
   private openInfrastructureTopology() {
     this.setState({
+      isEventHistoryOpen: false,
+      isStatusSummaryOpen: false,
       isInfrastructurePanelOpen: true,
       isKubernetesManagerOpen: false,
       isScreenConfigOpen: false,
@@ -4705,10 +4748,11 @@ class App extends React.Component<Props, State> {
       }
       const type = typeof node.data?.Type === "string" ? node.data.Type.toLowerCase() : ""
       const name = typeof node.data?.Name === "string" ? node.data.Name : ""
+      const primaryCategory = infrastructureResourceCategory(node)
       summary.totalNodes += 1
       summary.infrastructureNodeIDs.push(node.id)
 
-      if (type === "host") {
+      if (primaryCategory === "host") {
         summary.hosts += 1
         summary.hostNodeIDs.push(node.id)
         summary.hostsById[node.id] = {
@@ -4725,7 +4769,7 @@ class App extends React.Component<Props, State> {
         }
       }
 
-      if (type === "libvirt") {
+      if (primaryCategory === "vm") {
         if (/^r-/.test(name)) {
           summary.routers += 1
           summary.routerNodeIDs.push(node.id)
@@ -4994,48 +5038,42 @@ class App extends React.Component<Props, State> {
     return <span className={clsx("fa", "fas", "fa-fw", attrs.iconClass)}>{attrs.icon}</span>
   }
 
-  private renderInfrastructureSummaryCard(classes: any, icon: React.ReactNode, label: string, value: number, nodeIDs: string[] = []) {
-    const clickable = nodeIDs.length > 0
-    const content = (
-      <>
-        <span className={classes.infrastructureSummaryCardInfo}>
-          <span className={classes.infrastructureCardIcon}>{icon}</span>
-          <small>{label}</small>
-        </span>
-        <strong className={classes.infrastructureSummaryCardValue}>{value}</strong>
-      </>
-    )
-    if (clickable) {
-      return (
-        <button
-          type="button"
-          className={clsx(classes.infrastructureSummaryCard, classes.infrastructureSummaryCardCompact)}
-          onClick={() => this.focusInfrastructureNodeIDs(nodeIDs)}>
-          {content}
-        </button>
-      )
-    }
-    return (
-      <div className={clsx(classes.infrastructureSummaryCard, classes.infrastructureSummaryCardCompact)}>
-        {content}
-      </div>
-    )
+  private renderCollectionPanelHeader(classes: any, title: string, description: string, onClose: () => void, action?: React.ReactNode) {
+    return <div className={classes.collectionPanelHeader}>
+      <DetailPanelHeader title={title} subtitle={description}
+        titleClassName={classes.kubernetesManagerTitle} subtitleClassName={classes.kubernetesManagerDescription} />
+      <AntSpace size={8} className={classes.statusSummaryActions}>
+        {action}
+        <AntButton type="text" aria-label={`${title} 닫기`} onClick={onClose} icon={<CloseIcon fontSize="small" />} />
+      </AntSpace>
+    </div>
   }
 
-  private renderKubernetesTopologySummaryCard(classes: any, icon: React.ReactNode, label: string, value: number, nodeIDs: string[], onClick?: () => void, multilineLabel = false) {
-    return (
-      <button
-        type="button"
-        className={clsx(classes.kubernetesTopologySummaryCard, multilineLabel && classes.kubernetesTopologySummaryCardMultiline)}
-        onClick={onClick || (() => this.focusInfrastructureNodeIDs(nodeIDs))}
-        disabled={nodeIDs.length === 0}>
+  private renderCollectionKpi(classes: any, icon: React.ReactNode, label: string, value: number,
+    onClick?: () => void, disabled = false, multiline = false, className?: string, showChevron = false) {
+    const content = (
+      <>
         <span className={classes.kubernetesTopologySummaryInfo}>
           <span className={classes.infrastructureCardIcon}>{icon}</span>
           <small>{label}</small>
         </span>
-        <strong>{value}</strong>
-      </button>
+        <span className={classes.statusSummaryCardValue}><strong>{value}</strong>{showChevron && <ChevronRightIcon fontSize="small" />}</span>
+      </>
     )
+    const cardClass = clsx(classes.kubernetesTopologySummaryCard, multiline && classes.kubernetesTopologySummaryCardMultiline, className)
+    return onClick
+      ? <button type="button" className={cardClass} onClick={onClick} disabled={disabled}>{content}</button>
+      : <div className={cardClass}>{content}</div>
+  }
+
+  private renderInfrastructureSummaryCard(classes: any, icon: React.ReactNode, label: string, value: number, nodeIDs: string[] = []) {
+    return this.renderCollectionKpi(classes, icon, label, value,
+      nodeIDs.length ? () => this.focusInfrastructureNodeIDs(nodeIDs) : undefined)
+  }
+
+  private renderKubernetesTopologySummaryCard(classes: any, icon: React.ReactNode, label: string, value: number, nodeIDs: string[], onClick?: () => void, multilineLabel = false, className?: string, showChevron = false) {
+    return this.renderCollectionKpi(classes, icon, label, value,
+      onClick || (() => this.focusInfrastructureNodeIDs(nodeIDs)), nodeIDs.length === 0, multilineLabel, className, showChevron)
   }
 
   openResourceDetailNodeID(nodeID: string) {
@@ -5194,11 +5232,17 @@ class App extends React.Component<Props, State> {
 
   private renderInfrastructureOverviewCard(classes: any, key: InfrastructureFocusKey | "", icon: React.ReactNode, label: string, description: string, count: number | string, summary: InfrastructureSummary) {
     const selected = key !== "" && this.state.infrastructureFocus === key
+    return this.renderCollectionResourceCard(classes, icon, label, description, count,
+      () => this.focusInfrastructureOverview(key, summary), false, selected)
+  }
+
+  private renderCollectionResourceCard(classes: any, icon: React.ReactNode, label: string, description: string,
+    count: number | string, onClick: () => void, disabled = false, selected = false) {
     return (
       <button
         type="button"
         className={clsx(classes.infrastructureOverviewCard, selected && classes.infrastructureOverviewCardActive)}
-        onClick={() => this.focusInfrastructureOverview(key, summary)}>
+        onClick={onClick} disabled={disabled}>
         <span className={classes.infrastructureOverviewCardMain}>
           <span className={classes.infrastructureCardIcon}>{icon}</span>
           <span>
@@ -5218,25 +5262,8 @@ class App extends React.Component<Props, State> {
   }
 
   private renderInfrastructureHostOverviewCard(classes: any, icon: React.ReactNode, label: string, description: string, count: number, nodeIDs: string[], anchorNodeID?: string) {
-    return (
-      <button
-        type="button"
-        className={clsx(classes.infrastructureOverviewCard, classes.infrastructureHostOverviewCardCompact)}
-        onClick={() => this.focusInfrastructureNodeIDs(nodeIDs, anchorNodeID)}
-        disabled={nodeIDs.length === 0}>
-        <span className={classes.infrastructureOverviewCardMain}>
-          <span className={classes.infrastructureCardIcon}>{icon}</span>
-          <span>
-            <strong>{label}</strong>
-            <small>{description}</small>
-          </span>
-        </span>
-        <em>
-          <strong>{count}</strong>
-          <ChevronRightIcon fontSize="small" />
-        </em>
-      </button>
-    )
+    return this.renderCollectionResourceCard(classes, icon, label, description, count,
+      () => this.focusInfrastructureNodeIDs(nodeIDs, anchorNodeID), nodeIDs.length === 0)
   }
 
   private renderInfrastructureHostSummary(classes: any, host: InfrastructureHostSummary) {
@@ -5255,6 +5282,8 @@ class App extends React.Component<Props, State> {
 
   private openScreenConfigPanel() {
     this.setState({
+      isEventHistoryOpen: false,
+      isStatusSummaryOpen: false,
       isInfrastructurePanelOpen: false,
       isKubernetesManagerOpen: false,
       isScreenConfigOpen: true,
@@ -5266,6 +5295,8 @@ class App extends React.Component<Props, State> {
 
   private openPreferencesPanel() {
     this.setState({
+      isEventHistoryOpen: false,
+      isStatusSummaryOpen: false,
       isInfrastructurePanelOpen: false,
       isKubernetesManagerOpen: false,
       isScreenConfigOpen: false,
@@ -5273,6 +5304,149 @@ class App extends React.Component<Props, State> {
       isHelpOpen: false,
       isAboutOpen: false
     })
+  }
+
+  private statusSummaryTarget(node: Node): RecentViewedNodeItem {
+    const attrs = this.nodeAttrs(node)
+    return { id: node.id, name: this.nodeDisplayName(node), rawType: this.recentNodeRawType(node),
+      layerTag: this.nodePrimaryLayerTag(node), iconGlyph: attrs.icon, iconHref: attrs.href,
+      iconTone: this.recentNodeIconTone(node) }
+  }
+
+  private eventHistoryNode(event: ChangeEvent): Node | undefined {
+    if (!this.tc) return undefined
+    let metadata: any = {}
+    try { metadata = JSON.parse(event.metadata) } catch (_) { /* Older records may have no metadata. */ }
+    if (event.source === 'manual') return this.tc.nodes.get(metadata.portNodeId || manualPortMappingTopologyPortID(metadata.mappingId))
+    const direct = this.tc.nodes.get(metadata.nodeId || event.resourceId)
+    if (direct) return direct
+    return Array.from(this.tc.nodes.values()).find(node =>
+      node.data?.TID === event.resourceId ||
+      (event.resourceType === 'k8s_cluster' && node.data?.MoldClusterID === event.resourceId) ||
+      (event.resourceType === 'vm' && node.data?.UUID === event.resourceId) ||
+      (event.source === 'kubernetes' && node.data?.K8s?.UID === event.resourceId))
+  }
+
+  private renderEventHistory(classes: any) {
+    if (!this.state.isEventHistoryOpen) return null
+    return <Paper className={clsx(classes.kubernetesManagerPanel, classes.statusSummaryPanel)} data-netdive-side-panel="true">
+      {this.renderCollectionPanelHeader(classes, '최근 변경 이력', '자원 상태와 연결 관계의 최근 변경을 확인합니다.',
+        () => this.setState({ isEventHistoryOpen: false }))}
+      <EventHistory userSession={this.props.session} canNavigate={event => !!this.eventHistoryNode(event)} onNavigate={event => {
+        const node = this.eventHistoryNode(event)
+        if (node) this.setState({ isEventHistoryOpen: false }, () => this.focusRecentViewedNode(this.statusSummaryTarget(node)))
+      }} />
+    </Paper>
+  }
+
+  private renderStatusSummary(classes: any) {
+    if (!this.state.isStatusSummaryOpen) return null
+    const entries = statusSummaryEntries(
+      this.tc ? Array.from(this.tc.nodes.values()) : [],
+      topologyNodeStatus,
+      this.tc ? Array.from(this.tc.links.values()) : []
+    )
+    const counts = statusSummaryCounts(entries)
+    const options: Array<{ key: SummaryStatus | 'all', label: string, tone: 'danger' | 'warning' | 'default' | 'info', icon: React.ReactNode }> = [
+      { key: 'problem', label: '문제', tone: 'danger', icon: <ExclamationCircleFilled /> },
+      { key: 'attention', label: '확인 필요', tone: 'warning', icon: <QuestionCircleFilled /> },
+      { key: 'unavailable', label: '수집 불가', tone: 'default', icon: <QuestionCircleFilled /> },
+      { key: 'inactive', label: '비활성', tone: 'default', icon: <MinusCircleFilled /> },
+      { key: 'all', label: '전체 확인 대상', tone: 'info', icon: <SafetyCertificateFilled /> }
+    ]
+    const resourceEntries = filterStatusSummary(entries, 'all', this.state.statusSummaryResourceDomain, this.state.statusSummaryResourceCategory, '', node => this.nodeDisplayName(node))
+    const visibleStatusCounts = statusSummaryCounts(resourceEntries)
+    const statusEntries = filterStatusSummary(entries, this.state.statusSummaryFilter, 'all', 'all', '', node => this.nodeDisplayName(node))
+    const domainCounts = statusSummaryResourceCounts(statusEntries)
+    const domainEntries = filterStatusSummary(entries, this.state.statusSummaryFilter, this.state.statusSummaryResourceDomain, 'all', '', node => this.nodeDisplayName(node))
+    const categoryCounts = statusSummaryResourceCounts(domainEntries)
+    const domainOptions: Array<{ key: TopologyResourceDomain | 'all', label: string }> = [
+      { key: 'all', label: '전체' },
+      { key: 'infrastructure', label: '인프라스트럭처' },
+      { key: 'kubernetes', label: 'Kubernetes' }
+    ]
+    const categoryOptions: Array<{ key: TopologyResourceCategory | 'all', label: string }> = this.state.statusSummaryResourceDomain === 'infrastructure'
+      ? [{ key: 'all', label: '전체' }, { key: 'switch', label: '스위치' }, { key: 'host', label: '호스트' }, { key: 'vm', label: 'VM' }]
+      : this.state.statusSummaryResourceDomain === 'kubernetes'
+        ? [{ key: 'all', label: '전체' }, { key: 'cluster', label: '클러스터' }, { key: 'node', label: '노드' }, { key: 'pod', label: '파드' }]
+        : []
+    const rows = filterStatusSummary(entries, this.state.statusSummaryFilter, this.state.statusSummaryResourceDomain,
+      this.state.statusSummaryResourceCategory, this.state.statusSummarySearch, node => this.nodeDisplayName(node))
+    const navigate = (entry: StatusSummaryEntry) => {
+      this.closeSidePanels()
+      this.setState({ isStatusSummaryOpen: false }, () => this.focusRecentViewedNode(this.statusSummaryTarget(entry.node)))
+    }
+    return <Paper className={clsx(classes.kubernetesManagerPanel, classes.kubernetesManagerPanelCompact, classes.statusSummaryPanel)} data-netdive-side-panel="true">
+      {this.renderCollectionPanelHeader(classes, '상태 요약', '현재 토폴로지에서 운영자가 확인할 가치가 있는 자원과 수집 상태를 요약합니다.',
+        () => this.setState({ isStatusSummaryOpen: false }),
+        <AntButton icon={<ReloadOutlined />} disabled={!this.connected} onClick={() => this.sync()}>새로고침</AntButton>)}
+      <section className={clsx(classes.statusSummarySection, classes.statusSummaryOverviewSection)} aria-labelledby="status-summary-overview-label">
+        <div id="status-summary-overview-label"><DetailInlineSectionHeader title="요약 현황" /></div>
+        <div className={clsx(classes.kubernetesSummaryGrid, classes.infrastructureSummaryGrid, classes.statusSummaryGrid)}>
+          {options.map(option => <React.Fragment key={option.key}>
+            {this.renderKubernetesTopologySummaryCard(classes,
+              option.icon,
+              option.label, counts[option.key], entries.filter(entry => option.key === 'all' || entry.status === option.key).map(entry => entry.node.id),
+              () => this.setState({ statusSummaryFilter: option.key }), false,
+              clsx(classes.statusSummaryCard, classes[`statusSummaryCard${option.key === 'all' ? 'All' : option.key.charAt(0).toUpperCase() + option.key.slice(1)}`], this.state.statusSummaryFilter === option.key && classes.statusSummaryCardSelected), true)}
+          </React.Fragment>)}
+        </div>
+      </section>
+      <section className={clsx(classes.statusSummarySection, classes.statusSummaryFilterArea)} aria-label="확인 대상 필터">
+        <div className={clsx(classes.kubernetesTableHeader, classes.statusSummaryControls)}>
+          <AntRadio.Group className={classes.statusSummaryFilters} size="small" value={this.state.statusSummaryFilter} onChange={event => this.setState({ statusSummaryFilter: event.target.value })}>
+            {[options[4], ...options.slice(0, 4)].map(option => <AntRadio.Button key={option.key} value={option.key}>
+              <span className={clsx(classes.statusSummaryFilterDot, classes[`statusSummaryFilterDot${option.key === 'all' ? 'All' : option.key.charAt(0).toUpperCase() + option.key.slice(1)}`])} />
+              <span>{option.key === 'all' ? '전체' : option.label}</span><strong>{visibleStatusCounts[option.key]}</strong>
+            </AntRadio.Button>)}
+          </AntRadio.Group>
+          <AntInput className={classes.statusSummarySearch} prefix={<SearchOutlined />} allowClear placeholder="자원 이름 검색"
+            value={this.state.statusSummarySearch} onChange={event => this.setState({ statusSummarySearch: event.target.value })} />
+        </div>
+        <div className={classes.statusSummaryResourceRows}>
+          <div className={classes.statusSummaryResourceRow}>
+            <span className={classes.statusSummaryResourceLabel}>리소스</span>
+            <AntRadio.Group className={clsx(classes.statusSummaryFilters, classes.statusSummaryResourceFilters)} size="small"
+              value={this.state.statusSummaryResourceDomain}
+              onChange={event => this.setState({ statusSummaryResourceDomain: event.target.value, statusSummaryResourceCategory: 'all' })}>
+              {domainOptions.map(option => <AntRadio.Button key={option.key} value={option.key}>
+                <span>{option.label}</span><strong>{domainCounts[option.key]}</strong>
+              </AntRadio.Button>)}
+            </AntRadio.Group>
+          </div>
+          {categoryOptions.length > 0 && <div className={classes.statusSummaryResourceRow}>
+            <span className={classes.statusSummaryResourceLabel}>{this.state.statusSummaryResourceDomain === 'infrastructure' ? '인프라' : 'Kubernetes'}</span>
+            <AntRadio.Group className={clsx(classes.statusSummaryFilters, classes.statusSummaryResourceFilters)} size="small"
+              value={this.state.statusSummaryResourceCategory}
+              onChange={event => this.setState({ statusSummaryResourceCategory: event.target.value })}>
+              {categoryOptions.map(option => <AntRadio.Button key={option.key} value={option.key}>
+                <span>{option.label}</span><strong>{option.key === 'all' ? categoryCounts.all : categoryCounts[option.key]}</strong>
+              </AntRadio.Button>)}
+            </AntRadio.Group>
+          </div>}
+        </div>
+      </section>
+      <section className={clsx(classes.statusSummarySection, classes.statusSummaryTargetSection)} aria-labelledby="status-summary-target-label">
+        <div id="status-summary-target-label"><DetailInlineSectionHeader title="확인 대상" /></div>
+        <DetailTable<StatusSummaryEntry>
+          className={classes.statusSummaryTable} rowKey={entry => entry.node.id} dataSource={rows}
+          pagination={{ pageSize: 10, hideOnSinglePage: true, showSizeChanger: false }} scroll={{ x: 640 }}
+          locale={{ emptyText: entries.length ? '검색 조건에 맞는 자원이 없습니다.' : '현재 확인이 필요한 자원이 없습니다.' }}
+          onRow={entry => ({ onClick: () => navigate(entry), style: { cursor: 'pointer' } })}
+          columns={[
+            { title: '상태', key: 'status', width: 110, render: (_, entry) => {
+              const option = options.find(item => item.key === entry.status)!
+              return <DetailStatusIndicator tone={option.tone} variant="table">{option.label}</DetailStatusIndicator>
+            } },
+            { title: '유형', key: 'type', width: 180, render: (_, entry) => <AntSpace size={6}>
+              {this.renderRecentNodeIcon(classes, this.statusSummaryTarget(entry.node))}
+              {this.recentNodeTypeLabel(this.statusSummaryTarget(entry.node))}
+            </AntSpace> },
+            { title: '이름', key: 'name', ellipsis: true, render: (_, entry) => <Tooltip title={this.nodeDisplayName(entry.node)}><span className={classes.statusSummaryName}>{this.nodeDisplayName(entry.node)}</span></Tooltip> },
+            { title: '작업', key: 'action', width: 76, render: (_, entry) => <AntButton type="link" size="small" onClick={event => { event.stopPropagation(); navigate(entry) }}>이동<ChevronRightIcon fontSize="small" /></AntButton> }
+          ]} />
+      </section>
+    </Paper>
   }
 
   private renderInfrastructurePanel(classes: any) {
@@ -5283,33 +5457,14 @@ class App extends React.Component<Props, State> {
     const hostSummaries = Object.values(summary.hostsById)
     return (
       <Paper className={clsx(classes.kubernetesManagerPanel, classes.infrastructureManagerPanel)} data-netdive-side-panel="true">
-        <div className={classes.infrastructurePanelHeaderBlock}>
-          <div className={classes.kubernetesManagerHeader}>
-            <div className={classes.kubernetesManagerTitle}>{translate("infrastructurePanelTitle")}</div>
-            <div className={classes.infrastructureAgentRestartActions}>
-              <IconButton size="small" onClick={() => this.setState({ isInfrastructurePanelOpen: false })}>
-                <CloseIcon fontSize="small" />
-              </IconButton>
-            </div>
-          </div>
-          <div className={classes.kubernetesManagerDescription}>{translate("infrastructurePanelDescription")}</div>
-        </div>
+        {this.renderCollectionPanelHeader(classes, translate("infrastructurePanelTitle"), translate("infrastructurePanelDescription"),
+          () => this.setState({ isInfrastructurePanelOpen: false }),
+          this.canManageInfrastructureAgents() && <AntButton
+            icon={<ReloadOutlined spin={!!(this.state.infrastructureAgentRestartStatus?.running || this.state.infrastructureAgentRestartLoading)} />}
+            disabled={this.state.infrastructureAgentRestartStatus?.running || this.state.infrastructureAgentRestartLoading}
+            onClick={() => this.openInfrastructureAgentRestartDialog()}>{translate("infrastructureAgentRestartAction")}</AntButton>)}
         <div className={classes.infrastructureSummarySection}>
-          <div className={classes.infrastructureSummarySectionHeader}>
-            <div className={classes.kubernetesSectionTitle}>{translate("infrastructureSummaryStatus")}</div>
-            {this.canManageInfrastructureAgents() &&
-              <div className={classes.kubernetesTableActions}>
-                <Button
-                  size="small"
-                  className={classes.kubernetesRefreshButton}
-                  startIcon={<RefreshIcon fontSize="small" className={(this.state.infrastructureAgentRestartStatus?.running || this.state.infrastructureAgentRestartLoading) ? classes.infrastructureRestartSpinning : undefined} />}
-                  disabled={this.state.infrastructureAgentRestartStatus?.running || this.state.infrastructureAgentRestartLoading}
-                  onClick={() => this.openInfrastructureAgentRestartDialog()}>
-                  {translate("infrastructureAgentRestartAction")}
-                </Button>
-              </div>
-            }
-          </div>
+          <DetailInlineSectionHeader title={translate("infrastructureSummaryStatus")} />
           <div className={clsx(classes.kubernetesSummaryGrid, classes.infrastructureSummaryGrid)}>
             {this.renderInfrastructureSummaryCard(classes, this.infrastructureIcon("\uf233", "host"), translate("infrastructureHosts"), summary.hosts, summary.hostNodeIDs)}
             {this.renderInfrastructureSummaryCard(classes, this.infrastructureIcon("\uf108", "user-vm"), translate("infrastructureUserVMs"), summary.userVMs, summary.userVMNodeIDs)}
@@ -5322,15 +5477,14 @@ class App extends React.Component<Props, State> {
             <div className={classes.kubernetesSectionTitle}>{translate("infrastructureOverview")}</div>
             <div className={classes.kubernetesSectionHint}>{translate("infrastructureOverviewDescription")}</div>
           </div>
-          <ToggleButtonGroup
+          <AntRadio.Group
             value={this.state.infrastructureViewMode}
-            exclusive
-            onChange={(event: React.MouseEvent<HTMLElement>, mode: InfrastructureViewMode | null) => mode && this.setState({ infrastructureViewMode: mode })}
-            className={classes.infrastructureViewToggle}
+            onChange={event => this.setState({ infrastructureViewMode: event.target.value })}
+            className={clsx(classes.statusSummaryFilters, classes.statusSummaryResourceFilters)}
             aria-label="Infrastructure view mode">
-            <ToggleButton value="all" aria-label="All">{translate("infrastructureViewAll")}</ToggleButton>
-            <ToggleButton value="hosts" aria-label="By host">{translate("infrastructureViewHosts")}</ToggleButton>
-          </ToggleButtonGroup>
+            <AntRadio.Button value="all">{translate("infrastructureViewAll")}</AntRadio.Button>
+            <AntRadio.Button value="hosts">{translate("infrastructureViewHosts")}</AntRadio.Button>
+          </AntRadio.Group>
         </div>
         {this.state.infrastructureViewMode === "all" &&
           <div className={classes.infrastructureOverviewGrid}>
@@ -5659,15 +5813,9 @@ class App extends React.Component<Props, State> {
     ]
     return (
       <Paper className={clsx(classes.kubernetesManagerPanel, classes.kubernetesManagerPanelCompact)} data-netdive-side-panel="true">
-        <div className={classes.kubernetesManagerHeader}>
-          <div>
-            <div className={classes.kubernetesManagerTitle}>{translate("kubernetesManagerTitle")}</div>
-            <div className={classes.kubernetesManagerDescription}>{translate("kubernetesManagerDescription")}</div>
-          </div>
-          <IconButton size="small" onClick={() => this.setState({ isKubernetesManagerOpen: false })}>
-            <CloseIcon fontSize="small" />
-          </IconButton>
-        </div>
+        {this.renderCollectionPanelHeader(classes, translate("kubernetesManagerTitle"), translate("kubernetesManagerDescription"),
+          () => this.setState({ isKubernetesManagerOpen: false }))}
+        <DetailInlineSectionHeader title="요약 현황" />
         <div className={clsx(classes.kubernetesSummaryGrid, classes.kubernetesTopologySummaryGrid)}>
           {this.renderKubernetesTopologySummaryCard(classes, this.infrastructureIcon("\uf542", "network"), translate("kubernetesTopologyClusters"), summary.clusters, summary.clusterNodeIDs)}
           {this.renderKubernetesTopologySummaryCard(classes, this.infrastructureIcon("\uf233", "host"), translate("kubernetesTopologyNodes"), summary.nodes, summary.nodeNodeIDs)}
@@ -5832,6 +5980,17 @@ class App extends React.Component<Props, State> {
             className={classes.drawerBrandLogo}
           />
         </div>
+        {this.renderDrawerMenuGroup(classes, 'summary', <DashboardOutlined />, '요약',
+          <React.Fragment>
+            {this.renderDrawerIntegrationItem(classes, <DashboardOutlined />, '최근 변경 이력', '자원 상태와 연결 관계의 변경', () => {
+              this.closeSidePanels()
+              this.setState({ isEventHistoryOpen: true })
+            }, this.state.isEventHistoryOpen)}
+          </React.Fragment>, this.state.isEventHistoryOpen)}
+        {STATUS_SUMMARY_MENU_ENABLED && this.renderDrawerMenuItem(classes, <DashboardOutlined />, '상태 요약', () => {
+          this.closeSidePanels()
+          this.setState({ isStatusSummaryOpen: true })
+        }, this.state.isStatusSummaryOpen)}
         {this.renderDrawerMenuGroup(
           classes,
           "collection",
@@ -5995,6 +6154,8 @@ class App extends React.Component<Props, State> {
           </div>
         </Drawer>
         {this.renderInfrastructurePanel(classes)}
+        {this.renderStatusSummary(classes)}
+        {this.renderEventHistory(classes)}
         {this.renderKubernetesManagerPanel(classes)}
         {this.renderScreenConfigPanel(classes)}
         {this.renderPreferencesPanel(classes)}

@@ -1,5 +1,6 @@
 import type { Node } from './Topology'
 import { getPodClassification, isCurrentKubernetesPod } from './KubernetesPodLifecycle'
+import { isKubernetesTopologyData } from './KubernetesInfrastructureEvidence'
 import type { TopologyStatusBadgeTooltip } from './TopologyStatusBadge'
 
 export type KubernetesTopologyCountBadgeTone = 'problem' | 'warning' | 'running' | 'inactive'
@@ -78,7 +79,7 @@ const inactiveClusterStates = new Set(['stopped', 'stop', 'disabled', 'inactive'
 export const isInactiveMoldKubernetesClusterState = (value: any): boolean =>
     inactiveClusterStates.has(normalized(value))
 const resourceType = (node: Node): string => normalized(node.data?.Type)
-const isKubernetesResource = (node: Node): boolean => normalized(node.data?.Manager) === 'k8s'
+const isKubernetesResource = (node: Node): boolean => isKubernetesTopologyData(node.data, node.tags)
 const isTopologyGroup = (node: Node): boolean => !!node.data?.IsTopologyGroup
 const resourceUID = (node: Node): string => String(firstRaw(node.data || {}, [
     'K8s.Extra.ObjectMeta.UID',

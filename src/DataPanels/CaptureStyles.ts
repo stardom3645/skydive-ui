@@ -18,36 +18,39 @@
 import { createStyles, Theme } from '@material-ui/core';
 
 export const styles = (theme: Theme) => createStyles({
-  dialogPaper: {
-    width: 'min(1120px, calc(100vw - 48px))',
-    maxWidth: '1120px',
-    borderRadius: 18,
-    background: 'var(--netdive-detail-panel-bg, #f8fafc)',
-    border: '1px solid var(--netdive-detail-border, #dbe7f5)',
-    boxShadow: '0 24px 80px rgba(15, 23, 42, 0.24)',
-    overflow: 'hidden',
-  },
-  dialogContent: {
-    position: 'relative',
-    padding: theme.spacing(2.5),
-    maxHeight: 'calc(100vh - 96px)',
-    overflowY: 'auto',
-    boxSizing: 'border-box',
-    '&:first-child': {
-      paddingTop: theme.spacing(2.5),
+  dialogRoot: {
+    '& .ant-modal-content': {
+      overflow: 'hidden',
+      border: '1px solid var(--netdive-detail-card-border)',
+      borderRadius: 'var(--netdive-ops-radius)',
+      background: 'var(--netdive-ant-bg)',
+      boxShadow: 'var(--netdive-ant-popup-shadow)'
     },
-  },
-  closeButton: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    zIndex: 2,
-    color: 'var(--netdive-detail-muted, #64748b)',
-    background: 'rgba(255, 255, 255, 0.86)',
-    border: '1px solid var(--netdive-detail-border, #dbe7f5)',
-    '&:hover': {
-      background: '#eff6ff',
-      color: '#1a73e8',
+    '& .ant-modal-header': {
+      minHeight: 52,
+      padding: theme.spacing(1.75, 2),
+      borderBottom: '1px solid var(--netdive-detail-section-divider)',
+      background: 'var(--netdive-ant-bg)'
     },
+    '& .ant-modal-title': {
+      color: 'var(--netdive-detail-text)',
+      fontSize: 'var(--netdive-detail-font-panel-title)',
+      fontWeight: 'var(--netdive-detail-weight-panel-title)',
+      lineHeight: 'var(--netdive-detail-line-panel-title)'
+    },
+    '& .ant-modal-close': { top: 4, right: 4, color: 'var(--netdive-detail-text-tertiary)' },
+    '& .ant-modal-close-x': { width: 44, height: 44, lineHeight: '44px' },
+    '& .ant-modal-body': {
+      maxHeight: 'calc(100vh - 148px)',
+      overflowY: 'auto',
+      padding: 'var(--netdive-ops-panel-padding)',
+      background: 'var(--netdive-ops-neutral)'
+    }
+  },
+  dialogTitle: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: theme.spacing(1),
+    '& svg': { color: 'var(--netdive-ant-primary)', fontSize: 18 }
   }
 })

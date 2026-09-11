@@ -17,15 +17,13 @@
 
 import * as React from 'react'
 import { withStyles } from '@material-ui/core/styles'
-import Dialog from '@material-ui/core/Dialog'
-import DialogContent from '@material-ui/core/DialogContent'
-import IconButton from '@material-ui/core/IconButton'
-import CloseIcon from '@material-ui/icons/Close'
+import { Modal } from 'antd'
+import { VideoCameraOutlined } from '@ant-design/icons'
 
 import CaptureForm from "./CaptureForm"
 import { styles } from './CaptureStyles'
 import { Node, Link } from '../Topology'
-import ConfigReducer from '../Config'
+import ConfigReducer, { translate } from '../Config'
 import { SimpleCaptureSession } from './CaptureStatus'
 
 interface Props {
@@ -61,33 +59,28 @@ export class CapturePanel extends React.Component<Props> {
         const node = this.props.el as Node
 
         return (
-            <Dialog
-                open={this.props.expanded}
-                onClose={this.props.onClose}
-                maxWidth="lg"
-                fullWidth
-                classes={{ paper: classes.dialogPaper }}
+            <Modal
+                visible={this.props.expanded}
+                onCancel={this.props.onClose}
+                width={1120}
+                footer={null}
+                style={{ top: 72 }}
+                destroyOnClose
+                wrapClassName={classes.dialogRoot}
+                title={<span className={classes.dialogTitle}><VideoCameraOutlined /><span>{translate("Packet capture")}</span></span>}
                 aria-labelledby="capture-wizard-dialog">
-                <IconButton
-                    className={classes.closeButton}
-                    aria-label="close"
-                    onClick={this.props.onClose}>
-                    <CloseIcon />
-                </IconButton>
-                <DialogContent className={classes.dialogContent}>
-                    <CaptureForm
-                        defaultName={this.dataAttrs(node).name}
-                        gremlin={`G.V().Has('TID', '${node.data.TID}')`}
-                        node={node}
-                        onCaptureCreated={(capture) => {
-                            if (this.props.onCaptureCreated) {
-                                this.props.onCaptureCreated(node, capture)
-                            }
-                            this.props.onClose()
-                        }}
-                    />
-                </DialogContent>
-            </Dialog>
+                <CaptureForm
+                    defaultName={this.dataAttrs(node).name}
+                    gremlin={`G.V().Has('TID', '${node.data.TID}')`}
+                    node={node}
+                    onCaptureCreated={(capture) => {
+                        if (this.props.onCaptureCreated) {
+                            this.props.onCaptureCreated(node, capture)
+                        }
+                        this.props.onClose()
+                    }}
+                />
+            </Modal>
         )
     }
 }

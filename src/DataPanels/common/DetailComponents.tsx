@@ -1429,6 +1429,20 @@ export const DetailResourceCard = ({
     const [resourceListWidth, setResourceListWidth] = React.useState<number>()
     const resourceCardRef = React.useRef<HTMLButtonElement | null>(null)
     const hasResourceList = resources.length > 1
+
+    React.useEffect(() => {
+        if (!resourcesOpen) return undefined
+        const closeOnOutsideMouseDown = (event: MouseEvent) => {
+            const target = event.target as Element | null
+            if (!target?.closest) return
+            if (resourceCardRef.current?.contains(target)) return
+            if (target.closest('.netdive-connected-resource-popover-overlay')) return
+            setResourcesOpen(false)
+        }
+        document.addEventListener('mousedown', closeOnOutsideMouseDown, true)
+        return () => document.removeEventListener('mousedown', closeOnOutsideMouseDown, true)
+    }, [resourcesOpen])
+
     const navigateResource = (item: DetailResourcePopoverItem) => {
         setResourcesOpen(false)
         if (item.onClick) item.onClick()

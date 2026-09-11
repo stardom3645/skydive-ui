@@ -1,19 +1,16 @@
 import * as React from 'react'
-import Button from '@material-ui/core/Button'
-import LinearProgress from '@material-ui/core/LinearProgress'
-import Typography from '@material-ui/core/Typography'
-import Accordion from '@material-ui/core/Accordion'
-import AccordionSummary from '@material-ui/core/AccordionSummary'
-import AccordionDetails from '@material-ui/core/AccordionDetails'
-import VideocamIcon from '@material-ui/icons/Videocam'
-import StopIcon from '@material-ui/icons/Stop'
-import ReplayIcon from '@material-ui/icons/Replay'
-import GetAppIcon from '@material-ui/icons/GetApp'
-import ExpandMoreIcon from '@material-ui/icons/ExpandMore'
-import SwapVertIcon from '@material-ui/icons/SwapVert'
-import DeviceHubIcon from '@material-ui/icons/DeviceHub'
-import TrackChangesIcon from '@material-ui/icons/TrackChanges'
-import CodeIcon from '@material-ui/icons/Code'
+import { Alert, Button, Collapse, Progress, Tag } from 'antd'
+import {
+  ApartmentOutlined,
+  AimOutlined,
+  CodeOutlined,
+  DownloadOutlined,
+  NodeIndexOutlined,
+  RedoOutlined,
+  StopOutlined,
+  SwapOutlined,
+  VideoCameraOutlined
+} from '@ant-design/icons'
 import { createStyles, Theme, withStyles } from '@material-ui/core/styles'
 
 import { session } from '../Store'
@@ -21,6 +18,14 @@ import { Configuration } from '../api/configuration'
 import { TopologyApi } from '../api'
 import { Node } from '../Topology'
 import FlowPanel from './Flow'
+import {
+  CompactEmptyState,
+  DetailBadge,
+  DetailCardSubsectionHeader,
+  DetailKeyValueList,
+  DetailMetricRow,
+  DetailSectionCard
+} from './common/DetailComponents'
 
 export interface SimpleCaptureSession {
   id: string
@@ -449,7 +454,7 @@ class CaptureStatusPanel extends React.Component<Props, State> {
     const isDone = terminalStatuses.has(capture.status) && capture.status !== 'delete_failed' && capture.status !== 'failed' && capture.status !== 'stopped'
     const isLegacy = capture.id.startsWith('legacy-')
     const isFailed = capture.status === 'failed' || capture.status === 'delete_failed'
-    const statusBadgeClass = isRunning ? classes.captureStatusRunning : isDone ? classes.captureStatusDone : isFailed ? classes.captureStatusFailed : classes.captureStatusWarning
+    const statusTone = isRunning ? 'info' : isDone ? 'success' : isFailed ? 'danger' : 'warning'
     const flows = this.state.flows
     const visibleTopFlows = this.state.showAllTopFlows ? flows : flows.slice(0, 5)
     const totalBytes = flows.reduce((sum, flow) => sum + flow.bytes, 0)
@@ -460,106 +465,103 @@ class CaptureStatusPanel extends React.Component<Props, State> {
     const portDistribution = this.distributionByPort(flows)
     const progress = isRunning ? this.progressValue() : 100
     const durationLabel = this.formatDuration(capture.durationSeconds || 0)
-    const progressClass = isDone ? `${classes.captureProgress} ${classes.captureProgressDone}` : classes.captureProgress
 
     return (
       <div className={classes.captureResultPanel}>
         <div className={classes.captureResultShell}>
-          <section className={classes.captureStatusCard}>
-            <div className={classes.captureStatusHeader}>
-              <div>
-                <Typography component="strong"><VideocamIcon /> {this.statusTitle()}</Typography>
-              </div>
-              <div className={classes.captureHeroControls}>
-                <em className={statusBadgeClass}>
-                  {this.statusLabel(isRunning, isDone)}
-                </em>
-                <button type="button" onClick={this.props.onClear}>접기</button>
-              </div>
-            </div>
-
+          <DetailSectionCard
+            className={classes.captureStatusCard}
+            icon={<VideoCameraOutlined />}
+            title={this.statusTitle()}
+            action={<span className={classes.captureHeroControls}>
+              <DetailBadge tone={statusTone}>{this.statusLabel(isRunning, isDone)}</DetailBadge>
+              <Button type="text" size="small" onClick={this.props.onClear}>접기</Button>
+            </span>}>
             <div className={classes.captureProgressPanel}>
               <div className={classes.captureCountdown}>
                 <span>{isRunning ? `남은 시간 · 총 ${durationLabel}` : '소요 시간'}</span>
                 <strong>{isRunning ? this.formatRemaining() : this.formatDuration(this.elapsedSeconds())}</strong>
               </div>
               <div className={classes.captureProgressRow}>
-                <LinearProgress variant="determinate" value={progress} className={progressClass} />
-                <span>{progress}%</span>
+                <Progress percent={progress} showInfo={false} strokeColor={isDone ? 'var(--netdive-detail-success)' : 'var(--netdive-ant-primary)'} />
+                <strong>{progress}%</strong>
               </div>
             </div>
 
-            <div className={classes.captureMetaGrid}>
-              <div><span>대상</span><strong>{capture.targetName || '-'}</strong></div>
-              <div><span>유형</span><strong>{this.targetTypeLabel()}</strong></div>
-              <div><span>범위</span><strong>{this.scopeLabel()}</strong></div>
-              <div><span>필터</span><strong>{this.filterLabel()}</strong></div>
-            </div>
+            <DetailKeyValueList
+              className={classes.captureMetaGrid}
+              density="compact"
+              labelWidth={50}
+              rows={[
+                { key: 'target', label: '대상', value: capture.targetName || '-', textValue: capture.targetName || '-' },
+                { key: 'type', label: '유형', value: this.targetTypeLabel() },
+                { key: 'scope', label: '범위', value: this.scopeLabel() },
+                { key: 'filter', label: '필터', value: this.filterLabel(), textValue: this.filterLabel() }
+              ]} />
 
-            {this.state.error && <p className={classes.captureStatusError}>{this.state.error}</p>}
+            {this.state.error && <Alert className={classes.captureStatusError} type="error" showIcon message={this.state.error} />}
 
             <div className={classes.captureStatusActions}>
               {isRunning &&
-                <Button size="small" variant="outlined" startIcon={<StopIcon />} disabled={this.state.loading || isLegacy} onClick={() => this.stopCapture()}>
+                <Button size="small" danger icon={<StopOutlined />} loading={this.state.loading} disabled={isLegacy} onClick={() => this.stopCapture()}>
                   중지
                 </Button>
               }
               {isFailed &&
-                <Button size="small" variant="outlined" startIcon={<ReplayIcon />} onClick={this.props.onRetry}>
+                <Button size="small" icon={<RedoOutlined />} onClick={this.props.onRetry}>
                   다시 시도
                 </Button>
               }
               {!isRunning && !isFailed &&
                 <>
                   {isDone &&
-                    <Button size="small" variant="outlined" startIcon={<GetAppIcon />} disabled={this.state.downloading || isLegacy} onClick={() => this.downloadCapture()}>
+                    <Button size="small" icon={<DownloadOutlined />} loading={this.state.downloading} disabled={isLegacy} onClick={() => this.downloadCapture()}>
                       {this.state.downloading ? '다운로드 중' : '다운로드'}
                     </Button>
                   }
-                  <Button size="small" variant="outlined" startIcon={<ReplayIcon />} onClick={this.props.onRetry}>
+                  <Button size="small" icon={<RedoOutlined />} onClick={this.props.onRetry}>
                     다시 캡처
                   </Button>
                 </>
               }
             </div>
-          </section>
+          </DetailSectionCard>
 
-          <section className={classes.captureSummaryCard}>
-            <div className={classes.captureSectionHeader}>
-              <strong>캡처 요약</strong>
-              <span>마지막 업데이트: {new Date(this.state.now).toLocaleTimeString()}</span>
-            </div>
+          <section className={classes.captureSupportingSection}>
+            <DetailCardSubsectionHeader
+              first
+              title="캡처 요약"
+              action={<span className={classes.captureUpdatedAt}>마지막 업데이트: {new Date(this.state.now).toLocaleTimeString()}</span>} />
             <div className={classes.captureMetricGrid}>
               <div className={classes.captureMetricItem}>
-                <i className={`${classes.captureMetricIcon} ${classes.captureMetricTraffic}`}><SwapVertIcon /></i>
+                <i className={classes.captureMetricIcon}><SwapOutlined /></i>
                 <span className={classes.captureMetricBody}><em>총 트래픽</em><strong>{this.formatBytes(totalBytes)}</strong><small>bytes</small></span>
               </div>
               <div className={classes.captureMetricItem}>
-                <i className={`${classes.captureMetricIcon} ${classes.captureMetricFlow}`}><DeviceHubIcon /></i>
+                <i className={classes.captureMetricIcon}><ApartmentOutlined /></i>
                 <span className={classes.captureMetricBody}><em>총 플로우</em><strong>{flows.length.toLocaleString()}</strong><small>flows</small></span>
               </div>
               <div className={classes.captureMetricItem}>
-                <i className={`${classes.captureMetricIcon} ${classes.captureMetricPeer}`}><TrackChangesIcon /></i>
+                <i className={classes.captureMetricIcon}><AimOutlined /></i>
                 <span className={classes.captureMetricBody}><em>주요 통신 대상</em><strong title={peer.label}>{peer.label}</strong><small>{peer.percent}%</small></span>
               </div>
               <div className={classes.captureMetricItem}>
-                <i className={`${classes.captureMetricIcon} ${classes.captureMetricProtocol}`}><CodeIcon /></i>
+                <i className={classes.captureMetricIcon}><CodeOutlined /></i>
                 <span className={classes.captureMetricBody}><em>주요 프로토콜</em><strong>{protocol.label}</strong><small>{protocol.percent}%</small></span>
               </div>
             </div>
           </section>
 
-          <section className={classes.captureSummaryCard}>
-            <div className={classes.captureSectionHeader}>
-              <strong>상위 통신</strong>
-              {flows.length > 5 &&
-                <button type="button" className={classes.moreButton} onClick={() => this.setState({ showAllTopFlows: !this.state.showAllTopFlows })}>
+          <section className={classes.captureSupportingSection}>
+            <DetailCardSubsectionHeader
+              first
+              title="상위 통신"
+              action={flows.length > 5 ?
+                <Button type="link" size="small" className={classes.moreButton} onClick={() => this.setState({ showAllTopFlows: !this.state.showAllTopFlows })}>
                   {this.state.showAllTopFlows ? '접기' : `더보기 (${flows.length - 5})`}
-                </button>
-              }
-            </div>
+                </Button> : undefined} />
             {visibleTopFlows.length === 0 &&
-              <p className={classes.captureEmptyState}>아직 표시할 플로우가 없습니다. 캡처가 진행되면 요약이 갱신됩니다.</p>
+              <CompactEmptyState description="아직 표시할 플로우가 없습니다. 캡처가 진행되면 요약이 갱신됩니다." />
             }
             <div className={`${classes.topFlowList} ${this.state.showAllTopFlows ? classes.topFlowListScrollable : ''}`}>
               {visibleTopFlows.map((flow, index) => {
@@ -579,8 +581,8 @@ class CaptureStatusPanel extends React.Component<Props, State> {
                     <span className={classes.topFlowMain}>
                       <strong title={`${flow.source} → ${flow.destination}`}>{sourceAddress} → {destinationAddress}</strong>
                       <em>
-                        <span className={classes.flowBadge}>{flow.protocol}</span>
-                        {flow.application && <span className={classes.flowBadge}>{flow.application}</span>}
+                        <Tag className={classes.flowBadge}>{flow.protocol}</Tag>
+                        {flow.application && <Tag className={classes.flowBadge}>{flow.application}</Tag>}
                         <span className={classes.flowPort}>포트 {displayPort}</span>
                         <span className={classes.flowPort}>{flow.packets.toLocaleString()} 패킷</span>
                       </em>
@@ -602,42 +604,39 @@ class CaptureStatusPanel extends React.Component<Props, State> {
           </section>
 
           <section className={classes.captureDistributionGrid}>
-            <div className={classes.captureSummaryCard}>
-              <strong className={classes.miniSectionTitle}>프로토콜 분포</strong>
+            <DetailSectionCard className={classes.miniStatPanel} title="프로토콜 분포">
               {protocolDistribution.length === 0 &&
-                <p className={classes.captureEmptyState}>아직 프로토콜 분포가 없습니다.</p>
+                <CompactEmptyState description="아직 프로토콜 분포가 없습니다." />
               }
-              {protocolDistribution.map((item, index) => (
-                <div className={`${classes.progressListRow} ${index === 0 ? classes.progressListRowPrimary : ''}`} key={item.label}>
-                  <span>{item.label}</span>
-                  <i><b style={{ width: `${item.percent}%` }} /></i>
-                  <em>{item.percent}% · {this.formatBytes(item.bytes)}</em>
-                </div>
-              ))}
-            </div>
-            <div className={classes.captureSummaryCard}>
-              <strong className={classes.miniSectionTitle}>상위 포트</strong>
+              {protocolDistribution.map((item, index) => <DetailMetricRow
+                key={item.label}
+                label={item.label}
+                value={this.formatBytes(item.bytes)}
+                ratio={`${item.percent}%`}
+                primary={index === 0}
+                progressPercent={item.percent}
+                progressColor={index === 0 ? 'var(--netdive-ant-primary)' : 'var(--netdive-ops-icon-color)'} />)}
+            </DetailSectionCard>
+            <DetailSectionCard className={classes.miniStatPanel} title="상위 포트">
               {portDistribution.length === 0 &&
-                <p className={classes.captureEmptyState}>아직 포트 통계가 없습니다.</p>
+                <CompactEmptyState description="아직 포트 통계가 없습니다." />
               }
-              {portDistribution.map(({ port, bytes, percent }, index) => (
-                <div className={`${classes.progressListRow} ${index === 0 ? classes.progressListRowPrimary : ''}`} key={port}>
-                  <span>{port} {this.portApplication(port)}</span>
-                  <i><b style={{ width: `${percent}%` }} /></i>
-                  <em>{this.formatBytes(bytes)} · {percent}%</em>
-                </div>
-              ))}
-            </div>
+              {portDistribution.map(({ port, bytes, percent }, index) => <DetailMetricRow
+                key={port}
+                label={`${port} ${this.portApplication(port)}`}
+                value={this.formatBytes(bytes)}
+                ratio={`${percent}%`}
+                primary={index === 0}
+                progressPercent={percent}
+                progressColor={index === 0 ? 'var(--netdive-ant-primary)' : 'var(--netdive-ops-icon-color)'} />)}
+            </DetailSectionCard>
           </section>
 
-          <Accordion className={classes.rawFlowAccordion}>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Typography component="strong">원시 플로우 보기</Typography>
-            </AccordionSummary>
-            <AccordionDetails>
+          <Collapse className={classes.rawFlowAccordion} expandIconPosition="right">
+            <Collapse.Panel key="raw-flows" header={<span><NodeIndexOutlined /> 원시 플로우 보기</span>}>
               <FlowPanel el={this.props.el} />
-            </AccordionDetails>
-          </Accordion>
+            </Collapse.Panel>
+          </Collapse>
 
           <p className={classes.captureSummaryHint}>요약 정보는 실시간으로 갱신되며, 캡처 완료 후 최종 값이 확정됩니다.</p>
         </div>
@@ -650,132 +649,53 @@ const styles = (theme: Theme) => createStyles({
   captureResultPanel: {
     display: 'flex',
     flexDirection: 'column',
-    gap: theme.spacing(1.15),
-    padding: theme.spacing(0.35, 0.2, 0.6),
+    gap: 'var(--netdive-detail-panel-gap)',
+    padding: '4px 0 var(--netdive-detail-panel-bottom-padding)',
     background: 'transparent',
   },
   captureResultShell: {
     display: 'flex',
     flexDirection: 'column',
-    gap: theme.spacing(1),
+    gap: 8,
   },
   captureStatusCard: {
-    padding: theme.spacing(1.35),
-    border: '1px solid rgba(226, 232, 240, 0.94)',
-    borderRadius: 16,
-    background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 252, 255, 0.92))',
-    boxShadow: '0 10px 24px rgba(15, 23, 42, 0.045)',
-  },
-  captureStatusHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: theme.spacing(1),
-    '& strong': {
-      display: 'inline-flex',
-      alignItems: 'center',
-      gap: 7,
-      color: 'var(--netdive-detail-text, #0f172a)',
-      fontSize: 15,
-      fontWeight: 900,
-      '& svg': {
-        width: 17,
-        height: 17,
-        color: '#0f172a',
-      }
-    },
+    padding: 0,
+    borderColor: 'var(--netdive-detail-card-border)',
+    borderRadius: 'var(--netdive-detail-card-radius)',
+    background: 'var(--netdive-detail-bg)',
+    boxShadow: 'var(--netdive-detail-card-shadow)',
+    '& .netdive-detail-section__body': { padding: '12px var(--netdive-detail-card-body-padding-x)' },
   },
   captureMetaGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-    gap: theme.spacing(0.65, 1.2),
-    marginTop: theme.spacing(0.85),
-    paddingTop: theme.spacing(0.75),
-    borderTop: '1px solid rgba(226, 232, 240, 0.86)',
-    '& div': {
-      minWidth: 0,
-    },
-    '& span': {
-      display: 'block',
-      color: '#94a3b8',
-      fontSize: 10.5,
-      lineHeight: 1.25,
-      fontWeight: 700,
-      marginBottom: 2,
-    },
-    '& strong': {
-      display: 'block',
-      color: '#334155',
-      fontSize: 12.5,
-      lineHeight: 1.35,
-      fontWeight: 800,
-      overflow: 'hidden',
-      textOverflow: 'ellipsis',
-      whiteSpace: 'normal',
-    }
+    gap: '0 12px',
+    marginTop: 10,
+    paddingTop: 8,
+    borderTop: '1px solid var(--netdive-detail-section-divider)',
+    '& > .netdive-detail-kv__row': { minWidth: 0 },
   },
   captureHeroControls: {
     display: 'inline-flex',
     alignItems: 'center',
-    gap: theme.spacing(0.5),
+    gap: 6,
     flex: '0 0 auto',
-    '& em': {
-      borderRadius: 999,
-      padding: '4px 8px',
-      fontStyle: 'normal',
-      fontSize: 11,
-      fontWeight: 800,
-      whiteSpace: 'nowrap',
-    },
-    '& button': {
-      appearance: 'none',
-      border: 0,
-      background: 'transparent',
-      color: 'var(--netdive-detail-muted, #64748b)',
-      borderRadius: 7,
-      padding: '4px 6px',
-      fontSize: 11,
-      fontWeight: 800,
-      cursor: 'pointer',
-      '&:hover': {
-        color: '#3156c9',
-        background: '#f3f6fb',
-      }
-    },
+    '& .ant-tag': { marginRight: 0 },
+    '& .ant-btn': { height: 24, padding: '0 4px', color: 'var(--netdive-detail-text-tertiary)', fontSize: 'var(--netdive-detail-font-supporting-text)' },
   },
   captureProgressPanel: {
     marginTop: theme.spacing(0.75),
   },
-  captureStatusRunning: {
-    color: '#3156c9',
-    background: '#eef4ff',
-    border: '1px solid #c7d7fe',
-  },
-  captureStatusDone: {
-    color: '#15803d',
-    background: '#f0fdf4',
-    border: '1px solid #bbf7d0',
-  },
-  captureStatusFailed: {
-    color: '#b91c1c',
-    background: '#fef2f2',
-    border: '1px solid #fecaca',
-  },
-  captureStatusWarning: {
-    color: '#b45309',
-    background: '#fffbeb',
-    border: '1px solid #fed7aa',
-  },
   captureCountdown: {
     '& span': {
       display: 'block',
-      color: 'var(--netdive-detail-muted, #64748b)',
-      fontSize: 11,
-      fontWeight: 700,
+      color: 'var(--netdive-detail-text-tertiary)',
+      fontSize: 'var(--netdive-detail-font-supporting-text)',
+      fontWeight: 'var(--netdive-detail-weight-body-label)',
     },
     '& strong': {
       display: 'block',
-      color: '#3156c9',
+      color: 'var(--netdive-detail-text)',
       fontSize: 32,
       lineHeight: 1.2,
       fontWeight: 700,
@@ -783,37 +703,26 @@ const styles = (theme: Theme) => createStyles({
       marginTop: 2,
     }
   },
-  captureProgress: {
-    flex: 1,
-    height: 5,
-    borderRadius: 999,
-    backgroundColor: '#e8edf4',
-    '& .MuiLinearProgress-barColorPrimary': {
-      backgroundColor: '#5b73d6',
-    }
-  },
-  captureProgressDone: {
-    '& .MuiLinearProgress-barColorPrimary': {
-      backgroundColor: '#4aa66a',
-    }
-  },
   captureProgressRow: {
     display: 'flex',
     alignItems: 'center',
     gap: theme.spacing(0.8),
     marginTop: theme.spacing(0.55),
-    '& span': {
-      color: 'var(--netdive-detail-muted, #64748b)',
-      fontSize: 11,
-      fontWeight: 800,
+    '& .ant-progress': { flex: 1, margin: 0 },
+    '& .ant-progress-inner': { borderRadius: 'var(--netdive-ant-radius)' },
+    '& .ant-progress-bg': { height: '4px !important', borderRadius: 'var(--netdive-ant-radius)' },
+    '& > strong': {
+      color: 'var(--netdive-detail-text-secondary)',
+      fontSize: 'var(--netdive-detail-font-supporting-text)',
+      fontWeight: 'var(--netdive-detail-weight-body-label)',
       minWidth: 34,
       textAlign: 'right',
     }
   },
   captureStatusError: {
-    color: '#b91c1c',
-    fontSize: 12,
     margin: theme.spacing(0.8, 0, 0),
+    borderRadius: 'var(--netdive-ant-radius)',
+    '& .ant-alert-message': { fontSize: 'var(--netdive-detail-font-body-label)' },
   },
   captureStatusActions: {
     display: 'flex',
@@ -822,76 +731,52 @@ const styles = (theme: Theme) => createStyles({
     justifyContent: 'flex-end',
     marginTop: theme.spacing(0.75),
     flexWrap: 'wrap',
-    '& .MuiButton-root': {
-      borderColor: 'rgba(203, 213, 225, 0.95)',
-      color: 'var(--netdive-detail-text, #0f172a)',
-      borderRadius: 10,
-      textTransform: 'none',
-      fontWeight: 800,
-      '&:hover': {
-        borderColor: '#93c5fd',
-        background: '#f3f8ff',
-      }
-    }
+    '& .ant-btn': { borderRadius: 'var(--netdive-ant-radius)', fontSize: 'var(--netdive-detail-font-body-label)' }
   },
-  captureSummaryCard: {
-    border: '1px solid rgba(226, 232, 240, 0.94)',
-    borderRadius: 16,
-    background: 'var(--netdive-detail-bg, #fff)',
-    padding: theme.spacing(1.35),
-    boxShadow: '0 8px 20px rgba(15, 23, 42, 0.03)',
+  captureSupportingSection: {
+    paddingBottom: 8,
+    borderBottom: '1px solid var(--netdive-detail-section-divider)',
+    background: 'var(--netdive-detail-bg)',
+    '& $captureMetricGrid, & $topFlowList': { margin: '0 var(--netdive-detail-card-body-padding-x)' },
+  },
+  miniStatPanel: {
+    height: '100%',
+    borderColor: 'var(--netdive-detail-row-divider)',
+    borderRadius: 'var(--netdive-detail-card-radius)',
+    background: 'var(--netdive-ops-tint, #fafcff)',
+    boxShadow: 'none',
     minWidth: 0,
+    '& .ant-card-head': { minHeight: 36, background: 'transparent' },
+    '& .netdive-detail-section__header': { minHeight: 36 },
+    '& .netdive-detail-section__body': { padding: '6px var(--netdive-detail-card-body-padding-x) 10px' },
   },
-  captureSectionHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: theme.spacing(1),
-    marginBottom: theme.spacing(1),
-    '& strong': {
-      color: 'var(--netdive-detail-text, #0f172a)',
-      fontSize: 14,
-      fontWeight: 900,
-    },
-    '& span': {
-      color: 'var(--netdive-detail-muted, #64748b)',
-      fontSize: 11,
-      whiteSpace: 'nowrap',
-    }
-  },
+  captureUpdatedAt: { color: 'var(--netdive-detail-text-tertiary)', fontSize: 'var(--netdive-detail-font-supporting-text)', whiteSpace: 'nowrap' },
   moreButton: {
-    appearance: 'none',
-    border: 0,
-    background: 'transparent',
-    color: '#3156c9',
-    fontSize: 12,
-    fontWeight: 800,
-    cursor: 'pointer',
-    padding: theme.spacing(0.3, 0.4),
-    borderRadius: 6,
-    '&:hover': {
-      background: '#eff6ff',
-    }
+    height: 24,
+    padding: '0 2px',
+    color: 'var(--netdive-ant-primary)',
+    fontSize: 'var(--netdive-detail-font-body-label)',
+    fontWeight: 600,
   },
   captureMetricGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-    gap: theme.spacing(1),
+    gap: 6,
     borderRadius: 0,
     background: 'transparent',
   },
   captureMetricItem: {
     display: 'grid',
-    gridTemplateColumns: '40px minmax(0, 1fr)',
-    gap: theme.spacing(0.95),
+    gridTemplateColumns: '34px minmax(0, 1fr)',
+    gap: 10,
     alignItems: 'center',
     minWidth: 0,
-    minHeight: 86,
-    padding: theme.spacing(1.2),
+    minHeight: 66,
+    padding: 8,
     boxSizing: 'border-box',
-    border: '1px solid rgba(226, 232, 240, 0.72)',
-    borderRadius: 14,
-    background: 'linear-gradient(180deg, rgba(248, 250, 252, 0.62), rgba(255, 255, 255, 0.96))',
+    border: '1px solid var(--netdive-detail-row-divider)',
+    borderRadius: 'var(--netdive-detail-card-radius)',
+    background: 'var(--netdive-ops-tint, #fafcff)',
   },
   captureMetricIcon: {
     display: 'inline-flex',
@@ -899,43 +784,30 @@ const styles = (theme: Theme) => createStyles({
     justifyContent: 'center',
     width: 34,
     height: 34,
-    borderRadius: 999,
+    border: '1px solid var(--netdive-detail-connected-resource-icon-border)',
+    borderRadius: 'var(--netdive-detail-card-radius)',
+    background: 'var(--netdive-detail-connected-resource-icon-bg)',
+    color: 'var(--netdive-detail-connected-resource-icon)',
     '& svg': {
       width: 17,
       height: 17,
     }
   },
-  captureMetricTraffic: {
-    color: '#475569',
-    background: '#eef4ff',
-  },
-  captureMetricFlow: {
-    color: '#3f7f67',
-    background: '#e9f7ef',
-  },
-  captureMetricPeer: {
-    color: '#6750a4',
-    background: '#f1edff',
-  },
-  captureMetricProtocol: {
-    color: '#8a5a2b',
-    background: '#f7efe5',
-  },
   captureMetricBody: {
     minWidth: 0,
     '& em': {
       display: 'block',
-      color: 'var(--netdive-detail-muted, #64748b)',
-      fontSize: 10.5,
+      color: 'var(--netdive-detail-text-tertiary)',
+      fontSize: 'var(--netdive-detail-font-supporting-text)',
       fontStyle: 'normal',
-      fontWeight: 800,
+      fontWeight: 'var(--netdive-detail-weight-body-label)',
       marginBottom: 3,
     },
     '& strong': {
       display: 'block',
-      color: 'var(--netdive-detail-text, #0f172a)',
-      fontSize: 20,
-      fontWeight: 900,
+      color: 'var(--netdive-detail-text)',
+      fontSize: 'var(--netdive-detail-font-primary-value)',
+      fontWeight: 'var(--netdive-detail-weight-primary-value)',
       overflowWrap: 'anywhere',
       whiteSpace: 'normal',
       lineHeight: 1.18,
@@ -943,26 +815,17 @@ const styles = (theme: Theme) => createStyles({
     '& small': {
       display: 'block',
       marginTop: 3,
-      color: 'var(--netdive-detail-muted, #64748b)',
-      fontSize: 10.5,
-      fontWeight: 700,
+      color: 'var(--netdive-detail-text-tertiary)',
+      fontSize: 'var(--netdive-detail-font-supporting-text)',
+      fontWeight: 'var(--netdive-detail-weight-supporting-text)',
     }
-  },
-  captureEmptyState: {
-    margin: 0,
-    padding: theme.spacing(1),
-    borderRadius: 10,
-    background: '#f8fafc',
-    color: 'var(--netdive-detail-muted, #64748b)',
-    fontSize: 12,
-    lineHeight: 1.5,
   },
   topFlowList: {
     display: 'grid',
     gap: 0,
     '& $topFlowItem:nth-child(n+2) $topFlowMain i': {
-      background: '#9aa8ba',
-      opacity: 0.48,
+      background: 'var(--netdive-ops-icon-color)',
+      opacity: 0.4,
     }
   },
   topFlowListScrollable: {
@@ -975,14 +838,14 @@ const styles = (theme: Theme) => createStyles({
     appearance: 'none',
     width: '100%',
     display: 'grid',
-    gridTemplateColumns: '30px minmax(0, 1fr) 74px',
-    gap: theme.spacing(1.1),
+    gridTemplateColumns: '26px minmax(0, 1fr) 68px',
+    gap: 8,
     alignItems: 'center',
     border: 0,
-    borderBottom: '1px solid rgba(226, 232, 240, 0.62)',
+    borderBottom: '1px solid var(--netdive-detail-row-divider)',
     borderRadius: 0,
     background: 'transparent',
-    padding: theme.spacing(1.15, 0.25),
+    padding: '7px 2px',
     cursor: 'pointer',
     textAlign: 'left',
     transition: 'background-color 160ms ease',
@@ -990,32 +853,32 @@ const styles = (theme: Theme) => createStyles({
       borderBottom: 0,
     },
     '&:hover': {
-      background: 'rgba(243, 248, 255, 0.72)',
+      background: 'var(--netdive-detail-hover)',
     }
   },
   topFlowItemExpanded: {
-    background: 'rgba(239, 246, 255, 0.72)',
+    background: 'var(--netdive-detail-selected)',
   },
   topFlowRank: {
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    width: 24,
-    height: 24,
-    borderRadius: 999,
-    background: '#eef4ff',
-    color: '#3156c9',
-    fontSize: 11,
-    fontWeight: 900,
+    width: 22,
+    height: 22,
+    borderRadius: 'var(--netdive-detail-card-radius)',
+    background: 'var(--netdive-ant-table-header)',
+    color: 'var(--netdive-detail-text-secondary)',
+    fontSize: 'var(--netdive-detail-font-supporting-text)',
+    fontWeight: 600,
   },
   topFlowMain: {
     minWidth: 0,
     '& strong': {
       display: 'block',
-      color: 'var(--netdive-detail-text, #0f172a)',
-      fontSize: 13.5,
-      fontWeight: 900,
-      lineHeight: 1.42,
+      color: 'var(--netdive-detail-text)',
+      fontSize: 'var(--netdive-detail-font-body-label)',
+      fontWeight: 'var(--netdive-detail-weight-section-title)',
+      lineHeight: 'var(--netdive-detail-line-body-label)',
       overflow: 'hidden',
       textOverflow: 'ellipsis',
       whiteSpace: 'nowrap',
@@ -1024,8 +887,8 @@ const styles = (theme: Theme) => createStyles({
       display: 'flex',
       flexWrap: 'wrap',
       gap: 6,
-      color: 'var(--netdive-detail-muted, #64748b)',
-      fontSize: 11,
+      color: 'var(--netdive-detail-text-tertiary)',
+      fontSize: 'var(--netdive-detail-font-supporting-text)',
       fontStyle: 'normal',
       marginTop: 2,
     },
@@ -1033,15 +896,15 @@ const styles = (theme: Theme) => createStyles({
       display: 'block',
       height: 2,
       borderRadius: 999,
-      background: '#6f82d7',
+      background: 'var(--netdive-ant-primary)',
       opacity: 0.74,
       marginTop: 7,
       maxWidth: '100%',
     },
     '& small': {
       display: 'block',
-      color: '#1e3a8a',
-      fontSize: 11,
+      color: 'var(--netdive-detail-primary)',
+      fontSize: 'var(--netdive-detail-font-supporting-text)',
       marginTop: 5,
     }
   },
@@ -1050,18 +913,18 @@ const styles = (theme: Theme) => createStyles({
     justifyItems: 'end',
     gap: 2,
     minWidth: 0,
-    color: 'var(--netdive-detail-text, #0f172a)',
+    color: 'var(--netdive-detail-text)',
     whiteSpace: 'nowrap',
     '& strong': {
       display: 'block',
-      fontSize: 13,
-      fontWeight: 900,
+      fontSize: 'var(--netdive-detail-font-body-label)',
+      fontWeight: 'var(--netdive-detail-weight-section-title)',
     },
     '& small': {
       display: 'block',
-      color: 'var(--netdive-detail-muted, #64748b)',
-      fontSize: 11,
-      fontWeight: 700,
+      color: 'var(--netdive-detail-text-tertiary)',
+      fontSize: 'var(--netdive-detail-font-supporting-text)',
+      fontWeight: 'var(--netdive-detail-weight-supporting-text)',
       lineHeight: 1.25,
       textAlign: 'right',
     }
@@ -1070,20 +933,21 @@ const styles = (theme: Theme) => createStyles({
     display: 'inline-flex',
     alignItems: 'center',
     border: 0,
-    borderRadius: 5,
-    background: '#eef2f7',
-    color: '#475569',
+    margin: 0,
+    borderRadius: 'var(--netdive-ant-radius)',
+    background: 'var(--netdive-ant-table-header)',
+    color: 'var(--netdive-detail-text-secondary)',
     padding: '1px 5px',
-    fontSize: 10.5,
-    fontWeight: 800,
+    fontSize: 'var(--netdive-detail-font-status-tag)',
+    fontWeight: 600,
     lineHeight: 1.35,
   },
   flowPort: {
     display: 'inline-flex',
     alignItems: 'center',
-    color: 'var(--netdive-detail-muted, #64748b)',
-    fontSize: 10.5,
-    fontWeight: 800,
+    color: 'var(--netdive-detail-text-tertiary)',
+    fontSize: 'var(--netdive-detail-font-supporting-text)',
+    fontWeight: 500,
     lineHeight: 1.35,
   },
   captureDistributionGrid: {
@@ -1094,90 +958,39 @@ const styles = (theme: Theme) => createStyles({
       gridTemplateColumns: '1fr',
     },
   },
-  miniSectionTitle: {
-    display: 'block',
-    marginBottom: theme.spacing(0.8),
-    color: 'var(--netdive-detail-text, #0f172a)',
-    fontSize: 13,
-    fontWeight: 900,
-  },
-  progressListRow: {
-    display: 'grid',
-    gridTemplateColumns: '72px minmax(0, 1fr) 82px',
-    gap: theme.spacing(0.85),
-    alignItems: 'center',
-    marginBottom: theme.spacing(0.82),
-    '& span': {
-      color: 'var(--netdive-detail-text, #0f172a)',
-      fontSize: 11.5,
-      fontWeight: 800,
-      overflow: 'hidden',
-      textOverflow: 'ellipsis',
-      whiteSpace: 'nowrap',
-    },
-    '& i': {
-      display: 'block',
-      height: 4,
-      borderRadius: 999,
-      background: '#e2e8f0',
-      overflow: 'hidden',
-    },
-    '& b': {
-      display: 'block',
-      height: '100%',
-      borderRadius: 999,
-      background: '#93a4ba',
-    },
-    '& em': {
-      color: 'var(--netdive-detail-muted, #64748b)',
-      fontSize: 11,
-      fontStyle: 'normal',
-      fontWeight: 700,
-      textAlign: 'right',
-    }
-  },
-  progressListRowPrimary: {
-    '& b': {
-      background: '#5b73d6',
-    }
-  },
   rawFlowAccordion: {
-    marginTop: theme.spacing(0.4),
+    marginTop: 2,
     boxShadow: 'none',
-    border: '1px solid var(--netdive-detail-border, #dbe7f5)',
-    borderRadius: '14px !important',
-    background: 'var(--netdive-detail-bg, #fff)',
+    border: '1px solid var(--netdive-detail-card-border)',
+    borderRadius: 'var(--netdive-detail-card-radius)',
+    background: 'var(--netdive-detail-bg)',
     overflow: 'hidden',
-    '&::before': {
-      display: 'none',
+    '& > .ant-collapse-item > .ant-collapse-header': {
+      display: 'flex',
+      minHeight: 'var(--netdive-detail-card-head-height)',
+      alignItems: 'center',
+      padding: '0 40px 0 var(--netdive-detail-card-padding-x)',
+      color: 'var(--netdive-detail-text)',
+      fontSize: 'var(--netdive-detail-font-section-title)',
+      fontWeight: 'var(--netdive-detail-weight-section-title)',
+      lineHeight: 'var(--netdive-detail-line-section-title)',
     },
-    '& .MuiAccordionSummary-root': {
-      minHeight: 46,
-      padding: theme.spacing(0, 1.15),
+    '& > .ant-collapse-item > .ant-collapse-header::before, & > .ant-collapse-item > .ant-collapse-header::after': { display: 'none' },
+    '& > .ant-collapse-item > .ant-collapse-header > span:not(.ant-collapse-arrow)': {
+      display: 'inline-flex', alignItems: 'center', minHeight: 20, gap: 6, lineHeight: '20px'
     },
-    '& .MuiAccordionSummary-content': {
-      margin: theme.spacing(1, 0),
+    '& > .ant-collapse-item > .ant-collapse-header > span:not(.ant-collapse-arrow) svg': { display: 'block', fontSize: 14 },
+    '& > .ant-collapse-item > .ant-collapse-header .ant-collapse-arrow': {
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 16, height: 16, lineHeight: 1
     },
-    '& .MuiAccordionDetails-root': {
-      display: 'block',
-      padding: theme.spacing(0, 1, 1),
-      overflowX: 'auto',
-    },
-    '& strong': {
-      color: 'var(--netdive-detail-text, #0f172a)',
-      fontSize: 14,
-      fontWeight: 900,
-    }
+    '& .ant-collapse-content-box': { padding: '0 var(--netdive-detail-card-body-padding-x) 12px', overflowX: 'auto' },
   },
   captureSummaryHint: {
-    margin: theme.spacing(0.25, 0, 1.25),
-    border: '1px solid rgba(226, 232, 240, 0.92)',
-    borderRadius: 12,
-    background: '#f8fafc',
-    color: 'var(--netdive-detail-muted, #64748b)',
-    padding: theme.spacing(0.9, 1),
-    fontSize: 12,
-    lineHeight: 1.45,
+    margin: '2px 0 8px',
+    color: 'var(--netdive-detail-text-tertiary)',
+    padding: '0 2px',
+    fontSize: 'var(--netdive-detail-font-supporting-text)',
+    lineHeight: 'var(--netdive-detail-line-supporting-text)',
   }
 })
 

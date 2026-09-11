@@ -2,860 +2,279 @@
  * Copyright (C) 2019 Sylvain Afchain
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
  */
 
 import { createStyles, Theme } from '@material-ui/core/styles'
 
+/** Layout-only rules for the capture wizard. Controls and visual states are
+ * provided by Ant Design and the shared Netdive detail/operations tokens. */
 export const styles = (theme: Theme) => createStyles({
     captureWizard: {
+        position: 'relative',
         display: 'grid',
         gridTemplateColumns: 'minmax(0, 1fr) 280px',
-        gap: theme.spacing(1.5),
+        gap: 'var(--netdive-ops-section-gap)',
         alignItems: 'start',
-        background: 'var(--netdive-detail-panel-bg, #f8fafc)',
-        padding: theme.spacing(1.2),
-        borderRadius: 14,
-        boxSizing: 'border-box',
-        [theme.breakpoints.down('md')]: {
-            gridTemplateColumns: '1fr',
-        }
+        color: 'var(--netdive-detail-text-secondary)',
+        fontSize: 'var(--netdive-detail-font-body-label)',
+        [theme.breakpoints.down('md')]: { gridTemplateColumns: '1fr' }
     },
-    wizardMain: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: theme.spacing(1.2),
-        minWidth: 0,
-    },
+    captureFeedback: { gridColumn: '1 / -1', marginBottom: 0 },
+    wizardMain: { display: 'flex', minWidth: 0, flexDirection: 'column', gap: 'var(--netdive-ops-section-gap)' },
     wizardMainCard: {
-        background: 'var(--netdive-detail-bg, #fff)',
-        border: '1px solid var(--netdive-detail-border, #dbe7f5)',
-        borderRadius: 16,
-        padding: theme.spacing(1.25),
-        boxShadow: '0 10px 26px rgba(15, 23, 42, 0.06)',
         minWidth: 0,
+        padding: 'var(--netdive-ops-panel-padding)',
+        border: '1px solid var(--netdive-detail-card-border)',
+        borderRadius: 'var(--netdive-ops-radius)',
+        background: 'var(--netdive-ant-bg)',
+        boxShadow: 'var(--netdive-ant-card-shadow)'
     },
     wizardCardHeader: {
-        display: 'flex',
-        alignItems: 'flex-start',
-        justifyContent: 'space-between',
-        gap: theme.spacing(1),
-        marginBottom: theme.spacing(0.85),
+        display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
+        gap: 'var(--netdive-ops-card-gap)', marginBottom: 'var(--netdive-ops-card-gap)',
+        '& .ant-tag': { marginRight: 0 }
     },
     wizardTitle: {
-        margin: 0,
-        color: 'var(--netdive-detail-text, #0f172a)',
-        fontSize: 15,
-        fontWeight: 700,
-        lineHeight: 1.25,
+        margin: 0, color: 'var(--netdive-detail-text)',
+        fontSize: 'var(--netdive-detail-font-section-title)',
+        fontWeight: 600,
+        lineHeight: 'var(--netdive-detail-line-section-title)'
     },
     wizardSubtitle: {
-        margin: theme.spacing(0.35, 0, 0),
-        color: 'var(--netdive-detail-muted, #64748b)',
-        fontSize: 12,
-        lineHeight: 1.45,
-    },
-    captureStatusBadge: {
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 5,
-        borderRadius: 999,
-        padding: '5px 9px',
-        fontSize: 11.5,
-        fontWeight: 650,
-        whiteSpace: 'nowrap',
-        border: '1px solid transparent',
-    },
-    statusAvailable: {
-        color: '#15803d',
-        borderColor: '#bbf7d0',
-        background: '#f0fdf4',
-    },
-    statusConditional: {
-        color: '#b45309',
-        borderColor: '#fed7aa',
-        background: '#fffbeb',
-    },
-    statusUnavailable: {
-        color: '#b91c1c',
-        borderColor: '#fecaca',
-        background: '#fef2f2',
-    },
-    targetSummaryGrid: {
-        display: 'grid',
-        gridTemplateColumns: '1fr',
-        gap: theme.spacing(0.75),
-        [theme.breakpoints.down('sm')]: {
-            gridTemplateColumns: '1fr',
-        }
+        margin: '2px 0 0', color: 'var(--netdive-detail-text-tertiary)',
+        fontSize: 'var(--netdive-detail-font-supporting-text)',
+        lineHeight: 'var(--netdive-detail-line-supporting-text)'
     },
     targetCard: {
-        border: '1px solid var(--netdive-detail-border, #dbe7f5)',
-        borderRadius: 14,
-        padding: theme.spacing(0.85, 1),
-        background: '#fff',
-    },
-    sectionLabel: {
-        display: 'block',
-        color: 'var(--netdive-detail-muted, #64748b)',
-        fontSize: 11.5,
-        fontWeight: 600,
-        marginBottom: theme.spacing(0.7),
-    },
-    targetNameRow: {
-        display: 'flex',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: theme.spacing(0.7),
-        '& strong': {
-            color: 'var(--netdive-detail-text, #0f172a)',
-            fontSize: 15.5,
-            fontWeight: 700,
-            lineHeight: 1.25,
+        borderColor: 'var(--netdive-ops-border)', borderRadius: 'var(--netdive-ops-radius)',
+        background: 'var(--netdive-ops-tint)', boxShadow: 'none',
+        '& .ant-card-body': { padding: 'var(--netdive-ops-card-padding)' },
+        '& .ant-descriptions-item': { paddingBottom: 6 },
+        '& .ant-descriptions-item-label': {
+            width: 104, color: 'var(--netdive-detail-text-tertiary)',
+            fontSize: 'var(--netdive-detail-font-supporting-text)'
         },
-        '& span': {
-            borderRadius: 999,
-            padding: '3px 8px',
-            background: '#eff6ff',
-            color: '#1a73e8',
-            border: '1px solid #bfdbfe',
-            fontSize: 11,
-            fontWeight: 650,
-        }
-    },
-    targetInfoGrid: {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-        gap: theme.spacing(0.55, 0.9),
-        marginTop: theme.spacing(0.75),
-        '& div': {
-            minWidth: 0,
+        '& .ant-descriptions-item-content': {
+            minWidth: 0, color: 'var(--netdive-detail-text-secondary)',
+            fontSize: 'var(--netdive-detail-font-body-label)'
         },
-        '& span': {
-            display: 'block',
-            color: 'var(--netdive-detail-muted, #64748b)',
-            fontSize: 11,
-            marginBottom: 2,
+        '& .ant-descriptions-item-content strong': {
+            display: 'block', overflow: 'hidden', fontWeight: 600,
+            textOverflow: 'ellipsis', whiteSpace: 'nowrap'
         },
-        '& strong': {
-            display: 'block',
-            color: 'var(--netdive-detail-text, #0f172a)',
-            fontSize: 12,
-            fontWeight: 650,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-        }
+        '& .ant-tag': { marginRight: 0 }
     },
     simpleSettings: {
-        marginTop: theme.spacing(1.15),
-        borderTop: '1px solid var(--netdive-detail-border, #dbe7f5)',
-        paddingTop: theme.spacing(1.1),
+        marginTop: 'var(--netdive-ops-section-gap)', paddingTop: 'var(--netdive-ops-section-gap)',
+        borderTop: '1px solid var(--netdive-detail-section-divider)'
     },
-    simpleApiBanner: {
-        display: 'grid',
-        gridTemplateColumns: '16px minmax(0, 1fr)',
-        gap: theme.spacing(0.65),
-        alignItems: 'center',
-        marginTop: theme.spacing(0.85),
-        marginBottom: theme.spacing(0.35),
-        padding: theme.spacing(0.65, 0.8),
-        border: '1px solid rgba(219, 231, 245, 0.9)',
-        borderRadius: 10,
-        background: '#f8fafc',
-        color: 'var(--netdive-detail-muted, #64748b)',
-        '& svg': {
-            width: 15,
-            height: 15,
-            color: '#64748b',
-        },
-        '& strong': {
-            display: 'inline',
-            color: 'var(--netdive-detail-text, #0f172a)',
-            fontSize: 11.8,
-            fontWeight: 700,
-            lineHeight: 1.35,
-            marginRight: 6,
-        },
-        '& span': {
-            display: 'inline',
-            fontSize: 11.5,
-            lineHeight: 1.35,
-        }
+    compactAlert: {
+        marginTop: 'var(--netdive-ops-card-gap)', borderRadius: 'var(--netdive-ant-radius)',
+        '&.ant-alert-with-description': { padding: '7px 12px' },
+        '& .ant-alert-icon': { top: 11, fontSize: 14 },
+        '& .ant-alert-message': { marginBottom: 0, fontSize: 12, fontWeight: 600 },
+        '& .ant-alert-description': { fontSize: 11, lineHeight: '16px' }
     },
     settingRow: {
-        display: 'grid',
-        gridTemplateColumns: '150px minmax(0, 1fr)',
-        gap: theme.spacing(1),
-        alignItems: 'start',
-        padding: theme.spacing(1, 0),
-        borderBottom: '1px solid rgba(219, 231, 245, 0.65)',
+        display: 'grid', gridTemplateColumns: '154px minmax(0, 1fr)', alignItems: 'center',
+        gap: 'var(--netdive-ops-section-gap)', minHeight: 54,
+        padding: 'var(--netdive-ops-card-gap) 0', borderBottom: '1px solid var(--netdive-detail-row-divider)',
         '& > div:first-child strong': {
-            display: 'block',
-            color: 'var(--netdive-detail-text, #0f172a)',
-            fontSize: 13,
-            fontWeight: 650,
+            display: 'block', color: 'var(--netdive-detail-text)',
+            fontSize: 'var(--netdive-detail-font-body-label)', fontWeight: 600
         },
         '& > div:first-child small': {
-            display: 'block',
-            color: 'var(--netdive-detail-muted, #64748b)',
-            fontSize: 11,
-            lineHeight: 1.45,
-            marginTop: 3,
+            display: 'block', marginTop: 2, color: 'var(--netdive-detail-text-tertiary)',
+            fontSize: 'var(--netdive-detail-font-supporting-text)', lineHeight: 'var(--netdive-detail-line-supporting-text)'
         },
-        [theme.breakpoints.down('sm')]: {
-            gridTemplateColumns: '1fr',
-        }
+        [theme.breakpoints.down('sm')]: { gridTemplateColumns: '1fr' }
     },
     optionGroup: {
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: 7,
-    },
-    wizardOptionButton: {
-        appearance: 'none',
-        border: '1px solid var(--netdive-detail-border, #dbe7f5)',
-        borderRadius: 10,
-        background: '#fff',
-        color: 'var(--netdive-detail-text, #0f172a)',
-        cursor: 'pointer',
-        minHeight: 34,
-        padding: '6px 10px',
-        display: 'inline-flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        alignItems: 'flex-start',
-        gap: 2,
-        fontSize: 12,
-        fontWeight: 650,
-        transition: 'border-color 160ms ease, background-color 160ms ease, color 160ms ease',
-        '& small': {
-            color: 'var(--netdive-detail-muted, #64748b)',
-            fontSize: 10.5,
-            fontWeight: 600,
+        display: 'flex', flexWrap: 'wrap', gap: 6,
+        '& .ant-radio-button-wrapper': {
+            height: 'var(--netdive-ops-control-height)', display: 'inline-flex', alignItems: 'center', gap: 4,
+            padding: '0 12px', border: '1px solid var(--netdive-ant-border)',
+            borderRadius: 'var(--netdive-ant-radius) !important', color: 'var(--netdive-detail-text-secondary)',
+            fontSize: 12, lineHeight: '30px', boxShadow: 'none'
         },
-        '&:hover': {
-            borderColor: '#93c5fd',
-            background: '#f3f8ff',
+        '& .ant-radio-button-wrapper::before': { display: 'none' },
+        '& .ant-radio-button-wrapper:hover': { borderColor: 'var(--netdive-ant-primary)', color: 'var(--netdive-ant-primary)' },
+        '& .ant-radio-button-wrapper-checked:not(.ant-radio-button-wrapper-disabled)': {
+            borderColor: 'var(--netdive-ant-primary)', background: 'var(--netdive-ant-primary)', color: '#fff', boxShadow: 'none'
         },
-        '&:disabled': {
-            cursor: 'not-allowed',
-            opacity: 0.45,
-            background: '#f8fafc',
-        }
-    },
-    wizardOptionButtonActive: {
-        borderColor: '#1a73e8',
-        background: '#e8f2ff',
-        color: '#1a73e8',
+        '& small': { marginLeft: 2, color: 'inherit', fontSize: 11, opacity: 0.76 }
     },
     inlineFieldCard: {
-        marginTop: theme.spacing(0.8),
-        border: '1px solid var(--netdive-detail-border, #dbe7f5)',
-        borderRadius: 12,
-        background: '#f8fafc',
-        padding: theme.spacing(1),
-    },
-    compactField: {
-        margin: 0,
-        '& .MuiOutlinedInput-root': {
-            borderRadius: 10,
-            backgroundColor: '#fff',
-            minHeight: 38,
-            '& fieldset': {
-                borderColor: 'var(--netdive-detail-border, #dbe7f5)',
-            },
-            '&:hover fieldset': {
-                borderColor: '#93c5fd',
-            },
-            '&.Mui-focused fieldset': {
-                borderColor: '#1a73e8',
-                borderWidth: 1,
-            },
-        },
-        '& .MuiInputBase-input': {
-            color: 'var(--netdive-detail-text, #0f172a)',
-            fontSize: 13,
-            lineHeight: 1.35,
-            padding: '9px 12px',
-            boxSizing: 'border-box',
-        },
-        '& .MuiFormHelperText-root': {
-            marginLeft: 2,
-            fontSize: 11,
-        },
-        '& .MuiSelect-select': {
-            minHeight: 'auto',
-            padding: '9px 32px 9px 12px',
-            fontSize: 13,
-            boxSizing: 'border-box',
-        }
+        margin: 'var(--netdive-ops-card-gap) 0 0',
+        '& .ant-form-item-label': { paddingBottom: 4 },
+        '& .ant-form-item-label > label': { color: 'var(--netdive-detail-text-secondary)', fontSize: 12 }
     },
     wizardActions: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        gap: theme.spacing(1),
-        marginTop: theme.spacing(1.05),
-        padding: theme.spacing(0.9, 0, 0),
-        borderTop: '1px solid rgba(219, 231, 245, 0.75)',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        gap: 'var(--netdive-ops-card-gap)', paddingTop: 'var(--netdive-ops-card-gap)'
     },
-    advancedToggle: {
-        color: '#1a73e8',
-        fontWeight: 700,
-        paddingLeft: 0,
-        paddingRight: theme.spacing(1),
-    },
-    captureExamples: {
-        background: 'var(--netdive-detail-bg, #fff)',
-        border: '1px solid var(--netdive-detail-border, #dbe7f5)',
-        borderRadius: '14px !important',
-        boxShadow: 'none',
-        overflow: 'hidden',
-        '&::before': {
-            display: 'none',
-        },
-        '& .MuiAccordionSummary-root': {
-            minHeight: 44,
-            padding: theme.spacing(0, 1.2),
-        },
-        '& .MuiAccordionSummary-content': {
-            margin: theme.spacing(1, 0),
-        },
-        '& .MuiAccordionDetails-root': {
-            padding: theme.spacing(0, 1.2, 1.2),
-            display: 'block',
-        }
-    },
-    exampleGrid: {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-        gap: theme.spacing(0.8),
-        marginTop: theme.spacing(1),
-        '& div': {
-            border: '1px solid var(--netdive-detail-border, #dbe7f5)',
-            borderRadius: 12,
-            padding: theme.spacing(1.1),
-            background: '#fff',
-            minWidth: 0,
-        },
-        '& header': {
-            display: 'flex',
-            alignItems: 'flex-start',
-            justifyContent: 'space-between',
-            gap: theme.spacing(1),
-            minWidth: 0,
-        },
-        '& header span': {
-            display: 'inline-flex',
-            flexShrink: 0,
-            borderRadius: 999,
-            padding: '3px 7px',
-            fontSize: 10.5,
-            fontWeight: 700,
-        },
-        '& strong': {
-            display: 'block',
-            color: 'var(--netdive-detail-text, #0f172a)',
-            fontSize: 13.5,
-            fontWeight: 700,
-            lineHeight: 1.25,
-            minWidth: 0,
-        },
-        '& small': {
-            display: 'block',
-            marginTop: theme.spacing(0.75),
-            color: 'var(--netdive-detail-muted, #64748b)',
-            fontSize: 11.5,
-            lineHeight: 1.4,
-        }
-    },
-    exampleCardAvailable: {
-        borderColor: '#bbf7d0 !important',
-        background: '#f0fdf4 !important',
-        '& header span': {
-            color: '#15803d',
-            background: '#dcfce7',
-            border: '1px solid #86efac',
-        }
-    },
-    exampleCardUnavailable: {
-        '& header span': {
-            color: '#b45309',
-            background: '#fffbeb',
-            border: '1px solid #fed7aa',
-        }
-    },
-    wizardHelpPanel: {
-        display: 'flex',
-        flexDirection: 'column',
-        minWidth: 0,
-    },
-    capturePreflightPanel: {
-        border: '1px solid var(--netdive-detail-border, #dbe7f5)',
-        borderRadius: 16,
-        background: 'var(--netdive-detail-bg, #fff)',
-        padding: theme.spacing(1.05),
-        boxShadow: '0 8px 20px rgba(15, 23, 42, 0.04)',
-    },
-    preflightPanelHeader: {
-        paddingBottom: theme.spacing(0.9),
-        marginBottom: theme.spacing(0.9),
-        borderBottom: '1px solid rgba(219, 231, 245, 0.8)',
-        '& strong': {
-            display: 'block',
-            color: 'var(--netdive-detail-text, #0f172a)',
-            fontSize: 14,
-            fontWeight: 750,
-            lineHeight: 1.25,
-        },
-        '& span': {
-            display: 'block',
-            marginTop: 3,
-            color: 'var(--netdive-detail-muted, #64748b)',
-            fontSize: 11.5,
-            lineHeight: 1.45,
-        }
-    },
-    preflightSection: {
-        paddingBottom: theme.spacing(1),
-        marginBottom: theme.spacing(1),
-        borderBottom: '1px solid rgba(219, 231, 245, 0.65)',
-    },
-    sideCardTitle: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: theme.spacing(0.7),
-        marginBottom: theme.spacing(0.8),
-        color: 'var(--netdive-detail-text, #0f172a)',
-        '& svg': {
-            width: 17,
-            height: 17,
-            color: '#1a73e8',
-        },
-        '& strong': {
-            fontSize: 13.5,
-            fontWeight: 700,
-        }
-    },
-    captureSummaryRows: {
-        display: 'grid',
-        gap: theme.spacing(0.65),
-        '& div': {
-            display: 'grid',
-            gridTemplateColumns: '66px minmax(0, 1fr)',
-            alignItems: 'center',
-            gap: theme.spacing(0.8),
-            minWidth: 0,
-        },
-        '& span': {
-            color: 'var(--netdive-detail-muted, #64748b)',
-            fontSize: 12,
-            fontWeight: 600,
-        },
-        '& strong': {
-            display: 'block',
-            minWidth: 0,
-            color: 'var(--netdive-detail-text, #0f172a)',
-            fontSize: 12.5,
-            fontWeight: 700,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-        }
-    },
-    captureCautionCard: {
-        border: '1px solid #fde68a',
-        borderRadius: 12,
-        background: '#fffbeb',
-        padding: theme.spacing(0.95),
-        marginBottom: theme.spacing(1),
-        color: '#78350f',
-        '& strong': {
-            display: 'block',
-            fontSize: 13.5,
-            fontWeight: 700,
-            marginBottom: theme.spacing(0.7),
-        },
-        '& ul': {
-            margin: 0,
-            paddingLeft: 17,
-        },
-        '& li': {
-            fontSize: 12,
-            lineHeight: 1.5,
-            marginBottom: theme.spacing(0.35),
-        },
-        '& li:last-child': {
-            marginBottom: 0,
-        }
-    },
-    captureHelpAccordion: {
-        background: 'var(--netdive-detail-bg, #fff)',
-        border: '1px solid var(--netdive-detail-border, #dbe7f5)',
-        borderRadius: '14px !important',
-        boxShadow: 'none',
-        overflow: 'hidden',
-        '&::before': {
-            display: 'none',
-        },
-        '& .MuiAccordionSummary-root': {
-            minHeight: 44,
-            padding: theme.spacing(0, 1.1),
-        },
-        '& .MuiAccordionSummary-content': {
-            margin: theme.spacing(1, 0),
-        },
-        '& h3': {
-            color: 'var(--netdive-detail-text, #0f172a)',
-            fontSize: 13.5,
-            fontWeight: 700,
-        },
-        '& .MuiAccordionDetails-root': {
-            padding: theme.spacing(0, 1.1, 1.1),
-        },
-    },
-    captureHelpList: {
-        display: 'grid',
-        gap: theme.spacing(0.75),
-        '& > div': {
-            display: 'grid',
-            gridTemplateColumns: '18px minmax(0, 1fr)',
-            gap: theme.spacing(0.65),
-            alignItems: 'start',
-            minWidth: 0,
-        },
-        '& svg': {
-            width: 16,
-            height: 16,
-            marginTop: 1,
-            color: '#1a73e8',
-        },
-        '& strong': {
-            display: 'block',
-            color: 'var(--netdive-detail-text, #0f172a)',
-            fontSize: 12.5,
-            fontWeight: 700,
-            lineHeight: 1.25,
-        },
-        '& small': {
-            display: 'block',
-            marginTop: 2,
-            color: 'var(--netdive-detail-muted, #64748b)',
-            fontSize: 11.5,
-            lineHeight: 1.45,
-        },
-    },
-    helpCard: {
-        border: '1px solid var(--netdive-detail-border, #dbe7f5)',
-        borderRadius: 14,
-        background: 'var(--netdive-detail-bg, #fff)',
-        padding: theme.spacing(1.1),
-        '& > svg': {
-            color: '#1a73e8',
-            width: 18,
-            height: 18,
-        },
-        '& strong': {
-            display: 'block',
-            color: 'var(--netdive-detail-text, #0f172a)',
-            fontSize: 13,
-            marginTop: theme.spacing(0.3),
-        },
-        '& p, & li': {
-            color: 'var(--netdive-detail-muted, #64748b)',
-            fontSize: 11.5,
-            lineHeight: 1.45,
-        },
-        '& ol': {
-            paddingLeft: 16,
-            margin: theme.spacing(0.7, 0, 0),
-        }
-    },
-    helpNotice: {
-        border: '1px solid #bfdbfe',
-        borderRadius: 14,
-        background: '#eff6ff',
-        padding: theme.spacing(1.1),
-        color: '#1e3a8a',
-        '& strong': {
-            display: 'block',
-            fontSize: 13,
-            marginBottom: 4,
-        },
-        '& span': {
-            display: 'block',
-            fontSize: 11.5,
-            lineHeight: 1.45,
-        }
-    },
-    button: {
-        borderRadius: 10,
-        boxShadow: '0 6px 14px rgba(26, 115, 232, 0.16)',
-        fontWeight: 650,
-        padding: '7px 13px',
-    },
+    advancedToggle: { paddingLeft: 0, color: 'var(--netdive-ant-primary)' },
+    button: { height: 'var(--netdive-ops-control-height)', borderRadius: 'var(--netdive-ant-radius)', boxShadow: 'none' },
     advanced: {
-        width: '100%',
-        maxWidth: '100%',
-        boxSizing: 'border-box',
-        overflow: 'hidden',
-        boxShadow: "unset !important",
-        marginTop: theme.spacing(1.2),
-        border: '1px solid var(--netdive-detail-border, #dbe7f5)',
-        borderRadius: '12px !important',
-        '&::before': {
-            top: 0,
-            height: 0
-        }
-    },
-    advancedSummary: {
-        padding: theme.spacing(0, 1),
-        color: "var(--netdive-detail-text)",
-        backgroundColor: "unset !important",
-        borderColor: "unset",
-        '& .MuiAccordionSummary-content': {
-            backgroundColor: "unset",
-            minWidth: 0,
-        }
+        marginTop: 'var(--netdive-ops-card-gap)', overflow: 'hidden',
+        borderColor: 'var(--netdive-ops-border)', borderRadius: 'var(--netdive-ops-radius)',
+        background: 'var(--netdive-ant-bg)',
+        '& > .ant-collapse-item > .ant-collapse-header': {
+            minHeight: 40, alignItems: 'center', padding: '9px 12px',
+            color: 'var(--netdive-detail-text)', fontWeight: 600
+        },
+        '& .ant-collapse-content-box': { padding: 'var(--netdive-ops-card-padding)' }
     },
     advancedTitleRow: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: theme.spacing(0.7),
-        minWidth: 0,
-        flexWrap: 'wrap',
+        display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', gap: 6,
+        '& .ant-tag': { marginRight: 0, fontSize: 11 }
     },
-    heading: {
-        color: 'var(--netdive-detail-text, #0f172a)',
-        fontWeight: 650,
-        fontSize: 13,
-    },
-    expertBadge: {
-        display: 'inline-flex',
-        alignItems: 'center',
-        borderRadius: 999,
-        padding: '3px 7px',
-        background: '#fff7ed',
-        border: '1px solid #fed7aa',
-        color: '#c2410c',
-        fontSize: 10.5,
-        fontWeight: 700,
-        lineHeight: 1.2,
-    },
-    advancedDefaultBadge: {
-        display: 'inline-flex',
-        alignItems: 'center',
-        borderRadius: 999,
-        padding: '3px 7px',
-        background: '#f0fdf4',
-        border: '1px solid #bbf7d0',
-        color: '#15803d',
-        fontSize: 10.5,
-        fontWeight: 700,
-        lineHeight: 1.2,
-    },
-    advancedChangedBadge: {
-        display: 'inline-flex',
-        alignItems: 'center',
-        borderRadius: 999,
-        padding: '3px 7px',
-        background: '#eff6ff',
-        border: '1px solid #bfdbfe',
-        color: '#1d4ed8',
-        fontSize: 10.5,
-        fontWeight: 700,
-        lineHeight: 1.2,
-    },
-    advancedContent: {
-        width: '100%',
-        display: 'grid',
-        gap: theme.spacing(1.1),
-    },
-    advancedNotice: {
-        display: 'grid',
-        gridTemplateColumns: '20px minmax(0, 1fr)',
-        gap: theme.spacing(0.8),
-        alignItems: 'start',
-        border: '1px solid #fed7aa',
-        borderRadius: 12,
-        background: '#fffbeb',
-        color: '#92400e',
-        padding: theme.spacing(1),
-        '& svg': {
-            width: 18,
-            height: 18,
-            marginTop: 1,
-            color: '#d97706',
-        },
-        '& span': {
-            fontSize: 12,
-            lineHeight: 1.5,
-            fontWeight: 600,
-        }
-    },
+    advancedContent: { display: 'grid', gap: 'var(--netdive-ops-section-gap)' },
     advancedSection: {
-        border: '1px solid rgba(219, 231, 245, 0.9)',
-        borderRadius: 14,
-        background: '#fff',
-        padding: theme.spacing(1.1),
-        '& > header': {
-            marginBottom: theme.spacing(1),
-        },
+        paddingTop: 'var(--netdive-ops-card-gap)', borderTop: '1px solid var(--netdive-detail-section-divider)',
+        '& > header': { marginBottom: 'var(--netdive-ops-card-gap)' },
         '& > header strong': {
-            display: 'block',
-            color: 'var(--netdive-detail-text, #0f172a)',
-            fontSize: 15,
-            fontWeight: 750,
-            lineHeight: 1.25,
+            display: 'block', color: 'var(--netdive-detail-text)',
+            fontSize: 'var(--netdive-detail-font-section-title)', fontWeight: 600
         },
         '& > header small': {
-            display: 'block',
-            marginTop: 3,
-            color: 'var(--netdive-detail-muted, #64748b)',
-            fontSize: 11.5,
-            lineHeight: 1.45,
+            display: 'block', marginTop: 2, color: 'var(--netdive-detail-text-tertiary)',
+            fontSize: 'var(--netdive-detail-font-supporting-text)'
         }
     },
     advancedGrid: {
-        width: '100%',
-        display: 'grid',
-        gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-        gap: theme.spacing(1),
-        [theme.breakpoints.down('sm')]: {
-            gridTemplateColumns: '1fr',
-        }
+        display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+        alignItems: 'start', gap: 'var(--netdive-ops-card-gap) var(--netdive-ops-section-gap)',
+        [theme.breakpoints.down('sm')]: { gridTemplateColumns: '1fr' }
+    },
+    advancedForm: {
+        margin: 0,
+        '&.ant-form-vertical .ant-form-item-label': {
+            display: 'block', width: '100%', padding: '0 0 4px', textAlign: 'left', lineHeight: '18px'
+        },
+        '&.ant-form-vertical .ant-form-item-control': { display: 'block', width: '100%', minWidth: 0 },
+        '&.ant-form-vertical .ant-form-item-control-input': { minHeight: 'var(--netdive-ops-control-height)' }
     },
     advancedOptionBlock: {
-        minWidth: 0,
-        '& > small': {
-            display: 'block',
-            marginTop: theme.spacing(0.35),
-            color: 'var(--netdive-detail-muted, #64748b)',
-            fontSize: 11.1,
-            lineHeight: 1.35,
+        minWidth: 0, marginBottom: 0,
+        '& .ant-form-item-label > label': { height: 18, lineHeight: '18px' },
+        '& .ant-form-item-extra, & .ant-form-item-explain': {
+            minHeight: 16, marginTop: 2, color: 'var(--netdive-detail-text-tertiary)',
+            fontSize: 'var(--netdive-detail-font-supporting-text)', lineHeight: 'var(--netdive-detail-line-supporting-text)'
         },
-    },
-    advancedFieldLabel: {
-        display: 'flex',
-        alignItems: 'center',
-        minHeight: 20,
-        marginBottom: theme.spacing(0.35),
+        '& .ant-select, & .ant-input': { width: '100%' }
     },
     advancedOptionLabel: {
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 5,
-        minWidth: 0,
-        color: 'var(--netdive-detail-text, #0f172a)',
-        fontSize: 13,
-        fontWeight: 700,
-        lineHeight: 1.25,
-        '& svg': {
-            width: 13,
-            height: 13,
-            color: '#64748b',
-            flexShrink: 0,
-        },
+        display: 'inline-flex', alignItems: 'center', gap: 5,
+        color: 'var(--netdive-detail-text-secondary)', fontSize: 12, fontWeight: 600,
         '& em': {
-            display: 'inline-flex',
-            alignItems: 'center',
-            borderRadius: 999,
-            padding: '2px 6px',
-            background: '#eff6ff',
-            border: '1px solid #bfdbfe',
-            color: '#1d4ed8',
-            fontSize: 10,
-            fontStyle: 'normal',
-            fontWeight: 700,
-            lineHeight: 1.2,
-        },
+            padding: '0 5px', borderRadius: 'var(--netdive-ant-radius)', background: 'var(--netdive-ant-selected)',
+            color: 'var(--netdive-ant-primary)', fontSize: 11, fontStyle: 'normal'
+        }
     },
     advancedMenuItem: {
-        display: 'grid',
-        gap: 2,
-        minWidth: 0,
-        '& strong': {
-            color: 'var(--netdive-detail-text, #0f172a)',
-            fontSize: 12.5,
-            fontWeight: 700,
-            lineHeight: 1.25,
-        },
+        display: 'flex', alignItems: 'center', gap: 8, minWidth: 0,
+        '& strong': { fontSize: 12, fontWeight: 600 },
         '& small': {
-            color: 'var(--netdive-detail-muted, #64748b)',
-            fontSize: 11,
-            lineHeight: 1.35,
-            whiteSpace: 'normal',
-        },
+            overflow: 'hidden', color: 'var(--netdive-detail-text-tertiary)',
+            fontSize: 11, textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+        }
     },
     advancedCheckList: {
         display: 'grid',
-        gap: theme.spacing(0.45),
-        '& > div': {
-            position: 'relative',
-            display: 'grid',
-            gridTemplateColumns: '26px minmax(0, 1fr)',
-            gap: theme.spacing(0.35),
-            alignItems: 'start',
-            border: '1px solid rgba(219, 231, 245, 0.9)',
-            borderRadius: 10,
-            background: '#f8fafc',
-            padding: theme.spacing(0.3, 0.65, 0.4),
-            minWidth: 0,
+        '& > label': {
+            display: 'grid', gridTemplateColumns: '24px minmax(0, 1fr)', alignItems: 'start', gap: 6,
+            minHeight: 46, padding: '7px 2px', borderBottom: '1px solid var(--netdive-detail-row-divider)', cursor: 'pointer'
         },
-        '& .MuiCheckbox-root': {
-            padding: 4,
-            marginTop: -4,
-        },
-        '& span': {
-            display: 'block',
-            minWidth: 0,
-        },
+        '& > label:last-child': { borderBottom: 0 },
+        '& .ant-checkbox-wrapper, & .ant-checkbox': { marginTop: 1 },
         '& strong': {
-            display: 'flex',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: 5,
-            color: 'var(--netdive-detail-text, #0f172a)',
-            fontSize: 12.5,
-            fontWeight: 700,
-            lineHeight: 1.25,
+            display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 4,
+            color: 'var(--netdive-detail-text)', fontSize: 12, fontWeight: 600
         },
+        '& .ant-tag': { marginRight: 0, fontSize: 11, lineHeight: '18px' },
         '& small': {
-            display: 'block',
-            marginTop: 1,
-            color: 'var(--netdive-detail-muted, #64748b)',
-            fontSize: 11.1,
-            lineHeight: 1.3,
-        },
-        '& em': {
-            display: 'inline-flex',
-            alignItems: 'center',
-            borderRadius: 999,
-            padding: '2px 6px',
-            background: '#fff7ed',
-            border: '1px solid #fed7aa',
-            color: '#c2410c',
-            fontSize: 10,
-            fontStyle: 'normal',
-            fontWeight: 700,
-            lineHeight: 1.2,
-        },
-        '& i': {
-            display: 'inline-flex',
-            alignItems: 'center',
-            borderRadius: 999,
-            padding: '2px 6px',
-            background: '#eff6ff',
-            border: '1px solid #bfdbfe',
-            color: '#1d4ed8',
-            fontSize: 10,
-            fontStyle: 'normal',
-            fontWeight: 700,
-            lineHeight: 1.2,
+            display: 'block', marginTop: 2, color: 'var(--netdive-detail-text-tertiary)', fontSize: 11, lineHeight: '16px'
         }
+    },
+    captureExamples: {
+        overflow: 'hidden', borderColor: 'var(--netdive-ops-border)',
+        borderRadius: 'var(--netdive-ops-radius)', background: 'var(--netdive-ant-bg)',
+        '& > .ant-collapse-item > .ant-collapse-header': {
+            minHeight: 40, padding: '9px 12px', color: 'var(--netdive-detail-text)', fontSize: 13, fontWeight: 600
+        },
+        '& .ant-collapse-content-box': { padding: 'var(--netdive-ops-card-padding)' }
+    },
+    exampleGrid: {
+        display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 'var(--netdive-ops-card-gap)',
+        '& > div': {
+            minWidth: 0, padding: 'var(--netdive-ops-card-padding)', border: '1px solid var(--netdive-ops-border)',
+            borderRadius: 'var(--netdive-ops-radius)', background: 'var(--netdive-ops-tint)'
+        },
+        '& header': { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 6 },
+        '& header strong': { color: 'var(--netdive-detail-text)', fontSize: 12, fontWeight: 600 },
+        '& .ant-tag': { flexShrink: 0, marginRight: 0, fontSize: 11 },
+        '& small': { display: 'block', marginTop: 5, color: 'var(--netdive-detail-text-tertiary)', fontSize: 11, lineHeight: '16px' },
+        [theme.breakpoints.down('sm')]: { gridTemplateColumns: '1fr' }
+    },
+    exampleCardAvailable: { background: '#f6ffed !important', borderColor: '#d9f7be !important' },
+    exampleCardUnavailable: {},
+    wizardHelpPanel: {
+        position: 'sticky', top: 0, alignSelf: 'start', minWidth: 0,
+        [theme.breakpoints.down('md')]: { position: 'static' }
+    },
+    capturePreflightPanel: {
+        borderColor: 'var(--netdive-ops-border)', borderRadius: 'var(--netdive-ops-radius)',
+        background: 'var(--netdive-ant-bg)', boxShadow: 'var(--netdive-ant-card-shadow)',
+        '& > .ant-card-body': { padding: 'var(--netdive-ops-card-padding)' }
+    },
+    preflightPanelHeader: {
+        paddingBottom: 'var(--netdive-ops-card-gap)', marginBottom: 'var(--netdive-ops-card-gap)',
+        borderBottom: '1px solid var(--netdive-detail-section-divider)',
+        '& strong': {
+            display: 'flex', alignItems: 'center', gap: 6,
+            color: 'var(--netdive-detail-text)', fontSize: 14, fontWeight: 600
+        },
+        '& strong svg': { color: 'var(--netdive-ant-primary)' },
+        '& span': { display: 'block', marginTop: 2, color: 'var(--netdive-detail-text-tertiary)', fontSize: 11 }
+    },
+    preflightSection: {
+        paddingBottom: 'var(--netdive-ops-card-gap)', marginBottom: 'var(--netdive-ops-card-gap)',
+        borderBottom: '1px solid var(--netdive-detail-section-divider)'
+    },
+    sideCardTitle: {
+        display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, color: 'var(--netdive-detail-text)',
+        '& svg': { color: 'var(--netdive-ops-icon-color)', fontSize: 15 },
+        '& strong': { fontSize: 12, fontWeight: 600 }
+    },
+    captureSummaryRows: {
+        '& .ant-descriptions-item': { paddingBottom: 4 },
+        '& .ant-descriptions-item-label': { width: 58, color: 'var(--netdive-detail-text-tertiary)', fontSize: 11 },
+        '& .ant-descriptions-item-content': {
+            display: 'block', overflow: 'hidden', color: 'var(--netdive-detail-text)', fontSize: 12,
+            fontWeight: 600, textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+        }
+    },
+    captureCautionCard: {
+        marginBottom: 'var(--netdive-ops-card-gap)', borderRadius: 'var(--netdive-ant-radius)',
+        '&.ant-alert-with-description': { padding: '8px 10px' },
+        '& .ant-alert-icon': { top: 11, fontSize: 14 },
+        '& .ant-alert-message': { marginBottom: 4, fontSize: 12, fontWeight: 600 },
+        '& .ant-alert-description': { fontSize: 11 },
+        '& ul': { margin: 0, paddingLeft: 17 },
+        '& li': { marginBottom: 2, lineHeight: '17px' }
+    },
+    captureHelpAccordion: {
+        overflow: 'hidden', borderColor: 'var(--netdive-ops-border)',
+        borderRadius: 'var(--netdive-ops-radius)', background: 'var(--netdive-ant-bg)',
+        '& > .ant-collapse-item > .ant-collapse-header': { minHeight: 38, padding: '8px 10px', fontSize: 12, fontWeight: 600 },
+        '& .ant-collapse-content-box': { padding: 'var(--netdive-ops-card-padding)' }
+    },
+    captureHelpList: {
+        display: 'grid', gap: 7,
+        '& > div': { display: 'grid', gridTemplateColumns: '16px minmax(0, 1fr)', alignItems: 'start', gap: 6 },
+        '& svg': { marginTop: 1, color: 'var(--netdive-detail-success)', fontSize: 14 },
+        '& strong': { display: 'block', color: 'var(--netdive-detail-text)', fontSize: 12, fontWeight: 600 },
+        '& small': { display: 'block', marginTop: 1, color: 'var(--netdive-detail-text-tertiary)', fontSize: 11, lineHeight: '16px' }
     }
 })

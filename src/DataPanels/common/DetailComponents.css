@@ -3036,7 +3036,7 @@ button.netdive-detail-metric-row:focus-visible {
 
 .netdive-detail-table .ant-table {
     width: 100%;
-    color: #101828;
+    color: var(--netdive-ant-text, rgba(0, 0, 0, 0.65));
     font-size: var(--netdive-detail-font-body-label);
     line-height: var(--netdive-detail-line-body-label);
     table-layout: fixed;
@@ -3050,9 +3050,9 @@ button.netdive-detail-metric-row:focus-visible {
 
 .netdive-detail-table .ant-table-thead > tr > th {
     padding: 9px 12px;
-    color: var(--netdive-detail-text-secondary);
+    color: var(--netdive-ant-heading, rgba(0, 0, 0, 0.85));
     font-size: var(--netdive-detail-font-body-label);
-    font-weight: var(--netdive-detail-weight-status-tag);
+    font-weight: 500;
     line-height: var(--netdive-detail-line-body-label);
     background: var(--netdive-detail-table-header-bg);
     white-space: normal;
@@ -3061,8 +3061,8 @@ button.netdive-detail-metric-row:focus-visible {
 .netdive-detail-table .ant-table-tbody > tr > td {
     max-width: 190px;
     padding: 9px 12px;
-    color: #344054;
-    font-weight: var(--netdive-detail-weight-body-label);
+    color: var(--netdive-ant-text, rgba(0, 0, 0, 0.65));
+    font-weight: 400;
     overflow-wrap: anywhere;
     white-space: normal;
     word-break: normal;

@@ -1,12 +1,63 @@
+:root {
+  /* ablestack-cloud/ui/src/style/vars.less: independent source tokens.
+     Never alias these back to detail tokens (which consume this palette). */
+  --netdive-ant-primary: #1890ff;
+  --netdive-ant-border: #d9d9d9;
+  --netdive-ant-divider: #f0f0f0;
+  --netdive-ant-radius: 4px;
+  --netdive-ant-bg: #ffffff;
+  --netdive-ant-soft-bg: #fafafa;
+  --netdive-ant-heading: rgba(0, 0, 0, 0.85);
+  --netdive-ant-text: rgba(0, 0, 0, 0.65);
+  --netdive-ant-muted: rgba(0, 0, 0, 0.45);
+  --netdive-ant-hover: #fafafa;
+  --netdive-ant-selected: #e6f7ff;
+  --netdive-ant-table-header: #fafafa;
+  --netdive-ant-panel-title-size: 20px;
+  --netdive-ant-label-size: 12px;
+  --netdive-ant-label-weight: 500;
+  --netdive-ant-value-size: 24px;
+  --netdive-ant-icon-box-size: 28px;
+  --netdive-ant-icon-size: 16px;
+  --netdive-ant-card-shadow: 0 1px 2px rgba(15, 23, 42, 0.025);
+  --netdive-ant-popup-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  /* Operational panels share density and surface roles, not per-screen palettes. */
+  --netdive-ops-panel-padding: 16px;
+  --netdive-ops-section-gap: 12px;
+  --netdive-ops-card-gap: 8px;
+  --netdive-ops-card-padding: 10px;
+  --netdive-ops-card-height: 60px;
+  --netdive-ops-compact-card-height: 58px;
+  --netdive-ops-compact-padding: 10px;
+  --netdive-ops-radius: 6px;
+  --netdive-ops-border: #e8edf3;
+  --netdive-ops-divider: #edf1f5;
+  --netdive-ops-tint: #fbfcfe;
+  --netdive-ops-neutral: #f8fafc;
+  --netdive-ops-hover: #f7f9fc;
+  --netdive-ops-secondary: #68788f;
+  --netdive-ops-text: #34445c;
+  --netdive-ops-cell-padding: 7px 12px;
+  --netdive-ops-row-height: 42px;
+  --netdive-ops-control-height: 32px;
+  --netdive-ops-name-size: 13px;
+  --netdive-ops-meta-size: 11px;
+  --netdive-ops-icon-box: 32px;
+  --netdive-ops-icon-size: 18px;
+  --netdive-ops-icon-color: #61738a;
+  --netdive-ops-icon-bg: #f1f4f8;
+  --netdive-ops-icon-border: #e6ebf1;
+  --netdive-ops-icon-image-filter: grayscale(1) saturate(0) opacity(0.82);
+  --netdive-ops-problem-tint: #fff8f7;
+  --netdive-ops-problem-icon-bg: #fff0ee;
+  --netdive-ops-problem-border: #f5d8d4;
+  --netdive-ops-attention-tint: #fffdf7;
+  --netdive-ops-attention-icon-bg: #fff8e6;
+  --netdive-ops-attention-border: #f3e4bd;
+}
+
 .netdive-ant-theme {
   font-family: var(--netdive-font-family);
-  --netdive-ant-primary: #1677ff;
-  --netdive-ant-border: #d7e2f0;
-  --netdive-ant-radius: 8px;
-  --netdive-ant-bg: #ffffff;
-  --netdive-ant-soft-bg: #fbfdff;
-  --netdive-ant-text: #0f172a;
-  --netdive-ant-muted: #64748b;
   min-height: 100%;
 }
 
@@ -24,6 +75,7 @@
 .netdive-ant-theme .ant-card {
   border-radius: var(--netdive-ant-radius);
   background: var(--netdive-ant-bg);
+  box-shadow: var(--netdive-ant-card-shadow);
 }
 
 .netdive-ant-theme .ant-card-bordered {
@@ -31,9 +83,36 @@
 }
 
 .netdive-ant-theme .ant-btn {
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 600;
+  border-radius: var(--netdive-ant-radius);
+  font-size: 14px;
+  font-weight: 400;
+  box-shadow: none;
+}
+
+.netdive-ant-theme .ant-btn-default:not(:disabled):hover,
+.netdive-ant-theme .ant-btn-default:not(:disabled):focus {
+  border-color: var(--netdive-ant-primary);
+  color: var(--netdive-ant-primary);
+}
+
+.netdive-ant-theme .ant-btn-primary {
+  border-color: var(--netdive-ant-primary);
+  background: var(--netdive-ant-primary);
+  color: #fff;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.045);
+}
+
+.netdive-ant-theme .ant-btn-primary:hover,
+.netdive-ant-theme .ant-btn-primary:focus {
+  border-color: #40a9ff;
+  background: #40a9ff;
+  color: #fff;
+}
+
+.netdive-ant-theme .ant-btn-sm {
+  height: 24px;
+  padding: 0 7px;
+  font-size: 14px;
 }
 
 .netdive-ant-theme .ant-select {
@@ -42,17 +121,121 @@
 }
 
 .netdive-ant-theme .ant-select-selector,
+.netdive-ant-theme .ant-input-affix-wrapper,
 .netdive-ant-theme .ant-input,
 .netdive-ant-theme .ant-input-search .ant-input {
-  border-radius: 8px !important;
+  border-radius: var(--netdive-ant-radius) !important;
   border-color: var(--netdive-ant-border) !important;
+  box-shadow: none;
+}
+
+.netdive-ant-theme .ant-input-affix-wrapper:hover,
+.netdive-ant-theme .ant-input-affix-wrapper-focused,
+.netdive-ant-theme .ant-select-focused .ant-select-selector,
+.netdive-ant-theme .ant-select-selector:hover {
+  border-color: var(--netdive-ant-primary) !important;
 }
 
 .netdive-ant-theme .ant-tag {
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1.3;
+  border-color: var(--netdive-ant-border);
+  border-radius: var(--netdive-ant-radius);
+  color: var(--netdive-ant-text);
+  background: var(--netdive-ant-soft-bg);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 20px;
+}
+
+.netdive-ant-theme .ant-table {
+  color: var(--netdive-ant-text);
+  background: var(--netdive-ant-bg);
+}
+
+.netdive-ant-theme .ant-table-thead > tr > th {
+  border-bottom-color: var(--netdive-ant-divider);
+  color: var(--netdive-ant-heading);
+  background: var(--netdive-ant-table-header);
+  font-weight: 500;
+}
+
+.netdive-ant-theme .ant-table-tbody > tr > td {
+  border-bottom-color: var(--netdive-ant-divider);
+}
+
+.netdive-ant-theme .ant-table-tbody > tr.ant-table-row:hover > td {
+  background: var(--netdive-ant-hover);
+}
+
+.netdive-ant-theme .ant-tabs-tab {
+  color: var(--netdive-ant-text);
+  font-weight: 400;
+}
+
+.netdive-ant-theme .ant-tabs-tab:hover,
+.netdive-ant-theme .ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: var(--netdive-ant-primary);
+}
+
+.netdive-ant-theme .ant-tabs-ink-bar {
+  background: var(--netdive-ant-primary);
+}
+
+.netdive-ant-theme .ant-radio-button-wrapper {
+  border-color: var(--netdive-ant-border);
+  color: var(--netdive-ant-text);
+  font-weight: 400;
+}
+
+.netdive-ant-theme .ant-badge-status-text {
+  color: var(--netdive-ant-text);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.netdive-ant-theme .ant-pagination-item,
+.netdive-ant-theme .ant-pagination-prev .ant-pagination-item-link,
+.netdive-ant-theme .ant-pagination-next .ant-pagination-item-link {
+  border-color: var(--netdive-ant-border);
+  border-radius: var(--netdive-ant-radius);
+}
+
+.netdive-ant-theme .ant-pagination-item-active {
+  border-color: var(--netdive-ant-primary);
+}
+
+.netdive-ant-theme .ant-pagination-item-active a,
+.netdive-ant-theme .ant-pagination-item:hover a {
+  color: var(--netdive-ant-primary);
+}
+
+.netdive-ant-theme .ant-switch-checked {
+  background-color: var(--netdive-ant-primary);
+}
+
+.netdive-ant-theme .MuiButton-root,
+.netdive-ant-theme .MuiToggleButton-root {
+  border-color: var(--netdive-ant-border);
+  border-radius: var(--netdive-ant-radius);
+  color: var(--netdive-ant-text);
+  font-family: var(--netdive-font-family);
+  font-size: 14px;
+  font-weight: 400;
+  text-transform: none;
+  box-shadow: none;
+}
+
+.netdive-ant-theme .MuiButton-root:hover,
+.netdive-ant-theme .MuiToggleButton-root:hover {
+  border-color: var(--netdive-ant-primary);
+  color: var(--netdive-ant-primary);
+  background: var(--netdive-ant-hover);
+}
+
+.netdive-ant-theme .MuiToggleButton-root.Mui-selected,
+.netdive-ant-theme .MuiToggleButton-root.Mui-selected:hover {
+  border-color: var(--netdive-ant-primary);
+  color: var(--netdive-ant-primary);
+  background: var(--netdive-ant-selected);
 }
 
 .netdive-ant-theme .ant-progress-text {
@@ -65,6 +248,82 @@
   color: var(--netdive-ant-muted);
   font-size: 12px;
   font-weight: 600;
+}
+
+/* Shared Mold-style overlays. Ant and Material portals both mount below body,
+ * so their surface contract must live outside the provider wrapper. */
+.ant-modal-content,
+.MuiDialog-paper {
+  border: 1px solid #f0f0f0;
+  border-radius: 4px !important;
+  background: #fff;
+  box-shadow: 0 3px 6px -4px rgba(0, 0, 0, 0.12), 0 6px 16px rgba(0, 0, 0, 0.08), 0 9px 28px 8px rgba(0, 0, 0, 0.05) !important;
+}
+
+.ant-modal-header,
+.MuiDialogTitle-root {
+  border-bottom: 1px solid #f0f0f0;
+  background: #fff;
+  color: rgba(0, 0, 0, 0.85);
+  font-family: var(--netdive-font-family) !important;
+  font-weight: 500;
+}
+
+.ant-modal-title,
+.MuiDialogTitle-root h2 {
+  color: inherit;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.ant-modal-close,
+.MuiDialogTitle-root .MuiIconButton-root {
+  color: rgba(0, 0, 0, 0.45);
+}
+
+.ant-modal-close:hover,
+.MuiDialogTitle-root .MuiIconButton-root:hover {
+  color: rgba(0, 0, 0, 0.75);
+  background: #fafafa;
+}
+
+.ant-modal-footer,
+.MuiDialogActions-root {
+  border-top-color: #f0f0f0;
+}
+
+.ant-modal .ant-btn,
+.MuiDialog-paper .MuiButton-root {
+  border-radius: 4px;
+  font-family: var(--netdive-font-family) !important;
+  font-size: 14px;
+  font-weight: 400;
+  text-transform: none;
+  box-shadow: none;
+}
+
+.ant-modal .ant-btn-primary {
+  border-color: #1890ff;
+  background: #1890ff;
+  color: #fff;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.045);
+}
+
+.MuiDialog-paper .MuiButton-root {
+  color: #1890ff;
+}
+
+.ant-select-dropdown {
+  border-radius: 4px;
+  font-family: var(--netdive-font-family);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.ant-select-item-option-active:not(.ant-select-item-option-disabled),
+.ant-select-item-option-selected:not(.ant-select-item-option-disabled) {
+  color: #1890ff;
+  background: #e6f7ff;
 }
 
 .netdive-ant-theme .ant-tooltip-inner,

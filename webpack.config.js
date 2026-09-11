@@ -79,7 +79,16 @@ module.exports = {
         client: {
             overlay: {
                 errors: true,
-                warnings: false
+                warnings: false,
+                // Chromium can report this while Ant Table and the topology SVG
+                // settle after a panel filter changes. It is a delivery warning,
+                // not an application exception, so keep the overlay for all
+                // other runtime errors while ignoring only these browser messages.
+                runtimeErrors: (error) => {
+                    const message = error && error.message ? error.message : String(error || '');
+                    return message !== 'ResizeObserver loop completed with undelivered notifications.'
+                        && message !== 'ResizeObserver loop limit exceeded';
+                }
             },
             webSocketURL: {
                 pathname: '/netdive-dev-ws'
