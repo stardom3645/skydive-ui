@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { Alert, Badge, Button, Dropdown, Input, Menu, Modal, Popconfirm, Select, Space, Table, Tooltip } from 'antd'
-import { DownOutlined, DeleteOutlined, EditOutlined, PlusOutlined, UnorderedListOutlined } from '@ant-design/icons'
+import { DeleteOutlined, EditOutlined, PlusOutlined, UnorderedListOutlined } from '@ant-design/icons'
 
 import { translate } from '../../Config'
 import {
@@ -87,14 +87,21 @@ export class ManualPortMappingManager extends React.PureComponent<Props, State> 
 		error: undefined
 	})
 
-	private openList = () => this.setState({
-		visible: true,
-		view: 'list',
-		switchPortName: '',
-		selectedNICID: '',
-		editingID: undefined,
-		error: undefined
-	})
+	private openList = () => {
+		this.setState({
+			visible: true,
+			view: 'list',
+			switchPortName: '',
+			selectedNICID: '',
+			editingID: undefined,
+			error: undefined
+		})
+		// The manager may stay mounted across the initial session/topology sync.
+		// Always reconcile the list with SQLite when the user opens it.
+		Promise.resolve(this.props.onChanged()).catch(error => {
+			console.warn('[ManualPortMapping] failed to refresh mapping list', error)
+		})
+	}
 
 	private close = () => this.setState({ visible: false, error: undefined }, this.resetForm)
 
@@ -212,18 +219,26 @@ export class ManualPortMappingManager extends React.PureComponent<Props, State> 
 		]
 
 		return <React.Fragment>
+			<Tooltip
+				title={translate('manualPortMappingManage')}
+				placement="top"
+				overlayClassName="netdive-port-mapping-action-tooltip"
+				getPopupContainer={() => document.body}
+				autoAdjustOverflow
+				destroyTooltipOnHide>
 			<Dropdown
 				overlay={managementMenu}
 				overlayClassName="netdive-manual-port-mapping-dropdown"
 				placement="bottomRight"
 				getPopupContainer={() => document.body}
 				trigger={['click']}>
-				<Button className="netdive-manual-port-mapping-trigger" onClick={event => event.preventDefault()}>
-					<PlusOutlined />
-					<span>{translate('manualPortMappingManage')}</span>
-					<DownOutlined className="netdive-manual-port-mapping-trigger__chevron" />
-				</Button>
+				<Button
+					className="netdive-manual-port-mapping-trigger"
+					icon={<PlusOutlined />}
+					aria-label={translate('manualPortMappingManage')}
+					onClick={event => event.preventDefault()} />
 			</Dropdown>
+			</Tooltip>
 			<Modal
 				visible={this.state.visible}
 				wrapClassName="netdive-manual-port-mapping-modal"

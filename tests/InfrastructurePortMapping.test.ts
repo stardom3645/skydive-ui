@@ -56,6 +56,9 @@ describe('Infrastructure LLDP port mapping', () => {
             "compareMappingField('source')"
         ].forEach(sorter => assert.ok(source.includes(sorter), `missing Ant sorter: ${sorter}`))
         assert.ok(source.includes('netdive-detail-search-table__stacked-cell'))
+        assert.ok(source.includes('netdive-detail-search-table__multiline-value'))
+        assert.ok(source.includes("hostPerspective ? ' is-host-perspective' : ''"))
+        assert.ok(source.includes('if (displayValue.length <= 18)'))
         assert.ok(source.includes('netdive-detail-search-table__surface'))
         assert.ok(source.includes(': PORT_MAPPING_TABLE_BODY_HEIGHT }}'))
         assert.ok(source.match(/title: translate\('switchPortMappingSource'\)/g)!.length >= 2)
@@ -87,8 +90,13 @@ describe('Infrastructure LLDP port mapping', () => {
         assert.ok(styles.includes('flex-direction: column'))
         assert.ok(styles.includes('gap: 6px'))
         assert.ok(styles.includes('.netdive-detail-search-table.is-expanded'))
+        assert.ok(styles.includes('height: 20px'))
+        assert.ok(styles.includes('.netdive-detail-search-table__summary-badge .ant-badge-status'))
         assert.ok(styles.includes('.netdive-detail-search-table__table .ant-table-column-sorter-inner'))
         assert.ok(styles.includes('width: 10px'))
+        assert.ok(styles.includes('.netdive-detail-search-table__table.is-host-perspective'))
+        assert.ok(styles.includes('-webkit-line-clamp: 3'))
+        assert.ok(source.includes("translate('hostSwitchPortBondShort')"))
     })
 
     it('navigates the host-side switch mapping to the remote switch before the local NIC', () => {
@@ -354,6 +362,38 @@ describe('Infrastructure LLDP port mapping', () => {
 		)
 	})
 
+	it('rebinds persisted manual mappings when topology node IDs change after restart', () => {
+		const sw = node('switch-current', { Type: 'switch', Name: 'leaf-1' })
+		const host = node('host-current', { Type: 'host', Name: 'compute-1' })
+		const nic = node('nic-current', { Type: 'device', Name: 'eno1' }, host)
+		const persisted = {
+			id: 12,
+			switchNodeId: 'switch-before-restart',
+			switchName: 'leaf-1',
+			switchPortName: 'xg8',
+			hostNodeId: 'host-before-restart',
+			hostName: 'compute-1',
+			hostNicNodeId: 'nic-before-restart',
+			hostNicName: 'eno1',
+			enabled: true,
+			createdAt: '2026-09-07T00:00:00Z',
+			updatedAt: '2026-09-07T00:00:00Z'
+		}
+
+		const links = buildManualPortMappingTopologyLinks([persisted], [sw, host, nic], [])
+		assert.strictEqual(links.length, 1)
+		assert.strictEqual(links[0].switchNodeID, sw.id)
+		assert.strictEqual(links[0].targetNodeID, nic.id)
+		assert.strictEqual(links[0].portData.SwitchNodeID, sw.id)
+
+		const duplicateNIC = node('nic-current-2', { Type: 'device', Name: 'eno1' }, host)
+		assert.strictEqual(
+			buildManualPortMappingTopologyLinks([persisted], [sw, host, nic, duplicateNIC], []).length,
+			0,
+			'ambiguous names must not create a relation to the wrong NIC'
+		)
+	})
+
 	it('rejects free-form port names already used by automatic or active manual mappings', () => {
 		const sw = node('switch-1', { Type: 'switch', Name: 'leaf-1' })
 		const automaticPort = node('port-1', { Type: 'switchport', Name: 'xg1' }, sw)
@@ -404,6 +444,9 @@ describe('Infrastructure LLDP port mapping', () => {
 		assert.ok(panel.includes('className="netdive-port-mapping-expand-trigger"'))
 		assert.ok(panel.includes('onExpandedChange='))
 		assert.ok(panel.includes('listManualPortMappings'))
+		assert.ok(panel.includes('retryDelays = [300, 1000, 3000]'))
+		assert.ok(panel.includes('prevProps.session?.token !== this.props.session?.token'))
+		assert.ok(panel.includes('requestID !== this.manualMappingsRequestID'))
 		assert.ok(panel.includes('allMappings={this.state.allManualMappings}'))
 		assert.ok(panel.includes('fullWidthDescription'))
 		assert.ok(panel.includes('refreshManualPortMappingLinks'))
@@ -436,8 +479,13 @@ describe('Infrastructure LLDP port mapping', () => {
 		assert.ok(manager.includes("'manualPortMappingNicAutoInUse'"))
 		assert.ok(manager.includes("'manualPortMappingNicManualInUse'"))
 		assert.ok(manager.includes('className="netdive-manual-port-mapping-manager__submit"'))
-		assert.ok(manager.includes('<Button className="netdive-manual-port-mapping-trigger"'))
+		assert.ok(manager.includes('className="netdive-manual-port-mapping-trigger"'))
 		assert.ok(!manager.includes('<Button type="primary" className="netdive-manual-port-mapping-trigger"'))
+		assert.ok(manager.includes("title={translate('manualPortMappingManage')}"))
+		assert.ok(manager.includes('overlayClassName="netdive-port-mapping-action-tooltip"'))
+		assert.ok(manager.includes('icon={<PlusOutlined />}'))
+		assert.ok(manager.includes("aria-label={translate('manualPortMappingManage')}"))
+		assert.ok(panel.includes("aria-label={translate('switchPortMappingExpandView')}"))
 		assert.ok(manager.includes('<Dropdown'))
 		assert.ok(manager.includes('getPopupContainer={() => document.body}'))
 		assert.ok(manager.includes('overlayClassName="netdive-manual-port-mapping-delete-confirm"'))
@@ -445,6 +493,7 @@ describe('Infrastructure LLDP port mapping', () => {
 		assert.ok(manager.includes("translate('manualPortMappingMenuAdd')"))
 		assert.ok(manager.includes("translate('manualPortMappingMenuList')"))
 		assert.ok(manager.includes("view: 'form' | 'list'"))
+		assert.ok(manager.includes('Promise.resolve(this.props.onChanged())'))
 		assert.ok(manager.includes("this.state.view === 'form'"))
 		assert.ok(manager.includes("this.setState({ saving: false, view: 'list' }, this.resetForm)"))
 		assert.ok(manager.includes('infrastructurePortConnectionState(item.node)'))
@@ -467,13 +516,12 @@ describe('Infrastructure LLDP port mapping', () => {
 		assert.ok(styles.includes('.netdive-manual-port-mapping-manager__cancel.ant-btn'))
 		assert.ok(detailStyles.includes('.netdive-port-mapping-header-actions .ant-btn'))
 		assert.ok(detailStyles.includes('gap: 8px'))
+		assert.ok(detailStyles.includes('width: 28px'))
 		assert.ok(styles.includes('min-width: 88px'))
 		assert.ok(styles.includes('.netdive-manual-port-mapping-nic-dropdown .ant-select-item-option'))
 		assert.ok(styles.includes('font-family: var(--netdive-font-family) !important'))
 		assert.ok(styles.includes('font-size: 14px'))
 		assert.ok(styles.includes('font-weight: 400'))
-		const chevronStyles = styles.match(/\.netdive-manual-port-mapping-trigger__chevron\.anticon\s*\{([^}]+)\}/)![1]
-		assert.ok(chevronStyles.includes('font-size: 10px'))
-		assert.ok(chevronStyles.includes('vertical-align: baseline'))
+		assert.ok(!manager.includes('netdive-manual-port-mapping-trigger__chevron'))
 	})
 })

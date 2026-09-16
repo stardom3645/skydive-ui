@@ -57,15 +57,10 @@ const compareMappingField = (field: keyof InfrastructurePortMapping) => (
 
 const singleLineValue = (value: string, fallback?: string) => {
     const displayValue = value || fallback || ''
-    if (displayValue.length <= 8) {
-        return <Tooltip
-            title={displayValue}
-            placement="top"
-            overlayClassName="netdive-detail-table-value-tooltip"
-            getPopupContainer={detailTooltipPopupContainer}
-            autoAdjustOverflow>
-            <span className="netdive-detail-search-table__nowrap-value">{displayValue}</span>
-        </Tooltip>
+    // Fixed, short values are fully visible and do not need another hover
+    // target. Reserve the tooltip for values that are actually abbreviated.
+    if (displayValue.length <= 18) {
+        return <span className="netdive-detail-search-table__nowrap-value">{displayValue}</span>
     }
     const tailLength = Math.min(8, Math.max(4, Math.ceil(displayValue.length * 0.3)))
     const head = displayValue.slice(0, -tailLength)
@@ -81,6 +76,13 @@ const singleLineValue = (value: string, fallback?: string) => {
             <span className="netdive-detail-search-table__middle-tail">{tail}</span>
         </span>
     </Tooltip>
+}
+
+const multilineValue = (value: string, fallback?: string) => {
+    const displayValue = value || fallback || ''
+    return <span className={`netdive-detail-search-table__multiline-value${value ? '' : ' is-fallback'}`}>
+        {displayValue}
+    </span>
 }
 
 /** Shared searchable relationship table. Its normalized source field allows a
@@ -168,15 +170,14 @@ export class InfrastructurePortMappingTable extends React.PureComponent<Infrastr
                 key: 'hostNicName',
                 width: '28%',
                 sorter: compareMappingField('hostNicName'),
-                className: 'netdive-detail-search-table__nowrap',
                 render: (value: string, mapping: InfrastructurePortMapping) => <div className="netdive-detail-search-table__stacked-cell">
                     <strong className="netdive-detail-search-table__primary">
-                        {singleLineValue(value, translate('switchPortMappingUncollected'))}
+                        {multilineValue(value, translate('switchPortMappingUncollected'))}
                     </strong>
                     <span className="netdive-detail-search-table__stacked-secondary">
-                        <span className="netdive-detail-search-table__stacked-label">{translate('hostSwitchPortBondInterface')}</span>
+                        <span className="netdive-detail-search-table__stacked-label">{translate('hostSwitchPortBondShort')}</span>
                         <span className="netdive-detail-search-table__stacked-value">
-                            {singleLineValue((mapping as any).bondInterfaceName, translate('hostSwitchPortNoBond'))}
+                            {multilineValue((mapping as any).bondInterfaceName, translate('hostSwitchPortNoBond'))}
                         </span>
                     </span>
                 </div>
@@ -187,15 +188,14 @@ export class InfrastructurePortMappingTable extends React.PureComponent<Infrastr
                 key: 'switchName',
                 width: '34%',
                 sorter: compareMappingField('switchName'),
-                className: 'netdive-detail-search-table__nowrap',
                 render: (value: string, mapping: InfrastructurePortMapping) => <div className="netdive-detail-search-table__stacked-cell">
                     <strong className="netdive-detail-search-table__primary">
-                        {singleLineValue(value, translate('switchPortMappingUncollected'))}
+                        {multilineValue(value, translate('switchPortMappingUncollected'))}
                     </strong>
                     <span className="netdive-detail-search-table__stacked-secondary">
                         <span className="netdive-detail-search-table__stacked-label">{translate('switchPortMappingPort')}</span>
                         <span className="netdive-detail-search-table__stacked-value">
-                            {singleLineValue(mapping.switchPortName, translate('switchPortMappingUncollected'))}
+                            {multilineValue(mapping.switchPortName, translate('switchPortMappingUncollected'))}
                         </span>
                     </span>
                 </div>
@@ -255,7 +255,7 @@ export class InfrastructurePortMappingTable extends React.PureComponent<Infrastr
                         : 'switchPortMappingNoSearchResults')} compact />
                 : <div className="netdive-detail-table-scroll">
                     <DetailTable<InfrastructurePortMapping>
-                        className="netdive-detail-search-table__table"
+                        className={`netdive-detail-search-table__table${hostPerspective ? ' is-host-perspective' : ''}`}
                         columns={columns}
                         dataSource={mappings}
                         rowKey="key"

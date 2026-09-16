@@ -403,6 +403,11 @@ export const styles = (theme: Theme) => createStyles({
       fontSize: 24
     }
   },
+  drawerEventIcon: {
+    '& svg': {
+      fontSize: '20px !important'
+    }
+  },
   drawerMenuGroup: {
     position: 'relative',
     width: 48,
@@ -1328,6 +1333,9 @@ export const styles = (theme: Theme) => createStyles({
     '& .ant-btn-text': {
       width: 'var(--netdive-ops-control-height)', padding: 0,
       color: 'var(--netdive-ant-muted)', borderColor: 'transparent', background: 'transparent'
+    },
+    '& .ant-btn-text .anticon': {
+      fontSize: 18
     }
   },
   kubernetesManagerPanelCompact: {
@@ -1377,6 +1385,124 @@ export const styles = (theme: Theme) => createStyles({
       fontSize: 'var(--netdive-ant-label-size)',
       fontWeight: 400,
       lineHeight: '18px'
+    }
+  },
+  eventHistoryPanel: {
+    width: 'min(760px, calc(100vw - 106px))',
+    overflow: 'hidden',
+    '& .netdive-event-history-surface': {
+      display: 'flex',
+      minHeight: 0,
+      flexDirection: 'column',
+      border: '1px solid var(--netdive-ant-border)',
+      borderRadius: 'var(--netdive-ant-radius)',
+      backgroundColor: 'var(--netdive-ant-bg)',
+      overflow: 'hidden'
+    },
+    '& .netdive-detail-operation-content': {
+      flex: 1,
+      minHeight: 0,
+      overflow: 'hidden',
+      gap: 10,
+      padding: 12
+    },
+    '& .netdive-event-history-filter-surface': {
+      padding: 10,
+      border: '1px solid var(--netdive-ant-divider)',
+      borderRadius: 'var(--netdive-ant-radius)',
+      backgroundColor: 'var(--netdive-ant-table-header)',
+      '& .netdive-detail-filter-bar__search': {
+        paddingLeft: 12,
+        borderLeft: '1px solid var(--netdive-ant-divider)'
+      }
+    },
+    '& .netdive-event-history-row--navigable': {
+      cursor: 'pointer',
+      '&:focus > td': {
+        backgroundColor: 'var(--netdive-ant-hover)',
+        outline: '1px solid var(--netdive-ant-primary)',
+        outlineOffset: -1
+      }
+    },
+    '& .netdive-event-history-filter-pills': {
+      display: 'flex',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      gap: 6,
+      minWidth: 0,
+      minHeight: 24,
+      '& .ant-tag': {
+        margin: 0,
+        padding: '0 7px',
+        color: 'var(--netdive-ant-text)',
+        fontSize: 11,
+        lineHeight: '20px',
+        backgroundColor: 'var(--netdive-ant-table-header)',
+        borderColor: 'var(--netdive-ant-border)',
+        borderRadius: 'var(--netdive-ant-radius)'
+      },
+      '& .ant-tag-close-icon': {
+        marginLeft: 6,
+        color: 'var(--netdive-ant-muted)'
+      }
+    },
+    '& .netdive-event-history-context-toolbar': {
+      display: 'flex',
+      minHeight: 30,
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 12,
+      padding: '2px 0 0',
+      '& .netdive-detail-result-count': {
+        flexShrink: 0,
+        color: 'var(--netdive-ant-muted)',
+        fontSize: 12,
+        fontWeight: 400
+      },
+      '& .netdive-detail-result-count strong': {
+        color: 'var(--netdive-ant-heading)',
+        fontWeight: 600
+      }
+    },
+    '& .netdive-event-history-time': {
+      color: 'var(--netdive-ant-muted)',
+      fontVariantNumeric: 'tabular-nums'
+    },
+    '& .netdive-event-history-resource-link': {
+      color: 'var(--netdive-ant-primary)',
+      fontWeight: 500
+    },
+    '& .netdive-event-history-resource-name': {
+      display: '-webkit-box',
+      overflow: 'hidden',
+      whiteSpace: 'normal',
+      overflowWrap: 'anywhere',
+      WebkitBoxOrient: 'vertical',
+      WebkitLineClamp: 3,
+      lineHeight: '16px',
+      maxHeight: 48
+    },
+    '& .netdive-event-history-table': {
+      border: '1px solid var(--netdive-ant-divider)',
+      borderRadius: 'var(--netdive-ant-radius)',
+      overflow: 'hidden'
+    },
+    '& .netdive-event-history-footer': {
+      flexShrink: 0,
+      padding: '8px 12px 12px',
+      borderTop: '1px solid var(--netdive-ant-divider)',
+      backgroundColor: 'var(--netdive-ant-bg)',
+      '& .ant-alert': {
+        padding: '7px 10px',
+        borderColor: 'var(--netdive-ant-divider)',
+        backgroundColor: 'var(--netdive-ant-table-header)'
+      },
+      '& .ant-alert-message': {
+        color: 'var(--netdive-ant-muted)',
+        fontSize: 'var(--netdive-ops-meta-size)',
+        fontWeight: 400,
+        lineHeight: '18px'
+      }
     }
   },
   infrastructureManagerPanel: {

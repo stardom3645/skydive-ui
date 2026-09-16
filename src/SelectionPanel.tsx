@@ -20,8 +20,8 @@ import Tabs from '@material-ui/core/Tabs'
 import Tab from '@material-ui/core/Tab'
 import { connect } from 'react-redux'
 import { withStyles } from '@material-ui/core/styles'
-import { Button, Divider, Tooltip } from 'antd'
-import { ArrowLeftOutlined, CloseOutlined, EnvironmentOutlined } from '@ant-design/icons'
+import { Button, Tooltip } from 'antd'
+import { ArrowLeftOutlined, ArrowRightOutlined, CloseOutlined, EnvironmentOutlined } from '@ant-design/icons'
 
 import { Node, Link } from './Topology'
 import DataPanel from './StdDataPanel'
@@ -79,6 +79,8 @@ interface Props {
   topologyBadgeChildren?: (node: Node) => Node[]
   previousSelectionName?: string
   onPreviousSelection?: () => void
+  nextSelectionName?: string
+  onNextSelection?: () => void
 }
 
 interface State {
@@ -527,38 +529,53 @@ class SelectionPanel extends React.Component<Props, State> {
       return (
         <React.Fragment key={el.id}>
           <div className={`${classes.tabActions}${isKubernetesClusterNode(el) ? ' netdive-cluster-panel-actions' : ''}`}>
-            <Tooltip title={translate("removeFromSelection")}>
-              <Button
-                type="text"
-                shape="circle"
-                className="netdive-action-icon-button"
-                icon={<CloseOutlined />}
-                onClick={() => this.props.onClose && this.props.onClose(el)}
-                aria-label={translate("removeFromSelection")} />
-            </Tooltip>
-            <Tooltip title={translate("pinNode")}>
-              <Button
-                type="text"
-                shape="circle"
-                className="netdive-action-icon-button"
-                icon={<EnvironmentOutlined />}
-                onClick={() => this.props.onLocation && this.props.onLocation(el)}
-                aria-label={translate("pinNode")} />
-            </Tooltip>
-            {this.props.buttonsContent && this.props.buttonsContent(el)}
-            <Divider type="vertical" />
-            <Tooltip title={this.props.previousSelectionName
-              ? translate("previousSelectionNamedTooltip").replace('{name}', this.props.previousSelectionName)
-              : translate("previousSelectionTooltip")}>
-              <Button
-                type="text"
-                shape="circle"
-                className="netdive-action-icon-button"
-                icon={<ArrowLeftOutlined className="netdive-action-icon--previous" />}
-                disabled={!this.props.previousSelectionName || !this.props.onPreviousSelection}
-                onClick={this.props.onPreviousSelection}
-                aria-label={translate("previousSelectionTooltip")} />
-            </Tooltip>
+            <div className={classes.tabNavigationActions} role="group" aria-label="선택 이력 탐색">
+              <Tooltip title={this.props.previousSelectionName
+                ? translate("previousSelectionNamedTooltip").replace('{name}', this.props.previousSelectionName)
+                : translate("previousSelectionTooltip")}>
+                <Button
+                  type="text"
+                  shape="circle"
+                  className="netdive-action-icon-button"
+                  icon={<ArrowLeftOutlined className="netdive-action-icon--previous" />}
+                  disabled={!this.props.previousSelectionName || !this.props.onPreviousSelection}
+                  onClick={this.props.onPreviousSelection}
+                  aria-label={translate("previousSelectionTooltip")} />
+              </Tooltip>
+              <Tooltip title={this.props.nextSelectionName
+                ? translate("nextSelectionNamedTooltip").replace('{name}', this.props.nextSelectionName)
+                : translate("nextSelectionTooltip")}>
+                <Button
+                  type="text"
+                  shape="circle"
+                  className="netdive-action-icon-button"
+                  icon={<ArrowRightOutlined className="netdive-action-icon--next" />}
+                  disabled={!this.props.nextSelectionName || !this.props.onNextSelection}
+                  onClick={this.props.onNextSelection}
+                  aria-label={translate("nextSelectionTooltip")} />
+              </Tooltip>
+            </div>
+            <div className={classes.tabObjectActions} role="group" aria-label="선택 객체 작업">
+              {this.props.buttonsContent && this.props.buttonsContent(el)}
+              <Tooltip title={translate("pinNode")}>
+                <Button
+                  type="text"
+                  shape="circle"
+                  className="netdive-action-icon-button"
+                  icon={<EnvironmentOutlined />}
+                  onClick={() => this.props.onLocation && this.props.onLocation(el)}
+                  aria-label={translate("pinNode")} />
+              </Tooltip>
+              <Tooltip title={translate("removeFromSelection")}>
+                <Button
+                  type="text"
+                  shape="circle"
+                  className="netdive-action-icon-button"
+                  icon={<CloseOutlined />}
+                  onClick={() => this.props.onClose && this.props.onClose(el)}
+                  aria-label={translate("removeFromSelection")} />
+              </Tooltip>
+            </div>
           </div>
           {el.type === 'node' && this.renderNodeContext(el as Node)}
           {this.props.panelsContent && this.props.panelsContent(el)}

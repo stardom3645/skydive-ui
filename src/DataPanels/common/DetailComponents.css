@@ -741,6 +741,327 @@
     line-height: var(--netdive-detail-line-supporting-text);
 }
 
+.netdive-detail-filter-bar {
+    display: flex;
+    min-width: 0;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--netdive-ops-section-gap, 12px);
+    padding: var(--netdive-ops-card-gap, 8px) 0;
+}
+
+.netdive-detail-operation-content {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    gap: var(--netdive-ops-card-gap, 8px);
+    padding-top: var(--netdive-ops-compact-padding, 10px);
+}
+
+/* Spacious operation surfaces share the same palette and controls as compact panels. */
+.netdive-detail-operation-panel {
+    --netdive-ops-control-height: 36px;
+    --netdive-ant-panel-title-size: 24px;
+}
+
+.netdive-detail-operation-content--surface {
+    padding: var(--netdive-ops-panel-padding);
+    border: 1px solid var(--netdive-ops-border);
+    border-radius: var(--netdive-ops-radius);
+    gap: var(--netdive-ops-section-gap);
+    min-height: min(540px, 62vh);
+}
+
+.netdive-detail-operation-content--surface > .netdive-detail-inline-section-header > strong {
+    font-size: 18px;
+    line-height: 26px;
+}
+
+.netdive-detail-filter-bar--surface {
+    padding: var(--netdive-ops-panel-padding);
+    border: 1px solid var(--netdive-ops-border);
+    border-radius: var(--netdive-ops-radius);
+    background: var(--netdive-ops-neutral);
+    gap: 24px;
+}
+
+.netdive-detail-filter-bar--surface .netdive-detail-filter-bar__fields {
+    flex: 1;
+    gap: var(--netdive-ops-section-gap);
+}
+
+.netdive-detail-filter-bar--surface .netdive-detail-filter-field {
+    flex: 1;
+    width: auto !important;
+}
+
+.netdive-detail-filter-bar--surface .netdive-detail-filter-bar__search {
+    padding-left: 24px;
+    border-left: 1px solid var(--netdive-ops-border);
+    width: 32%;
+    flex-basis: 32%;
+}
+
+.netdive-detail-search-integrated .ant-input-group {
+    display: flex;
+}
+
+.netdive-detail-search-integrated .ant-input-affix-wrapper {
+    border-radius: var(--netdive-ant-radius) !important;
+    height: var(--netdive-ops-control-height);
+}
+
+.netdive-detail-search-integrated .ant-input-affix-wrapper input.ant-input {
+    height: auto;
+}
+
+.netdive-detail-search-integrated .ant-input-group-addon {
+    display: none;
+}
+
+.netdive-detail-search-integrated .ant-input-prefix {
+    color: var(--netdive-ops-secondary);
+    margin-right: 8px;
+}
+
+.netdive-detail-result-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--netdive-ops-card-gap);
+    padding: 4px 0;
+    font-size: 12px;
+}
+
+.netdive-detail-result-toolbar .netdive-detail-result-count {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.netdive-detail-result-toolbar strong {
+    color: var(--netdive-ant-primary);
+}
+
+.netdive-detail-info-note--surface {
+    margin-top: auto;
+    padding: 12px;
+    background: var(--netdive-ops-neutral);
+    border-top: 1px solid var(--netdive-ops-divider);
+    border-radius: var(--netdive-ops-radius);
+    font-size: 12px;
+}
+
+.netdive-detail-info-note--surface .anticon {
+    color: var(--netdive-ant-primary);
+    font-size: 17px;
+}
+
+@media (max-width: 900px) {
+    .netdive-detail-filter-bar--surface .netdive-detail-filter-bar__search {
+        width: 100%;
+        flex-basis: auto;
+        padding-left: 0;
+        border-left: 0;
+    }
+}
+
+.netdive-detail-operation-content > .netdive-detail-inline-section-header {
+    min-height: var(--netdive-ops-control-height, 32px);
+    align-items: center;
+}
+
+.netdive-detail-filter-bar__fields {
+    display: flex;
+    min-width: 0;
+    align-items: flex-end;
+    gap: var(--netdive-ops-card-gap, 8px);
+}
+
+.netdive-detail-filter-bar__search {
+    width: min(240px, 30%);
+    flex: 0 0 min(240px, 30%);
+}
+
+.netdive-detail-filter-field {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.netdive-detail-filter-field > span:first-child {
+    color: var(--netdive-ant-muted, var(--netdive-detail-text-secondary));
+    font-size: var(--netdive-ops-meta-size, 11px);
+    font-weight: 500;
+    line-height: 16px;
+}
+
+.netdive-detail-filter-field .ant-select,
+.netdive-detail-filter-field .ant-input-group-wrapper,
+.netdive-detail-filter-bar__search .ant-input-group-wrapper {
+    width: 100%;
+}
+
+.netdive-detail-filter-bar .ant-select-selector,
+.netdive-detail-filter-bar .ant-input,
+.netdive-detail-filter-bar .ant-input-search-button {
+    height: var(--netdive-ops-control-height, 32px);
+    border-color: var(--netdive-ant-border);
+    border-radius: var(--netdive-ant-radius, 6px);
+}
+
+.netdive-detail-filter-bar .ant-select-selection-item,
+.netdive-detail-filter-bar .ant-select-selection-placeholder {
+    line-height: calc(var(--netdive-ops-control-height, 32px) - 2px);
+}
+
+.netdive-detail-result-count {
+    min-height: 28px;
+    display: flex;
+    align-items: center;
+    padding: 0 2px;
+    color: var(--netdive-ant-text, var(--netdive-detail-text));
+    font-size: 12px;
+}
+
+.netdive-detail-result-count strong {
+    margin-left: 4px;
+    color: var(--netdive-ant-heading, var(--netdive-detail-text));
+    font-weight: 600;
+}
+
+.netdive-detail-resource-identity {
+    display: inline-flex;
+    min-width: 0;
+    align-items: center;
+    gap: var(--netdive-ops-card-gap, 8px);
+}
+
+.netdive-detail-resource-icon-container {
+    width: 28px;
+    height: 28px;
+    flex: 0 0 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border: 1px solid var(--netdive-ops-icon-border, #e6ebf1);
+    border-radius: var(--netdive-ant-radius, 6px);
+    background: var(--netdive-ops-icon-bg, #f1f4f8);
+    color: var(--netdive-ops-icon-color, #61738a);
+    font-size: 15px;
+}
+
+.netdive-detail-resource-icon-container img {
+    width: 16px;
+    height: 16px;
+    object-fit: contain;
+    filter: var(--netdive-ops-icon-image-filter);
+}
+
+.netdive-detail-resource-identity__text {
+    display: inline-flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 2px;
+    color: var(--netdive-ant-text, var(--netdive-detail-text));
+}
+
+.netdive-detail-resource-identity__text small {
+    overflow: hidden;
+    color: var(--netdive-ant-muted, var(--netdive-detail-text-secondary));
+    font-size: var(--netdive-ops-meta-size, 11px);
+    line-height: 14px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.netdive-detail-primary-name {
+    max-width: 100%;
+    overflow: hidden;
+    color: var(--netdive-ant-heading, var(--netdive-detail-text));
+    font-weight: 500;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.netdive-detail-change-diff {
+    display: inline-flex;
+    min-width: 0;
+    align-items: center;
+    gap: 4px;
+}
+
+.netdive-detail-change-value.ant-tag {
+    max-width: 96px;
+    overflow: hidden;
+    margin: 0;
+    padding: 0 6px;
+    border-color: var(--netdive-ops-divider, #edf1f5);
+    border-radius: 4px;
+    background: var(--netdive-ops-neutral, #f8fafc);
+    color: var(--netdive-ops-text, #34445c);
+    font-size: 11px;
+    line-height: 20px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.netdive-detail-change-value.is-success.ant-tag {
+    border-color: #b7ebc6;
+    background: #f2fbf5;
+    color: #237b45;
+}
+
+.netdive-detail-change-value.is-problem.ant-tag {
+    border-color: #ffccc7;
+    background: #fff5f5;
+    color: var(--netdive-detail-danger, #cf1322);
+}
+
+.netdive-detail-change-value.is-inactive.ant-tag {
+    color: var(--netdive-ant-muted, #68788f);
+}
+
+.netdive-detail-change-diff__arrow {
+    flex: 0 0 auto;
+    color: var(--netdive-ant-muted, #68788f);
+    font-size: 11px;
+}
+
+.netdive-detail-info-note {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding-top: 2px;
+    color: var(--netdive-ant-muted, var(--netdive-detail-text-secondary));
+    font-size: var(--netdive-ops-meta-size, 11px);
+    line-height: 18px;
+}
+
+.netdive-detail-info-note .anticon {
+    flex: 0 0 auto;
+    color: var(--netdive-detail-text-tertiary, #94a3b8);
+}
+
+@media (max-width: 900px) {
+    .netdive-detail-filter-bar {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .netdive-detail-filter-bar__fields {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .netdive-detail-filter-bar__search {
+        width: 100%;
+        flex-basis: auto;
+    }
+}
+
 .netdive-detail-card-subsection-header {
     display: flex;
     min-height: 32px;
@@ -3102,6 +3423,8 @@ button.netdive-detail-metric-row:focus-visible {
 
 .netdive-detail-search-table__summary-badge.ant-tag {
     display: inline-flex;
+    box-sizing: border-box;
+    height: 20px;
     align-items: center;
     gap: 2px;
     padding: 0 6px;
@@ -3110,6 +3433,14 @@ button.netdive-detail-metric-row:focus-visible {
     color: #475467;
     background: var(--netdive-detail-table-header-bg);
     font-weight: 500;
+    line-height: 18px;
+}
+
+.netdive-detail-search-table__summary-badge .ant-badge-status {
+    display: inline-flex;
+    height: 18px;
+    align-items: center;
+    line-height: 18px;
 }
 
 .netdive-detail-search-table__summary-badge .ant-badge-status-dot {
@@ -3137,6 +3468,13 @@ button.netdive-detail-metric-row:focus-visible {
     font-size: 13px;
     font-weight: 400;
     line-height: 1.5;
+}
+
+.netdive-port-mapping-header-actions .netdive-manual-port-mapping-trigger.ant-btn,
+.netdive-port-mapping-header-actions .netdive-port-mapping-expand-trigger.ant-btn {
+    width: 28px;
+    min-width: 28px;
+    padding: 0;
 }
 
 .netdive-port-mapping-header-actions .ant-btn > .anticon + span {
@@ -3276,6 +3614,22 @@ button.netdive-detail-metric-row:focus-visible {
     white-space: nowrap;
 }
 
+.netdive-detail-search-table__multiline-value {
+    display: -webkit-box;
+    min-width: 0;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    white-space: normal;
+    word-break: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+}
+
+.netdive-detail-search-table__multiline-value.is-fallback {
+    color: var(--netdive-detail-text-tertiary);
+    font-weight: var(--netdive-detail-weight-supporting-text);
+}
+
 .netdive-detail-search-table__middle-value {
     display: flex;
     min-width: 0;
@@ -3327,7 +3681,7 @@ button.netdive-detail-metric-row:focus-visible {
     display: flex;
     min-width: 0;
     flex-direction: column;
-    gap: 4px;
+    gap: 3px;
 }
 
 .netdive-detail-search-table__stacked-cell > strong {
@@ -3337,8 +3691,8 @@ button.netdive-detail-metric-row:focus-visible {
 .netdive-detail-search-table__stacked-secondary {
     display: flex;
     min-width: 0;
-    align-items: center;
-    gap: 5px;
+    align-items: flex-start;
+    gap: 4px;
     color: var(--netdive-detail-text-secondary);
     font-size: var(--netdive-detail-font-supporting-text);
     font-weight: var(--netdive-detail-weight-supporting-text);
@@ -3348,11 +3702,39 @@ button.netdive-detail-metric-row:focus-visible {
 .netdive-detail-search-table__stacked-label {
     flex: 0 0 auto;
     color: var(--netdive-detail-text-tertiary);
+    white-space: nowrap;
 }
 
 .netdive-detail-search-table__stacked-value {
     min-width: 0;
     flex: 1 1 auto;
+}
+
+/* The host drawer is intentionally narrow. Let identity fields use the row's
+ * vertical space instead of hiding useful NIC and switch names behind hover
+ * tooltips, while keeping state/source columns visually compact. */
+.netdive-detail-search-table__table.is-host-perspective .ant-table-thead > tr > th {
+    padding: 8px 6px;
+    vertical-align: middle;
+}
+
+.netdive-detail-search-table__table.is-host-perspective .ant-table-tbody > tr > td {
+    padding: 10px 7px;
+    vertical-align: top;
+}
+
+.netdive-detail-search-table__table.is-host-perspective .netdive-detail-search-table__primary {
+    display: block;
+    line-height: 18px;
+}
+
+.netdive-detail-search-table__table.is-host-perspective .netdive-detail-search-table__stacked-secondary {
+    line-height: 16px;
+}
+
+.netdive-detail-search-table__table.is-host-perspective .netdive-detail-search-table__connection-state-column,
+.netdive-detail-search-table__table.is-host-perspective .netdive-detail-search-table__fixed-column {
+    padding-top: 12px;
 }
 
 .netdive-detail-search-table__table .ant-table-tbody > tr.is-interactive {

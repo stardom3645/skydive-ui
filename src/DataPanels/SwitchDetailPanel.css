@@ -90,23 +90,13 @@
     height: 28px;
     align-items: center;
     justify-content: center;
-    gap: 5px;
-    padding: 0 9px;
+    width: 28px;
+    min-width: 28px;
+    padding: 0;
     font-size: 13px;
     font-weight: 400;
     letter-spacing: normal;
     line-height: 1.5;
-}
-
-.netdive-manual-port-mapping-trigger.ant-btn > .anticon + span {
-    margin-left: 0;
-}
-
-.netdive-manual-port-mapping-trigger__chevron.anticon {
-    margin-left: 2px;
-    font-size: 10px;
-    line-height: 1;
-    vertical-align: baseline;
 }
 
 .netdive-manual-port-mapping-dropdown .ant-dropdown-menu {

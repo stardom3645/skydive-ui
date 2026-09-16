@@ -1,9 +1,24 @@
 import * as React from 'react'
-import { Alert, Button, Input, Select, Space, Tooltip, Typography } from 'antd'
-import { ReloadOutlined, RightOutlined } from '@ant-design/icons'
+import { Alert, Button, Input, Select, Tag, Tooltip } from 'antd'
+import {
+    ApartmentOutlined,
+    SearchOutlined,
+    CloudServerOutlined,
+    DeploymentUnitOutlined,
+    ReloadOutlined
+} from '@ant-design/icons'
 import { session } from './Store'
 import DetailTable from './DataPanels/common/DetailTable'
-import { DetailInlineSectionHeader } from './DataPanels/common/DetailComponents'
+import {
+    DetailChangeDiff,
+    DetailDiffTone,
+    DetailEmpty,
+    DetailFilterBar,
+    DetailFilterField,
+    DetailInlineSectionHeader,
+    DetailResourceIdentity,
+    DetailResultCount
+} from './DataPanels/common/DetailComponents'
 
 export interface ChangeEvent {
     id: number
@@ -33,7 +48,7 @@ export async function listChangeEvents(userSession: session | undefined, filter:
         headers: userSession?.token ? { 'X-Auth-Token': userSession.token } : {}
     })
     const body = await response.json().catch(() => ({}))
-    if (!response.ok) throw new Error(body.message || '최근 변경 이력을 조회하지 못했습니다.')
+    if (!response.ok) throw new Error(body.message || '이벤트를 조회하지 못했습니다.')
     return body
 }
 
@@ -42,7 +57,7 @@ export const eventResourceLabels: Record<string, string> = {
     switchport: '스위치 포트', k8s_cluster: 'Kubernetes 클러스터', k8s_node: 'Kubernetes 노드', pod: '파드'
 }
 const eventLabels: Record<string, string> = {
-    state_changed: '상태 변경', link_changed: '링크 상태 변경', relation_created: '연결 생성', relation_removed: '연결 소실',
+    state_changed: '상태 변경', link_changed: '링크 상태 변경', relation_created: 'LLDP 연결 생성', relation_removed: 'LLDP 연결 소실',
     collection_state_changed: '수집 상태 변경', manual_mapping_created: '수동 매핑 추가',
     manual_mapping_updated: '수동 매핑 수정', manual_mapping_deleted: '수동 매핑 삭제'
 }
@@ -51,26 +66,60 @@ const valueLabels: Record<string, string> = {
     AUTHENTICATION_FAILED: '인증 실패', PERMISSION_DENIED: '권한 부족', connected: '연결됨', disconnected: '연결 소실'
 }
 
+const eventResourceIcons: Record<string, React.ReactNode> = {
+    host: <CloudServerOutlined />,
+    vm: <CloudServerOutlined />,
+    nic: <ApartmentOutlined />,
+    bond: <ApartmentOutlined />,
+    bridge: <ApartmentOutlined />,
+    switchport: <DeploymentUnitOutlined />,
+    k8s_cluster: <DeploymentUnitOutlined />,
+    k8s_node: <CloudServerOutlined />,
+    pod: <DeploymentUnitOutlined />
+}
+
+const eventSourceLabels: Record<string, string> = {
+    infrastructure: '인프라스트럭처',
+    kubernetes: 'Kubernetes',
+    lldp: 'LLDP',
+    mold: 'Mold',
+    manual: '수동 등록'
+}
+
 export function EventChange({ event }: { event: ChangeEvent }) {
-    if (event.eventType.startsWith('manual_mapping_')) return <span>{eventLabels[event.eventType]}</span>
-    const success = ['UP', 'Ready', 'Running', 'HEALTHY'].includes(event.newValue)
-    const tone = event.severity === 'problem' ? 'danger' : success ? 'success' : undefined
-    return <Space size={6} wrap>
-        <Typography.Text type="secondary">{valueLabels[event.oldValue] || event.oldValue || '—'}</Typography.Text>
-        <Typography.Text type="secondary">→</Typography.Text>
-        <Typography.Text type={tone}>{valueLabels[event.newValue] || event.newValue || '—'}</Typography.Text>
-    </Space>
+    const eventLabel = eventLabels[event.eventType] || '변경'
+    const before = valueLabels[event.oldValue] || event.oldValue
+    const after = valueLabels[event.newValue] || event.newValue
+    const singleLabelEvent = event.eventType.startsWith('manual_mapping_')
+        || event.eventType === 'relation_created'
+        || event.eventType === 'relation_removed'
+        || !before || !after || before === after
+    if (singleLabelEvent) return <Tag>{eventLabel}</Tag>
+
+    const normalizedAfter = String(event.newValue || '').toUpperCase()
+    const tone = event.severity === 'problem'
+        || ['DOWN', 'NOTREADY', 'FAILED', 'ERROR', 'DISCONNECTED', 'AUTHENTICATION_FAILED', 'PERMISSION_DENIED'].includes(normalizedAfter)
+        ? 'problem'
+        : ['UP', 'READY', 'RUNNING', 'HEALTHY', 'CONNECTED'].includes(normalizedAfter)
+            ? 'success'
+            : ['INACTIVE', 'STOPPED', 'DISABLED'].includes(normalizedAfter)
+                ? 'inactive'
+                : 'default'
+    return <DetailChangeDiff before={before} after={after} afterTone={tone as DetailDiffTone} />
 }
 
 /** Shared query/table can also be scoped by resourceId in a resource detail. */
-export default function EventHistory({ userSession, resourceId, canNavigate, onNavigate }: {
+export default function EventHistory({ userSession, resourceId, canNavigate, onNavigate, renderHeader, tableClassName }: {
     userSession?: session; resourceId?: string
     canNavigate: (event: ChangeEvent) => boolean; onNavigate: (event: ChangeEvent) => void
+    renderHeader?: (action: React.ReactNode) => React.ReactNode
+    tableClassName?: string
 }) {
     const [hours, setHours] = React.useState(24)
     const [resourceType, setResourceType] = React.useState('')
     const [eventType, setEventType] = React.useState('')
     const [search, setSearch] = React.useState('')
+    const [searchDraft, setSearchDraft] = React.useState('')
     const [page, setPage] = React.useState(1)
     const [revision, refresh] = React.useState(0)
     const [data, setData] = React.useState<EventPage>({ events: [], total: 0, page: 1, pageSize: 20 })
@@ -87,35 +136,98 @@ export default function EventHistory({ userSession, resourceId, canNavigate, onN
             .finally(() => { if (!controller.signal.aborted) setLoading(false) })
         return () => controller.abort()
     }, [userSession?.endpoint, userSession?.token, range, hours, resourceType, resourceId, eventType, search, page, revision])
-    return <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-        <DetailInlineSectionHeader title="변경 이력" action={<Button icon={<ReloadOutlined />} loading={loading} onClick={() => {
+    const refreshAction = <Tooltip title="새로고침"><Button type="text" aria-label="새로고침"
+        icon={<ReloadOutlined />} loading={loading} onClick={() => {
             setRange(Math.floor(Date.now() / 1000)); setPage(1); refresh(revision + 1)
-        }}>새로고침</Button>} />
-        <Space wrap size="small">
-            <Select aria-label="조회 기간" value={hours} onChange={value => { setHours(value); setPage(1) }} style={{ width: 120 }}
-                options={[{ value: 24, label: '최근 24시간' }, { value: 168, label: '최근 7일' }, { value: 720, label: '최근 30일' }]} />
-            <Select aria-label="자원 유형" value={resourceType} onChange={value => { setResourceType(value); setPage(1) }} style={{ width: 180 }}
-                options={[{ value: '', label: '모든 자원 유형' }, ...Object.keys(eventResourceLabels).map(value => ({ value, label: eventResourceLabels[value] }))]} />
-            <Select aria-label="변경 유형" value={eventType} onChange={value => { setEventType(value); setPage(1) }} style={{ width: 160 }}
-                options={[{ value: '', label: '모든 변경 유형' }, ...Object.keys(eventLabels).map(value => ({ value, label: eventLabels[value] }))]} />
-            <Input.Search aria-label="자원 이름 검색" placeholder="자원 이름 검색" allowClear onSearch={value => { setSearch(value.trim()); setPage(1) }} style={{ width: 220 }} />
-        </Space>
-        {error && <Alert type="warning" showIcon message={error} />}
-        <DetailTable<ChangeEvent> rowKey="id" loading={loading} dataSource={data.events} scroll={{ x: 760 }}
-            locale={{ emptyText: error ? '변경 이력을 불러올 수 없습니다.' : '선택한 조건의 변경 이력이 없습니다.' }}
-            pagination={{ current: page, pageSize: 20, total: data.total, showSizeChanger: false, hideOnSinglePage: true,
-                onChange: setPage, showTotal: total => `전체 ${total}건` }}
-            onRow={event => ({ onClick: () => { if (canNavigate(event)) onNavigate(event) } })}
-            columns={[
-                { title: '시간', width: 155, render: (_, event) => <Tooltip title={new Date(event.occurredAt * 1000).toLocaleString('ko-KR')}>
-                    {new Date(event.occurredAt * 1000).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}</Tooltip> },
-                { title: '유형', width: 150, render: (_, event) => eventResourceLabels[event.resourceType] || '자원' },
-                { title: '자원', ellipsis: true, render: (_, event) => <Tooltip title={event.resourceName || event.resourceId}><Typography.Text strong>{event.resourceName || event.resourceId}</Typography.Text></Tooltip> },
-                { title: '변경', width: 220, render: (_, event) => <Tooltip title={eventLabels[event.eventType] || '변경'}><span><EventChange event={event} /></span></Tooltip> },
-                { title: '작업', width: 78, render: (_, event) => canNavigate(event)
-                    ? <Button type="link" size="small" onClick={e => { e.stopPropagation(); onNavigate(event) }}>이동<RightOutlined /></Button>
-                    : <Tooltip title="현재 토폴로지에 없는 자원입니다."><Typography.Text type="secondary">—</Typography.Text></Tooltip> }
-            ]} />
-        <Typography.Text type="secondary">첫 수집은 기준값으로 처리하며, 이후 확인된 변경만 표시합니다. 기본 보존 기간은 30일입니다.</Typography.Text>
-    </Space>
+        }} /></Tooltip>
+    const periodLabel = hours === 24 ? '최근 24시간' : hours === 168 ? '최근 7일' : '최근 30일'
+    return <>
+        {renderHeader && renderHeader(refreshAction)}
+        <div className="netdive-event-history-surface">
+            <div className="netdive-detail-operation-content">
+                <DetailInlineSectionHeader title="이벤트 목록" action={renderHeader ? undefined : refreshAction} />
+                <DetailFilterBar className="netdive-event-history-filter-surface" search={<Input.Search className="netdive-detail-search-integrated" prefix={<SearchOutlined />}
+                    aria-label="자원 이름 검색" placeholder="자원 이름 검색" allowClear value={searchDraft}
+                    onChange={event => {
+                        setSearchDraft(event.target.value)
+                        if (!event.target.value) { setSearch(''); setPage(1) }
+                    }}
+                    onSearch={value => { setSearch(value.trim()); setPage(1) }} />}>
+                    <DetailFilterField label="기간" width={140}>
+                        <Select aria-label="조회 기간" value={hours} onChange={value => { setHours(value); setPage(1) }}
+                            options={[{ value: 24, label: '최근 24시간' }, { value: 168, label: '최근 7일' }, { value: 720, label: '최근 30일' }]} />
+                    </DetailFilterField>
+                    <DetailFilterField label="자원 유형" width={170}>
+                        <Select aria-label="자원 유형" value={resourceType} onChange={value => { setResourceType(value); setPage(1) }}
+                            options={[{ value: '', label: '모든 자원 유형' }, ...Object.keys(eventResourceLabels).map(value => ({ value, label: eventResourceLabels[value] }))]} />
+                    </DetailFilterField>
+                    <DetailFilterField label="이벤트 유형" width={170}>
+                        <Select aria-label="이벤트 유형" value={eventType} onChange={value => { setEventType(value); setPage(1) }}
+                            options={[{ value: '', label: '모든 이벤트 유형' }, ...Object.keys(eventLabels).map(value => ({ value, label: eventLabels[value] }))]} />
+                    </DetailFilterField>
+                </DetailFilterBar>
+                {error && <Alert type="warning" showIcon message={error} />}
+                <div className="netdive-event-history-context-toolbar">
+                    <DetailResultCount count={data.total} />
+                    <div className="netdive-event-history-filter-pills" aria-label="적용된 필터">
+                        <Tag>기간: {periodLabel}</Tag>
+                        {resourceType && <Tag closable onClose={event => {
+                            event.preventDefault()
+                            setResourceType(''); setPage(1)
+                        }}>자원: {eventResourceLabels[resourceType]}</Tag>}
+                        {eventType && <Tag closable onClose={event => {
+                            event.preventDefault()
+                            setEventType(''); setPage(1)
+                        }}>이벤트: {eventLabels[eventType]}</Tag>}
+                        {search && <Tag closable onClose={event => {
+                            event.preventDefault()
+                            setSearch(''); setSearchDraft(''); setPage(1)
+                        }}>검색: {search}</Tag>}
+                    </div>
+                </div>
+                <DetailTable<ChangeEvent> className={`${tableClassName || ''} netdive-event-history-table`} rowKey="id" loading={loading} dataSource={data.events}
+                showSorterTooltip={false}
+                scroll={{ y: 480 }}
+                locale={{ emptyText: <DetailEmpty description={error
+                    ? '이력을 불러오지 못했습니다. 잠시 후 다시 조회해 보세요.'
+                    : '선택한 조건의 변경이 없습니다. 상태가 실제로 바뀐 자원만 표시됩니다.'} /> }}
+                pagination={{ current: page, pageSize: 20, total: data.total, showSizeChanger: false, hideOnSinglePage: true,
+                    position: ['bottomRight'], showLessItems: true,
+                    onChange: nextPage => setPage(nextPage), showTotal: total => `전체 ${total}건` }}
+                rowClassName={event => canNavigate(event) ? 'netdive-event-history-row--navigable' : ''}
+                onRow={event => canNavigate(event) ? ({
+                    onClick: () => onNavigate(event),
+                    onKeyDown: keyboardEvent => {
+                        if (keyboardEvent.key === 'Enter' || keyboardEvent.key === ' ') onNavigate(event)
+                    },
+                    tabIndex: 0
+                }) : ({})}
+                columns={[
+                    { title: '시간', width: 145, defaultSortOrder: 'descend' as 'descend',
+                        sorter: (left: ChangeEvent, right: ChangeEvent) => left.occurredAt - right.occurredAt,
+                        render: (_, event) => <span className="netdive-event-history-time">
+                            {new Date(event.occurredAt * 1000).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}
+                        </span> },
+                    { title: '유형', width: 170,
+                        sorter: (left: ChangeEvent, right: ChangeEvent) => (eventResourceLabels[left.resourceType] || left.resourceType).localeCompare(eventResourceLabels[right.resourceType] || right.resourceType, 'ko'),
+                        render: (_, event) => <DetailResourceIdentity
+                        icon={eventResourceIcons[event.resourceType] || <DeploymentUnitOutlined />}
+                        title={eventResourceLabels[event.resourceType] || '자원'}
+                        metadata={eventSourceLabels[event.source] || event.source} /> },
+                    { title: '자원',
+                        sorter: (left: ChangeEvent, right: ChangeEvent) => (left.resourceName || left.resourceId).localeCompare(right.resourceName || right.resourceId, 'ko'),
+                        render: (_, event) => <span className={`netdive-event-history-resource-name${canNavigate(event) ? ' netdive-event-history-resource-link' : ''}`}>
+                            {event.resourceName || event.resourceId}
+                        </span> },
+                    { title: '이벤트', width: 190,
+                        sorter: (left: ChangeEvent, right: ChangeEvent) => (eventLabels[left.eventType] || left.eventType).localeCompare(eventLabels[right.eventType] || right.eventType, 'ko'),
+                        render: (_, event) => <EventChange event={event} /> }
+                ]} />
+            </div>
+            <div className="netdive-event-history-footer">
+                <Alert type="info" showIcon
+                    message="첫 수집은 기준값으로 처리하며, 이후 확인된 변경만 표시합니다. 기본 보존 기간은 30일입니다." />
+            </div>
+        </div>
+    </>
 }

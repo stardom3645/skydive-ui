@@ -160,12 +160,30 @@ export const styles = (theme: Theme) => createStyles({
   },
   tabActions: {
     display: 'flex',
-    flexDirection: 'row-reverse',
     alignItems: 'center',
-    gap: 4,
+    justifyContent: 'space-between',
+    gap: 12,
     marginBottom: 10,
     borderBottom: '1px solid #eef0f4',
     paddingBottom: 8
+  },
+  tabNavigationActions: {
+    display: 'flex',
+    width: 68,
+    minWidth: 68,
+    flex: '0 0 68px',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    gap: 4
+  },
+  tabObjectActions: {
+    display: 'flex',
+    minWidth: 0,
+    flex: '0 1 auto',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 4,
+    marginLeft: 'auto'
   },
   gremlinExpr: {
     fontSize: '16px',

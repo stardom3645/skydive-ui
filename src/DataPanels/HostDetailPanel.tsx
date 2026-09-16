@@ -2296,14 +2296,19 @@ class HostDetailPanel extends React.Component<Props, State> {
                             onNavigate={mapping => this.focusSwitchPortConnection(mapping as InfrastructureHostPortMapping)} />,
                         'netdive-host-switch-port-mapping-section',
                         <div className="netdive-port-mapping-header-actions">
-                            <AntTooltip title={translate('switchPortMappingExpandView')}>
+                            <AntTooltip
+                                title={translate('switchPortMappingExpandView')}
+                                placement="top"
+                                overlayClassName="netdive-port-mapping-action-tooltip"
+                                getPopupContainer={() => document.body}
+                                autoAdjustOverflow
+                                destroyTooltipOnHide>
                                 <Button
                                     className="netdive-port-mapping-expand-trigger"
                                     icon={<ArrowsAltOutlined />}
+                                    aria-label={translate('switchPortMappingExpandView')}
                                     disabled={switchPortConnections.length === 0}
-                                    onClick={() => this.setState({ portMappingExpanded: true })}>
-                                    {translate('switchPortMappingExpandView')}
-                                </Button>
+                                    onClick={() => this.setState({ portMappingExpanded: true })} />
                             </AntTooltip>
                         </div>,
                         true

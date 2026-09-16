@@ -94,13 +94,14 @@ import {
 } from 'antd'
 import {
   BulbOutlined,
+  CloseOutlined,
   ClusterOutlined,
   CopyOutlined,
-  DashboardOutlined,
   EyeOutlined,
   ExclamationCircleFilled,
   FilterOutlined,
   GlobalOutlined,
+  HistoryOutlined,
   InfoCircleOutlined,
   MinusCircleFilled,
   QuestionCircleFilled,
@@ -111,10 +112,7 @@ import {
 
 import { styles } from './AppStyles'
 import { Topology, Node, NodeAttrs, LinkAttrs, LinkTagState, Link, isTopologyDownNode, topologyNodeStatus } from './Topology'
-import { StatusSummaryEntry, SummaryStatus, statusSummaryEntries, statusSummaryCounts, statusSummaryResourceCounts, filterStatusSummary } from './StatusSummary'
 import {
-  TopologyResourceCategory,
-  TopologyResourceDomain,
   infrastructureResourceCategory,
   kubernetesResourceCategory
 } from './TopologyResourceClassification'
@@ -133,7 +131,7 @@ import {
 } from './Store'
 import { withRouter } from 'react-router-dom'
 import SelectionPanel from './SelectionPanel'
-import { appendSelectionHistory, previousSelectionTarget, SelectionHistoryItem } from './SelectionHistory'
+import { appendSelectionHistoryAt, nextSelectionTarget, previousSelectionTarget, SelectionHistoryItem } from './SelectionHistory'
 import { Configuration } from './api/configuration'
 import * as api from './api/api'
 import { StatusApi, APIInfoApi, ConfigApi } from './api'
@@ -236,8 +234,6 @@ const RECENT_VIEWED_NODES_STORAGE_KEY = "netdive-recent-viewed-nodes"
 const KUBERNETES_MANUALLY_DISABLED_STORAGE_KEY = "netdive-kubernetes-manually-disabled-clusters"
 const INITIAL_TOPOLOGY_LAYER_STORAGE_KEY = "netdive-initial-topology-layer"
 const TOPOLOGY_DISPLAY_OPTIONS_STORAGE_KEY = "netdive-topology-display-options"
-const STATUS_SUMMARY_MENU_ENABLED = false
-
 const getSavedNetdiveTheme = (): NetdiveTheme => {
   const savedTheme = localStorage.getItem("netdive-theme")
   return savedTheme === "dark" ? "dark" : "light"
@@ -329,12 +325,7 @@ interface State {
   netdiveTheme: NetdiveTheme
   initialTopologyLayer: InitialTopologyLayer
   isInfrastructurePanelOpen: boolean
-  isStatusSummaryOpen: boolean
   isEventHistoryOpen: boolean
-  statusSummaryFilter: SummaryStatus | 'all'
-  statusSummaryResourceDomain: TopologyResourceDomain | 'all'
-  statusSummaryResourceCategory: TopologyResourceCategory | 'all'
-  statusSummarySearch: string
   infrastructureFocus: InfrastructureFocusKey | ""
   infrastructureViewMode: InfrastructureViewMode
   infrastructureAgentRestartDialogOpen: boolean
@@ -373,6 +364,7 @@ interface State {
   kubernetesProblemsOnly: boolean
   topologyDisplayOptions: TopologyDisplayOptions
   selectionHistory: SelectionHistoryItem[]
+  selectionHistoryIndex: number
 }
 
 interface TopologyDisplayOptions {
@@ -596,12 +588,7 @@ class App extends React.Component<Props, State> {
       netdiveTheme: getSavedNetdiveTheme(),
       initialTopologyLayer: getSavedInitialTopologyLayer(),
       isInfrastructurePanelOpen: false,
-      isStatusSummaryOpen: false,
       isEventHistoryOpen: false,
-      statusSummaryFilter: 'all',
-      statusSummaryResourceDomain: 'all',
-      statusSummaryResourceCategory: 'all',
-      statusSummarySearch: '',
       infrastructureFocus: "",
       infrastructureViewMode: "all",
       infrastructureAgentRestartDialogOpen: false,
@@ -639,7 +626,8 @@ class App extends React.Component<Props, State> {
       groupVisibleNodeIDs: new Set<string>(),
       kubernetesProblemsOnly: false,
       topologyDisplayOptions: getSavedTopologyDisplayOptions(),
-      selectionHistory: []
+      selectionHistory: [],
+      selectionHistoryIndex: -1
     }
 
     this.synced = false
@@ -869,7 +857,7 @@ class App extends React.Component<Props, State> {
 
   private onDocumentMouseDown(event: MouseEvent) {
     const isLinkTagsExpanded = !this.state.isLinkTagsCollapsed && this.state.linkTagStates.size !== 0
-    if (!this.state.isEventHistoryOpen && !this.state.isStatusSummaryOpen && !this.state.isInfrastructurePanelOpen && !this.state.isKubernetesManagerOpen && !this.state.isScreenConfigOpen && !this.state.isPreferencesPanelOpen && !this.state.isHelpOpen && !this.state.isAboutOpen && !isLinkTagsExpanded) {
+    if (!this.state.isEventHistoryOpen && !this.state.isInfrastructurePanelOpen && !this.state.isKubernetesManagerOpen && !this.state.isScreenConfigOpen && !this.state.isPreferencesPanelOpen && !this.state.isHelpOpen && !this.state.isAboutOpen && !isLinkTagsExpanded) {
       return
     }
     const target = event.target as Element | null
@@ -888,7 +876,6 @@ class App extends React.Component<Props, State> {
   private closeSidePanels(extraState: { isSelectionOpen?: boolean, isTimetravelOpen?: boolean, isLinkTagsCollapsed?: boolean } = {}) {
     this.setState({
       isEventHistoryOpen: false,
-      isStatusSummaryOpen: false,
       isSelectionOpen: extraState.isSelectionOpen !== undefined ? extraState.isSelectionOpen : this.state.isSelectionOpen,
       isTimetravelOpen: extraState.isTimetravelOpen !== undefined ? extraState.isTimetravelOpen : this.state.isTimetravelOpen,
       isLinkTagsCollapsed: extraState.isLinkTagsCollapsed !== undefined ? extraState.isLinkTagsCollapsed : this.state.isLinkTagsCollapsed,
@@ -2231,16 +2218,30 @@ class App extends React.Component<Props, State> {
     // resources. Keep the quick-back stack focused on actual topology nodes.
     if (this.selectionHistoryNavigating || !this.tc || !this.tc.nodes.has(node.id)) return
     const item: SelectionHistoryItem = { id: node.id, name: this.nodeDisplayName(node) }
-    this.setState((currentState) => ({
-      selectionHistory: appendSelectionHistory(currentState.selectionHistory, item)
-    }))
+    this.setState((currentState) => {
+      const next = appendSelectionHistoryAt(
+        currentState.selectionHistory,
+        currentState.selectionHistoryIndex,
+        item
+      )
+      return { selectionHistory: next.history, selectionHistoryIndex: next.index }
+    })
   }
 
   private previousSelection() {
     if (!this.tc) return undefined
     return previousSelectionTarget(
       this.state.selectionHistory,
-      this.selectedNodeID(),
+      this.state.selectionHistoryIndex,
+      id => !!this.tc && this.tc.nodes.has(id)
+    )
+  }
+
+  private nextSelection() {
+    if (!this.tc) return undefined
+    return nextSelectionTarget(
+      this.state.selectionHistory,
+      this.state.selectionHistoryIndex,
       id => !!this.tc && this.tc.nodes.has(id)
     )
   }
@@ -2249,9 +2250,29 @@ class App extends React.Component<Props, State> {
     if (!this.tc) return
     const target = this.previousSelection()
     if (!target) return
-    this.setState({ selectionHistory: this.state.selectionHistory.slice(0, target.index + 1) }, () => {
+    this.setState({ selectionHistoryIndex: target.index }, () => {
       if (!this.tc || !this.tc.nodes.has(target.item.id)) {
         this.navigateToPreviousSelection()
+        return
+      }
+      this.selectionHistoryNavigating = true
+      try {
+        this.syncTopologyNodeTagForNodes([target.item.id])
+        this.tc.navigateConnectedResources([target.item.id], undefined, true)
+        this.openSelection()
+      } finally {
+        this.selectionHistoryNavigating = false
+      }
+    })
+  }
+
+  private navigateToNextSelection() {
+    if (!this.tc) return
+    const target = this.nextSelection()
+    if (!target) return
+    this.setState({ selectionHistoryIndex: target.index }, () => {
+      if (!this.tc || !this.tc.nodes.has(target.item.id)) {
+        this.navigateToNextSelection()
         return
       }
       this.selectionHistoryNavigating = true
@@ -2284,7 +2305,7 @@ class App extends React.Component<Props, State> {
       this.reconcileKubernetesWorkloadHierarchy()
       this.tc.renderTree();
       this.pruneRecentViewedNodes()
-      if (this.state.isStatusSummaryOpen || this.state.isEventHistoryOpen) this.forceUpdate()
+      if (this.state.isEventHistoryOpen) this.forceUpdate()
     }
   }
 
@@ -2306,7 +2327,7 @@ class App extends React.Component<Props, State> {
         }
         this.synced = true
         this.refreshManualPortMappingLinks()
-        if (this.state.isStatusSummaryOpen || this.state.isEventHistoryOpen) this.forceUpdate()
+        if (this.state.isEventHistoryOpen) this.forceUpdate()
         break
       case "NodeAdded":
         if (!this.synced) {
@@ -4322,7 +4343,6 @@ class App extends React.Component<Props, State> {
   openAboutDialog() {
     this.setState({
       isEventHistoryOpen: false,
-      isStatusSummaryOpen: false,
       isInfrastructurePanelOpen: false,
       isKubernetesManagerOpen: false,
       isScreenConfigOpen: false,
@@ -4339,7 +4359,6 @@ class App extends React.Component<Props, State> {
   openHelpDialog() {
     this.setState({
       isEventHistoryOpen: false,
-      isStatusSummaryOpen: false,
       isInfrastructurePanelOpen: false,
       isKubernetesManagerOpen: false,
       isScreenConfigOpen: false,
@@ -4410,20 +4429,6 @@ class App extends React.Component<Props, State> {
       <div className={drawer ? classes.drawerPreferenceNotice : classes.sidePreferenceNotice}>
         {translate("initialTopologyLayerDescription")}
       </div>
-    )
-  }
-
-  private renderDrawerMenuItem(classes: any, icon: React.ReactNode, label: string, onClick?: () => void, active?: boolean) {
-    return (
-      <Tooltip title={label} placement="right">
-        <button
-          type="button"
-          aria-label={label}
-          className={clsx(classes.drawerMenuItem, active && classes.drawerMenuItemActive)}
-          onClick={onClick}>
-          <span className={classes.drawerMenuIcon}>{icon}</span>
-        </button>
-      </Tooltip>
     )
   }
 
@@ -4503,7 +4508,6 @@ class App extends React.Component<Props, State> {
   private openKubernetesManager() {
     this.setState({
       isEventHistoryOpen: false,
-      isStatusSummaryOpen: false,
       isInfrastructurePanelOpen: false,
       isKubernetesManagerOpen: true,
       isScreenConfigOpen: false,
@@ -4524,7 +4528,6 @@ class App extends React.Component<Props, State> {
   private openInfrastructureTopology() {
     this.setState({
       isEventHistoryOpen: false,
-      isStatusSummaryOpen: false,
       isInfrastructurePanelOpen: true,
       isKubernetesManagerOpen: false,
       isScreenConfigOpen: false,
@@ -5044,7 +5047,7 @@ class App extends React.Component<Props, State> {
         titleClassName={classes.kubernetesManagerTitle} subtitleClassName={classes.kubernetesManagerDescription} />
       <AntSpace size={8} className={classes.statusSummaryActions}>
         {action}
-        <AntButton type="text" aria-label={`${title} 닫기`} onClick={onClose} icon={<CloseIcon fontSize="small" />} />
+        <AntButton type="text" aria-label={`${title} 닫기`} onClick={onClose} icon={<CloseOutlined />} />
       </AntSpace>
     </div>
   }
@@ -5185,7 +5188,7 @@ class App extends React.Component<Props, State> {
 
     return (
       <DetailSection
-        title={this.state.kubernetesResourceExplorerTitle || 'Kubernetes Services'}
+        title={this.state.kubernetesResourceExplorerTitle || 'Kubernetes 서비스'}
         description="실행 계층과 분리된 Kubernetes 관계 리소스를 탐색합니다."
         action={this.state.kubernetesServiceExplorerOpen && <AntButton size="small" onClick={() => this.setState({
               kubernetesServiceExplorerOpen: false,
@@ -5283,7 +5286,6 @@ class App extends React.Component<Props, State> {
   private openScreenConfigPanel() {
     this.setState({
       isEventHistoryOpen: false,
-      isStatusSummaryOpen: false,
       isInfrastructurePanelOpen: false,
       isKubernetesManagerOpen: false,
       isScreenConfigOpen: true,
@@ -5296,7 +5298,6 @@ class App extends React.Component<Props, State> {
   private openPreferencesPanel() {
     this.setState({
       isEventHistoryOpen: false,
-      isStatusSummaryOpen: false,
       isInfrastructurePanelOpen: false,
       isKubernetesManagerOpen: false,
       isScreenConfigOpen: false,
@@ -5306,7 +5307,7 @@ class App extends React.Component<Props, State> {
     })
   }
 
-  private statusSummaryTarget(node: Node): RecentViewedNodeItem {
+  private eventHistoryTarget(node: Node): RecentViewedNodeItem {
     const attrs = this.nodeAttrs(node)
     return { id: node.id, name: this.nodeDisplayName(node), rawType: this.recentNodeRawType(node),
       layerTag: this.nodePrimaryLayerTag(node), iconGlyph: attrs.icon, iconHref: attrs.href,
@@ -5329,123 +5330,16 @@ class App extends React.Component<Props, State> {
 
   private renderEventHistory(classes: any) {
     if (!this.state.isEventHistoryOpen) return null
-    return <Paper className={clsx(classes.kubernetesManagerPanel, classes.statusSummaryPanel)} data-netdive-side-panel="true">
-      {this.renderCollectionPanelHeader(classes, '최근 변경 이력', '자원 상태와 연결 관계의 최근 변경을 확인합니다.',
-        () => this.setState({ isEventHistoryOpen: false }))}
-      <EventHistory userSession={this.props.session} canNavigate={event => !!this.eventHistoryNode(event)} onNavigate={event => {
-        const node = this.eventHistoryNode(event)
-        if (node) this.setState({ isEventHistoryOpen: false }, () => this.focusRecentViewedNode(this.statusSummaryTarget(node)))
-      }} />
-    </Paper>
-  }
-
-  private renderStatusSummary(classes: any) {
-    if (!this.state.isStatusSummaryOpen) return null
-    const entries = statusSummaryEntries(
-      this.tc ? Array.from(this.tc.nodes.values()) : [],
-      topologyNodeStatus,
-      this.tc ? Array.from(this.tc.links.values()) : []
-    )
-    const counts = statusSummaryCounts(entries)
-    const options: Array<{ key: SummaryStatus | 'all', label: string, tone: 'danger' | 'warning' | 'default' | 'info', icon: React.ReactNode }> = [
-      { key: 'problem', label: '문제', tone: 'danger', icon: <ExclamationCircleFilled /> },
-      { key: 'attention', label: '확인 필요', tone: 'warning', icon: <QuestionCircleFilled /> },
-      { key: 'unavailable', label: '수집 불가', tone: 'default', icon: <QuestionCircleFilled /> },
-      { key: 'inactive', label: '비활성', tone: 'default', icon: <MinusCircleFilled /> },
-      { key: 'all', label: '전체 확인 대상', tone: 'info', icon: <SafetyCertificateFilled /> }
-    ]
-    const resourceEntries = filterStatusSummary(entries, 'all', this.state.statusSummaryResourceDomain, this.state.statusSummaryResourceCategory, '', node => this.nodeDisplayName(node))
-    const visibleStatusCounts = statusSummaryCounts(resourceEntries)
-    const statusEntries = filterStatusSummary(entries, this.state.statusSummaryFilter, 'all', 'all', '', node => this.nodeDisplayName(node))
-    const domainCounts = statusSummaryResourceCounts(statusEntries)
-    const domainEntries = filterStatusSummary(entries, this.state.statusSummaryFilter, this.state.statusSummaryResourceDomain, 'all', '', node => this.nodeDisplayName(node))
-    const categoryCounts = statusSummaryResourceCounts(domainEntries)
-    const domainOptions: Array<{ key: TopologyResourceDomain | 'all', label: string }> = [
-      { key: 'all', label: '전체' },
-      { key: 'infrastructure', label: '인프라스트럭처' },
-      { key: 'kubernetes', label: 'Kubernetes' }
-    ]
-    const categoryOptions: Array<{ key: TopologyResourceCategory | 'all', label: string }> = this.state.statusSummaryResourceDomain === 'infrastructure'
-      ? [{ key: 'all', label: '전체' }, { key: 'switch', label: '스위치' }, { key: 'host', label: '호스트' }, { key: 'vm', label: 'VM' }]
-      : this.state.statusSummaryResourceDomain === 'kubernetes'
-        ? [{ key: 'all', label: '전체' }, { key: 'cluster', label: '클러스터' }, { key: 'node', label: '노드' }, { key: 'pod', label: '파드' }]
-        : []
-    const rows = filterStatusSummary(entries, this.state.statusSummaryFilter, this.state.statusSummaryResourceDomain,
-      this.state.statusSummaryResourceCategory, this.state.statusSummarySearch, node => this.nodeDisplayName(node))
-    const navigate = (entry: StatusSummaryEntry) => {
-      this.closeSidePanels()
-      this.setState({ isStatusSummaryOpen: false }, () => this.focusRecentViewedNode(this.statusSummaryTarget(entry.node)))
-    }
-    return <Paper className={clsx(classes.kubernetesManagerPanel, classes.kubernetesManagerPanelCompact, classes.statusSummaryPanel)} data-netdive-side-panel="true">
-      {this.renderCollectionPanelHeader(classes, '상태 요약', '현재 토폴로지에서 운영자가 확인할 가치가 있는 자원과 수집 상태를 요약합니다.',
-        () => this.setState({ isStatusSummaryOpen: false }),
-        <AntButton icon={<ReloadOutlined />} disabled={!this.connected} onClick={() => this.sync()}>새로고침</AntButton>)}
-      <section className={clsx(classes.statusSummarySection, classes.statusSummaryOverviewSection)} aria-labelledby="status-summary-overview-label">
-        <div id="status-summary-overview-label"><DetailInlineSectionHeader title="요약 현황" /></div>
-        <div className={clsx(classes.kubernetesSummaryGrid, classes.infrastructureSummaryGrid, classes.statusSummaryGrid)}>
-          {options.map(option => <React.Fragment key={option.key}>
-            {this.renderKubernetesTopologySummaryCard(classes,
-              option.icon,
-              option.label, counts[option.key], entries.filter(entry => option.key === 'all' || entry.status === option.key).map(entry => entry.node.id),
-              () => this.setState({ statusSummaryFilter: option.key }), false,
-              clsx(classes.statusSummaryCard, classes[`statusSummaryCard${option.key === 'all' ? 'All' : option.key.charAt(0).toUpperCase() + option.key.slice(1)}`], this.state.statusSummaryFilter === option.key && classes.statusSummaryCardSelected), true)}
-          </React.Fragment>)}
-        </div>
-      </section>
-      <section className={clsx(classes.statusSummarySection, classes.statusSummaryFilterArea)} aria-label="확인 대상 필터">
-        <div className={clsx(classes.kubernetesTableHeader, classes.statusSummaryControls)}>
-          <AntRadio.Group className={classes.statusSummaryFilters} size="small" value={this.state.statusSummaryFilter} onChange={event => this.setState({ statusSummaryFilter: event.target.value })}>
-            {[options[4], ...options.slice(0, 4)].map(option => <AntRadio.Button key={option.key} value={option.key}>
-              <span className={clsx(classes.statusSummaryFilterDot, classes[`statusSummaryFilterDot${option.key === 'all' ? 'All' : option.key.charAt(0).toUpperCase() + option.key.slice(1)}`])} />
-              <span>{option.key === 'all' ? '전체' : option.label}</span><strong>{visibleStatusCounts[option.key]}</strong>
-            </AntRadio.Button>)}
-          </AntRadio.Group>
-          <AntInput className={classes.statusSummarySearch} prefix={<SearchOutlined />} allowClear placeholder="자원 이름 검색"
-            value={this.state.statusSummarySearch} onChange={event => this.setState({ statusSummarySearch: event.target.value })} />
-        </div>
-        <div className={classes.statusSummaryResourceRows}>
-          <div className={classes.statusSummaryResourceRow}>
-            <span className={classes.statusSummaryResourceLabel}>리소스</span>
-            <AntRadio.Group className={clsx(classes.statusSummaryFilters, classes.statusSummaryResourceFilters)} size="small"
-              value={this.state.statusSummaryResourceDomain}
-              onChange={event => this.setState({ statusSummaryResourceDomain: event.target.value, statusSummaryResourceCategory: 'all' })}>
-              {domainOptions.map(option => <AntRadio.Button key={option.key} value={option.key}>
-                <span>{option.label}</span><strong>{domainCounts[option.key]}</strong>
-              </AntRadio.Button>)}
-            </AntRadio.Group>
-          </div>
-          {categoryOptions.length > 0 && <div className={classes.statusSummaryResourceRow}>
-            <span className={classes.statusSummaryResourceLabel}>{this.state.statusSummaryResourceDomain === 'infrastructure' ? '인프라' : 'Kubernetes'}</span>
-            <AntRadio.Group className={clsx(classes.statusSummaryFilters, classes.statusSummaryResourceFilters)} size="small"
-              value={this.state.statusSummaryResourceCategory}
-              onChange={event => this.setState({ statusSummaryResourceCategory: event.target.value })}>
-              {categoryOptions.map(option => <AntRadio.Button key={option.key} value={option.key}>
-                <span>{option.label}</span><strong>{option.key === 'all' ? categoryCounts.all : categoryCounts[option.key]}</strong>
-              </AntRadio.Button>)}
-            </AntRadio.Group>
-          </div>}
-        </div>
-      </section>
-      <section className={clsx(classes.statusSummarySection, classes.statusSummaryTargetSection)} aria-labelledby="status-summary-target-label">
-        <div id="status-summary-target-label"><DetailInlineSectionHeader title="확인 대상" /></div>
-        <DetailTable<StatusSummaryEntry>
-          className={classes.statusSummaryTable} rowKey={entry => entry.node.id} dataSource={rows}
-          pagination={{ pageSize: 10, hideOnSinglePage: true, showSizeChanger: false }} scroll={{ x: 640 }}
-          locale={{ emptyText: entries.length ? '검색 조건에 맞는 자원이 없습니다.' : '현재 확인이 필요한 자원이 없습니다.' }}
-          onRow={entry => ({ onClick: () => navigate(entry), style: { cursor: 'pointer' } })}
-          columns={[
-            { title: '상태', key: 'status', width: 110, render: (_, entry) => {
-              const option = options.find(item => item.key === entry.status)!
-              return <DetailStatusIndicator tone={option.tone} variant="table">{option.label}</DetailStatusIndicator>
-            } },
-            { title: '유형', key: 'type', width: 180, render: (_, entry) => <AntSpace size={6}>
-              {this.renderRecentNodeIcon(classes, this.statusSummaryTarget(entry.node))}
-              {this.recentNodeTypeLabel(this.statusSummaryTarget(entry.node))}
-            </AntSpace> },
-            { title: '이름', key: 'name', ellipsis: true, render: (_, entry) => <Tooltip title={this.nodeDisplayName(entry.node)}><span className={classes.statusSummaryName}>{this.nodeDisplayName(entry.node)}</span></Tooltip> },
-            { title: '작업', key: 'action', width: 76, render: (_, entry) => <AntButton type="link" size="small" onClick={event => { event.stopPropagation(); navigate(entry) }}>이동<ChevronRightIcon fontSize="small" /></AntButton> }
-          ]} />
-      </section>
+    return <Paper className={clsx(classes.kubernetesManagerPanel, classes.kubernetesManagerPanelCompact, classes.eventHistoryPanel)} data-netdive-side-panel="true">
+      <EventHistory userSession={this.props.session}
+        renderHeader={refreshAction => this.renderCollectionPanelHeader(classes, '이벤트',
+          '자원 상태와 연결 관계에서 발생한 최근 변경을 확인합니다.',
+          () => this.setState({ isEventHistoryOpen: false }), refreshAction)}
+        tableClassName={classes.kubernetesCollectionTable}
+        canNavigate={event => !!this.eventHistoryNode(event)} onNavigate={event => {
+          const node = this.eventHistoryNode(event)
+          if (node) this.setState({ isEventHistoryOpen: false }, () => this.focusRecentViewedNode(this.eventHistoryTarget(node)))
+        }} />
     </Paper>
   }
 
@@ -5832,7 +5726,7 @@ class App extends React.Component<Props, State> {
               kubernetesServiceExplorerOpen: true,
               kubernetesServiceSearch: '',
               kubernetesResourceExplorerNodeIDs: summary.serviceNodeIDs,
-              kubernetesResourceExplorerTitle: 'Kubernetes Services'
+              kubernetesResourceExplorerTitle: 'Kubernetes 서비스'
             })
           )}
         </div>
@@ -5980,17 +5874,24 @@ class App extends React.Component<Props, State> {
             className={classes.drawerBrandLogo}
           />
         </div>
-        {this.renderDrawerMenuGroup(classes, 'summary', <DashboardOutlined />, '요약',
-          <React.Fragment>
-            {this.renderDrawerIntegrationItem(classes, <DashboardOutlined />, '최근 변경 이력', '자원 상태와 연결 관계의 변경', () => {
+        {this.renderDrawerMenuGroup(
+          classes,
+          "events",
+          <HistoryOutlined className={classes.drawerEventIcon} />,
+          '이벤트',
+          this.renderDrawerIntegrationItem(
+            classes,
+            <HistoryOutlined className={classes.drawerEventIcon} />,
+            '이벤트 목록',
+            '자원 상태와 연결 관계의 최근 변경',
+            () => {
               this.closeSidePanels()
               this.setState({ isEventHistoryOpen: true })
-            }, this.state.isEventHistoryOpen)}
-          </React.Fragment>, this.state.isEventHistoryOpen)}
-        {STATUS_SUMMARY_MENU_ENABLED && this.renderDrawerMenuItem(classes, <DashboardOutlined />, '상태 요약', () => {
-          this.closeSidePanels()
-          this.setState({ isStatusSummaryOpen: true })
-        }, this.state.isStatusSummaryOpen)}
+            },
+            this.state.isEventHistoryOpen
+          ),
+          this.state.isEventHistoryOpen
+        )}
         {this.renderDrawerMenuGroup(
           classes,
           "collection",
@@ -6154,7 +6055,6 @@ class App extends React.Component<Props, State> {
           </div>
         </Drawer>
         {this.renderInfrastructurePanel(classes)}
-        {this.renderStatusSummary(classes)}
         {this.renderEventHistory(classes)}
         {this.renderKubernetesManagerPanel(classes)}
         {this.renderScreenConfigPanel(classes)}
@@ -6198,6 +6098,8 @@ class App extends React.Component<Props, State> {
                 <SelectionPanel onLocation={this.onSelectionLocation.bind(this)} onClose={this.onSelectionClose.bind(this)} config={this.config}
                   previousSelectionName={this.previousSelection()?.item.name}
                   onPreviousSelection={this.navigateToPreviousSelection.bind(this)}
+                  nextSelectionName={this.nextSelection()?.item.name}
+                  onNextSelection={this.navigateToNextSelection.bind(this)}
                   buttonsContent={this.actionButtons.bind(this)} panelsContent={this.dataPanels.bind(this)} moldInventory={this.state.moldInventory} infrastructureHostSummaries={infrastructureHostSummaries} kubernetesClusters={this.state.kubernetesClusters}
                   vmNameMap={this.state.vmNameMap} vmNetworkMap={this.state.vmNetworkMap} vmDetailMap={this.state.vmDetailMap} managementServers={this.state.managementServers}
                   groupVisibleNodeIDs={this.state.groupVisibleNodeIDs}

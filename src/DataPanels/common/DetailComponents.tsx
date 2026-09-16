@@ -1566,6 +1566,75 @@ export const DetailInlineSectionHeader = ({ title, action, className }: DetailIn
     </div>
 )
 
+export const DetailFilterBar = ({ children, search, className }: {
+    children: React.ReactNode
+    search?: React.ReactNode
+    className?: string
+}) => (
+    <div className={joinClassNames('netdive-detail-filter-bar', className)}>
+        <div className="netdive-detail-filter-bar__fields">{children}</div>
+        {search && <div className="netdive-detail-filter-bar__search">{search}</div>}
+    </div>
+)
+
+export const DetailFilterField = ({ label, children, className, width }: {
+    label: React.ReactNode
+    children: React.ReactNode
+    className?: string
+	width?: number | string
+}) => (
+    <label className={joinClassNames('netdive-detail-filter-field', className)} style={width ? { width } : undefined}>
+        <span>{label}</span>
+        {children}
+    </label>
+)
+
+export const DetailResultCount = ({ label = '조회 결과', count }: { label?: React.ReactNode, count: number }) => (
+    <div className="netdive-detail-result-count">{label} <strong>{count}</strong>건</div>
+)
+
+export const DetailResourceIdentity = ({ icon, title, metadata }: {
+    icon: React.ReactNode
+    title: React.ReactNode
+    metadata?: React.ReactNode
+}) => (
+    <span className="netdive-detail-resource-identity">
+        <span className="netdive-detail-resource-icon-container">{icon}</span>
+        <span className="netdive-detail-resource-identity__text">
+            <span>{title}</span>
+            {metadata && <small>{metadata}</small>}
+        </span>
+    </span>
+)
+
+export type DetailDiffTone = 'default' | 'success' | 'problem' | 'inactive'
+
+export const DetailChangeDiff = ({ before, after, afterTone = 'default' }: {
+    before: React.ReactNode
+    after: React.ReactNode
+    afterTone?: DetailDiffTone
+}) => (
+    <span className="netdive-detail-change-diff">
+        <Tag className="netdive-detail-change-value">{before}</Tag>
+        <RightOutlined className="netdive-detail-change-diff__arrow" />
+        <Tag className={joinClassNames('netdive-detail-change-value', `is-${afterTone}`)}>{after}</Tag>
+    </span>
+)
+
+export const DetailActionLink = ({ children, onClick, disabled = false }: {
+    children: React.ReactNode
+    onClick?: (event: React.MouseEvent<HTMLElement>) => void
+    disabled?: boolean
+}) => (
+    <Button type="link" size="small" disabled={disabled} onClick={onClick}>
+        <span>{children}</span><RightOutlined />
+    </Button>
+)
+
+export const DetailInfoNote = ({ icon, children, surface = false }: { icon?: React.ReactNode, children: React.ReactNode, surface?: boolean }) => (
+    <div className={joinClassNames('netdive-detail-info-note', surface && 'netdive-detail-info-note--surface')}>{icon}<span>{children}</span></div>
+)
+
 export interface DetailCardSubsectionHeaderProps extends DetailInlineSectionHeaderProps {
     first?: boolean
 }

@@ -163,6 +163,61 @@ const nicName = (node?: Node): string => node
     ? switchTextValue(node.data || {}, ['Name', 'name', 'IfName', 'InterfaceName']) || node.id
     : ''
 
+const normalizedResourceName = (value?: string): string => String(value || '').trim().toLowerCase()
+
+const uniqueNamedNode = (
+	nodes: Node[],
+	expectedName: string | undefined,
+	predicate: (node: Node) => boolean,
+	displayName: (node: Node) => string
+): Node | undefined => {
+	const wanted = normalizedResourceName(expectedName)
+	if (!wanted) return undefined
+	const matches = nodes.filter(node => predicate(node)
+		&& normalizedResourceName(displayName(node)) === wanted)
+	return matches.length === 1 ? matches[0] : undefined
+}
+
+/** Resolve persisted endpoints against the current graph. Node IDs can change
+ * after a restart, so the names captured with the mapping are used only when
+ * they identify one unambiguous switch, host, and physical NIC. */
+const resolveManualMappingEndpoints = (
+	mapping: ManualPortMappingRecord,
+	nodes: Node[],
+	nodesByID: Map<string, Node>
+): { mapping: ManualPortMappingRecord, switchNode: Node, hostNIC: Node } | undefined => {
+	const exactSwitch = nodesByID.get(mapping.switchNodeId)
+	const switchNode = exactSwitch && nodeType(exactSwitch) === 'switch'
+		? exactSwitch
+		: uniqueNamedNode(nodes, mapping.switchName, node => nodeType(node) === 'switch',
+			node => switchDisplayName(node.data || {}, node.id))
+	if (!switchNode) return undefined
+
+	const exactHost = nodesByID.get(mapping.hostNodeId)
+	const host = exactHost && nodeType(exactHost) === 'host'
+		? exactHost
+		: uniqueNamedNode(nodes, mapping.hostName, node => nodeType(node) === 'host', hostName)
+	if (!host) return undefined
+
+	const exactNIC = nodesByID.get(mapping.hostNicNodeId)
+	const hostNIC = exactNIC && isHostNic(exactNIC) && hostAncestor(exactNIC)?.id === host.id
+		? exactNIC
+		: uniqueNamedNode(nodes, mapping.hostNicName,
+			node => isHostNic(node) && hostAncestor(node)?.id === host.id, nicName)
+	if (!hostNIC) return undefined
+
+	return {
+		switchNode,
+		hostNIC,
+		mapping: {
+			...mapping,
+			switchNodeId: switchNode.id,
+			hostNodeId: host.id,
+			hostNicNodeId: hostNIC.id
+		}
+	}
+}
+
 const interfaceIndex = (node?: Node): string => node
     ? switchTextValue(node.data || {}, ['IfIndex', 'ifIndex', 'Index', 'index'])
     : ''
@@ -417,21 +472,21 @@ export const buildManualPortMappingTopologyLinks = (
 		.slice()
 		.sort((left, right) => left.id - right.id)
 		.reduce<ManualPortMappingTopologyLink[]>((result, mapping) => {
-			const switchNode = nodesByID.get(mapping.switchNodeId)
-			const hostNIC = nodesByID.get(mapping.hostNicNodeId)
+			const resolved = resolveManualMappingEndpoints(mapping, nodes, nodesByID)
+			if (!resolved) return result
+			const { mapping: currentMapping } = resolved
 			const switchPortName = String(mapping.switchPortName || '').trim()
-			const switchPortKey = `${mapping.switchNodeId}::${normalizedPortName(switchPortName)}`
-			if (!switchNode || nodeType(switchNode) !== 'switch' || !hostNIC || !switchPortName) return result
-			if (!isHostNic(hostNIC) || hostAncestor(hostNIC)?.id !== mapping.hostNodeId) return result
-			if (conflictsWithAutomaticRelation(mapping, automaticMappings)) return result
-			if (usedSwitchPorts.has(switchPortKey) || usedNICs.has(mapping.hostNicNodeId)) return result
+			const switchPortKey = `${currentMapping.switchNodeId}::${normalizedPortName(switchPortName)}`
+			if (!switchPortName) return result
+			if (conflictsWithAutomaticRelation(currentMapping, automaticMappings)) return result
+			if (usedSwitchPorts.has(switchPortKey) || usedNICs.has(currentMapping.hostNicNodeId)) return result
 
 			usedSwitchPorts.add(switchPortKey)
-			usedNICs.add(mapping.hostNicNodeId)
+			usedNICs.add(currentMapping.hostNicNodeId)
 			const portNodeID = manualPortMappingTopologyPortID(mapping.id)
 			result.push({
 				id: `${MANUAL_PORT_MAPPING_TOPOLOGY_LINK_PREFIX}${mapping.id}`,
-				switchNodeID: mapping.switchNodeId,
+				switchNodeID: currentMapping.switchNodeId,
 				portNodeID,
 				portData: {
 					Type: 'switchport',
@@ -440,10 +495,10 @@ export const buildManualPortMappingTopologyLinks = (
 					ManualPortMapping: true,
 					ManualPortMappingPort: true,
 					ManualPortMappingID: mapping.id,
-					SwitchNodeID: mapping.switchNodeId
+					SwitchNodeID: currentMapping.switchNodeId
 				},
 				sourceNodeID: portNodeID,
-				targetNodeID: mapping.hostNicNodeId,
+				targetNodeID: currentMapping.hostNicNodeId,
 				tags: ['layer2'],
 				data: {
 					RelationType: 'manual',

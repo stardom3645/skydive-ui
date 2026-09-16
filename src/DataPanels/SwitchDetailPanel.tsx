@@ -30,26 +30,51 @@ interface State {
 
 class SwitchDetailPanel extends React.Component<Props> {
     state: State = { manualMappings: [], allManualMappings: [], portMappingExpanded: false }
+	private manualMappingsRequestID = 0
+	private manualMappingsRetryID?: number
 
     componentDidMount() {
         this.loadManualMappings()
     }
 
     componentDidUpdate(prevProps: Props) {
-        if (prevProps.node.id !== this.props.node.id) {
+        const sessionChanged = prevProps.session?.endpoint !== this.props.session?.endpoint
+            || prevProps.session?.token !== this.props.session?.token
+        if (prevProps.node.id !== this.props.node.id || sessionChanged) {
             this.setState({ manualMappings: [], allManualMappings: [], portMappingExpanded: false }, this.loadManualMappings)
         }
     }
 
-    private loadManualMappings = async () => {
+	componentWillUnmount() {
+		this.manualMappingsRequestID += 1
+		if (this.manualMappingsRetryID) window.clearTimeout(this.manualMappingsRetryID)
+	}
+
+    private loadManualMappings = async (attempt = 0) => {
         const switchNodeID = this.props.node.id
+		const requestID = ++this.manualMappingsRequestID
+		if (this.manualMappingsRetryID) {
+			window.clearTimeout(this.manualMappingsRetryID)
+			this.manualMappingsRetryID = undefined
+		}
         try {
             const allManualMappings = await listManualPortMappings(this.props.session)
+            if (requestID !== this.manualMappingsRequestID) return
             const manualMappings = allManualMappings.filter(mapping => mapping.switchNodeId === switchNodeID)
             if (this.props.node.id === switchNodeID) this.setState({ manualMappings, allManualMappings })
         } catch (error) {
+			if (requestID !== this.manualMappingsRequestID || this.props.node.id !== switchNodeID) return
             console.warn('[ManualPortMapping] failed to load switch mappings', error)
-            if (this.props.node.id === switchNodeID) this.setState({ manualMappings: [], allManualMappings: [] })
+			// Opening the detail panel can overlap the initial authentication or
+			// topology synchronization. Keep the last successful DB snapshot and
+			// retry instead of committing a transient failure as an empty list.
+			const retryDelays = [300, 1000, 3000]
+			if (attempt < retryDelays.length) {
+				this.manualMappingsRetryID = window.setTimeout(() => {
+					this.manualMappingsRetryID = undefined
+					this.loadManualMappings(attempt + 1)
+				}, retryDelays[attempt])
+			}
         }
     }
 
@@ -227,14 +252,19 @@ class SwitchDetailPanel extends React.Component<Props> {
                             allMappings={this.state.allManualMappings}
                             session={this.props.session}
                             onChanged={this.manualMappingsChanged} />
-                        <Tooltip title={translate('switchPortMappingExpandView')}>
+                        <Tooltip
+                            title={translate('switchPortMappingExpandView')}
+                            placement="top"
+                            overlayClassName="netdive-port-mapping-action-tooltip"
+                            getPopupContainer={() => document.body}
+                            autoAdjustOverflow
+                            destroyTooltipOnHide>
                             <Button
                                 className="netdive-port-mapping-expand-trigger"
                                 icon={<ArrowsAltOutlined />}
+                                aria-label={translate('switchPortMappingExpandView')}
                                 disabled={this.portMappings().length === 0}
-                                onClick={() => this.setState({ portMappingExpanded: true })}>
-                                {translate('switchPortMappingExpandView')}
-                            </Button>
+                                onClick={() => this.setState({ portMappingExpanded: true })} />
                         </Tooltip>
                     </div>}>
                     <InfrastructurePortMappingTable
