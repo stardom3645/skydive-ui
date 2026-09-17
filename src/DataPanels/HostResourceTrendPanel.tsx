@@ -1,6 +1,6 @@
 import * as React from 'react'
-import { Card, Empty, Select, Spin, Tooltip as AntTooltip } from 'antd'
-import InfoIcon from '@material-ui/icons/Info'
+import { Empty, Select, Spin } from 'antd'
+import { RESOURCE_PRESENTATION_COLORS, resourcePresentationStyles, ResourceSectionCard, ResourceMetricTile, ResourceInfoTooltip } from './common/ResourcePresentation'
 import TimelineIcon from '@material-ui/icons/Timeline'
 import { createStyles, Theme, withStyles } from '@material-ui/core/styles'
 
@@ -63,47 +63,7 @@ const trendRanges = [
 ]
 
 const styles = (theme: Theme) => createStyles({
-    card: {
-        border: '1px solid #f0f0f0',
-        borderRadius: 10,
-        background: '#ffffff',
-        overflow: 'hidden',
-        boxShadow: '0 1px 3px rgba(16, 24, 40, 0.035)'
-    },
-    header: {
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: theme.spacing(1),
-        minHeight: 44,
-        padding: '0 16px',
-        borderBottom: '1px solid #f0f0f0',
-        background: '#ffffff'
-    },
-    icon: {
-        width: 18,
-        height: 18,
-        borderRadius: 0,
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flex: '0 0 18px',
-        color: '#1677ff',
-        background: 'transparent',
-        '& svg': {
-            fontSize: 15
-        }
-    },
-    titleBlock: {
-        minWidth: 0,
-        flex: '1 1 auto'
-    },
-    title: {
-        color: '#101828',
-        fontSize: 14,
-        lineHeight: 1.2,
-        fontWeight: 600
-    },
+    ...resourcePresentationStyles(theme),
     description: {
         marginTop: 3,
         color: 'var(--netdive-detail-muted, #64748b)',
@@ -139,65 +99,6 @@ const styles = (theme: Theme) => createStyles({
             fontSize: 10
         }
     },
-    body: {
-        padding: '12px 14px 14px'
-    },
-    bodyEmpty: {
-        padding: '8px 14px 14px'
-    },
-    grid: {
-        display: 'grid',
-        gridTemplateColumns: '1fr',
-        gap: 8
-    },
-    trendTile: {
-        minWidth: 0,
-        border: '1px solid #eef0f4',
-        borderRadius: 10,
-        padding: '13px 15px 12px',
-        background: '#ffffff',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 9,
-        transition: 'border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease',
-        '&:hover': {
-            borderColor: 'rgba(148, 163, 184, 0.42)',
-            background: '#ffffff',
-            boxShadow: '0 4px 12px rgba(16, 24, 40, 0.05)'
-        }
-    },
-    trendHeaderBlock: {
-        display: 'grid',
-        gap: 8,
-        minWidth: 0,
-        padding: '0 5px 9px',
-        borderBottom: '1px solid rgba(226, 232, 240, 0.34)'
-    },
-    trendTop: {
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 12,
-        minWidth: 0,
-        minHeight: 26
-    },
-    trendLabel: {
-        minWidth: 0,
-        color: '#101828',
-        fontSize: 12.5,
-        lineHeight: 1.2,
-        fontWeight: 600,
-        whiteSpace: 'nowrap'
-    },
-    trendHeaderRight: {
-        minWidth: 0,
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'flex-end',
-        gap: 8,
-        marginLeft: 'auto',
-        whiteSpace: 'nowrap'
-    },
     trendValue: {
         color: '#111827',
         display: 'inline-flex',
@@ -206,56 +107,6 @@ const styles = (theme: Theme) => createStyles({
         lineHeight: 1,
         letterSpacing: '-0.01em',
         whiteSpace: 'nowrap'
-    },
-    trendValueNumber: {
-        fontSize: 14,
-        fontWeight: 600,
-        color: '#111827',
-        lineHeight: 1
-    },
-    trendValueUnit: {
-        fontSize: 11.5,
-        fontWeight: 650,
-        color: '#64748b',
-        lineHeight: 1,
-        letterSpacing: 0,
-        transform: 'translateY(-0.5px)'
-    },
-    trendInfoButton: {
-        width: 22,
-        height: 22,
-        border: 0,
-        padding: 0,
-        borderRadius: 7,
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'transparent',
-        color: 'var(--netdive-detail-muted, #64748b)',
-        cursor: 'help',
-        flex: '0 0 22px',
-        opacity: 0.62,
-        transition: 'opacity 140ms ease, background-color 140ms ease, color 140ms ease',
-        '&:hover': {
-            opacity: 1,
-            background: 'rgba(148, 163, 184, 0.12)',
-            color: 'var(--netdive-detail-title, #0f172a)'
-        }
-    },
-    trendInfoIcon: {
-        width: 15,
-        height: 15,
-        color: 'currentColor'
-    },
-    metricTooltip: {
-        backgroundColor: 'rgba(15, 23, 42, 0.94)',
-        color: '#f8fafc',
-        borderRadius: 10,
-        padding: '10px 12px',
-        boxShadow: '0 10px 24px rgba(15, 23, 42, 0.18)',
-        fontSize: 12,
-        lineHeight: 1.45,
-        maxWidth: 260
     },
     metricTooltipArrow: {
         color: 'rgba(15, 23, 42, 0.94)'
@@ -329,7 +180,7 @@ const styles = (theme: Theme) => createStyles({
         fontWeight: 800
     },
     rxText: {
-        color: 'var(--netdive-detail-accent, #1A73E8)'
+        color: RESOURCE_PRESENTATION_COLORS.primary
     },
     txText: {
         color: '#f97316'
@@ -363,7 +214,7 @@ const styles = (theme: Theme) => createStyles({
     },
     line: {
         fill: 'none',
-        stroke: 'var(--netdive-detail-accent, #1A73E8)',
+        stroke: RESOURCE_PRESENTATION_COLORS.primary,
         strokeWidth: 1.2,
         strokeLinecap: 'round',
         strokeLinejoin: 'round'
@@ -761,45 +612,8 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         return nice * multiplier
     }
 
-    private renderTrendHeader(item: TrendDisplayItem) {
-        const { classes } = this.props
-        const isNetworkTraffic = item.key === 'networkTraffic'
-
-        return (
-            <div className={classes.trendHeaderBlock}>
-                <div className={classes.trendTop}>
-                    <div className={classes.trendLabel}>{item.label}</div>
-                    <div className={classes.trendHeaderRight}>
-                        {isNetworkTraffic ? this.renderNetworkCurrentValues(item) : this.renderMetricValue(item.value)}
-                        {this.renderInfoTooltip(item)}
-                    </div>
-                </div>
-            </div>
-        )
-    }
-
     private renderInfoTooltip(item: TrendDisplayItem) {
-        const { classes } = this.props
-        return (
-            <AntTooltip
-                title={this.renderTooltipContent(item)}
-                placement="top"
-                overlayInnerStyle={{
-                    backgroundColor: 'rgba(15, 23, 42, 0.94)',
-                    color: '#f8fafc',
-                    borderRadius: 10,
-                    padding: '10px 12px',
-                    boxShadow: '0 10px 24px rgba(15, 23, 42, 0.18)',
-                    fontSize: 12,
-                    lineHeight: 1.45,
-                    maxWidth: 260
-                }}
-            >
-                <button className={classes.trendInfoButton} type="button" aria-label={`${item.label} ${translate('resourceTrendDetailsAria')}`}>
-                    <InfoIcon className={classes.trendInfoIcon} />
-                </button>
-            </AntTooltip>
-        )
+        return <ResourceInfoTooltip description={this.renderTooltipContent(item)} ariaLabel={`${item.label} ${translate('resourceTrendDetailsAria')}`} />
     }
 
     private renderNetworkCurrentValues(item: TrendDisplayItem) {
@@ -988,12 +802,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         const hasTrend = displayItems.length > 0
 
         return (
-            <Card className={classes.card} bordered={false} bodyStyle={{ padding: 0 }}>
-                <div className={classes.header}>
-                    <span className={classes.icon}><TimelineIcon /></span>
-                    <div className={classes.titleBlock}>
-                        <div className={classes.title}>{this.trendTitle()}</div>
-                    </div>
+            <ResourceSectionCard icon={<TimelineIcon />} title={this.trendTitle()} empty={!hasTrend} action={
                     <div className={classes.headerActions}>
                         <Select
                             className={classes.rangeSelect}
@@ -1007,9 +816,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
                             ))}
                         </Select>
                     </div>
-                </div>
-
-                <div className={`${classes.body} ${!hasTrend ? classes.bodyEmpty : ''}`}>
+                }>
                     {loading && !hasTrend && (
                         <div className={classes.loading}>
                             <Spin size="small" />
@@ -1032,15 +839,18 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
                     {hasTrend && (
                         <div className={classes.grid}>
                             {displayItems.map(item => (
-                                <div className={classes.trendTile} key={`${item.key}-${this.state.trendRange}-${trend?.start || 0}-${trend?.end || 0}`}>
-                                    {this.renderTrendHeader(item)}
+                                <ResourceMetricTile key={`${item.key}-${this.state.trendRange}-${trend?.start || 0}-${trend?.end || 0}`}
+                                    title={item.label}
+                                    headerRight={<React.Fragment>
+                                        {item.key === 'networkTraffic' ? this.renderNetworkCurrentValues(item) : this.renderMetricValue(item.value)}
+                                        {this.renderInfoTooltip(item)}
+                                    </React.Fragment>}>
                                     {this.renderSparkline(item, trend)}
-                                </div>
+                                </ResourceMetricTile>
                             ))}
                         </div>
                     )}
-                </div>
-            </Card>
+            </ResourceSectionCard>
         )
     }
 }

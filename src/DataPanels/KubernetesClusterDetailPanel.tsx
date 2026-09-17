@@ -43,6 +43,8 @@ import {
     podMemoryResourceBytes
 } from './common'
 import './KubernetesClusterDetailPanel.css'
+import { RESOURCE_PRESENTATION_COLORS, ResourceSectionCard, ResourceMetricStack, ResourceInfoTooltip } from './common/ResourcePresentation'
+import { collectedRiskCount, currentImpactAssessment, riskPlacementCoverage, switchRiskPlacements, RiskPlacement } from '../KubernetesRiskResilience'
 
 interface Props {
     node: Node
@@ -70,7 +72,6 @@ interface State {
     terminationHistoryExpanded: boolean
     activeDetailTab: 'overview' | 'services'
     serviceNamespaceFilter: string
-    focusActive: boolean
 }
 
 type ResourceType = 'node' | 'namespace' | 'pod' | 'service' | 'persistentvolume' | 'persistentvolumeclaim' | 'storageclass'
@@ -135,10 +136,7 @@ interface RecentChangeGroup {
     events: any[]
 }
 
-interface PlacementSummary {
-    label: string
-    count: number
-}
+type PlacementSummary = RiskPlacement
 
 const isBlank = (value: any): boolean => {
     if (value === undefined || value === null) return true
@@ -274,7 +272,7 @@ const quantityNumber = (value: any): number => {
 }
 
 const KUBERNETES_RESOURCE_PROGRESS_COLORS = Object.freeze({
-    usage: '#1677ff',
+    usage: RESOURCE_PRESENTATION_COLORS.primary,
     secondary: '#bfbfbf',
     warning: '#f79009',
     danger: '#d92d20'
@@ -320,8 +318,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         memoryRequestInsightExpanded: false,
         terminationHistoryExpanded: false,
         activeDetailTab: (this.props.node as any).__netdiveInitialDetailTab === 'services' ? 'services' : 'overview',
-        serviceNamespaceFilter: 'all',
-        focusActive: false
+        serviceNamespaceFilter: 'all'
     }
 
     componentDidMount() {
@@ -342,7 +339,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
     componentDidUpdate(prevProps: Props) {
         if (prevProps.node.id !== this.props.node.id) {
             this.memoryRequestOverageSince = 0
-            this.setState({ basicCollapsed: false, basicInfoActiveKey: '', expandedRecentChangeKey: '', recentChangesModalOpen: false, instabilityWindow: '1h', podStatusModalMode: '', podStatusModalKey: '', resourceUsageModal: '', memoryRequestInsightVisible: false, memoryRequestInsightExpanded: false, terminationHistoryExpanded: false, activeDetailTab: 'overview', serviceNamespaceFilter: 'all', focusActive: false, summary: undefined, summaryError: false, summaryClusterID: undefined }, () => this.loadClusterSummary())
+            this.setState({ basicCollapsed: false, basicInfoActiveKey: '', expandedRecentChangeKey: '', recentChangesModalOpen: false, instabilityWindow: '1h', podStatusModalMode: '', podStatusModalKey: '', resourceUsageModal: '', memoryRequestInsightVisible: false, memoryRequestInsightExpanded: false, terminationHistoryExpanded: false, activeDetailTab: 'overview', serviceNamespaceFilter: 'all', summary: undefined, summaryError: false, summaryClusterID: undefined }, () => this.loadClusterSummary())
             return
         }
         const previousCluster = this.moldClusterFrom(prevProps)
@@ -771,7 +768,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         const topologyNodes = this.topologyNodes()
         const links = this.topologyLinks()
         const switches = topologyNodes.filter(node => String(node.data?.Type || '').toLowerCase() === 'switch')
-        const hostToSwitch = new Map<string, string>()
+        const hostToSwitch = new Map<string, Set<string>>()
         const subtreeIDs = (root: Node): Set<string> => {
             const ids = new Set<string>()
             const visit = (node: Node) => {
@@ -800,15 +797,15 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                 const remoteID = switchIDs.has(sourceID) ? targetID : switchIDs.has(targetID) ? sourceID : ''
                 if (!remoteID) return
                 const host = nearestHost(nodeMap.get(remoteID))
-                if (host) hostToSwitch.set(firstValue(host.data || {}, ['Name', 'Hostname']) || host.id, switchName)
+                if (host) {
+                    const hostName = firstValue(host.data || {}, ['Name', 'Hostname']) || host.id
+                    const paths = hostToSwitch.get(hostName) || new Set<string>()
+                    paths.add(switchName)
+                    hostToSwitch.set(hostName, paths)
+                }
             })
         })
-        const counts = new Map<string, number>()
-        hostPlacements.forEach(item => {
-            const switchName = hostToSwitch.get(item.label) || translate('kubernetesPlacementUnknown')
-            counts.set(switchName, (counts.get(switchName) || 0) + item.count)
-        })
-        return Array.from(counts.entries()).map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count)
+        return switchRiskPlacements(hostPlacements, hostToSwitch, translate('kubernetesPlacementUnknown'))
     }
 
     private affectedServiceCount(): number {
@@ -831,7 +828,6 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                 app.clearKubernetesInfrastructureEvidence()
             }
             app.focusInfrastructureNodeIDs(ids, this.props.node.id, true)
-            this.setState({ focusActive: true })
         }
     }
 
@@ -840,18 +836,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         const app = (window as any).App
         if (ids.length && app && typeof app.focusKubernetesInfrastructureEvidenceNodeIDs === 'function') {
             app.focusKubernetesInfrastructureEvidenceNodeIDs(ids)
-            this.setState({ focusActive: true })
         }
-    }
-
-    private clearFocusedResources() {
-        const app = (window as any).App
-        if (app && typeof app.clearKubernetesInfrastructureEvidence === 'function') {
-            app.clearKubernetesInfrastructureEvidence()
-        } else if (app && typeof app.focusInfrastructureNodeIDs === 'function') {
-            app.focusInfrastructureNodeIDs([])
-        }
-        this.setState({ focusActive: false })
     }
 
     private openResourceDetail(node: Node) {
@@ -1012,7 +997,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
             return `${numerator} / ${config.allocatableValue}`
         })()
         return <ResourceMetricBlock
-            className={`netdive-k8s-cluster-detail__utilization-section ${config.pod ? 'is-pod' : ''}`}
+            appearance="resource"
             title={config.title}
             tooltip={config.unitTooltip}>
             {config.pod && config.allocatableAvailable === false
@@ -1036,7 +1021,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                         <DetailMetricRow
                             label={<span className="netdive-k8s-cluster-detail__metric-label-with-info">
                                 설정된 Requests 합계
-                                <DetailInfoTooltip description="값이 설정된 컨테이너의 Requests만 합산하며, 미설정 컨테이너는 합계에서 제외합니다." ariaLabel="Requests 합계 정보" />
+                                <ResourceInfoTooltip description="값이 설정된 컨테이너의 Requests만 합산하며, 미설정 컨테이너는 합계에서 제외합니다." ariaLabel="Requests 합계 정보" />
                             </span>}
                             value={config.requestsValue}
                             ratio={ratio(config.requestsPercent)}
@@ -1048,7 +1033,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                             className="netdive-k8s-cluster-detail__limits-metric"
                             label={<span className="netdive-k8s-cluster-detail__metric-label-with-info">
                                 설정된 Limits 합계
-                                <DetailInfoTooltip description="값이 설정된 컨테이너의 Limits만 합산하며, 미설정 컨테이너는 합계에서 제외합니다. 따라서 Requests보다 작게 표시될 수 있습니다." ariaLabel="Limits 합계 정보" />
+                                <ResourceInfoTooltip description="값이 설정된 컨테이너의 Limits만 합산하며, 미설정 컨테이너는 합계에서 제외합니다. 따라서 Requests보다 작게 표시될 수 있습니다." ariaLabel="Limits 합계 정보" />
                             </span>}
                             value={config.limitsValue}
                             ratio={ratio(config.limitsPercent)}
@@ -1106,10 +1091,10 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         }
 
         return (
-            <div className="netdive-k8s-cluster-detail__capacity">
+            <div>
                 {!metricsAvailable && this.renderMetricsUnavailable(metricsState, true)}
                 {resources && (
-                    <div className="netdive-k8s-cluster-detail__utilization-flat">
+                    <ResourceMetricStack>
                         {this.renderUtilizationCard({
                             title: 'CPU',
                             unitTooltip: translate('kubernetesCpuUnitDescription'),
@@ -1123,7 +1108,6 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                             allocatableAvailable: allocatableCpu > 0,
                             onUsageClick: metricsAvailable ? () => this.setState({ resourceUsageModal: 'cpu' }) : undefined
                         })}
-                        <Divider />
                         {this.renderUtilizationCard({
                             title: translate('kubernetesMemory'),
                             unitTooltip: translate('kubernetesMemoryUnitDescription'),
@@ -1143,7 +1127,6 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                                 }
                                 : undefined
                         })}
-                        <Divider />
                         {this.renderUtilizationCard({
                             title: 'Pod',
                             unitTooltip: '활성 Pod 수를 Kubernetes Node의 Allocatable Pod 합계와 비교합니다.',
@@ -1153,7 +1136,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                             pod: true,
                             allocatableAvailable: allocatablePodCount > 0
                         })}
-                    </div>
+                    </ResourceMetricStack>
                 )}
                 <Divider className="netdive-k8s-cluster-detail__capacity-compare-divider" />
                 <Collapse
@@ -1269,11 +1252,13 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
     }
 
     private placementAnalysis(items: PlacementSummary[], total: number, network = false): { label: string, tone: DetailBadgeTone, description: string, known: PlacementSummary[], topPercent: number } {
-        const known = items.filter(item => item.label !== translate('kubernetesPlacementUnknown'))
-        const knownCount = known.reduce((sum, item) => sum + item.count, 0)
-        const topPercent = knownCount > 0 && known.length ? Math.round(known[0].count / knownCount * 100) : 0
+        const { known, knownCount, topPercent, complete } = riskPlacementCoverage(items, total, translate('kubernetesPlacementUnknown'))
         if (!knownCount) {
             return { label: translate('kubernetesHealthUnknown'), tone: 'default', description: network ? translate('kubernetesNetworkPlacementUnknown') : translate('kubernetesHostPlacementUnknown'), known, topPercent }
+        }
+        if (!complete) return {
+            label: '부분 수집', tone: 'default', known, topPercent,
+            description: `전체 ${total}개 노드 중 ${knownCount}개 배치 확인 · 전체 평가 불가`
         }
         const prefix = network ? translate('kubernetesKnownNetworkBasis') : (knownCount < total ? translate('kubernetesKnownHostBasis') : '')
         if (known.length > 1 && topPercent <= 60) {
@@ -1689,7 +1674,8 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         const hostPlacements = this.nodePlacements(resources)
         const switchPlacements = this.switchPlacements(hostPlacements)
         const affectedServices = this.affectedServiceCount()
-        const externalPathCount = Number(this.state.summary?.externalPathCount) || 0
+        const collectedExternalPathCount = this.state.summaryError ? undefined : collectedRiskCount(this.state.summary?.externalPathCount)
+        const externalPathCount = collectedExternalPathCount === undefined ? 0 : collectedExternalPathCount
         const impactScore = Math.min(100, (nodeSummary.notReady || 0) * 30 + (podSummary.activeProblemNodes.length + unavailableWorkloads.length) * 10 + affectedServices * 10)
         const hostAnalysis = this.placementAnalysis(hostPlacements, nodeSummary.total)
         const networkAnalysis = this.placementAnalysis(switchPlacements, nodeSummary.total, true)
@@ -1719,18 +1705,21 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
             ...networkEvidenceTargets,
             ...controlPlaneTargets
         ]
-        const knownHostNodeCount = hostAnalysis.known.reduce((sum, item) => sum + item.count, 0)
-        const knownNetworkNodeCount = networkAnalysis.known.reduce((sum, item) => sum + item.count, 0)
+        const hostCoverage = riskPlacementCoverage(hostPlacements, nodeSummary.total, translate('kubernetesPlacementUnknown'))
+        const networkCoverage = riskPlacementCoverage(switchPlacements, nodeSummary.total, translate('kubernetesPlacementUnknown'))
+        const knownHostNodeCount = hostCoverage.knownCount
+        const knownNetworkNodeCount = networkCoverage.knownCount
         const hostPlacementEvaluated = knownHostNodeCount > 0
         const networkPlacementEvaluated = knownNetworkNodeCount > 0
-        const externalPathsEvaluated = !!this.state.summary
+        const externalPathsEvaluated = collectedExternalPathCount !== undefined
         const hostRiskScore = knownHostNodeCount === nodeSummary.total && hostAnalysis.known.length === 1 && nodeSummary.total > 1 ? 25 : 0
         const networkRiskScore = knownNetworkNodeCount === nodeSummary.total && networkAnalysis.known.length === 1 && nodeSummary.total > 1 ? 20 : 0
         const backendInfrastructureRiskScore = this.state.summary?.infrastructureRiskScore
         const potentialScore = Math.min(100, backendInfrastructureRiskScore !== undefined
             ? Number(backendInfrastructureRiskScore) + hostRiskScore + networkRiskScore
             : hostRiskScore + networkRiskScore + (controlPlane.total === 1 ? 15 : 0) + (externalPathsEvaluated && externalPathCount === 1 ? 10 : 0))
-        const potentialEvaluated = hostPlacementEvaluated || networkPlacementEvaluated || controlPlane.total > 0 || externalPathsEvaluated
+        const potentialComplete = hostCoverage.complete && networkCoverage.complete && controlPlane.total > 0 && externalPathsEvaluated
+        const potentialEvaluated = potentialComplete || potentialScore > 0
         const potentialScoreFactors: Array<{ label: string, score: number }> = [
             ...(backendInfrastructureRiskScore !== undefined && Number(backendInfrastructureRiskScore) > 0
                 ? [{ label: '수집된 구조적 위험 분석', score: Number(backendInfrastructureRiskScore) }]
@@ -1751,14 +1740,13 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
             {potentialScoreFactors.length
                 ? <ul>{potentialScoreFactors.map(factor => <li key={factor.label}><span>{factor.label}</span><b>+{factor.score}점</b></li>)}</ul>
                 : <p>현재 확인된 가산 항목이 없습니다.</p>}
-            <small>가산 항목의 합계를 최대 100점으로 제한합니다.</small>
+            <small>가산 항목의 합계를 최대 100점으로 제한합니다.{!potentialComplete && ' 일부 분석 데이터가 미수집되어 확인된 위험만 반영합니다.'}</small>
         </div>
         const nodeStatusCollected = this.state.summary?.nodes !== undefined || nodeResource.nodes.length > 0
         const controlPlaneCollected = this.state.summary?.controlPlane !== undefined || controlPlane.total > 0
-        const podStatusCollected = this.state.summary?.pods !== undefined || podResource.nodes.length > 0
-        const affectedServicesCollected = this.state.summary?.currentlyImpactedServiceCount !== undefined
-            || this.state.summary?.affectedServices !== undefined
-            || (nodeStatusCollected && !(nodeSummary.notReady || 0))
+        const podStatusCollected = podResource.nodes.length > 0
+        const affectedServicesCollected = !this.state.summaryError && (collectedRiskCount(this.state.summary?.currentlyImpactedServiceCount) !== undefined
+            || collectedRiskCount(this.state.summary?.affectedServices) !== undefined)
         const confidenceSignals = [
             { key: 'node', requiredForCurrentState: true, label: translate('kubernetesConfidenceDataNodeReady'), collected: nodeStatusCollected },
             { key: 'control-plane', requiredForCurrentState: true, label: translate('kubernetesConfidenceDataControlPlane'), collected: controlPlaneCollected },
@@ -1787,10 +1775,15 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
             ? { label: translate('kubernetesHealthWarning'), tone: 'warning' as DetailBadgeTone }
             : availabilityHealth
         const heroConclusion = this.heroConclusion(controlPlane, nodeSummary, podSummary, unavailableWorkloads, affectedServices, recentNodeSignals.length, currentRisks[0]?.title)
-        const currentImpactGrade = impactScore === 0
+        const currentImpact = currentImpactAssessment(impactScore, requiredCurrentStateCollected && !this.state.summaryError)
+        const currentImpactGrade = !currentImpact.evaluated
+            ? { label: translate('kubernetesResilienceUnavailable'), tone: 'default' as DetailBadgeTone }
+            : impactScore === 0
             ? { label: translate('kubernetesHealthNormal'), tone: 'success' as DetailBadgeTone }
             : this.scoreGrade(impactScore)
-        const potentialGrade = this.resilienceGrade(potentialScore, potentialEvaluated)
+        const potentialGrade = potentialEvaluated && !potentialComplete && potentialScore < 20
+            ? { label: '부분 수집', tone: 'default' as DetailBadgeTone }
+            : this.resilienceGrade(potentialScore, potentialEvaluated)
         const metricState = this.metricsState()
         const externalAnalysis = !externalPathsEvaluated
             ? { label: translate('kubernetesResilienceUnavailable'), tone: 'default' as DetailBadgeTone, value: '–', short: '수집 상태 미확인 · 평가 불가', description: translate('kubernetesExternalPathUnknownDescription') }
@@ -1798,7 +1791,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
             ? { label: translate('kubernetesResilienceRecommended'), tone: 'warning' as DetailBadgeTone, value: '낮음', short: '외부 노출 경로 1개 · 단일 외부 경로', description: translate('kubernetesExternalPathSingleDescription') }
             : { label: translate('kubernetesResilienceGood'), tone: 'success' as DetailBadgeTone, value: externalPathCount ? '다중 경로' : '노출 없음', short: externalPathCount ? `외부 노출 경로 ${externalPathCount}개 · 다중 외부 경로` : '외부 노출 경로 0개 · 확인된 외부 노출 경로 없음', description: externalPathCount > 1 ? translate('kubernetesExternalPathMultipleDescription').replace('{count}', String(externalPathCount)) : translate('kubernetesExternalPathNoneDescription') }
         const overviewRows: any[] = [
-            { label: translate('kubernetesClusterName'), value: name, textValue: name, copyText: name },
+            { label: translate('kubernetesClusterName'), value: name, textValue: name, copyText: name, valueMaxLines: 6 },
             { label: translate('kubernetesVersion'), value: version || translate('kubernetesUnknown') },
             moldCluster?.state ? { label: translate('kubernetesMoldDeploymentStatus'), value: <DetailBadge tone={/running/i.test(moldCluster.state) ? 'success' : 'warning'}>{moldCluster.state}</DetailBadge> } : null
         ].filter(Boolean)
@@ -2202,25 +2195,25 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                     {this.renderTerminationHistory(podSummary)}
                 </DetailSectionCard>
 
-                <DetailSectionCard
+                <ResourceSectionCard
                     icon={<AccountTreeIcon />}
                     title={<span className="netdive-k8s-cluster-detail__capacity-section-title">
                         {translate('kubernetesResourceCapacity')}
-                        <DetailInfoTooltip
+                        <ResourceInfoTooltip
                             description="노드 전체 Capacity에서 시스템 예약분을 제외하고 Pod에 할당할 수 있는 Kubernetes Allocatable 자원입니다."
                             ariaLabel="자원 용량 정보" />
                     </span>}>
                     {this.renderResourceCapacity(moldCluster, activePodResources.length, allocatablePodCount)}
-                </DetailSectionCard>
+                </ResourceSectionCard>
 
                 <DetailSectionCard icon={<ErrorOutlineIcon />} title={translate('kubernetesRiskResilience')}>
-                    <div className={`netdive-k8s-cluster-detail__alert-summary ${currentRisks.length ? 'has-alert' : ''}`}>
+                    <div className={`netdive-k8s-cluster-detail__alert-summary ${currentRisks.length ? 'has-alert' : !currentImpact.evaluated ? 'is-unavailable' : ''}`}>
                         <span className="netdive-k8s-cluster-detail__alert-dot" />
-                        <strong>{currentRisks.length ? currentRisks[0].title : translate('kubernetesNoCurrentAlerts')}</strong>
+                        <strong>{currentRisks.length ? currentRisks[0].title : !currentImpact.evaluated ? '현재 경보 평가 불가' : translate('kubernetesNoCurrentAlerts')}</strong>
                         {currentRisks.length > 1 && <small>+{currentRisks.length - 1}</small>}
                     </div>
                     <StatusEvidenceList columnHeaders={{ state: '상태', value: '평가' }}>
-                        {this.renderResilienceRow(translate('kubernetesCurrentFailureImpact'), currentImpactGrade.label, currentImpactGrade.tone, `${impactScore} / 100`, `영향 점수 ${impactScore}/100 · 현재 상태 기준`, <div><strong>현재 장애 영향도</strong><p>높을수록 위험합니다.</p><p>{translate('kubernetesCurrentFailureImpactTooltip')}</p></div>, currentImpactInfrastructureTargets.length ? () => this.focusInfrastructureEvidence(currentImpactInfrastructureTargets) : undefined)}
+                        {this.renderResilienceRow(translate('kubernetesCurrentFailureImpact'), currentImpactGrade.label, currentImpactGrade.tone, currentImpact.evaluated ? `${impactScore} / 100` : '–', currentImpact.evaluated ? `영향 점수 ${impactScore}/100 · ${currentImpact.partial ? '부분 수집 · 확인된 영향만 반영' : '현재 상태 기준'}` : '현재 상태 데이터 미수집 또는 수집 실패 · 평가 불가', <div><strong>현재 장애 영향도</strong><p>높을수록 위험합니다.</p><p>{translate('kubernetesCurrentFailureImpactTooltip')}</p></div>, currentImpactInfrastructureTargets.length ? () => this.focusInfrastructureEvidence(currentImpactInfrastructureTargets) : undefined)}
                         {instabilityWindowAvailable && this.renderResilienceRow(
                             '최근 불안정성',
                             hasRecentInstability
@@ -2232,14 +2225,15 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                             recentAnomalyPodNodes.length + recentPressureSignals.length,
                             `최근 ${this.instabilityWindowLabel()} · 실제 이상 Pod ${recentAnomalyPodNodes.length}건, ${KUBERNETES_DETAIL_LABELS.nodePressure} ${recentPressureSignals.length}건`
                         )}
-                        {this.renderResilienceRow('구조적 위험도', potentialEvaluated && potentialScore >= 75 ? '매우 높음' : potentialGrade.label, potentialGrade.tone, potentialEvaluated ? `${potentialScore} / 100` : '–', potentialEvaluated ? `구조적 위험도 ${potentialScore}/100 · 높을수록 위험` : '분석 데이터 미수집 · 평가 불가', potentialScoreTooltip, structuralEvidenceTargets.length ? () => this.focusInfrastructureEvidence(structuralEvidenceTargets) : undefined)}
+                        {this.renderResilienceRow('구조적 위험도', potentialEvaluated && potentialScore >= 75 ? '매우 높음' : potentialGrade.label, potentialGrade.tone, potentialEvaluated ? `${potentialScore} / 100` : '–', potentialEvaluated ? `구조적 위험도 ${potentialScore}/100 · ${potentialComplete ? '높을수록 위험' : '부분 수집 · 확인된 위험만 반영'}` : '분석 데이터 미수집 또는 부분 수집 · 전체 평가 불가', potentialScoreTooltip, structuralEvidenceTargets.length ? () => this.focusInfrastructureEvidence(structuralEvidenceTargets) : undefined)}
                         {this.renderResilienceRow(
                             translate('kubernetesHostDistributionShort'),
                             hostAnalysis.tone === 'warning' ? translate('kubernetesResilienceRecommended') : hostAnalysis.label,
                             hostAnalysis.tone,
-                            hostPlacementEvaluated ? (hostAnalysis.tone === 'warning' ? '낮음' : '양호') : '–',
+                            hostCoverage.complete ? (hostAnalysis.tone === 'warning' ? '낮음' : '양호') : '–',
                             !hostPlacementEvaluated
                                 ? '호스트 배치 미수집 · 평가 불가'
+                                : !hostCoverage.complete ? hostAnalysis.description
                                 : hostAnalysis.known.length === 1
                                     ? '호스트 수 1대 · 단일 호스트 집중'
                                     : `호스트 수 ${hostAnalysis.known.length}대 · 분산 배치`,
@@ -2249,12 +2243,13 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                             '네트워크 복원력',
                             networkAnalysis.tone === 'warning' ? translate('kubernetesResilienceRecommended') : networkAnalysis.label,
                             networkAnalysis.tone,
-                            networkPlacementEvaluated ? (networkAnalysis.tone === 'warning' ? '매우 낮음' : '양호') : '–',
+                            networkCoverage.complete ? (networkAnalysis.tone === 'warning' ? '매우 낮음' : '양호') : '–',
                             !networkPlacementEvaluated
                                 ? '네트워크 경로 미수집 · 평가 불가'
+                                : !networkCoverage.complete ? networkAnalysis.description
                                 : networkAnalysis.known.length === 1
                                     ? `단일 경로 비율 ${networkAnalysis.topPercent}% · 연결 스위치 1대`
-                                    : `최대 경로 집중도 ${networkAnalysis.topPercent}% · 연결 스위치 ${networkAnalysis.known.length}대`,
+                                    : `수집된 연결 기준 최대 집중도 ${networkAnalysis.topPercent}% · 연결 스위치 ${networkAnalysis.known.length}대`,
                             undefined,
                             networkEvidenceTargets.length ? () => this.focusInfrastructureEvidence(networkResilienceEvidenceTargets) : undefined)}
                         {this.renderResilienceRow(
@@ -2281,8 +2276,6 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                             ? `현재 상태·구조 분석과 별도로 파드 종료 이력의 기간 분석에는 정확 시각 ${podSummary.timestampExactCount}건과 생성 시각 기반 추정 ${podSummary.timestampEstimatedCount}건이 사용됩니다.`
                             : undefined} />
                 </DetailSectionCard>
-                {this.state.focusActive && <div className="netdive-k8s-detail__focus-reset"><Button type="link" size="small" onClick={() => this.clearFocusedResources()}>강조 초기화</Button></div>}
-
                 <RelatedResourceGrid
                     icon={<AccountTreeIcon />}
                     title={translate('hostConnectedResources')}

@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { Popover, Tabs, Tooltip } from 'antd'
 import { InfoCircleOutlined } from '@ant-design/icons'
+import { TOPOLOGY_TOOLTIP_DISMISS_EVENT, topologyTooltipAnchorValid, watchTopologyTooltipAnchor } from './TopologyTooltipAnchor'
 
 export const TOPOLOGY_STATUS_BADGE_RADIUS = 15
 export const TOPOLOGY_STATUS_BADGE_STEP = 34
@@ -207,7 +208,7 @@ const topologyNodeLegendContent = () => <div className="netdive-topology-status-
 
 /** Global topology help. Its samples reuse the exact card badge glyph, radius
  * and tone classes instead of maintaining a second legend-only badge style. */
-export const TopologyStatusBadgeLegend = () => {
+export const TopologyStatusBadgeLegend = ({ compact = false }: { compact?: boolean }) => {
     const [open, setOpen] = React.useState(false)
 
     React.useEffect(() => {
@@ -222,6 +223,13 @@ export const TopologyStatusBadgeLegend = () => {
         return () => document.removeEventListener('mousedown', closeOnOutsideMouseDown, true)
     }, [open])
 
+    const trigger = <button
+        type="button"
+        className={`netdive-topology-status-legend-trigger ${compact ? 'is-compact' : ''}`.trim()}
+        aria-label="토폴로지 범례 보기">
+        <InfoCircleOutlined aria-hidden="true" />
+    </button>
+
     return <Popover
         content={<div className="netdive-topology-status-legend">
             <Tabs className="netdive-topology-status-legend__tabs" defaultActiveKey="status">
@@ -229,27 +237,27 @@ export const TopologyStatusBadgeLegend = () => {
                 <Tabs.TabPane tab="노드 표현" key="node">{topologyNodeLegendContent()}</Tabs.TabPane>
             </Tabs>
         </div>}
-        placement="bottom"
+        placement={compact ? 'rightTop' : 'bottom'}
         trigger="click"
         visible={open}
         onVisibleChange={setOpen}
         overlayClassName="netdive-topology-status-legend-popover"
-        getPopupContainer={() => document.body}
+        getPopupContainer={(trigger) => compact
+            ? (trigger.closest('.ant-tooltip-content') as HTMLElement || document.body)
+            : document.body}
         autoAdjustOverflow>
-        <Tooltip title="토폴로지 범례" placement="bottom" visible={open ? false : undefined}>
-            <button
-                type="button"
-                className="netdive-topology-status-legend-trigger"
-                aria-label="토폴로지 범례 보기">
-                <InfoCircleOutlined aria-hidden="true" />
-            </button>
-        </Tooltip>
+        {compact
+            ? trigger
+            : <Tooltip title="토폴로지 범례" placement="bottom" visible={open ? false : undefined}>{trigger}</Tooltip>}
     </Popover>
 }
 
 const badgeGroupSummaryContent = (summary: TopologyStatusBadgeGroupSummary): React.ReactNode =>
     <div className="netdive-topology-badge-tooltip__content netdive-topology-badge-summary">
-        <div className="netdive-topology-badge-tooltip__title">{summary.title}</div>
+        <div className="netdive-topology-badge-summary__header">
+            <div className="netdive-topology-badge-tooltip__title">{summary.title}</div>
+            <TopologyStatusBadgeLegend compact />
+        </div>
         <div className="netdive-topology-badge-summary__total">{summary.totalLabel}</div>
         <div className="netdive-topology-badge-summary__states">
             {summary.states.filter(state => state.count > 0).map(state => <div className="netdive-topology-badge-summary__state" key={state.key}>
@@ -262,6 +270,73 @@ const badgeGroupSummaryContent = (summary: TopologyStatusBadgeGroupSummary): Rea
         </div>
     </div>
 
+/** Keep body-mounted overlays tied to the actual SVG anchor, including D3
+ * transitions and zoom transforms that Ant Tooltip cannot observe itself. */
+const TopologyBadgeTooltip = ({ title, contentKey, children }: {
+    title: React.ReactNode
+    contentKey: string
+    children: React.ReactElement
+}) => {
+    const anchor = React.useRef<SVGGElement>(null)
+    const [open, setOpen] = React.useState(false)
+    React.useEffect(() => { setOpen(false) }, [contentKey])
+    React.useEffect(() => {
+        if (!open || !anchor.current) return undefined
+        const dismiss = () => setOpen(false)
+        const stopWatching = watchTopologyTooltipAnchor(anchor.current, dismiss)
+        const outsideMouseDown = (event: MouseEvent) => {
+            const target = event.target as Element | null
+            if (target?.closest?.('.netdive-topology-badge-tooltip, .netdive-topology-status-legend-popover')) return
+            dismiss()
+        }
+        const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') dismiss() }
+        window.addEventListener(TOPOLOGY_TOOLTIP_DISMISS_EVENT, dismiss)
+        window.addEventListener('blur', dismiss)
+        window.addEventListener('resize', dismiss)
+        document.addEventListener('mousedown', outsideMouseDown, true)
+        document.addEventListener('wheel', dismiss, true)
+        document.addEventListener('scroll', dismiss, true)
+        document.addEventListener('visibilitychange', dismiss)
+        document.addEventListener('keydown', escape)
+        return () => {
+            stopWatching()
+            window.removeEventListener(TOPOLOGY_TOOLTIP_DISMISS_EVENT, dismiss)
+            window.removeEventListener('blur', dismiss)
+            window.removeEventListener('resize', dismiss)
+            document.removeEventListener('mousedown', outsideMouseDown, true)
+            document.removeEventListener('wheel', dismiss, true)
+            document.removeEventListener('scroll', dismiss, true)
+            document.removeEventListener('visibilitychange', dismiss)
+            document.removeEventListener('keydown', escape)
+        }
+    }, [open])
+    const changeVisibility = (visible: boolean) => {
+        if (!visible) { setOpen(false); return }
+        const element = anchor.current
+        // Ignore a delayed hover event after the trigger has moved or disappeared.
+        if (!element || !element.matches(':hover')) return
+        const rect = element.getBoundingClientRect()
+        if (!topologyTooltipAnchorValid(element.isConnected, rect, rect, { width: window.innerWidth, height: window.innerHeight })) return
+        window.dispatchEvent(new Event(TOPOLOGY_TOOLTIP_DISMISS_EVENT))
+        setOpen(true)
+    }
+    return <Tooltip
+        title={title}
+        placement="top"
+        arrowPointAtCenter
+        autoAdjustOverflow
+        trigger={['hover']}
+        visible={open}
+        onVisibleChange={changeVisibility}
+        destroyTooltipOnHide
+        mouseEnterDelay={0.15}
+        mouseLeaveDelay={0.1}
+        overlayClassName="netdive-topology-badge-tooltip"
+        getPopupContainer={() => document.body}>
+        {React.cloneElement(children, { ref: anchor })}
+    </Tooltip>
+}
+
 /** One circle is both the visible badge and the only Tooltip trigger. */
 export const TopologyStatusBadge = ({
     x,
@@ -271,14 +346,9 @@ export const TopologyStatusBadge = ({
     text,
     tooltip,
     ariaLabel
-}: TopologyStatusBadgeProps) => <Tooltip
+}: TopologyStatusBadgeProps) => <TopologyBadgeTooltip
     title={tooltipContent(tooltip)}
-    placement="top"
-    arrowPointAtCenter
-    autoAdjustOverflow
-    trigger={['hover', 'focus']}
-    overlayClassName="netdive-topology-badge-tooltip"
-    getPopupContainer={() => document.body}>
+    contentKey={JSON.stringify([x, y, radius, tone, text, ariaLabel, isStructuredTooltip(tooltip) ? tooltip : typeof tooltip === 'string' ? tooltip : null])}>
     <g
         className={`node-exco-badge is-${tone}`}
         pointerEvents="all"
@@ -287,7 +357,7 @@ export const TopologyStatusBadge = ({
         tabIndex={0}>
         <TopologyStatusBadgeGlyph x={x} y={y} radius={radius} tone={tone} text={text} pointerEvents="all" />
     </g>
-</Tooltip>
+</TopologyBadgeTooltip>
 
 /** The self-problem marker keeps its own Tooltip. All numeric badges share one
  * bounding-box trigger and one state-distribution Tooltip. */
@@ -317,14 +387,9 @@ export const TopologyStatusBadgeRail = ({
             text={badge.displayText !== undefined ? badge.displayText : String(badge.count)}
             tooltip={badge.tooltip}
             ariaLabel={badge.label || tooltipAriaLabel(badge.tooltip)} />)}
-        {numericBadges.length > 0 ? <Tooltip
+        {numericBadges.length > 0 ? <TopologyBadgeTooltip
             title={badgeGroupSummaryContent(summary)}
-            placement="top"
-            arrowPointAtCenter
-            autoAdjustOverflow
-            trigger={['hover', 'focus']}
-            overlayClassName="netdive-topology-badge-tooltip"
-            getPopupContainer={() => document.body}>
+            contentKey={JSON.stringify([summary, numericLeft, numericRight, y, radius])}>
             <g
                 className="netdive-topology-numeric-badge-group"
                 pointerEvents="all"
@@ -347,7 +412,7 @@ export const TopologyStatusBadgeRail = ({
                     tone={badge.tone}
                     text={badge.displayText !== undefined ? badge.displayText : String(badge.count)} />)}
             </g>
-        </Tooltip> : null}
+        </TopologyBadgeTooltip> : null}
     </g>
 }
 

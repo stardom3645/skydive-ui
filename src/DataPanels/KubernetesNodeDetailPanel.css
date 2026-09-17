@@ -49,17 +49,6 @@
 .netdive-k8s-node-detail__capacity b { font-weight: var(--netdive-detail-weight-primary-value); }
 .netdive-k8s-node-detail__capacity-pods b { grid-column: 2 / -1; }
 
-.netdive-k8s-node-detail__resource-overview {
-    padding: 10px var(--netdive-detail-card-body-padding-x) 12px;
-    --netdive-detail-metric-columns: 40% 40% 20%;
-}
-.netdive-k8s-node-detail__resource-block {
-    padding-bottom: 10px;
-    border-bottom: 1px solid var(--netdive-detail-section-divider);
-}
-.netdive-k8s-node-detail__resource-block + .netdive-k8s-node-detail__resource-block { padding-top: 10px; }
-.netdive-k8s-node-detail__resource-block:last-child { padding-bottom: 0; border-bottom: 0; }
-
 .netdive-k8s-node-detail__condition-collapse { display: flex; justify-content: flex-end; padding: 0 10px 7px; }
 
 .netdive-k8s-node-detail__subsection-title { margin: 2px 18px 0; padding: 11px 0 7px; border-top: 1px solid #eaecf0; color: #344054; font-size: var(--netdive-detail-font-body-label); font-weight: var(--netdive-detail-weight-section-title); line-height: var(--netdive-detail-line-body-label); }

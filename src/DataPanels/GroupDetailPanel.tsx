@@ -1,8 +1,8 @@
 import * as React from 'react'
-import { Avatar, Button, Input, List, Space, Tooltip, Typography } from 'antd'
-import { DownOutlined, RightOutlined } from '@ant-design/icons'
+import { Avatar, Button, Input, List, Switch, Tooltip, Typography } from 'antd'
+import { DownOutlined, MinusOutlined, PlusOutlined, RightOutlined } from '@ant-design/icons'
 import { translate } from '../Config'
-import { Node, NodeAttrs } from '../Topology'
+import { Node, NodeAttrs, isTopologyDownNode } from '../Topology'
 import {
     aggregateKubernetesPods,
     isKubernetesPod,
@@ -16,12 +16,14 @@ import {
     kubernetesTopologyCountBadges
 } from '../KubernetesTopologyBadgeAggregation'
 import { TopologyStatusBadgeGroup } from '../TopologyStatusBadge'
-import { DetailBadge, DetailEmpty, DetailSection } from './common'
+import { DetailBadge, DetailEmpty, DetailInfoTooltip, DetailSection } from './common'
 import './GroupDetailPanel.css'
 
 interface Props {
     node: Node
     visibleNodeIDs: Set<string>
+    hideDownNodes?: boolean
+    onHideDownNodesChange?: (checked: boolean) => void
     nodeAttrs: (node: Node) => NodeAttrs
     nodeDisplayName?: (node: Node) => string
     vmNetworkMap?: Record<string, Array<{ networkName: string, macAddress: string, ipAddress: string }>>
@@ -90,7 +92,7 @@ class GroupDetailPanel extends React.Component<Props, State> {
 
     private filteredChildren(): Node[] {
         const search = this.state.search.trim().toLowerCase()
-        const children = this.children()
+        const children = this.children().filter(node => !this.props.onHideDownNodesChange || !this.props.hideDownNodes || !isTopologyDownNode(node))
         if (!search) {
             return children
         }
@@ -125,10 +127,6 @@ class GroupDetailPanel extends React.Component<Props, State> {
                 ? this.state.expandedHistoryReasons.filter(item => item !== reason)
                 : [...this.state.expandedHistoryReasons, reason]
         })
-    }
-
-    private groupTitle(): string {
-        return this.props.nodeAttrs(this.props.node).name || this.props.node.data?.Name || '그룹'
     }
 
     private groupScope(): string {
@@ -322,6 +320,8 @@ class GroupDetailPanel extends React.Component<Props, State> {
             : filtered
         const visibleCount = children.filter((node) => this.isNodeVisible(node)).length
         const groupScope = this.groupScope()
+        const hiddenDownCount = this.props.onHideDownNodesChange && this.props.hideDownNodes
+            ? children.filter(isTopologyDownNode).length : 0
         const groupCountDescription = `${children.length}개 객체${visibleCount > 0 ? ` · 표시 ${visibleCount}` : ''}`
         const showHistory = this.state.historyExpanded || !!this.state.search.trim()
 
@@ -331,17 +331,38 @@ class GroupDetailPanel extends React.Component<Props, State> {
                     className="netdive-group-detail-card"
                     bodyClassName="netdive-group-detail-content"
                     icon={<span className="fa fas fa-layer-group" />}
-                    title={this.groupTitle()}
+                    title={translate('groupInfo')}
                     description={podGroup ? groupScope || undefined : groupScope ? `${groupScope} · ${groupCountDescription}` : groupCountDescription}
                     action={
-                        <Space size={6}>
-                            <Button type="primary" onClick={() => this.props.onNodesSelect(currentExpandTargets)} disabled={currentExpandTargets.length === 0}>
-                                모두 펼치기
-                            </Button>
-                            <Button onClick={() => children.forEach((node) => this.props.onNodeDeselect(node))} disabled={visibleCount === 0}>
-                                모두 접기
-                            </Button>
-                        </Space>
+                        <div className="netdive-group-detail-headerActions" role="group" aria-label="그룹 표시 옵션">
+                            <Tooltip title="모두 펼치기" placement="top" getPopupContainer={() => document.body}>
+                                <span className="netdive-group-detail-headerActionTrigger">
+                                    <Button
+                                        type="text"
+                                        size="small"
+                                        shape="circle"
+                                        className="netdive-group-detail-headerAction"
+                                        icon={<PlusOutlined />}
+                                        aria-label="모두 펼치기"
+                                        onClick={() => this.props.onNodesSelect(currentExpandTargets)}
+                                        disabled={currentExpandTargets.length === 0} />
+                                </span>
+                            </Tooltip>
+                            <span className="netdive-group-detail-headerActionDivider" aria-hidden="true" />
+                            <Tooltip title="모두 접기" placement="top" getPopupContainer={() => document.body}>
+                                <span className="netdive-group-detail-headerActionTrigger">
+                                    <Button
+                                        type="text"
+                                        size="small"
+                                        shape="circle"
+                                        className="netdive-group-detail-headerAction"
+                                        icon={<MinusOutlined />}
+                                        aria-label="모두 접기"
+                                        onClick={() => children.forEach((node) => this.props.onNodeDeselect(node))}
+                                        disabled={visibleCount === 0} />
+                                </span>
+                            </Tooltip>
+                        </div>
                     }>
                     <div className="netdive-group-detail-toolbar">
                         <Input
@@ -350,6 +371,14 @@ class GroupDetailPanel extends React.Component<Props, State> {
                             placeholder={podGroup ? '파드 검색' : '노드 검색'}
                             value={this.state.search}
                             onChange={(event) => this.setState({ search: event.target.value })} />
+                        {this.props.onHideDownNodesChange && <div className="netdive-group-detail-displayOption">
+                            <span>
+                                <button type="button" className="netdive-group-detail-displayOptionLabel" aria-pressed={!!this.props.hideDownNodes} onClick={() => this.props.onHideDownNodesChange?.(!this.props.hideDownNodes)}>다운된 노드 숨기기</button>
+                                <DetailInfoTooltip description="상단 표시 옵션과 동기화되며, 전체 인프라 토폴로지와 그룹 목록에 함께 적용됩니다." ariaLabel="다운된 노드 숨기기 적용 범위" />
+                                {hiddenDownCount > 0 && <Typography.Text type="secondary">{hiddenDownCount}개 숨김</Typography.Text>}
+                            </span>
+                            <Switch aria-label="다운된 노드 숨기기" size="small" checked={!!this.props.hideDownNodes} onChange={this.props.onHideDownNodesChange} />
+                        </div>}
                     </div>
                     {podGroup && <div className="netdive-group-detail-podSummary" aria-label="파드 그룹 상태 요약">
                         <span><small>현재 파드</small><strong>{podAggregate?.current || 0}</strong></span>
@@ -410,7 +439,7 @@ class GroupDetailPanel extends React.Component<Props, State> {
                             </div>}
                         </React.Fragment>
                     ) : filtered.length === 0 ? (
-                        <DetailEmpty description="표시할 노드가 없습니다." compact />
+                        <DetailEmpty description={hiddenDownCount === children.length && hiddenDownCount > 0 ? '모든 노드가 Down 상태로 숨겨져 있습니다.' : '표시할 노드가 없습니다.'} compact />
                     ) : (
                         <List
                             className="netdive-group-detail-list"

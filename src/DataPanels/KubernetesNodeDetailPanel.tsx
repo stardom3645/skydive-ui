@@ -46,6 +46,7 @@ import {
     formatKubernetesValueState
 } from './common'
 import './KubernetesNodeDetailPanel.css'
+import { RESOURCE_PRESENTATION_COLORS, ResourceSectionCard, ResourceMetricStack } from './common/ResourcePresentation'
 
 interface Props {
     node: Node
@@ -67,7 +68,6 @@ interface State {
     workloadModalOpen: boolean
     workloadFilter: string
     conditionsExpanded: boolean
-    focusActive: boolean
 }
 
 type RiskModalKey = '' | 'single-replica' | 'local-storage' | 'pending' | 'restart' | 'oom-killed'
@@ -256,15 +256,14 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
         riskModal: '',
         workloadModalOpen: false,
         workloadFilter: 'all',
-        conditionsExpanded: false,
-        focusActive: false
+        conditionsExpanded: false
     }
 
     componentDidMount() { this.loadDetail() }
 
     componentDidUpdate(prevProps: Props) {
         if (prevProps.node.id !== this.props.node.id || this.cluster()?.id !== this.clusterFrom(prevProps)?.id) {
-            this.setState({ basicCollapsed: false, basicInfoAdvanced: false, podModalOpen: false, riskModal: '', workloadModalOpen: false, workloadFilter: 'all', conditionsExpanded: false, focusActive: false })
+            this.setState({ basicCollapsed: false, basicInfoAdvanced: false, podModalOpen: false, riskModal: '', workloadModalOpen: false, workloadFilter: 'all', conditionsExpanded: false })
             this.loadDetail()
         }
     }
@@ -592,7 +591,7 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
                 percent: utilization(currentPodCount, Number(podAllocatable))
             }
         ]
-        return <div className="netdive-k8s-node-detail__resource-overview">
+        return <ResourceMetricStack>
             {metrics.map(metric => {
                 const percentLabel = metric.percent === undefined ? '–' : `${metric.percent.toFixed(1)}%`
                 const tone: DetailBadgeTone = metric.percent === undefined
@@ -602,18 +601,18 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
                     : metric.percent >= KUBERNETES_UTILIZATION_THRESHOLDS.warning
                     ? 'warning'
                     : 'success'
-                const strokeColor = tone === 'danger' ? '#d92d20' : tone === 'warning' ? '#f79009' : '#1677ff'
+                const strokeColor = tone === 'danger' ? '#d92d20' : tone === 'warning' ? '#f79009' : RESOURCE_PRESENTATION_COLORS.primary
                 return <ResourceMetricBlock
+                    appearance="resource"
                     key={metric.key}
                     title={metric.label}
-                    basis="Allocatable"
-                    basisTooltip="오른쪽 분모와 사용률은 Kubernetes status.allocatable 기준입니다. Capacity는 Tooltip에서 함께 확인할 수 있습니다."
+                    basis="할당 가능"
+                    basisTooltip="오른쪽 값은 시스템 예약분을 제외하고 워크로드에 할당할 수 있는 용량입니다. 사용률은 현재 사용량을 이 값으로 나누어 계산합니다."
                     tooltip={<div>
-                        <div>Capacity: {metric.capacity || '없음'}</div>
-                        <div>Allocatable: {metric.allocatable || '없음'}</div>
+                        <div>전체 용량: {metric.capacity || '확인 불가'}</div>
+                        <div>할당 가능 용량: {metric.allocatable || '확인 불가'}</div>
                         {metric.key === 'memory' && <div>사용률 기준: 주의 {KUBERNETES_UTILIZATION_THRESHOLDS.warning}% 이상 · 위험 {KUBERNETES_UTILIZATION_THRESHOLDS.danger}% 이상</div>}
-                    </div>}
-                    className={`netdive-k8s-node-detail__resource-block is-${tone}`}>
+                    </div>}>
                     <DetailMetricRow
                         primary
                         label={metric.key === 'pods' ? '활성 파드' : '현재 사용량'}
@@ -624,7 +623,7 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
                     />
                 </ResourceMetricBlock>
             })}
-        </div>
+        </ResourceMetricStack>
     }
 
     private focusNodes(nodes: Node[]) {
@@ -632,14 +631,7 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
         const app = (window as any).App
         if (ids.length && app && typeof app.focusInfrastructureNodeIDs === 'function') {
             app.focusInfrastructureNodeIDs(ids, this.props.node.id, true)
-            this.setState({ focusActive: true })
         }
-    }
-
-    private clearFocusedResources() {
-        const app = (window as any).App
-        if (app && typeof app.focusInfrastructureNodeIDs === 'function') app.focusInfrastructureNodeIDs([])
-        this.setState({ focusActive: false })
     }
 
     private openWorkloadWithRelation(controller: Node, pods: Node[]) {
@@ -717,7 +709,7 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
         const roleValue = roles.length ? <span className="netdive-k8s-node-detail__roles">{roles.map(role => <DetailBadge key={role} tone="default">{role}</DetailBadge>)}</span> : missingValue
         const osImage = String(detail.osImage || '')
         const overviewRows: any[] = [
-            { label: translate('kubernetesNodeName'), value: name, textValue: name, copyText: name },
+            { label: translate('kubernetesNodeName'), value: name, textValue: name, copyText: name, valueMaxLines: 6 },
             { label: translate('kubernetesNodeRoles'), value: roleValue },
             { label: '내부 IP', value: detail.internalIp || missingValue, copyText: detail.internalIp },
             { label: 'Kubelet 버전', value: detail.kubernetesVersion || missingValue },
@@ -906,9 +898,9 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
                     ]} />
             </DetailSectionCard>
 
-            <DetailSectionCard icon={<StorageIcon />} title="리소스 현황">
+            <ResourceSectionCard icon={<StorageIcon />} title="리소스 현황">
                 {this.renderCapacity(currentPodCount)}
-            </DetailSectionCard>
+            </ResourceSectionCard>
 
             <DetailSectionCard icon={<ErrorOutlineIcon />} title={translate('kubernetesNodeConditions')}>
                 {this.renderConditions()}
@@ -965,8 +957,6 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
                     })}
                 </StatusEvidenceList>
             </DetailSectionCard>
-            {this.state.focusActive && <div className="netdive-k8s-detail__focus-reset"><Button type="link" size="small" onClick={() => this.clearFocusedResources()}>강조 초기화</Button></div>}
-
             <RelatedResourceGrid
                 icon={<AccountTreeIcon />}
                 title={translate('hostConnectedResources')}

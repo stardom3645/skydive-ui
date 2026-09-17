@@ -719,6 +719,7 @@ export class Topology extends React.Component<Props, {}> {
                 if (event.keyCode === 27) {
                     this.hideNodeContextMenu()
                     this.clearTopologyNodeFocus()
+                    this.clearInfrastructureFocus()
                 }
             })
             .on("keyup.topology", () => {
@@ -746,6 +747,10 @@ export class Topology extends React.Component<Props, {}> {
             this.svg.on(".zoom", null)
         }
         if (this.svgDiv) {
+            select(this.svgDiv).selectAll<SVGGElement, unknown>("g.node-exco")
+                .each(function () {
+                    ReactDOM.unmountComponentAtNode(this)
+                })
             select(this.svgDiv).select("svg").remove()
         }
     }
@@ -4740,6 +4745,12 @@ export class Topology extends React.Component<Props, {}> {
                 this.overNode(d.data.id, false)
             })
         node.exit()
+            .each(function () {
+                const badgeRoot = select(this).select("g.node-exco").node()
+                if (badgeRoot) {
+                    ReactDOM.unmountComponentAtNode(badgeRoot)
+                }
+            })
             .transition()
             .duration(animDuration).style("opacity", 0)
             .remove()

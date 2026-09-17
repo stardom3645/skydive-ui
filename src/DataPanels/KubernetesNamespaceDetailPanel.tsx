@@ -455,7 +455,7 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
         const limitMax = firstLimit.Max || firstLimit.max || {}
         const phaseLabel = kubernetesNamespacePhaseLabel(detail.phase)
         const basicRows = [
-            { label: translate('kubernetesNamespaceName'), value: name, textValue: name, copyText: name },
+            { label: translate('kubernetesNamespaceName'), value: name, textValue: name, copyText: name, valueMaxLines: 6 as const },
             { label: KUBERNETES_DETAIL_LABELS.namespaceStatus, value: formatKubernetesValueState({ value: phaseLabel, collected: !!detail.phase }) },
             { label: translate('kubernetesCreatedAt'), value: displayDate(detail.createdAt) },
             { label: KUBERNETES_DETAIL_LABELS.resourceQuota, value: !quotaCollected ? '수집되지 않음' : quotaConfigured ? `설정됨 · ${quotaCount}개` : '설정되지 않음', labelWrap: true },

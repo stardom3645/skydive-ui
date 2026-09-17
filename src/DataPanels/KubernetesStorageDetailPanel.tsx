@@ -521,7 +521,7 @@ class KubernetesStorageDetailPanel extends React.Component<Props, State> {
             copyValue: option
         }))
         const basicRows: any[] = [
-            { label: type === 'storageclass' ? '스토리지 클래스 이름' : `${kindLabel} 이름`, value: <DetailLongValue value={name} copy />, wrap: true },
+            { label: type === 'storageclass' ? '스토리지 클래스 이름' : `${kindLabel} 이름`, value: <DetailLongValue value={name} copy maxLines={6} />, wrap: true },
             ...(namespace ? [{ label: translate('kubernetesTopologyNamespaces'), value: namespace }] : []),
             ...(type === 'persistentvolumeclaim' ? [{
                 label: '바인딩 상태',
@@ -551,7 +551,7 @@ class KubernetesStorageDetailPanel extends React.Component<Props, State> {
             },
             { label: '스토리지 클래스', value: this.storageClassName(this.props.node) || none },
             { label: '클레임 네임스페이스', value: pvc ? this.namespace(pvc) || none : pvClaimNamespace || none },
-            { label: '클레임 이름', value: pvc ? <DetailLongValue value={this.name(pvc)} copy /> : pvClaimName ? <DetailLongValue value={pvClaimName} copy /> : none, wrap: true }
+            { label: '클레임 이름', value: pvc ? <DetailLongValue value={this.name(pvc)} copy maxLines={6} /> : pvClaimName ? <DetailLongValue value={pvClaimName} copy maxLines={6} /> : none, wrap: true }
         ] : [
             { label: '프로비저너', value: provisioner ? <DetailLongValue value={String(provisioner)} copy /> : translate('kubernetesNotCollected'), wrap: true },
             { label: '회수 정책', value: reclaimPolicy ? kubernetesReclaimPolicyLabel(reclaimPolicy) : translate('kubernetesNotCollected'), tooltip: reclaimPolicy ? `Kubernetes 원본 값: ${reclaimPolicy}` : undefined },

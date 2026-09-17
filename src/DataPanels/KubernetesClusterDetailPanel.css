@@ -459,20 +459,6 @@
 }
 
 
-.netdive-k8s-cluster-detail__capacity {
-    padding: 12px 14px 14px;
-}
-
-.netdive-k8s-cluster-detail__utilization-flat {
-    min-width: 0;
-}
-.netdive-k8s-cluster-detail__utilization-flat > .ant-divider {
-    margin: 12px 0;
-}
-.netdive-k8s-cluster-detail__utilization-section {
-    min-width: 0;
-    --netdive-detail-metric-columns: 40% 40% 20%;
-}
 .netdive-k8s-cluster-detail__capacity-section-title {
     display: inline-flex;
     align-items: center;
@@ -544,7 +530,7 @@
     font-size: var(--netdive-detail-font-supporting-text);
 }
 
-.netdive-k8s-cluster-detail__capacity > .netdive-k8s-cluster-detail__capacity-compare-divider {
+.netdive-k8s-cluster-detail__capacity-compare-divider {
     margin: 14px 0 4px;
 }
 .netdive-k8s-cluster-detail__capacity-compare-collapse {
@@ -1079,3 +1065,5 @@
 
 @media (max-width: 340px) {
 }
+
+.netdive-k8s-cluster-detail__alert-summary.is-unavailable .netdive-k8s-cluster-detail__alert-dot { background: #98a2b3; }

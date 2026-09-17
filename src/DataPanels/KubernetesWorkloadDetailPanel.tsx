@@ -594,7 +594,7 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
             ]
             if (currentReplicaSet) {
                 const name = this.resourceName(currentReplicaSet)
-                rows.push({ label: translate('kubernetesCurrentReplicaSet'), value: <DetailLongValue value={name} copy />, wrap: true })
+                rows.push({ label: translate('kubernetesCurrentReplicaSet'), value: <DetailLongValue value={name} copy maxLines={6} />, wrap: true })
             } else rows.push({ label: translate('kubernetesCurrentReplicaSet'), value: translate('kubernetesNotCollected') })
             return rows
         }
@@ -602,7 +602,7 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
             const templates = normalizeList(spec.VolumeClaimTemplates || spec.volumeClaimTemplates)
             const serviceName = spec.ServiceName || spec.serviceName
             return [
-                { label: '서비스 이름', value: serviceName ? <DetailLongValue value={String(serviceName)} copy /> : '설정되지 않음', wrap: true },
+                { label: '서비스 이름', value: serviceName ? <DetailLongValue value={String(serviceName)} copy maxLines={6} /> : '설정되지 않음', wrap: true },
                 { label: '업데이트 전략', value: optionalText(spec.UpdateStrategy?.Type) },
                 { label: '파드 관리 정책', value: optionalText(spec.PodManagementPolicy) },
                 { label: '리비전 상태', value: <DetailStatusIndicator tone={health.progressTone}>{health.progress}</DetailStatusIndicator> },
@@ -682,7 +682,7 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
         const pvcTemplates = normalizeList(spec.VolumeClaimTemplates || spec.volumeClaimTemplates)
         const scheduling = normalizeKubernetesSchedulingConfiguration(spec.Template?.Spec ?? spec.template?.spec)
         const basicRows = [
-            { label: translate('kubernetesWorkloadName'), value: <DetailLongValue value={workloadName} copy />, wrap: true },
+            { label: translate('kubernetesWorkloadName'), value: <DetailLongValue value={workloadName} copy maxLines={6} />, wrap: true },
             { label: translate('kubernetesWorkloadType'), value: kindLabel },
             { label: translate('kubernetesTopologyNamespaces'), value: data.K8s?.Namespace || meta.Namespace || translate('kubernetesNotCollected') },
             { label: translate('kubernetesCreatedAt'), value: formatDate(creationTimestamp) || translate('kubernetesNotCollected') },

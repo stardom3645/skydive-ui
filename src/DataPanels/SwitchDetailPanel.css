@@ -30,6 +30,16 @@
     line-height: 1.5;
 }
 
+.netdive-switch-detail__name-value {
+    display: -webkit-box;
+    min-width: 0;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+}
+
 .netdive-switch-port-mapping-section .netdive-detail-section__header {
     align-items: flex-start;
     column-gap: 18px;

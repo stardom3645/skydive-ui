@@ -116,7 +116,6 @@ import {
   infrastructureResourceCategory,
   kubernetesResourceCategory
 } from './TopologyResourceClassification'
-import { TopologyStatusBadgeLegend } from './TopologyStatusBadge'
 import {
   isInactiveMoldKubernetesClusterState,
   kubernetesTopologyHasInactiveClusterAncestor
@@ -363,6 +362,7 @@ interface State {
   groupVisibleNodeIDs: Set<string>
   kubernetesProblemsOnly: boolean
   topologyDisplayOptions: TopologyDisplayOptions
+  topologyDisplayOptionsOpen: boolean
   selectionHistory: SelectionHistoryItem[]
   selectionHistoryIndex: number
 }
@@ -626,6 +626,7 @@ class App extends React.Component<Props, State> {
       groupVisibleNodeIDs: new Set<string>(),
       kubernetesProblemsOnly: false,
       topologyDisplayOptions: getSavedTopologyDisplayOptions(),
+      topologyDisplayOptionsOpen: false,
       selectionHistory: [],
       selectionHistoryIndex: -1
     }
@@ -857,12 +858,18 @@ class App extends React.Component<Props, State> {
 
   private onDocumentMouseDown(event: MouseEvent) {
     const isLinkTagsExpanded = !this.state.isLinkTagsCollapsed && this.state.linkTagStates.size !== 0
-    if (!this.state.isEventHistoryOpen && !this.state.isInfrastructurePanelOpen && !this.state.isKubernetesManagerOpen && !this.state.isScreenConfigOpen && !this.state.isPreferencesPanelOpen && !this.state.isHelpOpen && !this.state.isAboutOpen && !isLinkTagsExpanded) {
+    if (!this.state.isEventHistoryOpen && !this.state.isInfrastructurePanelOpen && !this.state.isKubernetesManagerOpen && !this.state.isScreenConfigOpen && !this.state.isPreferencesPanelOpen && !this.state.isHelpOpen && !this.state.isAboutOpen && !isLinkTagsExpanded && !this.state.topologyDisplayOptionsOpen) {
       return
     }
     const target = event.target as Element | null
     if (!target || !target.closest) {
       return
+    }
+    const displayOptionsInteraction = target.closest('[data-netdive-display-options="true"], .netdive-topology-display-options')
+    // Keep the popup mounted until its checkbox/menu click has been handled.
+    if (displayOptionsInteraction) return
+    if (this.state.topologyDisplayOptionsOpen) {
+      this.setState({ topologyDisplayOptionsOpen: false })
     }
     if (target.closest('[data-netdive-side-panel="true"], [data-netdive-link-tags="true"], [data-netdive-recent-nodes="true"], [class*="kubernetesManagerPanel"], [class*="sideSettingsPanel"], [data-netdive-drawer="true"], .MuiDialog-root, .ant-modal-root')) {
       return
@@ -888,7 +895,8 @@ class App extends React.Component<Props, State> {
       kubernetesServiceExplorerOpen: false,
       kubernetesServiceSearch: '',
       kubernetesResourceExplorerNodeIDs: [],
-      kubernetesResourceExplorerTitle: ''
+      kubernetesResourceExplorerTitle: '',
+      topologyDisplayOptionsOpen: false
     })
   }
 
@@ -3303,6 +3311,7 @@ class App extends React.Component<Props, State> {
   }
 
   onTopologyClick() {
+    this.tc?.clearInfrastructureFocus()
     this.closeSidePanels({
       isSelectionOpen: false,
       isTimetravelOpen: false
@@ -4151,9 +4160,13 @@ class App extends React.Component<Props, State> {
           }
         }}>
         <AntMenu.Item key="hide-down-nodes">
-          <AntCheckbox checked={hideDownNodes} onChange={() => undefined} style={{ pointerEvents: 'none' }}>
-            다운된 노드 숨기기
-          </AntCheckbox>
+          <span onClick={event => event.stopPropagation()}>
+            <AntCheckbox
+              checked={hideDownNodes}
+              onChange={event => this.setTopologyDisplayOption('hideDownNodes', event.target.checked)}>
+              다운된 노드 숨기기
+            </AntCheckbox>
+          </span>
         </AntMenu.Item>
       </AntMenu>
     )
@@ -4164,8 +4177,11 @@ class App extends React.Component<Props, State> {
         overlayClassName="netdive-mold-dropdown netdive-topology-display-options"
         trigger={['click']}
         placement="bottomLeft"
+        visible={this.state.topologyDisplayOptionsOpen}
+        onVisibleChange={(visible) => this.setState({ topologyDisplayOptionsOpen: visible })}
         getPopupContainer={() => document.body}>
         <Button
+          data-netdive-display-options="true"
           aria-haspopup="true"
           aria-label="표시 옵션"
           className={clsx(classes.layerFilterButton, classes.displayOptionsButton)}>
@@ -5876,6 +5892,17 @@ class App extends React.Component<Props, State> {
         </div>
         {this.renderDrawerMenuGroup(
           classes,
+          "collection",
+          <AccountTreeIcon />,
+          translate("collectionSection"),
+          <React.Fragment>
+            {this.renderDrawerIntegrationItem(classes, <AccountTreeIcon />, translate("infrastructureMenu"), translate("infrastructureMenuSummary"), () => this.openInfrastructureTopology(), this.state.isInfrastructurePanelOpen)}
+            {this.renderDrawerIntegrationItem(classes, this.kubernetesIcon(), translate("kubernetesCollectionMenu"), translate("kubernetesMenuSummary"), () => this.openKubernetesManager(), this.state.isKubernetesManagerOpen)}
+          </React.Fragment>,
+          this.state.isInfrastructurePanelOpen || this.state.isKubernetesManagerOpen
+        )}
+        {this.renderDrawerMenuGroup(
+          classes,
           "events",
           <HistoryOutlined className={classes.drawerEventIcon} />,
           '이벤트',
@@ -5891,17 +5918,6 @@ class App extends React.Component<Props, State> {
             this.state.isEventHistoryOpen
           ),
           this.state.isEventHistoryOpen
-        )}
-        {this.renderDrawerMenuGroup(
-          classes,
-          "collection",
-          <AccountTreeIcon />,
-          translate("collectionSection"),
-          <React.Fragment>
-            {this.renderDrawerIntegrationItem(classes, <AccountTreeIcon />, translate("infrastructureMenu"), translate("infrastructureMenuSummary"), () => this.openInfrastructureTopology(), this.state.isInfrastructurePanelOpen)}
-            {this.renderDrawerIntegrationItem(classes, this.kubernetesIcon(), translate("kubernetesCollectionMenu"), translate("kubernetesMenuSummary"), () => this.openKubernetesManager(), this.state.isKubernetesManagerOpen)}
-          </React.Fragment>,
-          this.state.isInfrastructurePanelOpen || this.state.isKubernetesManagerOpen
         )}
         {this.renderDrawerMenuGroup(
           classes,
@@ -6040,7 +6056,6 @@ class App extends React.Component<Props, State> {
               </Tooltip>
             </div>
             <div className={classes.grow} />
-            <TopologyStatusBadgeLegend />
             {this.renderMenuButtons(classes)}
           </Toolbar>
         </AppBar>
@@ -6103,6 +6118,8 @@ class App extends React.Component<Props, State> {
                   buttonsContent={this.actionButtons.bind(this)} panelsContent={this.dataPanels.bind(this)} moldInventory={this.state.moldInventory} infrastructureHostSummaries={infrastructureHostSummaries} kubernetesClusters={this.state.kubernetesClusters}
                   vmNameMap={this.state.vmNameMap} vmNetworkMap={this.state.vmNetworkMap} vmDetailMap={this.state.vmDetailMap} managementServers={this.state.managementServers}
                   groupVisibleNodeIDs={this.state.groupVisibleNodeIDs}
+                  hideDownNodes={this.state.topologyDisplayOptions.hideDownNodes}
+                  onHideDownNodesChange={this.isKubernetesLayerActive() ? undefined : (checked: boolean) => this.setTopologyDisplayOption('hideDownNodes', checked)}
                   nodeDisplayName={this.nodeDisplayName.bind(this)}
                   topologyBadgeChildren={(node: Node) => this.tc ? this.tc.topologyBadgeChildren(node) : []}
                   onGroupChildToggle={this.toggleGroupChildDisplayFromPanel.bind(this)}

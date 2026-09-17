@@ -412,11 +412,11 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
                 ? `파드 준비 상태와 현재 컨테이너 이상을 확인해야 합니다. 일반 컨테이너 ${readyContainers}/${applicationContainers.length}개가 준비되었습니다.`
                 : `현재 파드 상태로 인해 확인된 서비스 가용성 영향이 없습니다. 일반 컨테이너 ${readyContainers}/${applicationContainers.length}개가 준비되었습니다.`
         const basicRows = [
-            { label: '파드 이름', value: <DetailLongValue value={detail.name || this.props.node.id} copy />, wrap: true },
+            { label: '파드 이름', value: <DetailLongValue value={detail.name || this.props.node.id} copy maxLines={6} />, wrap: true },
             { label: '네임스페이스', value: detail.namespace || translate('kubernetesNotCollected') },
             { label: 'Pod IP', value: detail.podIp || translate('kubernetesNotCollected'), copyText: detail.podIp },
             { label: '생성 시간', value: detail.createdAt ? new Date(detail.createdAt).toLocaleString() : translate('kubernetesNotCollected') },
-            { label: '배치 노드', value: detail.nodeName ? <DetailLongValue value={String(detail.nodeName)} copy /> : translate('kubernetesNotCollected'), wrap: true }
+            { label: '배치 노드', value: detail.nodeName ? <DetailLongValue value={String(detail.nodeName)} copy maxLines={6} /> : translate('kubernetesNotCollected'), wrap: true }
         ]
         const advancedRows = [
             { label: 'Host IP', value: detail.hostIp || translate('kubernetesNotCollected'), copyText: detail.hostIp },

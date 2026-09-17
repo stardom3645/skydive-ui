@@ -100,7 +100,14 @@ class SwitchDetailPanel extends React.Component<Props> {
         const probe = switchTextValue(data, ['Probe', 'probe'])
 
         return [
-            { key: 'name', label: translate('switchName'), value: name, textValue: name, copyText: name },
+            {
+                key: 'name',
+                label: translate('switchName'),
+                value: <span className="netdive-switch-detail__name-value">{name}</span>,
+                textValue: name,
+                copyText: name,
+                wrap: true
+            },
             { key: 'managementAddress', label: translate('switchManagementIp'), value: managementAddress || '-', textValue: managementAddress || '-', copyText: managementAddress || undefined },
             { key: 'type', label: translate('switchType'), value: type, textValue: type },
             { key: 'probe', label: translate('switchProbe'), value: probe || '-', textValue: probe || '-' }

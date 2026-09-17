@@ -10,6 +10,7 @@ import {
 } from './KubernetesDataPresentation'
 
 import './DetailComponents.css'
+import { ResourceMetricTile, ResourceInfoTooltip, ResourceComparisonBody } from './ResourcePresentation'
 
 const joinClassNames = (...classNames: Array<string | undefined | false>) => classNames.filter(Boolean).join(' ')
 
@@ -301,13 +302,14 @@ export interface DetailKeyValueRow {
     tooltipRawValue?: React.ReactNode
     wrap?: boolean
     labelWrap?: boolean
+    valueMaxLines?: 1 | 2 | 3 | 6
 }
 
 export interface DetailLongValueProps {
     value: string
     copy?: boolean
     copyTooltip?: React.ReactNode
-    maxLines?: 1 | 2
+    maxLines?: 1 | 2 | 3 | 6
     className?: string
 }
 
@@ -360,9 +362,13 @@ export const DetailKeyValueList = ({
     return (
         <div className={joinClassNames('netdive-detail-kv', density === 'compact' && 'netdive-detail-kv--compact', className)}>
             {rows.map((row, index) => {
+                const valueClassName = joinClassNames(
+                    'netdive-detail-kv__value-text',
+                    row.valueMaxLines && `lines-${row.valueMaxLines}`
+                )
                 const value = row.textValue
-                    ? <Tooltip title={row.textValue} placement="top"><span className="netdive-detail-kv__value-text">{row.value}</span></Tooltip>
-                    : <span className="netdive-detail-kv__value-text">{row.value}</span>
+                    ? <Tooltip title={row.textValue} placement="top"><span className={valueClassName}>{row.value}</span></Tooltip>
+                    : <span className={valueClassName}>{row.value}</span>
                 return (
                     <div
                         className={joinClassNames('netdive-detail-kv__row', row.wrap && 'netdive-detail-kv__row--wrap')}
@@ -744,6 +750,7 @@ export const DetailMetricRow = ({
 }
 
 export interface ResourceMetricBlockProps {
+    appearance?: 'default' | 'resource'
     title: React.ReactNode
     basis?: React.ReactNode
     basisTooltip?: React.ReactNode
@@ -752,7 +759,17 @@ export interface ResourceMetricBlockProps {
     className?: string
 }
 
-export const ResourceMetricBlock = ({ title, basis, basisTooltip, tooltip, children, className }: ResourceMetricBlockProps) => (
+export const ResourceMetricBlock = ({ title, basis, basisTooltip, tooltip, children, className, appearance = 'default' }: ResourceMetricBlockProps) => appearance === 'resource' ? (
+    <ResourceMetricTile title={title} className={className} headerRight={<React.Fragment>
+        {basis && <small>{basis}</small>}
+        <ResourceInfoTooltip description={(tooltip || basisTooltip) && <React.Fragment>
+            {tooltip}
+            {basisTooltip && <div>{basisTooltip}</div>}
+        </React.Fragment>} ariaLabel={`${String(title)} 상세 정보`} />
+    </React.Fragment>}>
+        <ResourceComparisonBody>{children}</ResourceComparisonBody>
+    </ResourceMetricTile>
+) : (
     <section className={joinClassNames('netdive-detail-resource-metric-block', className)}>
         <div className="netdive-detail-resource-metric-block__header">
             <span className="netdive-detail-resource-metric-block__title">

@@ -622,6 +622,23 @@
     white-space: normal;
 }
 
+.netdive-detail-kv__value-text.lines-1,
+.netdive-detail-kv__value-text.lines-2,
+.netdive-detail-kv__value-text.lines-3,
+.netdive-detail-kv__value-text.lines-6 {
+    display: -webkit-box;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    text-overflow: clip;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+}
+
+.netdive-detail-kv__value-text.lines-1 { -webkit-line-clamp: 1; }
+.netdive-detail-kv__value-text.lines-2 { -webkit-line-clamp: 2; }
+.netdive-detail-kv__value-text.lines-3 { -webkit-line-clamp: 3; }
+.netdive-detail-kv__value-text.lines-6 { -webkit-line-clamp: 6; }
+
 .netdive-detail-long-value {
     display: flex;
     min-width: 0;
@@ -646,6 +663,8 @@
 
 .netdive-detail-long-value__text.lines-1 { -webkit-line-clamp: 1; }
 .netdive-detail-long-value__text.lines-2 { -webkit-line-clamp: 2; }
+.netdive-detail-long-value__text.lines-3 { -webkit-line-clamp: 3; }
+.netdive-detail-long-value__text.lines-6 { -webkit-line-clamp: 6; }
 
 .netdive-detail-modal-action.ant-btn {
     display: inline-flex;
@@ -3857,10 +3876,4 @@ button.netdive-detail-metric-row:focus-visible {
     .netdive-detail-resource-grid {
         grid-template-columns: 1fr;
     }
-}
-.netdive-k8s-detail__focus-reset {
-    display: flex;
-    justify-content: flex-end;
-    margin-top: -8px;
-    padding: 0 12px 2px;
 }

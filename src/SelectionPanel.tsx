@@ -71,6 +71,8 @@ interface Props {
   vmDetailMap?: Record<string, any>
   managementServers?: any[]
   groupVisibleNodeIDs?: Set<string>
+  hideDownNodes?: boolean
+  onHideDownNodesChange?: (checked: boolean) => void
   nodeDisplayName?: (node: Node) => string
   onGroupChildToggle?: (node: Node) => void
   onGroupChildFocus?: (node: Node) => void
@@ -588,6 +590,8 @@ class SelectionPanel extends React.Component<Props, State> {
                   nodeDisplayName={this.props.nodeDisplayName}
                   vmNetworkMap={this.props.vmNetworkMap}
                   topologyBadgeChildren={this.props.topologyBadgeChildren}
+                  hideDownNodes={this.props.hideDownNodes}
+                  onHideDownNodesChange={this.props.onHideDownNodesChange}
                   onNodeSelect={(node: Node) => {
                     this.setState({ preferredTabID: el.id })
                     this.props.onGroupChildToggle && this.props.onGroupChildToggle(node)

@@ -4,3 +4,16 @@
     gap: 14px;
     padding-bottom: 8px;
 }
+
+.netdive-switch-port-detail__interface {
+    border-top: 1px solid var(--netdive-detail-border-subtle, #edf0f5);
+}
+
+.netdive-switch-port-detail__interface-name {
+    padding: 10px 12px 5px;
+    color: var(--netdive-detail-text-strong, #26364d);
+    font-size: var(--netdive-detail-font-body-label, 12px);
+    font-weight: 600;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}

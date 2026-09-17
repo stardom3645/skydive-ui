@@ -165,7 +165,7 @@ const KubernetesRelationshipResourceDetailPanel = ({ node }: Props) => {
         : []
 
     const baseRows = [
-        { label: '이름', value: resourceName(node), textValue: resourceName(node), copyText: resourceName(node) },
+        { label: '이름', value: resourceName(node), textValue: resourceName(node), copyText: resourceName(node), valueMaxLines: 6 as const },
         { label: '종류', value: kind },
         { label: '네임스페이스', value: resourceNamespace(node) }
     ]

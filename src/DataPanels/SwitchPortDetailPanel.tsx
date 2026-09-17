@@ -1,10 +1,11 @@
 import * as React from 'react'
-import { ApiOutlined, InfoCircleOutlined } from '@ant-design/icons'
+import { ApiOutlined, ApartmentOutlined, InfoCircleOutlined, LinkOutlined } from '@ant-design/icons'
 
 import { Link, Node, NodeAttrs } from '../Topology'
 import { translate } from '../Config'
-import { switchDisplayName, switchTextValue } from '../SwitchNodeUtils'
-import { connectedResourcePopoverItems, DetailKeyValueList, DetailResourceCard, DetailResourceGrid, DetailSection, InfrastructureTopologyIcon, navigateInfrastructureConnectedResources } from './common'
+import { infrastructurePortConnectionState } from '../InfrastructurePortMapping'
+import { switchDisplayName, switchLLDPData, switchTextValue } from '../SwitchNodeUtils'
+import { connectedResourcePopoverItems, DetailBadge, DetailKeyValueList, DetailResourceCard, DetailResourceGrid, DetailSection, InfrastructureTopologyIcon, navigateInfrastructureConnectedResources } from './common'
 import './SwitchPortDetailPanel.css'
 
 interface Props {
@@ -81,41 +82,149 @@ class SwitchPortDetailPanel extends React.Component<Props> {
         return switchTextValue(data, keys)
     }
 
-    private basicRows(parentSwitch: Node | undefined, connectedHosts: Node[]) {
+    private vlanNames(value: any): string {
+        if (!Array.isArray(value)) return ''
+        return value.map(vlan => {
+            if (!vlan || typeof vlan !== 'object') return String(vlan || '').trim()
+            const id = this.text(vlan, ['ID', 'Id', 'VID', 'VlanID'])
+            const name = this.text(vlan, ['Name', 'name'])
+            return id && name ? `${id} · ${name}` : id || name
+        }).filter(Boolean).join(', ')
+    }
+
+    private linkAggregation(value: any): string {
+        if (!value || typeof value !== 'object') return ''
+        const enabled = value.Enabled === true || String(value.Enabled).toLowerCase() === 'true'
+        const supported = value.Supported === true || String(value.Supported).toLowerCase() === 'true'
+        if (!enabled && !supported) return ''
+        const portID = this.text(value, ['PortID', 'PortId', 'ID', 'Id'])
+        const state = translate(enabled ? 'switchPortLinkAggregationEnabled' : 'switchPortLinkAggregationDisabled')
+        return portID ? `${state} · ID ${portID}` : state
+    }
+
+    private basicRows(parentSwitch: Node | undefined) {
         const data = this.data()
         const name = this.text(data, ['Name', 'name', 'IfName', 'InterfaceName']) || this.props.node.id
         const parentName = parentSwitch ? switchDisplayName(parentSwitch.data, parentSwitch.id) : ''
-        const connectedHostNames = connectedHosts.map(host => (
-            this.text(host.data || {}, ['Name', 'name', 'Hostname', 'HostName']) || host.id
-        ))
-        const connectedHostSummary = connectedHostNames.join(', ')
         const type = this.text(data, ['Type', 'type']) || 'switchport'
         const mac = this.text(data, ['MAC', 'Mac', 'MacAddress', 'HardwareAddr'])
         const state = this.text(data, ['State', 'state', 'Status', 'status'])
-        const mtu = this.text(data, ['MTU', 'Mtu', 'mtu'])
         const probe = this.text(data, ['Probe', 'probe'])
         const probeDisplay = probe.toLowerCase() === 'manual' ? translate('manualProbe') : probe
 
         return [
             { key: 'name', label: translate('Name'), value: name, textValue: name, copyText: name },
             { key: 'switch', label: translate('phy-switch'), value: parentName, textValue: parentName },
-            { key: 'connected-host', label: translate('switchPortMappingHost'), value: connectedHostSummary, textValue: connectedHostSummary, copyText: connectedHostSummary || undefined },
             { key: 'type', label: translate('Type'), value: type, textValue: type },
             { key: 'mac', label: translate('MAC'), value: mac, textValue: mac, copyText: mac || undefined },
             { key: 'state', label: translate('State'), value: state, textValue: state },
-            { key: 'mtu', label: translate('MTU'), value: mtu, textValue: mtu },
             { key: 'probe', label: translate('switchProbe'), value: probeDisplay, textValue: probeDisplay }
         ].filter(row => row.textValue !== '' && row.textValue !== '-')
+    }
+
+    private portRows() {
+        const data = this.data()
+        const lldp = switchLLDPData(data)
+        const name = this.text(data, ['Name', 'name', 'IfName', 'InterfaceName']) || this.props.node.id
+        const distinctFromName = (value: string) => value && value.trim().toLowerCase() !== name.trim().toLowerCase() ? value : ''
+        const portID = distinctFromName(this.text(lldp, ['PortID', 'PortId', 'RemotePortID', 'RemotePortId']))
+        const portIDType = portID ? this.text(lldp, ['PortIDType', 'PortIdType']) : ''
+        const description = distinctFromName(this.text(lldp, ['Description', 'PortDescription', 'RemotePortDescription']))
+        const mtu = this.text(data, ['MTU', 'Mtu', 'mtu']) || this.text(lldp, ['MTU', 'Mtu', 'mtu'])
+        const pvid = this.text(lldp, ['PVID', 'Pvid'])
+        const managementVID = this.text(lldp, ['ManagementVID', 'ManagementVid'])
+        const vlans = this.vlanNames(lldp.VLANNames || lldp.VlanNames || lldp.VLANs)
+        // The backend historically serialized this key with three g's.
+        // Accept both spellings so older and corrected analyzers render alike.
+        const aggregation = this.linkAggregation(lldp.LinkAgggregation || lldp.LinkAggregation)
+
+        return [
+            { key: 'port-id', label: translate('switchPortPortId'), value: portID, textValue: portID, copyText: portID || undefined },
+            { key: 'port-id-type', label: translate('switchPortPortIdType'), value: portIDType, textValue: portIDType },
+            { key: 'description', label: translate('switchPortDescription'), value: description, textValue: description },
+            { key: 'mtu', label: translate('MTU'), value: mtu, textValue: mtu },
+            { key: 'pvid', label: translate('switchPortPvid'), value: pvid, textValue: pvid },
+            { key: 'management-vid', label: translate('switchPortManagementVlan'), value: managementVID, textValue: managementVID },
+            { key: 'vlans', label: translate('switchPortVlans'), value: vlans, textValue: vlans, wrap: true },
+            { key: 'link-aggregation', label: translate('switchPortLinkAggregation'), value: aggregation, textValue: aggregation }
+        ].filter(row => row.textValue !== '' && row.textValue !== '-')
+    }
+
+    private connectedInterfaces(peers: Node[]): Node[] {
+        return peers.filter(peer => this.nodeType(peer) !== 'host' && !!this.hostAncestor(peer))
+    }
+
+    private connectionStateBadge(state: string): React.ReactNode {
+        const tone = state === 'connected' ? 'success' : state === 'disconnected' ? 'danger' : 'default'
+        return <DetailBadge tone={tone}>{translate(`switchPortMapping${state === 'connected' ? 'Connected' : state === 'disconnected' ? 'Disconnected' : 'Unknown'}`)}</DetailBadge>
+    }
+
+    private formatSpeed(value: string): string {
+        if (!value) return ''
+        const numeric = Number(value)
+        return Number.isNaN(numeric) || /[a-z]/i.test(value) ? value : `${numeric.toLocaleString()} Mbps`
+    }
+
+    private connectionRows(interfaces: Node[]) {
+        const state = infrastructurePortConnectionState(this.props.node, ...interfaces)
+        const manual = !!this.data().ManualPortMappingPort || this.text(this.data(), ['Probe', 'probe']).toLowerCase() === 'manual'
+        const source = manual ? translate('switchPortConnectionManual') : translate('switchPortConnectionAutomatic')
+
+        return [
+            { key: 'connection-state', label: translate('switchPortMappingState'), value: this.connectionStateBadge(state), textValue: translate(`switchPortMapping${state === 'connected' ? 'Connected' : state === 'disconnected' ? 'Disconnected' : 'Unknown'}`) },
+            { key: 'source', label: translate('switchPortMappingSource'), value: source, textValue: source }
+        ].filter(row => row.textValue !== '' && row.textValue !== '-')
+    }
+
+    private interfaceRows(node: Node) {
+        const data = node.data || {}
+        const linkState = this.text(data, ['State', 'state', 'OperState', 'OperationalState', 'LinkState', 'Carrier'])
+        const speed = this.formatSpeed(this.text(data, ['Speed', 'speed']))
+        const duplex = this.text(data, ['Duplex', 'duplex', 'LinkDuplex'])
+        const bond = this.text(data, ['Master', 'MasterName', 'Bond', 'BondName', 'master', 'bond'])
+        const mac = this.text(data, ['MAC', 'Mac', 'MacAddress', 'HardwareAddr'])
+        const ipv4 = this.text(data, ['IPV4', 'IPv4', 'ipv4'])
+        const driver = this.text(data, ['Driver', 'driver'])
+        const mtu = this.text(data, ['MTU', 'Mtu', 'mtu'])
+
+        return [
+            { key: 'link-state', label: translate('nicLinkStatus'), value: linkState, textValue: linkState },
+            { key: 'speed', label: translate('Speed'), value: speed, textValue: speed },
+            { key: 'duplex', label: translate('nicDuplex'), value: duplex, textValue: duplex },
+            { key: 'bond', label: translate('hostSwitchPortBondInterface'), value: bond, textValue: bond },
+            { key: 'mac', label: translate('MAC'), value: mac, textValue: mac, copyText: mac || undefined },
+            { key: 'ipv4', label: translate('ipv4'), value: ipv4, textValue: ipv4, copyText: ipv4 || undefined },
+            { key: 'driver', label: translate('Driver'), value: driver, textValue: driver },
+            { key: 'mtu', label: translate('MTU'), value: mtu, textValue: mtu }
+        ].filter(row => row.textValue !== '' && row.textValue !== '-')
+    }
+
+    private renderConnectionInfo(interfaces: Node[]) {
+        return (
+            <>
+                <DetailKeyValueList rows={this.connectionRows(interfaces)} copyTooltip={translate('copy')} />
+                {interfaces.map(node => {
+                    const rows = this.interfaceRows(node)
+                    if (!rows.length) return null
+                    const name = this.text(node.data || {}, ['Name', 'name', 'IfName', 'InterfaceName']) || node.id
+                    return <div className="netdive-switch-port-detail__interface" key={node.id}>
+                        <div className="netdive-switch-port-detail__interface-name">{name}</div>
+                        <DetailKeyValueList rows={rows} density="compact" copyTooltip={translate('copy')} />
+                    </div>
+                })}
+            </>
+        )
     }
 
     private focusNodeIDs(nodeIDs: string[]) {
         navigateInfrastructureConnectedResources(nodeIDs, this.props.node.id, 'summary')
     }
 
-    private renderConnectedResources(parentSwitch: Node | undefined, peers: Node[]) {
+    private renderConnectedResources(parentSwitch: Node | undefined, connectedHosts: Node[], interfaces: Node[]) {
         const resources = [
+            { label: translate('infrastructureHosts'), nodes: connectedHosts, fallbackType: 'host', iconTone: 'host' as const },
             { label: translate('phy-switch'), nodes: parentSwitch ? [parentSwitch] : [], fallbackType: 'switch', iconTone: 'switch' as const },
-            { label: translate('switchPortConnectedNodes'), nodes: peers, fallbackType: 'device', iconTone: 'interface' as const }
+            { label: translate('switchPortConnectedNodes'), nodes: interfaces, fallbackType: 'device', iconTone: 'interface' as const }
         ]
 
         return (
@@ -144,13 +253,22 @@ class SwitchPortDetailPanel extends React.Component<Props> {
         const parentSwitch = this.parentSwitch()
         const peers = this.connectedPeers(parentSwitch)
         const connectedHosts = this.connectedHosts(peers)
+        const interfaces = this.connectedInterfaces(peers)
+        const portRows = this.portRows()
+        const connectionRows = this.connectionRows(interfaces)
         return (
             <div className="netdive-switch-port-detail">
                 <DetailSection icon={<InfoCircleOutlined />} title={translate('switchBasicInfo')}>
-                    <DetailKeyValueList rows={this.basicRows(parentSwitch, connectedHosts)} copyTooltip={translate('copy')} />
+                    <DetailKeyValueList rows={this.basicRows(parentSwitch)} copyTooltip={translate('copy')} />
                 </DetailSection>
+                {portRows.length > 0 && <DetailSection icon={<ApartmentOutlined />} title={translate('switchPortDetails')}>
+                    <DetailKeyValueList rows={portRows} copyTooltip={translate('copy')} />
+                </DetailSection>}
+                {connectionRows.length > 0 && <DetailSection icon={<LinkOutlined />} title={translate('switchPortConnectionInfo')}>
+                    {this.renderConnectionInfo(interfaces)}
+                </DetailSection>}
                 <DetailSection icon={<ApiOutlined />} title={translate('hostConnectedResources')}>
-                    {this.renderConnectedResources(parentSwitch, peers)}
+                    {this.renderConnectedResources(parentSwitch, connectedHosts, interfaces)}
                 </DetailSection>
             </div>
         )

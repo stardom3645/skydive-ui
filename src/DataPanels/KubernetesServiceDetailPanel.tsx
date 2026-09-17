@@ -478,7 +478,7 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
         const ingressTargets = this.ingressTargets(serviceName)
         const ingressReferences = Array.isArray(detail.ingresses) ? detail.ingresses : []
         const basicRows = [
-            { label: translate('kubernetesServiceName'), value: <DetailLongValue value={serviceName} maxLines={2} />, copyText: serviceName },
+            { label: translate('kubernetesServiceName'), value: <DetailLongValue value={serviceName} maxLines={6} />, copyText: serviceName, wrap: true },
             { label: translate('kubernetesTopologyNamespaces'), value: displayOptional(detail.namespace) },
             { label: translate('kubernetesServiceType'), value: displayOptional(serviceTypeValue) },
             { label: 'Cluster IP', value: clusterIpValue, textValue: clusterIps.join(', '), copyText: clusterIps[0] }

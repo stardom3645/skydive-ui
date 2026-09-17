@@ -1,6 +1,10 @@
 import * as React from 'react'
 import * as ReactDOM from 'react-dom'
+import HostResourceTrendPanel from '../../src/DataPanels/HostResourceTrendPanel'
+import { TopologyStatusBadgeRail } from '../../src/TopologyStatusBadge'
+import '../../src/Topology.css'
 import { Button, Table } from 'antd'
+import { ResourceSectionCard, ResourceMetricStack, RESOURCE_PRESENTATION_COLORS } from '../../src/DataPanels/common/ResourcePresentation'
 
 import 'antd/dist/antd.css'
 import '../../src/DataPanels/common/DetailComponents.css'
@@ -49,6 +53,9 @@ const panelName = requestedState === 'long-name' || requestedState === 'narrow-p
         : resource === 'node'
             ? 'k8s-hwryu-k8s-test-03-control-19f8239d263'
             : 'monitoring'
+
+const ResourceSection = ResourceSectionCard
+const MetricStack = ResourceMetricStack
 
 const PreviewPanel = () => {
     const [modalOpen, setModalOpen] = React.useState(false)
@@ -111,20 +118,25 @@ const PreviewPanel = () => {
                         memoryRequestsCollected: !empty,
                         memoryLimitsCollected: !empty,
                         memoryRequestsBytes: requestedState === 'warning' ? 200 * 1024 * 1024 : undefined
-                    }} /> : <DetailSectionCard title="리소스 현황" icon={<span>▤</span>}>
+                    }} /> : <ResourceSection title="리소스 현황" icon={<span>▤</span>}>
                         {empty
                             ? <CompactEmptyState description={errorText} compact />
-                            : <div className="visual-regression-metrics">
-                                <ResourceMetricBlock title="CPU">
-                                    <DetailMetricRow primary label="현재 사용량" value="0.57 / 4 Core" ratio="14.4%" progressPercent={14.4} />
-                                    <DetailMetricRow muted label="설정된 Requests 합계" value="1.46 Core" ratio="36.5%" progressPercent={36.5} />
+                            : <MetricStack>
+                                <ResourceMetricBlock title="CPU" tooltip="Kubernetes Allocatable 기준 CPU 사용량" appearance="resource" basis={resource === 'node' ? 'Allocatable' : undefined} basisTooltip="사용률은 Kubernetes status.allocatable 기준입니다.">
+                                    <DetailMetricRow primary label="현재 사용량" value="0.57 / 4 Core" ratio="14.4%" progressPercent={14.4} progressColor={RESOURCE_PRESENTATION_COLORS.primary} />
+                                    {resource === 'cluster' && <DetailMetricRow muted label="설정된 Requests 합계" value="1.46 Core" ratio="36.5%" progressPercent={36.5} progressColor="#bfbfbf" />}
+                                    {resource === 'cluster' && <DetailMetricRow muted label="설정된 Limits 합계" value="5.0 Core" ratio="125%" />}
                                 </ResourceMetricBlock>
-                                <ResourceMetricBlock title="메모리">
+                                <ResourceMetricBlock title="메모리" tooltip="Kubernetes Allocatable 기준 메모리 사용량" appearance="resource" basis={resource === 'node' ? 'Allocatable' : undefined} basisTooltip="사용률은 Kubernetes status.allocatable 기준입니다.">
                                     <DetailMetricRow primary label="현재 사용량" value="3.2 / 3.65 GiB" ratio="87.8%" progressPercent={87.8} progressColor="#f79009" />
-                                    <DetailMetricRow muted label="설정된 Requests 합계" value="0.68 GiB" ratio="18.7%" progressPercent={18.7} />
+                                    {resource === 'cluster' && <DetailMetricRow muted label="설정된 Requests 합계" value="0.68 GiB" ratio="18.7%" progressPercent={18.7} progressColor="#bfbfbf" />}
+                                    {resource === 'cluster' && <DetailMetricRow muted label="설정된 Limits 합계" value="4.0 GiB" ratio="109.6%" />}
                                 </ResourceMetricBlock>
-                            </div>}
-                    </DetailSectionCard>}
+                                <ResourceMetricBlock title="Pod" tooltip="활성 Pod / Allocatable Pod" appearance="resource" basis={resource === 'node' ? 'Allocatable' : undefined} basisTooltip="사용률은 Kubernetes status.allocatable 기준입니다.">
+                                    <DetailMetricRow primary label="현재 사용량" value="23 / 110개" ratio="20.9%" progressPercent={20.9} progressColor={RESOURCE_PRESENTATION_COLORS.primary} />
+                                </ResourceMetricBlock>
+                            </MetricStack>}
+                    </ResourceSection>}
 
                     <DetailSectionCard title={resource === 'cluster' ? '위험 및 복원력' : resource === 'node' ? '위험 및 종속성' : '가용성'} icon={<span>!</span>}>
                         <StatusEvidenceList>
@@ -192,4 +204,52 @@ const PreviewPanel = () => {
     )
 }
 
-ReactDOM.render(<PreviewPanel />, document.getElementById('root'))
+// Reproduce SVG transform updates without moving the mouse off an open tooltip.
+const BadgeAnchorPreview = () => {
+    const [position, setPosition] = React.useState(0)
+    const [count, setCount] = React.useState(7)
+    const [visible, setVisible] = React.useState(true)
+    const timer = React.useRef<number>()
+    React.useEffect(() => () => window.clearTimeout(timer.current), [])
+    const schedule = (change: () => void) => {
+        window.clearTimeout(timer.current)
+        timer.current = window.setTimeout(change, 3000)
+    }
+    return <main>
+        <Button onClick={() => schedule(() => setPosition(value => value + 120))}>3초 뒤 노드 이동</Button>
+        <Button onClick={() => schedule(() => setCount(value => value + 1))}>3초 뒤 상태 갱신</Button>
+        <Button onClick={() => schedule(() => setVisible(false))}>3초 뒤 노드 제거</Button>
+        <svg width="800" height="500">
+            {visible && <g transform={`translate(${250 + position},200)`}>
+                <rect x="-150" y="-45" width="300" height="90" fill="white" stroke="#1677ff" />
+                <text x="-120" y="0">상태 팝업 위치 검증</text>
+                <TopologyStatusBadgeRail x={138} y={-45}
+                    badges={[{ key: 'healthy', tone: 'running', count, tooltip: '정상' }]}
+                    summary={{ title: '하위 자원 상태', totalLabel: `하위 자원 총 ${count}개`, states: [{ key: 'healthy', tone: 'running', label: '정상', count }] }} />
+            </g>}
+        </svg>
+    </main>
+}
+
+// The host preview uses its real chart component with a local, deterministic response.
+if (requestedResource === 'badge-anchor') {
+    ReactDOM.render(<BadgeAnchorPreview />, document.getElementById('root'))
+} else if (requestedResource === 'host') {
+    window.fetch = async () => new Response(JSON.stringify({
+        host: 'preview-host', range: '1h', step: '60s', start: 1789531200, end: 1789534800,
+        series: ['cpu', 'memory'].map((key, offset) => ({
+            key, label: key, unit: 'percent', lastValue: offset ? 67 : 24,
+            values: Array.from({ length: 61 }, (_, index) => ({
+                timestamp: 1789531200 + index * 60,
+                value: (offset ? 60 : 20) + Math.sin(index / 4) * 5
+            }))
+        }))
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    ReactDOM.render(<main className="visual-regression-page">
+        <section className="visual-regression-panel" style={{ width: fixture.panelWidth }}>
+            <div className="visual-regression-content"><HostResourceTrendPanel node={{ id: 'preview-host', data: { Name: 'preview-host' } } as any} /></div>
+        </section>
+    </main>, document.getElementById('root'))
+} else {
+    ReactDOM.render(<PreviewPanel />, document.getElementById('root'))
+}
