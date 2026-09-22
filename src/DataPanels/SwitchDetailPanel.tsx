@@ -12,7 +12,11 @@ import {
     switchTextValue
 } from '../SwitchNodeUtils'
 import { buildInfrastructurePortMappings, InfrastructurePortMapping, ManualPortMappingRecord } from '../InfrastructurePortMapping'
-import { listManualPortMappings } from '../ManualPortMappingAPI'
+import {
+    listManualPortMappings,
+    MANUAL_PORT_MAPPINGS_CHANGED_EVENT,
+    ManualPortMappingsChangedDetail
+} from '../ManualPortMappingAPI'
 import { connectedResourcePopoverItems, DetailEmpty, DetailKeyValueList, DetailResourceCard, DetailResourceGrid, DetailSection, InfrastructurePortMappingTable, InfrastructureTopologyIcon, ManualPortMappingManager, navigateInfrastructureConnectedResources } from './common'
 import './SwitchDetailPanel.css'
 
@@ -35,6 +39,7 @@ class SwitchDetailPanel extends React.Component<Props> {
 
     componentDidMount() {
         this.loadManualMappings()
+        window.addEventListener(MANUAL_PORT_MAPPINGS_CHANGED_EVENT, this.manualMappingsRefreshed)
     }
 
     componentDidUpdate(prevProps: Props) {
@@ -48,6 +53,20 @@ class SwitchDetailPanel extends React.Component<Props> {
 	componentWillUnmount() {
 		this.manualMappingsRequestID += 1
 		if (this.manualMappingsRetryID) window.clearTimeout(this.manualMappingsRetryID)
+		window.removeEventListener(MANUAL_PORT_MAPPINGS_CHANGED_EVENT, this.manualMappingsRefreshed)
+	}
+
+	private manualMappingsRefreshed = (event: Event) => {
+		const mappings = (event as CustomEvent<ManualPortMappingsChangedDetail>).detail?.mappings
+		if (!Array.isArray(mappings)) {
+			this.loadManualMappings()
+			return
+		}
+		const switchNodeID = this.props.node.id
+		this.setState({
+			manualMappings: mappings.filter(mapping => mapping.switchNodeId === switchNodeID),
+			allManualMappings: mappings
+		})
 	}
 
     private loadManualMappings = async (attempt = 0) => {

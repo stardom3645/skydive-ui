@@ -29,7 +29,11 @@ import { withStyles } from '@material-ui/core/styles'
 
 import { Link, Node, NodeAttrs } from '../Topology'
 import { buildInfrastructureHostPortMappings, InfrastructureHostPortMapping, ManualPortMappingRecord } from '../InfrastructurePortMapping'
-import { listManualPortMappings } from '../ManualPortMappingAPI'
+import {
+    listManualPortMappings,
+    MANUAL_PORT_MAPPINGS_CHANGED_EVENT,
+    ManualPortMappingsChangedDetail
+} from '../ManualPortMappingAPI'
 import { session } from '../Store'
 import { translate } from '../Config'
 import { styles } from './HostDetailPanelStyles'
@@ -710,10 +714,22 @@ class HostDetailPanel extends React.Component<Props, State> {
         this.loadMoldHostDetail()
         this.loadManualPortMappings()
         document.addEventListener('mousedown', this.handleDocumentMouseDown, true)
+        window.addEventListener(MANUAL_PORT_MAPPINGS_CHANGED_EVENT, this.manualPortMappingsRefreshed)
     }
 
     componentWillUnmount() {
         document.removeEventListener('mousedown', this.handleDocumentMouseDown, true)
+        window.removeEventListener(MANUAL_PORT_MAPPINGS_CHANGED_EVENT, this.manualPortMappingsRefreshed)
+    }
+
+    private manualPortMappingsRefreshed = (event: Event) => {
+        const mappings = (event as CustomEvent<ManualPortMappingsChangedDetail>).detail?.mappings
+        if (!Array.isArray(mappings)) {
+            this.loadManualPortMappings()
+            return
+        }
+        const hostNodeID = this.selectedTopologyHostNode().id
+        this.setState({ manualPortMappings: mappings.filter(mapping => mapping.hostNodeId === hostNodeID) })
     }
 
     componentDidUpdate(prevProps: Props) {

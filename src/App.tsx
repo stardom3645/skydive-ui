@@ -29,7 +29,7 @@ import {
   manualPortMappingTopologyPortID,
   ManualPortMappingRecord
 } from './InfrastructurePortMapping'
-import { listManualPortMappings } from './ManualPortMappingAPI'
+import { listManualPortMappings, notifyManualPortMappingsChanged } from './ManualPortMappingAPI'
 
 import { withStyles } from '@material-ui/core/styles'
 import CssBaseline from '@material-ui/core/CssBaseline'
@@ -757,6 +757,7 @@ class App extends React.Component<Props, State> {
       const mappings = await listManualPortMappings(this.props.session)
       if (requestID !== this.manualPortMappingRequestID) return
       this.manualPortMappings = mappings
+      notifyManualPortMappingsChanged(mappings)
       if (this.reconcileManualPortMappingLinks()) this.refreshTopology()
     } catch (error) {
       if (requestID === this.manualPortMappingRequestID) {

@@ -8,6 +8,7 @@ import {
     ReloadOutlined
 } from '@ant-design/icons'
 import { session } from './Store'
+import { MANUAL_PORT_MAPPINGS_CHANGED_EVENT } from './ManualPortMappingAPI'
 import DetailTable from './DataPanels/common/DetailTable'
 import {
     DetailChangeDiff,
@@ -59,7 +60,8 @@ export const eventResourceLabels: Record<string, string> = {
 const eventLabels: Record<string, string> = {
     state_changed: '상태 변경', link_changed: '링크 상태 변경', relation_created: 'LLDP 연결 생성', relation_removed: 'LLDP 연결 소실',
     collection_state_changed: '수집 상태 변경', manual_mapping_created: '수동 매핑 추가',
-    manual_mapping_updated: '수동 매핑 수정', manual_mapping_deleted: '수동 매핑 삭제'
+    manual_mapping_updated: '수동 매핑 수정', manual_mapping_deleted: '수동 매핑 삭제',
+    manual_mapping_superseded: 'LLDP로 수동 매핑 비활성화'
 }
 const valueLabels: Record<string, string> = {
     HEALTHY: '수집 정상', INACTIVE: '비활성', DISCONNECTED: '수집 연결 끊김', DELAYED: '수집 지연',
@@ -86,8 +88,18 @@ const eventSourceLabels: Record<string, string> = {
     manual: '수동 등록'
 }
 
+const lldpSupersedeLabels: Record<string, string> = {
+    lldp_auto_match: 'LLDP 자동 연결로 전환',
+    lldp_auto_port_conflict: 'LLDP가 다른 NIC를 감지해 비활성화',
+    lldp_auto_nic_conflict: 'NIC가 다른 LLDP 포트에서 감지됨',
+    lldp_auto_conflict: 'LLDP 연결 충돌로 비활성화'
+}
+
 export function EventChange({ event }: { event: ChangeEvent }) {
     const eventLabel = eventLabels[event.eventType] || '변경'
+    if (event.eventType === 'manual_mapping_superseded') {
+        return <Tag color="orange">{lldpSupersedeLabels[event.newValue] || eventLabel}</Tag>
+    }
     const before = valueLabels[event.oldValue] || event.oldValue
     const after = valueLabels[event.newValue] || event.newValue
     const singleLabelEvent = event.eventType.startsWith('manual_mapping_')
@@ -126,6 +138,24 @@ export default function EventHistory({ userSession, resourceId, canNavigate, onN
     const [loading, setLoading] = React.useState(false)
     const [error, setError] = React.useState('')
     const [range, setRange] = React.useState(() => Math.floor(Date.now() / 1000))
+    React.useEffect(() => {
+        let refreshTimer: number | undefined
+        const handleManualMappingsChanged = () => {
+            if (refreshTimer) window.clearTimeout(refreshTimer)
+            // Event persistence is asynchronous. Give the writer a brief chance
+            // to commit before refreshing an already-open event panel.
+            refreshTimer = window.setTimeout(() => {
+                setRange(Math.floor(Date.now() / 1000))
+                setPage(1)
+                refresh(value => value + 1)
+            }, 150)
+        }
+        window.addEventListener(MANUAL_PORT_MAPPINGS_CHANGED_EVENT, handleManualMappingsChanged)
+        return () => {
+            window.removeEventListener(MANUAL_PORT_MAPPINGS_CHANGED_EVENT, handleManualMappingsChanged)
+            if (refreshTimer) window.clearTimeout(refreshTimer)
+        }
+    }, [])
     React.useEffect(() => {
         const controller = new AbortController()
         setLoading(true); setError('')

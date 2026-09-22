@@ -1,6 +1,18 @@
 import { ManualPortMappingRecord } from './InfrastructurePortMapping'
 import { session } from './Store'
 
+export const MANUAL_PORT_MAPPINGS_CHANGED_EVENT = 'netdive:manual-port-mappings-changed'
+
+export interface ManualPortMappingsChangedDetail {
+	mappings: ManualPortMappingRecord[]
+}
+
+export const notifyManualPortMappingsChanged = (mappings: ManualPortMappingRecord[]): void => {
+	window.dispatchEvent(new CustomEvent<ManualPortMappingsChangedDetail>(MANUAL_PORT_MAPPINGS_CHANGED_EVENT, {
+		detail: { mappings }
+	}))
+}
+
 export interface ManualPortMappingInput {
 	switchNodeId: string
 	switchPortName: string

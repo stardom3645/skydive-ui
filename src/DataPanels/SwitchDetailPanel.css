@@ -235,13 +235,9 @@
     padding-right: 2px;
 }
 
-.netdive-manual-port-mapping-manager__cancel.ant-btn {
-    min-width: 76px;
-    height: 32px;
-    padding: 0 12px;
-}
-
+.netdive-manual-port-mapping-manager__cancel.ant-btn,
 .netdive-manual-port-mapping-manager__submit.ant-btn {
+    width: 88px;
     min-width: 88px;
     height: 32px;
     padding: 0 14px;
