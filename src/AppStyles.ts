@@ -1387,6 +1387,9 @@ export const styles = (theme: Theme) => createStyles({
       lineHeight: '18px'
     }
   },
+  moldCredentialsPanel: {
+    width: 'min(680px, calc(100vw - 106px))'
+  },
   eventHistoryPanel: {
     width: 'min(760px, calc(100vw - 106px))',
     overflow: 'hidden',

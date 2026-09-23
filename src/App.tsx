@@ -103,6 +103,7 @@ import {
   GlobalOutlined,
   HistoryOutlined,
   InfoCircleOutlined,
+  KeyOutlined,
   MinusCircleFilled,
   QuestionCircleFilled,
   ReloadOutlined,
@@ -152,6 +153,7 @@ import { fetchVmNameMap } from "./api";
 
 import { translate } from "./Config"
 import EventHistory, { ChangeEvent } from './EventHistory'
+import MoldCredentialsPanel from './MoldCredentialsPanel'
 
 export let currentLanguage: "en" | "ko" = "ko";
 
@@ -336,6 +338,7 @@ interface State {
   infrastructureAgentRestartAuthorized: boolean | null
   isScreenConfigOpen: boolean
   isPreferencesPanelOpen: boolean
+  isMoldCredentialsOpen: boolean
   kubernetesClusters: MoldKubernetesCluster[]
   kubernetesSelectedIds: string[]
   kubernetesLoading: boolean
@@ -600,6 +603,7 @@ class App extends React.Component<Props, State> {
       infrastructureAgentRestartAuthorized: null,
       isScreenConfigOpen: false,
       isPreferencesPanelOpen: false,
+      isMoldCredentialsOpen: false,
       kubernetesClusters: [],
       kubernetesSelectedIds: [],
       kubernetesLoading: false,
@@ -859,7 +863,7 @@ class App extends React.Component<Props, State> {
 
   private onDocumentMouseDown(event: MouseEvent) {
     const isLinkTagsExpanded = !this.state.isLinkTagsCollapsed && this.state.linkTagStates.size !== 0
-    if (!this.state.isEventHistoryOpen && !this.state.isInfrastructurePanelOpen && !this.state.isKubernetesManagerOpen && !this.state.isScreenConfigOpen && !this.state.isPreferencesPanelOpen && !this.state.isHelpOpen && !this.state.isAboutOpen && !isLinkTagsExpanded && !this.state.topologyDisplayOptionsOpen) {
+    if (!this.state.isEventHistoryOpen && !this.state.isInfrastructurePanelOpen && !this.state.isKubernetesManagerOpen && !this.state.isScreenConfigOpen && !this.state.isPreferencesPanelOpen && !this.state.isMoldCredentialsOpen && !this.state.isHelpOpen && !this.state.isAboutOpen && !isLinkTagsExpanded && !this.state.topologyDisplayOptionsOpen) {
       return
     }
     const target = event.target as Element | null
@@ -891,6 +895,7 @@ class App extends React.Component<Props, State> {
       isKubernetesManagerOpen: false,
       isScreenConfigOpen: false,
       isPreferencesPanelOpen: false,
+      isMoldCredentialsOpen: false,
       isHelpOpen: false,
       isAboutOpen: false,
       kubernetesServiceExplorerOpen: false,
@@ -4364,6 +4369,7 @@ class App extends React.Component<Props, State> {
       isKubernetesManagerOpen: false,
       isScreenConfigOpen: false,
       isPreferencesPanelOpen: false,
+      isMoldCredentialsOpen: false,
       isHelpOpen: false,
       isAboutOpen: true
     })
@@ -4380,6 +4386,7 @@ class App extends React.Component<Props, State> {
       isKubernetesManagerOpen: false,
       isScreenConfigOpen: false,
       isPreferencesPanelOpen: false,
+      isMoldCredentialsOpen: false,
       isAboutOpen: false,
       isHelpOpen: true
     })
@@ -4529,6 +4536,7 @@ class App extends React.Component<Props, State> {
       isKubernetesManagerOpen: true,
       isScreenConfigOpen: false,
       isPreferencesPanelOpen: false,
+      isMoldCredentialsOpen: false,
       isHelpOpen: false,
       isAboutOpen: false,
       kubernetesServiceExplorerOpen: false,
@@ -4549,6 +4557,7 @@ class App extends React.Component<Props, State> {
       isKubernetesManagerOpen: false,
       isScreenConfigOpen: false,
       isPreferencesPanelOpen: false,
+      isMoldCredentialsOpen: false,
       isHelpOpen: false,
       isAboutOpen: false
     }, () => this.refreshInfrastructureAgentRestartStatus())
@@ -5307,6 +5316,7 @@ class App extends React.Component<Props, State> {
       isKubernetesManagerOpen: false,
       isScreenConfigOpen: true,
       isPreferencesPanelOpen: false,
+      isMoldCredentialsOpen: false,
       isHelpOpen: false,
       isAboutOpen: false
     })
@@ -5319,9 +5329,15 @@ class App extends React.Component<Props, State> {
       isKubernetesManagerOpen: false,
       isScreenConfigOpen: false,
       isPreferencesPanelOpen: true,
+      isMoldCredentialsOpen: false,
       isHelpOpen: false,
       isAboutOpen: false
     })
+  }
+
+  private openMoldCredentialsPanel() {
+    this.closeSidePanels()
+    this.setState({ isMoldCredentialsOpen: true })
   }
 
   private eventHistoryTarget(node: Node): RecentViewedNodeItem {
@@ -5494,6 +5510,23 @@ class App extends React.Component<Props, State> {
         </div>
       </Paper>
     )
+  }
+
+  private renderMoldCredentialsPanel(classes: any) {
+    if (!this.state.isMoldCredentialsOpen) {
+      return null
+    }
+    return <Paper
+      className={clsx(classes.kubernetesManagerPanel, classes.kubernetesManagerPanelCompact, classes.moldCredentialsPanel)}
+      data-netdive-side-panel="true">
+      {this.renderCollectionPanelHeader(
+        classes,
+        "Mold API 연동",
+        "VM 콘솔 연동에 사용할 API Key와 Secret Key를 등록합니다.",
+        () => this.setState({ isMoldCredentialsOpen: false })
+      )}
+      <MoldCredentialsPanel userSession={this.props.session} />
+    </Paper>
   }
 
   private renderHelpPanel(classes: any) {
@@ -5922,6 +5955,21 @@ class App extends React.Component<Props, State> {
         )}
         {this.renderDrawerMenuGroup(
           classes,
+          "mold-credentials",
+          <KeyOutlined />,
+          "연동 설정",
+          this.renderDrawerIntegrationItem(
+            classes,
+            <KeyOutlined />,
+            "Mold API 연동",
+            "VM 콘솔 API 인증 정보 설정",
+            () => this.openMoldCredentialsPanel(),
+            this.state.isMoldCredentialsOpen
+          ),
+          this.state.isMoldCredentialsOpen
+        )}
+        {this.renderDrawerMenuGroup(
+          classes,
           "preferences",
           <Brightness4Icon />,
           translate("preferences"),
@@ -6075,6 +6123,7 @@ class App extends React.Component<Props, State> {
         {this.renderKubernetesManagerPanel(classes)}
         {this.renderScreenConfigPanel(classes)}
         {this.renderPreferencesPanel(classes)}
+        {this.renderMoldCredentialsPanel(classes)}
         {this.renderHelpPanel(classes)}
         {this.renderAboutPanel(classes)}
         {this.renderKubernetesDialogs(classes)}

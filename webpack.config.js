@@ -4,12 +4,15 @@ const CopyWebPackPlugin = require('copy-webpack-plugin');
 var path = require('path');
 
 // analyzer가 동작 중인 가상머신의 IP 주소를 입력합니다.
-const devBackend = process.env.NETDIVE_DEV_BACKEND || 'http://10.10.254.242:8082';
+// 개발 환경(로컬)에서 npm run dev을 실행합니다.
+// <개발 환경 IP>:devPort/ui_v2/  로 접속합니다.
+const devBackend = process.env.NETDIVE_DEV_BACKEND || 'http://10.10.254.97:8082';
 const devPort = Number(process.env.NETDIVE_DEV_PORT || 8082);
 
 const htmlPlugin = new HtmlWebPackPlugin({
     template: "./src/index.html",
-    filename: "./index.html"
+    filename: "./index.html",
+    hash: true
 });
 
 module.exports = {
