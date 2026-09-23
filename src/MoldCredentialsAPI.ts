@@ -2,12 +2,15 @@ import { session } from './Store'
 
 export interface MoldCredentialsStatus {
   configured: boolean
+  apiConfigured: boolean
+  dbPasswordConfigured: boolean
   message?: string
 }
 
 export interface MoldCredentialsInput {
   apiKey: string
   secretKey: string
+  dbPassword: string
 }
 
 const endpoint = (userSession?: session): string =>
@@ -45,7 +48,9 @@ export const testMoldCredentials = (
   input: MoldCredentialsInput
 ): Promise<MoldCredentialsStatus> => request(userSession, '/api/mold/credentials/test', {
   method: 'POST',
-  body: JSON.stringify(input)
+  // The API connectivity check needs only the Mold account key pair. Keeping
+  // the DB password out also remains compatible with older analyzers.
+  body: JSON.stringify({ apiKey: input.apiKey, secretKey: input.secretKey })
 })
 
 export const saveMoldCredentials = (

@@ -5522,7 +5522,7 @@ class App extends React.Component<Props, State> {
       {this.renderCollectionPanelHeader(
         classes,
         "Mold API 연동",
-        "VM 콘솔 연동에 사용할 API Key와 Secret Key를 등록합니다.",
+        "VM 콘솔 연동에 사용할 API Key, Secret Key와 Mold DB 비밀번호를 등록합니다.",
         () => this.setState({ isMoldCredentialsOpen: false })
       )}
       <MoldCredentialsPanel userSession={this.props.session} />
@@ -5962,7 +5962,7 @@ class App extends React.Component<Props, State> {
             classes,
             <KeyOutlined />,
             "Mold API 연동",
-            "VM 콘솔 API 인증 정보 설정",
+            "API 및 DB 인증 정보 설정",
             () => this.openMoldCredentialsPanel(),
             this.state.isMoldCredentialsOpen
           ),

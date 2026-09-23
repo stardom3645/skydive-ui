@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { Alert, Button, Form, Input, Space, Tag } from 'antd'
-import { CheckCircleOutlined, ExperimentOutlined, KeyOutlined, SaveOutlined } from '@ant-design/icons'
+import { ExperimentOutlined, KeyOutlined, SaveOutlined } from '@ant-design/icons'
 
 import { session } from './Store'
 import {
@@ -21,7 +21,9 @@ type Feedback = { type: 'success' | 'error' | 'info', message: string } | null
 const MoldCredentialsPanel = ({ userSession }: Props) => {
   const [apiKey, setAPIKey] = React.useState('')
   const [secretKey, setSecretKey] = React.useState('')
-  const [configured, setConfigured] = React.useState<boolean | null>(null)
+  const [dbPassword, setDBPassword] = React.useState('')
+  const [apiConfigured, setAPIConfigured] = React.useState(false)
+  const [dbPasswordConfigured, setDBPasswordConfigured] = React.useState(false)
   const [loadingStatus, setLoadingStatus] = React.useState(true)
   const [busy, setBusy] = React.useState<'test' | 'save' | null>(null)
   const [feedback, setFeedback] = React.useState<Feedback>(null)
@@ -30,7 +32,10 @@ const MoldCredentialsPanel = ({ userSession }: Props) => {
     let active = true
     getMoldCredentialsStatus(userSession)
       .then(status => {
-        if (active) setConfigured(status.configured)
+        if (active) {
+          setAPIConfigured(status.apiConfigured)
+          setDBPasswordConfigured(status.dbPasswordConfigured)
+        }
       })
       .catch(error => {
         if (active) setFeedback({ type: 'error', message: error.message })
@@ -43,9 +48,11 @@ const MoldCredentialsPanel = ({ userSession }: Props) => {
 
   const input = (): MoldCredentialsInput => ({
     apiKey: apiKey.trim(),
-    secretKey: secretKey.trim()
+    secretKey: secretKey.trim(),
+    dbPassword: dbPassword.trim()
   })
-  const canSubmit = apiKey.trim() !== '' && secretKey.trim() !== '' && busy === null
+  const canTest = apiKey.trim() !== '' && secretKey.trim() !== '' && busy === null
+  const canSave = canTest && (dbPasswordConfigured || dbPassword.trim() !== '')
 
   const test = async () => {
     setBusy('test')
@@ -65,9 +72,11 @@ const MoldCredentialsPanel = ({ userSession }: Props) => {
     setFeedback(null)
     try {
       const status = await saveMoldCredentials(userSession, input())
-      setConfigured(status.configured)
+      setAPIConfigured(status.apiConfigured)
+      setDBPasswordConfigured(status.dbPasswordConfigured)
       setAPIKey('')
       setSecretKey('')
+      setDBPassword('')
       setFeedback({ type: 'success', message: status.message || 'Mold API 연동 정보를 저장했습니다.' })
     } catch (error) {
       setFeedback({ type: 'error', message: error.message })
@@ -81,13 +90,16 @@ const MoldCredentialsPanel = ({ userSession }: Props) => {
       <span className="mold-credentials-status-icon"><KeyOutlined /></span>
       <div>
         <strong>연동 상태</strong>
-        <p>키는 Netdive DB에 암호화되어 저장되며 화면에 다시 표시되지 않습니다.</p>
+        <p>API 키와 DB 비밀번호는 Netdive DB에 암호화되어 저장되며 다시 표시되지 않습니다.</p>
       </div>
-      {loadingStatus
-        ? <Tag>확인 중</Tag>
-        : configured
-          ? <Tag color="success" icon={<CheckCircleOutlined />}>설정됨</Tag>
-          : <Tag color="warning">미설정</Tag>}
+      <Space>
+        {loadingStatus
+          ? <Tag>확인 중</Tag>
+          : <React.Fragment>
+            <Tag color={apiConfigured ? 'success' : 'warning'}>API {apiConfigured ? '설정됨' : '미설정'}</Tag>
+            <Tag color={dbPasswordConfigured ? 'success' : 'warning'}>DB {dbPasswordConfigured ? '설정됨' : '미설정'}</Tag>
+          </React.Fragment>}
+      </Space>
     </section>
 
     <Form layout="vertical" className="mold-credentials-form" onFinish={save}>
@@ -111,6 +123,19 @@ const MoldCredentialsPanel = ({ userSession }: Props) => {
           disabled={busy !== null}
         />
       </Form.Item>
+      <Form.Item
+        label="Mold DB Password"
+        required={!dbPasswordConfigured}
+        extra={dbPasswordConfigured ? '현재 값이 설정되어 있습니다. 변경할 경우에만 새 비밀번호를 입력하세요.' : '최초 설정에 필요한 Mold DB 비밀번호를 입력하세요.'}>
+        <Input.Password
+          value={dbPassword}
+          onChange={event => setDBPassword(event.target.value)}
+          placeholder={dbPasswordConfigured ? '변경할 경우에만 입력' : 'Mold DB Password 입력'}
+          autoComplete="new-password"
+          maxLength={4096}
+          disabled={busy !== null}
+        />
+      </Form.Item>
 
       {feedback && <Alert showIcon type={feedback.type} message={feedback.message} />}
 
@@ -119,15 +144,15 @@ const MoldCredentialsPanel = ({ userSession }: Props) => {
           <Button
             icon={<ExperimentOutlined />}
             onClick={test}
-            disabled={!canSubmit}
+            disabled={!canTest}
             loading={busy === 'test'}>
-            연결 테스트
+            API 연결 테스트
           </Button>
           <Button
             type="primary"
             htmlType="submit"
             icon={<SaveOutlined />}
-            disabled={!canSubmit}
+            disabled={!canSave}
             loading={busy === 'save'}>
             저장
           </Button>
