@@ -9,6 +9,7 @@ import {
     switchDisplayName,
     switchLLDPData,
     switchManagementAddress,
+    switchSystemInfo,
     switchTextValue
 } from '../SwitchNodeUtils'
 import { buildInfrastructurePortMappings, InfrastructurePortMapping, ManualPortMappingRecord } from '../InfrastructurePortMapping'
@@ -30,10 +31,11 @@ interface State {
     manualMappings: ManualPortMappingRecord[]
 	allManualMappings: ManualPortMappingRecord[]
     portMappingExpanded: boolean
+    advancedInfoCollapsed: boolean
 }
 
 class SwitchDetailPanel extends React.Component<Props> {
-    state: State = { manualMappings: [], allManualMappings: [], portMappingExpanded: false }
+    state: State = { manualMappings: [], allManualMappings: [], portMappingExpanded: false, advancedInfoCollapsed: true }
 	private manualMappingsRequestID = 0
 	private manualMappingsRetryID?: number
 
@@ -46,7 +48,7 @@ class SwitchDetailPanel extends React.Component<Props> {
         const sessionChanged = prevProps.session?.endpoint !== this.props.session?.endpoint
             || prevProps.session?.token !== this.props.session?.token
         if (prevProps.node.id !== this.props.node.id || sessionChanged) {
-            this.setState({ manualMappings: [], allManualMappings: [], portMappingExpanded: false }, this.loadManualMappings)
+            this.setState({ manualMappings: [], allManualMappings: [], portMappingExpanded: false, advancedInfoCollapsed: true }, this.loadManualMappings)
         }
     }
 
@@ -112,7 +114,6 @@ class SwitchDetailPanel extends React.Component<Props> {
 
     private basicRows() {
         const data = this.data()
-        const lldp = this.lldp()
         const name = switchDisplayName(data, this.props.node.id)
         const managementAddress = switchManagementAddress(data)
         const type = switchTextValue(data, ['Type', 'type']) || 'switch'
@@ -133,17 +134,18 @@ class SwitchDetailPanel extends React.Component<Props> {
         ]
     }
 
-    private lldpRows() {
+    private advancedRows() {
         const lldp = this.lldp()
+        const system = switchSystemInfo(this.data())
         const chassisID = switchTextValue(lldp, ['ChassisID', 'ChassisId', 'Chassis'])
         const chassisIDType = switchTextValue(lldp, ['ChassisIDType', 'ChassisIdType'])
-        const description = switchTextValue(lldp, ['Description', 'SystemDescription', 'SysDescription'])
-        const managementAddress = switchTextValue(lldp, ['MgmtAddress', 'ManagementAddress', 'MgmtAddr', 'Address'])
         return [
+            { key: 'manufacturer', label: translate('switchManufacturer'), value: system.manufacturer || '-', textValue: system.manufacturer || '-' },
+            { key: 'operatingSystem', label: translate('switchOperatingSystem'), value: system.operatingSystem || '-', textValue: system.operatingSystem || '-' },
+            { key: 'osVersion', label: translate('switchOsVersion'), value: system.osVersion || '-', textValue: system.osVersion || '-', copyText: system.osVersion || undefined },
             { key: 'chassisID', label: translate('switchChassisId'), value: chassisID || '-', textValue: chassisID || '-', copyText: chassisID || undefined },
             { key: 'chassisIDType', label: translate('switchChassisIdType'), value: chassisIDType || '-', textValue: chassisIDType || '-' },
-            { key: 'description', label: translate('switchSystemDescription'), value: description || '-', textValue: description || '-' },
-            { key: 'managementAddress', label: translate('switchManagementAddress'), value: managementAddress || '-', textValue: managementAddress || '-', copyText: managementAddress || undefined }
+            { key: 'description', label: translate('switchSystemDescription'), value: system.description || '-', textValue: system.description || '-', copyText: system.description || undefined, wrap: true }
         ]
     }
 
@@ -264,6 +266,17 @@ class SwitchDetailPanel extends React.Component<Props> {
                     <DetailKeyValueList rows={this.basicRows()} copyTooltip={translate('copy')} />
                 </DetailSection>
                 <DetailSection
+                    icon={<ApartmentOutlined />}
+                    title={translate('switchAdvancedInfo')}
+                    description={translate('switchAdvancedInfoDescription')}
+                    collapsible
+                    collapsed={this.state.advancedInfoCollapsed}
+                    onToggle={() => this.setState({ advancedInfoCollapsed: !this.state.advancedInfoCollapsed })}>
+                    {Object.keys(this.lldp()).length > 0
+                        ? <DetailKeyValueList rows={this.advancedRows()} copyTooltip={translate('copy')} />
+                        : <DetailEmpty description={translate('switchNoLldp')} compact />}
+                </DetailSection>
+                <DetailSection
                     className="netdive-switch-port-mapping-section"
                     icon={<PartitionOutlined />}
                     title={translate('switchPortMapping')}
@@ -302,11 +315,6 @@ class SwitchDetailPanel extends React.Component<Props> {
                 </DetailSection>
                 <DetailSection icon={<LinkOutlined />} title={translate('hostConnectedResources')}>
                     {this.renderConnectedResources()}
-                </DetailSection>
-                <DetailSection icon={<ApartmentOutlined />} title={translate('switchLldpInfo')}>
-                    {Object.keys(this.lldp()).length > 0
-                        ? <DetailKeyValueList rows={this.lldpRows()} copyTooltip={translate('copy')} />
-                        : <DetailEmpty description={translate('switchNoLldp')} compact />}
                 </DetailSection>
             </div>
         )

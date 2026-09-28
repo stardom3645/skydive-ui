@@ -3692,6 +3692,10 @@ button.netdive-detail-metric-row:focus-visible {
     margin-right: 0;
 }
 
+.netdive-detail-search-table__table .netdive-detail-search-table__source-column .ant-table-column-sorters {
+    justify-content: center;
+}
+
 .netdive-detail-search-table__table .ant-table-tbody > tr > td.netdive-detail-search-table__connection-state-column {
     text-align: left;
 }
@@ -3773,8 +3777,8 @@ button.netdive-detail-metric-row:focus-visible {
 @media (max-width: 430px) {
     .netdive-detail-search-table .ant-table-thead > tr > th,
     .netdive-detail-search-table .ant-table-tbody > tr > td {
-        padding-right: 7px;
-        padding-left: 7px;
+        padding-right: 4px;
+        padding-left: 4px;
     }
 }
 

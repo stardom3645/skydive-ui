@@ -1,0 +1,162 @@
+export interface SwitchModelFixture {
+    vendor: string
+    rawModel: string
+    displayModel: string
+}
+
+type ModelValue = string | [string, string]
+
+const fixtures = (vendor: string, models: ModelValue[]): SwitchModelFixture[] => models.map(value => ({
+    vendor,
+    rawModel: Array.isArray(value) ? value[0] : value,
+    displayModel: Array.isArray(value) ? value[1] : value
+}))
+
+// Product identifiers are kept in tests, not in the runtime parser. The
+// catalog intentionally mixes current product lines with common installed
+// models so vendor patterns remain useful in real brownfield environments.
+export const SWITCH_MODEL_CATALOG: SwitchModelFixture[] = [
+    ...fixtures('Cisco', [
+        'C9200-24T', 'C9200-24P', 'C9200-48T', 'C9200-48P', 'C9200L-24T-4G',
+        'C9200L-24P-4X', 'C9200L-48T-4G', 'C9200L-48P-4X', 'C9200CX-8P-2X2G', 'C9300-24T',
+        'C9300-24P', 'C9300-24UX', 'C9300-48T', 'C9300-48P', 'C9300-48UXM',
+        'C9300L-24T-4X', 'C9300L-48P-4X', 'C9300X-24Y', 'C9300X-48HX', 'C9500-16X',
+        'C9500-24Y4C', 'C9500-48Y4C', 'C9500X-28C8D', 'N9K-C93180YC-FX3', 'N9K-C9364C-GX'
+    ]),
+    ...fixtures('HPE Aruba Networking', [
+        '6000-24G-4SFP', '6000-48G-4SFP', '6100-12G-CL4', '6100-24G-4SFP+', '6100-48G-4SFP+',
+        '6200F-24G-4SFP+', '6200F-24G-4SFP+370W', '6200F-48G-4SFP+', '6200F-48G-4SFP+740W', '6300F-24G-4SFP56',
+        '6300F-48G-4SFP56', '6300M-24G-4SFP56', '6300M-48G-4SFP56', '6300M-24SR5', '6405',
+        '6410', '8100-24XF4C', '8325-32C', '8325-48Y8C', '8360-12C',
+        '8360-16Y2C', '8360-32Y4C', '8360-48Y6C', 'JL658A', 'R8Q67A'
+    ]),
+    ...fixtures('Juniper Networks', [
+        'EX2300-C-12P', 'EX2300-C-12T', 'EX2300-24P', 'EX2300-24T', 'EX2300-48P',
+        'EX2300-48T', 'EX3400-24P', 'EX3400-24T', 'EX3400-48P', 'EX3400-48T',
+        'EX4100-F-12P', 'EX4100-F-24P', 'EX4100-F-48P', 'EX4100-24MP', 'EX4100-48MP',
+        'EX4100-H-24MP', 'EX4400-24P', 'EX4400-24T', 'EX4400-24X', 'EX4400-48F',
+        'EX4400-48MXP', 'EX4400-48P', 'EX4400-48XP', 'QFX5120-48Y', 'QFX5220-32CD'
+    ]),
+    ...fixtures('Dell Technologies', [
+        'S3048-ON', 'S3124F-ON', 'S3124-ON', 'S3148P-ON', 'S4048-ON',
+        'S4048T-ON', 'S4112F-ON', 'S4112T-ON', 'S4128F-ON', 'S4128T-ON',
+        'S4148F-ON', 'S4148FE-ON', 'S4148T-ON', 'S4148U-ON', 'S4248FB-ON',
+        'S5212F-ON', 'S5224F-ON', 'S5232F-ON', 'S5248F-ON', 'S5296F-ON',
+        'S5448F-ON', 'Z9100-ON', 'Z9264F-ON', 'Z9332F-ON', 'Z9432F-ON'
+    ]),
+    ...fixtures('Arista Networks', [
+        ['DCS-7010TX-48', '7010TX-48'], ['DCS-7020SR-24C2', '7020SR-24C2'], ['DCS-7050SX3-48YC8', '7050SX3-48YC8'],
+        ['DCS-7050TX3-48C8', '7050TX3-48C8'], ['DCS-7050CX3-32S', '7050CX3-32S'], ['DCS-7060CX2-32S', '7060CX2-32S'],
+        ['DCS-7060CX-32S', '7060CX-32S'], ['DCS-7060DX4-32S', '7060DX4-32S'], ['DCS-7060PX4-32', '7060PX4-32'],
+        ['DCS-7060X4-32', '7060X4-32'], ['DCS-710P-12', '710P-12'], ['DCS-710P-16P', '710P-16P'],
+        ['DCS-720XP-24Y6', '720XP-24Y6'], ['DCS-720XP-48ZC2', '720XP-48ZC2'], ['DCS-722XPM-48ZY8', '722XPM-48ZY8'],
+        ['DCS-7280CR3-32P4', '7280CR3-32P4'], ['DCS-7280DR3-24', '7280DR3-24'], ['DCS-7280R3-48YC8', '7280R3-48YC8'],
+        ['DCS-7280SR3-48YC8', '7280SR3-48YC8'], ['DCS-7504R3', '7504R3'], ['DCS-7508R3', '7508R3'],
+        ['DCS-7804R3', '7804R3'], ['DCS-7808R3', '7808R3'], ['DCS-7812R3', '7812R3'], ['DCS-7858', '7858']
+    ]),
+    ...fixtures('Extreme Networks', [
+        '5320-16P-4XE', '5320-24P-8XE', '5320-24T-8XE', '5320-48P-8XE', '5320-48T-8XE',
+        '5420F-24P-4XE', '5420F-48P-4XE', '5420F-48P-4XL', '5420M-24W-4YE', '5420M-48W-4YE',
+        '5520-12MW-36W', '5520-24W', '5520-48W', '5720-24MW', '5720-48MW',
+        '5720-24MXW', '5720-48MXW', '7520-24Y', '7520-48Y', '7720-32C',
+        '7720-32C-DC', 'X440-G2-24P-10GE4', 'X440-G2-48P-10GE4', 'X465-24MU', 'X695-48Y-8C'
+    ]),
+    ...fixtures('NVIDIA', [
+        'SN2010', 'SN2100', 'SN2201', 'SN2410', 'SN2700',
+        'SN3420', 'SN3700', 'SN3700C', 'SN3750-SX', 'SN3800',
+        'SN4600', 'SN4600C', 'SN4700', 'SN5400', 'SN5600',
+        'SN5610', 'SN5640', 'SN5600D', ['MSN2010-CB2F', 'SN2010'], ['MSN2100-CB2F', 'SN2100'],
+        ['MSN2410-CB2F', 'SN2410'], ['MSN2700-CS2F', 'SN2700'], ['MSN3420-CB2F', 'SN3420'], ['MSN3700-CS2F', 'SN3700'], ['MSN4600-CS2F', 'SN4600']
+    ]),
+    ...fixtures('Huawei', [
+        'S1730S-L8T-A', 'S1730S-L16T-A', 'S1730S-L24T-A', 'S1730S-L48T-A', 'S5735-L24T4S-A1',
+        'S5735-L24P4S-A1', 'S5735-L48T4X-A1', 'S5735-L48P4X-A1', 'S5735-S24T4X', 'S5735-S48P4X',
+        'S5731-S24T4X', 'S5731-S48P4X', 'S5732-H24S6Q', 'S5732-H48X6C', 'S6730-S24X6Q',
+        'S6730-S48X6Q', 'S6730-H24X6C', 'S6730-H48X6C', 'S6750-H24X6C', 'S6750-H48Y8C',
+        'CE6865-48S8CQ', 'CE6881-48S6CQ', 'CE8850-64CQ-EI', 'CE9860-4C-EI', 'CE12804E'
+    ]),
+    ...fixtures('H3C', [
+        'S5130S-28P-EI', 'S5130S-52P-EI', 'S5130S-28P-HPWR-EI', 'S5130S-52P-HPWR-EI', 'S5130S-28S-EI',
+        'S5130S-52S-EI', 'S5135-L24T4X-A', 'S5135-L48T4X-A', 'S5135S-24P-EI', 'S5135S-48P-EI',
+        'S5560X-30C-EI', 'S5560X-54C-EI', 'S5560X-30F-EI', 'S5580X-28C-EI', 'S5580X-54C-EI',
+        'S6520X-30HC-EI', 'S6520X-54HC-EI', 'S6520X-30QC-EI', 'S6530X-30QC', 'S6530X-54QC',
+        'S6805-54HF', 'S6850-56HF', 'S6860-54HF', 'S6880-48S6CQ', 'S6890-54HF'
+    ]),
+    ...fixtures('CommScope', [
+        'ICX7150-C08P', 'ICX7150-C10ZP', 'ICX7150-C12P', 'ICX7150-24', 'ICX7150-24P',
+        'ICX7150-48', 'ICX7150-48P', 'ICX7150-48PF', 'ICX7250-24', 'ICX7250-24P',
+        'ICX7250-48', 'ICX7250-48P', 'ICX7450-24', 'ICX7450-24P', 'ICX7450-48',
+        'ICX7450-48P', 'ICX7550-24', 'ICX7550-24P', 'ICX7550-48', 'ICX7550-48ZP',
+        'ICX7650-48P', 'ICX7650-48ZP', 'ICX7750-48F', 'ICX7850-48F', 'ICX8200-48ZP'
+    ]),
+    ...fixtures('Ubiquiti', [
+        'USW-24', 'USW-24-PoE', 'USW-48', 'USW-48-PoE', 'USW-Lite-8-PoE',
+        'USW-Lite-16-PoE', 'USW-Flex', 'USW-Flex-Mini', 'USW-Flex-XG', 'USW-Enterprise-8-PoE',
+        'USW-Enterprise-24-PoE', 'USW-Enterprise-48-PoE', 'USW-Enterprise-XG-24', 'USW-Pro-24', 'USW-Pro-24-PoE',
+        'USW-Pro-48', 'USW-Pro-48-PoE', 'USW-Pro-Max-16', 'USW-Pro-Max-16-PoE', 'USW-Pro-Max-24',
+        'USW-Pro-Max-24-PoE', 'USW-Pro-Max-48', 'USW-Pro-Max-48-PoE', 'USW-Aggregation', 'USW-Pro-Aggregation'
+    ]),
+    ...fixtures('MikroTik', [
+        'CRS304-4XG-IN', 'CRS305-1G-4S+IN', 'CRS309-1G-8S+IN', 'CRS310-1G-5S-4S+IN', 'CRS310-8G+2S+IN',
+        'CRS312-4C+8XG-RM', 'CRS317-1G-16S+RM', 'CRS318-16P-2S+OUT', 'CRS320-8P-8B-4S+RM', 'CRS326-24G-2S+IN',
+        'CRS326-24G-2S+RM', 'CRS326-24S+2Q+RM', 'CRS326-4C+20G+2Q+RM', 'CRS328-24P-4S+RM', 'CRS328-4C-20S-4S+RM',
+        'CRS354-48G-4S+2Q+RM', 'CRS354-48P-4S+2Q+RM', 'CRS418-8P-8G-2S+RM', 'CRS504-4XQ-IN', 'CRS504-4XQ-OUT',
+        'CRS510-8XS-2XQ-IN', 'CRS518-16XS-2XQ-RM', 'CRS520-4XS-16XQ-RM', 'CSS318-16G-2S+IN', 'CSS326-24G-2S+RM'
+    ]),
+    ...fixtures('NETGEAR', [
+        'M4250-10G2F-PoE+', 'M4250-10G2XF-PoE+', 'M4250-10G2XF-PoE++', 'M4250-12M2XF', 'M4250-16XF',
+        'M4250-26G4F-PoE+', 'M4250-26G4F-PoE++', 'M4250-40G8F-PoE+', 'M4250-40G8XF-PoE+', 'M4300-12X12F',
+        'M4300-24X', 'M4300-28G', 'M4300-48X', 'M4300-52G', 'M4350-8M2V',
+        'M4350-8X8F', 'M4350-12X12F', 'M4350-16V4C', 'M4350-24F4V', 'M4350-24G4XF',
+        'M4350-24X4V', 'M4350-32F8V', 'M4350-40X4C', 'M4350-44M4X4V', 'M4350-48G4XF'
+    ]),
+    ...fixtures('TP-Link Omada', [
+        'SG2008', 'SG2008P', 'SG2210MP', 'SG2218', 'SG2428P',
+        'SG3210', 'SG3210X-M2', 'SG3210XHP-M2', 'SG3218XP-M2', 'SG3428',
+        'SG3428MP', 'SG3428X', 'SG3428XF', 'SG3428XMP', 'SG3428X-M2',
+        'SG3428XPP-M2', 'SG3452', 'SG3452P', 'SG3452X', 'SG3452XP',
+        'SG3452XMPP', 'SX3008F', 'SX3016F', 'SX3032F', 'SX3206HPP'
+    ]),
+    ...fixtures('D-Link', [
+        'DGS-1100-08V2', 'DGS-1100-10MPV2', 'DGS-1100-24V2', 'DGS-1100-26MPV2', 'DGS-1210-10',
+        'DGS-1210-10P', 'DGS-1210-20', 'DGS-1210-28', 'DGS-1210-28P', 'DGS-1210-52',
+        'DGS-1250-28X', 'DGS-1250-28XMP', 'DGS-1250-52X', 'DGS-1510-28X', 'DGS-1510-28XMP',
+        'DGS-1510-52X', 'DGS-1520-28', 'DGS-1520-28MP', 'DGS-1520-52', 'DGS-1520-52MP',
+        'DXS-1210-12TC', 'DXS-1210-16TC', 'DXS-1210-28S', 'DXS-3400-24SC', 'DXS-3400-24TC'
+    ]),
+    ...fixtures('FS', [
+        'S3150-8T2FP', 'S3150-8T2FP-P', 'S3400-24T4FP', 'S3400-48T4SP', 'S3900-24T4S',
+        'S3900-24F4S', 'S3900-48T6S-R', 'S5500-48T8SP', 'S5800-8TF12S', 'S5800-48T4S',
+        'S5800-48F4S', 'S5850-24S2Q', 'S5850-32S2Q', 'S5850-48S6Q', 'S5860-20SQ',
+        'S5860-24XB-U', 'S5860-48SC', 'S5860-48XMG-U', 'S8050-20Q4C', 'S8550-6Q2C',
+        'S8550-32C', 'N8560-32C', 'N8560-48BC', 'N8560-64C', 'N9550-64D'
+    ]),
+    ...fixtures('Edgecore Networks', [
+        'ECS2100-10T', 'ECS2100-10P', 'ECS2100-10PE', 'ECS2100-28T', 'ECS2100-28P',
+        'ECS2100-28PP', 'ECS2100-52T', 'ECS4100-12T', 'ECS4100-28T', 'ECS4100-28TC',
+        'ECS4100-28P', 'ECS4100-52T', 'ECS4100-52P', 'ECS4120-28T', 'ECS4120-28FV2',
+        'ECS4120-28FV2-I', 'ECS4125-10T', 'ECS4125-10P', 'ECS4130-28T', 'ECS4130-28T-DC',
+        'ECS4150-28T', 'ECS4150-28P', 'ECS4150-54T', 'ECS4650-54P', 'ECS5550-54X'
+    ]),
+    ...fixtures('Allied Telesis', [
+        'X230-10GP', 'X230-18GP', 'X230-28GP', 'X320-10GH', 'X320-11GPT',
+        'X320-18GH', 'X320-28GH', 'X510-28GSX', 'X510-28GPX', 'X510-52GPX',
+        'X530-28GTXM', 'X530-28GPXM', 'X530-52GTXM', 'X530-52GPXM', 'X550-18XSQ',
+        'X550-18XTQ', 'X550-18XSPQ', 'X930-28GSTX', 'X930-28GPX', 'X930-52GTX',
+        'X950-28XSQ', 'X950-28XTQ', 'X950-28XSQ-DC', 'X908GEN2', 'X8100-32C'
+    ]),
+    ...fixtures('Alcatel-Lucent Enterprise', [
+        'OS2260-P10', 'OS2260-P24', 'OS2260-P48', 'OS2360-P24', 'OS2360-P48',
+        'OS6360-10', 'OS6360-24', 'OS6360-P24', 'OS6360-48', 'OS6360-P48',
+        'OS6465-P6', 'OS6465-P12', 'OS6465T-P12', 'OS6560-24X4', 'OS6560-P24X4',
+        'OS6560-48X4', 'OS6560-P48X4', 'OS6560E-P24Z8', 'OS6570M-24X4', 'OS6860E-24',
+        'OS6860E-P48', 'OS6860N-P48Z', 'OS6870-P24X8', 'OS6900-X48C6', 'OS6900-V48C8'
+    ]),
+    ...fixtures('Zyxel Networks', [
+        'GS1900-8', 'GS1900-8HP', 'GS1900-24', 'GS1900-24HP', 'GS1900-48',
+        'GS1920-8HPV2', 'GS1920-24V2', 'GS1920-24HPV2', 'GS1920-48V2', 'GS1920-48HPV2',
+        'GS2220-10HP', 'GS2220-28', 'GS2220-28HP', 'GS2220-50', 'GS2220-50HP',
+        'XGS1930-28', 'XGS1930-28HP', 'XGS1930-52', 'XGS1930-52HP', 'XGS2220-30F',
+        'XGS2220-30HP', 'XGS2220-54', 'XGS2220-54HP', 'XS1930-12HP', 'XS3800-28'
+    ])
+]

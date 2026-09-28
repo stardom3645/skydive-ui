@@ -66,14 +66,13 @@ describe('Infrastructure LLDP port mapping', () => {
         assert.ok(source.includes("source === 'manual') return { label: translate('switchPortMappingManual'), tone: 'default'"))
         ;[
             "width: '21%'",
-            "width: '22%'",
-            "width: '20%'",
             "width: '19%'",
-            "width: '16%'",
-            "width: '28%'",
-            "width: '34%'",
-            "width: '18%'"
+            "width: '20%'",
+            "width: '27%'",
+            "width: '32%'"
         ].forEach(width => assert.ok(source.includes(width), `missing optimized column width: ${width}`))
+        assert.ok(source.match(/width: '21%'/g)!.length >= 3)
+        assert.ok(source.match(/netdive-detail-search-table__source-column/g)!.length >= 2)
         assert.ok(source.includes('netdive-detail-search-table__summary'))
         assert.ok(source.includes('netdive-detail-search-table__topbar'))
         assert.ok(source.includes('netdive-port-mapping-expanded-modal'))
@@ -94,6 +93,8 @@ describe('Infrastructure LLDP port mapping', () => {
         assert.ok(styles.includes('.netdive-detail-search-table__summary-badge .ant-badge-status'))
         assert.ok(styles.includes('.netdive-detail-search-table__table .ant-table-column-sorter-inner'))
         assert.ok(styles.includes('width: 10px'))
+        assert.ok(styles.includes('.netdive-detail-search-table__source-column .ant-table-column-sorters'))
+        assert.ok(styles.includes('justify-content: center'))
         assert.ok(styles.includes('.netdive-detail-search-table__table.is-host-perspective'))
         assert.ok(styles.includes('-webkit-line-clamp: 3'))
         assert.ok(source.includes("translate('hostSwitchPortBondShort')"))
@@ -449,6 +450,10 @@ describe('Infrastructure LLDP port mapping', () => {
 		assert.ok(panel.includes('requestID !== this.manualMappingsRequestID'))
 		assert.ok(panel.includes('allMappings={this.state.allManualMappings}'))
 		assert.ok(panel.includes('fullWidthDescription'))
+		assert.ok(panel.indexOf("title={translate('switchAdvancedInfo')}") < panel.indexOf("title={translate('switchPortMapping')}"))
+		assert.ok(panel.includes('collapsible'))
+		assert.ok(panel.includes('collapsed={this.state.advancedInfoCollapsed}'))
+		assert.ok(panel.includes('advancedInfoCollapsed: true'))
 		assert.ok(panel.includes('refreshManualPortMappingLinks'))
 		assert.ok(app.includes('buildManualPortMappingTopologyLinks'))
 		assert.ok(app.includes('reconcileManualPortMappingLinks'))
