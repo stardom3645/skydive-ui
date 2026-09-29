@@ -5,6 +5,7 @@ import {
   DatabaseOutlined,
   DeleteOutlined,
   ExperimentOutlined,
+  ExportOutlined,
   KeyOutlined,
   SaveOutlined
 } from '@ant-design/icons'
@@ -38,6 +39,7 @@ const MoldCredentialsPanel = ({ userSession, initialSetup = false, onCancel, onS
   const [dbPassword, setDBPassword] = React.useState('')
   const [apiConfigured, setAPIConfigured] = React.useState(false)
   const [dbPasswordConfigured, setDBPasswordConfigured] = React.useState(false)
+  const [moldUIURL, setMoldUIURL] = React.useState('')
   const [loadingStatus, setLoadingStatus] = React.useState(true)
   const [busy, setBusy] = React.useState<'api-test' | 'db-test' | 'save' | 'reset' | null>(null)
   const [feedback, setFeedback] = React.useState<Feedback>(null)
@@ -54,6 +56,7 @@ const MoldCredentialsPanel = ({ userSession, initialSetup = false, onCancel, onS
         if (active) {
           setAPIConfigured(status.apiConfigured)
           setDBPasswordConfigured(status.dbPasswordConfigured)
+          setMoldUIURL(status.uiURL || '')
         }
       })
       .catch(error => {
@@ -225,13 +228,24 @@ const MoldCredentialsPanel = ({ userSession, initialSetup = false, onCancel, onS
               <span>{translate('moldAPIPairDescription')}</span>
             </div>
           </div>
-          {!initialSetup && <Button
-            icon={<ExperimentOutlined />}
-            onClick={testAPI}
-            disabled={!canTestAPI}
-            loading={busy === 'api-test'}>
-            {translate('moldAPITest')}
-          </Button>}
+          <Space className="mold-credentials-test-section-actions">
+            <Button
+              className="mold-credentials-account-button"
+              icon={<ExportOutlined />}
+              href={moldUIURL || undefined}
+              target="_blank"
+              rel="noopener noreferrer"
+              disabled={!moldUIURL || busy !== null}>
+              {translate('moldOpenAccountUser')}
+            </Button>
+            {!initialSetup && <Button
+              icon={<ExperimentOutlined />}
+              onClick={testAPI}
+              disabled={!canTestAPI}
+              loading={busy === 'api-test'}>
+              {translate('moldAPITest')}
+            </Button>}
+          </Space>
         </div>
         <Form.Item label={translate('moldAPIKey')} required>
           <Input.Password
@@ -318,7 +332,7 @@ const MoldCredentialsPanel = ({ userSession, initialSetup = false, onCancel, onS
             onClick={testAPI}
             disabled={!canTestAPI}
             loading={busy === 'api-test'}>
-            {translate('moldTestAndNext')}
+            {translate('moldNext')}
           </Button>}
           {initialSetup && setupStep === 2 && <Button
             type="primary"
@@ -326,7 +340,7 @@ const MoldCredentialsPanel = ({ userSession, initialSetup = false, onCancel, onS
             onClick={testDB}
             disabled={!canTestDB}
             loading={busy === 'db-test'}>
-            {translate('moldTestAndNext')}
+            {translate('moldNext')}
           </Button>}
           {(apiConfigured || dbPasswordConfigured) && <Popconfirm
             title={<div className="mold-credentials-reset-confirm">

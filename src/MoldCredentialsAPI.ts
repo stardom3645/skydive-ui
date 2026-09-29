@@ -5,6 +5,7 @@ export interface MoldCredentialsStatus {
   configured: boolean
   apiConfigured: boolean
   dbPasswordConfigured: boolean
+  uiURL?: string
   message?: string
 }
 

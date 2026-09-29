@@ -28,6 +28,11 @@ describe('Mold credential first-run setup', () => {
     assert.ok(api.includes("request(userSession, '/api/mold/credentials/test/api'"))
     assert.ok(api.includes("request(userSession, '/api/mold/credentials/test/db'"))
     assert.ok(api.includes('body: JSON.stringify(input)'))
+    assert.ok(panel.includes("status.uiURL || ''"))
+    assert.ok(panel.includes("translate('moldOpenAccountUser')"))
+    assert.ok(panel.includes('href={moldUIURL || undefined}'))
+    assert.ok(panel.includes('target="_blank"'))
+    assert.ok(panel.includes('rel="noopener noreferrer"'))
   })
 
   it('uses the Mold-style blue wizard hierarchy without changing the side-panel flow', () => {
