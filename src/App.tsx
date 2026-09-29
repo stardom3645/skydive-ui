@@ -5352,7 +5352,7 @@ class App extends React.Component<Props, State> {
       try {
         dismissed = window.sessionStorage.getItem(MOLD_SETUP_DISMISSED_SESSION_KEY) === '1'
       } catch (_) { /* Browsers can disable session storage. */ }
-      if (!status.apiConfigured && !status.dbPasswordConfigured && !dismissed) {
+      if (!status.apiConfigured && !dismissed) {
         this.setState({ isMoldCredentialsWizardOpen: true })
       }
     }).catch((error) => {

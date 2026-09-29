@@ -5,10 +5,10 @@ import * as path from 'path'
 const read = (relativePath: string) => fs.readFileSync(path.resolve(__dirname, '..', relativePath), 'utf8')
 
 describe('Mold credential first-run setup', () => {
-  it('opens a cancellable setup modal only when every Mold credential is initially absent', () => {
+  it('opens a cancellable setup modal when the operator-managed API pair is absent', () => {
     const app = read('src/App.tsx')
     assert.ok(app.includes('this.checkInitialMoldCredentialsSetup()'))
-    assert.ok(app.includes('!status.apiConfigured && !status.dbPasswordConfigured && !dismissed'))
+    assert.ok(app.includes('!status.apiConfigured && !dismissed'))
     assert.ok(app.includes("window.sessionStorage.setItem(MOLD_SETUP_DISMISSED_SESSION_KEY, '1')"))
     assert.ok(app.includes('maskClosable={false}'))
     assert.ok(app.includes('onCancel={this.closeMoldCredentialsWizard}'))
@@ -18,11 +18,11 @@ describe('Mold credential first-run setup', () => {
     assert.ok(!app.includes('Mold 연동 정보가 설정되지 않았습니다. 모든 기능'))
   })
 
-  it('requires and submits API Key, Secret Key and DB password together during initial setup', () => {
+  it('collects the API pair while using the system-managed DB credential', () => {
     const panel = read('src/MoldCredentialsPanel.tsx')
     const api = read('src/MoldCredentialsAPI.ts')
-    assert.ok(panel.includes('const needsDBPassword = initialSetup || !dbPasswordConfigured'))
-    assert.ok(panel.includes("dbPassword.trim() !== ''"))
+    assert.ok(panel.includes("dbPassword: ''"))
+    assert.ok(panel.includes('const canTestDB = dbPasswordConfigured'))
     assert.ok(panel.includes("translate(initialSetup ? 'moldSaveAndConnect' : 'moldSave')"))
     assert.ok(panel.includes("translate('moldConfigureLater')"))
     assert.ok(api.includes("request(userSession, '/api/mold/credentials/test/api'"))
@@ -30,9 +30,21 @@ describe('Mold credential first-run setup', () => {
     assert.ok(api.includes('body: JSON.stringify(input)'))
     assert.ok(panel.includes("status.uiURL || ''"))
     assert.ok(panel.includes("translate('moldOpenAccountUser')"))
+    assert.ok(panel.includes('mold-credentials-account-help-tooltip'))
+    assert.ok(panel.includes("translate('moldAPIKeyHelpAdminFilter')"))
+    assert.ok(panel.includes("translate('moldAPIKeyHelpSelectAdmin')"))
+    assert.ok(panel.includes("translate('moldAPIKeyHelpOpenTab')"))
+    assert.ok(panel.includes("translate('moldAPIKeyHelpGenerate')"))
     assert.ok(panel.includes('href={moldUIURL}'))
     assert.ok(panel.includes('target="_blank"'))
     assert.ok(panel.includes('rel="noopener noreferrer"'))
+    assert.ok(panel.includes('mold-credentials-configured-value'))
+    assert.ok(panel.includes("translate('moldAPIConfiguredTitle')"))
+    assert.ok(panel.includes("translate('moldDBConfiguredTitle')"))
+    assert.ok(panel.includes('showAPIInput'))
+    assert.ok(panel.includes('mold-credentials-db-advanced'))
+    assert.ok(panel.includes("translate('moldDBSystemNotConfigured')"))
+    assert.ok(!panel.includes('moldDBPasswordChange'))
   })
 
   it('uses the Mold-style blue wizard hierarchy without changing the side-panel flow', () => {
@@ -67,6 +79,7 @@ describe('Mold credential first-run setup', () => {
     assert.ok(panel.includes('onConfirm={reset}'))
     assert.ok(panel.includes("translate('moldResetConnection')"))
     assert.ok(api.includes("method: 'DELETE'"))
+    assert.ok(!api.includes("'/api/mold/credentials/db'"))
   })
 
   it('does not place any Mold plaintext credential filename in source configuration', () => {
