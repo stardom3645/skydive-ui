@@ -50,6 +50,7 @@ describe('Mold credential first-run setup', () => {
     assert.ok(styles.includes('.mold-credentials-setup-step.is-current'))
     assert.ok(styles.includes('justify-content: space-between'))
     assert.ok(!panel.includes('mold-credentials-status-card'))
+    assert.ok(styles.includes('.mold-credentials-settings:not(.mold-credentials-initial-setup) .mold-credentials-form'))
     assert.ok(panel.includes("translate('moldAPITest')"))
     assert.ok(panel.includes("translate('moldDBTest')"))
     assert.ok(read('src/MoldCredentialsAPI.ts').includes("translate('moldCredentialsEndpointUnavailable')"))
