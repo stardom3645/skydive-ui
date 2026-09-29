@@ -596,6 +596,7 @@ interface Props {
     vmNameMap?: Record<string, string>
     vmNetworkMap?: Record<string, Array<{ networkName: string, macAddress: string, ipAddress: string }>>
     onZoomChange?: (zoom: number) => void
+    emptyKubernetesContent?: React.ReactNode
 }
 
 interface GroupNavigatorFilter {
@@ -6523,8 +6524,10 @@ export class Topology extends React.Component<Props, {}> {
                     className="topology-empty-layer"
                     role="status"
                     aria-live="polite">
-                    <strong>표시할 Kubernetes 리소스가 없습니다.</strong>
-                    <span>클러스터가 연결되거나 수집되면 이 화면에 자동으로 표시됩니다.</span>
+                    {this.props.emptyKubernetesContent || <React.Fragment>
+                        <strong>표시할 Kubernetes 리소스가 없습니다.</strong>
+                        <span>클러스터가 연결되거나 수집되면 이 화면에 자동으로 표시됩니다.</span>
+                    </React.Fragment>}
                 </div>}
                 {connectionFocus && <div
                     className="topology-connection-focus-status"

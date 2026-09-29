@@ -4556,6 +4556,43 @@ class App extends React.Component<Props, State> {
     })
   }
 
+  private renderKubernetesEmptyLayer() {
+    if (this.state.kubernetesLoading) {
+      return <React.Fragment>
+        <strong>{translate("kubernetesEmptyLoadingTitle")}</strong>
+        <span>{translate("kubernetesEmptyLoadingDescription")}</span>
+      </React.Fragment>
+    }
+
+    if (!this.state.moldIntegrationConnected) {
+      return <React.Fragment>
+        <strong>{translate("kubernetesEmptyMoldRequiredTitle")}</strong>
+        <span>{translate("kubernetesEmptyMoldRequiredDescription")}</span>
+        <AntButton type="primary" onClick={() => this.openMoldCredentialsPanel()}>
+          {translate("kubernetesOpenMoldSettings")}
+        </AntButton>
+      </React.Fragment>
+    }
+
+    const hasClusters = this.state.kubernetesClusters.length > 0
+    const hasSelectedClusters = this.state.kubernetesSelectedIds.length > 0
+    return <React.Fragment>
+      <strong>{translate(hasClusters && hasSelectedClusters
+        ? "kubernetesEmptyWaitingTitle"
+        : hasClusters
+          ? "kubernetesEmptyInactiveTitle"
+          : "kubernetesEmptyNoClustersTitle")}</strong>
+      <span>{translate(hasClusters && hasSelectedClusters
+        ? "kubernetesEmptyWaitingDescription"
+        : hasClusters
+          ? "kubernetesEmptyInactiveDescription"
+          : "kubernetesEmptyNoClustersDescription")}</span>
+      <AntButton type="primary" onClick={() => this.openKubernetesManager()}>
+        {translate("kubernetesOpenCollectionSettings")}
+      </AntButton>
+    </React.Fragment>
+  }
+
   private openInfrastructureTopology() {
     this.setState({
       isEventHistoryOpen: false,
@@ -6021,6 +6058,7 @@ class App extends React.Component<Props, State> {
           ),
           this.state.isEventHistoryOpen
         )}
+        <div className={classes.drawerMenuDivider} role="separator" aria-hidden="true" />
         {this.renderDrawerMenuGroup(
           classes,
           "mold-credentials",
@@ -6223,6 +6261,7 @@ class App extends React.Component<Props, State> {
               vmNameMap={this.state.vmNameMap}
               vmNetworkMap={this.state.vmNetworkMap}
               onZoomChange={this.onTopologyZoomChange.bind(this)}
+              emptyKubernetesContent={this.renderKubernetesEmptyLayer()}
             />
           </Container>
           <Container className={classes.rightPanel}>

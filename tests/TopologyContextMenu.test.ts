@@ -21,7 +21,13 @@ describe('Topology context menu contract', () => {
         assert.ok(topology.includes("const emptyKubernetesLayer = this.nodeTagActive.toLowerCase() === 'kubernetes'"))
         assert.ok(topology.includes('표시할 Kubernetes 리소스가 없습니다.'))
         assert.ok(topology.includes('클러스터가 연결되거나 수집되면 이 화면에 자동으로 표시됩니다.'))
+        assert.ok(topology.includes('emptyKubernetesContent?: React.ReactNode'))
+        assert.ok(app.includes('kubernetesOpenCollectionSettings'))
+        assert.ok(app.includes('kubernetesOpenMoldSettings'))
+        assert.ok(app.includes('onClick={() => this.openKubernetesManager()}'))
+        assert.ok(app.includes('onClick={() => this.openMoldCredentialsPanel()}'))
         assert.ok(topologyCss.includes('.topology-empty-layer'))
+        assert.ok(topologyCss.includes('pointer-events: auto'))
     })
 
     it('uses the shared navigation menu and removes capture actions', () => {

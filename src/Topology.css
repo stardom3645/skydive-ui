@@ -1475,21 +1475,32 @@ svg {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 5px;
+    width: min(440px, calc(100% - 48px));
+    gap: 7px;
+    padding: 24px 28px;
     transform: translate(-50%, -50%);
-    color: #667085;
+    border: 1px solid var(--netdive-ant-border);
+    border-radius: 10px;
+    background: var(--netdive-ant-bg);
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+    color: var(--netdive-ant-text);
     text-align: center;
-    pointer-events: none;
+    pointer-events: auto;
 }
 
-.topology-empty-layer strong {
-    color: #344054;
+.topology-empty-layer > strong {
+    color: var(--netdive-ant-heading);
     font-size: 14px;
     font-weight: 600;
 }
 
-.topology-empty-layer span {
+.topology-empty-layer > span {
     font-size: 12px;
+    line-height: 1.65;
+}
+
+.topology-empty-layer button {
+    margin-top: 9px;
 }
 
 .topology-connection-focus-status {

@@ -314,6 +314,14 @@ export const styles = (theme: Theme) => createStyles({
     color: 'var(--netdive-menu-text)',
     lineHeight: 1.2
   },
+  drawerMenuDivider: {
+    width: 32,
+    height: 1,
+    flex: '0 0 1px',
+    margin: theme.spacing(0.25, 0),
+    backgroundColor: 'var(--netdive-menu-border)',
+    opacity: 0.8
+  },
   drawerBrandLogo: {
     display: 'block',
     width: 56,

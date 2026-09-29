@@ -66,6 +66,17 @@ describe('Operational panel shared visual contract', () => {
     assert.ok(!collection.includes("'확인 필요'"))
   })
 
+  it('separates operational navigation from Mold and preference settings', () => {
+    const app = fs.readFileSync(path.resolve(__dirname, '../src/App.tsx'), 'utf8')
+    const drawer = app.slice(app.indexOf('private renderDrawerMenu(classes'), app.indexOf('\n\n  onNavigate'))
+    const events = drawer.indexOf('"events"')
+    const divider = drawer.indexOf('classes.drawerMenuDivider')
+    const mold = drawer.indexOf('"mold-credentials"')
+    assert.ok(events >= 0 && divider > events && mold > divider)
+    assert.strictEqual(rules.drawerMenuDivider.width, 32)
+    assert.strictEqual(rules.drawerMenuDivider.height, 1)
+  })
+
   it('builds event history with the same shared panel grammar as Kubernetes collection', () => {
     const app = fs.readFileSync(path.resolve(__dirname, '../src/App.tsx'), 'utf8')
     const history = fs.readFileSync(path.resolve(__dirname, '../src/EventHistory.tsx'), 'utf8')
