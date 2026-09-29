@@ -1,11 +1,12 @@
 import * as React from 'react'
-import { Alert, Button, Form, Input, Space, Tag } from 'antd'
-import { ExperimentOutlined, KeyOutlined, SaveOutlined } from '@ant-design/icons'
+import { Alert, Button, Form, Input, Popconfirm, Space, Tag } from 'antd'
+import { DeleteOutlined, ExperimentOutlined, KeyOutlined, SaveOutlined } from '@ant-design/icons'
 
 import { session } from './Store'
 import {
   getMoldCredentialsStatus,
   MoldCredentialsInput,
+  resetMoldCredentials,
   saveMoldCredentials,
   testMoldCredentials
 } from './MoldCredentialsAPI'
@@ -14,18 +15,22 @@ import './MoldCredentialsPanel.css'
 
 interface Props {
   userSession?: session
+  initialSetup?: boolean
+  onCancel?: () => void
+  onSaved?: () => void
+  onReset?: () => void
 }
 
 type Feedback = { type: 'success' | 'error' | 'info', message: string } | null
 
-const MoldCredentialsPanel = ({ userSession }: Props) => {
+const MoldCredentialsPanel = ({ userSession, initialSetup = false, onCancel, onSaved, onReset }: Props) => {
   const [apiKey, setAPIKey] = React.useState('')
   const [secretKey, setSecretKey] = React.useState('')
   const [dbPassword, setDBPassword] = React.useState('')
   const [apiConfigured, setAPIConfigured] = React.useState(false)
   const [dbPasswordConfigured, setDBPasswordConfigured] = React.useState(false)
   const [loadingStatus, setLoadingStatus] = React.useState(true)
-  const [busy, setBusy] = React.useState<'test' | 'save' | null>(null)
+  const [busy, setBusy] = React.useState<'test' | 'save' | 'reset' | null>(null)
   const [feedback, setFeedback] = React.useState<Feedback>(null)
 
   React.useEffect(() => {
@@ -49,9 +54,11 @@ const MoldCredentialsPanel = ({ userSession }: Props) => {
   const input = (): MoldCredentialsInput => ({
     apiKey: apiKey.trim(),
     secretKey: secretKey.trim(),
-    dbPassword: dbPassword.trim()
+    dbPassword
   })
-  const canTest = apiKey.trim() !== '' && secretKey.trim() !== '' && busy === null
+  const needsDBPassword = initialSetup || !dbPasswordConfigured
+  const canTest = apiKey.trim() !== '' && secretKey.trim() !== '' &&
+    (!needsDBPassword || dbPassword.trim() !== '') && busy === null
   const canSave = canTest && (dbPasswordConfigured || dbPassword.trim() !== '')
 
   const test = async () => {
@@ -59,7 +66,7 @@ const MoldCredentialsPanel = ({ userSession }: Props) => {
     setFeedback(null)
     try {
       const status = await testMoldCredentials(userSession, input())
-      setFeedback({ type: 'success', message: status.message || 'Mold API 연결에 성공했습니다.' })
+      setFeedback({ type: 'success', message: status.message || 'Mold API와 DB 연결에 성공했습니다.' })
     } catch (error) {
       setFeedback({ type: 'error', message: error.message })
     } finally {
@@ -78,6 +85,26 @@ const MoldCredentialsPanel = ({ userSession }: Props) => {
       setSecretKey('')
       setDBPassword('')
       setFeedback({ type: 'success', message: status.message || 'Mold API 연동 정보를 저장했습니다.' })
+      onSaved?.()
+    } catch (error) {
+      setFeedback({ type: 'error', message: error.message })
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const reset = async () => {
+    setBusy('reset')
+    setFeedback(null)
+    try {
+      const status = await resetMoldCredentials(userSession)
+      setAPIConfigured(false)
+      setDBPasswordConfigured(false)
+      setAPIKey('')
+      setSecretKey('')
+      setDBPassword('')
+      setFeedback({ type: 'success', message: status.message || 'Mold 연동 정보를 초기화했습니다.' })
+      onReset?.()
     } catch (error) {
       setFeedback({ type: 'error', message: error.message })
     } finally {
@@ -125,7 +152,7 @@ const MoldCredentialsPanel = ({ userSession }: Props) => {
       </Form.Item>
       <Form.Item
         label="Mold DB Password"
-        required={!dbPasswordConfigured}
+        required={needsDBPassword}
         extra={dbPasswordConfigured ? '현재 값이 설정되어 있습니다. 변경할 경우에만 새 비밀번호를 입력하세요.' : '최초 설정에 필요한 Mold DB 비밀번호를 입력하세요.'}>
         <Input.Password
           value={dbPassword}
@@ -141,12 +168,26 @@ const MoldCredentialsPanel = ({ userSession }: Props) => {
 
       <div className="mold-credentials-actions">
         <Space>
+          {onCancel && <Button onClick={onCancel} disabled={busy !== null}>나중에 설정</Button>}
+          {(apiConfigured || dbPasswordConfigured) && <Popconfirm
+            title={<div className="mold-credentials-reset-confirm">
+              <strong>Mold 연동 정보를 초기화하시겠습니까?</strong>
+              <span>저장된 API Key, Secret Key와 DB 비밀번호만 삭제합니다.</span>
+            </div>}
+            okText="초기화"
+            cancelText="취소"
+            okButtonProps={{ danger: true }}
+            onConfirm={reset}>
+            <Button danger icon={<DeleteOutlined />} disabled={busy !== null} loading={busy === 'reset'}>
+              연동 초기화
+            </Button>
+          </Popconfirm>}
           <Button
             icon={<ExperimentOutlined />}
             onClick={test}
             disabled={!canTest}
             loading={busy === 'test'}>
-            API 연결 테스트
+            연동 테스트
           </Button>
           <Button
             type="primary"
@@ -154,7 +195,7 @@ const MoldCredentialsPanel = ({ userSession }: Props) => {
             icon={<SaveOutlined />}
             disabled={!canSave}
             loading={busy === 'save'}>
-            저장
+            {initialSetup ? '저장 및 연동' : '저장'}
           </Button>
         </Space>
       </div>

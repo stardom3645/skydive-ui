@@ -65,13 +65,14 @@ describe('Infrastructure LLDP port mapping', () => {
         assert.ok(source.includes('<DetailBadge tone={source.tone}>{source.label}</DetailBadge>'))
         assert.ok(source.includes("source === 'manual') return { label: translate('switchPortMappingManual'), tone: 'default'"))
         ;[
+            "width: '20%'",
             "width: '21%'",
             "width: '19%'",
-            "width: '20%'",
-            "width: '27%'",
-            "width: '32%'"
+            "width: '26%'",
+            "width: '32%'",
+            "width: '22%'"
         ].forEach(width => assert.ok(source.includes(width), `missing optimized column width: ${width}`))
-        assert.ok(source.match(/width: '21%'/g)!.length >= 3)
+        assert.ok(source.match(/width: '20%'/g)!.length >= 4)
         assert.ok(source.match(/netdive-detail-search-table__source-column/g)!.length >= 2)
         assert.ok(source.includes('netdive-detail-search-table__summary'))
         assert.ok(source.includes('netdive-detail-search-table__topbar'))
@@ -92,7 +93,9 @@ describe('Infrastructure LLDP port mapping', () => {
         assert.ok(styles.includes('height: 20px'))
         assert.ok(styles.includes('.netdive-detail-search-table__summary-badge .ant-badge-status'))
         assert.ok(styles.includes('.netdive-detail-search-table__table .ant-table-column-sorter-inner'))
-        assert.ok(styles.includes('width: 10px'))
+        assert.ok(!styles.includes('letter-spacing: -0.35px'))
+        assert.ok(styles.includes('width: 6px'))
+        assert.ok(styles.includes('transform: scale(0.72)'))
         assert.ok(styles.includes('.netdive-detail-search-table__source-column .ant-table-column-sorters'))
         assert.ok(styles.includes('justify-content: center'))
         assert.ok(styles.includes('.netdive-detail-search-table__table.is-host-perspective'))

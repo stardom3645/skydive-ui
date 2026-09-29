@@ -48,9 +48,7 @@ export const testMoldCredentials = (
   input: MoldCredentialsInput
 ): Promise<MoldCredentialsStatus> => request(userSession, '/api/mold/credentials/test', {
   method: 'POST',
-  // The API connectivity check needs only the Mold account key pair. Keeping
-  // the DB password out also remains compatible with older analyzers.
-  body: JSON.stringify({ apiKey: input.apiKey, secretKey: input.secretKey })
+  body: JSON.stringify(input)
 })
 
 export const saveMoldCredentials = (
@@ -60,3 +58,6 @@ export const saveMoldCredentials = (
   method: 'PUT',
   body: JSON.stringify(input)
 })
+
+export const resetMoldCredentials = (userSession?: session): Promise<MoldCredentialsStatus> =>
+  request(userSession, '/api/mold/credentials', { method: 'DELETE' })

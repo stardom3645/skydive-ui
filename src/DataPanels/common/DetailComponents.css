@@ -3591,6 +3591,8 @@ button.netdive-detail-metric-row:focus-visible {
 
 .netdive-detail-search-table__table .ant-table-thead > tr > th {
     overflow: hidden;
+    padding-right: 3px;
+    padding-left: 3px;
     text-overflow: clip;
     white-space: nowrap;
     word-break: keep-all;
@@ -3602,7 +3604,7 @@ button.netdive-detail-metric-row:focus-visible {
 .netdive-detail-search-table__table .ant-table-column-sorters {
     min-width: 0;
     padding: 0;
-    gap: 1px;
+    gap: 0;
 }
 
 .netdive-detail-search-table__table .ant-table-column-title {
@@ -3613,7 +3615,8 @@ button.netdive-detail-metric-row:focus-visible {
 }
 
 .netdive-detail-search-table__table .ant-table-column-sorter {
-    margin-left: 1px;
+    width: 6px;
+    margin-left: 0;
     flex: 0 0 auto;
 }
 
@@ -3621,8 +3624,10 @@ button.netdive-detail-metric-row:focus-visible {
  * The status/source columns receive their width in the column definition;
  * this rule prevents the sorter wrapper from reserving excess inline space. */
 .netdive-detail-search-table__table .ant-table-column-sorter-inner {
-    width: 10px;
-    font-size: 9px;
+    width: 6px;
+    font-size: 7px;
+    transform: scale(0.72);
+    transform-origin: center;
 }
 
 .netdive-detail-search-table__nowrap-value {
@@ -3779,6 +3784,11 @@ button.netdive-detail-metric-row:focus-visible {
     .netdive-detail-search-table .ant-table-tbody > tr > td {
         padding-right: 4px;
         padding-left: 4px;
+    }
+
+    .netdive-detail-search-table .ant-table-thead > tr > th {
+        padding-right: 2px;
+        padding-left: 2px;
     }
 }
 

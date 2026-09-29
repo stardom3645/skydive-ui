@@ -154,8 +154,11 @@ import { fetchVmNameMap } from "./api";
 import { translate } from "./Config"
 import EventHistory, { ChangeEvent } from './EventHistory'
 import MoldCredentialsPanel from './MoldCredentialsPanel'
+import { getMoldCredentialsStatus } from './MoldCredentialsAPI'
 
 export let currentLanguage: "en" | "ko" = "ko";
+
+const MOLD_SETUP_DISMISSED_SESSION_KEY = 'netdive-mold-setup-dismissed'
 
 // expose app ouside
 declare global {
@@ -339,6 +342,7 @@ interface State {
   isScreenConfigOpen: boolean
   isPreferencesPanelOpen: boolean
   isMoldCredentialsOpen: boolean
+  isMoldCredentialsWizardOpen: boolean
   kubernetesClusters: MoldKubernetesCluster[]
   kubernetesSelectedIds: string[]
   kubernetesLoading: boolean
@@ -604,6 +608,7 @@ class App extends React.Component<Props, State> {
       isScreenConfigOpen: false,
       isPreferencesPanelOpen: false,
       isMoldCredentialsOpen: false,
+      isMoldCredentialsWizardOpen: false,
       kubernetesClusters: [],
       kubernetesSelectedIds: [],
       kubernetesLoading: false,
@@ -717,6 +722,7 @@ class App extends React.Component<Props, State> {
     this.refreshVMConsoleEnabled()
     this.refreshKubernetesClusters()
     this.refreshManualPortMappingLinks()
+    this.checkInitialMoldCredentialsSetup()
     this.vmNameMapRefreshID = window.setInterval(() => {
       this.refreshVmNameMap()
       this.refreshVmNetworkMap()
@@ -5340,6 +5346,45 @@ class App extends React.Component<Props, State> {
     this.setState({ isMoldCredentialsOpen: true })
   }
 
+  private checkInitialMoldCredentialsSetup() {
+    getMoldCredentialsStatus(this.props.session).then((status) => {
+      let dismissed = false
+      try {
+        dismissed = window.sessionStorage.getItem(MOLD_SETUP_DISMISSED_SESSION_KEY) === '1'
+      } catch (_) { /* Browsers can disable session storage. */ }
+      if (!status.apiConfigured && !status.dbPasswordConfigured && !dismissed) {
+        this.setState({ isMoldCredentialsWizardOpen: true })
+      }
+    }).catch((error) => {
+      console.debug('Failed to read Mold credential setup status', error)
+    })
+  }
+
+  private dismissMoldCredentialsWizard = () => {
+    try {
+      window.sessionStorage.setItem(MOLD_SETUP_DISMISSED_SESSION_KEY, '1')
+    } catch (_) { /* Keep cancellation available without browser storage. */ }
+    this.setState({ isMoldCredentialsWizardOpen: false })
+  }
+
+  private completeMoldCredentialsWizard = () => {
+    try {
+      window.sessionStorage.removeItem(MOLD_SETUP_DISMISSED_SESSION_KEY)
+    } catch (_) { /* Credential storage succeeded independently. */ }
+    this.setState({ isMoldCredentialsWizardOpen: false })
+    this.refreshVmNameMap()
+    this.refreshVmNetworkMap()
+    this.refreshVmDetailMap()
+    this.refreshMoldInventory()
+    this.refreshManagementServers()
+  }
+
+  private moldCredentialsReset = () => {
+    try {
+      window.sessionStorage.removeItem(MOLD_SETUP_DISMISSED_SESSION_KEY)
+    } catch (_) { /* Reset is complete even without browser storage. */ }
+  }
+
   private eventHistoryTarget(node: Node): RecentViewedNodeItem {
     const attrs = this.nodeAttrs(node)
     return { id: node.id, name: this.nodeDisplayName(node), rawType: this.recentNodeRawType(node),
@@ -5525,8 +5570,32 @@ class App extends React.Component<Props, State> {
         "VM 콘솔 연동에 사용할 API Key, Secret Key와 Mold DB 비밀번호를 등록합니다.",
         () => this.setState({ isMoldCredentialsOpen: false })
       )}
-      <MoldCredentialsPanel userSession={this.props.session} />
+      <MoldCredentialsPanel userSession={this.props.session} onReset={this.moldCredentialsReset} />
     </Paper>
+  }
+
+  private renderMoldCredentialsWizard() {
+    return <AntModal
+      visible={this.state.isMoldCredentialsWizardOpen}
+      title="Mold 연동 설정"
+      footer={null}
+      width={700}
+      centered
+      destroyOnClose
+      maskClosable={false}
+      wrapClassName="mold-credentials-setup-modal"
+      onCancel={this.dismissMoldCredentialsWizard}>
+      <div className="mold-credentials-setup-intro">
+        <strong>Mold와 Netdive를 연동합니다.</strong>
+        VM 상세 정보, 네트워크 정보 및 콘솔 기능을 사용하려면 세 가지 인증 정보가 필요합니다.
+        지금 설정하지 않아도 다른 Netdive 기능은 계속 사용할 수 있습니다.
+      </div>
+      <MoldCredentialsPanel
+        userSession={this.props.session}
+        initialSetup
+        onCancel={this.dismissMoldCredentialsWizard}
+        onSaved={this.completeMoldCredentialsWizard} />
+    </AntModal>
   }
 
   private renderHelpPanel(classes: any) {
@@ -6124,6 +6193,7 @@ class App extends React.Component<Props, State> {
         {this.renderScreenConfigPanel(classes)}
         {this.renderPreferencesPanel(classes)}
         {this.renderMoldCredentialsPanel(classes)}
+        {this.renderMoldCredentialsWizard()}
         {this.renderHelpPanel(classes)}
         {this.renderAboutPanel(classes)}
         {this.renderKubernetesDialogs(classes)}
