@@ -1,12 +1,11 @@
 import * as React from 'react'
-import { Alert, Button, Form, Input, Popconfirm, Space, Tag } from 'antd'
+import { Alert, Button, Form, Input, Popconfirm, Space } from 'antd'
 import {
   CloudServerOutlined,
   DatabaseOutlined,
   DeleteOutlined,
   ExperimentOutlined,
   ExportOutlined,
-  KeyOutlined,
   SaveOutlined
 } from '@ant-design/icons'
 
@@ -40,7 +39,6 @@ const MoldCredentialsPanel = ({ userSession, initialSetup = false, onCancel, onS
   const [apiConfigured, setAPIConfigured] = React.useState(false)
   const [dbPasswordConfigured, setDBPasswordConfigured] = React.useState(false)
   const [moldUIURL, setMoldUIURL] = React.useState('')
-  const [loadingStatus, setLoadingStatus] = React.useState(true)
   const [busy, setBusy] = React.useState<'api-test' | 'db-test' | 'save' | 'reset' | null>(null)
   const [feedback, setFeedback] = React.useState<Feedback>(null)
   const [apiFeedback, setAPIFeedback] = React.useState<Feedback>(null)
@@ -61,9 +59,6 @@ const MoldCredentialsPanel = ({ userSession, initialSetup = false, onCancel, onS
       })
       .catch(error => {
         if (active) setFeedback({ type: 'error', message: error.message })
-      })
-      .finally(() => {
-        if (active) setLoadingStatus(false)
       })
     return () => { active = false }
   }, [userSession])
@@ -190,28 +185,6 @@ const MoldCredentialsPanel = ({ userSession, initialSetup = false, onCancel, onS
         </div>
       </div>
     </React.Fragment>}
-
-    {!initialSetup && <section className="mold-credentials-status-card">
-      <span className="mold-credentials-status-icon"><KeyOutlined /></span>
-      <div className="mold-credentials-status-copy">
-        <strong>{translate('moldConnectionStatus')}</strong>
-        <p>{translate('moldCredentialsEncryptedDescription')}</p>
-      </div>
-      <div className="mold-credentials-status-summary">
-        {loadingStatus
-          ? <Tag>{translate('moldChecking')}</Tag>
-          : <React.Fragment>
-            <div className="mold-credentials-status-item">
-              <span>{translate('moldAPI')}</span>
-              <Tag color={apiConfigured ? 'success' : (initialSetup ? 'blue' : 'warning')}>{translate(apiConfigured ? 'moldConfigured' : 'moldNotConfigured')}</Tag>
-            </div>
-            <div className="mold-credentials-status-item">
-              <span>{translate('moldDB')}</span>
-              <Tag color={dbPasswordConfigured ? 'success' : (initialSetup ? 'blue' : 'warning')}>{translate(dbPasswordConfigured ? 'moldConfigured' : 'moldNotConfigured')}</Tag>
-            </div>
-          </React.Fragment>}
-      </div>
-    </section>}
 
     <Form
       layout={initialSetup ? 'horizontal' : 'vertical'}
