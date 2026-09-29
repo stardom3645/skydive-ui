@@ -5367,6 +5367,10 @@ class App extends React.Component<Props, State> {
     this.setState({ isMoldCredentialsWizardOpen: false })
   }
 
+  private closeMoldCredentialsWizard = () => {
+    this.setState({ isMoldCredentialsWizardOpen: false })
+  }
+
   private completeMoldCredentialsWizard = () => {
     try {
       window.sessionStorage.removeItem(MOLD_SETUP_DISMISSED_SESSION_KEY)
@@ -5566,8 +5570,8 @@ class App extends React.Component<Props, State> {
       data-netdive-side-panel="true">
       {this.renderCollectionPanelHeader(
         classes,
-        "Mold API 연동",
-        "VM 콘솔 연동에 사용할 API Key, Secret Key와 Mold DB 비밀번호를 등록합니다.",
+        translate("moldCredentialsWizardTitle"),
+        translate("moldCredentialsEncryptedDescription"),
         () => this.setState({ isMoldCredentialsOpen: false })
       )}
       <MoldCredentialsPanel userSession={this.props.session} onReset={this.moldCredentialsReset} />
@@ -5577,19 +5581,14 @@ class App extends React.Component<Props, State> {
   private renderMoldCredentialsWizard() {
     return <AntModal
       visible={this.state.isMoldCredentialsWizardOpen}
-      title="Mold 연동 설정"
+      title={translate("moldCredentialsWizardTitle")}
       footer={null}
-      width={700}
+      width={850}
       centered
       destroyOnClose
       maskClosable={false}
       wrapClassName="mold-credentials-setup-modal"
-      onCancel={this.dismissMoldCredentialsWizard}>
-      <div className="mold-credentials-setup-intro">
-        <strong>Mold와 Netdive를 연동합니다.</strong>
-        VM 상세 정보, 네트워크 정보 및 콘솔 기능을 사용하려면 세 가지 인증 정보가 필요합니다.
-        지금 설정하지 않아도 다른 Netdive 기능은 계속 사용할 수 있습니다.
-      </div>
+      onCancel={this.closeMoldCredentialsWizard}>
       <MoldCredentialsPanel
         userSession={this.props.session}
         initialSetup
