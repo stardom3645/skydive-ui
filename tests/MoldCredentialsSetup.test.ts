@@ -30,7 +30,7 @@ describe('Mold credential first-run setup', () => {
     assert.ok(api.includes('body: JSON.stringify(input)'))
     assert.ok(panel.includes("status.uiURL || ''"))
     assert.ok(panel.includes("translate('moldOpenAccountUser')"))
-    assert.ok(panel.includes('href={moldUIURL || undefined}'))
+    assert.ok(panel.includes('href={moldUIURL}'))
     assert.ok(panel.includes('target="_blank"'))
     assert.ok(panel.includes('rel="noopener noreferrer"'))
   })

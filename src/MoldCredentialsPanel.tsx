@@ -225,27 +225,25 @@ const MoldCredentialsPanel = ({ userSession, initialSetup = false, onCancel, onS
             <span className="mold-credentials-test-section-icon"><CloudServerOutlined /></span>
             <div>
               <strong>{translate('moldAPI')}</strong>
-              <span>{translate('moldAPIPairDescription')}</span>
+              <span>
+                {translate('moldAPIPairDescription')}
+                {moldUIURL && <React.Fragment>{' '}<a
+                  className="mold-credentials-account-link"
+                  href={moldUIURL}
+                  target="_blank"
+                  rel="noopener noreferrer">
+                  {translate('moldOpenAccountUser')} <ExportOutlined />
+                </a></React.Fragment>}
+              </span>
             </div>
           </div>
-          <Space className="mold-credentials-test-section-actions">
-            <Button
-              className="mold-credentials-account-button"
-              icon={<ExportOutlined />}
-              href={moldUIURL || undefined}
-              target="_blank"
-              rel="noopener noreferrer"
-              disabled={!moldUIURL || busy !== null}>
-              {translate('moldOpenAccountUser')}
-            </Button>
-            {!initialSetup && <Button
+          {!initialSetup && <Button
               icon={<ExperimentOutlined />}
               onClick={testAPI}
               disabled={!canTestAPI}
               loading={busy === 'api-test'}>
               {translate('moldAPITest')}
             </Button>}
-          </Space>
         </div>
         <Form.Item label={translate('moldAPIKey')} required>
           <Input.Password
