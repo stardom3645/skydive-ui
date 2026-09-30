@@ -225,10 +225,10 @@ export class ManualPortMappingManager extends React.PureComponent<Props, State> 
 				overlayClassName="netdive-port-mapping-action-tooltip"
 				getPopupContainer={() => document.body}
 				autoAdjustOverflow
-				destroyTooltipOnHide>
+					destroyOnHidden>
 			<Dropdown
-				overlay={managementMenu}
-				overlayClassName="netdive-manual-port-mapping-dropdown"
+				popupRender={() => managementMenu}
+				classNames={{ root: 'netdive-manual-port-mapping-dropdown' }}
 				placement="bottomRight"
 				getPopupContainer={() => document.body}
 				trigger={['click']}>
@@ -240,7 +240,7 @@ export class ManualPortMappingManager extends React.PureComponent<Props, State> 
 			</Dropdown>
 			</Tooltip>
 			<Modal
-				visible={this.state.visible}
+				open={this.state.visible}
 				wrapClassName="netdive-manual-port-mapping-modal"
 				title={translate(this.state.view === 'list'
 					? 'manualPortMappingMenuList'

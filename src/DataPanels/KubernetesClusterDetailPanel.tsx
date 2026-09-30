@@ -1142,7 +1142,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                 <Collapse
                     bordered={false}
                     className="netdive-k8s-cluster-detail__capacity-compare-collapse"
-                    expandIconPosition="right">
+                    expandIconPosition="end">
                     <Collapse.Panel
                         key="allocation-basis"
                         header={<span className="netdive-k8s-cluster-detail__capacity-compare-title">
@@ -2067,7 +2067,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                         bordered={false}
                         className="netdive-k8s-cluster-detail__basic-collapse"
                         activeKey={this.state.basicInfoActiveKey}
-                        expandIconPosition="right"
+                        expandIconPosition="end"
                         onChange={key => this.setState({ basicInfoActiveKey: Array.isArray(key) ? String(key[0] || '') : String(key || '') })}>
                         <Collapse.Panel header={translate('kubernetesAdvancedInformation')} key="advanced">
                             <BasicInfoRows density="compact" rows={advancedRows} copyTooltip={translate('copy')} />

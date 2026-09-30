@@ -6,7 +6,6 @@ import '../../src/Topology.css'
 import { Button, Table } from 'antd'
 import { ResourceSectionCard, ResourceMetricStack, RESOURCE_PRESENTATION_COLORS } from '../../src/DataPanels/common/ResourcePresentation'
 
-import 'antd/dist/antd.css'
 import '../../src/DataPanels/common/DetailComponents.css'
 import {
     BasicInfoRows,

@@ -4197,12 +4197,12 @@ class App extends React.Component<Props, State> {
 
     return (
       <AntDropdown
-        overlay={menu}
-        overlayClassName="netdive-mold-dropdown netdive-topology-display-options"
+        popupRender={() => menu}
+        classNames={{ root: 'netdive-mold-dropdown netdive-topology-display-options' }}
         trigger={['click']}
         placement="bottomLeft"
-        visible={this.state.topologyDisplayOptionsOpen}
-        onVisibleChange={(visible) => this.setState({ topologyDisplayOptionsOpen: visible })}
+        open={this.state.topologyDisplayOptionsOpen}
+        onOpenChange={(open) => this.setState({ topologyDisplayOptionsOpen: open })}
         getPopupContainer={() => document.body}>
         <Button
           data-netdive-display-options="true"
@@ -4509,8 +4509,8 @@ class App extends React.Component<Props, State> {
     )
     // Form controls belong in a Popover, never inside a Menu's list semantics.
     if (customHeader) return (
-      <AntPopover key={id} placement="rightTop" trigger="click" visible={visible}
-        onVisibleChange={onVisibleChange} overlayClassName="netdive-navigation-preferences"
+      <AntPopover key={id} placement="rightTop" trigger="click" open={visible}
+        onOpenChange={onVisibleChange} classNames={{ root: 'netdive-navigation-preferences' }}
         getPopupContainer={node => node.parentElement || document.body}
         content={<div id={`netdive-navigation-${id}`} role="dialog" aria-label={label}
           onKeyDown={event => { if (event.key === 'Escape') onVisibleChange(false) }}>
@@ -4526,10 +4526,10 @@ class App extends React.Component<Props, State> {
     })
     collectItems(items)
     return (
-      <AntDropdown key={id} placement="bottomLeft" align={{ offset: [68, -64] }} trigger={['click']} visible={visible}
-        onVisibleChange={onVisibleChange} overlayClassName="netdive-navigation-dropdown"
+      <AntDropdown key={id} placement="bottomLeft" align={{ offset: [68, -64] }} trigger={['click']} open={visible}
+        onOpenChange={onVisibleChange} classNames={{ root: 'netdive-navigation-dropdown' }}
         getPopupContainer={node => node.parentElement || document.body}
-        overlay={<AntMenu id={`netdive-navigation-${id}`} selectable={false} aria-label={label}
+        popupRender={() => <AntMenu id={`netdive-navigation-${id}`} selectable={false} aria-label={label}
           onKeyDown={event => { if (event.key === 'Escape') onVisibleChange(false) }}>
           <AntMenu.ItemGroup key={id} title={label}>{menuItems}</AntMenu.ItemGroup>
         </AntMenu>}>
@@ -4755,7 +4755,7 @@ class App extends React.Component<Props, State> {
     return (
       <AntModal
         title={translate("infrastructureAgentRestartTitle")}
-        visible={this.state.infrastructureAgentRestartDialogOpen}
+        open={this.state.infrastructureAgentRestartDialogOpen}
         zIndex={1400}
         confirmLoading={this.state.infrastructureAgentRestartLoading}
         okText={translate("infrastructureAgentRestartExecute")}
@@ -5613,7 +5613,7 @@ class App extends React.Component<Props, State> {
 
   private renderMoldCredentialsWizard() {
     return <AntModal
-      visible={this.state.isMoldCredentialsWizardOpen}
+      open={this.state.isMoldCredentialsWizardOpen}
       title={translate("moldCredentialsWizardTitle")}
       footer={null}
       width={850}
@@ -5929,7 +5929,7 @@ class App extends React.Component<Props, State> {
     const defaultDisabledKubernetesProbes = ["secret", "configmap"]
     return (
       <React.Fragment>
-        <AntModal visible={!!this.state.kubernetesConfirmClusterId} centered width={460} zIndex={1400}
+        <AntModal open={!!this.state.kubernetesConfirmClusterId} centered width={460} zIndex={1400}
           wrapClassName="netdive-collection-confirm"
           title={translate("kubernetesEnableConfirmTitle")}
           onCancel={() => this.setState({ kubernetesConfirmClusterId: "" })}

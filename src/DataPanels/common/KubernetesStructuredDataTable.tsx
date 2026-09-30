@@ -50,7 +50,10 @@ export const KubernetesStructuredDataTable = ({
     if (!rows.length) return <DetailEmpty description={emptyText} compact className="netdive-k8s-structured-table__empty" />
     const toggle = (row: KubernetesStructuredDataRow) => {
         if (!row.expandedValue) return
-        setExpandedKeys(current => toggleKubernetesStructuredExpandedKey(current, row.id))
+        setExpandedKeys(current => toggleKubernetesStructuredExpandedKey(
+            current.filter((key): key is string | number => typeof key === 'string' || typeof key === 'number'),
+            row.id
+        ))
     }
     const columns: any[] = [
         {
@@ -134,7 +137,7 @@ export const KubernetesRawJsonCollapse = ({
             className="netdive-k8s-raw-json-collapse"
             activeKey={open ? ['raw'] : []}
             onChange={keys => setOpen((Array.isArray(keys) ? keys : [keys]).indexOf('raw') >= 0)}
-            expandIconPosition="right"
+            expandIconPosition="end"
             destroyInactivePanel>
             <Collapse.Panel
                 header={<Typography.Text strong>{title}</Typography.Text>}

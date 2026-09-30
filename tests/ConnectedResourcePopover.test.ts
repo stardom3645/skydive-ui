@@ -16,7 +16,7 @@ describe('Connected resource popover', () => {
         assert.ok(source.includes("resourcesPopoverWidth === 'wide'"))
         assert.ok(source.includes('{ min: 360, max: 600, ratio: 1.85 }'))
         assert.ok(source.includes('{ min: 260, max: 440, ratio: 1.35 }'))
-        assert.ok(source.includes('overlayStyle={resourceListWidth ? { width: resourceListWidth } : undefined}'))
+        assert.ok(source.includes("styles={{ root: resourceListWidth ? { width: resourceListWidth } : undefined }}"))
         assert.ok(source.includes('autoAdjustOverflow'))
         assert.ok(source.includes('getPopupContainer={() => document.body}'))
         assert.ok(source.includes("document.addEventListener('mousedown', closeOnOutsideMouseDown, true)"))

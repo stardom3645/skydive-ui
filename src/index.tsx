@@ -16,9 +16,8 @@
  */
 
 import * as React from 'react'
-import * as ReactDOM from 'react-dom'
+import { createRoot } from 'react-dom/client'
 import 'roboto-fontface/css/roboto/roboto-fontface.css'
-import 'antd/dist/antd.css'
 import { SnackbarProvider } from 'notistack'
 import '@fortawesome/fontawesome-free/css/all.css'
 import { Provider, connect } from 'react-redux'
@@ -72,7 +71,7 @@ class SkydiveApp extends React.Component<Props> {
   }
 }
 
-ReactDOM.render(
+createRoot(document.getElementById('index')!).render(
   <Provider store={store}>
     <NetdiveAntdProvider>
       <SnackbarProvider
@@ -89,5 +88,4 @@ ReactDOM.render(
       </SnackbarProvider>
     </NetdiveAntdProvider>
   </Provider>,
-  document.getElementById('index')
 )

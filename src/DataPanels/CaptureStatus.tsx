@@ -632,7 +632,7 @@ class CaptureStatusPanel extends React.Component<Props, State> {
             </DetailSectionCard>
           </section>
 
-          <Collapse className={classes.rawFlowAccordion} expandIconPosition="right">
+          <Collapse className={classes.rawFlowAccordion} expandIconPosition="end">
             <Collapse.Panel key="raw-flows" header={<span><NodeIndexOutlined /> 원시 플로우 보기</span>}>
               <FlowPanel el={this.props.el} />
             </Collapse.Panel>

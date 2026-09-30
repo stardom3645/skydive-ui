@@ -417,7 +417,7 @@ export const DetailAdvancedInfo = ({ title, children, active, onChange, classNam
         bordered={false}
         className={joinClassNames('netdive-detail-advanced-collapse', hierarchy === 'supporting' && 'is-supporting', className)}
         activeKey={active ? 'advanced' : ''}
-        expandIconPosition="right"
+        expandIconPosition="end"
         onChange={key => onChange((Array.isArray(key) ? String(key[0] || '') : String(key || '')) === 'advanced')}>
         <Collapse.Panel header={title} key="advanced">
             {children}
@@ -541,9 +541,9 @@ export const DetailInfoTooltip = ({
     return <Tooltip
         title={title}
         placement="top"
-        arrowPointAtCenter
+        arrow={{ pointAtCenter: true }}
         trigger={['hover', 'focus']}
-        overlayClassName="netdive-operational-tooltip"
+        classNames={{ root: 'netdive-operational-tooltip' }}
         getPopupContainer={detailTooltipPopupContainer}
         autoAdjustOverflow>
         <span
@@ -842,8 +842,8 @@ export const DetailNavigationTabs = ({
     </Menu>
     const overflowTrigger = overflowTabs.length > 0
         ? <Dropdown
-            overlay={menu}
-            overlayClassName="netdive-mold-dropdown"
+            popupRender={() => menu}
+            classNames={{ root: 'netdive-mold-dropdown' }}
             trigger={['click']}
             placement="bottomRight"
             getPopupContainer={() => document.body}>
@@ -1530,10 +1530,10 @@ export const DetailResourceCard = ({
             content={<DetailConnectedResourcePopover title={resourcesTitle || label} items={resources} onNavigate={navigateResource} />}
             placement="bottomRight"
             trigger="click"
-            visible={resourcesOpen}
-            onVisibleChange={handleResourcesVisibleChange}
-            overlayClassName="netdive-connected-resource-popover-overlay"
-            overlayStyle={resourceListWidth ? { width: resourceListWidth } : undefined}
+            open={resourcesOpen}
+            onOpenChange={handleResourcesVisibleChange}
+            classNames={{ root: 'netdive-connected-resource-popover-overlay' }}
+            styles={{ root: resourceListWidth ? { width: resourceListWidth } : undefined }}
             getPopupContainer={() => document.body}
             autoAdjustOverflow>
             <span

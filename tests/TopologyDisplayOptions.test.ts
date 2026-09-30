@@ -61,7 +61,7 @@ describe('Topology display options interactions', () => {
         for (const checked of [true, false]) {
             panel.onDocumentMouseDown(mouseDown(true))
             assert.strictEqual(panel.state.topologyDisplayOptionsOpen, true)
-            const menu = panel.renderTopologyDisplayOptions({}).props.overlay
+            const menu = panel.renderTopologyDisplayOptions({}).props.popupRender()
             const labelBoundary = menu.children[0].children[0]
             const checkbox = findCheckbox(menu)
             let stopped = false
@@ -70,7 +70,7 @@ describe('Topology display options interactions', () => {
             assert.strictEqual(stopped, true)
             checkbox.props.onChange({ target: { checked } })
             assert.strictEqual(panel.state.topologyDisplayOptions.hideDownNodes, checked)
-            assert.strictEqual(findCheckbox(panel.renderTopologyDisplayOptions({}).props.overlay).props.checked, checked)
+            assert.strictEqual(findCheckbox(panel.renderTopologyDisplayOptions({}).props.popupRender()).props.checked, checked)
         }
         assert.strictEqual(saved.length, 2)
         assert.strictEqual(refreshes(), 2)
@@ -78,7 +78,7 @@ describe('Topology display options interactions', () => {
 
     it('retains menu-row toggling and excludes the Kubernetes layer', () => {
         const { panel, refreshes } = displayOptionsProbe()
-        const menu = panel.renderTopologyDisplayOptions({}).props.overlay
+        const menu = panel.renderTopologyDisplayOptions({}).props.popupRender()
         menu.props.onClick({ key: 'hide-down-nodes', domEvent: { stopPropagation: () => undefined } })
         assert.strictEqual(panel.state.topologyDisplayOptions.hideDownNodes, true)
         assert.strictEqual(refreshes(), 1)

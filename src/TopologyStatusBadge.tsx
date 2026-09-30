@@ -239,16 +239,16 @@ export const TopologyStatusBadgeLegend = ({ compact = false }: { compact?: boole
         </div>}
         placement={compact ? 'rightTop' : 'bottom'}
         trigger="click"
-        visible={open}
-        onVisibleChange={setOpen}
-        overlayClassName="netdive-topology-status-legend-popover"
+        open={open}
+        onOpenChange={setOpen}
+        classNames={{ root: 'netdive-topology-status-legend-popover' }}
         getPopupContainer={(trigger) => compact
             ? (trigger.closest('.ant-tooltip-content') as HTMLElement || document.body)
             : document.body}
         autoAdjustOverflow>
         {compact
             ? trigger
-            : <Tooltip title="토폴로지 범례" placement="bottom" visible={open ? false : undefined}>{trigger}</Tooltip>}
+            : <Tooltip title="토폴로지 범례" placement="bottom" open={open ? false : undefined}>{trigger}</Tooltip>}
     </Popover>
 }
 
@@ -323,15 +323,15 @@ const TopologyBadgeTooltip = ({ title, contentKey, children }: {
     return <Tooltip
         title={title}
         placement="top"
-        arrowPointAtCenter
+        arrow={{ pointAtCenter: true }}
         autoAdjustOverflow
         trigger={['hover']}
-        visible={open}
-        onVisibleChange={changeVisibility}
-        destroyTooltipOnHide
+        open={open}
+        onOpenChange={changeVisibility}
+        destroyOnHidden
         mouseEnterDelay={0.15}
         mouseLeaveDelay={0.1}
-        overlayClassName="netdive-topology-badge-tooltip"
+        classNames={{ root: 'netdive-topology-badge-tooltip' }}
         getPopupContainer={() => document.body}>
         {React.cloneElement(children, { ref: anchor })}
     </Tooltip>
