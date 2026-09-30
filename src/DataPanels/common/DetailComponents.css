@@ -3422,14 +3422,16 @@ button.netdive-detail-metric-row:focus-visible {
     min-width: 0;
     align-items: stretch;
     flex-direction: column;
-    gap: 6px;
-    padding: 10px var(--netdive-detail-card-body-padding-x) 8px;
+    gap: 8px;
+    margin: 10px var(--netdive-detail-card-body-padding-x);
+    padding: 8px;
+    border: 1px solid var(--netdive-detail-row-divider);
+    border-radius: 8px;
+    background: var(--netdive-detail-table-header-bg);
 }
 
 .netdive-detail-search-table__topbar.is-host-perspective {
-    display: block;
-    padding-top: 12px;
-    padding-bottom: 10px;
+    display: flex;
 }
 
 .netdive-detail-search-table__summary {
@@ -3437,6 +3439,9 @@ button.netdive-detail-metric-row:focus-visible {
     flex: 0 0 auto;
     align-items: center;
     gap: 4px;
+    min-height: 22px;
+    padding: 0 2px 7px;
+    border-bottom: 1px solid var(--netdive-detail-row-divider);
     white-space: nowrap;
 }
 
@@ -3450,7 +3455,7 @@ button.netdive-detail-metric-row:focus-visible {
     border-color: var(--netdive-detail-row-divider);
     border-radius: 999px;
     color: #475467;
-    background: var(--netdive-detail-table-header-bg);
+    background: #fff;
     font-weight: 500;
     line-height: 18px;
 }
@@ -3518,7 +3523,10 @@ button.netdive-detail-metric-row:focus-visible {
     min-width: 0;
     flex: 1 1 auto;
     height: 32px;
+    border-color: var(--netdive-detail-card-border);
     border-radius: 6px;
+    background: #fff;
+    box-shadow: none;
 }
 
 /* Keep feature tables visually subordinate to the section card. The shared

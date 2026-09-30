@@ -95,10 +95,10 @@ describe('Operational panel shared visual contract', () => {
     assert.ok(app.includes('tableClassName={classes.kubernetesCollectionTable}'))
   })
 
-  it('uses a narrower content-sized variant of the Kubernetes panel for events', () => {
+  it('keeps the event table within the viewport beside the labeled navigation rail', () => {
     const app = fs.readFileSync(path.resolve(__dirname, '../src/App.tsx'), 'utf8')
     const history = fs.readFileSync(path.resolve(__dirname, '../src/EventHistory.tsx'), 'utf8')
-    assert.strictEqual(rules.eventHistoryPanel.width, 'min(760px, calc(100vw - 106px))')
+    assert.strictEqual(rules.eventHistoryPanel.width, 'min(1040px, calc(100vw - 122px))')
     assert.strictEqual(rules.eventHistoryPanel.height, undefined)
     assert.strictEqual(rules.eventHistoryPanel['& .ant-table-body'], undefined)
     assert.ok(app.includes('classes.eventHistoryPanel'))

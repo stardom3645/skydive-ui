@@ -17,7 +17,7 @@
 
 import { createStyles, Theme } from '@material-ui/core'
 
-const drawerWidth = 60
+const drawerWidth = 76
 const topologyLevelMenuWidth = 188
 // Density ratios are applied to the currently established infrastructure
 // summary dimensions so KPI/overview/host variants stay proportionate.
@@ -25,7 +25,7 @@ const infrastructureKpiCompactRatio = 0.76
 const infrastructureOverviewCompactRatio = 0.82
 const infrastructureIconCompactRatio = 0.88
 const infrastructureGapCompactRatio = 0.88
-const infrastructurePanelCompactWidth = 'min(880px, calc(100vw - 106px))'
+const infrastructurePanelCompactWidth = 'min(880px, calc(100vw - 122px))'
 
 export const styles = (theme: Theme) => createStyles({
   app: {
@@ -37,13 +37,13 @@ export const styles = (theme: Theme) => createStyles({
     '--netdive-menu-card-soft': '#f6f9ff',
     '--netdive-menu-border': '#d6dfec',
     '--netdive-menu-border-soft': '#e7edf6',
-    '--netdive-menu-text': '#1e293b',
+    '--netdive-menu-text': '#60748f',
     '--netdive-menu-muted': '#64748b',
-    '--netdive-menu-icon': '#52617a',
-    '--netdive-menu-hover': '#f3f8ff',
-    '--netdive-menu-active': '#e8f2ff',
+    '--netdive-menu-icon': '#6c8fbc',
+    '--netdive-menu-hover': '#f0f7ff',
+    '--netdive-menu-active': '#e6f4ff',
     '--netdive-menu-active-soft': 'rgba(26, 115, 232, 0.08)',
-    '--netdive-menu-active-text': '#1A73E8',
+    '--netdive-menu-active-text': '#1677ff',
     '--netdive-menu-shadow': '0 18px 36px rgba(15, 23, 42, 0.10)',
     '--netdive-content-bg': '#f8fbff',
     '--netdive-appbar-bg': '#ffffff',
@@ -347,28 +347,29 @@ export const styles = (theme: Theme) => createStyles({
   },
   drawerMenuItem: {
     position: 'relative',
-    width: 48,
-    height: 48,
-    minHeight: 48,
+    width: 60,
+    height: 64,
+    minHeight: 64,
     display: 'flex',
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    border: '1px solid transparent',
-    borderRadius: 12,
-    padding: 0,
+    gap: 4,
+    border: 0,
+    borderRadius: 8,
+    padding: '8px 0',
     backgroundColor: 'transparent',
     color: 'var(--netdive-menu-text)',
     cursor: 'pointer',
-    textAlign: 'left',
-    transition: 'background-color 180ms ease, border-color 180ms ease, color 180ms ease',
-    '&:hover': {
+    '&.ant-btn:hover, &.ant-btn:focus': {
       backgroundColor: 'var(--netdive-menu-hover)',
-      borderColor: 'var(--netdive-menu-border)'
+      color: 'var(--netdive-menu-active-text)'
     },
     '&:focus-visible': {
       outline: '2px solid var(--netdive-menu-active-text)',
       outlineOffset: 2
-    }
+    },
+    '& .netdive-navigation-label': { fontSize: 12, lineHeight: '18px', margin: 0 }
   },
   drawerMenuStaticItem: {
     width: '100%',
@@ -381,94 +382,25 @@ export const styles = (theme: Theme) => createStyles({
     color: 'var(--netdive-menu-text)'
   },
   drawerMenuItemActive: {
-    backgroundColor: 'var(--netdive-menu-active-soft)',
-    borderColor: 'transparent',
-    color: 'var(--netdive-menu-active-text)',
-    '& $drawerMenuIcon, & $drawerMenuAux': {
+    '&.ant-btn': {
+      backgroundColor: 'var(--netdive-menu-active)',
       color: 'var(--netdive-menu-active-text)'
     },
-    '&:before': {
-      content: '""',
-      position: 'absolute',
-      left: -6,
-      top: 9,
-      bottom: 9,
-      width: 2,
-      borderRadius: '0 2px 2px 0',
-      backgroundColor: 'var(--netdive-menu-active-text)'
-    }
+    '& $drawerMenuIcon': { color: 'inherit' }
   },
   drawerMenuIcon: {
-    width: 38,
-    height: 38,
+    width: 24,
+    height: 24,
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    color: 'var(--netdive-menu-icon)',
-    borderRadius: 10,
-    backgroundColor: 'transparent',
-    '& svg': {
-      fontSize: 24
-    }
+    color: 'inherit',
+    '& svg': { fontSize: 20 }
   },
   drawerEventIcon: {
     '& svg': {
       fontSize: '20px !important'
     }
-  },
-  drawerMenuGroup: {
-    position: 'relative',
-    width: 48,
-    '&:hover $drawerFlyout, &:focus-within $drawerFlyout': {
-      opacity: 1,
-      visibility: 'visible',
-      pointerEvents: 'auto',
-      transform: 'translateX(0)'
-    }
-  },
-  drawerMenuGroupDismissed: {
-    '& $drawerFlyout, &:hover $drawerFlyout, &:focus-within $drawerFlyout': {
-      opacity: 0,
-      visibility: 'hidden',
-      pointerEvents: 'none',
-      transform: 'translateX(-4px)'
-    }
-  },
-  drawerFlyout: {
-    position: 'absolute',
-    left: 'calc(100% + 10px)',
-    top: 0,
-    width: 238,
-    padding: theme.spacing(1),
-    border: '1px solid var(--netdive-menu-border)',
-    borderRadius: 14,
-    backgroundColor: 'var(--netdive-menu-card)',
-    boxShadow: 'var(--netdive-menu-shadow)',
-    opacity: 0,
-    visibility: 'hidden',
-    pointerEvents: 'none',
-    transform: 'translateX(-4px)',
-    transition: 'opacity 140ms ease, transform 140ms ease, visibility 140ms ease',
-    zIndex: theme.zIndex.modal - 5,
-    '&:before': {
-      content: '""',
-      position: 'absolute',
-      left: -11,
-      top: 0,
-      bottom: 0,
-      width: 12
-    }
-  },
-  drawerFlyoutTitle: {
-    padding: theme.spacing(0.5, 0.75, 0.75),
-    color: 'var(--netdive-menu-muted)',
-    fontSize: 11,
-    fontWeight: 800
-  },
-  drawerFlyoutItems: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: theme.spacing(0.5)
   },
   drawerMenuLabel: {
     minWidth: 0,
@@ -543,13 +475,6 @@ export const styles = (theme: Theme) => createStyles({
     padding: theme.spacing(0.35, 0.25, 1.25),
     marginBottom: theme.spacing(0.25),
     borderBottom: '1px solid var(--netdive-menu-border-soft)'
-  },
-  drawerPreferencesFlyout: {
-    width: 270,
-    padding: theme.spacing(1.25),
-    '& $drawerFlyoutItems': {
-      gap: theme.spacing(1.5)
-    }
   },
   drawerPreferencesHeaderText: {
     minWidth: 0,
@@ -1184,6 +1109,28 @@ export const styles = (theme: Theme) => createStyles({
     }
   },
   kubernetesManagerPanel: {
+    '& button.netdive-resource-card': {
+      display: 'grid', gridTemplateColumns: '28px minmax(0, 1fr) auto',
+      alignItems: 'center', columnGap: 10, rowGap: 8, minHeight: 84,
+      padding: 14, textAlign: 'left',
+      '& > $infrastructureCardIcon': { width: 28, height: 28, fontSize: 17 },
+      '& > strong': { fontSize: 13, lineHeight: '20px', fontWeight: 500, wordBreak: 'keep-all' },
+      '& > em': { gap: 4 },
+      '& > em strong': { fontSize: 22, fontWeight: 600, lineHeight: '26px' },
+      '& > small': { gridColumn: '1 / -1', fontSize: 12, lineHeight: '18px', color: 'var(--netdive-ops-secondary)', whiteSpace: 'normal', wordBreak: 'keep-all' }
+    },
+    '& $infrastructureHostOverviewGrid button.netdive-resource-card': {
+      minHeight: 60, padding: '10px 12px', columnGap: 8,
+      '& > small': { display: 'none' },
+      '& > strong': { fontSize: 12 },
+      '& > em strong': { fontSize: 20 },
+      '& > $infrastructureCardIcon': { width: 24, height: 24, background: 'transparent', border: 0 }
+    },
+    '& button.netdive-collection-kpi:disabled': {
+      opacity: 1, cursor: 'default',
+      '& .ant-statistic-content': { color: '#8093ac' },
+      '& .ant-statistic-title': { color: '#78879b' }
+    },
     // Shared visual contract for all three managers; grids and density stay local.
     '--netdive-ant-border': 'var(--netdive-ops-border)',
     '--netdive-ant-divider': 'var(--netdive-ops-divider)',
@@ -1209,15 +1156,15 @@ export const styles = (theme: Theme) => createStyles({
       '& strong': { fontSize: 'inherit', lineHeight: 'inherit', fontWeight: 600 }
     },
     '& .netdive-detail-section.ant-card': {
-      border: 0, borderTop: '1px solid var(--netdive-ant-divider)',
-      borderRadius: 0, boxShadow: 'none', overflow: 'visible'
+      border: '1px solid var(--netdive-ant-divider)',
+      borderRadius: 8, boxShadow: 'none', overflow: 'hidden', flexShrink: 0
     },
     '& .netdive-detail-section.ant-card > .ant-card-head': {
-      padding: 'var(--netdive-ops-card-gap) 0', minHeight: 0,
-      borderBottom: 0,
+      padding: '16px 20px', minHeight: 56,
+      borderBottom: '1px solid var(--netdive-ant-divider)',
       '& .ant-card-head-title': { padding: 0 }
     },
-    '& .netdive-detail-section.ant-card > .ant-card-body': { padding: 0 },
+    '& .netdive-detail-section__body': { padding: 20 },
     '& $kubernetesManagerDescription': { marginTop: 4 },
     '& $infrastructureSummarySection, & $infrastructurePanelHeaderBlock': { gap: 'var(--netdive-ops-card-gap)' },
     '& $kubernetesSectionTitle, & .netdive-detail-section__title': {
@@ -1246,13 +1193,20 @@ export const styles = (theme: Theme) => createStyles({
         borderColor: '#d8e0e9', backgroundColor: 'var(--netdive-ant-hover)'
       }
     },
+    '& .netdive-collection-kpi .ant-statistic-title': {
+      color: '#8c8c8c', fontSize: 14, fontWeight: 400
+    },
+    '& .netdive-collection-kpi .ant-statistic-content': {
+      color: '#262626', fontSize: 25, fontWeight: 500, lineHeight: '32px'
+    },
     '& div$kubernetesTopologySummaryCard': {
       cursor: 'default',
       '&:hover': { borderColor: 'var(--netdive-ant-border)', backgroundColor: 'var(--netdive-ops-tint)' }
     },
     '& $infrastructureOverviewCard small': {
+      whiteSpace: 'normal', overflow: 'visible', lineHeight: '18px',
       color: 'var(--netdive-ant-muted)', fontWeight: 400,
-      fontSize: 'var(--netdive-ops-meta-size)', lineHeight: '16px'
+      fontSize: 'var(--netdive-ops-meta-size)'
     },
     '& $infrastructureOverviewCardMain > span:last-child': { gap: 3 },
     '& $infrastructureOverviewCardMain strong, & $statusSummaryName': {
@@ -1296,7 +1250,7 @@ export const styles = (theme: Theme) => createStyles({
     },
     '& .ant-input-affix-wrapper': { minHeight: 'var(--netdive-ops-control-height)' },
     '& .netdive-detail-section__actions .ant-btn, & $collectionPanelHeader .ant-btn': {
-      height: 'var(--netdive-ops-control-height)', fontSize: 12
+      height: 'var(--netdive-ops-control-height)', fontSize: 14
     },
     '& $kubernetesManagerHeader .ant-btn-text': {
       width: 32, height: 32, padding: 0, color: 'var(--netdive-ant-muted)',
@@ -1348,7 +1302,7 @@ export const styles = (theme: Theme) => createStyles({
   },
   kubernetesManagerPanelCompact: {
     right: 'auto',
-    width: 'min(1100px, calc(100vw - 106px))',
+    width: 'min(1100px, calc(100vw - 122px))',
     maxWidth: 'none',
     gap: 'calc(var(--netdive-detail-panel-gap) * .67)',
     padding: 'calc(var(--netdive-detail-card-body-padding-x) * .72)',
@@ -1373,8 +1327,8 @@ export const styles = (theme: Theme) => createStyles({
       fontSize: 11.5
     },
     '& .netdive-detail-section.ant-card > .ant-card-head': {
-      minHeight: 0,
-      padding: 'var(--netdive-ops-card-gap) 0'
+      minHeight: 56,
+      padding: '16px 20px'
     },
     '& .netdive-detail-section.ant-card > .ant-card-head .ant-card-head-title': {
       padding: 0
@@ -1396,10 +1350,10 @@ export const styles = (theme: Theme) => createStyles({
     }
   },
   moldCredentialsPanel: {
-    width: 'min(680px, calc(100vw - 106px))'
+    width: 'min(680px, calc(100vw - 122px))'
   },
   eventHistoryPanel: {
-    width: 'min(760px, calc(100vw - 106px))',
+    width: 'min(1040px, calc(100vw - 122px))',
     overflow: 'hidden',
     '& .netdive-event-history-surface': {
       display: 'flex',
@@ -1414,14 +1368,13 @@ export const styles = (theme: Theme) => createStyles({
       flex: 1,
       minHeight: 0,
       overflow: 'hidden',
-      gap: 10,
-      padding: 12
+      gap: 16,
+      padding: 20
     },
     '& .netdive-event-history-filter-surface': {
-      padding: 10,
-      border: '1px solid var(--netdive-ant-divider)',
-      borderRadius: 'var(--netdive-ant-radius)',
-      backgroundColor: 'var(--netdive-ant-table-header)',
+      padding: 0,
+      border: 0,
+      backgroundColor: 'var(--netdive-ant-bg)',
       '& .netdive-detail-filter-bar__search': {
         paddingLeft: 12,
         borderLeft: '1px solid var(--netdive-ant-divider)'
@@ -1494,6 +1447,13 @@ export const styles = (theme: Theme) => createStyles({
       maxHeight: 48
     },
     '& .netdive-event-history-table': {
+      display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 200,
+      '& .ant-spin-nested-loading, & .ant-spin-container, & .ant-table, & .ant-table-container': {
+        display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0
+      },
+      '& .ant-table-header, & .ant-pagination': { flexShrink: 0 },
+      '& .ant-table-body': { flex: '1 1 auto', minHeight: 0, overflow: 'auto !important' },
+      '& .ant-pagination': { padding: '12px 16px', margin: 0 },
       border: '1px solid var(--netdive-ant-divider)',
       borderRadius: 'var(--netdive-ant-radius)',
       overflow: 'hidden'
@@ -1753,7 +1713,7 @@ export const styles = (theme: Theme) => createStyles({
   },
   statusSummaryPanel: {
     right: 'auto',
-    width: 'min(940px, calc(100vw - 106px))',
+    width: 'min(940px, calc(100vw - 122px))',
     maxWidth: 'none',
     gap: 0,
     padding: 'var(--netdive-ops-panel-padding)',
@@ -2270,8 +2230,8 @@ export const styles = (theme: Theme) => createStyles({
     maxHeight: 320,
     overflowY: 'auto',
     display: 'grid',
-    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-    gap: theme.spacing(0.65 * infrastructureGapCompactRatio),
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 350px), 1fr))',
+    gap: 12,
     paddingRight: theme.spacing(0.5),
     alignContent: 'start',
     [theme.breakpoints.down('sm')]: {
@@ -2285,7 +2245,7 @@ export const styles = (theme: Theme) => createStyles({
     padding: 'var(--netdive-ops-card-padding)',
     borderRadius: 'var(--netdive-ant-radius)',
     border: '1px solid var(--netdive-ant-border)',
-    backgroundColor: 'var(--netdive-ops-neutral)',
+    backgroundColor: '#f8fbff',
     minWidth: 0
   },
   infrastructureHostName: {
@@ -2299,9 +2259,7 @@ export const styles = (theme: Theme) => createStyles({
     gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
     gap: theme.spacing(0.55 * infrastructureGapCompactRatio),
     marginTop: theme.spacing(0.55 * infrastructureOverviewCompactRatio),
-    [theme.breakpoints.down('sm')]: {
-      gridTemplateColumns: '1fr'
-    },
+    '@media (max-width: 480px)': { gridTemplateColumns: '1fr' },
     '& $infrastructureOverviewCard': {
       minHeight: 78 * infrastructureOverviewCompactRatio,
       backgroundColor: 'var(--netdive-detail-bg)'

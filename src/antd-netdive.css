@@ -1,20 +1,20 @@
 :root {
-  /* ablestack-cloud/ui/src/style/vars.less: independent source tokens.
-     Never alias these back to detail tokens (which consume this palette). */
-  --netdive-ant-primary: #1890ff;
+  /* Ant Design visual foundation. Detail and operation panels consume these
+     tokens; keep this palette independent to avoid circular CSS variables. */
+  --netdive-ant-primary: #1677ff;
   --netdive-ant-border: #d9d9d9;
   --netdive-ant-divider: #f0f0f0;
-  --netdive-ant-radius: 4px;
+  --netdive-ant-radius: 6px;
   --netdive-ant-bg: #ffffff;
   --netdive-ant-soft-bg: #fafafa;
   --netdive-ant-heading: rgba(0, 0, 0, 0.85);
   --netdive-ant-text: rgba(0, 0, 0, 0.65);
   --netdive-ant-muted: rgba(0, 0, 0, 0.45);
   --netdive-ant-hover: #fafafa;
-  --netdive-ant-selected: #e6f7ff;
+  --netdive-ant-selected: #e6f4ff;
   --netdive-ant-table-header: #fafafa;
-  --netdive-ant-panel-title-size: 20px;
-  --netdive-ant-label-size: 12px;
+  --netdive-ant-panel-title-size: 18px;
+  --netdive-ant-label-size: 13px;
   --netdive-ant-label-weight: 500;
   --netdive-ant-value-size: 24px;
   --netdive-ant-icon-box-size: 28px;
@@ -22,32 +22,32 @@
   --netdive-ant-card-shadow: 0 1px 2px rgba(15, 23, 42, 0.025);
   --netdive-ant-popup-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   /* Operational panels share density and surface roles, not per-screen palettes. */
-  --netdive-ops-panel-padding: 16px;
-  --netdive-ops-section-gap: 12px;
-  --netdive-ops-card-gap: 8px;
-  --netdive-ops-card-padding: 10px;
-  --netdive-ops-card-height: 60px;
-  --netdive-ops-compact-card-height: 58px;
+  --netdive-ops-panel-padding: 24px;
+  --netdive-ops-section-gap: 16px;
+  --netdive-ops-card-gap: 12px;
+  --netdive-ops-card-padding: 14px;
+  --netdive-ops-card-height: 88px;
+  --netdive-ops-compact-card-height: 72px;
   --netdive-ops-compact-padding: 10px;
-  --netdive-ops-radius: 6px;
-  --netdive-ops-border: #e8edf3;
-  --netdive-ops-divider: #edf1f5;
-  --netdive-ops-tint: #fbfcfe;
-  --netdive-ops-neutral: #f8fafc;
-  --netdive-ops-hover: #f7f9fc;
-  --netdive-ops-secondary: #68788f;
+  --netdive-ops-radius: 8px;
+  --netdive-ops-border: #f0f0f0;
+  --netdive-ops-divider: #f0f0f0;
+  --netdive-ops-tint: #ffffff;
+  --netdive-ops-neutral: #f7faff;
+  --netdive-ops-hover: #f0f7ff;
+  --netdive-ops-secondary: #78879b;
   --netdive-ops-text: #34445c;
-  --netdive-ops-cell-padding: 7px 12px;
-  --netdive-ops-row-height: 42px;
+  --netdive-ops-cell-padding: 12px 16px;
+  --netdive-ops-row-height: 52px;
   --netdive-ops-control-height: 32px;
   --netdive-ops-name-size: 13px;
-  --netdive-ops-meta-size: 11px;
+  --netdive-ops-meta-size: 12px;
   --netdive-ops-icon-box: 32px;
   --netdive-ops-icon-size: 18px;
-  --netdive-ops-icon-color: #61738a;
-  --netdive-ops-icon-bg: #f1f4f8;
-  --netdive-ops-icon-border: #e6ebf1;
-  --netdive-ops-icon-image-filter: grayscale(1) saturate(0) opacity(0.82);
+  --netdive-ops-icon-color: #3984eb;
+  --netdive-ops-icon-bg: #edf5ff;
+  --netdive-ops-icon-border: #e1edfc;
+  --netdive-ops-icon-image-filter: none;
   --netdive-ops-problem-tint: #fff8f7;
   --netdive-ops-problem-icon-bg: #fff0ee;
   --netdive-ops-problem-border: #f5d8d4;
@@ -104,8 +104,8 @@
 
 .netdive-ant-theme .ant-btn-primary:hover,
 .netdive-ant-theme .ant-btn-primary:focus {
-  border-color: #40a9ff;
-  background: #40a9ff;
+  border-color: #4096ff;
+  background: #4096ff;
   color: #fff;
 }
 
@@ -117,7 +117,7 @@
 
 .netdive-ant-theme .ant-select {
   color: var(--netdive-ant-text);
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .netdive-ant-theme .ant-select-selector,
@@ -125,7 +125,7 @@
 .netdive-ant-theme .ant-input,
 .netdive-ant-theme .ant-input-search .ant-input {
   border-radius: var(--netdive-ant-radius) !important;
-  border-color: var(--netdive-ant-border) !important;
+  border-color: var(--netdive-ant-border);
   box-shadow: none;
 }
 
@@ -136,7 +136,7 @@
   border-color: var(--netdive-ant-primary) !important;
 }
 
-.netdive-ant-theme .ant-tag {
+.netdive-ant-theme .ant-tag:not([class*="ant-tag-"]) {
   border-color: var(--netdive-ant-border);
   border-radius: var(--netdive-ant-radius);
   color: var(--netdive-ant-text);
@@ -474,3 +474,130 @@
   color: inherit;
   font-size: inherit;
 }
+
+/* Navigation overlays remain inside the application to inherit light/dark
+   surface tokens. Their layer clears operational panels (1250). */
+.netdive-navigation-dropdown.ant-dropdown,
+.netdive-navigation-preferences.ant-popover {
+  z-index: 1295;
+  font-family: var(--netdive-font-family);
+}
+.netdive-navigation-dropdown .ant-dropdown-menu {
+  min-width: 264px;
+  max-width: calc(100vw - 96px);
+  padding: 8px;
+  border-radius: 8px;
+  background: var(--netdive-menu-card);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, .08), 0 3px 6px -4px rgba(0, 0, 0, .12);
+}
+.netdive-navigation-dropdown .ant-dropdown-menu-item-group-title {
+  padding: 8px 12px;
+  color: var(--netdive-menu-muted);
+  font-size: 12px;
+}
+.netdive-navigation-dropdown .ant-dropdown-menu-item {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  margin: 4px 0;
+  padding: 10px 12px;
+  border-radius: 6px;
+  color: var(--netdive-menu-text);
+}
+.netdive-navigation-dropdown .ant-dropdown-menu-item > .anticon {
+  font-size: 18px;
+  margin-right: 12px;
+}
+.netdive-navigation-dropdown .ant-dropdown-menu-item:hover {
+  background: var(--netdive-menu-hover);
+}
+.netdive-navigation-dropdown .netdive-navigation-item-active {
+  color: var(--netdive-menu-active-text);
+  background: var(--netdive-menu-active);
+}
+.netdive-navigation-item-text { display: flex; flex-direction: column; gap: 4px; }
+.netdive-navigation-item-text > span { font-size: 14px; line-height: 22px; }
+.netdive-navigation-item-text small { color: var(--netdive-menu-muted); font-size: 12px; white-space: normal; }
+.netdive-navigation-preferences .ant-popover-inner {
+  width: 300px;
+  max-width: calc(100vw - 100px);
+  border-radius: 8px;
+  background: var(--netdive-menu-card);
+  color: var(--netdive-menu-text);
+}
+.netdive-navigation-preferences .ant-popover-inner-content { padding: 20px; color: inherit; }
+.netdive-ant-theme .ant-input:focus,
+.netdive-ant-theme .ant-input-affix-wrapper-focused,
+.netdive-ant-theme .ant-select-focused:not(.ant-select-disabled) .ant-select-selector {
+  border-color: var(--netdive-ant-primary);
+  box-shadow: 0 0 0 2px rgba(22, 119, 255, .1);
+}
+.netdive-ant-theme .ant-btn-dangerous.ant-btn-primary {
+  background: #ff4d4f;
+  border-color: #ff4d4f;
+}
+.netdive-ant-theme .ant-btn-dangerous.ant-btn-primary:hover { background: #ff7875; border-color: #ff7875; }
+.netdive-ant-theme .ant-btn-primary[disabled] { color: rgba(0,0,0,.25); background: #f5f5f5; border-color: #d9d9d9; }
+@media (max-width: 900px) {
+  :root {
+    --netdive-ops-panel-padding: 16px;
+    --netdive-ops-section-gap: 16px;
+    --netdive-ops-card-gap: 8px;
+    --netdive-ops-card-padding: 12px;
+  }
+}
+
+.netdive-navigation-icon { display: inline-flex; width: 20px; height: 20px; margin-right: 12px; align-items: center; justify-content: center; }
+.netdive-navigation-icon img { max-width: 20px; max-height: 20px; }
+.netdive-navigation-icon svg { width: 18px; height: 18px; }
+.netdive-collection-kpi {
+  position: relative;
+  min-height: 108px !important;
+  padding: 20px 22px !important;
+  border-color: #edf0f5 !important;
+  border-radius: 8px !important;
+  background: #fff !important;
+}
+.netdive-collection-kpi .ant-statistic { width: 100%; text-align: left; }
+.netdive-collection-kpi .ant-statistic-title {
+  margin-bottom: 8px;
+  color: #8c8c8c;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+}
+.netdive-collection-kpi .ant-statistic-content {
+  color: #262626;
+  font-size: 25px;
+  font-weight: 500;
+  line-height: 32px;
+}
+.netdive-collection-kpi .ant-statistic-content-suffix { margin-left: 7px; color: #1677ff; }
+.netdive-collection-kpi-icon {
+  position: absolute;
+  right: 20px;
+  bottom: 20px;
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  background: #f0f7ff;
+  color: #1677ff;
+}
+.netdive-collection-kpi-icon .netdive-resource-icon .anticon,
+.netdive-collection-kpi-icon > .anticon { font-size: 21px; }
+.netdive-collection-kpi:focus-visible { outline: 2px solid var(--netdive-ant-primary); outline-offset: 2px; }
+
+.netdive-resource-icon { display: inline-flex; align-items: center; justify-content: center; color: inherit; }
+.netdive-resource-icon .anticon { font-size: 18px; line-height: 1; }
+.netdive-resource-icon svg { display: block; }
+.netdive-collection-confirm .ant-modal-content { border-radius: 10px !important; }
+.netdive-collection-confirm .ant-modal-header { border-radius: 10px 10px 0 0; }
+.netdive-collection-confirm .ant-modal-body { padding: 24px; color: #53657d; font-size: 13px; line-height: 1.7; }
+.netdive-collection-confirm-target { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 6px; background: #f0f7ff; color: #2775da; font-weight: 500; }
+.netdive-collection-confirm-steps { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 16px; font-size: 12px; }
+.netdive-collection-confirm .ant-modal-footer { padding: 12px 24px; }
+.netdive-collection-confirm .ant-btn-primary { background: #1677ff; border-color: #1677ff; color: #fff; }

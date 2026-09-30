@@ -84,15 +84,27 @@ import {
   Input as AntInput,
   Menu as AntMenu,
   Modal as AntModal,
+  Popover as AntPopover,
   Radio as AntRadio,
   Select as AntSelect,
   Space as AntSpace,
+  Statistic as AntStatistic,
   Switch as AntSwitch,
   Tag as AntTag,
   Tooltip,
   notification as antNotification
 } from 'antd'
 import {
+  CloudServerOutlined,
+  DesktopOutlined,
+  DeploymentUnitOutlined,
+  FolderOutlined,
+  GlobalOutlined as NetworkGlobalOutlined,
+  NodeIndexOutlined,
+  AppstoreOutlined,
+  ApartmentOutlined,
+  SettingOutlined,
+  QuestionCircleOutlined,
   BulbOutlined,
   CloseOutlined,
   ClusterOutlined,
@@ -307,7 +319,7 @@ interface State {
   activeFilter: Filter | null
   suggestions: Array<string>
   anchorEl: Map<string, null | HTMLElement>
-  dismissedDrawerMenuGroup: string | null
+  openDrawerMenuGroup: string | null
   isSelectionOpen: boolean
   isTimetravelOpen: boolean
   wsContext: WSContext
@@ -567,7 +579,7 @@ class App extends React.Component<Props, State> {
       filters: new Array<Filter>(),
       suggestions: new Array<string>(),
       anchorEl: new Map<string, null | HTMLElement>(),
-      dismissedDrawerMenuGroup: null,
+      openDrawerMenuGroup: null,
       isSelectionOpen: false,
       isTimetravelOpen: false,
       wsContext: { GremlinFilter: null, Time: null },
@@ -4464,74 +4476,65 @@ class App extends React.Component<Props, State> {
 
   private renderDrawerIntegrationItem(classes: any, icon: React.ReactNode, label: string, summary: string, onClick?: () => void, active?: boolean) {
     return (
-      <button
-        type="button"
-        role="menuitem"
-        className={clsx(classes.drawerIntegrationItem, active && classes.drawerMenuItemActive)}
-        onClick={(event) => {
-          // The flyout is also exposed through :focus-within for keyboard
-          // navigation. Once an action is committed, release that focus so
-          // the menu closes instead of covering the opened panel.
-          event.currentTarget.blur()
-          if (onClick) {
-            onClick()
-          }
+      <AntMenu.Item key={label} icon={<span className="netdive-navigation-icon">{icon}</span>} className={active ? 'netdive-navigation-item-active' : undefined}
+        onClick={() => {
+          this.setState({ openDrawerMenuGroup: null })
+          if (onClick) onClick()
         }}>
-        <span className={classes.drawerMenuIcon}>{icon}</span>
-        <span className={classes.drawerIntegrationMain}>
-          <span className={classes.drawerMenuLabel}>{label}</span>
-          {summary && <span className={classes.drawerIntegrationSummary}>{summary}</span>}
+        <span className="netdive-navigation-item-text">
+          <span>{label}</span>
+          {summary && <small>{summary}</small>}
         </span>
-      </button>
+      </AntMenu.Item>
     )
   }
 
   private renderDrawerMenuGroup(classes: any, id: string, icon: React.ReactNode, label: string, items: React.ReactNode, active?: boolean, customHeader?: React.ReactNode) {
-    return (
-      <div
-        className={clsx(classes.drawerMenuGroup, this.state.dismissedDrawerMenuGroup === id && classes.drawerMenuGroupDismissed)}
-        onMouseLeave={() => {
-          if (this.state.dismissedDrawerMenuGroup === id) {
-            this.setState({ dismissedDrawerMenuGroup: null })
+    const visible = this.state.openDrawerMenuGroup === id
+    const onVisibleChange = (open: boolean) => this.setState({ openDrawerMenuGroup: open ? id : null })
+    const trigger = (
+      <AntButton type="text" aria-label={label} aria-haspopup={customHeader ? 'dialog' : 'menu'}
+        aria-expanded={visible} aria-controls={visible ? `netdive-navigation-${id}` : undefined}
+        className={clsx(classes.drawerMenuItem, active && classes.drawerMenuItemActive)}
+        onKeyDown={event => {
+          if (event.key === 'Escape') onVisibleChange(false)
+          if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+            event.preventDefault()
+            onVisibleChange(true)
           }
         }}>
-        <button
-          type="button"
-          aria-label={label}
-          aria-haspopup="menu"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={(event) => {
-            // Pointer clicks must not leave :focus-within pinned on a drawer
-            // group. Keyboard focus remains available for navigation.
-            if (event.detail > 0) {
-              event.currentTarget.blur()
-            }
-          }}
-          className={clsx(classes.drawerMenuItem, active && classes.drawerMenuItemActive)}>
-          <span className={classes.drawerMenuIcon}>{icon}</span>
-        </button>
-        <div
-          className={clsx(classes.drawerFlyout, customHeader && classes.drawerPreferencesFlyout)}
-          role="menu"
-          aria-label={label}
-          onClickCapture={(event) => {
-            const target = event.target as HTMLElement
-            if (!target.closest("button")) {
-              return
-            }
-            const flyout = event.currentTarget
-            this.setState({ dismissedDrawerMenuGroup: id })
-            window.requestAnimationFrame(() => {
-              const activeElement = document.activeElement as HTMLElement | null
-              if (activeElement && flyout.contains(activeElement)) {
-                activeElement.blur()
-              }
-            })
-          }}>
-          {customHeader || <div className={classes.drawerFlyoutTitle}>{label}</div>}
-          <div className={classes.drawerFlyoutItems}>{items}</div>
-        </div>
-      </div>
+        <span className={classes.drawerMenuIcon}>{icon}</span>
+        <span className="netdive-navigation-label">{label}</span>
+      </AntButton>
+    )
+    // Form controls belong in a Popover, never inside a Menu's list semantics.
+    if (customHeader) return (
+      <AntPopover key={id} placement="rightTop" trigger="click" visible={visible}
+        onVisibleChange={onVisibleChange} overlayClassName="netdive-navigation-preferences"
+        getPopupContainer={node => node.parentElement || document.body}
+        content={<div id={`netdive-navigation-${id}`} role="dialog" aria-label={label}
+          onKeyDown={event => { if (event.key === 'Escape') onVisibleChange(false) }}>
+          {customHeader}{items}
+        </div>}>
+        {trigger}
+      </AntPopover>
+    )
+    const menuItems: React.ReactNode[] = []
+    const collectItems = (children: React.ReactNode) => React.Children.forEach(children, child => {
+      if (React.isValidElement(child) && child.type === React.Fragment) collectItems(child.props.children)
+      else menuItems.push(child)
+    })
+    collectItems(items)
+    return (
+      <AntDropdown key={id} placement="bottomLeft" align={{ offset: [68, -64] }} trigger={['click']} visible={visible}
+        onVisibleChange={onVisibleChange} overlayClassName="netdive-navigation-dropdown"
+        getPopupContainer={node => node.parentElement || document.body}
+        overlay={<AntMenu id={`netdive-navigation-${id}`} selectable={false} aria-label={label}
+          onKeyDown={event => { if (event.key === 'Escape') onVisibleChange(false) }}>
+          <AntMenu.ItemGroup key={id} title={label}>{menuItems}</AntMenu.ItemGroup>
+        </AntMenu>}>
+        {trigger}
+      </AntDropdown>
     )
   }
 
@@ -5073,13 +5076,17 @@ class App extends React.Component<Props, State> {
   }
 
   private infrastructureIcon(glyph: string, _tone: string, badge?: string) {
-    const primaryResourceIconColor = "var(--netdive-detail-connected-resource-icon)"
-    return (
-      <span className={clsx("fa", "fas", "fa-fw")} style={{ color: primaryResourceIconColor }}>
-        {glyph}
-        {badge && <i>{badge}</i>}
-      </span>
-    )
+    const icons: { [key: string]: React.ReactNode } = {
+      '\uf233': <CloudServerOutlined />, '\uf108': <DesktopOutlined />,
+      '\uf085': <SettingOutlined />, '\uf4d7': <NodeIndexOutlined />,
+      '\uf6ff': <ApartmentOutlined />, '\uf0e8': <ApartmentOutlined />,
+      '\uf0ac': <NetworkGlobalOutlined />, '\uf542': <ClusterOutlined />,
+      '\uf07b': <FolderOutlined />, '\uf5fd': <AppstoreOutlined />,
+      '\uf1b3': <DeploymentUnitOutlined />
+    }
+    return <span className="netdive-resource-icon" aria-hidden="true">
+      {icons[glyph] || <ApartmentOutlined />}{badge && <i>{badge}</i>}
+    </span>
   }
 
   private kubernetesIcon(className?: string) {
@@ -5123,16 +5130,11 @@ class App extends React.Component<Props, State> {
 
   private renderCollectionKpi(classes: any, icon: React.ReactNode, label: string, value: number,
     onClick?: () => void, disabled = false, multiline = false, className?: string, showChevron = false) {
-    const content = (
-      <>
-        <span className={classes.kubernetesTopologySummaryInfo}>
-          <span className={classes.infrastructureCardIcon}>{icon}</span>
-          <small>{label}</small>
-        </span>
-        <span className={classes.statusSummaryCardValue}><strong>{value}</strong>{showChevron && <ChevronRightIcon fontSize="small" />}</span>
-      </>
-    )
-    const cardClass = clsx(classes.kubernetesTopologySummaryCard, multiline && classes.kubernetesTopologySummaryCardMultiline, className)
+    const content = <React.Fragment>
+      <AntStatistic title={label} value={value} suffix={showChevron ? <ChevronRightIcon fontSize="small" /> : undefined} />
+      <span className="netdive-collection-kpi-icon" aria-hidden="true">{icon}</span>
+    </React.Fragment>
+    const cardClass = clsx(classes.kubernetesTopologySummaryCard, 'netdive-collection-kpi', multiline && classes.kubernetesTopologySummaryCardMultiline, className)
     return onClick
       ? <button type="button" className={cardClass} onClick={onClick} disabled={disabled}>{content}</button>
       : <div className={cardClass}>{content}</div>
@@ -5313,22 +5315,16 @@ class App extends React.Component<Props, State> {
     return (
       <button
         type="button"
-        className={clsx(classes.infrastructureOverviewCard, selected && classes.infrastructureOverviewCardActive)}
+        title={description || label}
+        className={clsx(classes.infrastructureOverviewCard, "netdive-resource-card", selected && classes.infrastructureOverviewCardActive)}
         onClick={onClick} disabled={disabled}>
-        <span className={classes.infrastructureOverviewCardMain}>
-          <span className={classes.infrastructureCardIcon}>{icon}</span>
-          <span>
-            <strong>{label}</strong>
-            {description &&
-              <Tooltip title={description} placement="top">
-                <small>{description}</small>
-              </Tooltip>}
-          </span>
-        </span>
+        <span className={classes.infrastructureCardIcon}>{icon}</span>
+        <strong className="netdive-resource-card-label">{label}</strong>
         <em>
           <strong className={typeof count === "string" ? classes.infrastructureOverviewCardValueText : undefined}>{count}</strong>
           <ChevronRightIcon fontSize="small" />
         </em>
+        {description && <small className="netdive-resource-card-description">{description}</small>}
       </button>
     )
   }
@@ -5873,7 +5869,7 @@ class App extends React.Component<Props, State> {
           {this.renderKubernetesTopologySummaryCard(classes, this.infrastructureIcon("\uf1b3", "network"), translate("kubernetesTopologyPods"), summary.pods, summary.podNodeIDs)}
           {this.renderKubernetesTopologySummaryCard(
             classes,
-            this.topologyImageIcon("assets/icons/service.svg", "Service"),
+            <DeploymentUnitOutlined />,
             translate("kubernetesTopologyServices"),
             summary.services,
             summary.serviceNodeIDs,
@@ -5917,6 +5913,7 @@ class App extends React.Component<Props, State> {
             className={classes.kubernetesCollectionTable}
             rowKey="id"
             columns={collectionColumns}
+            scroll={{ x: 1040 }}
             dataSource={this.state.kubernetesClusters}
             locale={{ emptyText: this.state.kubernetesLoading ? translate("loading") : translate("kubernetesNoClusters") }} />
         </DetailSection>
@@ -5932,23 +5929,20 @@ class App extends React.Component<Props, State> {
     const defaultDisabledKubernetesProbes = ["secret", "configmap"]
     return (
       <React.Fragment>
-        <Dialog open={!!this.state.kubernetesConfirmClusterId} onClose={() => this.setState({ kubernetesConfirmClusterId: "" })} maxWidth="xs" fullWidth>
-          <DialogTitle>{translate("kubernetesEnableConfirmTitle")}</DialogTitle>
-          <DialogContent>
-            <div className={classes.kubernetesDialogText}>{translate("kubernetesEnableConfirmDescription")}</div>
-            {confirmCluster && <div className={classes.kubernetesDialogTarget}>{confirmCluster.name || confirmCluster.id}</div>}
-            <div className={classes.kubernetesStatusSteps}>
-              <span>{translate("kubernetesStepKubeconfig")}</span>
-              <span>{translate("kubernetesStepConnection")}</span>
-              <span>{translate("collectionRunning")}</span>
-              <span>{translate("collectionError")}</span>
-            </div>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => this.setState({ kubernetesConfirmClusterId: "" })}>{translate("cancel")}</Button>
-            <Button color="primary" variant="contained" onClick={this.confirmKubernetesEnable.bind(this)}>{translate("activate")}</Button>
-          </DialogActions>
-        </Dialog>
+        <AntModal visible={!!this.state.kubernetesConfirmClusterId} centered width={460} zIndex={1400}
+          wrapClassName="netdive-collection-confirm"
+          title={translate("kubernetesEnableConfirmTitle")}
+          onCancel={() => this.setState({ kubernetesConfirmClusterId: "" })}
+          onOk={this.confirmKubernetesEnable.bind(this)}
+          okText={translate("activate")} cancelText={translate("cancel")}>
+          <p>{translate("kubernetesEnableConfirmDescription")}</p>
+          {confirmCluster && <div className="netdive-collection-confirm-target"><ClusterOutlined />{confirmCluster.name || confirmCluster.id}</div>}
+          <div className="netdive-collection-confirm-steps">
+            <span>1. {translate("kubernetesStepKubeconfig")}</span>
+            <span>2. {translate("kubernetesStepConnection")}</span>
+            <span>3. {translate("collectionRunning")}</span>
+          </div>
+        </AntModal>
         <Dialog open={!!this.state.kubernetesStopClusterId} onClose={() => this.setState({ kubernetesStopClusterId: "" })} maxWidth="xs" fullWidth>
           <DialogTitle>{translate("kubernetesDisableConfirmTitle")}</DialogTitle>
           <DialogContent>
@@ -6032,10 +6026,10 @@ class App extends React.Component<Props, State> {
         {this.renderDrawerMenuGroup(
           classes,
           "collection",
-          <AccountTreeIcon />,
+          <ApartmentOutlined />,
           translate("collectionSection"),
           <React.Fragment>
-            {this.renderDrawerIntegrationItem(classes, <AccountTreeIcon />, translate("infrastructureMenu"), translate("infrastructureMenuSummary"), () => this.openInfrastructureTopology(), this.state.isInfrastructurePanelOpen)}
+            {this.renderDrawerIntegrationItem(classes, <ApartmentOutlined />, translate("infrastructureMenu"), translate("infrastructureMenuSummary"), () => this.openInfrastructureTopology(), this.state.isInfrastructurePanelOpen)}
             {this.renderDrawerIntegrationItem(classes, this.kubernetesIcon(), translate("kubernetesCollectionMenu"), translate("kubernetesMenuSummary"), () => this.openKubernetesManager(), this.state.isKubernetesManagerOpen)}
           </React.Fragment>,
           this.state.isInfrastructurePanelOpen || this.state.isKubernetesManagerOpen
@@ -6077,7 +6071,7 @@ class App extends React.Component<Props, State> {
         {this.renderDrawerMenuGroup(
           classes,
           "preferences",
-          <Brightness4Icon />,
+          <SettingOutlined />,
           translate("preferences"),
           <React.Fragment>
             <div className={classes.drawerPreferenceSection}>
@@ -6112,11 +6106,11 @@ class App extends React.Component<Props, State> {
         {this.renderDrawerMenuGroup(
           classes,
           "help",
-          <LibraryBooksIcon />,
+          <QuestionCircleOutlined />,
           translate("helpSection"),
           <React.Fragment>
-            {this.renderDrawerIntegrationItem(classes, <LibraryBooksIcon />, "Help", "", this.openHelpDialog.bind(this), this.state.isHelpOpen)}
-            {this.renderDrawerIntegrationItem(classes, <InfoIcon />, "About", "", this.openAboutDialog.bind(this), this.state.isAboutOpen)}
+            {this.renderDrawerIntegrationItem(classes, <QuestionCircleOutlined />, "Help", "", this.openHelpDialog.bind(this), this.state.isHelpOpen)}
+            {this.renderDrawerIntegrationItem(classes, <InfoCircleOutlined />, "About", "", this.openAboutDialog.bind(this), this.state.isAboutOpen)}
           </React.Fragment>,
           this.state.isHelpOpen || this.state.isAboutOpen
         )}
