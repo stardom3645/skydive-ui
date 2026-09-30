@@ -1194,10 +1194,14 @@ export const styles = (theme: Theme) => createStyles({
       }
     },
     '& .netdive-collection-kpi .ant-statistic-title': {
-      color: '#8c8c8c', fontSize: 14, fontWeight: 400
+      marginBottom: 6, color: '#8c8c8c', fontSize: 14, fontWeight: 400, lineHeight: '20px'
     },
     '& .netdive-collection-kpi .ant-statistic-content': {
       color: '#262626', fontSize: 25, fontWeight: 500, lineHeight: '32px'
+    },
+    '& .netdive-collection-kpi': {
+      alignItems: 'stretch', justifyContent: 'flex-start', minHeight: 108,
+      padding: '20px 24px', backgroundColor: '#fff', textAlign: 'left'
     },
     '& div$kubernetesTopologySummaryCard': {
       cursor: 'default',
@@ -2128,13 +2132,13 @@ export const styles = (theme: Theme) => createStyles({
     }
   },
   infrastructureOverviewCard: {
-    minHeight: 80 * infrastructureOverviewCompactRatio,
+    minHeight: 80,
     width: '100%',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: theme.spacing(0.72 * infrastructureGapCompactRatio),
-    padding: theme.spacing(0.68 * infrastructureOverviewCompactRatio, 0.9 * 0.92),
+    gap: theme.spacing(1),
+    padding: theme.spacing(1.25, 1.5),
     borderRadius: 'var(--netdive-ant-radius)',
     border: '1px solid var(--netdive-ant-border)',
     backgroundColor: 'var(--netdive-ant-bg)',
@@ -2156,16 +2160,16 @@ export const styles = (theme: Theme) => createStyles({
     },
     '& strong': {
       color: 'var(--netdive-detail-title)',
-      fontSize: 14 * 0.92,
+      fontSize: 13,
       fontWeight: 600
     },
     '& small': {
       display: 'block',
       overflow: 'hidden',
       color: 'var(--netdive-detail-muted)',
-      fontSize: 11.5 * 0.9,
-      lineHeight: 1.3 * 0.84,
-      fontWeight: 600,
+      fontSize: 12,
+      lineHeight: '17px',
+      fontWeight: 400,
       textOverflow: 'ellipsis',
       whiteSpace: 'nowrap'
     },
@@ -2179,8 +2183,8 @@ export const styles = (theme: Theme) => createStyles({
       fontWeight: 600
     },
     '& em strong': {
-      fontSize: 21 * 0.9,
-      lineHeight: 1
+      fontSize: 22,
+      lineHeight: '28px'
     },
     '& em svg': {
       color: 'var(--netdive-menu-active-text)',
@@ -2199,7 +2203,10 @@ export const styles = (theme: Theme) => createStyles({
       gap: 1.5 * 0.8
     },
     '& $infrastructureCardIcon': {
-      fontSize: 25 * infrastructureIconCompactRatio
+      width: 32,
+      height: 32,
+      flexBasis: 32,
+      fontSize: 18
     }
   },
   infrastructureOverviewCardActive: {

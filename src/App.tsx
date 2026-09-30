@@ -5132,7 +5132,6 @@ class App extends React.Component<Props, State> {
     onClick?: () => void, disabled = false, multiline = false, className?: string, showChevron = false) {
     const content = <React.Fragment>
       <AntStatistic title={label} value={value} suffix={showChevron ? <ChevronRightIcon fontSize="small" /> : undefined} />
-      <span className="netdive-collection-kpi-icon" aria-hidden="true">{icon}</span>
     </React.Fragment>
     const cardClass = clsx(classes.kubernetesTopologySummaryCard, 'netdive-collection-kpi', multiline && classes.kubernetesTopologySummaryCardMultiline, className)
     return onClick
