@@ -1,15 +1,15 @@
 import * as React from 'react'
-import { Empty, Select, Spin } from 'antd'
-import { RESOURCE_PRESENTATION_COLORS, resourcePresentationStyles, ResourceSectionCard, ResourceMetricTile, ResourceInfoTooltip } from './common/ResourcePresentation'
-import TimelineIcon from '@material-ui/icons/Timeline'
-import { createStyles, Theme, withStyles } from '@material-ui/core/styles'
+import { Empty, Select, Space, Spin } from 'antd'
+import { RESOURCE_PRESENTATION_COLORS, ResourceSectionCard, ResourceMetricTile, ResourceInfoTooltip } from './common/ResourcePresentation'
+import { LineChartOutlined as TimelineIcon } from '@ant-design/icons'
+import { hostTrendClasses as classes } from './HostResourceTrendPanelClasses'
+import './HostResourceTrendPanel.css'
 
 import { translate } from '../Config'
 import { Node } from '../Topology'
 import { session } from '../Store'
 
 interface Props {
-    classes: any
     node: Node
     session?: session
     data?: any
@@ -62,209 +62,6 @@ const trendRanges = [
     { labelKey: 'resourceTrendRange12h', value: '12h' }
 ]
 
-const styles = (theme: Theme) => createStyles({
-    ...resourcePresentationStyles(theme),
-    description: {
-        marginTop: 3,
-        color: 'var(--netdive-detail-muted, #64748b)',
-        fontSize: 11.5,
-        lineHeight: 1.35,
-        fontWeight: 500
-    },
-    headerActions: {
-        marginLeft: 'auto',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'flex-end',
-        gap: 6,
-        flex: '0 0 auto'
-    },
-    rangeSelect: {
-        minWidth: 78,
-        '& .ant-select-selector': {
-            height: '30px !important',
-            border: '1px solid var(--netdive-detail-border-soft) !important',
-            borderRadius: '9px !important',
-            background: 'var(--netdive-detail-soft-card, #fbfdff) !important',
-            boxShadow: 'none !important'
-        },
-        '& .ant-select-selection-item': {
-            color: 'var(--netdive-detail-text)',
-            fontSize: 11.5,
-            fontWeight: 750,
-            lineHeight: '28px !important'
-        },
-        '& .ant-select-arrow': {
-            color: 'var(--netdive-detail-muted, #64748b)',
-            fontSize: 10
-        }
-    },
-    trendValue: {
-        color: '#111827',
-        display: 'inline-flex',
-        alignItems: 'baseline',
-        gap: 4,
-        lineHeight: 1,
-        letterSpacing: '-0.01em',
-        whiteSpace: 'nowrap'
-    },
-    metricTooltipArrow: {
-        color: 'rgba(15, 23, 42, 0.94)'
-    },
-    tooltipContent: {
-        display: 'grid',
-        gap: 6,
-        minWidth: 104,
-        padding: 0
-    },
-    tooltipRow: {
-        display: 'grid',
-        gridTemplateColumns: '42px max-content',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        columnGap: 14,
-        fontSize: 12,
-        lineHeight: 1.35,
-        '& span': {
-            color: '#cbd5e1',
-            opacity: 1
-        },
-        '& strong': {
-            color: '#ffffff',
-            fontWeight: 700,
-            textAlign: 'right',
-            whiteSpace: 'nowrap'
-        }
-    },
-    tooltipSection: {
-        display: 'grid',
-        gap: 4
-    },
-    tooltipSectionTitle: {
-        fontSize: 12,
-        lineHeight: 1.2,
-        fontWeight: 800
-    },
-    tooltipSectionDivider: {
-        height: 1,
-        background: 'rgba(148, 163, 184, 0.28)',
-        margin: '2px 0'
-    },
-    networkCurrentBar: {
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'flex-end',
-        flexWrap: 'wrap',
-        gap: 10,
-        minWidth: 0,
-        color: '#111827',
-        fontSize: 14,
-        lineHeight: 1.15,
-        fontWeight: 700,
-        whiteSpace: 'nowrap'
-    },
-    networkCurrentDivider: {
-        width: 1,
-        height: 15,
-        background: 'rgba(148, 163, 184, 0.28)',
-        flex: '0 0 1px'
-    },
-    networkCurrentItem: {
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 4,
-        whiteSpace: 'nowrap'
-    },
-    networkSeriesLabel: {
-        fontSize: 11,
-        fontWeight: 800
-    },
-    rxText: {
-        color: RESOURCE_PRESENTATION_COLORS.primary
-    },
-    txText: {
-        color: '#f97316'
-    },
-    svg: {
-        width: '100%',
-        height: 98,
-        display: 'block',
-        overflow: 'visible'
-    },
-    axis: {
-        stroke: 'rgba(148, 163, 184, 0.18)',
-        strokeWidth: 1
-    },
-    guide: {
-        stroke: 'rgba(148, 163, 184, 0.16)',
-        strokeWidth: 1,
-        strokeDasharray: '3 3'
-    },
-    axisLabel: {
-        fill: '#64748b',
-        fontSize: 11,
-        fontWeight: 500,
-        letterSpacing: 0
-    },
-    timeLabel: {
-        fill: '#64748b',
-        fontSize: 11,
-        fontWeight: 500,
-        letterSpacing: 0
-    },
-    line: {
-        fill: 'none',
-        stroke: RESOURCE_PRESENTATION_COLORS.primary,
-        strokeWidth: 1.2,
-        strokeLinecap: 'round',
-        strokeLinejoin: 'round'
-    },
-    lineSecondary: {
-        fill: 'none',
-        stroke: '#f97316',
-        strokeWidth: 1.2,
-        strokeDasharray: '4 3',
-        strokeLinecap: 'round',
-        strokeLinejoin: 'round'
-    },
-    fill: {
-        fill: 'rgba(26, 115, 232, 0.045)'
-    },
-    empty: {
-        padding: theme.spacing(1.35),
-        color: 'var(--netdive-detail-muted, #64748b)',
-        fontSize: 12.5,
-        lineHeight: 1.5,
-        fontWeight: 600
-    },
-    antEmpty: {
-        padding: '10px 0 12px',
-        '& .ant-empty-image': {
-            height: 30,
-            marginBottom: 4
-        },
-        '& .ant-empty-description': {
-            color: 'var(--netdive-detail-muted, #64748b)',
-            fontSize: 12,
-            lineHeight: 1.5,
-            fontWeight: 500
-        }
-    },
-    loading: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        color: 'var(--netdive-detail-muted, #64748b)',
-        fontSize: 12.5,
-        fontWeight: 650
-    },
-    refreshing: {
-        marginBottom: 6,
-        color: 'var(--netdive-detail-muted, #64748b)',
-        fontSize: 11,
-        fontWeight: 650
-    }
-})
 
 const isBlank = (value: any): boolean => {
     if (value === undefined || value === null) return true
@@ -462,7 +259,6 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
     }
 
     private renderMetricValue(value: string) {
-        const { classes } = this.props
         const parts = this.splitValueText(value)
         return (
             <span className={classes.trendValue}>
@@ -617,7 +413,6 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
     }
 
     private renderNetworkCurrentValues(item: TrendDisplayItem) {
-        const { classes } = this.props
         const rx = this.seriesByKey(item.series, 'networkRx')
         const tx = this.seriesByKey(item.series, 'networkTx')
 
@@ -637,7 +432,6 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
     }
 
     private renderTooltipContent(item: TrendDisplayItem) {
-        const { classes } = this.props
         if (item.key === 'networkTraffic') {
             const rx = this.seriesByKey(item.series, 'networkRx')
             const tx = this.seriesByKey(item.series, 'networkTx')
@@ -663,7 +457,6 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
     }
 
     private renderNetworkTooltipSection(label: string, series: TrendSeries | undefined, colorClassName: string) {
-        const { classes } = this.props
         return (
             <div className={classes.tooltipSection}>
                 <div className={`${classes.tooltipSectionTitle} ${colorClassName}`}>{label}</div>
@@ -674,7 +467,6 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
     }
 
     private renderTooltipRow(label: string, value: string) {
-        const { classes } = this.props
         return (
             <div className={classes.tooltipRow}>
                 <span>{label}</span>
@@ -730,7 +522,6 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
     }
 
     private renderSparkline(item: TrendDisplayItem, trend?: HostTrendResponse) {
-        const { classes } = this.props
         const width = 430
         const height = 98
         const leftGutter = 78
@@ -785,7 +576,6 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
     }
 
     private renderEmpty(description: string) {
-        const { classes } = this.props
         return (
             <Empty
                 className={classes.antEmpty}
@@ -796,7 +586,6 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
     }
 
     render() {
-        const { classes } = this.props
         const { loading, error, trend } = this.state
         const displayItems = this.displayItems(trend?.series || [])
         const hasTrend = displayItems.length > 0
@@ -805,11 +594,11 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
             <ResourceSectionCard icon={<TimelineIcon />} title={this.trendTitle()} empty={!hasTrend} action={
                     <div className={classes.headerActions}>
                         <Select
-                            className={classes.rangeSelect}
+                            size="small" className={classes.rangeSelect}
                             value={this.state.trendRange}
                             onChange={(value: string) => this.handleRangeChange(value)}
                             aria-label={translate('resourceTrendRangeAria')}
-                            dropdownMatchSelectWidth={false}
+                            popupMatchSelectWidth={false}
                         >
                             {trendRanges.map(range => (
                                 <Select.Option value={range.value} key={range.value}>{translate(range.labelKey)}</Select.Option>
@@ -841,10 +630,10 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
                             {displayItems.map(item => (
                                 <ResourceMetricTile key={`${item.key}-${this.state.trendRange}-${trend?.start || 0}-${trend?.end || 0}`}
                                     title={item.label}
-                                    headerRight={<React.Fragment>
+                                    headerRight={<Space size={6} align="center">
                                         {item.key === 'networkTraffic' ? this.renderNetworkCurrentValues(item) : this.renderMetricValue(item.value)}
                                         {this.renderInfoTooltip(item)}
-                                    </React.Fragment>}>
+                                    </Space>}>
                                     {this.renderSparkline(item, trend)}
                                 </ResourceMetricTile>
                             ))}
@@ -855,4 +644,4 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
     }
 }
 
-export default withStyles(styles)(HostResourceTrendPanel)
+export default HostResourceTrendPanel

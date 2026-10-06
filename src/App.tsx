@@ -3456,9 +3456,9 @@ class App extends React.Component<Props, State> {
   }
 
   openSelection() {
-    this.state.isSelectionOpen = true
-    this.state.isTimetravelOpen = false
-    this.setState(this.state)
+    // Do not enqueue the full state snapshot: it would overwrite the history
+    // update queued by onNodeSelected in the same React event.
+    this.setState({ isSelectionOpen: true, isTimetravelOpen: false })
   }
 
   unselectAll() {
@@ -3709,8 +3709,7 @@ class App extends React.Component<Props, State> {
       <React.Fragment>
         {showCaptureButton &&
           <CaptureButton el={el} onClick={() => {
-            this.state.isCapturePanelOpen = true
-            this.setState(this.state)
+            this.setState({ isCapturePanelOpen: true })
           }} />
         }
         {showVMConsoleButton &&

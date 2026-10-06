@@ -574,7 +574,7 @@ describe('Kubernetes detail UI contract', () => {
         assert.ok(commonComponents.includes('moreIcon={<EllipsisOutlined />}'))
         assert.ok(commonComponents.includes('tabBarExtraContent={overflowTrigger}'))
         assert.ok(commonComponents.includes('<Dropdown'))
-        assert.ok(commonComponents.includes('<Menu'))
+        assert.ok(commonComponents.includes('menu={{ items: overflowTabs.map'))
         assert.ok(commonComponents.includes('<Button'))
         assert.ok(commonComponents.includes('icon={<EllipsisOutlined />}'))
         assert.ok(!commonComponents.includes('<button\n                type="button"\n                aria-label="추가 탭"'))
@@ -916,7 +916,7 @@ describe('Kubernetes detail UI contract', () => {
         const common = read('src/DataPanels/common/DetailComponents.tsx')
         const commonCss = read('src/DataPanels/common/DetailComponents.css')
         const recentEvents = read('src/DataPanels/common/KubernetesRecentEvents.tsx')
-        const selectionStyles = read('src/SelectionPanelStyles.ts')
+        const selectionStyles = read('src/SelectionPanel.css')
         assert.ok(workload.includes('<DetailLongValue'))
         assert.ok(workload.includes('<KubernetesContainerDetails'))
         assert.ok(read('src/DataPanels/common/KubernetesContainerDetails.tsx').includes('<KubernetesResourceConfigurationRows'))
@@ -949,7 +949,7 @@ describe('Kubernetes detail UI contract', () => {
         assert.ok(commonCss.includes('.netdive-connected-resource-list__item-layout > .netdive-connected-resource-list__item-icon > *'))
         assert.ok(commonCss.includes('max-height: var(--netdive-detail-line-primary-value-two-lines)'))
         assert.ok(recentEvents.includes('lookbackLabel ? `${lookbackLabel} 동안 발생한 중요 이벤트가 없습니다.`'))
-        assert.ok(selectionStyles.includes("flex: '0 0 30px'"))
+        assert.ok(selectionStyles.includes("flex: 0 0 30px"))
     })
 
     it('keeps Deployment rollout, conditions and relations on shared contracts', () => {

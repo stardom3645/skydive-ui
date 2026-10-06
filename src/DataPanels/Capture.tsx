@@ -16,18 +16,16 @@
  */
 
 import * as React from 'react'
-import { withStyles } from '@material-ui/core/styles'
-import { Modal } from 'antd'
+import { ConfigProvider, Modal } from 'antd'
 import { VideoCameraOutlined } from '@ant-design/icons'
 
 import CaptureForm from "./CaptureForm"
-import { styles } from './CaptureStyles'
+import './CaptureForm.css'
 import { Node, Link } from '../Topology'
 import ConfigReducer, { translate } from '../Config'
 import { SimpleCaptureSession } from './CaptureStatus'
 
 interface Props {
-    classes: any
     el: Node | Link
     expanded: boolean
     config: ConfigReducer
@@ -50,7 +48,6 @@ export class CapturePanel extends React.Component<Props> {
     }
 
     render() {
-        var classes = this.props.classes
 
         if (this.props.el.type !== 'node') {
             return null
@@ -59,15 +56,20 @@ export class CapturePanel extends React.Component<Props> {
         const node = this.props.el as Node
 
         return (
+            <ConfigProvider theme={{
+                token: { fontSize: 12, fontSizeSM: 11, fontSizeLG: 14, fontSizeHeading5: 14 },
+                components: { Modal: { titleFontSize: 16 }, Card: { headerFontSizeSM: 14 } }
+            }}>
             <Modal
-                visible={this.props.expanded}
+                open={this.props.expanded}
                 onCancel={this.props.onClose}
                 width={1120}
+                zIndex={1400}
                 footer={null}
-                style={{ top: 72 }}
-                destroyOnClose
-                wrapClassName={classes.dialogRoot}
-                title={<span className={classes.dialogTitle}><VideoCameraOutlined /><span>{translate("Packet capture")}</span></span>}
+                centered
+                destroyOnHidden
+                wrapClassName="netdive-capture-modal"
+                title={<span className="netdive-capture-modal-title"><VideoCameraOutlined /><span>{translate("Packet capture")}</span></span>}
                 aria-labelledby="capture-wizard-dialog">
                 <CaptureForm
                     defaultName={this.dataAttrs(node).name}
@@ -81,8 +83,9 @@ export class CapturePanel extends React.Component<Props> {
                     }}
                 />
             </Modal>
+            </ConfigProvider>
         )
     }
 }
 
-export default withStyles(styles)(CapturePanel)
+export default CapturePanel

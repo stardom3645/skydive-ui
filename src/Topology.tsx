@@ -17,6 +17,7 @@
 
 import * as React from "react"
 import { TopologyReactRoots } from './TopologyReactRoots'
+import { TopologyCaptureIndicator } from './TopologyCaptureIndicator'
 import { Avatar, Button, Card, Input, List, Tag, Typography } from 'antd'
 import { NodeIndexOutlined } from '@ant-design/icons'
 import { hierarchy } from 'd3-hierarchy'
@@ -5584,7 +5585,7 @@ export class Topology extends React.Component<Props, {}> {
 
         const renderNodeBadge = function (d: D3Node) {
             var badge = select(this).selectAll("g.node-badge")
-                .data(self.props.nodeAttrs(d.data.wrapped).badges)
+                .data(self.props.nodeAttrs(d.data.wrapped).badges.filter(badge => badge.className !== 'node-badge-capture'))
 
             var badgeEnter = badge.enter()
                 .append("g")
@@ -5627,11 +5628,24 @@ export class Topology extends React.Component<Props, {}> {
             .attr("pointer-events", "none")
             .each(renderNodeBadge)
 
+        nodeEnter.append('g')
+            .attr('class', 'node-capture-status')
+            .attr('pointer-events', 'none')
+
         node = node.merge(nodeEnter as any)
 
         node.attr("class", nodeClass)
 
         node.each(renderNodeBadge)
+
+        node.select('g.node-capture-status').each(function (d: D3Node) {
+            const capturing = self.props.nodeAttrs(d.data.wrapped).badges.some(badge => badge.className === 'node-badge-capture')
+            if (capturing) {
+                self.reactRoots.render(<TopologyCaptureIndicator y={-cardHeightForNode(d) / 2} />, this)
+            } else {
+                self.reactRoots.unmount(this)
+            }
+        })
 
         node.select("rect.node-card-bg")
             .transition()
@@ -6531,7 +6545,7 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     private unmountNodeContent(element: Element) {
-        select(element).selectAll<Element, unknown>('g.node-exco, div.node-group-navigator-root')
+        select(element).selectAll<Element, unknown>('g.node-exco, g.node-capture-status, div.node-group-navigator-root')
             .each((_d, index, elements) => this.reactRoots.unmount(elements[index]))
     }
 

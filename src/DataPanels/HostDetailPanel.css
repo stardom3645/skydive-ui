@@ -1,0 +1,671 @@
+/* Detail layout and chart styles; controls use Ant Design. */
+.netdive-host-kubernetesNodePickerContent {
+  height: 100%;
+  box-sizing: border-box;
+  padding: 11.6px 11.6px 9.2px;
+  display: flex;
+  flex-direction: column;
+  gap: 7.6px;
+  overflow: hidden;
+}
+.netdive-host-kubernetesNodePickerHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8.4px;
+  padding-bottom: 2px;
+}
+.netdive-host-kubernetesNodePickerHeaderIcon {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.22);
+  color: #ffffff;
+}
+.netdive-host-kubernetesNodePickerHeaderIcon svg {
+  font-size: 23px;
+}
+.netdive-host-kubernetesNodePickerHeaderBlock {
+  min-width: 0;
+  flex: 1;
+}
+.netdive-host-kubernetesNodePickerTitle {
+  color: var(--netdive-detail-title);
+  font-size: 20px;
+  line-height: 1.2;
+  font-weight: 850;
+}
+.netdive-host-kubernetesNodePickerDescription {
+  margin-top: 5px;
+  color: var(--netdive-detail-muted, #64748b);
+  font-size: 12px;
+  line-height: 1.45;
+  font-weight: 650;
+}
+.netdive-host-kubernetesNodePickerClose {
+  width: 32px;
+  height: 32px;
+  padding: 4px;
+  color: var(--netdive-detail-muted, #64748b);
+  border: 1px solid transparent;
+  border-radius: 8px;
+}
+.netdive-host-kubernetesNodePickerClose svg {
+  font-size: 18px;
+}
+.netdive-host-kubernetesNodePickerClose:hover {
+  background: rgba(248, 250, 252, 0.96);
+  border-color: var(--netdive-detail-border-soft);
+}
+.netdive-host-kubernetesNodePickerToolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+}
+@media (max-width: 599.95px) {
+.netdive-host-kubernetesNodePickerToolbar {
+  grid-template-columns: 1fr;
+}
+.netdive-host-kubernetesNodePickerToolbar button {
+  width: 100%;
+}
+}
+.netdive-host-kubernetesNodePickerExpandAllButton {
+  min-height: 42px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(186, 199, 219, 0.9);
+  background: #ffffff;
+  color: var(--netdive-detail-title);
+  font-size: 12px;
+  line-height: 1.4;
+  font-weight: 760;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+.netdive-host-kubernetesNodePickerExpandAllButton:hover {
+  border-color: rgba(26, 115, 232, 0.42);
+  background: rgba(232, 242, 255, 0.32);
+}
+.netdive-host-kubernetesNodePickerHighlightAllButton {
+  min-height: 42px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(37, 99, 235, 0.34);
+  background: linear-gradient(180deg, rgba(239, 246, 255, 0.96) 0%, rgba(219, 234, 254, 0.86) 100%);
+  color: #1d4ed8;
+  font-size: 12px;
+  line-height: 1.4;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+.netdive-host-kubernetesNodePickerHighlightAllButton:hover {
+  border-color: rgba(26, 115, 232, 0.46);
+  background: rgba(232, 242, 255, 0.95);
+}
+.netdive-host-kubernetesNodePickerHighlightAllButton:disabled {
+  opacity: 0.48;
+  cursor: default;
+}
+.netdive-host-kubernetesNodePickerSummary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: center;
+  gap: 6px;
+  padding: 0.8px 0px 1.6px;
+  color: var(--netdive-detail-muted, #64748b);
+}
+@media (max-width: 599.95px) {
+.netdive-host-kubernetesNodePickerSummary {
+  align-items: stretch;
+  grid-template-columns: 1fr;
+}
+}
+.netdive-host-kubernetesNodePickerSummary strong {
+  color: var(--netdive-detail-title);
+  font-size: 18px;
+  line-height: 1;
+  font-weight: 850;
+}
+.netdive-host-kubernetesNodePickerSummaryItem {
+  min-height: 54px;
+  min-width: 0;
+  padding: 6px 7.6px;
+  border-radius: 10px;
+  border: 1px solid rgba(203, 213, 225, 0.72);
+  background: #ffffff;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.035);
+}
+.netdive-host-kubernetesNodePickerSummaryIcon {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.netdive-host-kubernetesNodePickerSummaryIcon svg {
+  font-size: 18px;
+}
+.netdive-host-kubernetesNodePickerSummaryLabel {
+  display: block;
+  color: var(--netdive-detail-muted, #64748b);
+  font-size: 10.7px;
+  line-height: 1.35;
+  font-weight: 780;
+}
+.netdive-host-kubernetesNodePickerBody {
+  display: flex;
+  flex-direction: column;
+  gap: 6.4px;
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.8px 1.6px 0.8px 0px;
+}
+.netdive-host-emptyState {
+  padding: 10.8px;
+  color: var(--netdive-detail-muted, #64748b);
+  font-size: 12.5px;
+  line-height: 1.5;
+  font-weight: 600;
+}
+.netdive-host-kubernetesNodeClusterGroup {
+  border: 1px solid rgba(203, 213, 225, 0.68);
+  border-radius: 13px;
+  background: var(--netdive-detail-card-bg, #ffffff);
+  overflow: hidden;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.045);
+}
+.netdive-host-kubernetesNodeClusterHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7.2px 8px;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.74);
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.98) 0%, rgba(255, 255, 255, 0.98) 100%);
+  border-left: 0;
+}
+@media (max-width: 599.95px) {
+.netdive-host-kubernetesNodeClusterHeader {
+  align-items: flex-start;
+  flex-direction: column;
+}
+}
+.netdive-host-kubernetesNodeClusterInlineChevron {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--netdive-detail-muted, #64748b);
+}
+.netdive-host-kubernetesNodeClusterInlineChevron svg {
+  font-size: 18px;
+}
+.netdive-host-kubernetesNodeClusterIcon {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, rgba(239, 246, 255, 0.94) 0%, rgba(248, 250, 252, 0.98) 100%);
+  box-shadow: inset 0 0 0 1px rgba(147, 197, 253, 0.34);
+}
+.netdive-host-kubernetesNodeClusterIcon svg {
+  font-size: 17px;
+  color: var(--topology-level-label-active-text);
+}
+.netdive-host-kubernetesNodeClusterTitleBlock {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.netdive-host-kubernetesNodeClusterName {
+  color: var(--netdive-detail-title);
+  font-size: 13.1px;
+  line-height: 1.2;
+  font-weight: 840;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.netdive-host-kubernetesNodeClusterMeta {
+  color: var(--netdive-detail-muted, #64748b);
+  font-size: 10.9px;
+  line-height: 1.35;
+  font-weight: 700;
+}
+.netdive-host-kubernetesNodeClusterRightChevron {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--netdive-detail-muted, #475569);
+}
+.netdive-host-kubernetesNodeClusterRightChevron svg {
+  font-size: 20px;
+}
+.netdive-host-kubernetesNodeClusterBody {
+  display: flex;
+  flex-direction: column;
+  gap: 3.6px;
+  padding: 3.6px 4.4px 4.4px;
+  background: var(--netdive-detail-card-bg, #ffffff);
+}
+.netdive-host-kubernetesNodeRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 8px;
+  min-height: 46px;
+  padding: 5.2px 6.4px;
+  border: 1px solid rgba(226, 232, 240, 0.70);
+  border-radius: 10px;
+  background: #ffffff;
+  cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+}
+.netdive-host-kubernetesNodeRow:hover {
+  background: rgba(232, 242, 255, 0.58);
+  border-color: rgba(59, 130, 246, 0.34);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
+}
+.netdive-host-kubernetesNodeRow:focus {
+  outline: 2px solid rgba(59, 130, 246, 0.24);
+  outline-offset: -2px;
+  background: rgba(232, 242, 255, 0.42);
+  border-color: rgba(59, 130, 246, 0.36);
+}
+@media (max-width: 599.95px) {
+.netdive-host-kubernetesNodeRow {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "name status" "role role";
+  row-gap: 3.6px;
+  align-items: center;
+  min-height: 54px;
+}
+}
+.netdive-host-kubernetesNodeName {
+  min-width: 0;
+  color: var(--netdive-detail-text);
+  font-size: 12.2px;
+  line-height: 1.35;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.netdive-host-kubernetesNodeMetaLine {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5.2px;
+  color: var(--netdive-detail-muted, #64748b);
+  font-size: 10.6px;
+  line-height: 1.3;
+  font-weight: 650;
+}
+.netdive-host-kubernetesNodeMetaLine span {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.netdive-host-kubernetesNodeExpandButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 0;
+  border: 1px dashed rgba(59, 130, 246, 0.18);
+  border-radius: 11px;
+  padding: 6.8px 9.2px;
+  background: rgba(255, 255, 255, 0.76);
+  color: var(--topology-level-label-active-text);
+  font-size: 12px;
+  line-height: 1.4;
+  font-weight: 750;
+  cursor: pointer;
+  text-align: center;
+}
+.netdive-host-kubernetesNodeExpandButton:hover {
+  background: rgba(232, 242, 255, 0.42);
+  border-color: rgba(26, 115, 232, 0.28);
+}
+.netdive-host-antTablePrimaryText {
+  display: block;
+  color: #101828;
+  font-size: 12.5px;
+  line-height: 1.35;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.netdive-host-antTableStrongNumber {
+  color: #101828;
+  font-size: 13px;
+  font-weight: 600;
+}
+.netdive-host-antTableProgressCell {
+  display: grid;
+  grid-template-columns: 32px minmax(42px, 1fr);
+  align-items: center;
+  gap: 8px;
+  color: var(--netdive-ant-muted, #64748b);
+  font-size: 12px;
+  font-weight: 600;
+}
+.netdive-host-antTableProgress {
+  line-height: 1;
+}
+.netdive-host-antTableProgress .ant-progress-outer {
+  padding-right: 0 !important;
+}
+.netdive-host-antTableProgress .ant-progress-inner {
+  height: 4px !important;
+  border-radius: 999px !important;
+}
+.netdive-host-antTableProgress .ant-progress-bg {
+  height: 4px !important;
+  border-radius: 999px !important;
+}
+.netdive-host-antPortText {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 22px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid #eef0f4;
+  background: #fafafa;
+  color: #101828;
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.netdive-host-socketSection {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.netdive-host-socketSummaryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 10px;
+}
+.netdive-host-socketSummaryTile {
+  border: 1px solid #eef0f4 !important;
+  border-radius: 10px !important;
+  background: #ffffff !important;
+  padding: 10px 12px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.03);
+}
+.netdive-host-socketSummaryTile .ant-card-body {
+  padding: 0 !important;
+}
+.netdive-host-antStatistic {
+  min-width: 0;
+}
+.netdive-host-antStatistic .ant-statistic-title {
+  margin-bottom: 4px;
+  color: #667085;
+  font-size: 12px !important;
+  line-height: 1.2 !important;
+  font-weight: 500 !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.netdive-host-antStatistic .ant-statistic-content {
+  color: #101828;
+  font-size: 18px !important;
+  line-height: 1.12 !important;
+  font-weight: 600 !important;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+.netdive-host-antStatistic .ant-statistic-content-value {
+  display: inline;
+  color: inherit;
+}
+.netdive-host-socketBlock {
+  border: 1px solid #eef0f4 !important;
+  border-radius: 10px !important;
+  background: #ffffff;
+  overflow: hidden;
+  padding: 0;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.03);
+}
+.netdive-host-socketBlock .ant-card-head {
+  min-height: 40px !important;
+  padding: 0 12px !important;
+  border-bottom: 1px solid #f5f5f5 !important;
+  background: #ffffff !important;
+}
+.netdive-host-socketBlock .ant-card-head-title {
+  padding: 9px 0 !important;
+  color: #101828;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+}
+.netdive-host-socketBlock .ant-card-extra {
+  padding: 0 !important;
+}
+.netdive-host-socketMoreButton {
+  height: 24px !important;
+  padding: 0 !important;
+  color: var(--netdive-ant-primary, #1677ff) !important;
+  font-size: 12px !important;
+  font-weight: 600;
+}
+.netdive-host-antDataTable .ant-table {
+  color: #101828;
+  font-size: 12.5px;
+}
+.netdive-host-antDataTable .ant-table-thead > tr > th {
+  height: 32px;
+  padding: 7px 12px !important;
+  color: #667085 !important;
+  background: #ffffff !important;
+  border-bottom: 1px solid #f5f5f5 !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+}
+.netdive-host-antDataTable .ant-table-tbody > tr > td {
+  padding: 9px 12px !important;
+  border-bottom: 1px solid #f5f5f5 !important;
+  vertical-align: middle;
+}
+.netdive-host-antDataTable .ant-table-tbody > tr:hover > td {
+  background: #fafafa !important;
+}
+.netdive-host-antDataTable .ant-table-tbody > tr:last-child > td {
+  border-bottom: 0 !important;
+}
+.netdive-host-metricGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 10px;
+  padding: 0;
+}
+.netdive-host-metricTile {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2.8px;
+  border: 1px solid #eef0f4 !important;
+  border-radius: 10px !important;
+  padding: 10px 12px;
+  background: #ffffff;
+  min-height: 62px;
+  min-width: 0;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.03);
+}
+.netdive-host-metricTile .ant-card-body {
+  padding: 0 !important;
+}
+.netdive-host-metricTileMuted {
+  background: rgba(248, 250, 252, 0.78);
+}
+.netdive-host-metricTileMuted .netdive-host-metricValue {
+  color: var(--netdive-detail-muted, #64748b);
+}
+.netdive-host-metricIcon {
+  display: none;
+}
+.netdive-host-metricBody {
+  min-width: 0;
+}
+.netdive-host-metricSub {
+  margin-top: 2px;
+  color: var(--netdive-detail-muted, #64748b);
+  font-size: 11.2px;
+  line-height: 1.25;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.netdive-host-antMetricProgress {
+  margin-top: 8px;
+  line-height: 1;
+}
+.netdive-host-antMetricProgress .ant-progress-outer {
+  padding-right: 0 !important;
+}
+.netdive-host-antMetricProgress .ant-progress-inner {
+  height: 4px !important;
+  border-radius: 999px !important;
+  vertical-align: top;
+}
+.netdive-host-antMetricProgress .ant-progress-bg {
+  height: 4px !important;
+  border-radius: 999px !important;
+}
+.netdive-host-pillList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 10.8px 10.8px;
+}
+.netdive-host-pill {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  min-width: 0;
+  padding: 6px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--netdive-detail-border-soft);
+  background: var(--netdive-detail-pill-bg, #f8fafc);
+  color: var(--netdive-detail-text);
+  font-size: 11.5px;
+  line-height: 1.2;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.netdive-host-root {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  color: var(--netdive-detail-text);
+  padding-bottom: 8px;
+}
+.netdive-host-connectedResourceSectionStack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0;
+}
+.netdive-host-noticeCard {
+  display: flex;
+  align-items: center;
+  gap: 6.4px;
+  padding: 8.8px 10px;
+  border-radius: 14px;
+  border: 1px solid var(--netdive-detail-border-soft);
+  background: rgba(248, 250, 252, 0.82);
+  color: var(--netdive-detail-muted, #64748b);
+  font-size: 12.5px;
+  line-height: 1.45;
+  font-weight: 600;
+}
+.netdive-host-noticeCard svg {
+  font-size: 17px;
+  color: var(--topology-level-label-active-text);
+}
+.netdive-host-featureTable {
+  display: grid;
+  grid-template-columns: 1fr;
+  padding-top: 4px;
+}
+.netdive-host-featureRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+  padding: 0 14px;
+  border-top: 1px solid var(--netdive-detail-border-subtle, rgba(226, 232, 240, 0.62));
+}
+.netdive-host-featureRow:first-child {
+  border-top: 0;
+}
+.netdive-host-featureName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--netdive-detail-text);
+  font-size: 12.5px;
+  font-weight: 680;
+}
+.netdive-host-jsonBox {
+  margin: 8.4px 10px 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--netdive-detail-border-soft);
+  background: rgba(248, 250, 252, 0.82);
+  color: var(--netdive-detail-text);
+  font-size: 11.5px;
+  line-height: 1.45;
+  font-family: Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.netdive-host-resource-group-icon { display: inline-flex; align-items: center; width: 16px; height: 16px; color: var(--netdive-detail-text); }
+.netdive-host-resource-group-icon img { display: block; width: 16px; height: 16px; object-fit: contain; }
+.netdive-host-resource-group .ant-card-meta-avatar { color: var(--netdive-detail-text); }
+.netdive-host-resource-group-icon img,
+.netdive-host-resource-group .ant-card-meta-avatar img { filter: grayscale(1); }
+.netdive-host-info-descriptions .ant-descriptions-item-label { white-space: nowrap; }

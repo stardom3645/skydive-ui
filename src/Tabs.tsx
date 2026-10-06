@@ -16,7 +16,6 @@
  */
 
 import * as React from 'react'
-import Typography from '@material-ui/core/Typography'
 
 export interface TabPanelProps {
     children?: React.ReactNode
@@ -28,15 +27,14 @@ export function TabPanel(props: TabPanelProps) {
     const { children, value, index, ...other } = props
 
     return (
-        <Typography
-            component="div"
+        <div
             role="tabpanel"
             hidden={value !== index}
             id={`tabpanel-${index}`}
             aria-labelledby={`tab-${index}`}
             {...other}>
             {children}
-        </Typography>
+        </div>
     )
 }
 

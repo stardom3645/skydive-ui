@@ -5,11 +5,10 @@ import * as path from 'path'
 const source = fs.readFileSync(path.resolve(__dirname, '../src/DataPanels/CaptureStatus.tsx'), 'utf8')
 
 describe('Packet capture status detail UI contract', () => {
-  it('uses Ant controls and the canonical detail-panel building blocks', () => {
-    ;['Alert', 'Button', 'Collapse', 'Progress', 'Tag']
+  it('uses native Ant components for the status and results', () => {
+    ;['Alert', 'Button', 'Card', 'Collapse', 'Descriptions', 'Empty', 'Progress', 'Statistic', 'Table', 'Tag']
       .forEach(control => assert.ok(source.includes(control), `missing Ant ${control}`))
-    ;['DetailSectionCard', 'DetailBadge', 'DetailCardSubsectionHeader', 'DetailKeyValueList', 'DetailMetricRow', 'CompactEmptyState']
-      .forEach(component => assert.ok(source.includes(component), `missing shared ${component}`))
+    assert.ok(!source.includes('DetailComponents'))
   })
 
   it('removes Material controls from capture status rendering', () => {
@@ -27,12 +26,9 @@ describe('Packet capture status detail UI contract', () => {
     assert.ok(source.includes('this.props.onRetry'))
   })
 
-  it('uses shared detail tokens for surfaces and typography', () => {
-    ;['--netdive-detail-card-border', '--netdive-detail-card-radius', '--netdive-detail-card-shadow', '--netdive-detail-font-section-title', '--netdive-detail-row-divider']
-      .forEach(token => assert.ok(source.includes(token), `missing ${token}`))
-    assert.ok(source.includes('captureSupportingSection'))
-    assert.ok(source.includes('miniStatPanel'))
-    assert.ok(source.includes("padding: '0 40px 0 var(--netdive-detail-card-padding-x)'"))
-    assert.ok(source.includes("alignItems: 'center', justifyContent: 'center', width: 16, height: 16"))
+  it('does not use Material styling or deprecated collapse panels', () => {
+    assert.ok(!source.includes('@material-ui/'))
+    assert.ok(!source.includes('withStyles'))
+    assert.ok(!source.includes('Collapse.Panel'))
   })
 })

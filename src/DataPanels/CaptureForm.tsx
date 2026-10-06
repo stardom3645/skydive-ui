@@ -1,6 +1,5 @@
 import * as React from 'react'
-import { withStyles } from '@material-ui/core/styles'
-import { Alert, Button, Card, Checkbox, Collapse, Descriptions, Form, Input, Radio, Select, Tag } from 'antd'
+import { Alert, Button, Card, Checkbox, Collapse, Descriptions, Form, Input, Radio, Select, Tag, Typography, Divider } from 'antd'
 import {
   CheckCircleFilled,
   CheckCircleOutlined,
@@ -13,14 +12,55 @@ import {
 import { Node } from '../Topology'
 import { Configuration } from '../api/configuration'
 import { CapturesApi } from '../api'
-import { styles } from './CaptureFormStyles'
+import './CaptureForm.css'
+
+const captureClasses = {
+  advanced: 'netdive-capture-advanced',
+  advancedCheckList: 'netdive-capture-advanced-check-list',
+  advancedContent: 'netdive-capture-advanced-content',
+  advancedForm: 'netdive-capture-advanced-form',
+  advancedGrid: 'netdive-capture-advanced-grid',
+  advancedMenuItem: 'netdive-capture-advanced-menu-item',
+  advancedOptionBlock: 'netdive-capture-advanced-option-block',
+  advancedOptionLabel: 'netdive-capture-advanced-option-label',
+  advancedSection: 'netdive-capture-advanced-section',
+  advancedTitleRow: 'netdive-capture-advanced-title-row',
+  advancedToggle: 'netdive-capture-advanced-toggle',
+  button: 'netdive-capture-button',
+  captureCautionCard: 'netdive-capture-capture-caution-card',
+  captureExamples: 'netdive-capture-capture-examples',
+  captureFeedback: 'netdive-capture-capture-feedback',
+  captureHelpAccordion: 'netdive-capture-capture-help-accordion',
+  captureHelpList: 'netdive-capture-capture-help-list',
+  capturePreflightPanel: 'netdive-capture-capture-preflight-panel',
+  captureSummaryRows: 'netdive-capture-capture-summary-rows',
+  captureWizard: 'netdive-capture-capture-wizard',
+  compactAlert: 'netdive-capture-compact-alert',
+  exampleCardAvailable: 'netdive-capture-example-card-available',
+  exampleCardUnavailable: 'netdive-capture-example-card-unavailable',
+  exampleGrid: 'netdive-capture-example-grid',
+  inlineFieldCard: 'netdive-capture-inline-field-card',
+  optionGroup: 'netdive-capture-option-group',
+  preflightPanelHeader: 'netdive-capture-preflight-panel-header',
+  preflightSection: 'netdive-capture-preflight-section',
+  settingRow: 'netdive-capture-setting-row',
+  sideCardTitle: 'netdive-capture-side-card-title',
+  simpleSettings: 'netdive-capture-simple-settings',
+  targetCard: 'netdive-capture-target-card',
+  wizardActions: 'netdive-capture-wizard-actions',
+  wizardCardHeader: 'netdive-capture-wizard-card-header',
+  wizardHelpPanel: 'netdive-capture-wizard-help-panel',
+  wizardMain: 'netdive-capture-wizard-main',
+  wizardMainCard: 'netdive-capture-wizard-main-card',
+  wizardSubtitle: 'netdive-capture-wizard-subtitle',
+  wizardTitle: 'netdive-capture-wizard-title',
+}
 import { AppState, session } from '../Store'
 import { connect } from 'react-redux'
 import { translate } from "../Config"
 import { SimpleCaptureSession } from './CaptureStatus'
 
 interface Props {
-  classes: any
   defaultName: string
   gremlin: string
   session: session
@@ -526,7 +566,7 @@ class CaptureForm extends React.Component<Props, State> {
   }
 
   render() {
-    const { classes } = this.props
+    const classes = captureClasses
     const capability = this.captureCapability(this.props.node)
     const isCaptureDisabled = this.isCaptureDisabled(this.props.node)
     const isPcapEligible = this.isCaptureTypeEligible(this.props.node, "pcap")
@@ -552,57 +592,40 @@ class CaptureForm extends React.Component<Props, State> {
           className={classes.captureFeedback}
           type={this.state.snackbarSeverity === "success" ? "success" : "error"}
           showIcon closable
-          message={this.state.snackbarMessage}
+          title={this.state.snackbarMessage}
           onClose={() => this.setState({ snackbarOpen: false })} />}
             <section className={classes.wizardMain}>
-              <div className={classes.wizardMainCard}>
-                <div className={classes.wizardCardHeader}>
-                  <div>
-                    <h3 className={classes.wizardTitle}>대상 확인</h3>
-                    <p className={classes.wizardSubtitle}>선택한 노드의 캡처 가능 여부를 확인합니다.</p>
-                  </div>
-                  <Tag color={capabilityColor} icon={capability === "available" ? <CheckCircleOutlined /> : <WarningOutlined />}>{capabilityLabel}</Tag>
-                </div>
-
-                <Card size="small" className={classes.targetCard}>
+              <Card size="small" className={classes.wizardMainCard} title="대상 확인"
+                extra={<Tag color={capabilityColor} icon={capability === "available" ? <CheckCircleOutlined /> : <WarningOutlined />}>{capabilityLabel}</Tag>}>
+                <Typography.Paragraph type="secondary">선택한 노드의 캡처 가능 여부를 확인합니다.</Typography.Paragraph>
+                <div className={classes.targetCard}>
                   <Descriptions size="small" column={2} colon={false}>
                     <Descriptions.Item label="선택 대상"><strong>{this.props.defaultName || this.props.node?.data?.Name || "-"}</strong></Descriptions.Item>
                     <Descriptions.Item label="자원 타입"><Tag>{this.targetTypeLabel(this.props.node)}</Tag></Descriptions.Item>
                     {targetRows.map(row => <Descriptions.Item key={row.label} label={row.label}><strong title={row.value}>{row.value}</strong></Descriptions.Item>)}
                     <Descriptions.Item label="캡처 가능 여부"><Tag color={capabilityColor}>{capabilityLabel}</Tag></Descriptions.Item>
                   </Descriptions>
-                </Card>
+                </div>
 
-                <div className={classes.simpleSettings}>
-                  <h3 className={classes.wizardTitle}>캡처 설정</h3>
-                  <Alert className={classes.compactAlert} type="info" showIcon message="권장 기본값" description="자동 종료와 안전한 기본 옵션으로 캡처를 시작합니다." />
-                  <div className={classes.settingRow}>
-                    <div>
-                      <strong>캡처 범위</strong>
-                      <small>문제 재현 시간을 고려하여 적절한 범위를 선택하세요.</small>
-                    </div>
-                    <Radio.Group className={classes.optionGroup} value={this.state.captureScope} onChange={event => this.setState({ captureScope: event.target.value })}>
+                <Divider style={{ margin: '16px 0' }} />
+                <Form className={classes.simpleSettings} layout="horizontal" labelAlign="left" labelWrap labelCol={{ span: 6 }} wrapperCol={{ span: 18 }} colon={false}>
+                  <Typography.Title level={5}>캡처 설정</Typography.Title>
+                  <Alert className={`${classes.compactAlert} netdive-capture-defaults-alert`} type="info" showIcon title="권장 기본값" description="자동 종료와 안전한 기본 옵션으로 캡처를 시작합니다." />
+                  <Form.Item label="캡처 범위" extra="문제 재현 시간을 고려하여 적절한 범위를 선택하세요.">
+                    <Radio.Group className={classes.optionGroup} buttonStyle="solid" value={this.state.captureScope} onChange={event => this.setState({ captureScope: event.target.value })}>
                       <Radio.Button value="related">선택 노드 관련 트래픽</Radio.Button>
                       <Radio.Button value="all">전체 트래픽</Radio.Button>
                     </Radio.Group>
-                  </div>
+                  </Form.Item>
 
-                  <div className={classes.settingRow}>
-                    <div>
-                      <strong>캡처 시간</strong>
-                      <small>설정한 시간이 지나면 자동 종료됩니다.</small>
-                    </div>
-                    <Radio.Group className={classes.optionGroup} value={this.state.captureDuration} onChange={event => this.setState({ captureDuration: event.target.value })}>
+                  <Form.Item label="캡처 시간" extra="설정한 시간이 지나면 자동 종료됩니다.">
+                    <Radio.Group className={classes.optionGroup} buttonStyle="solid" value={this.state.captureDuration} onChange={event => this.setState({ captureDuration: event.target.value })}>
                       <Radio.Button value="30s">30초</Radio.Button><Radio.Button value="1m">1분</Radio.Button><Radio.Button value="3m">3분</Radio.Button>
                     </Radio.Group>
-                  </div>
+                  </Form.Item>
 
-                  <div className={classes.settingRow}>
-                    <div>
-                      <strong>필터</strong>
-                      <small>필요한 경우에만 트래픽 필터를 제한합니다.</small>
-                    </div>
-                    <Radio.Group className={classes.optionGroup} value={this.state.filterPreset} onChange={event => event.target.value === 'all'
+                  <Form.Item label="필터" extra="필요한 경우에만 트래픽 필터를 제한합니다.">
+                    <Radio.Group className={classes.optionGroup} buttonStyle="solid" value={this.state.filterPreset} onChange={event => event.target.value === 'all'
                       ? this.setState({ filterPreset: 'all', bpf: '' })
                       : this.setState({ filterPreset: event.target.value })}>
                       <Radio.Button value="all">전체</Radio.Button>
@@ -610,37 +633,20 @@ class CaptureForm extends React.Component<Props, State> {
                       <Radio.Button value="web" disabled={!isPcapEligible}>HTTP/HTTPS <small>80/443</small></Radio.Button>
                       <Radio.Button value="custom" disabled={!isPcapEligible}>직접 입력</Radio.Button>
                     </Radio.Group>
-                  </div>
+                  </Form.Item>
 
                   {this.state.filterPreset === "custom" &&
                     <Form.Item className={classes.inlineFieldCard} label="직접 입력 BPF">
                       <Input placeholder="예: tcp port 22" value={this.state.bpf} onChange={this.handleChange("bpf")} />
                     </Form.Item>
                   }
-                </div>
-
-                <div className={classes.wizardActions}>
-                  <Button
-                    type="text"
-                    className={classes.advancedToggle}
-                    onClick={() => this.setState({ showAdvanced: !this.state.showAdvanced })}>
-                    {this.state.showAdvanced ? "고급 옵션 숨기기" : "고급 옵션 보기"}
-                  </Button>
-                  <Button
-                    type="primary"
-                    className={classes.button}
-                    onClick={this.onClick}
-                    disabled={isCaptureDisabled || hasValidationError || capability !== "available"}
-                    icon={<PlayCircleOutlined />}>
-                    캡처 시작
-                  </Button>
-                </div>
+                </Form>
 
                 <Collapse className={classes.advanced} activeKey={this.state.showAdvanced ? ['advanced'] : []}
-                  onChange={keys => this.setState({ showAdvanced: (keys as string[]).includes('advanced') })}>
-                  <Collapse.Panel key="advanced" header={advancedHeader}>
+                  onChange={keys => this.setState({ showAdvanced: (keys as string[]).includes('advanced') })} items={[{ key: "advanced", label: advancedHeader, children: <>
+
                       <div className={classes.advancedContent}>
-                        <Alert className={classes.compactAlert} type="warning" showIcon message="전문가용 옵션입니다. 일반적인 캡처는 기본값을 권장합니다. 옵션을 변경하면 캡처 결과, 성능, 파일 크기에 영향을 줄 수 있습니다." />
+                        <Alert className={classes.compactAlert} type="warning" showIcon title="전문가용 옵션입니다. 일반적인 캡처는 기본값을 권장합니다. 옵션을 변경하면 캡처 결과, 성능, 파일 크기에 영향을 줄 수 있습니다." />
 
                         <section className={classes.advancedSection}>
                           <header>
@@ -650,7 +656,7 @@ class CaptureForm extends React.Component<Props, State> {
                           <Form className={classes.advancedForm} layout="vertical" colon={false}>
                           <div className={classes.advancedGrid}>
                             <Form.Item className={classes.advancedOptionBlock} label={this.renderAdvancedLabel(classes, translate("Capture Type"), captureType !== defaultCaptureType)} extra={captureType === defaultCaptureType ? "기본값으로 권장합니다." : this.captureTypeDescription(captureType)}>
-                              <Select id="capture-type" value={captureType} optionLabelProp="label" onChange={value => this.setState({ captureType: String(value) })}>
+                              <Select getPopupContainer={trigger => trigger.parentElement!} id="capture-type" value={captureType} optionLabelProp="label" onChange={value => this.setState({ captureType: String(value) })}>
                                 {[['pcap', isPcapEligible], ['afpacket', isAfpacketEligible], ['sflow', isSflowEligible], ['dpdk', isDPDKPort], ['ovsmirror', isOvsMirrorEligible]].map(([value, enabled]: [string, boolean]) =>
                                   <Select.Option key={value} value={value} label={this.captureTypeLabel(value)} disabled={!enabled}>
                                     <span className={classes.advancedMenuItem}><strong>{this.captureTypeLabel(value)}</strong><small>{enabled ? this.captureTypeDescription(value) : "현재 환경에서 사용할 수 없습니다."}</small></span>
@@ -659,7 +665,7 @@ class CaptureForm extends React.Component<Props, State> {
                             </Form.Item>
 
                             <Form.Item className={classes.advancedOptionBlock} label={this.renderAdvancedLabel(classes, translate("Layers used for Flow Key"), this.state.layerKey !== "L3")} extra="플로우 묶음 기준입니다. 기본값: L3">
-                              <Select id="layer-key" value={this.state.layerKey} onChange={value => this.setState({ layerKey: String(value) })}>
+                              <Select getPopupContainer={trigger => trigger.parentElement!} id="layer-key" value={this.state.layerKey} onChange={value => this.setState({ layerKey: String(value) })}>
                                 <Select.Option value="L2">L2</Select.Option><Select.Option value="L3">L3</Select.Option>
                               </Select>
                             </Form.Item>
@@ -673,7 +679,7 @@ class CaptureForm extends React.Component<Props, State> {
 
                             <Form.Item className={classes.advancedOptionBlock} label={this.renderAdvancedLabel(classes, translate("Raw packet limit"), this.state.rawPacketLimit !== "10")}
                               extra="PCAP 다운로드용 원시 패킷을 각 flow마다 최대 0~10개 저장합니다. 0은 저장 안 함">
-                              <Select id="raw-packet-limit" value={this.state.rawPacketLimit} onChange={value => this.setState({ rawPacketLimit: String(value) })}>
+                              <Select getPopupContainer={trigger => trigger.parentElement!} id="raw-packet-limit" value={this.state.rawPacketLimit} onChange={value => this.setState({ rawPacketLimit: String(value) })}>
                                 {Array.from({ length: 11 }, (_, value) => <Select.Option key={value} value={String(value)}>{value === 0 ? "0 - 저장 안 함" : `${value}개 / flow`}</Select.Option>)}
                               </Select>
                             </Form.Item>
@@ -687,65 +693,51 @@ class CaptureForm extends React.Component<Props, State> {
                             <small>정확도와 상세 분석을 높일 수 있지만 캡처 부하가 증가할 수 있습니다.</small>
                           </header>
                           <div className={classes.advancedCheckList}>
-                            <label>
-                              <Checkbox checked={this.state.extraTCPMetric} onChange={this.handleChange("extraTCPMetric")} />
-                              <span>
+                            <Checkbox checked={this.state.extraTCPMetric} onChange={this.handleChange("extraTCPMetric")}><span>
                                 <strong>{translate("Extra TCP metric")} <Tag color="warning">성능 영향</Tag>{this.state.extraTCPMetric && <Tag color="blue">변경됨</Tag>}</strong>
                                 <small>TCP 지연, 재전송 등 추가 분석 정보를 수집합니다.</small>
-                              </span>
-                            </label>
-                            <label>
-                              <Checkbox checked={this.state.defragIPv4} onChange={this.handleChange("defragIPv4")} />
-                              <span>
+                              </span></Checkbox>
+                            <Checkbox checked={this.state.defragIPv4} onChange={this.handleChange("defragIPv4")}><span>
                                 <strong>{translate("Defragment IPv4 packets")} <Tag color="warning">성능 영향</Tag>{this.state.defragIPv4 && <Tag color="blue">변경됨</Tag>}</strong>
                                 <small>분할된 IPv4 패킷을 다시 조립해 분석합니다.</small>
-                              </span>
-                            </label>
-                            <label>
-                              <Checkbox checked={this.state.reassembleTCP} onChange={this.handleChange("reassembleTCP")} />
-                              <span>
+                              </span></Checkbox>
+                            <Checkbox checked={this.state.reassembleTCP} onChange={this.handleChange("reassembleTCP")}><span>
                                 <strong>{translate("Reassemble TCP packets")} <Tag color="warning">성능 영향 · 파일 크기 증가</Tag>{this.state.reassembleTCP && <Tag color="blue">변경됨</Tag>}</strong>
                                 <small>TCP 스트림을 재조립해 상위 프로토콜 분석에 활용합니다.</small>
-                              </span>
-                            </label>
+                              </span></Checkbox>
                           </div>
                         </section>
                       </div>
-                  </Collapse.Panel>
-                </Collapse>
-              </div>
 
-              <Collapse className={classes.captureExamples}>
-                <Collapse.Panel key="policy" header={translate("capture-target-policy-title")}>
+</> }]} />
+                <Divider style={{ margin: '16px 0' }} />
+                <div className={classes.wizardActions}>
+                  <Button
+                    type="primary"
+                    className={classes.button}
+                    onClick={this.onClick}
+                    disabled={isCaptureDisabled || hasValidationError || capability !== "available"}
+                    icon={<PlayCircleOutlined />}>
+                    캡처 시작
+                  </Button>
+                </div>
+              </Card>
+
+              <Collapse className={classes.captureExamples} items={[{ key: "policy", label: translate("capture-target-policy-title"), children: <>
+
                   <div className={classes.exampleGrid}>
-                    <div className={classes.exampleCardAvailable}>
-                      <header><strong>{translate("capture-target-policy-capturable-layers")}</strong><Tag color="success">{translate("capture-target-policy-direct")}</Tag></header>
-                      <small>{translate("capture-target-policy-infra-desc")}</small>
-                    </div>
-                    <div className={classes.exampleCardUnavailable}>
-                      <header><strong>{translate("capture-target-policy-logical-layers")}</strong><Tag color="warning">{translate("capture-target-policy-unavailable")}</Tag></header>
-                      <small>{translate("capture-target-policy-logical-desc")}</small>
-                    </div>
-                    <div className={classes.exampleCardUnavailable}>
-                      <header><strong>{translate("capture-target-policy-k8s-layers")}</strong><Tag color="warning">{translate("capture-target-policy-unavailable")}</Tag></header>
-                      <small>{translate("capture-target-policy-k8s-desc")}</small>
-                    </div>
-                    <div className={classes.exampleCardUnavailable}>
-                      <header><strong>{translate("capture-target-policy-k8s-logical-targets")}</strong><Tag color="warning">{translate("capture-target-policy-unavailable")}</Tag></header>
-                      <small>{translate("capture-target-policy-k8s-logical-desc")}</small>
-                    </div>
+                    <Card size="small" className={classes.exampleCardAvailable} title={<>{translate("capture-target-policy-capturable-layers")}</>} extra={<Tag color="success">{translate("capture-target-policy-direct")}</Tag>}><Typography.Text type="secondary">{translate("capture-target-policy-infra-desc")}</Typography.Text></Card>
+                    <Card size="small" className={classes.exampleCardUnavailable} title={<>{translate("capture-target-policy-logical-layers")}</>} extra={<Tag color="warning">{translate("capture-target-policy-unavailable")}</Tag>}><Typography.Text type="secondary">{translate("capture-target-policy-logical-desc")}</Typography.Text></Card>
+                    <Card size="small" className={classes.exampleCardUnavailable} title={<>{translate("capture-target-policy-k8s-layers")}</>} extra={<Tag color="warning">{translate("capture-target-policy-unavailable")}</Tag>}><Typography.Text type="secondary">{translate("capture-target-policy-k8s-desc")}</Typography.Text></Card>
+                    <Card size="small" className={classes.exampleCardUnavailable} title={<>{translate("capture-target-policy-k8s-logical-targets")}</>} extra={<Tag color="warning">{translate("capture-target-policy-unavailable")}</Tag>}><Typography.Text type="secondary">{translate("capture-target-policy-k8s-logical-desc")}</Typography.Text></Card>
                   </div>
-                </Collapse.Panel>
-              </Collapse>
+
+</> }]} />
             </section>
 
             <aside className={classes.wizardHelpPanel}>
-              <Card className={classes.capturePreflightPanel}>
-                <div className={classes.preflightPanelHeader}>
-                  <strong><InfoCircleOutlined /> 시작 전 확인</strong>
-                  <span>현재 캡처 설정을 확인합니다.</span>
-                </div>
-
+              <Card size="small" className={classes.capturePreflightPanel} title={<span><InfoCircleOutlined /> 시작 전 확인</span>}>
+                <Typography.Paragraph type="secondary">현재 캡처 설정을 확인합니다.</Typography.Paragraph>
                 <section className={classes.preflightSection}>
                   <div className={classes.sideCardTitle}>
                     <VideoCameraOutlined />
@@ -760,14 +752,14 @@ class CaptureForm extends React.Component<Props, State> {
                   </Descriptions>
                 </section>
 
-                <Alert className={classes.captureCautionCard} type="warning" showIcon message="캡처 시 유의사항" description={<ul>
+                <Alert className={classes.captureCautionCard} type="warning" showIcon title="캡처 시 유의사항" description={<ul>
                     <li>캡처 중에는 성능에 영향을 줄 수 있습니다.</li>
                     <li>캡처 파일에는 민감한 정보가 포함될 수 있습니다.</li>
                     <li>필요한 시간만 짧게 캡처하세요.</li>
                   </ul>} />
 
-                <Collapse className={classes.captureHelpAccordion}>
-                  <Collapse.Panel key="help" header="캡처 도움말">
+                <Collapse className={classes.captureHelpAccordion} items={[{ key: "help", label: "캡처 도움말", children: <>
+
                     <div className={classes.captureHelpList}>
                       <div>
                         <CheckCircleFilled />
@@ -791,8 +783,8 @@ class CaptureForm extends React.Component<Props, State> {
                         </span>
                       </div>
                     </div>
-                  </Collapse.Panel>
-                </Collapse>
+
+</> }]} />
               </Card>
             </aside>
       </div>
@@ -806,4 +798,4 @@ export const mapStateToProps = (state: AppState) => ({
 
 export const mapDispatchToProps = ({ })
 
-export default withStyles(styles)(connect(mapStateToProps, mapDispatchToProps)(CaptureForm))
+export default connect(mapStateToProps, mapDispatchToProps)(CaptureForm)

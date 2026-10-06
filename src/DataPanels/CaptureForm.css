@@ -1,0 +1,79 @@
+/* Capture presentation uses Ant components; these rules only arrange content
+ * and constrain the modal to the available viewport. */
+.netdive-capture-modal .ant-modal-body {
+    max-height: calc(100vh - 180px);
+    overflow-y: auto;
+    padding-top: 16px;
+}
+.netdive-capture-modal-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+.netdive-capture-modal-title .anticon { color: var(--netdive-ant-primary); }
+.netdive-capture-capture-wizard {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    align-items: start;
+    gap: 16px;
+}
+.netdive-capture-capture-feedback { grid-column: 1 / -1; }
+.netdive-capture-wizard-main { display: grid; gap: 16px; min-width: 0; }
+.netdive-capture-wizard-help-panel { position: sticky; top: 0; min-width: 0; }
+.netdive-capture-capture-wizard .ant-card-head { font-size: 14px; }
+.netdive-capture-capture-wizard .ant-typography { margin-bottom: 12px; }
+.netdive-capture-capture-wizard h5.ant-typography { font-size: 14px; }
+.netdive-capture-capture-wizard p.ant-typography { font-size: 11px; }
+.netdive-capture-target-card .ant-descriptions-item-content { overflow-wrap: anywhere; }
+.netdive-capture-target-card strong { font-weight: 500; }
+.netdive-capture-simple-settings .ant-form-item { margin-bottom: 20px; }
+.netdive-capture-simple-settings .ant-form-item-label > label { font-weight: 500; }
+.netdive-capture-simple-settings .ant-form-item-extra { padding-top: 6px; font-size: 11px; }
+.netdive-capture-option-group { display: inline-flex; flex-wrap: wrap; }
+.netdive-capture-option-group small { margin-left: 4px; font-size: 11px; }
+.netdive-capture-compact-alert { margin-bottom: 16px; }
+.netdive-capture-defaults-alert.ant-alert { padding: 10px 12px; }
+.netdive-capture-modal .netdive-capture-defaults-alert.ant-alert .ant-alert-icon { font-size: 16px; margin-inline-end: 8px; }
+.netdive-capture-modal .netdive-capture-defaults-alert.ant-alert .ant-alert-title { font-size: 12px; margin-bottom: 4px; }
+.netdive-capture-modal .netdive-capture-defaults-alert.ant-alert .ant-alert-description { font-size: 11px; }
+.netdive-capture-wizard-actions { display: flex; justify-content: flex-end; }
+.netdive-capture-advanced-title-row { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.netdive-capture-advanced-title-row .ant-tag { margin: 0; }
+.netdive-capture-advanced-content { display: grid; gap: 16px; }
+.netdive-capture-advanced-section > header { margin-bottom: 16px; }
+.netdive-capture-advanced-section > header strong { display: block; font-weight: 500; }
+.netdive-capture-advanced-section > header small { display: block; margin-top: 4px; font-size: 11px; color: var(--netdive-detail-text-secondary); }
+.netdive-capture-advanced-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.netdive-capture-advanced-option-block { margin-bottom: 0; min-width: 0; }
+.netdive-capture-advanced-option-block .ant-select { width: 100%; }
+.netdive-capture-advanced-option-label { display: inline-flex; align-items: center; gap: 6px; }
+.netdive-capture-advanced-menu-item { display: flex; flex-direction: column; gap: 4px; }
+.netdive-capture-advanced-menu-item small { font-size: 11px; color: var(--netdive-detail-text-secondary); }
+.netdive-capture-advanced-check-list { display: grid; gap: 16px; }
+.netdive-capture-advanced-check-list > label { display: grid; grid-template-columns: 20px minmax(0, 1fr); align-items: start; gap: 8px; }
+.netdive-capture-advanced-check-list strong { font-weight: 500; }
+.netdive-capture-advanced-check-list small { display: block; margin-top: 4px; font-size: 11px; color: var(--netdive-detail-text-secondary); }
+.netdive-capture-example-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.netdive-capture-example-grid .ant-card-head { min-height: 57px; font-size: 12px; padding-block: 10px; }
+.netdive-capture-example-grid .ant-card-head-wrapper { min-height: 36px; align-items: flex-start; }
+.netdive-capture-example-grid .ant-card-head-title { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; line-height: 1.5; }
+.netdive-capture-example-grid .ant-card-extra { margin-inline-start: 8px; }
+.netdive-capture-example-grid header { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.netdive-capture-example-grid small { display: block; margin-top: 8px; font-size: 11px; }
+.netdive-capture-preflight-section { margin-bottom: 16px; }
+.netdive-capture-side-card-title { display: flex; gap: 8px; margin-bottom: 12px; }
+.netdive-capture-capture-summary-rows .ant-descriptions-item-label { width: 48px; }
+.netdive-capture-capture-summary-rows .ant-descriptions-item-content { overflow-wrap: anywhere; }
+.netdive-capture-capture-caution-card { margin-bottom: 16px; }
+.netdive-capture-capture-caution-card ul { margin: 0; padding-left: 18px; }
+.netdive-capture-capture-caution-card li + li { margin-top: 6px; }
+.netdive-capture-capture-help-list { display: grid; gap: 16px; }
+.netdive-capture-capture-help-list > div { display: flex; align-items: flex-start; gap: 8px; }
+.netdive-capture-capture-help-list small { display: block; font-size: 11px; margin-top: 4px; }
+@media (max-width: 850px) {
+    .netdive-capture-capture-wizard { grid-template-columns: 1fr; }
+    .netdive-capture-wizard-help-panel { position: static; }
+}
+@media (max-width: 600px) {
+    .netdive-capture-advanced-grid, .netdive-capture-example-grid { grid-template-columns: 1fr; }
+}

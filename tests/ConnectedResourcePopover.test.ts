@@ -48,15 +48,16 @@ describe('Connected resource popover', () => {
         assert.ok(css.includes('grid-template-columns: 28px minmax(0, 1fr) 14px'))
     })
 
-    it('keeps label, count and action columns stable for zero, single and multiple resources', () => {
+    it('keeps zero counts static and separates navigation from the native popup trigger', () => {
         const source = read('src/DataPanels/common/DetailComponents.tsx')
         const css = read('src/DataPanels/common/DetailComponents.css')
-        assert.ok(source.includes("!interactive && 'netdive-detail-resource__action--hidden'"))
+        assert.ok(source.includes('hoverable={interactive}'))
+        assert.ok(source.includes('onClick={interactive ? onClick : undefined}'))
         assert.ok(source.includes('hasResourceList ? <Popover'))
-        assert.ok(source.includes('<RightOutlined />'))
-        assert.ok(css.includes('.netdive-detail-resource__action--hidden'))
-        assert.ok(css.includes('visibility: hidden'))
-        assert.ok(css.includes('padding: 0 0 0 9px'))
+        assert.ok(source.includes('onClick={event => event.stopPropagation()}'))
+        assert.ok(source.includes(': interactive && <RightOutlined />'))
+        assert.ok(source.includes('<Card.Meta'))
+        assert.ok(source.includes('formatter={() => value}'))
     })
 
     it('navigates each list row through the existing real-node item path', () => {

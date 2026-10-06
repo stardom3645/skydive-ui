@@ -1,0 +1,7 @@
+.netdive-resource-stack { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.netdive-resource-metric { min-width: 0; }
+.netdive-resource-metric .ant-card-head-title { white-space: normal; }
+.netdive-resource-comparison { min-width: 0; }
+.netdive-resource-comparison .netdive-detail-metric-row .ant-typography { font-size: 12px; }
+.netdive-resource-comparison .netdive-detail-metric-row--primary .netdive-detail-metric-row__value { font-size: 16px; font-weight: 600; }
+.netdive-resource-comparison .netdive-detail-metric-row__value { text-align: right; font-variant-numeric: tabular-nums; }

@@ -71,7 +71,7 @@ describe('Detail selection history', () => {
     const panel = fs.readFileSync(path.join(root, 'src/SelectionPanel.tsx'), 'utf8')
     const activeOnlyGuards = panel.match(/if \(this\.state\.tab !== i\) \{/g) || []
     assert.strictEqual(activeOnlyGuards.length, 2)
-    assert.ok(/private renderTabs[\s\S]*?if \(this\.state\.tab !== i\)[\s\S]*?<Tab[\s\S]*?value=\{i\}/.test(panel))
+    assert.ok(/private renderTabs[\s\S]*?if \(this\.state\.tab !== i\)[\s\S]*?key: String\(i\)/.test(panel))
     assert.ok(panel.includes('this.renderNodeContext(el as Node)'))
   })
 })

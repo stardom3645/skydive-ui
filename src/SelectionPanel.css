@@ -1,0 +1,209 @@
+/* Layout and chart styles retained during removal of Material styling. */
+.netdive-selection-rightPanelPaperContent {
+  padding-top: 12px;
+  padding-bottom: 20px;
+  padding-left: 18px;
+  padding-right: 12px;
+  width: 100%;
+  height: 100%;
+  max-height: calc(100% - 70px);
+  background-color: var(--netdive-detail-bg);
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+  box-sizing: border-box;
+}
+.netdive-selection-jsonTree {
+  background-color: unset;
+}
+.netdive-selection-tabs {
+  height: 100%;
+  background-color: var(--netdive-detail-bg);
+}
+.netdive-selection-tabRoot {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  flex: 1 1 auto;
+  flex-basis: auto;
+  min-height: 60px;
+  height: 60px;
+  padding-top: 0;
+  padding-bottom: 0;
+  padding-left: 12px;
+  padding-right: 12px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.netdive-selection-tabLabelBlock {
+  display: block;
+  max-width: 100%;
+  min-width: 0;
+  text-align: left;
+  flex: 1 1 auto;
+}
+.netdive-selection-tabTitle {
+  display: block;
+  max-width: 100%;
+  font-size: var(--netdive-detail-font-panel-title);
+  line-height: var(--netdive-detail-line-panel-title);
+  color: var(--netdive-detail-text);
+  cursor: help;
+}
+.netdive-selection-tabTitleRow {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+.netdive-selection-tabTitleCopy {
+  display: inline-flex;
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  color: #667085;
+  cursor: pointer;
+  font-size: 12px;
+}
+.netdive-selection-tabTitleCopy:hover {
+  color: #1677ff;
+  background-color: #f0f6ff;
+}
+.netdive-selection-tabSubtitle {
+  display: block;
+  max-width: 100%;
+  margin-top: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--netdive-detail-text-secondary);
+  font-size: var(--netdive-detail-font-supporting-text);
+  line-height: var(--netdive-detail-line-supporting-text);
+  letter-spacing: 0.1px;
+}
+.netdive-selection-tabTitleMulti {
+  white-space: pre-line;
+  text-align: center;
+  line-height: 1.2;
+  text-overflow: clip;
+}
+.netdive-selection-tabTitlePreserveCase {
+  text-transform: none;
+}
+.netdive-selection-tabTitleTooltip {
+  font-size: 14px;
+}
+.netdive-selection-tabActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid #eef0f4;
+  padding-bottom: 8px;
+}
+.netdive-selection-tabNavigationActions {
+  display: flex;
+  width: 68px;
+  min-width: 68px;
+  flex: 0 0 68px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+}
+.netdive-selection-tabObjectActions {
+  display: flex;
+  min-width: 0;
+  flex: 0 1 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-left: auto;
+}
+.netdive-selection-gremlinExpr {
+  font-size: 16px;
+  padding: 0;
+}
+.netdive-selection-actionPanel {
+  margin-bottom: 16px;
+}
+.netdive-selection-tabIconImage {
+  display: block;
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  margin-bottom: 0 !important;
+  object-fit: contain;
+}
+.netdive-selection-tabSwitchIcon {
+  display: block;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  margin-bottom: 0 !important;
+  background-color: #1677ff;
+  -webkit-mask: url(../assets/icons/network-switch.svg) center / contain no-repeat;
+  mask: url(../assets/icons/network-switch.svg) center / contain no-repeat;
+  transform: scaleY(1.1);
+  transform-origin: center;
+}
+.netdive-selection-tabDeploymentIcon {
+  display: block;
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  margin-bottom: 0 !important;
+  background-color: #1677ff;
+  -webkit-mask: url(../assets/icons/deployment-controller.svg) center / contain no-repeat;
+  mask: url(../assets/icons/deployment-controller.svg) center / contain no-repeat;
+}
+.netdive-selection-tabDaemonSetIcon {
+  display: block;
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  margin-bottom: 0 !important;
+  background-color: #1677ff;
+  -webkit-mask: url(../assets/icons/daemonset-controller.svg) center / contain no-repeat;
+  mask: url(../assets/icons/daemonset-controller.svg) center / contain no-repeat;
+}
+.netdive-selection-tabIconFree {
+  font-family: "Font Awesome 5 Free" !important;
+  font-weight: 900;
+  font-size: 26px;
+  margin-bottom: 0 !important;
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  color: #1677ff;
+}
+.netdive-selection-tabIconBrands {
+  font-family: "Font Awesome 5 Brands" !important;
+  font-weight: 900;
+  font-size: 26px;
+  margin-bottom: 0 !important;
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  color: #1677ff;
+}
+
+.netdive-selection-tabs > .ant-tabs > .ant-tabs-nav { margin: 0; }
+.netdive-selection-tabs > .ant-tabs > .ant-tabs-nav .ant-tabs-nav-list { width: 100%; }
+.netdive-selection-tabs > .ant-tabs > .ant-tabs-nav .ant-tabs-tab { width: calc(100% - 136px); padding: 0; min-width: 0; }
+.netdive-selection-tabs > .ant-tabs > .ant-tabs-nav .ant-tabs-tab-btn { width: 100%; min-width: 0; }
+
+.netdive-selection-tabRoot { box-sizing: border-box; }

@@ -1,0 +1,26 @@
+// Stable layout classes for the Ant selection header.
+export const selectionPanelClasses = {
+  "rightPanelPaperContent": "netdive-selection-rightPanelPaperContent",
+  "jsonTree": "netdive-selection-jsonTree",
+  "tabs": "netdive-selection-tabs",
+  "tabRoot": "netdive-selection-tabRoot",
+  "tabLabelBlock": "netdive-selection-tabLabelBlock",
+  "tabTitle": "netdive-selection-tabTitle",
+  "tabTitleRow": "netdive-selection-tabTitleRow",
+  "tabTitleCopy": "netdive-selection-tabTitleCopy",
+  "tabSubtitle": "netdive-selection-tabSubtitle",
+  "tabTitleMulti": "netdive-selection-tabTitleMulti",
+  "tabTitlePreserveCase": "netdive-selection-tabTitlePreserveCase",
+  "tabTitleTooltip": "netdive-selection-tabTitleTooltip",
+  "tabActions": "netdive-selection-tabActions",
+  "tabNavigationActions": "netdive-selection-tabNavigationActions",
+  "tabObjectActions": "netdive-selection-tabObjectActions",
+  "gremlinExpr": "netdive-selection-gremlinExpr",
+  "actionPanel": "netdive-selection-actionPanel",
+  "tabIconImage": "netdive-selection-tabIconImage",
+  "tabSwitchIcon": "netdive-selection-tabSwitchIcon",
+  "tabDeploymentIcon": "netdive-selection-tabDeploymentIcon",
+  "tabDaemonSetIcon": "netdive-selection-tabDaemonSetIcon",
+  "tabIconFree": "netdive-selection-tabIconFree",
+  "tabIconBrands": "netdive-selection-tabIconBrands"
+}

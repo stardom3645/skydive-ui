@@ -1,17 +1,16 @@
 import * as React from 'react'
 import { Tooltip } from 'antd'
-import DeviceHubIcon from '@material-ui/icons/DeviceHub'
-import InfoIcon from '@material-ui/icons/Info'
-import TimelineIcon from '@material-ui/icons/Timeline'
-import SettingsInputComponentIcon from '@material-ui/icons/SettingsInputComponent'
-import { withStyles } from '@material-ui/core/styles'
+import { ApartmentOutlined as DeviceHubIcon } from '@ant-design/icons'
+import { InfoCircleOutlined as InfoIcon } from '@ant-design/icons'
+import { LineChartOutlined as TimelineIcon } from '@ant-design/icons'
+import { ApiOutlined as SettingsInputComponentIcon } from '@ant-design/icons'
 
 import { Node } from '../Topology'
-import { styles } from './HostDetailPanelStyles'
+import { hostDetailClasses as classes } from './HostDetailPanelClasses'
+import './HostDetailPanel.css'
 import { DetailBadge, DetailBadgeTone, DetailEmpty, DetailKeyValueList, DetailSection } from './common'
 
 interface Props {
-    classes: any
     node: Node
     moldInventory?: any
     vmNameMap?: Record<string, string>
@@ -433,7 +432,6 @@ class VMNetworkDetailPanel extends React.Component<Props, State> {
     }
 
     private renderFeatures() {
-        const { classes } = this.props
         const items = this.featureItems()
         if (!items.length) return <DetailEmpty description="장비 기능 정보 없음" compact />
         return (
@@ -467,11 +465,10 @@ class VMNetworkDetailPanel extends React.Component<Props, State> {
     private renderAdvanced() {
         const advanced = this.advancedInfo()
         if (!Object.keys(advanced).length) return <DetailEmpty description="고급 정보 없음" compact />
-        return <pre className={this.props.classes.jsonBox}>{JSON.stringify(advanced, null, 2)}</pre>
+        return <pre className={classes.jsonBox}>{JSON.stringify(advanced, null, 2)}</pre>
     }
 
     render() {
-        const { classes } = this.props
         const recentMetricRows = this.metricRows(this.metricData('LastUpdateMetric'), true)
         const accumulatedMetricRows = this.metricRows(this.metricData('Metric'), false)
         const hasConnectionInfo = this.libvirtRows().some(row => !isBlank(row.value)) || this.linkFlags().length > 0
@@ -492,4 +489,4 @@ class VMNetworkDetailPanel extends React.Component<Props, State> {
     }
 }
 
-export default withStyles(styles)(VMNetworkDetailPanel)
+export default VMNetworkDetailPanel

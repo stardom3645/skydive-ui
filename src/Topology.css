@@ -954,14 +954,17 @@ svg {
     font-weight: 900;
 }
 
-.node-badge-capture rect {
-    stroke: #ffffff;
-    stroke-width: 2px;
-    filter: drop-shadow(0 2px 5px rgba(239, 68, 68, 0.38));
-}
-
-.node-badge-capture text {
-    font-size: 11px;
+.netdive-topology-capture-status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    height: 28px;
+    border: 1px solid var(--netdive-detail-row-divider, #e5e7eb);
+    border-radius: 6px;
+    background: var(--netdive-detail-bg, #fff);
+    font-family: var(--netdive-font-family);
+    white-space: nowrap;
 }
 
 .font-brands {

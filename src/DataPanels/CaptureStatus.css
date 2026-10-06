@@ -1,0 +1,42 @@
+/* Ant components own their appearance; these rules arrange the detail panel and its semantic typography. */
+.netdive-capture-result {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  padding: 4px 0 16px;
+}
+.netdive-capture-status-meta { margin-top: 12px; }
+.netdive-capture-status-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
+.netdive-capture-section-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin-bottom: 8px;
+}
+.netdive-capture-updated-at { font-size: 11px; }
+.netdive-capture-stat-grid,
+.netdive-capture-distribution-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.netdive-capture-distribution-row + .netdive-capture-distribution-row { margin-top: 12px; }
+.netdive-capture-summary-hint { font-size: var(--netdive-detail-font-supporting-text, 11px); margin-bottom: 0; }
+.netdive-capture-result .ant-table-cell { overflow-wrap: anywhere; }
+@media (max-width: 480px) {
+  .netdive-capture-distribution-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+.netdive-capture-stat-grid > .ant-card { min-width: 0; }
+.netdive-capture-stat-value {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.netdive-capture-section-title { font-size: var(--netdive-detail-font-section-title, 14px); }
+.netdive-capture-supporting { font-size: var(--netdive-detail-font-supporting-text, 11px); }

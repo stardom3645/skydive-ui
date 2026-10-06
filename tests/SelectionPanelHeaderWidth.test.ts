@@ -7,16 +7,12 @@ const read = (file: string) => fs.readFileSync(path.join(root, file), 'utf8')
 
 describe('Selection panel single-resource header width', () => {
   it('uses the available title width while reserving the action rail outside the active line', () => {
-    const styles = read('src/SelectionPanelStyles.ts')
-    const tabRoot = styles.slice(styles.indexOf('tabRoot:'), styles.indexOf('tabLabelBlock:'))
-
-    assert.ok(styles.includes("'& .MuiTabs-scroller, & .MuiTabs-flexContainer':"))
-    assert.ok(tabRoot.includes("width: 'calc(100% - 136px)'"))
-    assert.ok(tabRoot.includes('minWidth: 0'))
-    assert.ok(tabRoot.includes("maxWidth: 'calc(100% - 136px)'"))
-    assert.ok(tabRoot.includes("flex: '0 1 calc(100% - 136px)'"))
-    assert.ok(tabRoot.includes("flexBasis: 'calc(100% - 136px)'"))
-    assert.ok(!tabRoot.includes('minWidth: 210'))
-    assert.ok(!tabRoot.includes('maxWidth: 320'))
+    const css = read('src/SelectionPanel.css')
+    const source = read('src/SelectionPanel.tsx')
+    assert.ok(css.includes('.ant-tabs-nav-list { width: 100%; }'))
+    assert.ok(css.includes('.ant-tabs-tab { width: calc(100% - 136px);'))
+    assert.ok(css.includes('min-width: 0'))
+    assert.ok(source.includes('items={this.renderTabs(classes).filter'))
+    assert.ok(!source.includes('@material-ui/'))
   })
 })

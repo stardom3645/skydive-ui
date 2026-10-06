@@ -3423,7 +3423,7 @@ button.netdive-detail-metric-row:focus-visible {
     align-items: stretch;
     flex-direction: column;
     gap: 8px;
-    margin: 10px var(--netdive-detail-card-body-padding-x);
+    margin: 0 0 10px;
     padding: 8px;
     border: 1px solid var(--netdive-detail-row-divider);
     border-radius: 8px;
@@ -3529,12 +3529,11 @@ button.netdive-detail-metric-row:focus-visible {
     box-shadow: none;
 }
 
-/* Keep feature tables visually subordinate to the section card. The shared
- * inset aligns the table with its search field instead of letting the table
- * border merge with the section's outer border. */
+/* The surrounding Ant Card owns the inset; align search and table without
+ * adding a second layer of horizontal or bottom spacing. */
 .netdive-detail-search-table__surface {
     min-width: 0;
-    margin: 0 var(--netdive-detail-card-body-padding-x) 12px;
+    margin: 0;
     overflow: hidden;
     border: 1px solid var(--netdive-detail-row-divider);
     border-radius: 7px;
@@ -3555,11 +3554,40 @@ button.netdive-detail-metric-row:focus-visible {
 }
 
 .netdive-port-mapping-expanded-modal .ant-modal-body {
-    padding: 16px 20px 20px;
+    padding: 0;
+}
+
+.netdive-port-mapping-expanded-modal .ant-modal-header {
+    margin-bottom: 20px;
+}
+
+.netdive-port-mapping-expanded-modal .ant-modal-title {
+    font-size: 16px;
+    font-weight: 600;
 }
 
 .netdive-detail-search-table.is-expanded .netdive-detail-search-table__topbar {
-    padding: 0 0 10px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin: 0 0 16px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    flex-wrap: wrap;
+}
+
+.netdive-detail-search-table.is-expanded .netdive-detail-search-table__summary {
+    padding: 0;
+    border: 0;
+    gap: 8px;
+}
+
+.netdive-detail-search-table.is-expanded .netdive-detail-search-table__toolbar {
+    flex: 0 1 360px;
+    width: auto;
+    margin-left: auto;
 }
 
 .netdive-detail-search-table.is-expanded .netdive-detail-search-table__surface {
@@ -3579,7 +3607,20 @@ button.netdive-detail-metric-row:focus-visible {
 
 .netdive-detail-search-table__primary {
     color: var(--netdive-detail-text);
-    font-weight: var(--netdive-detail-weight-section-title);
+    font-weight: 500;
+}
+
+/* Only Ant Table's body owns scrolling; overflow-x on its ancestors otherwise
+ * computes overflow-y:auto and creates a second vertical scrollbar. */
+.netdive-detail-search-table__surface .netdive-detail-table-scroll,
+.netdive-detail-search-table__table .ant-table-container,
+.netdive-detail-search-table__table .ant-table-content {
+    overflow: visible !important;
+}
+
+.netdive-detail-search-table__table .ant-table {
+    font-size: 11px;
+    line-height: 1.5;
 }
 
 .netdive-detail-search-table__table .ant-table-tbody > tr > td.netdive-detail-search-table__nowrap {
@@ -3591,6 +3632,8 @@ button.netdive-detail-metric-row:focus-visible {
 
 .netdive-detail-search-table__table .ant-table-thead > tr > th,
 .netdive-detail-search-table__table .ant-table-tbody > tr > td {
+    font-size: 11px;
+    line-height: 1.5;
     padding-top: 8px;
     padding-right: 5px;
     padding-bottom: 8px;
@@ -3598,11 +3641,13 @@ button.netdive-detail-metric-row:focus-visible {
 }
 
 .netdive-detail-search-table__table .ant-table-thead > tr > th {
-    overflow: hidden;
+    overflow: visible;
+    font-size: 12px;
+    line-height: 1.4;
     padding-right: 3px;
     padding-left: 3px;
     text-overflow: clip;
-    white-space: nowrap;
+    white-space: normal;
     word-break: keep-all;
 }
 
@@ -3612,14 +3657,15 @@ button.netdive-detail-metric-row:focus-visible {
 .netdive-detail-search-table__table .ant-table-column-sorters {
     min-width: 0;
     padding: 0;
-    gap: 0;
+    gap: 3px;
 }
 
 .netdive-detail-search-table__table .ant-table-column-title {
     min-width: 0;
-    overflow: hidden;
+    overflow: visible;
     text-overflow: clip;
-    white-space: nowrap;
+    white-space: normal;
+    word-break: keep-all;
 }
 
 .netdive-detail-search-table__table .ant-table-column-sorter {
@@ -3636,6 +3682,54 @@ button.netdive-detail-metric-row:focus-visible {
     font-size: 7px;
     transform: scale(0.72);
     transform-origin: center;
+}
+
+.netdive-detail-search-table__table .netdive-detail-table-status .ant-badge-status-dot {
+    width: 6px !important;
+    height: 6px !important;
+    min-width: 6px;
+    flex: 0 0 6px;
+    border-radius: 50%;
+}
+
+.netdive-detail-search-table__table .netdive-detail-table-status .ant-badge-status-text,
+.netdive-detail-search-table__table .netdive-detail-badge,
+.netdive-detail-search-table__table .netdive-detail-search-table__stacked-secondary {
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.netdive-detail-search-table.is-expanded .netdive-detail-search-table__table .ant-table-thead > tr > th,
+.netdive-detail-search-table.is-expanded .netdive-detail-search-table__table .ant-table-tbody > tr > td,
+.netdive-detail-search-table.is-expanded .netdive-detail-table-status .ant-badge-status-text,
+.netdive-detail-search-table.is-expanded .netdive-detail-badge {
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.netdive-detail-search-table.is-expanded .netdive-detail-search-table__table .ant-table-thead > tr > th,
+.netdive-detail-search-table.is-expanded .netdive-detail-search-table__table .ant-table-tbody > tr > td {
+    padding: 8px 16px;
+    text-align: left;
+    vertical-align: middle;
+}
+
+.netdive-detail-search-table.is-expanded .netdive-detail-search-table__table th .ant-table-column-sorters {
+    justify-content: flex-start;
+    gap: 8px;
+}
+
+.netdive-detail-search-table .ant-table-body {
+    overflow-y: auto !important;
+}
+
+.netdive-detail-search-table.is-expanded .ant-table-column-title {
+    flex: 0 1 auto;
+}
+
+.netdive-detail-search-table.is-expanded .ant-table-column-sorter-inner {
+    font-size: 10px;
+    transform: none;
 }
 
 .netdive-detail-search-table__nowrap-value {
@@ -3899,3 +3993,60 @@ button.netdive-detail-metric-row:focus-visible {
         grid-template-columns: 1fr;
     }
 }
+
+/* Center the sortable headings as a group, independently of cell alignment. */
+.netdive-detail-search-table .netdive-detail-search-table__table th .ant-table-column-sorters {
+    justify-content: center;
+    gap: 3px;
+}
+
+.netdive-detail-search-table .netdive-detail-search-table__table th .ant-table-column-title {
+    flex: 0 1 auto;
+    text-align: center;
+}
+
+.netdive-port-mapping-column-heading > span {
+    display: block;
+}
+
+.netdive-detail-search-table.is-expanded .netdive-port-mapping-column-heading > span {
+    display: inline;
+}
+
+.netdive-detail-search-table.is-expanded .netdive-detail-search-table__table th .ant-table-column-sorters {
+    justify-content: center;
+}
+
+/* Native Ant detail surfaces: only content layout and semantic density. */
+.netdive-ant-detail-description { font-size: 11px; }
+.netdive-ant-detail-section .netdive-detail-resource-grid,
+.netdive-ant-detail-section .netdive-connected-resources__groups,
+.netdive-ant-detail-section .netdive-connected-resource-list__groups {
+    padding: 0;
+}
+.netdive-ant-detail-section .netdive-detail-compact-resource-list { padding: 0; }
+.netdive-ant-detail-section .netdive-detail-card-subsection-header { margin-inline: 0; }
+.netdive-detail-descriptions .ant-descriptions-view { overflow: hidden; }
+.netdive-detail-descriptions .ant-descriptions-item-label { font-weight: 400; white-space: normal; }
+.netdive-detail-description-value { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.netdive-detail-description-text { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.netdive-detail-description-text.is-wrapping { white-space: normal; overflow-wrap: anywhere; }
+.netdive-ant-resource-wrapper { min-width: 0; }
+.netdive-ant-resource-content { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.netdive-ant-resource-content .ant-card-meta { display: flex; align-items: center; flex: 1; min-width: 0; margin: 0; }
+.netdive-ant-resource-content .ant-card-meta-avatar { display: flex; align-items: center; flex: 0 0 auto; padding-inline-end: 8px; font-size: 18px; line-height: 1; }
+.netdive-ant-resource-content .ant-card-meta-avatar .netdive-detail-topology-icon { width: 18px; height: 18px; line-height: 1; }
+.netdive-ant-resource-content .ant-card-meta-avatar img { width: 18px; height: 18px; object-fit: contain; }
+.netdive-ant-resource-content .ant-card-meta-title { font-size: 12px; margin-bottom: 0; }
+.netdive-ant-resource-content .ant-card-meta-description { font-size: 11px; }
+.netdive-ant-resource-card.is-selected { border-color: var(--netdive-ant-primary, #1677ff); }
+
+.netdive-detail-description-text.lines-2,
+.netdive-detail-description-text.lines-3,
+.netdive-detail-description-text.lines-6 { display: -webkit-box; -webkit-box-orient: vertical; white-space: normal; overflow-wrap: anywhere; }
+.netdive-detail-description-text.lines-2 { -webkit-line-clamp: 2; }
+.netdive-detail-description-text.lines-3 { -webkit-line-clamp: 3; }
+.netdive-detail-description-text.lines-6 { -webkit-line-clamp: 6; }
+
+.netdive-detail-descriptions table { table-layout: fixed; width: 100%; }
+.netdive-ant-detail-section .ant-card-head .ant-space-item > img { width: 16px; height: 16px; object-fit: contain; }

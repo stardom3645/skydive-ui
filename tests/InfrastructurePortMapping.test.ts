@@ -61,18 +61,15 @@ describe('Infrastructure LLDP port mapping', () => {
         assert.ok(source.includes('if (displayValue.length <= 18)'))
         assert.ok(source.includes('netdive-detail-search-table__surface'))
         assert.ok(source.includes(': PORT_MAPPING_TABLE_BODY_HEIGHT }}'))
-        assert.ok(source.match(/title: translate\('switchPortMappingSource'\)/g)!.length >= 2)
+        assert.ok(source.match(/title: twoLineHeader\('switchPortMappingSource'\)/g)!.length >= 2)
         assert.ok(source.includes('<DetailBadge tone={source.tone}>{source.label}</DetailBadge>'))
         assert.ok(source.includes("source === 'manual') return { label: translate('switchPortMappingManual'), tone: 'default'"))
-        ;[
-            "width: '20%'",
-            "width: '21%'",
-            "width: '19%'",
-            "width: '26%'",
-            "width: '32%'",
-            "width: '22%'"
-        ].forEach(width => assert.ok(source.includes(width), `missing optimized column width: ${width}`))
-        assert.ok(source.match(/width: '20%'/g)!.length >= 4)
+        const switchColumns = source.slice(source.indexOf('const switchColumns'), source.indexOf('const hostColumns'))
+        const hostColumns = source.slice(source.indexOf('const hostColumns'), source.indexOf('const columns ='))
+        ;[switchColumns, hostColumns].forEach(columns => {
+            const widths = (columns.match(/width: '\d+%'/g) || []).map(width => Number(width.match(/\d+/)![0]))
+            assert.strictEqual(widths.reduce((sum, width) => sum + width, 0), 100)
+        })
         assert.ok(source.match(/netdive-detail-search-table__source-column/g)!.length >= 2)
         assert.ok(source.includes('netdive-detail-search-table__summary'))
         assert.ok(source.includes('netdive-detail-search-table__topbar'))
@@ -85,11 +82,11 @@ describe('Infrastructure LLDP port mapping', () => {
             'utf8'
         )
         assert.ok(styles.includes('.netdive-detail-search-table__surface'))
-        assert.ok(styles.includes('margin: 0 var(--netdive-detail-card-body-padding-x) 12px'))
+        assert.ok(/\.netdive-detail-search-table__surface\s*\{[^}]*margin: 0;/.test(styles))
         assert.ok(styles.includes('.netdive-detail-search-table__topbar'))
         assert.ok(styles.includes('flex-direction: column'))
         assert.ok(styles.includes('gap: 8px'))
-        assert.ok(styles.includes('margin: 10px var(--netdive-detail-card-body-padding-x)'))
+        assert.ok(/\.netdive-detail-search-table__topbar\s*\{[^}]*margin: 0 0 10px;/.test(styles))
         assert.ok(styles.includes('border-bottom: 1px solid var(--netdive-detail-row-divider)'))
         assert.ok(styles.includes('.netdive-detail-search-table__topbar.is-host-perspective'))
         assert.ok(!styles.includes('.netdive-detail-search-table__topbar.is-host-perspective {\n    display: block;'))

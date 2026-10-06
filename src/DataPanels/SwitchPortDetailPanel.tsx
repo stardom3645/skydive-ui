@@ -178,6 +178,7 @@ class SwitchPortDetailPanel extends React.Component<Props> {
 
     private interfaceRows(node: Node) {
         const data = node.data || {}
+        const name = this.text(data, ['Name', 'name', 'IfName', 'InterfaceName']) || node.id
         const linkState = this.text(data, ['State', 'state', 'OperState', 'OperationalState', 'LinkState', 'Carrier'])
         const speed = this.formatSpeed(this.text(data, ['Speed', 'speed']))
         const duplex = this.text(data, ['Duplex', 'duplex', 'LinkDuplex'])
@@ -188,6 +189,7 @@ class SwitchPortDetailPanel extends React.Component<Props> {
         const mtu = this.text(data, ['MTU', 'Mtu', 'mtu'])
 
         return [
+            { key: 'interface-name', label: translate('switchPortMappingNic'), value: name, textValue: name, copyText: name },
             { key: 'link-state', label: translate('nicLinkStatus'), value: linkState, textValue: linkState },
             { key: 'speed', label: translate('Speed'), value: speed, textValue: speed },
             { key: 'duplex', label: translate('nicDuplex'), value: duplex, textValue: duplex },
@@ -206,9 +208,7 @@ class SwitchPortDetailPanel extends React.Component<Props> {
                 {interfaces.map(node => {
                     const rows = this.interfaceRows(node)
                     if (!rows.length) return null
-                    const name = this.text(node.data || {}, ['Name', 'name', 'IfName', 'InterfaceName']) || node.id
                     return <div className="netdive-switch-port-detail__interface" key={node.id}>
-                        <div className="netdive-switch-port-detail__interface-name">{name}</div>
                         <DetailKeyValueList rows={rows} density="compact" copyTooltip={translate('copy')} />
                     </div>
                 })}

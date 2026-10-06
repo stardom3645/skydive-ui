@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Alert, Button, Collapse, Progress, Tag } from 'antd'
+import { Alert, Button, Card, Collapse, ConfigProvider, Descriptions, Empty, Progress, Space, Statistic, Table, Tag, Typography } from 'antd'
 import {
   ApartmentOutlined,
   AimOutlined,
@@ -11,21 +11,14 @@ import {
   SwapOutlined,
   VideoCameraOutlined
 } from '@ant-design/icons'
-import { createStyles, Theme, withStyles } from '@material-ui/core/styles'
+import './CaptureStatus.css'
 
 import { session } from '../Store'
 import { Configuration } from '../api/configuration'
 import { TopologyApi } from '../api'
 import { Node } from '../Topology'
 import FlowPanel from './Flow'
-import {
-  CompactEmptyState,
-  DetailBadge,
-  DetailCardSubsectionHeader,
-  DetailKeyValueList,
-  DetailMetricRow,
-  DetailSectionCard
-} from './common/DetailComponents'
+
 
 export interface SimpleCaptureSession {
   id: string
@@ -42,7 +35,6 @@ export interface SimpleCaptureSession {
 }
 
 interface Props {
-  classes: any
   capture: SimpleCaptureSession
   session: session
   el: Node
@@ -75,7 +67,7 @@ interface CaptureFlowSummary {
   packets: number
 }
 
-class CaptureStatusPanel extends React.Component<Props, State> {
+export class CaptureStatusPanel extends React.Component<Props, State> {
   private tickTimer?: number
   private pollTimer?: number
 
@@ -449,12 +441,12 @@ class CaptureStatusPanel extends React.Component<Props, State> {
   }
 
   render() {
-    const { classes, capture } = this.props
+    const { capture } = this.props
     const isRunning = capture.status === 'running'
     const isDone = terminalStatuses.has(capture.status) && capture.status !== 'delete_failed' && capture.status !== 'failed' && capture.status !== 'stopped'
     const isLegacy = capture.id.startsWith('legacy-')
     const isFailed = capture.status === 'failed' || capture.status === 'delete_failed'
-    const statusTone = isRunning ? 'info' : isDone ? 'success' : isFailed ? 'danger' : 'warning'
+    const statusTone = isRunning ? 'processing' : isDone ? 'success' : isFailed ? 'error' : 'warning'
     const flows = this.state.flows
     const visibleTopFlows = this.state.showAllTopFlows ? flows : flows.slice(0, 5)
     const totalBytes = flows.reduce((sum, flow) => sum + flow.bytes, 0)
@@ -466,532 +458,129 @@ class CaptureStatusPanel extends React.Component<Props, State> {
     const progress = isRunning ? this.progressValue() : 100
     const durationLabel = this.formatDuration(capture.durationSeconds || 0)
 
+    const empty = (description: string) => <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={description} />
+    const distribution = (items: Array<{ label: string, bytes: number, percent: number }>, description: string) =>
+      items.length === 0 ? empty(description) : items.map(item =>
+        <div className="netdive-capture-distribution-row" key={item.label}>
+          <div className="netdive-capture-section-heading">
+            <Typography.Text>{item.label}</Typography.Text>
+            <Typography.Text type="secondary">{this.formatBytes(item.bytes)}</Typography.Text>
+          </div>
+          <Progress percent={item.percent} size="small" />
+        </div>)
+
     return (
-      <div className={classes.captureResultPanel}>
-        <div className={classes.captureResultShell}>
-          <DetailSectionCard
-            className={classes.captureStatusCard}
-            icon={<VideoCameraOutlined />}
-            title={this.statusTitle()}
-            action={<span className={classes.captureHeroControls}>
-              <DetailBadge tone={statusTone}>{this.statusLabel(isRunning, isDone)}</DetailBadge>
-              <Button type="text" size="small" onClick={this.props.onClear}>접기</Button>
-            </span>}>
-            <div className={classes.captureProgressPanel}>
-              <div className={classes.captureCountdown}>
-                <span>{isRunning ? `남은 시간 · 총 ${durationLabel}` : '소요 시간'}</span>
-                <strong>{isRunning ? this.formatRemaining() : this.formatDuration(this.elapsedSeconds())}</strong>
-              </div>
-              <div className={classes.captureProgressRow}>
-                <Progress percent={progress} showInfo={false} strokeColor={isDone ? 'var(--netdive-detail-success)' : 'var(--netdive-ant-primary)'} />
-                <strong>{progress}%</strong>
-              </div>
-            </div>
+      <ConfigProvider theme={{
+        // Match the surrounding detail panel: section 14, body 12, supporting 11.
+        token: { fontSize: 12, fontSizeSM: 11 },
+        components: {
+          Card: { headerFontSize: 14, headerFontSizeSM: 14 },
+          Statistic: { titleFontSize: 12, contentFontSize: 16 },
+          Table: { cellFontSize: 12, cellFontSizeSM: 12 }
+        }
+      }}>
+      <div className="netdive-capture-result">
+        <Card size="small" title={<Space><VideoCameraOutlined />{this.statusTitle()}</Space>}
+          extra={<Space size={4}><Tag color={statusTone}>{this.statusLabel(isRunning, isDone)}</Tag>
+            <Button type="text" size="small" onClick={this.props.onClear}>접기</Button></Space>}>
+          <Statistic title={isRunning ? `남은 시간 · 총 ${durationLabel}` : '소요 시간'}
+            value={isRunning ? this.formatRemaining() : this.formatDuration(this.elapsedSeconds())}
+            styles={{ content: { fontSize: 28, fontWeight: 600, lineHeight: 1.3 } }} />
+          <Progress percent={progress} status={isFailed ? 'exception' : isDone ? 'success' : 'normal'} />
+          <Descriptions className="netdive-capture-status-meta" size="small" column={2} colon={false} items={[
+            { key: 'target', label: '대상', children: capture.targetName || '-' },
+            { key: 'type', label: '유형', children: this.targetTypeLabel() },
+            { key: 'scope', label: '범위', children: this.scopeLabel() },
+            { key: 'filter', label: '필터', children: this.filterLabel() }
+          ]} />
+          {this.state.error && <Alert type="error" showIcon title={this.state.error} />}
+          <div className="netdive-capture-status-actions">
+            <Space wrap>
+              {isRunning && <Button size="small" danger icon={<StopOutlined />} loading={this.state.loading}
+                disabled={isLegacy} onClick={() => this.stopCapture()}>중지</Button>}
+              {isFailed && <Button size="small" icon={<RedoOutlined />} onClick={this.props.onRetry}>다시 시도</Button>}
+              {!isRunning && !isFailed && <>
+                {isDone && <Button size="small" type="primary" icon={<DownloadOutlined />} loading={this.state.downloading}
+                  disabled={isLegacy} onClick={() => this.downloadCapture()}>{this.state.downloading ? '다운로드 중' : '다운로드'}</Button>}
+                <Button size="small" icon={<RedoOutlined />} onClick={this.props.onRetry}>다시 캡처</Button>
+              </>}
+            </Space>
+          </div>
+        </Card>
 
-            <DetailKeyValueList
-              className={classes.captureMetaGrid}
-              density="compact"
-              labelWidth={50}
-              rows={[
-                { key: 'target', label: '대상', value: capture.targetName || '-', textValue: capture.targetName || '-' },
-                { key: 'type', label: '유형', value: this.targetTypeLabel() },
-                { key: 'scope', label: '범위', value: this.scopeLabel() },
-                { key: 'filter', label: '필터', value: this.filterLabel(), textValue: this.filterLabel() }
-              ]} />
+        <section>
+          <div className="netdive-capture-section-heading">
+            <Typography.Text strong className="netdive-capture-section-title">캡처 요약</Typography.Text>
+            <Typography.Text type="secondary" className="netdive-capture-updated-at">
+              마지막 업데이트: {new Date(this.state.now).toLocaleTimeString()}
+            </Typography.Text>
+          </div>
+          <div className="netdive-capture-stat-grid">
+            {[
+              { title: '총 트래픽', icon: <SwapOutlined />, value: this.formatBytes(totalBytes), detail: 'bytes' },
+              { title: '총 플로우', icon: <ApartmentOutlined />, value: flows.length.toLocaleString(), detail: 'flows' },
+              { title: '주요 통신 대상', icon: <AimOutlined />, value: peer.label, detail: `${peer.percent}%` },
+              { title: '주요 프로토콜', icon: <CodeOutlined />, value: protocol.label, detail: `${protocol.percent}%` }
+            ].map(item => <Card key={item.title} size="small">
+              <Statistic title={<Space size={6}>{item.icon}{item.title}</Space>} value={item.value}
+                formatter={() => <span className="netdive-capture-stat-value" title={item.value}>{item.value}</span>}
+                styles={{ content: { fontSize: 16, fontWeight: 600, overflowWrap: 'anywhere' } }} />
+              <Typography.Text type="secondary" className="netdive-capture-supporting">{item.detail}</Typography.Text>
+            </Card>)}
+          </div>
+        </section>
 
-            {this.state.error && <Alert className={classes.captureStatusError} type="error" showIcon message={this.state.error} />}
+        <Card size="small" title="상위 통신" extra={flows.length > 5 ?
+          <Button type="link" size="small" onClick={() => this.setState({ showAllTopFlows: !this.state.showAllTopFlows })}>
+            {this.state.showAllTopFlows ? '접기' : `더보기 (${flows.length - 5})`}
+          </Button> : undefined}>
+          <Table<CaptureFlowSummary> size="small" rowKey="key" pagination={false} dataSource={visibleTopFlows}
+            locale={{ emptyText: empty('아직 표시할 플로우가 없습니다. 캡처가 진행되면 요약이 갱신됩니다.') }}
+            columns={[
+              { title: '통신 대상', key: 'endpoints', render: (_, flow) => <Space orientation="vertical" size={4}>
+                <Typography.Text title={`${flow.source} → ${flow.destination}`}>
+                  {this.endpointAddress(flow.source)} → {this.endpointAddress(flow.destination)}
+                </Typography.Text>
+                <Space size={4} wrap><Tag color="blue">{flow.protocol}</Tag>{flow.application && <Tag>{flow.application}</Tag>}
+                  <Typography.Text type="secondary" className="netdive-capture-supporting">포트 {flow.destinationPort || flow.sourcePort || '-'}</Typography.Text>
+                </Space>
+              </Space> },
+              { title: '트래픽', key: 'traffic', align: 'right', width: 85, render: (_, flow) => <Space orientation="vertical" size={0}>
+                <Typography.Text>{this.formatBytes(flow.bytes)}</Typography.Text>
+                <Typography.Text type="secondary" className="netdive-capture-supporting">{totalPackets > 0 ? Math.round(flow.packets / totalPackets * 100) : 0}%</Typography.Text>
+              </Space> }
+            ]}
+            expandable={{
+              expandedRowKeys: this.state.expandedFlowKey ? [this.state.expandedFlowKey] : [],
+              onExpand: (expanded, flow) => this.setState({ expandedFlowKey: expanded ? flow.key : '' }),
+              expandedRowRender: flow => <>
+                <Descriptions size="small" column={1} items={[
+                  { key: 'ports', label: '원시 포트', children: `${flow.sourcePort || '-'} → ${flow.destinationPort || '-'}` },
+                  { key: 'packets', label: '패킷', children: flow.packets.toLocaleString() }
+                ]} />
+                <Progress size="small" percent={totalBytes > 0 ? Math.round(flow.bytes / totalBytes * 100) : 0} />
+              </>
+            }} />
+        </Card>
 
-            <div className={classes.captureStatusActions}>
-              {isRunning &&
-                <Button size="small" danger icon={<StopOutlined />} loading={this.state.loading} disabled={isLegacy} onClick={() => this.stopCapture()}>
-                  중지
-                </Button>
-              }
-              {isFailed &&
-                <Button size="small" icon={<RedoOutlined />} onClick={this.props.onRetry}>
-                  다시 시도
-                </Button>
-              }
-              {!isRunning && !isFailed &&
-                <>
-                  {isDone &&
-                    <Button size="small" icon={<DownloadOutlined />} loading={this.state.downloading} disabled={isLegacy} onClick={() => this.downloadCapture()}>
-                      {this.state.downloading ? '다운로드 중' : '다운로드'}
-                    </Button>
-                  }
-                  <Button size="small" icon={<RedoOutlined />} onClick={this.props.onRetry}>
-                    다시 캡처
-                  </Button>
-                </>
-              }
-            </div>
-          </DetailSectionCard>
-
-          <section className={classes.captureSupportingSection}>
-            <DetailCardSubsectionHeader
-              first
-              title="캡처 요약"
-              action={<span className={classes.captureUpdatedAt}>마지막 업데이트: {new Date(this.state.now).toLocaleTimeString()}</span>} />
-            <div className={classes.captureMetricGrid}>
-              <div className={classes.captureMetricItem}>
-                <i className={classes.captureMetricIcon}><SwapOutlined /></i>
-                <span className={classes.captureMetricBody}><em>총 트래픽</em><strong>{this.formatBytes(totalBytes)}</strong><small>bytes</small></span>
-              </div>
-              <div className={classes.captureMetricItem}>
-                <i className={classes.captureMetricIcon}><ApartmentOutlined /></i>
-                <span className={classes.captureMetricBody}><em>총 플로우</em><strong>{flows.length.toLocaleString()}</strong><small>flows</small></span>
-              </div>
-              <div className={classes.captureMetricItem}>
-                <i className={classes.captureMetricIcon}><AimOutlined /></i>
-                <span className={classes.captureMetricBody}><em>주요 통신 대상</em><strong title={peer.label}>{peer.label}</strong><small>{peer.percent}%</small></span>
-              </div>
-              <div className={classes.captureMetricItem}>
-                <i className={classes.captureMetricIcon}><CodeOutlined /></i>
-                <span className={classes.captureMetricBody}><em>주요 프로토콜</em><strong>{protocol.label}</strong><small>{protocol.percent}%</small></span>
-              </div>
-            </div>
-          </section>
-
-          <section className={classes.captureSupportingSection}>
-            <DetailCardSubsectionHeader
-              first
-              title="상위 통신"
-              action={flows.length > 5 ?
-                <Button type="link" size="small" className={classes.moreButton} onClick={() => this.setState({ showAllTopFlows: !this.state.showAllTopFlows })}>
-                  {this.state.showAllTopFlows ? '접기' : `더보기 (${flows.length - 5})`}
-                </Button> : undefined} />
-            {visibleTopFlows.length === 0 &&
-              <CompactEmptyState description="아직 표시할 플로우가 없습니다. 캡처가 진행되면 요약이 갱신됩니다." />
-            }
-            <div className={`${classes.topFlowList} ${this.state.showAllTopFlows ? classes.topFlowListScrollable : ''}`}>
-              {visibleTopFlows.map((flow, index) => {
-                const percent = totalBytes > 0 ? Math.max(4, Math.round((flow.bytes / totalBytes) * 100)) : 0
-                const packetPercent = totalPackets > 0 ? Math.round((flow.packets / totalPackets) * 100) : 0
-                const expanded = this.state.expandedFlowKey === flow.key
-                const sourceAddress = this.endpointAddress(flow.source)
-                const destinationAddress = this.endpointAddress(flow.destination)
-                const displayPort = flow.destinationPort || flow.sourcePort || '-'
-                return (
-                  <button
-                    type="button"
-                    key={flow.key}
-                    className={`${classes.topFlowItem} ${expanded ? classes.topFlowItemExpanded : ''}`}
-                    onClick={() => this.setState({ expandedFlowKey: expanded ? '' : flow.key })}>
-                    <span className={classes.topFlowRank}>{index + 1}</span>
-                    <span className={classes.topFlowMain}>
-                      <strong title={`${flow.source} → ${flow.destination}`}>{sourceAddress} → {destinationAddress}</strong>
-                      <em>
-                        <Tag className={classes.flowBadge}>{flow.protocol}</Tag>
-                        {flow.application && <Tag className={classes.flowBadge}>{flow.application}</Tag>}
-                        <span className={classes.flowPort}>포트 {displayPort}</span>
-                        <span className={classes.flowPort}>{flow.packets.toLocaleString()} 패킷</span>
-                      </em>
-                      <i style={{ width: `${percent}%` }} />
-                      {expanded &&
-                        <small>
-                          원시 포트 {flow.sourcePort || '-'} → {flow.destinationPort || '-'} · 트래픽 {this.formatBytes(flow.bytes)} · {flow.packets.toLocaleString()} 패킷
-                        </small>
-                      }
-                    </span>
-                    <span className={classes.topFlowBytes}>
-                      <strong>{this.formatBytes(flow.bytes)}</strong>
-                      <small>{packetPercent}%</small>
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-          </section>
-
-          <section className={classes.captureDistributionGrid}>
-            <DetailSectionCard className={classes.miniStatPanel} title="프로토콜 분포">
-              {protocolDistribution.length === 0 &&
-                <CompactEmptyState description="아직 프로토콜 분포가 없습니다." />
-              }
-              {protocolDistribution.map((item, index) => <DetailMetricRow
-                key={item.label}
-                label={item.label}
-                value={this.formatBytes(item.bytes)}
-                ratio={`${item.percent}%`}
-                primary={index === 0}
-                progressPercent={item.percent}
-                progressColor={index === 0 ? 'var(--netdive-ant-primary)' : 'var(--netdive-ops-icon-color)'} />)}
-            </DetailSectionCard>
-            <DetailSectionCard className={classes.miniStatPanel} title="상위 포트">
-              {portDistribution.length === 0 &&
-                <CompactEmptyState description="아직 포트 통계가 없습니다." />
-              }
-              {portDistribution.map(({ port, bytes, percent }, index) => <DetailMetricRow
-                key={port}
-                label={`${port} ${this.portApplication(port)}`}
-                value={this.formatBytes(bytes)}
-                ratio={`${percent}%`}
-                primary={index === 0}
-                progressPercent={percent}
-                progressColor={index === 0 ? 'var(--netdive-ant-primary)' : 'var(--netdive-ops-icon-color)'} />)}
-            </DetailSectionCard>
-          </section>
-
-          <Collapse className={classes.rawFlowAccordion} expandIconPosition="end">
-            <Collapse.Panel key="raw-flows" header={<span><NodeIndexOutlined /> 원시 플로우 보기</span>}>
-              <FlowPanel el={this.props.el} />
-            </Collapse.Panel>
-          </Collapse>
-
-          <p className={classes.captureSummaryHint}>요약 정보는 실시간으로 갱신되며, 캡처 완료 후 최종 값이 확정됩니다.</p>
+        <div className="netdive-capture-distribution-grid">
+          <Card size="small" title="프로토콜 분포">
+            {distribution(protocolDistribution, '아직 프로토콜 분포가 없습니다.')}
+          </Card>
+          <Card size="small" title="상위 포트">
+            {distribution(portDistribution.map(item => ({ ...item, label: `${item.port} ${this.portApplication(item.port)}` })), '아직 포트 통계가 없습니다.')}
+          </Card>
         </div>
+        <Collapse size="small" expandIconPlacement="end" items={[{
+          key: 'raw-flows', label: <Space><NodeIndexOutlined />원시 플로우 보기</Space>, children: <FlowPanel el={this.props.el} />
+        }]} />
+        <Typography.Paragraph type="secondary" className="netdive-capture-summary-hint">
+          요약 정보는 실시간으로 갱신되며, 캡처 완료 후 최종 값이 확정됩니다.
+        </Typography.Paragraph>
       </div>
+      </ConfigProvider>
     )
   }
 }
 
-const styles = (theme: Theme) => createStyles({
-  captureResultPanel: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 'var(--netdive-detail-panel-gap)',
-    padding: '4px 0 var(--netdive-detail-panel-bottom-padding)',
-    background: 'transparent',
-  },
-  captureResultShell: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 8,
-  },
-  captureStatusCard: {
-    padding: 0,
-    borderColor: 'var(--netdive-detail-card-border)',
-    borderRadius: 'var(--netdive-detail-card-radius)',
-    background: 'var(--netdive-detail-bg)',
-    boxShadow: 'var(--netdive-detail-card-shadow)',
-    '& .netdive-detail-section__body': { padding: '12px var(--netdive-detail-card-body-padding-x)' },
-  },
-  captureMetaGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-    gap: '0 12px',
-    marginTop: 10,
-    paddingTop: 8,
-    borderTop: '1px solid var(--netdive-detail-section-divider)',
-    '& > .netdive-detail-kv__row': { minWidth: 0 },
-  },
-  captureHeroControls: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 6,
-    flex: '0 0 auto',
-    '& .ant-tag': { marginRight: 0 },
-    '& .ant-btn': { height: 24, padding: '0 4px', color: 'var(--netdive-detail-text-tertiary)', fontSize: 'var(--netdive-detail-font-supporting-text)' },
-  },
-  captureProgressPanel: {
-    marginTop: theme.spacing(0.75),
-  },
-  captureCountdown: {
-    '& span': {
-      display: 'block',
-      color: 'var(--netdive-detail-text-tertiary)',
-      fontSize: 'var(--netdive-detail-font-supporting-text)',
-      fontWeight: 'var(--netdive-detail-weight-body-label)',
-    },
-    '& strong': {
-      display: 'block',
-      color: 'var(--netdive-detail-text)',
-      fontSize: 32,
-      lineHeight: 1.2,
-      fontWeight: 700,
-      letterSpacing: '-0.03em',
-      marginTop: 2,
-    }
-  },
-  captureProgressRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: theme.spacing(0.8),
-    marginTop: theme.spacing(0.55),
-    '& .ant-progress': { flex: 1, margin: 0 },
-    '& .ant-progress-inner': { borderRadius: 'var(--netdive-ant-radius)' },
-    '& .ant-progress-bg': { height: '4px !important', borderRadius: 'var(--netdive-ant-radius)' },
-    '& > strong': {
-      color: 'var(--netdive-detail-text-secondary)',
-      fontSize: 'var(--netdive-detail-font-supporting-text)',
-      fontWeight: 'var(--netdive-detail-weight-body-label)',
-      minWidth: 34,
-      textAlign: 'right',
-    }
-  },
-  captureStatusError: {
-    margin: theme.spacing(0.8, 0, 0),
-    borderRadius: 'var(--netdive-ant-radius)',
-    '& .ant-alert-message': { fontSize: 'var(--netdive-detail-font-body-label)' },
-  },
-  captureStatusActions: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: theme.spacing(0.8),
-    justifyContent: 'flex-end',
-    marginTop: theme.spacing(0.75),
-    flexWrap: 'wrap',
-    '& .ant-btn': { borderRadius: 'var(--netdive-ant-radius)', fontSize: 'var(--netdive-detail-font-body-label)' }
-  },
-  captureSupportingSection: {
-    paddingBottom: 8,
-    borderBottom: '1px solid var(--netdive-detail-section-divider)',
-    background: 'var(--netdive-detail-bg)',
-    '& $captureMetricGrid, & $topFlowList': { margin: '0 var(--netdive-detail-card-body-padding-x)' },
-  },
-  miniStatPanel: {
-    height: '100%',
-    borderColor: 'var(--netdive-detail-row-divider)',
-    borderRadius: 'var(--netdive-detail-card-radius)',
-    background: 'var(--netdive-ops-tint, #fafcff)',
-    boxShadow: 'none',
-    minWidth: 0,
-    '& .ant-card-head': { minHeight: 36, background: 'transparent' },
-    '& .netdive-detail-section__header': { minHeight: 36 },
-    '& .netdive-detail-section__body': { padding: '6px var(--netdive-detail-card-body-padding-x) 10px' },
-  },
-  captureUpdatedAt: { color: 'var(--netdive-detail-text-tertiary)', fontSize: 'var(--netdive-detail-font-supporting-text)', whiteSpace: 'nowrap' },
-  moreButton: {
-    height: 24,
-    padding: '0 2px',
-    color: 'var(--netdive-ant-primary)',
-    fontSize: 'var(--netdive-detail-font-body-label)',
-    fontWeight: 600,
-  },
-  captureMetricGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-    gap: 6,
-    borderRadius: 0,
-    background: 'transparent',
-  },
-  captureMetricItem: {
-    display: 'grid',
-    gridTemplateColumns: '34px minmax(0, 1fr)',
-    gap: 10,
-    alignItems: 'center',
-    minWidth: 0,
-    minHeight: 66,
-    padding: 8,
-    boxSizing: 'border-box',
-    border: '1px solid var(--netdive-detail-row-divider)',
-    borderRadius: 'var(--netdive-detail-card-radius)',
-    background: 'var(--netdive-ops-tint, #fafcff)',
-  },
-  captureMetricIcon: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 34,
-    height: 34,
-    border: '1px solid var(--netdive-detail-connected-resource-icon-border)',
-    borderRadius: 'var(--netdive-detail-card-radius)',
-    background: 'var(--netdive-detail-connected-resource-icon-bg)',
-    color: 'var(--netdive-detail-connected-resource-icon)',
-    '& svg': {
-      width: 17,
-      height: 17,
-    }
-  },
-  captureMetricBody: {
-    minWidth: 0,
-    '& em': {
-      display: 'block',
-      color: 'var(--netdive-detail-text-tertiary)',
-      fontSize: 'var(--netdive-detail-font-supporting-text)',
-      fontStyle: 'normal',
-      fontWeight: 'var(--netdive-detail-weight-body-label)',
-      marginBottom: 3,
-    },
-    '& strong': {
-      display: 'block',
-      color: 'var(--netdive-detail-text)',
-      fontSize: 'var(--netdive-detail-font-primary-value)',
-      fontWeight: 'var(--netdive-detail-weight-primary-value)',
-      overflowWrap: 'anywhere',
-      whiteSpace: 'normal',
-      lineHeight: 1.18,
-    },
-    '& small': {
-      display: 'block',
-      marginTop: 3,
-      color: 'var(--netdive-detail-text-tertiary)',
-      fontSize: 'var(--netdive-detail-font-supporting-text)',
-      fontWeight: 'var(--netdive-detail-weight-supporting-text)',
-    }
-  },
-  topFlowList: {
-    display: 'grid',
-    gap: 0,
-    '& $topFlowItem:nth-child(n+2) $topFlowMain i': {
-      background: 'var(--netdive-ops-icon-color)',
-      opacity: 0.4,
-    }
-  },
-  topFlowListScrollable: {
-    maxHeight: 360,
-    overflowY: 'auto',
-    paddingRight: 3,
-    scrollbarGutter: 'stable',
-  },
-  topFlowItem: {
-    appearance: 'none',
-    width: '100%',
-    display: 'grid',
-    gridTemplateColumns: '26px minmax(0, 1fr) 68px',
-    gap: 8,
-    alignItems: 'center',
-    border: 0,
-    borderBottom: '1px solid var(--netdive-detail-row-divider)',
-    borderRadius: 0,
-    background: 'transparent',
-    padding: '7px 2px',
-    cursor: 'pointer',
-    textAlign: 'left',
-    transition: 'background-color 160ms ease',
-    '&:last-child': {
-      borderBottom: 0,
-    },
-    '&:hover': {
-      background: 'var(--netdive-detail-hover)',
-    }
-  },
-  topFlowItemExpanded: {
-    background: 'var(--netdive-detail-selected)',
-  },
-  topFlowRank: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 22,
-    height: 22,
-    borderRadius: 'var(--netdive-detail-card-radius)',
-    background: 'var(--netdive-ant-table-header)',
-    color: 'var(--netdive-detail-text-secondary)',
-    fontSize: 'var(--netdive-detail-font-supporting-text)',
-    fontWeight: 600,
-  },
-  topFlowMain: {
-    minWidth: 0,
-    '& strong': {
-      display: 'block',
-      color: 'var(--netdive-detail-text)',
-      fontSize: 'var(--netdive-detail-font-body-label)',
-      fontWeight: 'var(--netdive-detail-weight-section-title)',
-      lineHeight: 'var(--netdive-detail-line-body-label)',
-      overflow: 'hidden',
-      textOverflow: 'ellipsis',
-      whiteSpace: 'nowrap',
-    },
-    '& em': {
-      display: 'flex',
-      flexWrap: 'wrap',
-      gap: 6,
-      color: 'var(--netdive-detail-text-tertiary)',
-      fontSize: 'var(--netdive-detail-font-supporting-text)',
-      fontStyle: 'normal',
-      marginTop: 2,
-    },
-    '& i': {
-      display: 'block',
-      height: 2,
-      borderRadius: 999,
-      background: 'var(--netdive-ant-primary)',
-      opacity: 0.74,
-      marginTop: 7,
-      maxWidth: '100%',
-    },
-    '& small': {
-      display: 'block',
-      color: 'var(--netdive-detail-primary)',
-      fontSize: 'var(--netdive-detail-font-supporting-text)',
-      marginTop: 5,
-    }
-  },
-  topFlowBytes: {
-    display: 'grid',
-    justifyItems: 'end',
-    gap: 2,
-    minWidth: 0,
-    color: 'var(--netdive-detail-text)',
-    whiteSpace: 'nowrap',
-    '& strong': {
-      display: 'block',
-      fontSize: 'var(--netdive-detail-font-body-label)',
-      fontWeight: 'var(--netdive-detail-weight-section-title)',
-    },
-    '& small': {
-      display: 'block',
-      color: 'var(--netdive-detail-text-tertiary)',
-      fontSize: 'var(--netdive-detail-font-supporting-text)',
-      fontWeight: 'var(--netdive-detail-weight-supporting-text)',
-      lineHeight: 1.25,
-      textAlign: 'right',
-    }
-  },
-  flowBadge: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    border: 0,
-    margin: 0,
-    borderRadius: 'var(--netdive-ant-radius)',
-    background: 'var(--netdive-ant-table-header)',
-    color: 'var(--netdive-detail-text-secondary)',
-    padding: '1px 5px',
-    fontSize: 'var(--netdive-detail-font-status-tag)',
-    fontWeight: 600,
-    lineHeight: 1.35,
-  },
-  flowPort: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    color: 'var(--netdive-detail-text-tertiary)',
-    fontSize: 'var(--netdive-detail-font-supporting-text)',
-    fontWeight: 500,
-    lineHeight: 1.35,
-  },
-  captureDistributionGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-    gap: theme.spacing(1),
-    '@media (max-width: 720px)': {
-      gridTemplateColumns: '1fr',
-    },
-  },
-  rawFlowAccordion: {
-    marginTop: 2,
-    boxShadow: 'none',
-    border: '1px solid var(--netdive-detail-card-border)',
-    borderRadius: 'var(--netdive-detail-card-radius)',
-    background: 'var(--netdive-detail-bg)',
-    overflow: 'hidden',
-    '& > .ant-collapse-item > .ant-collapse-header': {
-      display: 'flex',
-      minHeight: 'var(--netdive-detail-card-head-height)',
-      alignItems: 'center',
-      padding: '0 40px 0 var(--netdive-detail-card-padding-x)',
-      color: 'var(--netdive-detail-text)',
-      fontSize: 'var(--netdive-detail-font-section-title)',
-      fontWeight: 'var(--netdive-detail-weight-section-title)',
-      lineHeight: 'var(--netdive-detail-line-section-title)',
-    },
-    '& > .ant-collapse-item > .ant-collapse-header::before, & > .ant-collapse-item > .ant-collapse-header::after': { display: 'none' },
-    '& > .ant-collapse-item > .ant-collapse-header > span:not(.ant-collapse-arrow)': {
-      display: 'inline-flex', alignItems: 'center', minHeight: 20, gap: 6, lineHeight: '20px'
-    },
-    '& > .ant-collapse-item > .ant-collapse-header > span:not(.ant-collapse-arrow) svg': { display: 'block', fontSize: 14 },
-    '& > .ant-collapse-item > .ant-collapse-header .ant-collapse-arrow': {
-      display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 16, height: 16, lineHeight: 1
-    },
-    '& .ant-collapse-content-box': { padding: '0 var(--netdive-detail-card-body-padding-x) 12px', overflowX: 'auto' },
-  },
-  captureSummaryHint: {
-    margin: '2px 0 8px',
-    color: 'var(--netdive-detail-text-tertiary)',
-    padding: '0 2px',
-    fontSize: 'var(--netdive-detail-font-supporting-text)',
-    lineHeight: 'var(--netdive-detail-line-supporting-text)',
-  }
-})
-
-export default withStyles(styles)(CaptureStatusPanel)
+export default CaptureStatusPanel

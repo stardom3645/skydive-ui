@@ -8,10 +8,10 @@ const read = (file: string) => fs.readFileSync(path.join(root, file), 'utf8')
 describe('Packet capture Ant Design UI contract', () => {
   const modal = read('src/DataPanels/Capture.tsx')
   const form = read('src/DataPanels/CaptureForm.tsx')
-  const styles = read('src/DataPanels/CaptureFormStyles.ts')
+  const styles = read('src/DataPanels/CaptureForm.css')
 
   it('uses the shared Ant modal shell and built-in close control', () => {
-    assert.ok(modal.includes("import { Modal } from 'antd'"))
+    assert.ok(modal.includes("import { ConfigProvider, Modal } from 'antd'"))
     assert.ok(modal.includes('<Modal'))
     assert.ok(modal.includes('footer={null}'))
     assert.ok(modal.includes('onCancel={this.props.onClose}'))
@@ -34,9 +34,12 @@ describe('Packet capture Ant Design UI contract', () => {
     ;['@material-ui/core/TextField', '@material-ui/core/Button', '@material-ui/core/Accordion', '@material-ui/core/Select', '@material-ui/core/Checkbox', '@material-ui/core/Snackbar']
       .forEach(control => assert.ok(!form.includes(control), `legacy control remains: ${control}`))
     assert.ok(!styles.includes('.Mui'))
-    assert.ok(styles.includes('var(--netdive-ops-panel-padding)'))
-    assert.ok(styles.includes('var(--netdive-ant-radius)'))
-    assert.ok(styles.includes('var(--netdive-detail-section-divider)'))
+    assert.ok(!form.includes('@material-ui'))
+    assert.ok(!modal.includes('@material-ui'))
+    assert.ok(form.includes('items={['))
+    assert.ok(!form.includes('<Collapse.Panel'))
+    assert.ok(!styles.includes('.ant-radio-button-wrapper-checked'))
+    assert.ok(styles.includes('grid-template-columns'))
   })
 
   it('preserves transient capture feedback behavior', () => {

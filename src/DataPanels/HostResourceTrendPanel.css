@@ -1,0 +1,173 @@
+/* Layout and chart styles retained during removal of Material styling. */
+.netdive-trend-trendValue {
+  color: #111827;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+.netdive-trend-trendValueNumber {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  line-height: 1;
+}
+.netdive-trend-trendValueUnit {
+  font-size: 11.5px;
+  font-weight: 650;
+  color: #64748b;
+  line-height: 1;
+  letter-spacing: 0;
+  transform: translateY(-0.5px);
+}
+.netdive-trend-networkCurrentBar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-width: 0;
+  color: #111827;
+  font-size: 14px;
+  line-height: 1.15;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.netdive-trend-networkCurrentItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.netdive-trend-networkSeriesLabel {
+  font-size: 11px;
+  font-weight: 800;
+}
+.netdive-trend-rxText {
+  color: var(--netdive-detail-accent, #1A73E8);
+}
+.netdive-trend-networkCurrentDivider {
+  width: 1px;
+  height: 15px;
+  background: rgba(148, 163, 184, 0.28);
+  flex: 0 0 1px;
+}
+.netdive-trend-txText {
+  color: #f97316;
+}
+.netdive-trend-tooltipContent {
+  display: grid;
+  gap: 6px;
+  min-width: 104px;
+  padding: 0;
+}
+.netdive-trend-tooltipSectionDivider {
+  height: 1px;
+  background: rgba(148, 163, 184, 0.28);
+  margin: 2px 0;
+}
+.netdive-trend-tooltipSection {
+  display: grid;
+  gap: 4px;
+}
+.netdive-trend-tooltipSectionTitle {
+  font-size: 12px;
+  line-height: 1.2;
+  font-weight: 800;
+}
+.netdive-trend-tooltipRow {
+  display: grid;
+  grid-template-columns: 42px max-content;
+  align-items: center;
+  justify-content: space-between;
+  column-gap: 14px;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.netdive-trend-tooltipRow span {
+  color: #cbd5e1;
+  opacity: 1;
+}
+.netdive-trend-tooltipRow strong {
+  color: #ffffff;
+  font-weight: 700;
+  text-align: right;
+  white-space: nowrap;
+}
+.netdive-trend-svg {
+  width: 100%;
+  height: 98px;
+  display: block;
+  overflow: visible;
+}
+.netdive-trend-guide {
+  stroke: rgba(148, 163, 184, 0.16);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+.netdive-trend-axis {
+  stroke: rgba(148, 163, 184, 0.18);
+  stroke-width: 1;
+}
+.netdive-trend-axisLabel {
+  fill: #64748b;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+.netdive-trend-timeLabel {
+  fill: #64748b;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+.netdive-trend-fill {
+  fill: rgba(26, 115, 232, 0.045);
+}
+.netdive-trend-line {
+  fill: none;
+  stroke: var(--netdive-detail-accent, #1A73E8);
+  stroke-width: 1.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.netdive-trend-lineSecondary {
+  fill: none;
+  stroke: #f97316;
+  stroke-width: 1.2;
+  stroke-dasharray: 4 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.netdive-trend-headerActions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+.netdive-trend-rangeSelect {
+  min-width: 78px;
+}
+.netdive-trend-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--netdive-detail-muted, #64748b);
+  font-size: 12.5px;
+  font-weight: 650;
+}
+.netdive-trend-refreshing {
+  margin-bottom: 6px;
+  color: var(--netdive-detail-muted, #64748b);
+  font-size: 11px;
+  font-weight: 650;
+}
+.netdive-trend-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}

@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Badge, Button, Card, Collapse, Dropdown, Empty, List, Menu, Modal, Popover, Progress, Tabs, Tag, Tooltip, Typography } from 'antd'
+import { Badge, Button, Card, Collapse, ConfigProvider, Descriptions, Dropdown, Empty, List, Menu, Modal, Popover, Progress, Space, Statistic, Tabs, Tag, Tooltip, Typography } from 'antd'
 import { CopyOutlined, DownOutlined, EllipsisOutlined, InfoCircleOutlined, RightOutlined } from '@ant-design/icons'
 import type { Node, NodeAttrs } from '../../Topology'
 
@@ -190,68 +190,21 @@ export const DetailSection = ({
         if (collapsible && onToggle) onToggle()
     }
 
-    const handleHeaderKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-        if (!collapsible || (event.key !== 'Enter' && event.key !== ' ')) return
-        toggle(event)
-    }
-
-    const header = (
-        <div
-            className={joinClassNames(
-                'netdive-detail-section__header',
-                collapsible && 'netdive-detail-section__header--collapsible',
-                fullWidthDescription && 'netdive-detail-section__header--full-width-description'
-            )}
-            onClick={collapsible ? toggle : undefined}
-            onKeyDown={handleHeaderKeyDown}
-            role={collapsible ? 'button' : undefined}
-            tabIndex={collapsible ? 0 : undefined}
-            aria-expanded={collapsible ? !collapsed : undefined}>
-            <div className="netdive-detail-section__heading">
-                {icon && <span className="netdive-detail-section__icon">{icon}</span>}
-                <div className="netdive-detail-section__title-block">
-                    <Typography.Text className="netdive-detail-section__title">{title}</Typography.Text>
-                    {description && !fullWidthDescription && <span className="netdive-detail-section__description-row">
-                        <Typography.Text className="netdive-detail-section__description">{description}</Typography.Text>
-                        <DetailInfoTooltip description={descriptionTooltip} ariaLabel="섹션 설명" />
-                    </span>}
-                </div>
-            </div>
-            {(action || collapsible) && (
-                <div className="netdive-detail-section__actions" onClick={event => event.stopPropagation()}>
-                    {action}
-                    {collapsible && (
-                        <Button
-                            type="text"
-                            size="small"
-                            className="netdive-detail-section__toggle"
-                            icon={collapsed ? <RightOutlined /> : <DownOutlined />}
-                            aria-label={collapsed ? 'Expand section' : 'Collapse section'}
-                            onClick={toggle}
-                        />
-                    )}
-                </div>
-            )}
-            {description && fullWidthDescription && <span className="netdive-detail-section__description-row">
-                <Typography.Text className="netdive-detail-section__description">{description}</Typography.Text>
-                <DetailInfoTooltip description={descriptionTooltip} ariaLabel="섹션 설명" />
-            </span>}
-        </div>
-    )
-
-    return (
-        <Card
-            bordered
-            className={joinClassNames('netdive-detail-section', className)}
-            title={header}
-            bodyStyle={{ padding: 0 }}>
-            {!collapsed && (
-                <div className={joinClassNames('netdive-detail-section__body', bodyClassName)}>
-                    {children}
-                </div>
-            )}
+    return <ConfigProvider theme={{ token: { fontSize: 12, fontSizeSM: 11 }, components: { Card: { headerFontSizeSM: 14 } } }}>
+        <Card size="small" className={joinClassNames('netdive-ant-detail-section', className)}
+            title={collapsible ? <Button type="text" size="small" onClick={toggle} aria-expanded={!collapsed}>
+                <Space>{icon}<Typography.Text strong style={{ fontSize: 14 }}>{title}</Typography.Text></Space>
+            </Button> : <Space>{icon}{title}</Space>}
+            extra={<Space size={4}>{action}{collapsible && <Button type="text" size="small"
+                icon={collapsed ? <RightOutlined /> : <DownOutlined />} aria-label={collapsed ? 'Expand section' : 'Collapse section'} onClick={toggle} />}</Space>}>
+            {!collapsed && <div className={bodyClassName}>
+                {description && <Typography.Paragraph type="secondary" className="netdive-ant-detail-description">
+                    {description} <DetailInfoTooltip description={descriptionTooltip} ariaLabel="섹션 설명" />
+                </Typography.Paragraph>}
+                {children}
+            </div>}
         </Card>
-    )
+    </ConfigProvider>
 }
 
 export interface DetailCopyButtonProps {
@@ -357,44 +310,23 @@ export const DetailKeyValueList = ({
     className
 }: DetailKeyValueListProps) => {
     if (!rows.length) return <DetailEmpty description={emptyText} compact />
-    const labelColumn = typeof labelWidth === 'number' ? `${labelWidth}px` : labelWidth
-
-    return (
-        <div className={joinClassNames('netdive-detail-kv', density === 'compact' && 'netdive-detail-kv--compact', className)}>
-            {rows.map((row, index) => {
-                const valueClassName = joinClassNames(
-                    'netdive-detail-kv__value-text',
-                    row.valueMaxLines && `lines-${row.valueMaxLines}`
-                )
-                const value = row.textValue
-                    ? <Tooltip title={row.textValue} placement="top"><span className={valueClassName}>{row.value}</span></Tooltip>
-                    : <span className={valueClassName}>{row.value}</span>
-                return (
-                    <div
-                        className={joinClassNames('netdive-detail-kv__row', row.wrap && 'netdive-detail-kv__row--wrap')}
-                        key={row.key !== undefined ? row.key : index}
-                        style={{ gridTemplateColumns: `${labelColumn} minmax(0, 1fr)` }}>
-                        <Typography.Text className={joinClassNames('netdive-detail-kv__label', row.labelWrap && 'netdive-detail-kv__label--wrap')}>{row.label}</Typography.Text>
-                        <div className="netdive-detail-kv__value">
-                            {value}
-                            <DetailInfoTooltip
-                                description={row.tooltip}
-                                detail={row.tooltipDetail}
-                                rawValue={row.tooltipRawValue}
-                                ariaLabel={`${String(row.label)} 상세 정보`} />
-                            {row.copyText && (
-                                <DetailCopyButton
-                                    value={row.copyText}
-                                    tooltip={copyTooltip}
-                                    onCopy={onCopy}
-                                />
-                            )}
-                        </div>
-                    </div>
-                )
-            })}
-        </div>
-    )
+    return <ConfigProvider theme={{ token: { fontSize: 12, fontSizeSM: 11 } }}>
+        <Descriptions size="small" bordered column={1} colon={false}
+            className={joinClassNames('netdive-detail-descriptions', className)}
+            styles={{ label: { width: labelWidth, minWidth: 0 }, content: { minWidth: 0 } }}
+            items={rows.map((row, index) => ({
+                key: row.key !== undefined ? String(row.key) : String(index),
+                label: row.label,
+                children: <div className="netdive-detail-description-value">
+                    {row.textValue ? <Tooltip title={row.textValue} placement="top">
+                        <span className={joinClassNames('netdive-detail-description-text', row.wrap && 'is-wrapping', row.valueMaxLines && `lines-${row.valueMaxLines}`)}>{row.value}</span>
+                    </Tooltip> : <span className="netdive-detail-description-text is-wrapping">{row.value}</span>}
+                    <DetailInfoTooltip description={row.tooltip} detail={row.tooltipDetail} rawValue={row.tooltipRawValue}
+                        ariaLabel={`${String(row.label)} 상세 정보`} />
+                    {row.copyText && <DetailCopyButton value={row.copyText} tooltip={copyTooltip} onCopy={onCopy} />}
+                </div>
+            }))} />
+    </ConfigProvider>
 }
 
 export interface DetailAdvancedInfoProps {
@@ -773,7 +705,7 @@ export const ResourceMetricBlock = ({ title, basis, basisTooltip, tooltip, child
     <section className={joinClassNames('netdive-detail-resource-metric-block', className)}>
         <div className="netdive-detail-resource-metric-block__header">
             <span className="netdive-detail-resource-metric-block__title">
-                <Typography.Text strong>{title}</Typography.Text>
+                <Typography.Text strong style={{ fontSize: 14 }}>{title}</Typography.Text>
                 <DetailInfoTooltip description={tooltip} ariaLabel={`${String(title)} 상세 정보`} />
             </span>
             {basis && <small className="netdive-detail-resource-metric-block__basis">
@@ -837,12 +769,9 @@ export const DetailNavigationTabs = ({
     className
 }: DetailNavigationTabsProps) => {
     const overflowActive = overflowTabs.some(tab => tab.key === activeKey)
-    const menu = <Menu selectedKeys={overflowActive ? [activeKey] : []} onClick={({ key }) => onChange(String(key))}>
-        {overflowTabs.map(tab => <Menu.Item key={tab.key}>{tab.label}</Menu.Item>)}
-    </Menu>
     const overflowTrigger = overflowTabs.length > 0
         ? <Dropdown
-            popupRender={() => menu}
+            menu={{ items: overflowTabs.map(tab => ({ key: tab.key, label: tab.label })), selectedKeys: overflowActive ? [activeKey] : [], onClick: ({ key }) => onChange(String(key)) }}
             classNames={{ root: 'netdive-mold-dropdown' }}
             trigger={['click']}
             placement="bottomRight"
@@ -864,14 +793,8 @@ export const DetailNavigationTabs = ({
         activeKey={overflowActive ? '__overflow_active__' : activeKey}
         onChange={onChange}
         tabBarExtraContent={overflowTrigger}
-        moreIcon={<EllipsisOutlined />}>
-        {tabs.map(tab => <Tabs.TabPane
-            tab={<span className="netdive-detail-navigation-tabs__label">
-                <span>{tab.label}</span>
-                {tab.count !== undefined && <small>{tab.count}</small>}
-            </span>}
-            key={tab.key} />)}
-    </Tabs>
+        moreIcon={<EllipsisOutlined />}
+        items={tabs.map(tab => ({ key: tab.key, label: <Space size={4}>{tab.label}{tab.count !== undefined && <Typography.Text type="secondary">{tab.count}</Typography.Text>}</Space> }))} />
 }
 
 export interface DetailMetaInfoItem {
@@ -1444,7 +1367,7 @@ export const DetailResourceCard = ({
         : { min: 260, max: 440, ratio: 1.35 }
     const [resourcesOpen, setResourcesOpen] = React.useState(false)
     const [resourceListWidth, setResourceListWidth] = React.useState<number>()
-    const resourceCardRef = React.useRef<HTMLButtonElement | null>(null)
+    const resourceCardRef = React.useRef<HTMLDivElement | null>(null)
     const hasResourceList = resources.length > 1
 
     React.useEffect(() => {
@@ -1474,90 +1397,37 @@ export const DetailResourceCard = ({
         }
         setResourcesOpen(open)
     }
-    return <Button
-        ref={resourceCardRef}
-        type="text"
-        block
-        disabled={!interactive}
-        className={joinClassNames(
-            'netdive-detail-resource',
-            interactive ? 'netdive-detail-resource--interactive' : 'netdive-detail-resource--static',
-            selected && 'netdive-detail-resource--selected',
-            copyText && 'netdive-detail-resource--copyable',
-            hasResourceList && 'netdive-detail-resource--with-resource-list',
-            className
-        )}
-        aria-pressed={interactive ? selected : undefined}
-        onClick={interactive ? onClick : undefined}>
-        <span className="netdive-detail-resource__main">
-            {icon && (
-                <span className={joinClassNames(
-                    'netdive-detail-resource__icon',
-                    iconTone && `netdive-detail-resource__icon--${iconTone}`
-                )}>{icon}</span>
-            )}
-            <span className="netdive-detail-resource__text">
-                {interactive || labelTooltip !== undefined
-                    ? <Tooltip title={labelTooltip !== undefined ? labelTooltip : typeof label === 'string' ? label : undefined} placement="top">
-                        <Typography.Text className="netdive-detail-resource__label">{renderDetailResourceLabel(label)}</Typography.Text>
-                    </Tooltip>
-                    : <Typography.Text className="netdive-detail-resource__label">{renderDetailResourceLabel(label)}</Typography.Text>}
-                {description && <Typography.Text className="netdive-detail-resource__description">{description}</Typography.Text>}
-            </span>
-        </span>
-        <Typography.Text className="netdive-detail-resource__value">{value}</Typography.Text>
-        {copyText && <Tooltip title={copyTooltip} placement="top">
-            <span
-                className="netdive-detail-resource__copy"
-                role="button"
-                tabIndex={0}
-                onClick={event => {
-                    event.preventDefault()
-                    event.stopPropagation()
-                    copyTextToClipboard(copyText)
-                }}
+    return <ConfigProvider theme={{ token: { fontSize: 12, fontSizeSM: 11 }, components: { Statistic: { contentFontSize: 16 } } }}>
+        <div ref={resourceCardRef} className="netdive-ant-resource-wrapper">
+            <Card size="small" hoverable={interactive}
+                className={joinClassNames('netdive-ant-resource-card', selected && 'is-selected')}
+                onClick={interactive ? onClick : undefined}
+                role={interactive ? 'button' : undefined} tabIndex={interactive ? 0 : undefined}
+                aria-current={selected ? 'true' : undefined}
                 onKeyDown={event => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault()
-                        event.stopPropagation()
-                        copyTextToClipboard(copyText)
-                    }
+                    if (event.target !== event.currentTarget || !interactive) return
+                    if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onClick?.() }
                 }}>
-                <CopyOutlined />
-            </span>
-        </Tooltip>}
-        {hasResourceList ? <Popover
-            content={<DetailConnectedResourcePopover title={resourcesTitle || label} items={resources} onNavigate={navigateResource} />}
-            placement="bottomRight"
-            trigger="click"
-            open={resourcesOpen}
-            onOpenChange={handleResourcesVisibleChange}
-            classNames={{ root: 'netdive-connected-resource-popover-overlay' }}
-            styles={{ root: resourceListWidth ? { width: resourceListWidth } : undefined }}
-            getPopupContainer={() => document.body}
-            autoAdjustOverflow>
-            <span
-                className={joinClassNames('netdive-detail-resource__action', 'netdive-detail-resource__list-action', resourcesOpen && 'is-open')}
-                role="button"
-                tabIndex={0}
-                aria-label="연결 자원 목록 보기"
-                onClick={event => {
-                    event.preventDefault()
-                    event.stopPropagation()
-                }}
-                onKeyDown={event => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault()
-                        event.stopPropagation()
-                        setResourcesOpen(open => !open)
-                    }
-                }}>
-                <DownOutlined />
-            </span>
-        </Popover> : <span className={joinClassNames('netdive-detail-resource__action', !interactive && 'netdive-detail-resource__action--hidden')}>
-            <RightOutlined />
-        </span>}
-    </Button>
+                <div className="netdive-ant-resource-content">
+                    <Card.Meta avatar={icon} title={<Tooltip title={labelTooltip !== undefined ? labelTooltip : typeof label === 'string' ? label : undefined}>
+                        <Typography.Text>{renderDetailResourceLabel(label)}</Typography.Text>
+                    </Tooltip>} description={description} />
+                    <Statistic value={typeof value === 'number' || typeof value === 'string' ? value : ''}
+                        formatter={() => value} styles={{ content: { fontSize: 16, fontWeight: 600 } }} />
+                    {copyText && <DetailCopyButton value={copyText} tooltip={copyTooltip} />}
+                    {hasResourceList ? <Popover
+                        content={<DetailConnectedResourcePopover title={resourcesTitle || label} items={resources} onNavigate={navigateResource} />}
+                        placement="bottomRight" trigger="click" open={resourcesOpen} onOpenChange={handleResourcesVisibleChange}
+                        classNames={{ root: 'netdive-connected-resource-popover-overlay' }}
+                        styles={{ root: resourceListWidth ? { width: resourceListWidth } : undefined }}
+                        getPopupContainer={() => document.body} autoAdjustOverflow>
+                        <Button type="text" size="small" icon={<DownOutlined />} aria-label="연결 자원 목록 보기"
+                            onClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()} />
+                    </Popover> : interactive && <RightOutlined />}
+                </div>
+            </Card>
+        </div>
+    </ConfigProvider>
 }
 
 export interface DetailResourceGridProps {

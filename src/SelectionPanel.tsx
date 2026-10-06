@@ -16,18 +16,16 @@
  */
 
 import * as React from "react"
-import Tabs from '@material-ui/core/Tabs'
-import Tab from '@material-ui/core/Tab'
 import { connect } from 'react-redux'
-import { withStyles } from '@material-ui/core/styles'
-import { Button, Tooltip } from 'antd'
+import { Button, Tabs, Tooltip } from 'antd'
 import { ArrowLeftOutlined, ArrowRightOutlined, CloseOutlined, EnvironmentOutlined } from '@ant-design/icons'
 
 import { Node, Link } from './Topology'
 import DataPanel from './StdDataPanel'
-import { a11yProps, TabPanel } from './Tabs'
+import { TabPanel } from './Tabs'
 import { AppState, session } from './Store'
-import { styles } from './SelectionPanelStyles'
+import { selectionPanelClasses as classes } from './SelectionPanelClasses'
+import './SelectionPanel.css'
 import ConfigReducer, { translate, WEIGHT_BRIDGES, WEIGHT_VIRT_BRIDGES } from './Config'
 import HostDetailPanel from './DataPanels/HostDetailPanel'
 import VMDetailPanel from './DataPanels/VMDetailPanel'
@@ -54,7 +52,6 @@ import { DetailPanelHeader } from './DataPanels/common'
 
 
 interface Props {
-  classes: any
   selection: Array<Node | Link>
   revision: number
   session: session
@@ -211,11 +208,10 @@ class SelectionPanel extends React.Component<Props, State> {
         ? <img src={href} className={classes.tabIconImage} alt="" />
         : <span className={className}>{icon}</span>
 
-      return (
-        <Tab className={`${classes.tabRoot}${isKubernetesCluster ? ' netdive-cluster-selection-tab' : ''}`} icon={tabIcon}
-          value={i}
-          key={"tab-" + i}
-          label={
+      return {
+        key: String(i),
+        label: <span className={`${classes.tabRoot}${isKubernetesCluster ? ' netdive-cluster-selection-tab' : ''}`}>
+          {tabIcon}
             <DetailPanelHeader
               title={displayTitle}
               fullTitle={fullTitle}
@@ -229,9 +225,8 @@ class SelectionPanel extends React.Component<Props, State> {
               copyClassName={classes.tabTitleCopy}
               titleMaxLines={isKubernetesLongNameResource ? 2 : 1}
             />
-          }
-          {...a11yProps(i)} />
-      )
+        </span>
+      }
     })
   }
 
@@ -685,7 +680,6 @@ class SelectionPanel extends React.Component<Props, State> {
   }
 
   render() {
-    const { classes } = this.props
     if (this.props.selection.length === 0) {
       return null
     }
@@ -693,14 +687,10 @@ class SelectionPanel extends React.Component<Props, State> {
     return (
       <div className={classes.tabs}>
         <Tabs
-          orientation="horizontal"
-          variant="scrollable"
-          value={this.state.tab}
-          onChange={this.onTabChange.bind(this)}
+          activeKey={String(this.state.tab)}
+          onChange={key => this.onTabChange({} as React.ChangeEvent<{}>, Number(key))}
           aria-label="Metadata"
-          indicatorColor="primary">
-          {this.renderTabs(classes)}
-        </Tabs>
+          items={this.renderTabs(classes).filter(item => item !== null)} />
         <div className={classes.rightPanelPaperContent}>
           {this.renderTabPanels(classes)}
         </div>
@@ -718,4 +708,4 @@ export const mapStateToProps = (state: AppState) => ({
 export const mapDispatchToProps = ({
 })
 
-export default withStyles(styles)(connect(mapStateToProps, mapDispatchToProps)(SelectionPanel))
+export default connect(mapStateToProps, mapDispatchToProps)(SelectionPanel)

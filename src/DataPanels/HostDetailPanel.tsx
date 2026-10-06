@@ -10,22 +10,8 @@ v12 Changes:
 - Preserve v11 typography.
 */
 import * as React from 'react'
-import { ArrowsAltOutlined, PartitionOutlined } from '@ant-design/icons'
-import IconButton from '@material-ui/core/IconButton'
-import Drawer from '@material-ui/core/Drawer'
-import SvgIcon from '@material-ui/core/SvgIcon'
-import { Button, Card, Progress, Statistic, Table, Tooltip as AntTooltip } from 'antd'
-import InfoIcon from '@material-ui/icons/Info'
-import TimelineIcon from '@material-ui/icons/Timeline'
-import DeviceHubIcon from '@material-ui/icons/DeviceHub'
-import SecurityIcon from '@material-ui/icons/Security'
-import RouterIcon from '@material-ui/icons/Router'
-import AccountTreeIcon from '@material-ui/icons/AccountTree'
-import SearchIcon from '@material-ui/icons/Search'
-import CloseIcon from '@material-ui/icons/Close'
-import KeyboardArrowRightIcon from '@material-ui/icons/KeyboardArrowRight'
-import KeyboardArrowDownIcon from '@material-ui/icons/KeyboardArrowDown'
-import { withStyles } from '@material-ui/core/styles'
+import { ArrowsAltOutlined, PartitionOutlined, InfoCircleOutlined as InfoIcon, LineChartOutlined as TimelineIcon, ApartmentOutlined as DeviceHubIcon, SafetyOutlined as SecurityIcon, DeploymentUnitOutlined as RouterIcon, ClusterOutlined as AccountTreeIcon, SearchOutlined as SearchIcon, CloseOutlined as CloseIcon, RightOutlined as KeyboardArrowRightIcon, DownOutlined as KeyboardArrowDownIcon, ShareAltOutlined } from '@ant-design/icons'
+import { Button, Card, ConfigProvider, Drawer, Input, Progress, Space, Typography, Statistic, Table, Tooltip as AntTooltip } from 'antd'
 
 import { Link, Node, NodeAttrs } from '../Topology'
 import { buildInfrastructureHostPortMappings, InfrastructureHostPortMapping, ManualPortMappingRecord } from '../InfrastructurePortMapping'
@@ -36,7 +22,8 @@ import {
 } from '../ManualPortMappingAPI'
 import { session } from '../Store'
 import { translate } from '../Config'
-import { styles } from './HostDetailPanelStyles'
+import { hostDetailClasses as classes } from './HostDetailPanelClasses'
+import './HostDetailPanel.css'
 
 import HostResourceTrendPanel from './HostResourceTrendPanel'
 import {
@@ -55,7 +42,6 @@ import {
 } from './common'
 
 interface Props {
-    classes: any
     node: Node
     session?: session
     moldInventory?: any
@@ -134,11 +120,7 @@ interface KubernetesNodePickerItem {
     version: string
 }
 
-const ShareNodesIcon = () => (
-    <SvgIcon viewBox="0 0 448 512">
-        <path d="M352 320c-22.608 0-43.387 7.819-59.79 20.895l-102.486-64.054a96.551 96.551 0 0 0 0-41.683l102.486-64.054C308.613 184.181 329.392 192 352 192c53.019 0 96-42.981 96-96S405.019 0 352 0s-96 42.981-96 96c0 7.158.79 14.13 2.276 20.841L155.79 180.895C139.387 167.819 118.608 160 96 160c-53.019 0-96 42.981-96 96s42.981 96 96 96c22.608 0 43.387-7.819 59.79-20.895l102.486 64.054A96.301 96.301 0 0 0 256 416c0 53.019 42.981 96 96 96s96-42.981 96-96-42.981-96-96-96z" />
-    </SvgIcon>
-)
+const ShareNodesIcon = ShareAltOutlined
 
 interface PillItem {
     label: string
@@ -1608,7 +1590,6 @@ class HostDetailPanel extends React.Component<Props, State> {
     }
 
     private renderKubernetesNodePicker() {
-        const { classes } = this.props
         const hostName = firstValue(this.mergedData(), ['Name', 'Hostname', 'HostName']) || this.props.node.id
         const allOptions = this.hostKubernetesNodeOptions()
         const options = this.filteredHostKubernetesNodeOptions()
@@ -1659,18 +1640,10 @@ class HostDetailPanel extends React.Component<Props, State> {
 
         return (
             <Drawer
-                anchor="right"
-                open={!!this.state.kubernetesNodePickerOpen}
-                onClose={() => this.closeKubernetesNodePicker()}
-                ModalProps={{
-                    BackdropProps: { style: { backgroundColor: 'rgba(15, 23, 42, 0.28)' } }
-                }}
-                PaperProps={{
-                    className: 'netdive-k8s-explorer-paper',
-                    'data-netdive-drawer': 'true',
-                    'data-netdive-kubernetes-node-picker': 'true'
-                } as any}
-                classes={{ paper: classes.kubernetesNodePickerDrawer }}>
+                placement="right" size={520} zIndex={1400}
+                open={!!this.state.kubernetesNodePickerOpen} onClose={() => this.closeKubernetesNodePicker()}
+                closable={false} classNames={{ wrapper: 'netdive-k8s-explorer-paper' }}
+                styles={{ body: { padding: 0 } }}>
                 <div className={`${classes.kubernetesNodePickerContent} netdive-k8s-explorer`} ref={this.kubernetesNodePickerRef}>
                     <style>{kubernetesNodeExplorerStyles}</style>
                     <div className={`${classes.kubernetesNodePickerHeader} netdive-k8s-explorer-header`}>
@@ -1681,24 +1654,19 @@ class HostDetailPanel extends React.Component<Props, State> {
                                 {translate('kubernetesNodeExplorerDescriptionPattern').replace('{host}', hostName)}
                             </div>
                         </div>
-                        <IconButton
+                        <Button type="text" size="small"
                             className={`${classes.kubernetesNodePickerClose} netdive-k8s-explorer-close`}
                             onClick={() => this.closeKubernetesNodePicker()}
                             aria-label={translate('close')}>
                             <CloseIcon />
-                        </IconButton>
+                        </Button>
                     </div>
 
                     <div className={`${classes.kubernetesNodePickerToolbar} netdive-k8s-explorer-toolbar`}>
-                        <div className={`${classes.kubernetesNodePickerSearch} netdive-k8s-explorer-search`}>
-                            <SearchIcon />
-                            <input
-                                className={classes.kubernetesNodePickerSearchInput}
-                                type="text"
-                                value={this.state.kubernetesNodePickerQuery || ''}
-                                onChange={(event) => this.setState({ kubernetesNodePickerQuery: event.target.value })}
-                                placeholder={translate('kubernetesNodeSelectorSearchPlaceholder')} />
-                        </div>
+                        <Input prefix={<SearchIcon />} allowClear
+                            value={this.state.kubernetesNodePickerQuery || ''}
+                            onChange={event => this.setState({ kubernetesNodePickerQuery: event.target.value })}
+                            placeholder={translate('kubernetesNodeSelectorSearchPlaceholder')} />
                         <button
                             type="button"
                             className={`${classes.kubernetesNodePickerExpandAllButton} netdive-k8s-explorer-action netdive-k8s-explorer-action-secondary`}
@@ -1831,7 +1799,6 @@ class HostDetailPanel extends React.Component<Props, State> {
     }
 
     private renderSocketProcessSummary() {
-        const { classes } = this.props
         const services = this.listeningServices()
         const processes = this.topSocketProcesses()
         const socketStats = this.socketStats()
@@ -1960,6 +1927,8 @@ class HostDetailPanel extends React.Component<Props, State> {
         const visible = rows.filter(row => !isBlank(row.value))
         return (
             <DetailKeyValueList
+                className="netdive-host-info-descriptions"
+                labelWidth={140}
                 rows={visible.map(row => {
                     const value = stringify(row.value) || 'N/A'
                     return {
@@ -1990,7 +1959,6 @@ class HostDetailPanel extends React.Component<Props, State> {
     }
 
     private renderMetricGrid(items: MetricItem[], emptyText = translate('hostNoResourceMetrics')) {
-        const { classes } = this.props
         const visible = items.filter(item => item.value)
         if (!visible.length) return this.renderEmpty(emptyText)
         return (
@@ -2027,7 +1995,6 @@ class HostDetailPanel extends React.Component<Props, State> {
     }
 
     private renderOverviewGrid(items: OverviewCardItem[], emptyText = translate('hostNoConnectedResources'), compact = false) {
-        const { classes } = this.props
         const visible = items.filter(item => item.value)
         if (!visible.length) return this.renderEmpty(emptyText)
         return (
@@ -2048,7 +2015,6 @@ class HostDetailPanel extends React.Component<Props, State> {
                             value={item.value}
                             icon={item.icon || <InfoIcon />}
                             iconTone={item.iconTone}
-                            className={classes.connectedResourceCompactCard}
                             interactive={canFocus}
                             resources={connectedResourcePopoverItems(resourceNodes, { anchorNodeID: this.props.node.id, nodeAttrs: this.props.nodeAttrs })}
                             resourcesTitle={item.label}
@@ -2068,15 +2034,11 @@ class HostDetailPanel extends React.Component<Props, State> {
     }
 
     private renderConnectedResourceSubsection(icon: React.ReactNode, title: string, items: OverviewCardItem[], emptyText = translate('hostNoConnectedResources'), kubernetes = false) {
-        const { classes } = this.props
         return (
-            <div className={`${classes.connectedResourceSection} ${kubernetes ? classes.connectedResourceSectionKubernetes : ''}`}>
-                <div className={classes.connectedResourceSectionHeader}>
-                    <span className={`${classes.connectedResourceSectionIcon} ${kubernetes ? classes.connectedResourceSectionKubernetesIcon : ''}`}>{icon}</span>
-                    <span className={`${classes.connectedResourceSectionTitle} ${kubernetes ? classes.connectedResourceSectionKubernetesTitle : ''}`}>{title}</span>
-                </div>
+            <Card size="small" className="netdive-host-resource-group" styles={{ body: { padding: 8 } }}
+                title={<Space><span className="netdive-host-resource-group-icon">{icon}</span>{title}</Space>}>
                 {this.renderOverviewGrid(items, emptyText, true)}
-            </div>
+            </Card>
         )
     }
 
@@ -2134,7 +2096,6 @@ class HostDetailPanel extends React.Component<Props, State> {
     }
 
     private renderPills(values: Array<string | PillItem>, emptyText: string) {
-        const { classes } = this.props
         if (!values.length) return this.renderEmpty(emptyText)
         return (
             <div className={classes.pillList}>
@@ -2151,7 +2112,7 @@ class HostDetailPanel extends React.Component<Props, State> {
     }
 
     render() {
-        const { classes, node } = this.props
+        const { node } = this.props
         const data = this.mergedData()
         const name = firstValue(data, ['Name', 'Hostname', 'HostName']) || node.id
         const ipList = this.ips()
@@ -2252,6 +2213,7 @@ class HostDetailPanel extends React.Component<Props, State> {
         const switchPortConnections = this.switchPortConnections()
 
         return (
+            <ConfigProvider theme={{ token: { fontSize: 12, fontSizeSM: 11 }, components: { Card: { headerFontSizeSM: 14 }, Table: { cellFontSizeSM: 12 } } }}>
             <div className={classes.root}>
                 <DetailNavigationTabs
                     activeKey={this.state.activeDetailTab}
@@ -2332,8 +2294,9 @@ class HostDetailPanel extends React.Component<Props, State> {
                 </React.Fragment>}
                 {this.renderKubernetesNodePicker()}
             </div>
+            </ConfigProvider>
         )
     }
 }
 
-export default withStyles(styles)(HostDetailPanel)
+export default HostDetailPanel
