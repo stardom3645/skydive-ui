@@ -1,11 +1,13 @@
 import * as React from 'react'
-import { Alert, Button, Input, Select, Tag, Tooltip } from 'antd'
+import { Alert, Badge, Button, Dropdown, Input, Select, Space, Tag, Tooltip } from 'antd'
 import {
     ApartmentOutlined,
-    SearchOutlined,
     CloudServerOutlined,
     DeploymentUnitOutlined,
-    ReloadOutlined
+    ReloadOutlined,
+    EllipsisOutlined,
+    CalendarOutlined,
+    FilterOutlined
 } from '@ant-design/icons'
 import { session } from './Store'
 import { MANUAL_PORT_MAPPINGS_CHANGED_EVENT } from './ManualPortMappingAPI'
@@ -14,11 +16,7 @@ import {
     DetailChangeDiff,
     DetailDiffTone,
     DetailEmpty,
-    DetailFilterBar,
-    DetailFilterField,
-    DetailInlineSectionHeader,
-    DetailResourceIdentity,
-    DetailResultCount
+    DetailResourceIdentity
 } from './DataPanels/common/DetailComponents'
 
 export interface ChangeEvent {
@@ -166,41 +164,54 @@ export default function EventHistory({ userSession, resourceId, canNavigate, onN
             .finally(() => { if (!controller.signal.aborted) setLoading(false) })
         return () => controller.abort()
     }, [userSession?.endpoint, userSession?.token, range, hours, resourceType, resourceId, eventType, search, page, revision])
-    const refreshAction = <Tooltip title="새로고침"><Button type="text" aria-label="새로고침"
-        icon={<ReloadOutlined />} loading={loading} onClick={() => {
-            setRange(Math.floor(Date.now() / 1000)); setPage(1); refresh(revision + 1)
-        }} /></Tooltip>
-    const periodLabel = hours === 24 ? '최근 24시간' : hours === 168 ? '최근 7일' : '최근 30일'
+    const refreshEvents = () => {
+        setRange(Math.floor(Date.now() / 1000)); setPage(1); refresh(revision + 1)
+    }
+    const refreshAction = renderHeader ? <Space.Compact>
+        <Button loading={loading} onClick={refreshEvents}>작업</Button>
+        <Dropdown trigger={['click']} placement="bottomRight" getPopupContainer={() => document.body}
+            styles={{ root: { zIndex: 1400, width: 'max-content' } }}
+            menu={{ selectable: false, items: [{ key: 'refresh', label: '새로고침', icon: <ReloadOutlined />, disabled: loading }],
+                onClick: ({ key }) => { if (key === 'refresh') refreshEvents() } }}>
+            <Button icon={<EllipsisOutlined />} aria-label="이벤트 작업 메뉴" aria-haspopup="menu" />
+        </Dropdown>
+    </Space.Compact> : <Button icon={<ReloadOutlined />} loading={loading} onClick={refreshEvents}>새로고침</Button>
     return <>
         {renderHeader && renderHeader(refreshAction)}
         <div className="netdive-event-history-surface">
             <div className="netdive-detail-operation-content">
-                <DetailInlineSectionHeader title="이벤트 목록" action={renderHeader ? undefined : refreshAction} />
-                <DetailFilterBar className="netdive-event-history-filter-surface" search={<Input.Search className="netdive-detail-search-integrated" prefix={<SearchOutlined />}
+                <div className="netdive-event-list-toolbar">
+                    <div className="netdive-event-list-heading"><strong>이벤트 목록</strong>
+                        <Badge count={data.total} showZero overflowCount={999999} color="#f0f0f0" styles={{ indicator: { color: '#595959', boxShadow: 'none' } }} />
+                    </div>
+                    {!renderHeader && refreshAction}
+                </div>
+                <div className="netdive-event-query-toolbar">
+                    <Select aria-label="조회 기간" prefix={<CalendarOutlined />} value={hours} onChange={value => { setHours(value); setPage(1) }}
+                        getPopupContainer={() => document.body} styles={{ popup: { root: { zIndex: 1400 } } }}
+                        className="netdive-event-period-select"
+                        options={[{ value: 24, label: '최근 24시간' }, { value: 168, label: '최근 7일' }, { value: 720, label: '최근 30일' }]} />
+                    <Select aria-label="자원 유형" prefix={<FilterOutlined />} value={resourceType} onChange={value => { setResourceType(value); setPage(1) }}
+                        getPopupContainer={() => document.body} styles={{ popup: { root: { zIndex: 1400 } } }}
+                        className="netdive-event-type-select"
+                        options={[{ value: '', label: '모든 자원 유형' }, ...Object.keys(eventResourceLabels).map(value => ({ value, label: eventResourceLabels[value] }))]} />
+                    <Select aria-label="이벤트 유형" value={eventType} onChange={value => { setEventType(value); setPage(1) }}
+                        getPopupContainer={() => document.body} styles={{ popup: { root: { zIndex: 1400 } } }}
+                        className="netdive-event-type-select"
+                        options={[{ value: '', label: '모든 이벤트 유형' }, ...Object.keys(eventLabels).map(value => ({ value, label: eventLabels[value] }))]} />
+                    <div className="netdive-event-list-search">
+                    <Input.Search
                     aria-label="자원 이름 검색" placeholder="자원 이름 검색" allowClear value={searchDraft}
                     onChange={event => {
                         setSearchDraft(event.target.value)
                         if (!event.target.value) { setSearch(''); setPage(1) }
                     }}
-                    onSearch={value => { setSearch(value.trim()); setPage(1) }} />}>
-                    <DetailFilterField label="기간" width={140}>
-                        <Select aria-label="조회 기간" value={hours} onChange={value => { setHours(value); setPage(1) }}
-                            options={[{ value: 24, label: '최근 24시간' }, { value: 168, label: '최근 7일' }, { value: 720, label: '최근 30일' }]} />
-                    </DetailFilterField>
-                    <DetailFilterField label="자원 유형" width={170}>
-                        <Select aria-label="자원 유형" value={resourceType} onChange={value => { setResourceType(value); setPage(1) }}
-                            options={[{ value: '', label: '모든 자원 유형' }, ...Object.keys(eventResourceLabels).map(value => ({ value, label: eventResourceLabels[value] }))]} />
-                    </DetailFilterField>
-                    <DetailFilterField label="이벤트 유형" width={170}>
-                        <Select aria-label="이벤트 유형" value={eventType} onChange={value => { setEventType(value); setPage(1) }}
-                            options={[{ value: '', label: '모든 이벤트 유형' }, ...Object.keys(eventLabels).map(value => ({ value, label: eventLabels[value] }))]} />
-                    </DetailFilterField>
-                </DetailFilterBar>
+                    onSearch={value => { setSearch(value.trim()); setPage(1) }} />
+                    </div>
+                </div>
                 {error && <Alert type="warning" showIcon message={error} />}
-                <div className="netdive-event-history-context-toolbar">
-                    <DetailResultCount count={data.total} />
+                {(resourceType || eventType || search) && <div className="netdive-event-history-context-toolbar">
                     <div className="netdive-event-history-filter-pills" aria-label="적용된 필터">
-                        <Tag>기간: {periodLabel}</Tag>
                         {resourceType && <Tag closable onClose={event => {
                             event.preventDefault()
                             setResourceType(''); setPage(1)
@@ -214,10 +225,10 @@ export default function EventHistory({ userSession, resourceId, canNavigate, onN
                             setSearch(''); setSearchDraft(''); setPage(1)
                         }}>검색: {search}</Tag>}
                     </div>
-                </div>
+                </div>}
                 <DetailTable<ChangeEvent> className={`${tableClassName || ''} netdive-event-history-table`} rowKey="id" loading={loading} dataSource={data.events}
                 showSorterTooltip={false}
-                scroll={{ y: 480 }}
+                scroll={{ y: 'clamp(160px, calc(100vh - 500px), 400px)' }}
                 locale={{ emptyText: <DetailEmpty description={error
                     ? '이력을 불러오지 못했습니다. 잠시 후 다시 조회해 보세요.'
                     : '선택한 조건의 변경이 없습니다. 상태가 실제로 바뀐 자원만 표시됩니다.'} /> }}

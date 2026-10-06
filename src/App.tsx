@@ -18,7 +18,7 @@
 import * as React from 'react'
 import clsx from 'clsx'
 import Websocket from 'react-websocket'
-import { debounce } from 'throttle-debounce'
+import { coalesceUpdates, CoalescedUpdate } from './CoalescedUpdates'
 import { resolveKubernetesPodController } from './KubernetesWorkloadOwnership'
 import { isKubernetesTopologyData, isTopologyNodeVisibleInLayer } from './KubernetesInfrastructureEvidence'
 import { TopologyPendingEdges } from './TopologyPendingEdges'
@@ -44,8 +44,6 @@ import AccessTimeIcon from '@material-ui/icons/AccessTime'
 import Divider from '@material-ui/core/Divider'
 import Container from '@material-ui/core/Container'
 import Paper from '@material-ui/core/Paper'
-import ToggleButton from '@material-ui/lab/ToggleButton'
-import ToggleButtonGroup from '@material-ui/lab/ToggleButtonGroup'
 import { withSnackbar, WithSnackbarProps } from 'notistack'
 import { connect } from 'react-redux'
 import AccountCircle from '@material-ui/icons/AccountCircle'
@@ -68,7 +66,6 @@ import UnfoldLessIcon from '@material-ui/icons/UnfoldLess'
 import InfoIcon from '@material-ui/icons/Info'
 import LibraryBooksIcon from '@material-ui/icons/LibraryBooks'
 import Brightness4Icon from '@material-ui/icons/Brightness4'
-import CloseIcon from '@material-ui/icons/Close'
 import CheckCircleIcon from '@material-ui/icons/CheckCircle'
 import ErrorOutlineIcon from '@material-ui/icons/ErrorOutline'
 import RefreshIcon from '@material-ui/icons/Refresh'
@@ -78,15 +75,18 @@ import ChevronRightIcon from '@material-ui/icons/ChevronRight'
 import CheckIcon from '@material-ui/icons/Check'
 import {
   Alert as AntAlert,
+  Card as AntCard,
   Button as AntButton,
   Checkbox as AntCheckbox,
   Dropdown as AntDropdown,
+  Descriptions as AntDescriptions,
   Input as AntInput,
   Menu as AntMenu,
   Modal as AntModal,
   Popover as AntPopover,
   Radio as AntRadio,
   Select as AntSelect,
+  Segmented as AntSegmented,
   Space as AntSpace,
   Statistic as AntStatistic,
   Switch as AntSwitch,
@@ -107,6 +107,9 @@ import {
   QuestionCircleOutlined,
   BulbOutlined,
   CloseOutlined,
+  EllipsisOutlined,
+  CheckOutlined,
+  StopOutlined,
   ClusterOutlined,
   CopyOutlined,
   EyeOutlined,
@@ -534,16 +537,16 @@ class App extends React.Component<Props, State> {
   websocket: Websocket | null
   synced: boolean
   state: State
-  refreshTopology: any
-  bumpRevision: typeof bumpRevision
+  refreshTopology: CoalescedUpdate<[]>
+  bumpRevision: CoalescedUpdate<[string]>
   checkAuthID: number
   vmNameMapRefreshID: number
   infrastructureAgentRestartPollID: number
   apiConf: Configuration
   wsContext: WSContext
   connected: boolean
-  debSetState: (state: any) => void
-  debUpdateFilters: () => void
+  debSetState: CoalescedUpdate<[any]>
+  debUpdateFilters: CoalescedUpdate<[]>
   config: ConfigReducer
   filters: Map<string, Filter>
   nextTag?: string
@@ -566,6 +569,10 @@ class App extends React.Component<Props, State> {
   private manualPortMappingRequestID = 0
   private manualPortMappingRefreshID?: number
   private selectionHistoryNavigating = false
+  private updatedSelectionIDs = new Set<string>()
+  private disposed = false
+  private filterRequestID = 0
+  private filterRefreshInFlight = false
 
   constructor(props) {
     super(props)
@@ -654,21 +661,31 @@ class App extends React.Component<Props, State> {
 
     this.synced = false
 
-    this.refreshTopology = debounce(300, this._refreshTopology.bind(this))
+    // Allow the 500ms D3 exit animations to finish between live refreshes.
+    // A sustained metric stream must still refresh the topology periodically.
+    this.refreshTopology = coalesceUpdates(1000, this._refreshTopology.bind(this))
 
     // we will refresh info each 1s
-    this.bumpRevision = debounce(1000, this.props.bumpRevision.bind(this))
+    const refreshSelection = coalesceUpdates(1000, () => {
+      const ids = Array.from(this.updatedSelectionIDs)
+      this.updatedSelectionIDs.clear()
+      ids.forEach(id => this.props.bumpRevision(id))
+    })
+    this.bumpRevision = Object.assign((id: string) => {
+      if (!this.props.selection.some(element => element.id === id)) return
+      this.updatedSelectionIDs.add(id)
+      refreshSelection()
+    }, { cancel: () => refreshSelection.cancel() })
 
     // Several topology update paths mutate the current state before requesting
     // one debounced render. Do not retain the state object passed at request
     // time: applying that stale snapshot later can roll back UI-only state
     // changed in the meantime (for example, the recent-node panel toggle).
-    this.debSetState = debounce(200, () => {
+    this.debSetState = coalesceUpdates(200, () => {
       this.setState((currentState) => ({ ...currentState }))
     })
 
-    // debounce updateFilters
-    this.debUpdateFilters = debounce(5000, this.updateFilters.bind(this))
+    this.debUpdateFilters = coalesceUpdates(5000, this.updateFilters.bind(this))
 
     // will handle multiple configuration files
     this.config = new ConfigReducer()
@@ -757,6 +774,16 @@ class App extends React.Component<Props, State> {
   }
 
   componentWillUnmount() {
+    this.disposed = true
+    this.filterRequestID++
+    this.manualPortMappingRequestID++
+    this.refreshTopology.cancel()
+    this.bumpRevision.cancel()
+    this.debSetState.cancel()
+    this.debUpdateFilters.cancel()
+    this.updatedSelectionIDs.clear()
+    this.pendingTopologyEdges.clear()
+    if (window.App === this) delete window.App
     document.removeEventListener("mousedown", this.documentMouseDown, true)
     if (this.checkAuthID) {
       window.clearInterval(this.checkAuthID)
@@ -894,7 +921,7 @@ class App extends React.Component<Props, State> {
     if (this.state.topologyDisplayOptionsOpen) {
       this.setState({ topologyDisplayOptionsOpen: false })
     }
-    if (target.closest('[data-netdive-side-panel="true"], [data-netdive-link-tags="true"], [data-netdive-recent-nodes="true"], [class*="kubernetesManagerPanel"], [class*="sideSettingsPanel"], [data-netdive-drawer="true"], .MuiDialog-root, .ant-modal-root')) {
+    if (target.closest('[data-netdive-side-panel="true"], [data-netdive-link-tags="true"], [data-netdive-recent-nodes="true"], [class*="kubernetesManagerPanel"], [class*="sideSettingsPanel"], [data-netdive-drawer="true"], .MuiDialog-root, .ant-modal-root, .ant-dropdown, .ant-select-dropdown')) {
       return
     }
     if (isLinkTagsExpanded) {
@@ -1695,12 +1722,15 @@ class App extends React.Component<Props, State> {
   }
 
   private updateFilters() {
+    if (this.disposed || this.filterRefreshInFlight) return
+    this.filterRefreshInFlight = true
+    const requestID = ++this.filterRequestID
     this.config.filters().then(filters => {
-      for (let filter of filters) {
-        if (!this.filters.has(filter.id)) {
-          this.filters.set(filter.id, filter)
-        }
-      }
+      if (this.disposed || requestID !== this.filterRequestID) return
+      // Replace discovered filters; deleted hosts/namespaces must not remain
+      // retained for the lifetime of the browser tab.
+      this.filters = new Map(filters.map(filter => [filter.id, filter]))
+      this.rebuildSuggestions()
 
       let fnc = (a: Filter, b: Filter) => {
         if (a.category == b.category) {
@@ -1713,7 +1743,9 @@ class App extends React.Component<Props, State> {
       this.state.filters = this.customFilters.concat(configFilters)
 
       this.debSetState(this.state)
-    })
+    }).catch(error => {
+      if (!this.disposed) console.warn('[TopologyFilters] failed to refresh filters', error)
+    }).finally(() => { this.filterRefreshInFlight = false })
   }
 
   private updateSuggestions(node: Node) {
@@ -1745,6 +1777,26 @@ class App extends React.Component<Props, State> {
     }
   }
 
+  private rebuildSuggestions() {
+    const suggestions = new Set<string>()
+    const keys = this.config.suggestions()
+    this.tc?.nodes.forEach(node => {
+      for (const key of keys) {
+        try {
+          const value = eval('node.' + key)
+          const values = Array.isArray(value) ? value : [value]
+          values.forEach(item => {
+            if (typeof item === 'string') suggestions.add(item)
+          })
+        } catch (e) { }
+      }
+    })
+    Object.values(this.state.vmNameMap || {}).forEach(name => {
+      if (name) suggestions.add(name)
+    })
+    this.state.suggestions = Array.from(suggestions)
+  }
+
   addNode(node: any): boolean {
     if (!this.tc) {
       return false
@@ -1758,7 +1810,7 @@ class App extends React.Component<Props, State> {
     var tags = this.config.nodeTags(node.Metadata)
 
     let n = this.tc.addNode(node.ID, tags, node.Metadata, (n: Node): number => this.config.nodeAttrs(n).weight)
-    this.tc.setParent(n, this.tc.root)
+    if (!n.parent) this.tc.setParent(n, this.tc.root)
 
     this.updateSuggestions(n)
 
@@ -1801,6 +1853,10 @@ class App extends React.Component<Props, State> {
 
     this.pendingTopologyEdges.removeForNode(node.ID)
     this.tc.delNode(node.ID)
+    this.props.selection.filter(element => element.id === node.ID
+      || (element.type === 'link' && (!this.tc!.links.has(element.id))))
+      .forEach(element => this.props.unselectElement(element))
+    this.debUpdateFilters()
 
     return true
   }
@@ -4416,17 +4472,7 @@ class App extends React.Component<Props, State> {
     this.setState(this.state)
   }
 
-  private onThemeToggleChange(event: React.MouseEvent<HTMLElement>, newTheme: NetdiveTheme | null) {
-    if (!newTheme) {
-      return
-    }
-    this.setNetdiveTheme(newTheme)
-  }
-
-  private onInitialTopologyLayerChange(event: React.MouseEvent<HTMLElement>, layer: InitialTopologyLayer | null) {
-    if (!layer) {
-      return
-    }
+  private onInitialTopologyLayerChange(layer: InitialTopologyLayer) {
     localStorage.setItem(INITIAL_TOPOLOGY_LAYER_STORAGE_KEY, layer)
     this.setState({ initialTopologyLayer: layer })
   }
@@ -4452,25 +4498,18 @@ class App extends React.Component<Props, State> {
     return (
       <div className={drawer ? classes.drawerInitialLayerPanel : clsx(classes.sideSettingsControlBlock, classes.preferenceControlBlock)}>
         {this.renderPreferenceLabel(classes, <ClusterOutlined />, translate("initialTopologyLayer"), drawer)}
-        <ToggleButtonGroup
+        <AntSegmented<InitialTopologyLayer> block
           value={this.state.initialTopologyLayer}
-          exclusive
           onChange={this.onInitialTopologyLayerChange.bind(this)}
-          aria-label={translate("initialTopologyLayer")}>
-          <ToggleButton value="infrastructure" aria-label={translate("infrastructureMenu")}>
-            {translate("infrastructureMenu")}
-          </ToggleButton>
-          <ToggleButton value="kubernetes" aria-label="Kubernetes">Kubernetes</ToggleButton>
-        </ToggleButtonGroup>
+          aria-label={translate("initialTopologyLayer")}
+          options={[{ value: 'infrastructure', label: translate('infrastructureMenu') }, { value: 'kubernetes', label: 'Kubernetes' }]} />
       </div>
     )
   }
 
   private renderPreferenceApplyNotice(classes: any, drawer = false) {
     return (
-      <div className={drawer ? classes.drawerPreferenceNotice : classes.sidePreferenceNotice}>
-        {translate("initialTopologyLayerDescription")}
-      </div>
+      <AntAlert className="netdive-preference-notice" type="info" showIcon title={translate("initialTopologyLayerDescription")} />
     )
   }
 
@@ -5117,26 +5156,48 @@ class App extends React.Component<Props, State> {
     return <span className={clsx("fa", "fas", "fa-fw", attrs.iconClass)}>{attrs.icon}</span>
   }
 
+  private renderSidePanelClose(title: string, onClose: () => void) {
+    return <AntButton className="netdive-panel-close" type="text" aria-label={`${title} 닫기`}
+      onClick={onClose} icon={<CloseOutlined />} />
+  }
+
   private renderCollectionPanelHeader(classes: any, title: string, description: string, onClose: () => void, action?: React.ReactNode) {
-    return <div className={classes.collectionPanelHeader}>
+    return <React.Fragment>
+      {this.renderSidePanelClose(title, onClose)}
+      <div className={classes.collectionPanelHeader}>
       <DetailPanelHeader title={title} subtitle={description}
         titleClassName={classes.kubernetesManagerTitle} subtitleClassName={classes.kubernetesManagerDescription} />
       <AntSpace size={8} className={classes.statusSummaryActions}>
         {action}
-        <AntButton type="text" aria-label={`${title} 닫기`} onClick={onClose} icon={<CloseOutlined />} />
       </AntSpace>
-    </div>
+      </div>
+    </React.Fragment>
   }
 
   private renderCollectionKpi(classes: any, icon: React.ReactNode, label: string, value: number,
     onClick?: () => void, disabled = false, multiline = false, className?: string, showChevron = false) {
-    const content = <React.Fragment>
-      <AntStatistic title={label} value={value} suffix={showChevron ? <ChevronRightIcon fontSize="small" /> : undefined} />
-    </React.Fragment>
-    const cardClass = clsx(classes.kubernetesTopologySummaryCard, 'netdive-collection-kpi', multiline && classes.kubernetesTopologySummaryCardMultiline, className)
-    return onClick
-      ? <button type="button" className={cardClass} onClick={onClick} disabled={disabled}>{content}</button>
-      : <div className={cardClass}>{content}</div>
+    const interactive = !!onClick && !disabled
+    return <AntCard
+      classNames={{ root: clsx('netdive-summary-card', className), body: 'netdive-summary-card-body' }}
+      styles={{ body: { padding: '18px 20px' } }}
+      hoverable={interactive}
+      role={onClick ? 'button' : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      aria-disabled={onClick ? disabled : undefined}
+      aria-label={`${label} ${value}`}
+      onClick={interactive ? onClick : undefined}
+      onKeyDown={event => {
+        if (interactive && (event.key === 'Enter' || event.key === ' ')) {
+          event.preventDefault()
+          onClick!()
+        }
+      }}>
+      <AntCard.Meta avatar={<span className="netdive-card-avatar">{icon}</span>}
+        title={multiline ? <span style={{ whiteSpace: 'pre-line' }}>{label.replace('워크로드 컨트롤러', '워크로드\n컨트롤러')}</span> : label}
+        styles={{ title: { fontSize: 14, fontWeight: 500, color: '#595959' } }} />
+      <AntStatistic value={value} suffix={showChevron ? <ChevronRightIcon fontSize="small" /> : undefined}
+        styles={{ content: { fontSize: 26, fontWeight: 500, lineHeight: '34px', color: '#262626' } }} />
+    </AntCard>
   }
 
   private renderInfrastructureSummaryCard(classes: any, icon: React.ReactNode, label: string, value: number, nodeIDs: string[] = []) {
@@ -5312,19 +5373,26 @@ class App extends React.Component<Props, State> {
   private renderCollectionResourceCard(classes: any, icon: React.ReactNode, label: string, description: string,
     count: number | string, onClick: () => void, disabled = false, selected = false) {
     return (
-      <button
-        type="button"
-        title={description || label}
-        className={clsx(classes.infrastructureOverviewCard, "netdive-resource-card", selected && classes.infrastructureOverviewCardActive)}
-        onClick={onClick} disabled={disabled}>
-        <span className={classes.infrastructureCardIcon}>{icon}</span>
-        <strong className="netdive-resource-card-label">{label}</strong>
-        <em>
-          <strong className={typeof count === "string" ? classes.infrastructureOverviewCardValueText : undefined}>{count}</strong>
+      <AntCard
+        classNames={{ root: clsx('netdive-overview-card', selected && 'is-selected'), body: 'netdive-overview-card-body' }}
+        styles={{ body: { padding: '20px' } }}
+        hoverable={!disabled} role="button" tabIndex={disabled ? undefined : 0}
+        aria-label={`${label} ${count}`} aria-disabled={disabled} aria-pressed={selected}
+        onClick={disabled ? undefined : onClick}
+        onKeyDown={event => {
+          if (!disabled && (event.key === 'Enter' || event.key === ' ')) {
+            event.preventDefault()
+            onClick()
+          }
+        }}>
+        <AntCard.Meta avatar={<span className="netdive-card-avatar">{icon}</span>}
+          title={label} description={description || undefined}
+          styles={{ title: { fontSize: 14, fontWeight: 600, color: '#262626' }, description: { fontSize: 12, lineHeight: '19px', color: '#8c8c8c' } }} />
+        <span className="netdive-overview-card-value">
+          <strong className={typeof count === 'string' ? 'is-text' : undefined}>{count}</strong>
           <ChevronRightIcon fontSize="small" />
-        </em>
-        {description && <small className="netdive-resource-card-description">{description}</small>}
-      </button>
+        </span>
+      </AntCard>
     )
   }
 
@@ -5467,10 +5535,20 @@ class App extends React.Component<Props, State> {
       <Paper className={clsx(classes.kubernetesManagerPanel, classes.infrastructureManagerPanel)} data-netdive-side-panel="true">
         {this.renderCollectionPanelHeader(classes, translate("infrastructurePanelTitle"), translate("infrastructurePanelDescription"),
           () => this.setState({ isInfrastructurePanelOpen: false }),
-          this.canManageInfrastructureAgents() && <AntButton
-            icon={<ReloadOutlined spin={!!(this.state.infrastructureAgentRestartStatus?.running || this.state.infrastructureAgentRestartLoading)} />}
-            disabled={this.state.infrastructureAgentRestartStatus?.running || this.state.infrastructureAgentRestartLoading}
-            onClick={() => this.openInfrastructureAgentRestartDialog()}>{translate("infrastructureAgentRestartAction")}</AntButton>)}
+          this.canManageInfrastructureAgents() && <AntSpace.Compact>
+            <AntButton
+              loading={!!(this.state.infrastructureAgentRestartStatus?.running || this.state.infrastructureAgentRestartLoading)}
+              onClick={() => this.openInfrastructureAgentRestartDialog()}>작업</AntButton>
+            <AntDropdown trigger={['click']} placement="bottomRight" getPopupContainer={() => document.body}
+            styles={{ root: { zIndex: 1400, width: 'max-content' } }}
+            menu={{ selectable: false, items: [{ key: 'restart', label: translate('infrastructureAgentRestartAction'),
+              icon: <ReloadOutlined />,
+              disabled: !!(this.state.infrastructureAgentRestartStatus?.running || this.state.infrastructureAgentRestartLoading) }],
+              onClick: ({ key }) => { if (key === 'restart') this.openInfrastructureAgentRestartDialog() } }}>
+              <AntButton icon={<EllipsisOutlined />} aria-label="작업 메뉴" aria-haspopup="menu"
+                disabled={!!(this.state.infrastructureAgentRestartStatus?.running || this.state.infrastructureAgentRestartLoading)} />
+            </AntDropdown>
+          </AntSpace.Compact>)}
         <div className={classes.infrastructureSummarySection}>
           <DetailInlineSectionHeader title={translate("infrastructureSummaryStatus")} />
           <div className={clsx(classes.kubernetesSummaryGrid, classes.infrastructureSummaryGrid)}>
@@ -5485,14 +5563,13 @@ class App extends React.Component<Props, State> {
             <div className={classes.kubernetesSectionTitle}>{translate("infrastructureOverview")}</div>
             <div className={classes.kubernetesSectionHint}>{translate("infrastructureOverviewDescription")}</div>
           </div>
-          <AntRadio.Group
-            value={this.state.infrastructureViewMode}
-            onChange={event => this.setState({ infrastructureViewMode: event.target.value })}
-            className={clsx(classes.statusSummaryFilters, classes.statusSummaryResourceFilters)}
-            aria-label="Infrastructure view mode">
-            <AntRadio.Button value="all">{translate("infrastructureViewAll")}</AntRadio.Button>
-            <AntRadio.Button value="hosts">{translate("infrastructureViewHosts")}</AntRadio.Button>
-          </AntRadio.Group>
+          <AntSwitch
+            checked={this.state.infrastructureViewMode === 'hosts'}
+            onChange={checked => this.setState({ infrastructureViewMode: checked ? 'hosts' : 'all' })}
+            checkedChildren={translate('infrastructureViewHosts')}
+            unCheckedChildren={translate('infrastructureViewAll')}
+            aria-label="호스트별 보기"
+            styles={{ root: { minWidth: 88, background: this.state.infrastructureViewMode === 'hosts' ? '#1677ff' : '#7b9dcc' } }} />
         </div>
         {this.state.infrastructureViewMode === "all" &&
           <div className={classes.infrastructureOverviewGrid}>
@@ -5534,9 +5611,7 @@ class App extends React.Component<Props, State> {
             <div className={classes.sideSettingsTitle}>{translate("screenConfig")}</div>
             <div className={classes.sideSettingsDescription}>{translate("screenConfigDescription")}</div>
           </div>
-          <IconButton size="small" onClick={() => this.setState({ isScreenConfigOpen: false })}>
-            <CloseIcon fontSize="small" />
-          </IconButton>
+          {this.renderSidePanelClose(translate('screenConfig'), () => this.setState({ isScreenConfigOpen: false }))}
         </div>
         <div className={classes.sideSettingsList}>
           {options.map((key) => (
@@ -5562,12 +5637,10 @@ class App extends React.Component<Props, State> {
             <div className={clsx(classes.sideSettingsDescription, classes.preferenceHeaderDescription)}>{translate("preferencesDescription")}</div>
           </div>
           <div className={classes.sideSettingsHeaderActions}>
-            <Button className={classes.preferenceResetButton} size="small" onClick={this.restorePreferenceDefaults.bind(this)}>
+            <AntButton type="text" size="small" onClick={this.restorePreferenceDefaults.bind(this)}>
               {translate("restoreDefaults")}
-            </Button>
-            <IconButton size="small" onClick={() => this.setState({ isPreferencesPanelOpen: false })}>
-              <CloseIcon fontSize="small" />
-            </IconButton>
+            </AntButton>
+            {this.renderSidePanelClose(translate('preferences'), () => this.setState({ isPreferencesPanelOpen: false }))}
           </div>
         </div>
         <div className={clsx(classes.sideSettingsList, classes.preferenceSettingsList)}>
@@ -5577,14 +5650,10 @@ class App extends React.Component<Props, State> {
           </div>
           <div className={clsx(classes.sideSettingsControlBlock, classes.preferenceControlBlock)}>
             {this.renderPreferenceLabel(classes, <BulbOutlined />, translate("themeSetting"))}
-            <ToggleButtonGroup
+            <AntSegmented<NetdiveTheme> block
               value={this.state.netdiveTheme}
-              exclusive
-              onChange={this.onThemeToggleChange.bind(this)}
-              aria-label="Theme selection">
-              <ToggleButton value="light" aria-label="Light">Light</ToggleButton>
-              <ToggleButton value="dark" aria-label="Dark">Dark</ToggleButton>
-            </ToggleButtonGroup>
+              onChange={value => this.setNetdiveTheme(value)}
+              aria-label="Theme selection" options={[{ value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }]} />
           </div>
           {this.renderInitialTopologyLayerControl(classes)}
           {this.renderPreferenceApplyNotice(classes)}
@@ -5642,25 +5711,14 @@ class App extends React.Component<Props, State> {
             <div className={classes.sideSettingsTitle}>{translate("help")}</div>
             <div className={classes.sideSettingsDescription}>{translate("helpPanelDescription")}</div>
           </div>
-          <IconButton size="small" onClick={() => this.setState({ isHelpOpen: false })}>
-            <CloseIcon fontSize="small" />
-          </IconButton>
+          {this.renderSidePanelClose(translate('help'), () => this.setState({ isHelpOpen: false }))}
         </div>
         <div className={classes.sideSettingsList}>
-          <div className={classes.helpPageTabs}>
-            {helpSections.map((section) => (
-              <button
-                key={section}
-                type="button"
-                className={clsx(classes.helpPageTab, activeSection === section && classes.helpPageTabActive)}
-                onClick={() => this.setState({ helpActiveSection: section })}>
-                {translate(`helpSection-${section}`)}
-              </button>
-            ))}
-          </div>
+          <AntSegmented<HelpSection> block aria-label={translate('help')}
+            value={activeSection} onChange={section => this.setState({ helpActiveSection: section })}
+            options={helpSections.map(section => ({ value: section, label: translate(`helpSection-${section}`) }))} />
           {activeSection === "menu" &&
-            <div className={classes.helpGuideCard}>
-              <div className={classes.helpGuideTitle}>{translate("helpMenuTitle")}</div>
+            <AntCard size="small" title={translate('helpMenuTitle')} className="netdive-help-card">
               <div className={classes.sideSettingsText}>{translate("helpMenuDescription")}</div>
               <div className={classes.helpGuideList}>
                 <span>{translate("helpMenuPointCollection")}</span>
@@ -5669,11 +5727,10 @@ class App extends React.Component<Props, State> {
                 <span>{translate("helpMenuPointPreferences")}</span>
                 <span>{translate("helpMenuPointHelp")}</span>
               </div>
-            </div>
+            </AntCard>
           }
           {activeSection === "toolbar" &&
-            <div className={classes.helpGuideCard}>
-              <div className={classes.helpGuideTitle}>{translate("helpToolbarTitle")}</div>
+            <AntCard size="small" title={translate('helpToolbarTitle')} className="netdive-help-card">
               <div className={classes.sideSettingsText}>{translate("helpToolbarDescription")}</div>
               <div className={classes.helpGuideList}>
                 <span>{translate("helpToolbarPointLogo")}</span>
@@ -5682,12 +5739,11 @@ class App extends React.Component<Props, State> {
                 <span>{translate("helpToolbarPointStatus")}</span>
                 <span>{translate("helpToolbarPointDrawer")}</span>
               </div>
-            </div>
+            </AntCard>
           }
           {activeSection === "topology" &&
             <React.Fragment>
-              <div className={classes.helpGuideCard}>
-                <div className={classes.helpGuideTitle}>{translate("helpTopologyTitle")}</div>
+              <AntCard size="small" title={translate('helpTopologyTitle')} className="netdive-help-card">
                 <div className={classes.sideSettingsText}>{translate("helpTopologyDescription")}</div>
                 <div className={classes.helpGuideList}>
                   <span>{translate("helpTopologyPointLayers")}</span>
@@ -5695,16 +5751,15 @@ class App extends React.Component<Props, State> {
                   <span>{translate("helpTopologyPointLink")}</span>
                   <span>{translate("helpTopologyPointDetail")}</span>
                 </div>
-              </div>
-              <div className={classes.helpGuideCard}>
-                <div className={classes.helpGuideTitle}>{translate("helpKubernetesTitle")}</div>
+              </AntCard>
+              <AntCard size="small" title={translate('helpKubernetesTitle')} className="netdive-help-card">
                 <div className={classes.sideSettingsText}>{translate("helpKubernetesDescription")}</div>
                 <div className={classes.helpGuideList}>
                   <span>{translate("helpKubernetesPointCollection")}</span>
                   <span>{translate("helpKubernetesPointTopology")}</span>
                   <span>{translate("helpKubernetesPointPolicy")}</span>
                 </div>
-              </div>
+              </AntCard>
             </React.Fragment>
           }
           <div className={classes.helpDocsCard}>
@@ -5712,7 +5767,7 @@ class App extends React.Component<Props, State> {
               <div className={classes.helpGuideTitle}>{translate("helpDocsTitle")}</div>
               <div className={classes.sideSettingsText}>{translate("helpDocsDescription")}</div>
             </div>
-            <a className={classes.helpDocsLink} href="https://docs.ablecloud.io/latest/administration/wall/netdive-guide/" target="_blank" rel="noopener noreferrer">ABLESTACK Online Docs</a>
+            <AntButton size="small" href="https://docs.ablecloud.io/latest/administration/wall/netdive-guide/" target="_blank" rel="noopener noreferrer">ABLESTACK Online Docs</AntButton>
           </div>
         </div>
       </Paper>
@@ -5730,36 +5785,26 @@ class App extends React.Component<Props, State> {
             <div className={classes.sideSettingsTitle}>ABLESTACK NETDIVE</div>
             <div className={classes.sideSettingsDescription}>{translate("aboutPanelDescription")}</div>
           </div>
-          <IconButton size="small" onClick={() => this.setState({ isAboutOpen: false })}>
-            <CloseIcon fontSize="small" />
-          </IconButton>
+          {this.renderSidePanelClose('ABLESTACK NETDIVE', () => this.setState({ isAboutOpen: false }))}
         </div>
         <div className={classes.sideSettingsList}>
-          <div className={classes.aboutProductCard}>
-            <div className={classes.aboutInfoRow}>
-              <span>{translate("version")}</span>
-              <strong>4.2.2</strong>
-            </div>
-            <div className={classes.aboutInfoRow}>
-              <span>{translate("productFamily")}</span>
-              <strong>ABLESTACK</strong>
-            </div>
-            <div className={classes.aboutInfoRow}>
-              <span>{translate("vendor")}</span>
-              <strong>ABLECLOUD.Co.Ltd</strong>
-            </div>
+          <AntCard size="small" className="netdive-help-card">
+            <AntDescriptions size="small" column={1} items={[
+              { key: 'version', label: translate('version'), children: '4.2.2' },
+              { key: 'family', label: translate('productFamily'), children: 'ABLESTACK' },
+              { key: 'vendor', label: translate('vendor'), children: 'ABLECLOUD.Co.Ltd' }
+            ]} />
             <div className={classes.aboutCopyright}>Copyright © 2025 ABLECLOUD.Co.Ltd</div>
             <div className={classes.aboutActions}>
-              <Button
-                variant="outlined"
+              <AntButton
                 size="small"
                 href="https://docs.ablecloud.io/latest/administration/wall/netdive-guide/"
                 target="_blank"
                 rel="noopener noreferrer">
                 {translate("documentation")}
-              </Button>
+              </AntButton>
             </div>
-          </div>
+          </AntCard>
         </div>
       </Paper>
     )
@@ -5884,30 +5929,24 @@ class App extends React.Component<Props, State> {
         <DetailSection
           title={translate("kubernetesCollectionManagementSection")}
           description={this.state.kubernetesMessage || translate("kubernetesClusterListDescription")}
-          action={<AntSpace size={6}>
-            <AntButton
-              size="small"
-              className={classes.collectionSecondaryActionButton}
-              icon={<InfoCircleOutlined />}
-              onClick={() => this.setState({ kubernetesPolicyDialogOpen: true })}>
-              {translate("kubernetesCollectionPolicy")}
-            </AntButton>
-            <AntButton
-              size="small"
-              className={classes.collectionSecondaryActionButton}
-              icon={<ReloadOutlined />}
-              onClick={() => this.refreshKubernetesClusters()}>
-              {translate("refresh")}
-            </AntButton>
-            <AntButton
-              size="small"
-              className={classes.collectionSecondaryActionButton}
-              icon={<ClusterOutlined />}
-              onClick={this.testAllKubernetesConnections.bind(this)}
-              disabled={this.state.kubernetesTestLoading || this.state.kubernetesTestAllLoading || this.state.kubernetesClusters.length === 0}>
-              {this.state.kubernetesTestAllLoading ? translate("kubernetesTestAllRunning") : translate("kubernetesTestAll")}
-            </AntButton>
-          </AntSpace>}>
+          action={<AntSpace.Compact>
+            <AntButton onClick={() => this.setState({ kubernetesPolicyDialogOpen: true })}>작업</AntButton>
+            <AntDropdown trigger={['click']} placement="bottomRight" getPopupContainer={() => document.body}
+              styles={{ root: { zIndex: 1400, width: 'max-content' } }}
+              menu={{ selectable: false, items: [
+                { key: 'policy', label: translate('kubernetesCollectionPolicy'), icon: <InfoCircleOutlined /> },
+                { key: 'refresh', label: translate('refresh'), icon: <ReloadOutlined /> },
+                { key: 'test-all', label: this.state.kubernetesTestAllLoading ? translate('kubernetesTestAllRunning') : translate('kubernetesTestAll'),
+                  icon: <ClusterOutlined />,
+                  disabled: this.state.kubernetesTestLoading || this.state.kubernetesTestAllLoading || this.state.kubernetesClusters.length === 0 }
+              ], onClick: ({ key }) => {
+                if (key === 'policy') this.setState({ kubernetesPolicyDialogOpen: true })
+                if (key === 'refresh') this.refreshKubernetesClusters()
+                if (key === 'test-all') this.testAllKubernetesConnections()
+              } }}>
+              <AntButton icon={<EllipsisOutlined />} aria-label="Kubernetes 수집 작업 메뉴" aria-haspopup="menu" />
+            </AntDropdown>
+          </AntSpace.Compact>}>
           <DetailTable<MoldKubernetesCluster>
             className={classes.kubernetesCollectionTable}
             rowKey="id"
@@ -5979,35 +6018,27 @@ class App extends React.Component<Props, State> {
             <Button onClick={() => this.setState({ kubernetesTestDialogOpen: false })}>{translate("close")}</Button>
           </DialogActions>
         </Dialog>
-        <Dialog open={this.state.kubernetesPolicyDialogOpen} onClose={() => this.setState({ kubernetesPolicyDialogOpen: false })} maxWidth="sm" fullWidth>
-          <DialogTitle>{translate("kubernetesCollectionPolicy")}</DialogTitle>
-          <DialogContent>
-            <div className={classes.kubernetesDialogText}>{translate("kubernetesCollectionPolicyDescription")}</div>
-            <div className={classes.kubernetesPolicyNotice}>
-              <InfoIcon fontSize="small" />
-              <span>{translate("kubernetesCollectionPolicyNotice")}</span>
-            </div>
-            <div className={classes.kubernetesProbeInfoGrid}>
-              <div className={classes.kubernetesProbeInfoCard}>
-                <strong>{translate("kubernetesDefaultEnabledProbes")}</strong>
-                <small>{translate("kubernetesDefaultEnabledProbesDescription")}</small>
-                <div className={classes.kubernetesProbeBadgeList}>
-                  {defaultEnabledKubernetesProbes.map((probe) => <span key={probe} className={classes.kubernetesProbeBadge}>{probe}</span>)}
-                </div>
-              </div>
-              <div className={classes.kubernetesProbeInfoCard}>
-                <strong>{translate("kubernetesDefaultDisabledProbes")}</strong>
-                <small>{translate("kubernetesDefaultDisabledProbesDescription")}</small>
-                <div className={classes.kubernetesProbeBadgeList}>
-                  {defaultDisabledKubernetesProbes.map((probe) => <span key={probe} className={classes.kubernetesProbeBadgeMuted}>{probe}</span>)}
-                </div>
-              </div>
-            </div>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => this.setState({ kubernetesPolicyDialogOpen: false })}>{translate("close")}</Button>
-          </DialogActions>
-        </Dialog>
+        <AntModal open={this.state.kubernetesPolicyDialogOpen} centered width={760} zIndex={1400}
+          title={translate('kubernetesCollectionPolicy')}
+          onCancel={() => this.setState({ kubernetesPolicyDialogOpen: false })}
+          footer={<AntButton type="primary" size="small" onClick={() => this.setState({ kubernetesPolicyDialogOpen: false })}>{translate('close')}</AntButton>}>
+          <p className="netdive-policy-description">{translate('kubernetesCollectionPolicyDescription')}</p>
+          <AntAlert type="info" showIcon title={translate('kubernetesCollectionPolicyNotice')} />
+          <div className="netdive-policy-sections">
+            <AntCard size="small" title={translate('kubernetesDefaultEnabledProbes')}>
+              <p className="netdive-policy-hint">{translate('kubernetesDefaultEnabledProbesDescription')}</p>
+              <ul className="netdive-policy-resources">
+                {defaultEnabledKubernetesProbes.map(probe => <li key={probe}><CheckOutlined className="netdive-policy-included" /><span>{probe}</span></li>)}
+              </ul>
+            </AntCard>
+            <AntCard size="small" title={translate('kubernetesDefaultDisabledProbes')}>
+              <p className="netdive-policy-hint">{translate('kubernetesDefaultDisabledProbesDescription')}</p>
+              <ul className="netdive-policy-resources netdive-policy-resources-excluded">
+                {defaultDisabledKubernetesProbes.map(probe => <li key={probe}><StopOutlined className="netdive-policy-excluded" /><span>{probe}</span></li>)}
+              </ul>
+            </AntCard>
+          </div>
+        </AntModal>
       </React.Fragment>
     )
   }
@@ -6079,14 +6110,10 @@ class App extends React.Component<Props, State> {
             </div>
             <div className={classes.drawerPreferenceSection}>
               {this.renderPreferenceLabel(classes, <BulbOutlined />, translate("themeSetting"), true)}
-              <ToggleButtonGroup
+              <AntSegmented<NetdiveTheme> block
                 value={this.state.netdiveTheme}
-                exclusive
-                onChange={this.onThemeToggleChange.bind(this)}
-                aria-label="Theme selection">
-                <ToggleButton value="light" aria-label="Light">Light</ToggleButton>
-                <ToggleButton value="dark" aria-label="Dark">Dark</ToggleButton>
-              </ToggleButtonGroup>
+                onChange={value => this.setNetdiveTheme(value)}
+                aria-label="Theme selection" options={[{ value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }]} />
             </div>
             {this.renderInitialTopologyLayerControl(classes, true)}
             {this.renderPreferenceApplyNotice(classes, true)}
@@ -6097,9 +6124,9 @@ class App extends React.Component<Props, State> {
               <strong>{translate("preferences")}</strong>
               <small>{translate("preferencesDescription")}</small>
             </div>
-            <Button className={classes.preferenceResetButton} size="small" onClick={this.restorePreferenceDefaults.bind(this)}>
+            <AntButton type="link" size="small" onClick={this.restorePreferenceDefaults.bind(this)}>
               {translate("restoreDefaults")}
-            </Button>
+            </AntButton>
           </div>
         )}
         {this.renderDrawerMenuGroup(

@@ -186,6 +186,7 @@
   font-weight: 400;
 }
 
+
 .netdive-ant-theme .ant-badge-status-text {
   color: var(--netdive-ant-text);
   font-size: 12px;
@@ -519,13 +520,18 @@
 .netdive-navigation-item-text > span { font-size: 14px; line-height: 22px; }
 .netdive-navigation-item-text small { color: var(--netdive-menu-muted); font-size: 12px; white-space: normal; }
 .netdive-navigation-preferences .ant-popover-inner {
-  width: 300px;
+  width: 320px;
+  padding: 16px;
   max-width: calc(100vw - 100px);
   border-radius: 8px;
   background: var(--netdive-menu-card);
   color: var(--netdive-menu-text);
 }
-.netdive-navigation-preferences .ant-popover-inner-content { padding: 20px; color: inherit; }
+.netdive-navigation-preferences .ant-popover-inner-content { padding: 0; color: inherit; }
+.netdive-preference-notice.ant-alert { padding: 10px 12px; font-size: 12px; line-height: 19px; }
+.netdive-help-card .ant-card-head { min-height: 40px; font-size: 14px; }
+.netdive-help-card .ant-card-body { display: flex; flex-direction: column; gap: 12px; }
+.netdive-navigation-preferences .ant-segmented-item-label { font-size: 13px; }
 .netdive-ant-theme .ant-input:focus,
 .netdive-ant-theme .ant-input-affix-wrapper-focused,
 .netdive-ant-theme .ant-select-focused:not(.ant-select-disabled) .ant-select-selector {
@@ -594,10 +600,96 @@
 .netdive-resource-icon { display: inline-flex; align-items: center; justify-content: center; color: inherit; }
 .netdive-resource-icon .anticon { font-size: 18px; line-height: 1; }
 .netdive-resource-icon svg { display: block; }
+
+/* Card semantic roots/body and Meta keep the collection cards on Ant's layout. */
+.netdive-summary-card.ant-card,
+.netdive-overview-card.ant-card {
+  min-width: 0;
+  border: 1px solid #ededed;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: none;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+.netdive-summary-card-body { display: flex; flex-direction: column; gap: 8px; }
+.netdive-card-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: 0;
+  color: #595959;
+  flex-shrink: 0;
+}
+.netdive-card-avatar .netdive-resource-icon .anticon,
+.netdive-card-avatar > .anticon { font-size: 23px; }
+.netdive-summary-card .ant-card-meta { display: flex; align-items: center; margin: 0; }
+.netdive-summary-card .ant-card-meta-avatar { padding-inline-end: 16px; }
+.netdive-summary-card .ant-card-meta-title { white-space: normal; line-height: 19px; }
+.netdive-summary-card .ant-statistic { width: 100%; padding-inline-start: 48px; }
+.netdive-overview-card-body { display: flex; align-items: flex-start; gap: 12px; min-height: 110px; }
+.netdive-overview-card .ant-card-meta { display: flex; flex: 1; min-width: 0; margin: 0; }
+.netdive-overview-card .ant-card-meta-avatar { padding-inline-end: 16px; }
+.netdive-overview-card .ant-card-meta-detail { min-width: 0; }
+.netdive-overview-card .ant-card-meta-title { white-space: normal; line-height: 22px; margin-bottom: 8px; }
+.netdive-overview-card .ant-card-meta-description { word-break: keep-all; overflow-wrap: anywhere; }
+.netdive-overview-card-value { display: flex; align-items: center; gap: 4px; flex-shrink: 0; padding-top: 1px; color: #262626; }
+.netdive-overview-card-value strong { font-size: 20px; line-height: 26px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.netdive-overview-card-value strong.is-text { font-size: 15px; }
+.netdive-overview-card-value svg { color: #7b9dce; width: 16px; }
+.netdive-summary-card[role="button"], .netdive-overview-card[role="button"] { cursor: pointer; }
+.netdive-summary-card[aria-disabled="true"], .netdive-overview-card[aria-disabled="true"] { cursor: default; }
+.netdive-summary-card[aria-disabled="true"] .ant-statistic { opacity: .65; }
+.netdive-summary-card[role="button"]:not([aria-disabled="true"]):hover,
+.netdive-overview-card:not([aria-disabled="true"]):hover {
+  border-color: #aac9f5;
+  box-shadow: 0 4px 12px rgba(42, 92, 165, 0.08);
+}
+.netdive-overview-card.is-selected { border-color: #91baff; background: #f5f9ff; }
+.netdive-summary-card:focus-visible, .netdive-overview-card:focus-visible { outline: 2px solid #1677ff; outline-offset: 3px; }
+@media (max-width: 600px) {
+  .netdive-overview-card-body { min-height: 98px; }
+}
 .netdive-collection-confirm .ant-modal-content { border-radius: 10px !important; }
 .netdive-collection-confirm .ant-modal-header { border-radius: 10px 10px 0 0; }
 .netdive-collection-confirm .ant-modal-body { padding: 24px; color: #53657d; font-size: 13px; line-height: 1.7; }
 .netdive-collection-confirm-target { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 6px; background: #f0f7ff; color: #2775da; font-weight: 500; }
 .netdive-collection-confirm-steps { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 16px; font-size: 12px; }
 .netdive-collection-confirm .ant-modal-footer { padding: 12px 24px; }
+
+.netdive-policy-description { margin: 8px 0 16px; font-size: 13px; line-height: 21px; color: #595959; }
+.netdive-panel-close.ant-btn { position: absolute; top: 6px; right: 6px; z-index: 2; width: 32px; height: 32px; padding: 0; color: #8c8c8c; }
+.netdive-panel-close.ant-btn .anticon { font-size: 16px; }
+.netdive-event-list-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 32px; }
+.netdive-event-list-heading { display: flex; align-items: center; gap: 8px; color: #262626; font-size: 15px; }
+.netdive-event-list-heading strong { font-weight: 600; }
+.netdive-event-query-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding-bottom: 16px; border-bottom: 1px solid #f0f0f0; }
+.netdive-event-period-select { width: 150px; }
+.netdive-event-type-select { width: 170px; }
+.netdive-event-query-toolbar .ant-select-prefix { color: #8c8c8c; }
+.netdive-event-list-search { display: flex; align-items: center; gap: 8px; min-width: 200px; flex: 1; margin-left: 8px; }
+.netdive-event-history-filter-surface .netdive-detail-filter-bar__fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); flex: 1; gap: 16px; }
+.netdive-event-history-filter-surface .netdive-detail-filter-field { min-width: 0; width: auto; }
+@media (max-width: 640px) {
+  .netdive-event-list-toolbar { align-items: flex-start; flex-direction: column; }
+  .netdive-event-list-search { width: 100%; margin-left: 0; }
+  .netdive-event-history-filter-surface .netdive-detail-filter-bar__fields { grid-template-columns: 1fr; }
+}
+.netdive-policy-sections { display: grid; grid-template-columns: 3fr 2fr; gap: 16px; margin-top: 20px; }
+.netdive-policy-hint { margin: 0 0 14px; color: #8c8c8c; font-size: 12px; line-height: 19px; }
+.netdive-policy-resources { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 16px; margin: 0; padding: 0; list-style: none; }
+.netdive-policy-resources li { display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 6px 0; border-bottom: 1px solid #f0f0f0; color: #434343; font-size: 12px; line-height: 20px; }
+.netdive-policy-resources li > span:last-child { overflow-wrap: anywhere; }
+.netdive-policy-resources .anticon { flex: 0 0 auto; font-size: 12px; }
+.netdive-policy-included { color: #1677ff; }
+.netdive-policy-excluded { color: #d89614; }
+.netdive-policy-resources-excluded { grid-template-columns: 1fr; }
+@media (max-width: 600px) {
+  .netdive-policy-sections { grid-template-columns: 1fr; }
+}
+@media (max-width: 400px) {
+  .netdive-policy-resources { grid-template-columns: 1fr; }
+}
 .netdive-collection-confirm .ant-btn-primary { background: #1677ff; border-color: #1677ff; color: #fff; }

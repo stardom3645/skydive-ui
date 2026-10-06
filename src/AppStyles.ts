@@ -482,20 +482,21 @@ export const styles = (theme: Theme) => createStyles({
       display: 'block',
       color: 'var(--netdive-menu-text)',
       fontSize: 15,
-      fontWeight: 800,
+      fontWeight: 600,
       lineHeight: 1.35
     },
     '& small': {
       display: 'block',
       marginTop: 4,
       color: 'var(--netdive-menu-muted)',
-      opacity: 0.72,
-      fontSize: 10,
+      fontSize: 12,
       lineHeight: 1.4,
       wordBreak: 'keep-all'
     }
   },
   drawerPreferenceSection: {
+    marginTop: 16,
+    '& .ant-segmented': { marginTop: 8 },
     '& .MuiToggleButtonGroup-root': {
       width: '100%',
       display: 'grid',
@@ -534,11 +535,14 @@ export const styles = (theme: Theme) => createStyles({
     gap: 7,
     minHeight: 20,
     color: 'var(--netdive-menu-text)',
-    fontSize: 12,
-    fontWeight: 750,
+    fontSize: 13,
+    fontWeight: 500,
     lineHeight: 1.3
   },
   drawerInitialLayerPanel: {
+    marginTop: 16,
+    marginBottom: 16,
+    '& .ant-segmented': { marginTop: 8 },
     paddingTop: theme.spacing(1.5),
     borderTop: '1px solid var(--netdive-menu-border-soft)',
     '& .MuiToggleButtonGroup-root': {
@@ -842,6 +846,7 @@ export const styles = (theme: Theme) => createStyles({
     overflow: 'auto'
   },
   sideSettingsHeader: {
+    paddingRight: 32,
     display: 'flex',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
@@ -1290,6 +1295,7 @@ export const styles = (theme: Theme) => createStyles({
     }
   },
   collectionPanelHeader: {
+    paddingRight: 32,
     display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
     gap: 'var(--netdive-ops-section-gap)',
     paddingBottom: 'var(--netdive-ops-section-gap)',
@@ -1357,6 +1363,7 @@ export const styles = (theme: Theme) => createStyles({
     width: 'min(680px, calc(100vw - 122px))'
   },
   eventHistoryPanel: {
+    '& $collectionPanelHeader > $statusSummaryActions': { alignSelf: 'flex-end' },
     width: 'min(1040px, calc(100vw - 122px))',
     overflow: 'hidden',
     '& .netdive-event-history-surface': {
@@ -1376,13 +1383,10 @@ export const styles = (theme: Theme) => createStyles({
       padding: 20
     },
     '& .netdive-event-history-filter-surface': {
-      padding: 0,
-      border: 0,
-      backgroundColor: 'var(--netdive-ant-bg)',
-      '& .netdive-detail-filter-bar__search': {
-        paddingLeft: 12,
-        borderLeft: '1px solid var(--netdive-ant-divider)'
-      }
+      padding: '12px 16px',
+      border: '1px solid var(--netdive-ant-divider)',
+      borderRadius: 6,
+      backgroundColor: 'var(--netdive-ant-table-header)'
     },
     '& .netdive-event-history-row--navigable': {
       cursor: 'pointer',
@@ -1451,15 +1455,14 @@ export const styles = (theme: Theme) => createStyles({
       maxHeight: 48
     },
     '& .netdive-event-history-table': {
-      display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 200,
-      '& .ant-spin-nested-loading, & .ant-spin-container, & .ant-table, & .ant-table-container': {
-        display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0
-      },
-      '& .ant-table-header, & .ant-pagination': { flexShrink: 0 },
-      '& .ant-table-body': { flex: '1 1 auto', minHeight: 0, overflow: 'auto !important' },
+      flex: '0 0 auto', minHeight: 0,
+      '& .ant-table-container': { overflow: 'visible !important' },
+      '& .ant-table-body': { overflow: 'auto !important' },
+      '& .ant-table-thead > tr > th': { background: 'var(--netdive-ant-bg)', fontWeight: 500 },
+      '& .ant-table-tbody > tr > td': { padding: '12px 10px', height: 56 },
       '& .ant-pagination': { padding: '12px 16px', margin: 0 },
       border: '1px solid var(--netdive-ant-divider)',
-      borderRadius: 'var(--netdive-ant-radius)',
+      borderRadius: 0,
       overflow: 'hidden'
     },
     '& .netdive-event-history-footer': {
@@ -1481,6 +1484,7 @@ export const styles = (theme: Theme) => createStyles({
     }
   },
   infrastructureManagerPanel: {
+    '& $collectionPanelHeader > $statusSummaryActions': { alignSelf: 'flex-end' },
     right: 'auto',
     width: infrastructurePanelCompactWidth,
     maxWidth: 'none',
@@ -2263,6 +2267,14 @@ export const styles = (theme: Theme) => createStyles({
   },
   infrastructureHostOverviewGrid: {
     display: 'grid',
+    '& .netdive-overview-card-body': {
+      flexDirection: 'column', minHeight: 96, gap: 8, padding: '12px !important'
+    },
+    '& .netdive-overview-card .ant-card-meta': { alignItems: 'center', width: '100%' },
+    '& .netdive-overview-card .ant-card-meta-title': { marginBottom: 0 },
+    '& .netdive-overview-card .ant-card-meta-description': { display: 'none' },
+    '& .netdive-overview-card-value': { alignSelf: 'flex-end' },
+    '& .netdive-card-avatar': { width: 30, height: 30, borderRadius: 8 },
     gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
     gap: theme.spacing(0.55 * infrastructureGapCompactRatio),
     marginTop: theme.spacing(0.55 * infrastructureOverviewCompactRatio),
@@ -3205,8 +3217,8 @@ export const styles = (theme: Theme) => createStyles({
     },
   },
   linkLayerCards: {
-    display: 'flex',
-    alignItems: 'stretch',
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
     gap: theme.spacing(0.75),
     overflowX: 'auto',
     paddingBottom: 2,
@@ -3224,8 +3236,8 @@ export const styles = (theme: Theme) => createStyles({
     alignItems: 'center',
     gap: theme.spacing(0.65),
     minWidth: 150,
-    maxWidth: 176,
-    padding: theme.spacing(0.58, 0.72),
+    maxWidth: '100%',
+    padding: theme.spacing(1.25, 1.5),
     textAlign: 'left',
     position: 'relative',
     overflow: 'hidden',
@@ -3369,7 +3381,7 @@ export const styles = (theme: Theme) => createStyles({
     border: '1px solid var(--netdive-detail-border)',
     borderRadius: 10,
     backgroundColor: '#F1F5F9',
-    padding: theme.spacing(0.85, 0.9),
+    padding: theme.spacing(1.25, 1.5),
   },
   linkTagsStateHelpTitle: {
     display: 'block',
@@ -3381,7 +3393,7 @@ export const styles = (theme: Theme) => createStyles({
   linkTagsStateHelpItems: {
     display: 'grid',
     gridTemplateColumns: '1fr',
-    gap: theme.spacing(0.55),
+    gap: theme.spacing(1.25),
   },
   linkTagsStateHelpItem: {
     display: 'grid',
@@ -3400,9 +3412,9 @@ export const styles = (theme: Theme) => createStyles({
       display: 'block',
       color: 'var(--netdive-detail-muted)',
       fontStyle: 'normal',
-      whiteSpace: 'nowrap',
-      overflow: 'hidden',
-      textOverflow: 'ellipsis',
+      whiteSpace: 'normal',
+      wordBreak: 'keep-all',
+      lineHeight: 1.5,
     },
   },
   linkTagsNotice: {
@@ -3450,28 +3462,37 @@ export const styles = (theme: Theme) => createStyles({
   linkTagsUsageGrid: {
     display: 'grid',
     gridTemplateColumns: '1fr',
-    gap: theme.spacing(0.45),
-    marginTop: theme.spacing(0.45),
+    gap: theme.spacing(1),
+    marginTop: theme.spacing(1),
   },
   linkTagsUsageCard: {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1fr) 96px',
+    columnGap: 12,
+    rowGap: 6,
     border: '1px solid var(--netdive-detail-border)',
     borderRadius: 9,
     backgroundColor: '#FFFFFF',
-    padding: theme.spacing(0.48, 0.55),
+    padding: theme.spacing(1.25),
     color: 'var(--netdive-detail-text)',
     minWidth: 0,
     '& ul': {
-      margin: '3px 0 0 0',
+      gridColumn: '1',
+      gridRow: '2',
+      margin: 0,
       paddingLeft: 14,
       color: 'var(--netdive-detail-muted)',
       fontSize: 12,
-      lineHeight: 1.3,
+      lineHeight: 1.6,
+      wordBreak: 'keep-all',
     },
     '& li': {
       marginBottom: 1,
     },
   },
   linkTagsUsageHeader: {
+    gridColumn: '1',
+    gridRow: '1',
     display: 'grid',
     gridTemplateColumns: '24px minmax(0, 1fr)',
     alignItems: 'center',
@@ -3489,10 +3510,14 @@ export const styles = (theme: Theme) => createStyles({
     },
   },
   linkUsageDiagram: {
+    gridColumn: '2',
+    gridRow: '1 / 3',
+    alignSelf: 'center',
+    justifySelf: 'center',
     display: 'block',
-    width: 88,
-    height: 38,
-    marginTop: 2,
+    width: 96,
+    height: 56,
+    marginTop: 0,
     borderRadius: 8,
     backgroundColor: '#FFFFFF',
     border: '1px solid var(--netdive-detail-border)',

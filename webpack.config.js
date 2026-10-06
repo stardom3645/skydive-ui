@@ -17,6 +17,12 @@ const htmlPlugin = new HtmlWebPackPlugin({
 
 module.exports = {
     entry: './src/index.tsx',
+    // Poll source files so editor/patch replacements reliably trigger rebuilds.
+    watchOptions: {
+        poll: 1000,
+        aggregateTimeout: 300,
+        ignored: /node_modules|[\\/]dist[\\/]|[\\/]\.git[\\/]/
+    },
     output: {
         filename: 'dist/bundle.js',
         publicPath: '/ui_v2/'

@@ -16,7 +16,7 @@
  */
 
 import * as React from "react"
-import * as ReactDOM from "react-dom"
+import { TopologyReactRoots } from './TopologyReactRoots'
 import { Avatar, Button, Card, Input, List, Tag, Typography } from 'antd'
 import { NodeIndexOutlined } from '@ant-design/icons'
 import { hierarchy } from 'd3-hierarchy'
@@ -296,6 +296,8 @@ export class Node {
         this.weight = weight || 0
         this.children = new Array<Node>()
         this.state = state || Topology.defaultState()
+        this.parent = null
+        this.revision = 0
         this.type = 'node'
     }
 
@@ -333,6 +335,7 @@ export class Link {
         this.data = data
         this.type = 'link'
         this.state = state
+        this.revision = 0
     }
 }
 
@@ -640,6 +643,7 @@ export class Topology extends React.Component<Props, {}> {
     private gNodes: Selection<SVGGraphicsElement, {}, null, undefined>
     private gRaisedLinkLabels: Selection<SVGGraphicsElement, {}, null, undefined>
     private topologyContextMenuRoot: HTMLDivElement | null
+    private reactRoots = new TopologyReactRoots()
     private zoom: zoom
     private liner: line
     private showLevelLabelsTimeoutID: number
@@ -654,6 +658,8 @@ export class Topology extends React.Component<Props, {}> {
     private levelRects: Array<LevelRect>
     private groups: Map<string, NodeWrapper>
     private groupStates: Map<string, NodeState>
+    private groupStateOwners = new Map<string, string>()
+    private groupStateMembers = new Map<string, Set<string>>()
     private nodeGroup: Map<string, NodeWrapper>
     private weights: Array<number>
     private visibleLinksCache: Array<Link> | undefined
@@ -748,10 +754,9 @@ export class Topology extends React.Component<Props, {}> {
             this.svg.on(".zoom", null)
         }
         if (this.svgDiv) {
-            select(this.svgDiv).selectAll<SVGGElement, unknown>("g.node-exco")
-                .each(function () {
-                    ReactDOM.unmountComponentAtNode(this)
-                })
+            select(this.svgDiv).selectAll<SVGGElement, unknown>("g.node")
+                .each((_d, index, elements) => this.unmountNodeContent(elements[index]))
+            select(this.svgDiv).selectAll('*').interrupt()
             select(this.svgDiv).select("svg").remove()
         }
     }
@@ -1066,6 +1071,12 @@ export class Topology extends React.Component<Props, {}> {
 
         this.groups = new Map<string, NodeWrapper>()
         this.groupStates = new Map<string, NodeState>()
+        this.groupStateOwners.clear()
+        this.groupStateMembers.clear()
+        this.groupNavigatorFilters?.clear()
+        this.groupNavigatorRenderKeys?.clear()
+        this.expandedContainerMiniNodeIDs?.clear()
+        this.selectedGroupListNodeIDs?.clear()
         this.nodeGroup = new Map<string, NodeWrapper>()
 
         this.weights = new Array<number>()
@@ -1271,6 +1282,24 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     addNode(id: string, tags: Array<string>, data: any, weight: number | ((node: Node) => number)): Node {
+        const existing = this.nodes.get(id)
+        if (existing) {
+            // Replayed NodeAdded events must preserve the canonical object,
+            // its ownership and links rather than leave an old copy in the tree.
+            const previousTags = existing.tags
+            previousTags.filter(tag => !tags.includes(tag)).forEach(tag => this.removeNodeTag(tag))
+            tags.filter(tag => !previousTags.includes(tag)).forEach(tag => {
+                if (!this.nodeTagActive) this.nodeTagActive = tag
+                this.nodeTagCount.set(tag, (this.nodeTagCount.get(tag) || 0) + 1)
+                if (!this.nodeTagStates.has(tag)) this.nodeTagStates.set(tag, this.nodeTagActive === tag)
+            })
+            existing.tags = tags
+            existing.weight = weight
+            this.updateNode(id, data)
+            this.updateWeighs(existing)
+            this.invalidated = true
+            return existing
+        }
         var node = new Node(id, tags, data, Topology.defaultState(), weight)
         this.nodes.set(id, node)
 
@@ -1316,9 +1345,18 @@ export class Topology extends React.Component<Props, {}> {
         return node
     }
 
-    private getRandKey(m: Map<any, any>): any {
-        let keys = Array.from(m.keys());
-        return keys[Math.floor(Math.random() * keys.length)];
+    private removeNodeTag(tag: string) {
+        const count = this.nodeTagCount.get(tag) || 0
+        if (count > 1) {
+            this.nodeTagCount.set(tag, count - 1)
+            return
+        }
+        this.nodeTagCount.delete(tag)
+        this.nodeTagStates.delete(tag)
+        if (this.nodeTagActive === tag) {
+            this.nodeTagActive = this.nodeTagStates.keys().next().value || ''
+            if (this.nodeTagActive) this.nodeTagStates.set(this.nodeTagActive, true)
+        }
     }
 
     delNode(id: string) {
@@ -1330,35 +1368,41 @@ export class Topology extends React.Component<Props, {}> {
         if (node.parent) {
             node.parent.children = node.parent.children.filter(c => node && c.id !== node.id)
         }
+        // Children may outlive their parent in the live event stream. Detach
+        // them immediately so they cannot retain deleted ancestors/siblings.
+        node.parent = null
+        node.children.slice().forEach(child => this.setParent(child, this.root))
+        node.children = []
 
         for (const [id, link] of this.links.entries()) {
             if (link.source === node || link.target === node) {
-                this.links.delete(id)
+                this.delLink(id)
             }
         }
 
         // remove tags if needed
-        node.tags.forEach(tag => {
-            var count = this.nodeTagCount.get(tag) || 0
-            if (!count) {
-                this.nodeTagCount.delete(tag)
-                this.nodeTagStates.delete(tag)
-
-                if (this.nodeTagActive == tag) {
-                    let tag = this.getRandKey(this.nodeTagStates)
-                    this.nodeTagStates.set(tag, true)
-                }
-            } else {
-                this.nodeTagCount.set(tag, count - 1)
-            }
-        })
+        node.tags.forEach(tag => this.removeNodeTag(tag))
 
         this.nodes.delete(node.id)
+        this.selectedGroupListNodeIDs.delete(id)
+        this.expandedContainerMiniNodeIDs.delete(id)
+        this.kubernetesProblemsExpandedSnapshot?.delete(id)
+        if (this.pinnedContainerMiniNodeID === id) this.pinnedContainerMiniNodeID = ''
+        this.visibleLinksCache = undefined
+        this.pruneGroupState()
 
         this.invalidated = true
     }
 
     setParent(child: Node, parent: Node) {
+        if (child.parent === parent) return
+        // A reversed/replayed ownership edge must not make recursive layout
+        // and weight calculations loop forever.
+        const visited = new Set<Node>()
+        for (let ancestor: Node | null = parent; ancestor; ancestor = ancestor.parent) {
+            if (ancestor === child || visited.has(ancestor)) return
+            visited.add(ancestor)
+        }
         // remove from previous parent if needed
         if (child.parent) {
             child.parent.children = child.parent.children.filter(c => c.id !== child.id)
@@ -1371,17 +1415,29 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     addLink(id: string, node1: Node, node2: Node, tags: Array<string>, data: any) {
-        this.links.set(id, new Link(id, tags, node1, node2, data, { selected: false }))
+        const existing = this.links.get(id)
+        if (existing) existing.tags.filter(tag => !tags.includes(tag)).forEach(tag => this.removeLinkTag(tag))
 
         tags.forEach(tag => {
-            var count = this.linkTagCount.get(tag) || 0
-            this.linkTagCount.set(tag, count + 1)
+            if (!existing || !existing.tags.includes(tag)) {
+                var count = this.linkTagCount.get(tag) || 0
+                this.linkTagCount.set(tag, count + 1)
+            }
 
             if (!this.linkTagStates.has(tag)) {
                 let mode = this.props.defaultLinkTagMode ? this.props.defaultLinkTagMode(tag) : LinkTagState.EventBased
                 this.linkTagStates.set(tag, mode)
             }
         })
+        if (existing) {
+            existing.source = node1
+            existing.target = node2
+            existing.tags = tags
+            existing.data = data
+            existing.revision++
+        } else {
+            this.links.set(id, new Link(id, tags, node1, node2, data, { selected: false }))
+        }
 
         // invalidate link cache
         this.visibleLinksCache = undefined
@@ -1405,21 +1461,23 @@ export class Topology extends React.Component<Props, {}> {
         return false
     }
 
+    private removeLinkTag(tag: string) {
+        const count = this.linkTagCount.get(tag) || 0
+        if (count <= 1) {
+            this.linkTagCount.delete(tag)
+            this.linkTagStates.delete(tag)
+        } else {
+            this.linkTagCount.set(tag, count - 1)
+        }
+    }
+
     delLink(id: string) {
         var link = this.links.get(id)
         if (link) {
             this.links.delete(id)
 
             // remove tags if needed
-            link.tags.forEach(tag => {
-                var count = this.linkTagCount.get(tag) || 0
-                if (count <= 1) {
-                    this.linkTagCount.delete(tag)
-                    this.linkTagStates.delete(tag)
-                } else {
-                    this.linkTagCount.set(tag, count - 1)
-                }
-            })
+            link.tags.forEach(tag => this.removeLinkTag(tag))
             this.visibleLinksCache = undefined
         }
     }
@@ -1508,6 +1566,7 @@ export class Topology extends React.Component<Props, {}> {
             if (!wrapper) {
                 var state = this.groupStates.get(gid) || { expanded: false, selected: false, mouseover: false, groupOffset: 0, groupFullSize: false }
                 this.groupStates.set(gid, state)
+                this.groupStateOwners.set(gid, node.wrapped.id)
 
                 var name = this.props.groupName ? this.props.groupName(child.wrapped) : nodeType + '(s)'
 
@@ -1547,6 +1606,7 @@ export class Topology extends React.Component<Props, {}> {
         })
 
         groups.forEach(wrapper => {
+            this.groupStateMembers.set(wrapper.id, new Set(wrapper.wrapped.children.map(child => child.id)))
             const firstChild = wrapper.wrapped.children[0]
             if (firstChild && this.props.groupName) {
                 wrapper.wrapped.data.Name = this.props.groupName(firstChild, wrapper.wrapped.children.length)
@@ -3241,7 +3301,7 @@ export class Topology extends React.Component<Props, {}> {
         document.body.appendChild(root)
         this.topologyContextMenuRoot = root
 
-        ReactDOM.render(<TopologyContextMenu
+        this.reactRoots.render(<TopologyContextMenu
             nodeName={this.displayedNodeName(d.data.wrapped)}
             actions={actions}
             onAction={(action) => {
@@ -3266,7 +3326,7 @@ export class Topology extends React.Component<Props, {}> {
     private hideNodeContextMenu() {
         document.removeEventListener('mousedown', this.onContextMenuOutsideMouseDown, true)
         if (!this.topologyContextMenuRoot) return
-        ReactDOM.unmountComponentAtNode(this.topologyContextMenuRoot)
+        this.reactRoots.unmount(this.topologyContextMenuRoot)
         this.topologyContextMenuRoot.remove()
         this.topologyContextMenuRoot = null
     }
@@ -4746,12 +4806,7 @@ export class Topology extends React.Component<Props, {}> {
                 this.overNode(d.data.id, false)
             })
         node.exit()
-            .each(function () {
-                const badgeRoot = select(this).select("g.node-exco").node()
-                if (badgeRoot) {
-                    ReactDOM.unmountComponentAtNode(badgeRoot)
-                }
-            })
+            .each((_d, index, elements) => this.unmountNodeContent(elements[index]))
             .transition()
             .duration(animDuration).style("opacity", 0)
             .remove()
@@ -5689,7 +5744,7 @@ export class Topology extends React.Component<Props, {}> {
                 .each(function (d: D3Node) {
                     const root = select(this).select("div.node-group-navigator-root").node()
                     if (root) {
-                        ReactDOM.unmountComponentAtNode(root as Element)
+                        self.reactRoots.unmount(root as Element)
                     }
                     self.groupNavigatorRenderKeys.delete(d.data.wrapped.id)
                 })
@@ -5734,7 +5789,7 @@ export class Topology extends React.Component<Props, {}> {
                     const nodeKey = children.map((node: Node) => node.id).join("|")
                     const renderKey = `${groupID}|${filter.search}|${nodeKey}`
                     if (self.groupNavigatorRenderKeys.get(groupID) !== renderKey) {
-                        ReactDOM.render(
+                        self.reactRoots.render(
                             <VMGroupNavigator
                                 title={self.props.nodeAttrs(d.data.wrapped).name || d.data.wrapped.data?.Name || "VM 그룹"}
                                 nodes={children}
@@ -6038,7 +6093,7 @@ export class Topology extends React.Component<Props, {}> {
             const root = select(this)
             const badges = isGroupContainerNode(d) || isGroupListNode(d) ? [] : displayBadges(d)
             if (badges.length > 0) {
-                ReactDOM.render(<TopologyStatusBadgeRail
+                self.reactRoots.render(<TopologyStatusBadgeRail
                     badges={badges}
                     summary={badgeGroupSummary(d, badges)}
                     x={cardWidthForNode(d) / 2 - 12}
@@ -6046,7 +6101,7 @@ export class Topology extends React.Component<Props, {}> {
                     // independent from the name/type layout at every badge count.
                     y={-cardHeightForNode(d) / 2} />, this)
             } else {
-                ReactDOM.unmountComponentAtNode(this)
+                self.reactRoots.unmount(this)
             }
             root.style("opacity", badges.length > 0 ? 1 : 0)
         }
@@ -6475,10 +6530,35 @@ export class Topology extends React.Component<Props, {}> {
         this.syncContainerMiniCardActiveClass()
     }
 
+    private unmountNodeContent(element: Element) {
+        select(element).selectAll<Element, unknown>('g.node-exco, div.node-group-navigator-root')
+            .each((_d, index, elements) => this.reactRoots.unmount(elements[index]))
+    }
+
+    private pruneGroupState() {
+        this.groupStateOwners.forEach((ownerID, groupID) => {
+            const members = this.groupStateMembers.get(groupID)
+            const hasOwner = ownerID === 'root' || this.nodes.has(ownerID)
+            const hasMembers = !members || Array.from(members).some(id => this.nodes.has(id))
+            if (hasOwner && hasMembers) return
+            this.groupStateOwners.delete(groupID)
+            this.groupStateMembers.delete(groupID)
+            this.groupStates.delete(groupID)
+            this.groupNavigatorFilters.delete(groupID)
+            this.groupNavigatorRenderKeys.delete(groupID)
+            this.kubernetesProblemsGroupSnapshot?.delete(groupID)
+        })
+    }
+
     renderTree() {
         // Group expansion can replace a proxy group endpoint with an individual
         // child node, so visible links must follow the newly rendered tree.
         this.visibleLinksCache = undefined
+        this.pruneGroupState()
+        // Weights can change as resources are replaced. Historical weights
+        // otherwise add redundant normalization passes on every refresh.
+        this.weights = Array.from(new Set(Array.from(this.nodes.values(), node => node.getWeight())))
+            .sort((a, b) => a - b)
 
         var normRoot = this.normalizeTree(this.root)
 
