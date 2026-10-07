@@ -1670,10 +1670,10 @@ svg {
     vector-effect: non-scaling-stroke;
     filter: drop-shadow(0 6px 12px var(--topology-group-shadow, rgba(0, 0, 0, 0.035)));
 }
-.topology-group-surface-stop--0 { stop-color: var(--topology-group-surface-0, #fafafa); }
-.topology-group-surface-stop--1 { stop-color: var(--topology-group-surface-1, #f0f0f0); }
-.topology-group-surface-stop--2 { stop-color: var(--topology-group-surface-2, #fbfbfb); }
-.topology-group-surface-stop--3 { stop-color: var(--topology-group-surface-3, #efefef); }
+.topology-group-surface-stop--0 { stop-color: var(--topology-group-surface-0, #f1f6fd); }
+.topology-group-surface-stop--1 { stop-color: var(--topology-group-surface-1, #eaf3ed); }
+.topology-group-surface-stop--2 { stop-color: var(--topology-group-surface-2, #f8f5fc); }
+.topology-group-surface-stop--3 { stop-color: var(--topology-group-surface-3, #f3ece4); }
 .topology-group-region__pattern { stroke: none; }
 .topology-group-dot { fill: var(--topology-group-dot-color, #8c8c8c); fill-opacity: 0.24; }
 .topology-group-dot--1 { fill-opacity: 0.34; }

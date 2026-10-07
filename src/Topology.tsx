@@ -17,7 +17,7 @@
 
 import * as React from "react"
 import { topologyBranchOffsets } from './TopologyBranchSpacing'
-import { topologyGroupRegions } from './TopologyGroupRegions'
+import { topologyGroupRegions, TopologyGroupRegion } from './TopologyGroupRegions'
 import { TopologyReactRoots } from './TopologyReactRoots'
 import { TopologyCaptureIndicator } from './TopologyCaptureIndicator'
 import { TopologyNodeCard } from './TopologyNodeCard'
@@ -5116,18 +5116,22 @@ export class Topology extends React.Component<Props, {}> {
             .data(regions, (region: any) => region.id)
         group.exit().remove()
         const entered = group.enter().append('g').attr('class', 'topology-group-region')
+        entered.append('clipPath').attr('class', 'topology-group-region__clip').attr('clipPathUnits', 'userSpaceOnUse').append('path')
         entered.append('path').attr('class', 'topology-group-region__base').attr('transform', 'translate(0,4)')
         entered.append('path').attr('class', 'topology-group-region__shade')
         entered.append('path').attr('class', 'topology-group-region__pattern')
         const merged = entered.merge(group)
             .attr('data-group-id', region => region.id)
             .attr('data-tone', region => region.variant)
+        merged.select('clipPath.topology-group-region__clip').attr('id', (_, index) => `topology-region-clip-${index}`)
+            .select('path').attr('d', region => region.clipPath || region.path)
+        const clip = (region: TopologyGroupRegion, index: number) => region.clipPath ? `url(#topology-region-clip-${index})` : null
         // Paths follow the final layout immediately; only their opacity fades.
         // This avoids malformed path interpolation when rows are added/removed.
-        merged.select('path.topology-group-region__base').attr('d', region => region.path)
-        merged.select('path.topology-group-region__shade').attr('d', region => region.path)
+        merged.select('path.topology-group-region__base').attr('d', region => region.path).attr('clip-path', clip)
+        merged.select('path.topology-group-region__shade').attr('d', region => region.path).attr('clip-path', clip)
             .attr('fill', region => `url(#topology-group-surface-${region.variant})`)
-        merged.select('path.topology-group-region__pattern').attr('d', region => region.path)
+        merged.select('path.topology-group-region__pattern').attr('d', region => region.path).attr('clip-path', clip)
             .attr('fill', region => `url(#topology-group-dots-${region.variant})`)
         entered.style('opacity', 0).transition().duration(animDuration).style('opacity', 1)
     }

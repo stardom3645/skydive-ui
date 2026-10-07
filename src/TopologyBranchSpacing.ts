@@ -1,23 +1,4 @@
-import { topologyVisibleBranches, topologyGroupRegionBands, TopologyRegionBand, TopologyRegionNode } from './TopologyGroupRegions'
-
-// Horizontal extent of the same monotonic cubic sides used by group regions.
-const extentAt = (bands: TopologyRegionBand[], y: number): { left: number; right: number } | undefined => {
-    if (y < bands[0].top || y > bands[bands.length - 1].bottom) return undefined
-    const index = bands.findIndex(band => y <= band.bottom)
-    const band = bands[index]
-    if (y >= band.top) return band
-    const previous = bands[index - 1]
-    const fraction = (y - previous.bottom) / (band.top - previous.bottom)
-    let low = 0, high = 1
-    for (let i = 0; i < 20; i++) {
-        const t = (low + high) / 2
-        const curveY = 1.5 * t - 1.5 * t * t + t * t * t
-        if (curveY < fraction) low = t
-        else high = t
-    }
-    const t = (low + high) / 2, blend = t * t * (3 - 2 * t)
-    return { left: previous.left + (band.left - previous.left) * blend, right: previous.right + (band.right - previous.right) * blend }
-}
+import { topologyVisibleBranches, topologyGroupRegionBands, topologyGroupRegionExtentAt as extentAt, TopologyRegionNode } from './TopologyGroupRegions'
 
 /** Separate occupied rows and the connecting background contours, preserving
  * space where branches are narrow. A common vertical profile bounds each curve

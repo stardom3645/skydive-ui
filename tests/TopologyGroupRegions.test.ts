@@ -1,5 +1,5 @@
 import * as assert from 'assert'
-import { topologyGroupRegions, topologyGroupRegionPath, TopologyRegionNode } from '../src/TopologyGroupRegions'
+import { topologyGroupRegions, topologyGroupRegionPath, topologyGroupRegionEnvelope, TopologyRegionNode } from '../src/TopologyGroupRegions'
 
 const node = (id: string, parentID?: string, overrides: Partial<TopologyRegionNode> = {}): TopologyRegionNode => ({
     id, parentID, visible: true, expanded: true, x: 0, y: 0, width: 280, height: 92, ...overrides
@@ -54,5 +54,53 @@ describe('Topology subtree background regions', () => {
             assert.strictEqual(region.path, other.path)
         })
         assert.strictEqual(JSON.stringify(nodes), before)
+    })
+
+    it('connects a sparse intermediate row with the wider resource area on either side', () => {
+        const nodes = [node('cluster', undefined, { width: 420 }),
+            node('workers', 'cluster', { y: 216, width: 900 }),
+            node('namespace', 'cluster', { x: 350, y: 432, width: 380 }),
+            node('storage', 'namespace', { x: 200, y: 648, width: 1100 })]
+        const before = JSON.stringify(nodes)
+        const bands = topologyGroupRegionEnvelope(nodes)
+        assert.equal(bands.length, 4)
+        const namespace = bands[2]
+        assert.ok(namespace.left < 0) // keeps the group area through the empty middle space
+        assert.ok(namespace.right - namespace.left >= 900)
+        assert.ok(bands[0].left <= -258 && bands[0].right >= 258)
+        for (let index = 1; index < bands.length; index++) assert.ok(bands[index].top > bands[index - 1].bottom)
+        const region = topologyGroupRegions(nodes)[0]
+        assert.equal((region.path.match(/M /g) || []).length, 1)
+        assert.equal((region.path.match(/ Z/g) || []).length, 1)
+        assert.strictEqual(JSON.stringify(nodes), before)
+    })
+
+    it('keeps expanded envelopes apart and reserves collapsed neighboring cards without moving nodes', () => {
+        const nodes = [node('a'), node('a-child', 'a', { y: 400 }),
+            node('b', undefined, { x: 380 }), node('b-child', 'b', { x: 380, y: 400 })]
+        const before = JSON.stringify(nodes)
+        const contains = (path: string, x: number, y: number) => {
+            const coordinates = path.match(/-?\d+(?:\.\d+)?(?:e[+-]?\d+)?/gi)!.map(Number)
+            const points: Array<[number, number]> = []
+            for (let index = 0; index < coordinates.length; index += 2) points.push([coordinates[index], coordinates[index + 1]])
+            let inside = false
+            for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+                const [xi, yi] = points[i], [xj, yj] = points[j]
+                if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside
+            }
+            return inside
+        }
+        const regions = topologyGroupRegions(nodes)
+        for (let y = -60; y <= 460; y += 4) {
+            assert.ok(contains(regions[0].clipPath!, 174, y))
+            assert.ok(contains(regions[1].clipPath!, 206, y))
+            assert.ok(!contains(regions[0].clipPath!, 190, y) && !contains(regions[1].clipPath!, 190, y))
+        }
+        assert.strictEqual(JSON.stringify(nodes), before)
+        nodes[2].expanded = false
+        const collapsed = topologyGroupRegions(nodes.slice(0, 3))
+        assert.equal(collapsed.length, 1)
+        assert.ok(!contains(collapsed[0].clipPath!, 190, 0))
+        assert.ok(contains(collapsed[0].clipPath!, 140, 0))
     })
 })
