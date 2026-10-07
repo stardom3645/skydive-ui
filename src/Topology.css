@@ -22,25 +22,18 @@ svg {
 
 .level-label-panel-surface {
     fill: url(#level-label-panel-glass);
-    stroke: var(--topology-level-panel-rim, rgba(255, 255, 255, 0.92));
+    stroke: var(--topology-level-panel-rim, rgba(217, 217, 217, 0.4));
     stroke-width: 1px;
     vector-effect: non-scaling-stroke;
     filter: url(#level-label-panel-shadow);
     pointer-events: none;
 }
 
-.level-label-panel-glass-start { stop-color: var(--topology-level-panel-start, #ffffff); }
-.level-label-panel-glass-end { stop-color: var(--topology-level-panel-fill, #fafafa); }
-.level-label-active-glass-start { stop-color: var(--topology-level-label-active-fill, #e4efff); }
-.level-label-active-glass-end { stop-color: var(--topology-level-panel-start, #ffffff); stop-opacity: 0.35; }
-.level-label-panel-shadow { flood-color: var(--topology-level-panel-shadow, #8c8c8c); flood-opacity: 0.14; }
-
-.level-label-divider {
-    stroke: var(--topology-level-panel-divider, rgba(217, 217, 217, 0.45));
-    stroke-width: 1px;
-    vector-effect: non-scaling-stroke;
-    pointer-events: none;
-}
+.level-label-panel-glass-start { stop-color: var(--topology-level-panel-start, #ffffff); stop-opacity: 0.96; }
+.level-label-panel-glass-end { stop-color: var(--topology-level-panel-fill, #fafafa); stop-opacity: 0.9; }
+.level-label-active-glass-start { stop-color: var(--topology-level-label-active-fill, #f3f8ff); stop-opacity: 0.65; }
+.level-label-active-glass-end { stop-color: var(--topology-level-panel-start, #ffffff); stop-opacity: 0.12; }
+.level-label-panel-shadow { flood-color: var(--topology-level-panel-shadow, #8c8c8c); flood-opacity: 0.06; }
 
 .level-label-row-bg { fill: transparent; stroke: none; }
 .level-label-indicator {
@@ -51,20 +44,10 @@ svg {
 
 .level-label.level-label-active .level-label-row-bg {
     fill: url(#level-label-active-glass);
-    stroke: var(--topology-level-panel-rim, rgba(255, 255, 255, 0.92));
-    stroke-width: 0.6px;
-    vector-effect: non-scaling-stroke;
+    stroke: none;
 }
 
 .level-label.level-label-active .level-label-indicator { opacity: 1; }
-
-.level-label-rail {
-    fill: none;
-    stroke: var(--topology-level-rail, #e1e6ed);
-    stroke-width: 1px;
-    vector-effect: non-scaling-stroke;
-    pointer-events: none;
-}
 
 .level-label-hit-area { fill: transparent; stroke: none; }
 
