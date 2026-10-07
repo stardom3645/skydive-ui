@@ -67,7 +67,7 @@ const defaultMaxExpandSize = 100
 // 기본 트리 레이아웃에서 노드가 차지하는 가로 간격입니다.
 const nodeWidth = 320
 // 기본 트리 레이아웃에서 계층 간 세로 간격입니다.
-const nodeHeight = 280
+const nodeHeight = 400
 // 짧은 이름 노드의 기본 카드 너비입니다.
 const topologyCardWidth = 280
 // 중간 길이 이름 노드의 카드 너비입니다.
