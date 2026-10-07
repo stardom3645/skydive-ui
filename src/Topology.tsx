@@ -59,6 +59,8 @@ import './Topology.css'
 
 // 토폴로지 노드/링크 전환 애니메이션 시간(ms)입니다.
 const animDuration = 500
+// Below this scale, even compensated text loses its usable card width.
+export const topologyMinimumZoom = 0.34
 // 이 개수 이하는 그룹 노드로 묶지 않고 일반 노드로 펼쳐 표시합니다.
 const defaultGroupSize = 6
 // 그룹 전체 펼침 시 최대 표시 가능한 하위 노드 수입니다.
@@ -983,7 +985,7 @@ export class Topology extends React.Component<Props, {}> {
         this.absTransformX = this.absTransformY = 0
 
         this.zoom = zoom()
-            .scaleExtent([0.1, 1.5])
+            .scaleExtent([topologyMinimumZoom, 1.5])
             .on("zoom", () => {
                 this.hideAllLevelLabels()
                 this.hideNodeContextMenu()
@@ -2996,7 +2998,7 @@ export class Topology extends React.Component<Props, {}> {
         var midX = bounds.x + width / 2, midY = bounds.y + height / 2
 
         const usableWidth = Math.max(320, viewSize.width - topologyLevelLabelSafeInset)
-        var scale = 0.65 / Math.max(width / usableWidth, height / viewSize.height)
+        var scale = Math.max(topologyMinimumZoom, 0.65 / Math.max(width / usableWidth, height / viewSize.height))
         if (scale > 1) {
             scale = 1
         }
@@ -3060,7 +3062,7 @@ export class Topology extends React.Component<Props, {}> {
         }
         const current = (this.svg.node() as any).__zoom || zoomIdentity
         const viewSize = this.viewSize()
-        const nextScale = Math.max(0.1, Math.min(1.5, scale))
+        const nextScale = Math.max(topologyMinimumZoom, Math.min(1.5, scale))
         const centerX = viewSize.width / 2
         const centerY = viewSize.height / 2
         const sourceScale = current.k || 1
@@ -3832,7 +3834,7 @@ export class Topology extends React.Component<Props, {}> {
             return
         }
         const current = (this.svg.node() as any)?.__zoom || zoomIdentity
-        const scale = Math.max(0.1, Math.min(1.5, current.k || 1))
+        const scale = Math.max(topologyMinimumZoom, Math.min(1.5, current.k || 1))
         const viewSize = this.viewSize()
         const transform = zoomIdentity
             .translate(viewSize.width / 2 - scale * d.x, viewSize.height / 2 - scale * d.y)
@@ -4249,8 +4251,8 @@ export class Topology extends React.Component<Props, {}> {
         if (scale > 1) {
             scale = 1
         }
-        if (scale < 0.18) {
-            scale = 0.18
+        if (scale < topologyMinimumZoom) {
+            scale = topologyMinimumZoom
         }
 
         this.absTransformX = topologyLevelLabelSafeInset + usableWidth / 2 - midX * scale
