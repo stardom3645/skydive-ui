@@ -107,7 +107,7 @@ export const TopologyNodeCard = React.memo(({ model, icon, iconClass, href, onTo
                     onClick={event => { event.stopPropagation(); onToggle() }} />}
             </div>
             {model.group && model.children ? <TopologyGroupHeaderSummary children={model.children} /> :
-                model.metrics.length > 0 && <div className="topology-object-card__metrics">
+                model.metrics.length > 0 && <div className={`topology-object-card__metrics ${model.metrics.length === 1 ? 'is-single' : ''}`}>
                     {model.metrics.map(metric => <TopologyMetricChip key={metric.key} metric={metric} />)}
                 </div>}
         </article>

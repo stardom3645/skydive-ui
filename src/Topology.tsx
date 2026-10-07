@@ -5304,7 +5304,11 @@ export class Topology extends React.Component<Props, {}> {
 
     private updateTopologyDensity(scale: number) {
         if (!this.g) return
-        this.g.classed('topology-density-overview', scale < 0.5)
+        // Keep card text readable at overview zoom without scaling the cards,
+        // changing their bounds or rerendering the React contents on each tick.
+        this.g.style('--topology-card-zoom', String(Math.max(0.3, scale)))
+            .classed('topology-density-tiny', scale < 0.32)
+            .classed('topology-density-overview', scale < 0.5)
             .classed('topology-density-compact', scale >= 0.5 && scale < 0.7)
     }
 
