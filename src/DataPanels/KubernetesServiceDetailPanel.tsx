@@ -1,8 +1,7 @@
+import { DetailSectionIcon } from './common/DetailSectionIcon'
 import * as React from 'react'
 import InfoIcon from '@material-ui/icons/Info'
-import LinkIcon from '@material-ui/icons/Link'
-import SettingsEthernetIcon from '@material-ui/icons/SettingsEthernet'
-import { HistoryOutlined, LeftOutlined } from '@ant-design/icons'
+import { LeftOutlined } from '@ant-design/icons'
 
 import { translate } from '../Config'
 import { session } from '../Store'
@@ -15,7 +14,6 @@ import {
     connectedResourcePopoverItems,
     collectKubernetesEventGroups,
     CompactEmptyState,
-    DetailAdvancedInfo,
     DetailBadgeTone,
     DetailLongValue,
     DetailInlineSectionHeader,
@@ -500,21 +498,18 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
                 <button type="button" onClick={this.returnToClusterServices}><LeftOutlined />서비스 목록</button>
                 <span>{firstValue(this.returnClusterNode()!.data || {}, ['Name', 'K8s.Name', 'ClusterName']) || this.returnClusterNode()!.id}</span>
             </div>}
-            <DetailSectionCard icon={<InfoIcon />} title={translate('kubernetesServiceBasicInfo')} collapsible collapsed={this.state.basicCollapsed} onToggle={() => this.setState({ basicCollapsed: !this.state.basicCollapsed })}>
+            <DetailSectionCard icon={<DetailSectionIcon role="basic" />} title={translate('kubernetesServiceBasicInfo')} collapsible collapsed={this.state.basicCollapsed} onToggle={() => this.setState({ basicCollapsed: !this.state.basicCollapsed })}>
                 <BasicInfoRows density="compact" rows={basicRows} labelWidth={122} copyTooltip={translate('copy')} />
-                <DetailAdvancedInfo
-                    title={translate('kubernetesAdvancedInformation')}
-                    active={this.state.basicInfoAdvanced}
-                    onChange={basicInfoAdvanced => this.setState({ basicInfoAdvanced })}>
-                    <BasicInfoRows density="compact" rows={advancedRows} labelWidth={122} copyTooltip={translate('copy')} />
-                    <KubernetesMetadataRows items={[
-                        { key: 'labels', label: KUBERNETES_DETAIL_LABELS.labels, resourceName: serviceName, resourceKind: 'Service', metadataKind: 'label', data: detail.labels, modalTitle: 'Service 라벨' },
-                        { key: 'annotations', label: KUBERNETES_DETAIL_LABELS.annotations, resourceName: serviceName, resourceKind: 'Service', metadataKind: 'annotation', data: detail.annotations, modalTitle: 'Service 어노테이션' }
-                    ]} />
-                </DetailAdvancedInfo>
+            </DetailSectionCard>
+            <DetailSectionCard icon={<DetailSectionIcon role="advanced" />} title={translate('kubernetesAdvancedInformation')} collapsible collapsed={!this.state.basicInfoAdvanced} onToggle={() => this.setState({ basicInfoAdvanced: !this.state.basicInfoAdvanced })}>
+                <BasicInfoRows density="compact" rows={advancedRows} labelWidth={122} copyTooltip={translate('copy')} />
+                <KubernetesMetadataRows items={[
+                    { key: 'labels', label: KUBERNETES_DETAIL_LABELS.labels, resourceName: serviceName, resourceKind: 'Service', metadataKind: 'label', data: detail.labels, modalTitle: 'Service 라벨' },
+                    { key: 'annotations', label: KUBERNETES_DETAIL_LABELS.annotations, resourceName: serviceName, resourceKind: 'Service', metadataKind: 'annotation', data: detail.annotations, modalTitle: 'Service 어노테이션' }
+                ]} />
             </DetailSectionCard>
 
-            <DetailSectionCard icon={this.topologyIcon(this.props.node)} title={translate('kubernetesServiceOperationalStatus')}>
+            <DetailSectionCard icon={<DetailSectionIcon role="operational" />} title={translate('kubernetesServiceOperationalStatus')}>
                 <StatusSummaryGrid
                     verdict={operational.verdict}
                     verdictTone={operational.tone as DetailBadgeTone}
@@ -530,7 +525,7 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
                 />
             </DetailSectionCard>
 
-            <DetailSectionCard icon={<LinkIcon />} title={translate('kubernetesServiceEndpointAvailability')}>
+            <DetailSectionCard icon={<DetailSectionIcon role="endpoints" />} title={translate('kubernetesServiceEndpointAvailability')}>
                 <div className="netdive-k8s-service-detail__endpoint-region">
                     <DetailInlineSectionHeader title="Endpoint" />
                     {this.renderEndpoints(detail)}
@@ -560,13 +555,13 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
                     </div>
                 </React.Fragment>}
             </DetailSectionCard>
-            <DetailSectionCard icon={<SettingsEthernetIcon />} title={translate('kubernetesServicePortsTraffic')}>
+            <DetailSectionCard icon={<DetailSectionIcon role="ports" />} title={translate('kubernetesServicePortsTraffic')}>
                 {this.renderPorts(ports, String(detail.type || ''))}
                 <DetailInlineSectionHeader title={translate('kubernetesServiceNetworkExposure')} />
                 <BasicInfoRows density="compact" rows={networkRows} labelWidth={122} />
             </DetailSectionCard>
             <RelatedResourceGrid
-                icon={<LinkIcon />}
+                icon={<DetailSectionIcon role="related" />}
                 title={translate('hostConnectedResources')}
                 emptyText={detail.endpointDataAvailable === true && detail.podRelationshipAvailable === true && detail.ingressRelationshipAvailable === true
                     ? '실제 Kubernetes 관계로 확인된 연결 자원이 없습니다.'
@@ -580,7 +575,7 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
                         ...(ingressReferences.length ? [{ key: 'ingresses', label: 'Ingress', count: ingressReferences.length, icon: ingressTargets.length ? this.topologyIcon(ingressTargets[0]) : <img src="assets/icons/k8s.png" alt="" />, iconTone: 'kubernetes' as const, resources: connectedResourcePopoverItems(ingressTargets, { anchorNodeID: this.props.node.id, nodeAttrs: this.props.nodeAttrs }), onClick: ingressTargets.length ? () => this.openResourceList(ingressTargets) : undefined }] : [])
                     ]
                 }]} />
-            <DetailSectionCard icon={<HistoryOutlined />} title={translate('kubernetesServiceRecentEvents')}><KubernetesRecentEvents
+            <DetailSectionCard icon={<DetailSectionIcon role="events" />} title={translate('kubernetesServiceRecentEvents')}><KubernetesRecentEvents
                 groups={recentEventGroups}
                 lookbackLabel={detail.eventDataAvailable === true || recentEventGroups.length ? '최근 1시간' : undefined}
                 emptyText={detail.eventDataAvailable === true || recentEventGroups.length ? undefined : '최근 이벤트 데이터가 수집되지 않았습니다.'}

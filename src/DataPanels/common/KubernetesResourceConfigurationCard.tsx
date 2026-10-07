@@ -1,5 +1,5 @@
 import * as React from 'react'
-import DnsIcon from '@material-ui/icons/Dns'
+import { DetailSectionIcon } from './DetailSectionIcon'
 
 import {
     BasicInfoRows,
@@ -182,7 +182,7 @@ export const KubernetesResourceConfigurationRows = ({
 
 export const KubernetesResourceConfigurationCard = ({
     coverage,
-    icon = <DnsIcon />,
+    icon = <DetailSectionIcon role="resources" />,
     title = '리소스 요청량 및 제한량',
     description = '활성 파드 컨테이너의 요청량·제한량 설정 현황입니다.',
     descriptionTooltip = '활성 파드를 UID로 중복 제거하고 종료 파드를 제외합니다. 설정 비율에는 고유 일반 컨테이너와 initContainer를 포함하며, 설정 합계는 Kubernetes 스케줄링 기준에 따라 일반 컨테이너 합계와 initContainer 최댓값 중 큰 값을 파드별로 합산합니다.'

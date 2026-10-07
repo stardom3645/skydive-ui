@@ -7,6 +7,10 @@ const KUBERNETES_UNAVAILABLE_STATUS_VALUES = new Set([
     'unknown', 'stale', 'unavailable'
 ])
 
+/** Missing evidence is explanatory text, rather than a numeric KPI. */
+export const isKubernetesUnavailableValue = (value: any): boolean =>
+    typeof value === 'string' && KUBERNETES_UNAVAILABLE_STATUS_VALUES.has(value.trim().toLowerCase())
+
 /** Shared visual policy for the repeated "최근 불안정성" operational value.
  * Resource panels keep their own counts and severity decisions; this helper
  * only removes presentation drift for zero/none and unavailable evidence. */

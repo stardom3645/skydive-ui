@@ -1,11 +1,8 @@
+import { DetailSectionIcon } from './common/DetailSectionIcon'
 import * as React from 'react'
 import { Button, Table } from 'antd'
-import AccountTreeIcon from '@material-ui/icons/AccountTree'
-import DnsIcon from '@material-ui/icons/Dns'
-import ErrorOutlineIcon from '@material-ui/icons/ErrorOutline'
 import InfoIcon from '@material-ui/icons/Info'
-import LinkIcon from '@material-ui/icons/Link'
-import { HistoryOutlined } from '@ant-design/icons'
+
 
 import { translate } from '../Config'
 import { session } from '../Store'
@@ -29,7 +26,6 @@ import {
     collectKubernetesEventGroups,
     CompactEmptyState,
     ConnectedResourceListSection,
-    DetailAdvancedInfo,
     DetailBadgeTone,
     DetailLayerIcon,
     DetailMetricRow,
@@ -317,7 +313,7 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
         }
         const executionTypes = new Set(['deployment', 'statefulset', 'daemonset', 'job', 'cronjob', 'pod'])
         return <ConnectedResourceListSection
-            icon={<AccountTreeIcon />}
+            icon={<DetailSectionIcon role="related" />}
             title={`${labels[tab] || tab} ${nodes.length}`}
             emptyText={`수집된 ${labels[tab] || tab} 자원이 없습니다.`}
             groups={[{
@@ -561,20 +557,17 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
                 onChange={activeDetailTab => this.setState({ activeDetailTab: activeDetailTab as State['activeDetailTab'] })}
             />
             {this.state.activeDetailTab === 'overview' ? <React.Fragment>
-            <DetailSectionCard icon={<InfoIcon />} title={translate('kubernetesNamespaceBasicInfo')} collapsible collapsed={this.state.basicCollapsed} onToggle={() => this.setState({ basicCollapsed: !this.state.basicCollapsed })}>
+            <DetailSectionCard icon={<DetailSectionIcon role="basic" />} title={translate('kubernetesNamespaceBasicInfo')} collapsible collapsed={this.state.basicCollapsed} onToggle={() => this.setState({ basicCollapsed: !this.state.basicCollapsed })}>
                 <BasicInfoRows density="compact" rows={basicRows} labelWidth={122} copyTooltip={translate('copy')} />
-                <DetailAdvancedInfo
-                    title={translate('kubernetesAdvancedInformation')}
-                    active={this.state.basicInfoAdvanced}
-                    onChange={basicInfoAdvanced => this.setState({ basicInfoAdvanced })}>
-                    <KubernetesMetadataRows items={[
-                        { key: 'labels', label: KUBERNETES_DETAIL_LABELS.labels, resourceName: name, resourceKind: 'Namespace', metadataKind: 'label', data: detail.labels, modalTitle: '네임스페이스 라벨' },
-                        { key: 'annotations', label: KUBERNETES_DETAIL_LABELS.annotations, resourceName: name, resourceKind: 'Namespace', metadataKind: 'annotation', data: detail.annotations, modalTitle: '네임스페이스 어노테이션' }
-                    ]} />
-                </DetailAdvancedInfo>
+            </DetailSectionCard>
+            <DetailSectionCard icon={<DetailSectionIcon role="advanced" />} title={translate('kubernetesAdvancedInformation')} collapsible collapsed={!this.state.basicInfoAdvanced} onToggle={() => this.setState({ basicInfoAdvanced: !this.state.basicInfoAdvanced })}>
+                <KubernetesMetadataRows items={[
+                    { key: 'labels', label: KUBERNETES_DETAIL_LABELS.labels, resourceName: name, resourceKind: 'Namespace', metadataKind: 'label', data: detail.labels, modalTitle: '네임스페이스 라벨' },
+                    { key: 'annotations', label: KUBERNETES_DETAIL_LABELS.annotations, resourceName: name, resourceKind: 'Namespace', metadataKind: 'annotation', data: detail.annotations, modalTitle: '네임스페이스 어노테이션' }
+                ]} />
             </DetailSectionCard>
 
-            <DetailSectionCard icon={this.topologyIcon(this.props.node)} title={translate('kubernetesNamespaceOperationalStatus')}>
+            <DetailSectionCard icon={<DetailSectionIcon role="operational" />} title={translate('kubernetesNamespaceOperationalStatus')}>
                 <StatusSummaryGrid
                     verdict={statusLabel}
                     verdictTone={statusTone}
@@ -619,7 +612,7 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
                 ]} />
             </DetailSectionCard>
 
-            <DetailSectionCard icon={<LinkIcon />} title={translate('kubernetesNamespaceAvailability')}>
+            <DetailSectionCard icon={<DetailSectionIcon role="endpoints" />} title={translate('kubernetesNamespaceAvailability')}>
                 <StatusEvidenceList columnHeaders={{ state: '상태', value: '결과' }}>
                     <StatusEvidenceRow
                         title="배치 노드 수"
@@ -647,7 +640,7 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
                 </StatusEvidenceList>
             </DetailSectionCard>
 
-            <DetailSectionCard icon={<ErrorOutlineIcon />} title={translate('kubernetesNamespaceWorkloads')}>
+            <DetailSectionCard icon={<DetailSectionIcon role="workloads" />} title={translate('kubernetesNamespaceWorkloads')}>
                 <StatusEvidenceList columnHeaders={{ state: '상태', value: '대상 수' }}>
                     {[
                         ['전체 워크로드', connectedWorkloads.length, 'success', '네임스페이스에 포함된 상위 워크로드 수입니다.', '', undefined, 'Deployment·StatefulSet·DaemonSet·Job·CronJob을 포함하고, 중간 소유자인 ReplicaSet은 제외하여 고유 UID 기준으로 집계합니다.'],
@@ -683,7 +676,7 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
 
             <KubernetesResourceConfigurationCard coverage={resourceCoverage} />
 
-            <DetailSectionCard icon={<DnsIcon />} title="네임스페이스 정책">
+            <DetailSectionCard icon={<DetailSectionIcon role="policy" />} title="네임스페이스 정책">
                 <StatusEvidenceList columnHeaders={{ state: '상태', value: '설정 수' }}>
                     <StatusEvidenceRow
                         title={KUBERNETES_DETAIL_LABELS.resourceQuota}
@@ -709,7 +702,7 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
             </DetailSectionCard>
 
             <RelatedResourceGrid
-                icon={<AccountTreeIcon />}
+                icon={<DetailSectionIcon role="related" />}
                 title={translate('hostConnectedResources')}
                 emptyText={translate('hostNoConnectedResources')}
                 groups={[
@@ -727,7 +720,7 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
                     }
                 ]} />
 
-            <DetailSectionCard icon={<HistoryOutlined />} title={translate('kubernetesNamespaceRecentEvents')}>{this.renderImportantEvents(detail)}</DetailSectionCard>
+            <DetailSectionCard icon={<DetailSectionIcon role="events" />} title={translate('kubernetesNamespaceRecentEvents')}>{this.renderImportantEvents(detail)}</DetailSectionCard>
             </React.Fragment> : this.renderResourceTab(this.state.activeDetailTab)}
 
             <HistoryModal

@@ -1,8 +1,8 @@
 .netdive-nic-detail {
     display: flex;
     flex-direction: column;
-    gap: 14px;
-    padding-bottom: 8px;
+    gap: var(--netdive-detail-panel-gap);
+    padding-bottom: var(--netdive-detail-panel-bottom-padding);
 }
 
 .netdive-nic-detail__advanced {

@@ -15,7 +15,7 @@ interface ResourceSectionProps {
 
 export const ResourceSectionCard = ({ title, icon, action, children }: ResourceSectionProps) => (
     <ConfigProvider theme={{ token: { fontSize: 12, fontSizeSM: 11 }, components: { Card: { headerFontSizeSM: 14 } } }}>
-        <Card size="small" title={<Space>{icon}{title}</Space>} extra={action}>{children}</Card>
+        <Card size="small" className="netdive-ant-detail-section" title={<Space>{icon}{title}</Space>} extra={action}>{children}</Card>
     </ConfigProvider>
 )
 

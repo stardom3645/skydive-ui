@@ -1,3 +1,4 @@
+import { DetailSectionIcon } from './common/DetailSectionIcon'
 /*
 v12 Changes:
 - Unified Kubernetes icon hierarchy:
@@ -10,7 +11,7 @@ v12 Changes:
 - Preserve v11 typography.
 */
 import * as React from 'react'
-import { ArrowsAltOutlined, PartitionOutlined, InfoCircleOutlined as InfoIcon, LineChartOutlined as TimelineIcon, ApartmentOutlined as DeviceHubIcon, SafetyOutlined as SecurityIcon, DeploymentUnitOutlined as RouterIcon, ClusterOutlined as AccountTreeIcon, SearchOutlined as SearchIcon, CloseOutlined as CloseIcon, RightOutlined as KeyboardArrowRightIcon, DownOutlined as KeyboardArrowDownIcon, ShareAltOutlined } from '@ant-design/icons'
+import { ArrowsAltOutlined, InfoCircleOutlined as InfoIcon, ApartmentOutlined as DeviceHubIcon, SafetyOutlined as SecurityIcon, DeploymentUnitOutlined as RouterIcon, ClusterOutlined as AccountTreeIcon, SearchOutlined as SearchIcon, CloseOutlined as CloseIcon, RightOutlined as KeyboardArrowRightIcon, DownOutlined as KeyboardArrowDownIcon, ShareAltOutlined } from '@ant-design/icons'
 import { Button, Card, ConfigProvider, Drawer, Input, Progress, Space, Typography, Statistic, Table, Tooltip as AntTooltip } from 'antd'
 
 import { Link, Node, NodeAttrs } from '../Topology'
@@ -2224,10 +2225,8 @@ class HostDetailPanel extends React.Component<Props, State> {
                     onChange={activeDetailTab => this.setState({ activeDetailTab: activeDetailTab as State['activeDetailTab'] })}
                 />
                 {this.state.activeDetailTab === 'overview' ? <React.Fragment>
-                {this.renderSection(<InfoIcon />, translate('hostBasicInfo'), '', this.renderRows(basicRows))}
-                {hasConnectedMetrics && this.renderSection(
-                    <DeviceHubIcon />,
-                    translate('hostConnectedResources'),
+                {this.renderSection(<DetailSectionIcon role="basic" />, translate('hostBasicInfo'), '', this.renderRows(basicRows))}
+                {hasConnectedMetrics && this.renderSection(<DetailSectionIcon role="related" />, translate('hostConnectedResources'),
                     '',
                     <div className={classes.connectedResourceSectionStack}>
                         {this.renderConnectedResourceSubsection(
@@ -2250,9 +2249,9 @@ class HostDetailPanel extends React.Component<Props, State> {
                     session={this.props.session}
                     data={data}
                 />
-                {this.renderSection(<ShareNodesIcon />, translate('hostSocketsProcesses'), '', this.renderSocketProcessSummary())}
-                {hasNetworkSummary && this.renderSection(<RouterIcon />, translate('hostNetworkSummary'), '', this.renderMetricGrid(networkMetrics, translate('hostNetworkDetailsMissing')))}
-                {hasRecentSignals && this.renderSection(<InfoIcon />, translate('hostRecentSignals'), '', this.renderRows(eventRows, translate('hostNoRecentSignals')))}
+                {this.renderSection(<DetailSectionIcon role="processes" />, translate('hostSocketsProcesses'), '', this.renderSocketProcessSummary())}
+                {hasNetworkSummary && this.renderSection(<DetailSectionIcon role="network" />, translate('hostNetworkSummary'), '', this.renderMetricGrid(networkMetrics, translate('hostNetworkDetailsMissing')))}
+                {hasRecentSignals && this.renderSection(<DetailSectionIcon role="events" />, translate('hostRecentSignals'), '', this.renderRows(eventRows, translate('hostNoRecentSignals')))}
 
                 {!hasMoldRows && (
                     <div className={classes.noticeCard}>
@@ -2261,9 +2260,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                     </div>
                 )}
                 </React.Fragment> : <React.Fragment>
-                    {this.renderSection(
-                        <PartitionOutlined />,
-                        translate('hostSwitchPortConnections'),
+                    {this.renderSection(<DetailSectionIcon role="portMapping" />, translate('hostSwitchPortConnections'),
                         translate('hostSwitchPortConnectionsDescription'),
                         <InfrastructurePortMappingTable
                             perspective="host"

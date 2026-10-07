@@ -4,9 +4,9 @@ export const styles = (theme: Theme) => createStyles({
     root: {
         display: 'flex',
         flexDirection: 'column',
-        gap: 14,
+        gap: 'var(--netdive-detail-panel-gap)',
         color: 'var(--netdive-detail-text)',
-        paddingBottom: theme.spacing(1)
+        paddingBottom: 'var(--netdive-detail-panel-bottom-padding)'
     },
     panelCard: {
         border: '1px solid #f0f0f0 !important',

@@ -3,5 +3,6 @@
 .netdive-resource-metric .ant-card-head-title { white-space: normal; }
 .netdive-resource-comparison { min-width: 0; }
 .netdive-resource-comparison .netdive-detail-metric-row .ant-typography { font-size: 12px; }
-.netdive-resource-comparison .netdive-detail-metric-row--primary .netdive-detail-metric-row__value { font-size: 16px; font-weight: 600; }
+.netdive-resource-comparison .netdive-detail-metric-row--primary .netdive-detail-metric-row__value { font-size: 14px; font-weight: 500; line-height: 20px; }
+.netdive-resource-comparison .netdive-detail-metric-row--unavailable .netdive-detail-metric-row__value { font-size: 12px; font-weight: 400; line-height: 18px; }
 .netdive-resource-comparison .netdive-detail-metric-row__value { text-align: right; font-variant-numeric: tabular-nums; }

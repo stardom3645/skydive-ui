@@ -142,7 +142,7 @@
     font-size: var(--netdive-detail-font-supporting-text);
     font-variant-numeric: tabular-nums;
     font-weight: var(--netdive-detail-weight-body-label);
-    line-height: var(--netdive-detail-line-supporting-text)5;
+    line-height: var(--netdive-detail-line-supporting-text);
     white-space: nowrap;
 }
 .netdive-k8s-cluster-detail__instability-event > small {
@@ -152,7 +152,7 @@
     color: #7f8b9d;
     font-size: var(--netdive-detail-font-supporting-text);
     font-weight: var(--netdive-detail-weight-supporting-text);
-    line-height: var(--netdive-detail-line-supporting-text)5;
+    line-height: var(--netdive-detail-line-supporting-text);
     overflow-wrap: anywhere;
     white-space: normal;
     -webkit-box-orient: vertical;
@@ -243,7 +243,7 @@
     color: #98a2b3;
     font-size: var(--netdive-detail-font-supporting-text);
     font-weight: var(--netdive-detail-weight-supporting-text);
-    line-height: var(--netdive-detail-line-supporting-text)5;
+    line-height: var(--netdive-detail-line-supporting-text);
 }
 .netdive-k8s-cluster-detail__history-reasons {
     position: relative;
@@ -328,7 +328,7 @@
     gap: 8px;
 }
 
-.netdive-k8s-cluster-detail__health-evidence { min-width: 220px; max-width: 290px; font-size: var(--netdive-detail-font-supporting-text); line-height: var(--netdive-detail-line-supporting-text)5; }
+.netdive-k8s-cluster-detail__health-evidence { min-width: 220px; max-width: 290px; font-size: var(--netdive-detail-font-supporting-text); line-height: var(--netdive-detail-line-supporting-text); }
 .netdive-k8s-cluster-detail__health-evidence > strong,
 .netdive-k8s-cluster-detail__health-evidence > span { display: block; }
 .netdive-k8s-cluster-detail__health-evidence > span { margin-top: 7px; color: #d0d5dd; font-weight: var(--netdive-detail-weight-section-title); }
@@ -838,7 +838,7 @@
 }
 .netdive-k8s-cluster-detail__change-heading time { padding-top: 1px; color: #98a2b3; font-size: var(--netdive-detail-font-supporting-text); font-weight: var(--netdive-detail-weight-supporting-text); white-space: nowrap; }
 .netdive-k8s-cluster-detail__change-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 7px; min-width: 0; }
-.netdive-k8s-cluster-detail__change-summary > span { overflow-wrap: anywhere; color: #667085; font-size: var(--netdive-detail-font-supporting-text); font-weight: var(--netdive-detail-weight-supporting-text); line-height: var(--netdive-detail-line-supporting-text)5; }
+.netdive-k8s-cluster-detail__change-summary > span { overflow-wrap: anywhere; color: #667085; font-size: var(--netdive-detail-font-supporting-text); font-weight: var(--netdive-detail-weight-supporting-text); line-height: var(--netdive-detail-line-supporting-text); }
 .netdive-k8s-cluster-detail__change-status { display: inline-flex; align-items: center; min-height: 18px; padding: 0 5px; border-radius: 4px; font-size: var(--netdive-detail-font-supporting-text); font-style: normal; font-weight: var(--netdive-detail-weight-section-title); line-height: var(--netdive-detail-line-supporting-text); white-space: nowrap; }
 .netdive-k8s-cluster-detail__change-status--success { padding-left: 1px; padding-right: 1px; color: #067647; }
 .netdive-k8s-cluster-detail__change-status--warning { border: 1px solid #fedf89; background: #fffaeb; color: #b54708; }
@@ -883,50 +883,6 @@
 
 .netdive-k8s-cluster-detail__metadata-group + .netdive-k8s-cluster-detail__metadata-group {
     border-top: 1px solid #f2f4f7;
-}
-
-.netdive-k8s-cluster-detail__basic-collapse.ant-collapse {
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-}
-
-.netdive-k8s-cluster-detail__basic-collapse.ant-collapse > .ant-collapse-item {
-    border-bottom: 1px solid #eaecf0;
-}
-
-.netdive-k8s-cluster-detail__basic-collapse.ant-collapse > .ant-collapse-item:last-child {
-    border-bottom: 0;
-}
-
-.netdive-k8s-cluster-detail__basic-collapse.ant-collapse > .ant-collapse-item > .ant-collapse-header {
-    min-height: 42px;
-    box-sizing: border-box;
-    padding: 12px 38px 12px 16px;
-    align-items: center;
-    color: #344054;
-    font-size: var(--netdive-detail-font-body-label);
-    font-weight: var(--netdive-detail-weight-section-title);
-    line-height: var(--netdive-detail-line-body-label);
-}
-
-.netdive-k8s-cluster-detail__basic-collapse.ant-collapse > .ant-collapse-item > .ant-collapse-header:hover {
-    background: #fafbfc;
-}
-
-.netdive-k8s-cluster-detail__basic-collapse.ant-collapse > .ant-collapse-item > .ant-collapse-header .ant-collapse-arrow {
-    right: 16px;
-    color: #667085;
-    font-size: var(--netdive-detail-font-supporting-text);
-}
-
-.netdive-k8s-cluster-detail__basic-collapse.ant-collapse .ant-collapse-content {
-    border-top: 1px solid #f2f4f7;
-    background: #fff;
-}
-
-.netdive-k8s-cluster-detail__basic-collapse.ant-collapse .ant-collapse-content > .ant-collapse-content-box {
-    padding: 0;
 }
 
 .netdive-k8s-cluster-detail__metadata-title {
@@ -979,7 +935,7 @@
     border-radius: 9px;
     color: #475467;
     font-size: var(--netdive-detail-font-supporting-text);
-    line-height: var(--netdive-detail-line-supporting-text)5;
+    line-height: var(--netdive-detail-line-supporting-text);
     background: #f8fbff;
 }
 
@@ -1067,3 +1023,113 @@
 }
 
 .netdive-k8s-cluster-detail__alert-summary.is-unavailable .netdive-k8s-cluster-detail__alert-dot { background: #98a2b3; }
+
+/* Cluster uses the same native Card/Descriptions scale as infrastructure. */
+.netdive-k8s-cluster-detail { min-width: 0; font-size: 12px; }
+.netdive-k8s-cluster-detail .ant-descriptions.netdive-cluster-ant-descriptions .ant-descriptions-view > table {
+    width: 100%; table-layout: fixed;
+}
+.netdive-k8s-cluster-detail .ant-card-head .anticon { font-size: 16px; }
+.netdive-k8s-cluster-detail__collection-summary {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+    gap: 4px 12px; width: 100%; margin-bottom: 12px;
+}
+.netdive-k8s-cluster-detail__collection-summary .ant-badge-status-text,
+.netdive-k8s-cluster-detail__collection-summary .ant-typography { font-size: 11px; }
+.netdive-cluster-ant-summary { display: flex; flex-direction: column; gap: 12px; }
+.netdive-cluster-ant-operational-section { min-width: 0; }
+.netdive-cluster-ant-operational-section.ant-card-small > .ant-card-head { min-height: 36px; padding-inline: 12px; }
+.netdive-cluster-ant-operational-section .netdive-cluster-ant-operational-title { font-size: 13px; font-weight: 600; line-height: 20px; }
+.netdive-cluster-ant-operational-section .ant-card-extra .ant-typography { font-size: 11px; }
+.netdive-cluster-ant-operational-followup { margin-top: 12px; }
+.netdive-cluster-ant-summary-label { display: inline-flex; align-items: center; gap: 3px; max-width: 100%; }
+.netdive-cluster-ant-summary-label > span:first-child { min-width: 0; }
+.netdive-cluster-ant-summary-label > :last-child { flex-shrink: 0; }
+.netdive-cluster-ant-summary .ant-statistic { min-width: 0; }
+.netdive-cluster-ant-summary .ant-statistic-title { min-height: 18px; font-size: 12px; }
+.netdive-cluster-ant-summary-state.ant-card-grid { padding: 12px; min-width: 0; }
+.netdive-cluster-ant-summary-status .ant-statistic-content,
+.netdive-cluster-ant-summary-status .ant-badge-status-text { font-size: 14px; font-weight: 500; line-height: 20px; }
+.netdive-cluster-ant-summary-metric.ant-card-grid { padding: 12px; min-width: 0; }
+.netdive-cluster-ant-summary-metric .ant-statistic-content { font-size: 16px; font-weight: 600; line-height: 22px; }
+.netdive-cluster-ant-summary-metric .ant-btn-link { padding: 0; font-size: 16px; font-weight: 600; line-height: 22px; height: auto; }
+.netdive-cluster-ant-summary .ant-statistic-content-value { white-space: normal; overflow-wrap: anywhere; }
+.netdive-cluster-ant-summary .ant-statistic.is-unavailable .ant-statistic-content,
+.netdive-cluster-ant-summary .ant-statistic.is-unavailable .ant-btn-link { font-size: 12px; font-weight: 400; line-height: 18px; }
+.netdive-cluster-ant-operational-section .netdive-k8s-cluster-detail__instability { margin: 0; }
+.netdive-cluster-ant-recent-count { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.netdive-cluster-ant-recent-count > .ant-badge .ant-typography { font-size: 16px; line-height: 22px; }
+.netdive-cluster-ant-metric { min-width: 0; margin-top: 10px; }
+.netdive-cluster-ant-metric:first-child { margin-top: 0; }
+.netdive-cluster-ant-metric-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.netdive-cluster-ant-metric-heading > .ant-typography { min-width: 0; font-size: 11px; }
+.netdive-cluster-ant-metric .ant-statistic { margin-top: 4px; }
+.netdive-cluster-ant-metric .ant-statistic-content { font-size: 14px; font-weight: 500; line-height: 20px; }
+.netdive-cluster-ant-metric .ant-btn-link { padding: 0; height: auto; font-size: 14px; font-weight: 500; line-height: 20px; }
+.netdive-cluster-ant-metric.is-unavailable .ant-statistic-content,
+.netdive-cluster-ant-metric.is-unavailable .ant-btn-link { font-size: 12px; font-weight: 400; line-height: 18px; }
+.netdive-cluster-ant-metric-heading .ant-space .ant-typography { font-size: 12px; line-height: 18px; }
+.netdive-cluster-ant-metric-heading .ant-space .ant-typography-secondary { font-size: 11px; line-height: 16px; }
+.netdive-cluster-ant-metric .ant-progress { display: block; margin: 4px 0 0; }
+.netdive-cluster-ant-evidence .ant-table-cell { vertical-align: middle; font-size: 12px; }
+.netdive-cluster-ant-evidence .ant-table-cell .ant-space-vertical { width: 100%; }
+.netdive-cluster-ant-evidence-title { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.netdive-cluster-ant-evidence-title > .ant-typography { min-width: 0; font-size: 12px; line-height: 18px; overflow-wrap: anywhere; }
+.netdive-cluster-ant-evidence-title > .netdive-detail-info-tooltip-trigger { flex-shrink: 0; }
+.netdive-cluster-ant-evidence .ant-table-cell .ant-typography-secondary { font-size: 11px; line-height: 16px; overflow-wrap: anywhere; }
+.netdive-cluster-ant-evidence .netdive-cluster-ant-evidence-value {
+    display: flex; align-items: center; justify-content: flex-end; gap: 6px;
+    width: 100%; height: auto; padding: 0; border: 0; font-size: 12px; line-height: 18px; white-space: nowrap;
+}
+.netdive-cluster-ant-evidence-value-content { display: flex; align-items: center; justify-content: flex-end; gap: 6px; width: 100%; line-height: 18px; }
+.netdive-cluster-ant-evidence-value-text { min-width: 0; }
+.netdive-cluster-ant-evidence-value-action { display: inline-flex; width: 12px; flex: 0 0 12px; }
+.netdive-cluster-ant-evidence-value-action .anticon { font-size: 12px; }
+.netdive-cluster-ant-evidence-value-heading { margin-inline-end: 18px; }
+.netdive-cluster-ant-evidence .ant-tag { margin-inline-end: 0; font-size: 11px; line-height: 18px; white-space: nowrap; }
+.netdive-k8s-cluster-detail .netdive-k8s-confidence { margin-inline: 0; padding-inline: 8px; border-top: 0; }
+.netdive-cluster-ant-alert { margin-bottom: 10px; }
+.netdive-cluster-ant-alert .ant-alert-title { font-size: 12px; line-height: 1.5; }
+.netdive-cluster-ant-alert .ant-alert-description { font-size: 11px; line-height: 1.5; }
+.netdive-cluster-ant-alert .ant-alert-icon { font-size: 16px; }
+.netdive-k8s-cluster-detail .ant-collapse { font-size: 12px; }
+.netdive-cluster-ant-collapse .ant-collapse-body { padding: 12px; }
+.netdive-cluster-ant-allocation { margin-top: 10px; }
+.netdive-cluster-ant-allocation .netdive-k8s-cluster-detail__capacity-compare { padding: 0; }
+.netdive-k8s-cluster-detail .netdive-k8s-cluster-detail__history-section { margin-inline: 0; }
+.netdive-k8s-cluster-detail .netdive-k8s-cluster-detail__alert-summary { margin: 0 0 12px; }
+.netdive-k8s-cluster-detail .netdive-k8s-cluster-detail__metadata-title { padding: 12px 0 4px; }
+.netdive-k8s-cluster-detail .netdive-k8s-cluster-detail__metadata-list { padding: 4px 0 0; }
+.netdive-cluster-connected-resources .ant-card-meta-avatar,
+.netdive-cluster-connected-resources .netdive-connected-resources__group-icon {
+    color: var(--netdive-detail-text, #262626); background: transparent; filter: grayscale(1);
+}
+.netdive-cluster-connected-resources .netdive-k8s-cluster-detail__topology-icon { color: var(--netdive-detail-text, #262626); }
+.netdive-cluster-connected-resources .netdive-ant-resource-card { height: 54px; }
+.netdive-cluster-connected-resources .netdive-ant-resource-card .ant-card-body { padding: 10px; }
+.netdive-cluster-connected-resources .netdive-ant-resource-content { min-height: 32px; gap: 6px; }
+.netdive-cluster-connected-resources .ant-card-meta-avatar { padding-inline-end: 6px; }
+.netdive-cluster-connected-resources .ant-card-meta-title .ant-typography { font-size: 12px; line-height: 18px; white-space: nowrap; }
+.netdive-cluster-connected-resources .netdive-detail-resource__label-lines { display: inline-flex; flex-direction: row; white-space: nowrap; }
+.netdive-k8s-cluster-detail .netdive-detail-card-subsection-header { padding-top: 12px; }
+.netdive-cluster-ant-timeline { margin: 12px 0 0; }
+.netdive-cluster-ant-timeline .ant-timeline-item-content { font-size: 12px; line-height: 18px; }
+.netdive-cluster-ant-timeline .ant-typography-secondary { font-size: 11px; }
+.netdive-cluster-ant-timeline .ant-btn-link { padding: 0; height: auto; font-size: 12px; line-height: 18px; }
+.netdive-cluster-ant-timeline .ant-tag { margin-inline-end: 0; font-size: 11px; line-height: 18px; }
+.netdive-cluster-ant-change-summary .ant-typography { font-size: 12px; line-height: 18px; overflow-wrap: anywhere; }
+.netdive-k8s-cluster-detail__change-heading > .ant-typography:first-child { min-width: 0; font-size: 12px; line-height: 18px; }
+.netdive-k8s-cluster-detail__change-heading strong { line-height: 18px; }
+.netdive-k8s-cluster-detail__change-heading > .ant-typography:last-child { font-size: 11px; line-height: 16px; white-space: nowrap; }
+.netdive-k8s-cluster-detail { container-type: inline-size; container-name: netdive-cluster; }
+@container netdive-cluster (max-width: 360px) {
+    .netdive-cluster-ant-metric-heading { align-items: start; flex-wrap: wrap; }
+    .netdive-cluster-connected-resources .netdive-detail-resource-grid { grid-template-columns: 1fr; }
+    .netdive-k8s-cluster-detail__change-heading { grid-template-columns: 1fr; gap: 2px; }
+}
+
+.netdive-cluster-ant-services .ant-btn-link { padding: 0; height: auto; max-width: 100%; }
+.netdive-cluster-ant-services .ant-table-cell { overflow-wrap: anywhere; }
+.netdive-cluster-ant-services .ant-btn-link .netdive-k8s-cluster-detail__service-name { min-width: 0; }
+
+.netdive-cluster-ant-evidence .is-interactive { cursor: pointer; }

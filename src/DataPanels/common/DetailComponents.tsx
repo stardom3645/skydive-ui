@@ -5,6 +5,7 @@ import type { Node, NodeAttrs } from '../../Topology'
 
 import {
     isKubernetesRecentInstabilityLabel,
+    isKubernetesUnavailableValue,
     kubernetesImpactLabel,
     kubernetesOperationalValueTone
 } from './KubernetesDataPresentation'
@@ -192,7 +193,7 @@ export const DetailSection = ({
 
     return <ConfigProvider theme={{ token: { fontSize: 12, fontSizeSM: 11 }, components: { Card: { headerFontSizeSM: 14 } } }}>
         <Card size="small" className={joinClassNames('netdive-ant-detail-section', className)}
-            title={collapsible ? <Button type="text" size="small" onClick={toggle} aria-expanded={!collapsed}>
+            title={collapsible ? <Button type="text" size="small" block className="netdive-ant-detail-section-toggle" onClick={toggle} aria-expanded={!collapsed}>
                 <Space>{icon}<Typography.Text strong style={{ fontSize: 14 }}>{title}</Typography.Text></Space>
             </Button> : <Space>{icon}{title}</Space>}
             extra={<Space size={4}>{action}{collapsible && <Button type="text" size="small"
@@ -229,7 +230,7 @@ export const DetailCopyButton = ({ value, tooltip = 'Copy', onCopy, className }:
         <Tooltip
             title={tooltip}
             placement="topRight"
-            overlayClassName="netdive-detail-copy-tooltip"
+            classNames={{ root: "netdive-detail-copy-tooltip" }}
             getPopupContainer={() => document.body}
             autoAdjustOverflow>
             <Button
@@ -572,15 +573,15 @@ export const DetailOperationalSummary = ({
             <div className="netdive-operational-summary__states">
                 <div className="netdive-operational-summary__state netdive-operational-summary__state--verdict">
                     {stateLabel(verdictLabel, verdictTooltip || tooltip)}
-                    <strong className={`is-${verdictTone}`}><i />{verdict}</strong>
+                    <strong className={joinClassNames(`is-${verdictTone}`, isKubernetesUnavailableValue(verdict) && 'is-unavailable')}><i />{verdict}</strong>
                 </div>
                 <div className="netdive-operational-summary__state">
                     {stateLabel(rawStatusLabel, rawStatusTooltip)}
-                    <strong>{rawStatus}</strong>
+                    <strong className={isKubernetesUnavailableValue(rawStatus) ? 'is-unavailable' : undefined}>{rawStatus}</strong>
                 </div>
                 <div className="netdive-operational-summary__state">
                     {stateLabel(impactLabel, impactTooltip)}
-                    <strong>{typeof impact === 'string' ? kubernetesImpactLabel(impact) : impact}</strong>
+                    <strong className={isKubernetesUnavailableValue(impact) ? 'is-unavailable' : undefined}>{typeof impact === 'string' ? kubernetesImpactLabel(impact) : impact}</strong>
                 </div>
             </div>
             {visibleMetrics.length > 0 && metricsTitle && <DetailCardSubsectionHeader title={metricsTitle} />}
@@ -607,7 +608,7 @@ export const DetailOperationalSummary = ({
                                     className="netdive-operational-summary__info"
                                     ariaLabel={`${String(metric.label)} 상세 정보`} />
                             </span>
-                            <strong>{metric.value}</strong>
+                            <strong className={isKubernetesUnavailableValue(metric.value) ? 'is-unavailable' : undefined}>{metric.value}</strong>
                         </button>
                     )
                     return <React.Fragment key={metric.key !== undefined ? metric.key : index}>{metricContent}</React.Fragment>
@@ -623,6 +624,7 @@ export interface DetailMetricRowProps {
     value: React.ReactNode
     ratio?: React.ReactNode
     primary?: boolean
+    unavailable?: boolean
     muted?: boolean
     onClick?: () => void
     progressPercent?: number
@@ -641,6 +643,7 @@ export const DetailMetricRow = ({
     value,
     ratio,
     primary = false,
+    unavailable = false,
     muted = false,
     onClick,
     progressPercent,
@@ -651,7 +654,7 @@ export const DetailMetricRow = ({
     const content = (
         <React.Fragment>
             <Typography.Text type="secondary" className="netdive-detail-metric-row__label">{label}</Typography.Text>
-            <Typography.Text strong={primary} className="netdive-detail-metric-row__value">{value}</Typography.Text>
+            <Typography.Text strong={primary && !unavailable} className="netdive-detail-metric-row__value">{value}</Typography.Text>
             <Typography.Text strong={primary} type={primary ? undefined : 'secondary'} className="netdive-detail-metric-row__ratio">
                 {ratio}
             </Typography.Text>
@@ -660,6 +663,7 @@ export const DetailMetricRow = ({
     const rowClassName = joinClassNames(
         'netdive-detail-metric-row',
         primary && 'netdive-detail-metric-row--primary',
+        unavailable && 'netdive-detail-metric-row--unavailable',
         muted && 'netdive-detail-metric-row--muted',
         onClick && 'netdive-detail-metric-row--interactive'
     )
@@ -1732,7 +1736,7 @@ export const HistoryModal = ({ className, ...props }: HistoryModalProps) => (
     <Modal
         className={joinClassNames('netdive-list-modal', className)}
         footer={null}
-        destroyOnClose
+        destroyOnHidden
         keyboard
         getContainer={() => document.body}
         {...props}

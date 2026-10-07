@@ -1,5 +1,6 @@
+import { DetailSectionIcon } from './common/DetailSectionIcon'
 import * as React from 'react'
-import { ApiOutlined, ApartmentOutlined, InfoCircleOutlined, LinkOutlined } from '@ant-design/icons'
+
 
 import { Link, Node, NodeAttrs } from '../Topology'
 import { translate } from '../Config'
@@ -258,16 +259,16 @@ class SwitchPortDetailPanel extends React.Component<Props> {
         const connectionRows = this.connectionRows(interfaces)
         return (
             <div className="netdive-switch-port-detail">
-                <DetailSection icon={<InfoCircleOutlined />} title={translate('switchBasicInfo')}>
+                <DetailSection icon={<DetailSectionIcon role="basic" />} title={translate('switchBasicInfo')}>
                     <DetailKeyValueList rows={this.basicRows(parentSwitch)} copyTooltip={translate('copy')} />
                 </DetailSection>
-                {portRows.length > 0 && <DetailSection icon={<ApartmentOutlined />} title={translate('switchPortDetails')}>
+                {portRows.length > 0 && <DetailSection icon={<DetailSectionIcon role="ports" />} title={translate('switchPortDetails')}>
                     <DetailKeyValueList rows={portRows} copyTooltip={translate('copy')} />
                 </DetailSection>}
-                {connectionRows.length > 0 && <DetailSection icon={<LinkOutlined />} title={translate('switchPortConnectionInfo')}>
+                {connectionRows.length > 0 && <DetailSection icon={<DetailSectionIcon role="endpoints" />} title={translate('switchPortConnectionInfo')}>
                     {this.renderConnectionInfo(interfaces)}
                 </DetailSection>}
-                <DetailSection icon={<ApiOutlined />} title={translate('hostConnectedResources')}>
+                <DetailSection icon={<DetailSectionIcon role="related" />} title={translate('hostConnectedResources')}>
                     {this.renderConnectedResources(parentSwitch, connectedHosts, interfaces)}
                 </DetailSection>
             </div>

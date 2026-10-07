@@ -402,16 +402,23 @@
     justify-content: center;
     overflow: hidden;
     color: #101828;
-    font-size: 15px;
-    font-weight: var(--netdive-detail-weight-primary-value);
-    line-height: var(--netdive-detail-line-primary-value);
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 20px;
     overflow-wrap: anywhere;
     text-overflow: clip;
     white-space: normal;
 }
 
 .netdive-operational-summary__state--verdict > strong {
-    font-size: var(--netdive-detail-font-primary-value);
+    font-size: 14px;
+}
+
+.netdive-operational-summary__state > strong.is-unavailable,
+.netdive-operational-summary__metric > strong.is-unavailable {
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 18px;
 }
 
 .netdive-operational-summary__state--verdict i {
@@ -1596,9 +1603,15 @@
 
 .netdive-detail-metric-row--primary .netdive-detail-metric-row__value {
     color: #101828;
-    font-size: 15px;
-    font-weight: var(--netdive-detail-weight-primary-value);
-    line-height: var(--netdive-detail-line-primary-value);
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 20px;
+}
+
+.netdive-detail-metric-row--unavailable .netdive-detail-metric-row__value {
+    font-size: var(--netdive-detail-font-body-label);
+    font-weight: 400;
+    line-height: var(--netdive-detail-line-body-label);
 }
 
 .netdive-detail-metric-row__ratio {
@@ -4018,6 +4031,12 @@ button.netdive-detail-metric-row:focus-visible {
 }
 
 /* Native Ant detail surfaces: only content layout and semantic density. */
+.netdive-ant-detail-section > .ant-card-head .netdive-ant-detail-section-toggle {
+    justify-content: flex-start;
+    min-height: 42px;
+    height: 42px;
+    padding-block: 0;
+}
 .netdive-ant-detail-description { font-size: 11px; }
 .netdive-ant-detail-section .netdive-detail-resource-grid,
 .netdive-ant-detail-section .netdive-connected-resources__groups,
@@ -4050,3 +4069,24 @@ button.netdive-detail-metric-row:focus-visible {
 
 .netdive-detail-descriptions table { table-layout: fixed; width: 100%; }
 .netdive-ant-detail-section .ant-card-head .ant-space-item > img { width: 16px; height: 16px; object-fit: contain; }
+
+/* Shared vertical rhythm for section cards in every detail panel. */
+.netdive-ant-detail-section > .ant-card-head {
+    min-height: var(--netdive-detail-card-head-height);
+}
+.netdive-ant-detail-section > .ant-card-body {
+    padding-block: 16px;
+}
+.netdive-ant-detail-section > .ant-card-head .ant-space {
+    align-items: center;
+}
+.netdive-ant-detail-section > .ant-card-head .ant-space-item {
+    display: inline-flex;
+    align-items: center;
+}
+.netdive-detail-section-icon {
+    flex: 0 0 auto;
+    color: var(--netdive-detail-text-secondary);
+    font-size: 16px;
+    line-height: 1;
+}

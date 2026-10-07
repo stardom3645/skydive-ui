@@ -1,6 +1,7 @@
+import { DetailSectionIcon } from './common/DetailSectionIcon'
 import * as React from 'react'
 import { Button, Tooltip } from 'antd'
-import { ApartmentOutlined, ArrowsAltOutlined, InfoCircleOutlined, LinkOutlined, PartitionOutlined } from '@ant-design/icons'
+import { ArrowsAltOutlined } from '@ant-design/icons'
 
 import { Link, Node, NodeAttrs } from '../Topology'
 import { session } from '../Store'
@@ -262,11 +263,11 @@ class SwitchDetailPanel extends React.Component<Props> {
     render() {
         return (
             <div className="netdive-switch-detail">
-                <DetailSection icon={<InfoCircleOutlined />} title={translate('switchBasicInfo')}>
+                <DetailSection icon={<DetailSectionIcon role="basic" />} title={translate('switchBasicInfo')}>
                     <DetailKeyValueList rows={this.basicRows()} copyTooltip={translate('copy')} />
                 </DetailSection>
                 <DetailSection
-                    icon={<ApartmentOutlined />}
+                    icon={<DetailSectionIcon role="advanced" />}
                     title={translate('switchAdvancedInfo')}
                     description={translate('switchAdvancedInfoDescription')}
                     collapsible
@@ -278,7 +279,7 @@ class SwitchDetailPanel extends React.Component<Props> {
                 </DetailSection>
                 <DetailSection
                     className="netdive-switch-port-mapping-section"
-                    icon={<PartitionOutlined />}
+                    icon={<DetailSectionIcon role="portMapping" />}
                     title={translate('switchPortMapping')}
                     description={translate('switchPortMappingDescription')}
                     fullWidthDescription
@@ -313,7 +314,7 @@ class SwitchDetailPanel extends React.Component<Props> {
                         onExpandedChange={portMappingExpanded => this.setState({ portMappingExpanded })}
                         onNavigate={mapping => this.focusPortMapping(mapping)} />
                 </DetailSection>
-                <DetailSection icon={<LinkOutlined />} title={translate('hostConnectedResources')}>
+                <DetailSection icon={<DetailSectionIcon role="related" />} title={translate('hostConnectedResources')}>
                     {this.renderConnectedResources()}
                 </DetailSection>
             </div>

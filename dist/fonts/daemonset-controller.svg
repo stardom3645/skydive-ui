@@ -1,0 +1,17 @@
+<!--
+  Kubernetes DaemonSet icon, optimized from the Kubernetes Community icon set.
+  Source: https://github.com/kubernetes/community/blob/main/icons/svg/resources/unlabeled/ds.svg
+  License: Apache-2.0 or CC-BY-4.0
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18.035334 17.500378" role="img" aria-label="Kubernetes DaemonSet">
+  <defs>
+    <mask id="daemonset-symbol">
+      <rect width="18.035334" height="17.500378" fill="#fff"/>
+      <rect x="8.294577" y="5.740085" width="6.524989" height="4.583335" fill="none" stroke="#000" stroke-width=".529146" stroke-dasharray="1.587438 1.587438"/>
+      <rect x="6.755827" y="7.151396" width="6.524989" height="4.583336" fill="none" stroke="#000" stroke-width=".529146" stroke-dasharray="1.587438 1.587438"/>
+      <rect x="5.217077" y="8.562709" width="6.525" height="4.583335" fill="#000"/>
+      <path d="M4.936447 14.064062h7.074559" fill="none" stroke="#000" stroke-width=".61833"/>
+    </mask>
+  </defs>
+  <path fill="#334155" mask="url(#daemonset-symbol)" d="M9.052 1.174c-.183 0-.364.043-.529.122L2.586 4.132a1.136 1.136 0 0 0-.614.764L.507 11.271a1.125 1.125 0 0 0 .218.954l4.111 5.112c.216.268.542.424.888.424h6.593c.347 0 .673-.156.888-.423l4.109-5.113c.219-.272.3-.631.22-.97l-1.467-6.377a1.136 1.136 0 0 0-.615-.764L9.504 1.296a1.167 1.167 0 0 0-.452-.122Z"/>
+</svg>

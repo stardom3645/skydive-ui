@@ -1,7 +1,8 @@
+import { DetailSectionIcon } from './common/DetailSectionIcon'
 import * as React from 'react'
 import { Empty, Select, Space, Spin } from 'antd'
 import { RESOURCE_PRESENTATION_COLORS, ResourceSectionCard, ResourceMetricTile, ResourceInfoTooltip } from './common/ResourcePresentation'
-import { LineChartOutlined as TimelineIcon } from '@ant-design/icons'
+
 import { hostTrendClasses as classes } from './HostResourceTrendPanelClasses'
 import './HostResourceTrendPanel.css'
 
@@ -591,7 +592,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         const hasTrend = displayItems.length > 0
 
         return (
-            <ResourceSectionCard icon={<TimelineIcon />} title={this.trendTitle()} empty={!hasTrend} action={
+            <ResourceSectionCard icon={<DetailSectionIcon role="recentMetrics" />} title={this.trendTitle()} empty={!hasTrend} action={
                     <div className={classes.headerActions}>
                         <Select
                             size="small" className={classes.rangeSelect}

@@ -1,10 +1,6 @@
+import { DetailSectionIcon } from './common/DetailSectionIcon'
 import * as React from 'react'
-import AccountTreeIcon from '@material-ui/icons/AccountTree'
-import ErrorOutlineIcon from '@material-ui/icons/ErrorOutline'
-import InfoIcon from '@material-ui/icons/Info'
-import SettingsIcon from '@material-ui/icons/Settings'
-import ViewModuleIcon from '@material-ui/icons/ViewModule'
-import { HistoryOutlined } from '@ant-design/icons'
+
 
 import { translate } from '../Config'
 import { Node } from '../Topology'
@@ -26,7 +22,6 @@ import {
     BasicInfoRows,
     collectKubernetesEventGroups,
     ConnectedResourceListSection,
-    DetailAdvancedInfo,
     DetailBadgeTone,
     DetailLongValue,
     DetailModalAction,
@@ -73,7 +68,6 @@ interface Props {
 interface State {
     basicCollapsed: boolean
     basicInfoAdvanced: boolean
-    rolloutAdvanced: boolean
     pvcModalOpen: boolean
 }
 
@@ -130,10 +124,10 @@ const optionalText = (value: any): string => value === undefined || value === nu
 const intOrStringValue = (value: any): any => value?.StrVal ?? value?.strVal ?? value?.IntVal ?? value?.intVal ?? value
 
 class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
-    state: State = { basicCollapsed: false, basicInfoAdvanced: false, rolloutAdvanced: false, pvcModalOpen: false }
+    state: State = { basicCollapsed: false, basicInfoAdvanced: false, pvcModalOpen: false }
 
     componentDidUpdate(prevProps: Props) {
-        if (prevProps.node.id !== this.props.node.id) this.setState({ basicCollapsed: false, basicInfoAdvanced: false, rolloutAdvanced: false, pvcModalOpen: false })
+        if (prevProps.node.id !== this.props.node.id) this.setState({ basicCollapsed: false, basicInfoAdvanced: false, pvcModalOpen: false })
     }
 
     private topologyNodes(): Node[] {
@@ -760,20 +754,30 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
             return row
         })
         return <div className="netdive-k8s-workload-detail">
-            <DetailSectionCard icon={<InfoIcon />} title={translate('kubernetesWorkloadBasicInfo')} collapsible collapsed={this.state.basicCollapsed} onToggle={() => this.setState({ basicCollapsed: !this.state.basicCollapsed })}>
+            <DetailSectionCard icon={<DetailSectionIcon role="basic" />} title={translate('kubernetesWorkloadBasicInfo')} collapsible collapsed={this.state.basicCollapsed} onToggle={() => this.setState({ basicCollapsed: !this.state.basicCollapsed })}>
                 <BasicInfoRows density="compact" rows={basicRows} labelWidth={122} copyTooltip={translate('copy')} />
-                <DetailAdvancedInfo
-                    title={translate('kubernetesAdvancedInformation')}
-                    active={this.state.basicInfoAdvanced}
-                    onChange={basicInfoAdvanced => this.setState({ basicInfoAdvanced })}>
-                    <KubernetesMetadataRows items={[
-                        { key: 'labels', label: KUBERNETES_DETAIL_LABELS.labels, resourceName: workloadName, resourceKind: kindLabel, metadataKind: 'label', data: labels, modalTitle: `${kindLabel} 라벨` },
-                        { key: 'annotations', label: KUBERNETES_DETAIL_LABELS.annotations, resourceName: workloadName, resourceKind: kindLabel, metadataKind: 'annotation', data: annotations, modalTitle: `${kindLabel} 어노테이션` }
+            </DetailSectionCard>
+            <DetailSectionCard icon={<DetailSectionIcon role="advanced" />} title={translate('kubernetesAdvancedInformation')} collapsible collapsed={!this.state.basicInfoAdvanced} onToggle={() => this.setState({ basicInfoAdvanced: !this.state.basicInfoAdvanced })}>
+                <KubernetesMetadataRows items={[
+                    { key: 'labels', label: KUBERNETES_DETAIL_LABELS.labels, resourceName: workloadName, resourceKind: kindLabel, metadataKind: 'label', data: labels, modalTitle: `${kindLabel} 라벨` },
+                    { key: 'annotations', label: KUBERNETES_DETAIL_LABELS.annotations, resourceName: workloadName, resourceKind: kindLabel, metadataKind: 'annotation', data: annotations, modalTitle: `${kindLabel} 어노테이션` }
+                ]} />
+                {kind === 'statefulset' && <React.Fragment>
+                    <BasicInfoRows density="compact" labelWidth={122} copyTooltip={translate('copy')} rows={[
+                        { label: '현재 리비전', value: status.CurrentRevision ? <DetailLongValue value={String(status.CurrentRevision)} copy /> : translate('kubernetesNotCollected'), wrap: true },
+                        { label: '업데이트 리비전', value: status.UpdateRevision ? <DetailLongValue value={String(status.UpdateRevision)} copy /> : translate('kubernetesNotCollected'), wrap: true },
+                        { label: '시작 순번', value: spec.Ordinals?.Start === undefined ? 0 : Number(spec.Ordinals.Start) }
                     ]} />
-                </DetailAdvancedInfo>
+                </React.Fragment>}
+                {kind === 'daemonset' && <React.Fragment>
+                    <BasicInfoRows density="compact" labelWidth={122} rows={[
+                        { label: '최소 준비 시간', value: spec.MinReadySeconds ?? spec.minReadySeconds ?? '설정되지 않음' },
+                        { label: '리비전 이력 한도', value: spec.RevisionHistoryLimit ?? spec.revisionHistoryLimit ?? '설정되지 않음' }
+                    ]} />
+                </React.Fragment>}
             </DetailSectionCard>
 
-            <DetailSectionCard icon={this.topologyIcon(this.props.node)} title={`${kindLabel} ${translate('kubernetesOperationalStatusShort')}`}>
+            <DetailSectionCard icon={<DetailSectionIcon role="operational" />} title={`${kindLabel} ${translate('kubernetesOperationalStatusShort')}`}>
                 <StatusSummaryGrid
                     verdict={verdictLabel}
                     verdictTone={verdictTone}
@@ -789,7 +793,7 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
                     { key: 'history', label: '누적 Evicted 파드', value: podSummary.evicted.length, tone: 'history', tooltip: '파드 UID로 중복 제거한 누적 Evicted 파드 수입니다. 현재 장애 판정에는 사용하지 않습니다.' }
                 ]} />
             </DetailSectionCard>
-            <DetailSectionCard icon={<ViewModuleIcon />} title={kind === 'daemonset' ? KUBERNETES_DAEMONSET_PLACEMENT_ROLLOUT_TITLE : translate('kubernetesReplicaRollout')}>
+            <DetailSectionCard icon={<DetailSectionIcon role="rollout" />} title={kind === 'daemonset' ? KUBERNETES_DAEMONSET_PLACEMENT_ROLLOUT_TITLE : translate('kubernetesReplicaRollout')}>
                 {kind === 'statefulset' ? <KubernetesReplicaSummary
                     desired={desiredReplicas}
                     ready={readyReplicas}
@@ -822,29 +826,10 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
                     labelWidth={122}
                     copyTooltip={translate('copy')}
                 />
-                {kind === 'statefulset' && <DetailAdvancedInfo
-                    title={translate('kubernetesAdvancedInformation')}
-                    hierarchy="supporting"
-                    active={this.state.rolloutAdvanced}
-                    onChange={rolloutAdvanced => this.setState({ rolloutAdvanced })}>
-                    <BasicInfoRows density="compact" labelWidth={122} copyTooltip={translate('copy')} rows={[
-                        { label: '현재 리비전', value: status.CurrentRevision ? <DetailLongValue value={String(status.CurrentRevision)} copy /> : translate('kubernetesNotCollected'), wrap: true },
-                        { label: '업데이트 리비전', value: status.UpdateRevision ? <DetailLongValue value={String(status.UpdateRevision)} copy /> : translate('kubernetesNotCollected'), wrap: true },
-                        { label: '시작 순번', value: spec.Ordinals?.Start === undefined ? 0 : Number(spec.Ordinals.Start) }
-                    ]} />
-                </DetailAdvancedInfo>}
-                {kind === 'daemonset' && <DetailAdvancedInfo
-                    title={translate('kubernetesAdvancedInformation')}
-                    hierarchy="supporting"
-                    active={this.state.rolloutAdvanced}
-                    onChange={rolloutAdvanced => this.setState({ rolloutAdvanced })}>
-                    <BasicInfoRows density="compact" labelWidth={122} rows={[
-                        { label: '최소 준비 시간', value: spec.MinReadySeconds ?? spec.minReadySeconds ?? '설정되지 않음' },
-                        { label: '리비전 이력 한도', value: spec.RevisionHistoryLimit ?? spec.revisionHistoryLimit ?? '설정되지 않음' }
-                    ]} />
-                </DetailAdvancedInfo>}
+
+
             </DetailSectionCard>
-            {enhanced && <DetailSectionCard icon={<ViewModuleIcon />} title={translate('kubernetesContainersImages')}><KubernetesContainerDetails containers={workloadContainers.map(container => ({
+            {enhanced && <DetailSectionCard icon={<DetailSectionIcon role="containers" />} title={translate('kubernetesContainersImages')}><KubernetesContainerDetails containers={workloadContainers.map(container => ({
                 key: `${container.init ? 'init' : 'app'}:${container.name}`,
                 name: container.name,
                 kindLabel: container.init ? '초기화 컨테이너' : '일반 컨테이너',
@@ -854,16 +839,16 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
                 resources: container.resources,
                 resourcesCollected: container.resourcesCollected
             }))} /></DetailSectionCard>}
-            {enhanced && normalizeList(status.Conditions).length > 0 && <DetailSectionCard icon={<ErrorOutlineIcon />} title={translate('kubernetesWorkloadConditions')}>
+            {enhanced && normalizeList(status.Conditions).length > 0 && <DetailSectionCard icon={<DetailSectionIcon role="conditions" />} title={translate('kubernetesWorkloadConditions')}>
                 <KubernetesConditionRows
                     conditions={normalizeList(status.Conditions)}
                     definitions={kind === 'deployment' ? DEPLOYMENT_CONDITION_DEFINITIONS : kind === 'daemonset' ? DAEMONSET_CONDITION_DEFINITIONS : undefined} />
             </DetailSectionCard>}
-            {operationalPolicyRows.length > 0 && <DetailSectionCard icon={<SettingsIcon />} title="운영 정책">
+            {operationalPolicyRows.length > 0 && <DetailSectionCard icon={<DetailSectionIcon role="policy" />} title="운영 정책">
                 <BasicInfoRows density="compact" rows={operationalPolicyRows} labelWidth={122} />
             </DetailSectionCard>}
             <ConnectedResourceListSection
-                icon={<AccountTreeIcon />}
+                icon={<DetailSectionIcon role="related" />}
                 title={translate('hostConnectedResources')}
                 emptyText={translate('hostNoConnectedResources')}
                 groups={kind === 'statefulset' ? [
@@ -926,7 +911,7 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
                         ]
                     }
                 ]} />
-            <DetailSectionCard icon={<HistoryOutlined />} title={translate('kubernetesWorkloadRecentEvents')}><KubernetesRecentEvents groups={recentEventGroups} lookbackLabel="최근 1시간" onResourceClick={group => {
+            <DetailSectionCard icon={<DetailSectionIcon role="events" />} title={translate('kubernetesWorkloadRecentEvents')}><KubernetesRecentEvents groups={recentEventGroups} lookbackLabel="최근 1시간" onResourceClick={group => {
                 const target = this.topologyNodes().find(node => (!group.resourceUid || node.id === group.resourceUid || firstValue(node.data || {}, ['K8s.Extra.ObjectMeta.UID', 'UID']) === group.resourceUid)
                     && (!group.resourceName || firstValue(node.data || {}, ['Name', 'K8s.Name']) === group.resourceName))
                 if (target) this.focusResources([target])

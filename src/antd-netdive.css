@@ -654,10 +654,11 @@
 }
 .netdive-collection-confirm .ant-modal-content { border-radius: 10px !important; }
 .netdive-collection-confirm .ant-modal-header { border-radius: 10px 10px 0 0; }
-.netdive-collection-confirm .ant-modal-body { padding: 24px; color: #53657d; font-size: 13px; line-height: 1.7; }
-.netdive-collection-confirm-target { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 6px; background: #f0f7ff; color: #2775da; font-weight: 500; }
-.netdive-collection-confirm-steps { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 16px; font-size: 12px; }
-.netdive-collection-confirm .ant-modal-footer { padding: 12px 24px; }
+.netdive-collection-confirm .ant-modal-body { padding: 12px 0 0; color: #595959; font-size: 12px; line-height: 18px; }
+.netdive-collection-confirm .ant-modal-body > p { margin: 0 0 12px; }
+.netdive-collection-confirm-target { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid #f0f0f0; border-radius: 6px; background: #fafafa; color: #262626; font-weight: 500; overflow-wrap: anywhere; }
+.netdive-collection-confirm-target > .anticon { flex: 0 0 auto; }
+.netdive-collection-confirm .ant-modal-footer { padding: 0; margin-top: 20px; }
 
 .netdive-policy-description { margin: 8px 0 16px; font-size: 13px; line-height: 21px; color: #595959; }
 .netdive-panel-close.ant-btn { position: absolute; top: 6px; right: 6px; z-index: 2; width: 32px; height: 32px; padding: 0; color: #8c8c8c; }

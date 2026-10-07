@@ -16,6 +16,8 @@
  */
 
 import * as React from "react"
+import { topologyBranchOffsets } from './TopologyBranchSpacing'
+import { topologyGroupRegions } from './TopologyGroupRegions'
 import { TopologyReactRoots } from './TopologyReactRoots'
 import { TopologyCaptureIndicator } from './TopologyCaptureIndicator'
 import { Avatar, Button, Card, Input, List, Tag, Typography } from 'antd'
@@ -632,6 +634,7 @@ export class Topology extends React.Component<Props, {}> {
     private svgDiv: HTMLElement | null
     private svg: Selection<SVGSVGElement, any, null, undefined>
     private g: Selection<SVGGraphicsElement, {}, null, undefined>
+    private gGroupRegions: Selection<SVGGraphicsElement, {}, null, undefined>
     private gLevels: Selection<SVGGraphicsElement, {}, null, undefined>
     private gLevelLabels: Selection<SVGGraphicsElement, {}, null, undefined>
     private gHieraLinks: Selection<SVGGraphicsElement, {}, null, undefined>
@@ -897,7 +900,19 @@ export class Topology extends React.Component<Props, {}> {
             })
 
         var defs = this.svg.append("defs")
-
+        const panelGlass = defs.append('linearGradient')
+            .attr('id', 'level-label-panel-glass').attr('x1', '0%').attr('y1', '0%')
+            .attr('x2', '100%').attr('y2', '100%')
+        panelGlass.append('stop').attr('offset', '0%').attr('class', 'level-label-panel-glass-start')
+        panelGlass.append('stop').attr('offset', '100%').attr('class', 'level-label-panel-glass-end')
+        const activeGlass = defs.append('linearGradient')
+            .attr('id', 'level-label-active-glass').attr('x1', '0%').attr('x2', '100%')
+        activeGlass.append('stop').attr('offset', '0%').attr('class', 'level-label-active-glass-start')
+        activeGlass.append('stop').attr('offset', '100%').attr('class', 'level-label-active-glass-end')
+        defs.append('filter').attr('id', 'level-label-panel-shadow')
+            .attr('x', '-40%').attr('y', '-20%').attr('width', '180%').attr('height', '140%')
+            .append('feDropShadow').attr('class', 'level-label-panel-shadow')
+            .attr('dx', 0).attr('dy', 6).attr('stdDeviation', 9)
         defs
             .append("marker")
             .attr("id", "link-marker")
@@ -919,6 +934,24 @@ export class Topology extends React.Component<Props, {}> {
             .append("path")
             .attr("class", "link-marker link-directed-marker")
             .attr("d", "M 0,0 m -5,-5 L 5,0 L -5,5 Z")
+
+        // SVG-native dots move and zoom with the topology, without a hit target.
+        for (let variant = 0; variant < 4; variant++) {
+            const pattern = defs.append("pattern")
+                .attr("id", `topology-group-dots-${variant}`)
+                .attr("patternUnits", "userSpaceOnUse")
+                .attr("width", 12).attr("height", 12)
+            pattern.append("circle").attr("cx", 3).attr("cy", 3)
+                .attr("r", 0.8).attr("class", `topology-group-dot topology-group-dot--${variant}`)
+            const surface = defs.append('linearGradient')
+                .attr('id', `topology-group-surface-${variant}`)
+                .attr('x1', '0%').attr('y1', '0%').attr('x2', '0%').attr('y2', '100%')
+            ;[['0%', 0.52], ['45%', 0.92], ['100%', 0.76]].forEach(([offset, opacity]) => {
+                surface.append('stop').attr('offset', offset)
+                    .attr('class', `topology-group-surface-stop topology-group-surface-stop--${variant}`)
+                    .attr('stop-opacity', opacity)
+            })
+        }
 
         const markerOverlay = (id: string) => {
             defs
@@ -968,6 +1001,7 @@ export class Topology extends React.Component<Props, {}> {
 
                 this.absTransformX = event.transform.x * 1 / event.transform.k
                 this.absTransformY = event.transform.y * 1 / event.transform.k
+                this.updateLevelLabelBackdrop()
                 if (this.props.onZoomChange) {
                     this.props.onZoomChange(event.transform.k)
                 }
@@ -984,6 +1018,13 @@ export class Topology extends React.Component<Props, {}> {
 
         this.g = this.svg
             .append("g")
+            .attr('class', 'topology-scene')
+
+        // Background regions are independent of layout, selection and links.
+        this.gGroupRegions = this.g.append("g")
+            .attr("class", "topology-group-regions")
+            .attr("aria-hidden", "true")
+            .attr("pointer-events", "none")
 
         // levels group
         this.gLevels = this.g.append("g")
@@ -1024,6 +1065,16 @@ export class Topology extends React.Component<Props, {}> {
         // levels group
         this.gLevelLabels = this.g.append("g")
             .attr("class", "level-labels")
+        this.gLevelLabels.append('rect')
+            .attr('class', 'level-label-backdrop')
+            .attr('pointer-events', 'none').attr('aria-hidden', 'true')
+        this.gLevelLabels.append('rect')
+            .attr('class', 'level-label-panel-surface')
+            .attr('pointer-events', 'none').attr('aria-hidden', 'true')
+        this.gLevelLabels.append('path')
+            .attr('class', 'level-label-rail')
+            .attr('pointer-events', 'none')
+            .attr('aria-hidden', 'true')
 
         // clicked link labels are copied here so they can be read above nodes.
         this.gRaisedLinkLabels = this.g.append("g")
@@ -2126,10 +2177,325 @@ export class Topology extends React.Component<Props, {}> {
         return undefined
     }
 
+    private topologyGroupCardScope(d: D3Node) {
+        const data = d.data.wrapped.data || {}
+        const storedScope = String(data.GroupScopeLabel || '').trim()
+        if (storedScope) return storedScope
+        if (String(data.Manager || '').toLowerCase() !== 'k8s') return ''
+
+        const parentData = d.parent?.data?.wrapped?.data || {}
+        const parentType = String(parentData.Type || '').toLowerCase()
+        if (["cluster", "namespace", "deployment", "statefulset", "daemonset", "job", "cronjob", "storageclass", "persistentvolumeclaim"].indexOf(parentType) < 0) {
+            return ''
+        }
+        return String(parentData.Name || '').trim()
+    }
+
+    private topologyKubernetesNamespace(nodeData: any) {
+        return String(
+            nodeData.Namespace
+            || nodeData.namespace
+            || nodeData.K8s?.Namespace
+            || nodeData.K8s?.namespace
+            || nodeData.K8s?.Extra?.ObjectMeta?.Namespace
+            || nodeData.K8s?.Extra?.ObjectMeta?.namespace
+            || nodeData.K8s?.Extra?.metadata?.namespace
+            || ''
+        ).trim()
+    }
+
+    private topologyNodeDisplayName(d: D3Node) {
+        const self = this
+        const attrsName = self.props.nodeAttrs(d.data.wrapped).name
+        const nodeData = d.data.wrapped.data || {}
+        const vmNameMap = self.props.vmNameMap || {}
+        const vmNetworkMap = self.props.vmNetworkMap || {}
+
+        if (d.data.type === WrapperType.Group) {
+            const scope = self.topologyGroupCardScope(d)
+            if (scope) {
+                return `${attrsName}\n${scope}`
+            }
+        }
+
+        if (d.data.type !== WrapperType.Group && String(nodeData.Manager || '').toLowerCase() === 'k8s') {
+            const storageType = String(nodeData.Type || '').toLowerCase()
+            if (isKubernetesStorageType(storageType)) {
+                return kubernetesTopologyNodeText(attrsName, storageType, self.topologyKubernetesNamespace(nodeData)).accessibleName
+            }
+        }
+
+        // For VM child NIC nodes, prefer operator-facing label:
+        // IP > Mold network name > existing interface name.
+        const nodeType = typeof nodeData.Type === "string" ? nodeData.Type.toLowerCase() : ""
+        const nodeDriver = typeof nodeData.Driver === "string" ? nodeData.Driver.toLowerCase() : ""
+        if (
+            nodeType === "tuntap" ||
+            nodeType === "tun" ||
+            nodeDriver === "tun" ||
+            nodeDriver === "tuntap"
+        ) {
+            let parent = d.data.wrapped.parent
+            while (parent && parent.data?.Type !== "libvirt") {
+                parent = parent.parent
+            }
+            const libvirtName = parent?.data?.Name
+            const parentDisplayName = parent ? self.props.nodeAttrs(parent).name : undefined
+            const vmNameMapped = libvirtName ? vmNameMap[libvirtName] : undefined
+            const vmKeys = [
+                libvirtName,
+                vmNameMapped,
+                parentDisplayName,
+                parent?.data?.UUID,
+                parent?.data?.ID,
+                parent?.data?.ExtID,
+                parent?.data?.VirtualMachineID,
+                parent?.data?.instanceName
+            ]
+                .map((v) => (typeof v === "string" ? v.trim() : ""))
+                .filter((v, idx, arr) => !!v && arr.indexOf(v) === idx)
+            let nicList: Array<{ networkName: string, macAddress: string, ipAddress: string }> = []
+            for (const key of vmKeys) {
+                const found = vmNetworkMap[key]
+                if (Array.isArray(found) && found.length > 0) {
+                    nicList = found
+                    break
+                }
+            }
+
+            const normalizeMac = (value: any): string => {
+                if (typeof value !== "string") {
+                    return ""
+                }
+                return value.toLowerCase().replace(/[^0-9a-f]/g, "")
+            }
+            const normalizeIP = (value: any): string => {
+                if (typeof value !== "string") {
+                    return ""
+                }
+                return value.trim().split("/")[0]
+            }
+            const normalizeIfToken = (value: any): string => {
+                if (typeof value !== "string") {
+                    return ""
+                }
+                return value.trim().toLowerCase()
+            }
+            const collectIfTokens = (value: any): string[] => {
+                const raw = normalizeIfToken(value)
+                if (!raw) {
+                    return []
+                }
+                // e.g. "ens3 / vnet13" -> ["ens3", "vnet13"]
+                return raw.split(/[\/,\s]+/).map((v) => v.trim()).filter(Boolean)
+            }
+            const pickText = (obj: any, keys: string[]): string => {
+                for (const key of keys) {
+                    const value = obj?.[key]
+                    if (value !== undefined && value !== null) {
+                        const text = String(value).trim()
+                        if (text) {
+                            return text
+                        }
+                    }
+                }
+                return ""
+            }
+            const nodeMacCandidates = [
+                nodeData.MAC,
+                nodeData.PeerIntfMAC,
+                nodeData?.Libvirt?.MAC,
+                nodeData?.Libvirt?.Mac,
+            ]
+                .map((v) => normalizeMac(v))
+                .filter((v, idx, arr) => !!v && arr.indexOf(v) === idx)
+            const nodeIPs = [
+                ...(Array.isArray(nodeData.IPV4) ? nodeData.IPV4 : [nodeData.IPV4]),
+                ...(Array.isArray(nodeData.IPV6) ? nodeData.IPV6 : [nodeData.IPV6]),
+                ...(Array.isArray(nodeData.IfAddr) ? nodeData.IfAddr : [nodeData.IfAddr]),
+                ...(Array.isArray(nodeData.Addresses) ? nodeData.Addresses : [nodeData.Addresses]),
+            ]
+                .map((v) => normalizeIP(typeof v === "string" ? v : String(v || "")))
+                .filter((v) => !!v)
+            const nodeIPSet = new Set(nodeIPs)
+            const nodeIfTokens = [
+                ...collectIfTokens(nodeData.Name),
+                ...collectIfTokens(nodeData.IfName),
+                ...collectIfTokens(nodeData.PeerIfName),
+                ...collectIfTokens(nodeData.Interface),
+            ]
+            const nodeIfTokenSet = new Set(nodeIfTokens)
+            const matchedNic = nicList.find((nic: any) => {
+                const nicIP = normalizeIP(pickText(nic, ["ipAddress", "ip", "ip_address", "fixedIp", "fixed_ip"]))
+                if (nicIP && nodeIPSet.has(nicIP)) {
+                    return true
+                }
+                const nicMac = normalizeMac(pickText(nic, ["macAddress", "mac", "mac_address", "macAddr"]))
+                if (nicMac && nodeMacCandidates.some((m) => m === nicMac)) {
+                    return true
+                }
+                if (nodeIfTokenSet.size === 0) {
+                    return false
+                }
+                const nicIfCandidates = [
+                    nic.interfaceName,
+                    nic.ifName,
+                    nic.tapName,
+                    nic.tap_name,
+                    nic.deviceName,
+                    nic.device_name,
+                    nic.device,
+                    nic.name,
+                    nic.iface,
+                    nic.interface
+                ]
+                const nicTokens = nicIfCandidates.reduce((acc: string[], raw: any) => {
+                    const tokens = collectIfTokens(raw)
+                    if (tokens.length) {
+                        acc.push(...tokens)
+                    }
+                    return acc
+                }, [] as string[])
+                if (nicTokens.length === 0) {
+                    return false
+                }
+                return nicTokens.some((token) => nodeIfTokenSet.has(token))
+            })
+
+            const fallbackNic = matchedNic || (nicList.length === 1 ? nicList[0] : undefined)
+            const ip = pickText(fallbackNic, ["ipAddress", "ip", "ip_address", "fixedIp", "fixed_ip"])
+            const interfaceFromNic = pickText(fallbackNic, [
+                "interfaceName",
+                "ifName",
+                "guestInterface",
+                "guestInterfaceName",
+                "guestDeviceName",
+                "guestDevice",
+                "deviceName",
+                "device_name",
+                "device",
+                "iface",
+                "interface"
+            ])
+            const interfaceFromNode = pickText(nodeData, [
+                "GuestInterface",
+                "GuestInterfaceName",
+                "GuestDeviceName",
+                "GuestDevice",
+                "IfName",
+                "PeerIfName",
+                "Interface",
+                "Name"
+            ])
+            const pickInterfaceName = (...values: string[]): string => {
+                const tokens = values.reduce((acc: string[], value) => {
+                    acc.push(...collectIfTokens(value))
+                    return acc
+                }, [] as string[])
+                    .filter((token, index, array) => !!token && array.indexOf(token) === index)
+                const guestToken = tokens.find((token) => /^(eth|ens|eno|enp)\d/i.test(token))
+                if (guestToken) {
+                    return guestToken
+                }
+                const nonTapToken = tokens.find((token) => !/^(vnet|tap|tun|tuntap)/i.test(token))
+                return nonTapToken || tokens[0] || ""
+            }
+            const interfaceName = pickInterfaceName(interfaceFromNic, interfaceFromNode)
+            const rawNetworkName = pickText(fallbackNic, ["networkName", "network", "network_name", "name"])
+            const toText = (value: any): string => {
+                if (value === undefined || value === null) {
+                    return ""
+                }
+                return String(value).trim()
+            }
+            const rawNodeNetwork = toText(nodeData.Network)
+            const rawNodeIPv4 = Array.isArray(nodeData.IPV4)
+                ? toText(nodeData.IPV4[0])
+                : toText(nodeData.IPV4)
+            const rawNodeIfAddr = Array.isArray(nodeData.IfAddr)
+                ? toText(nodeData.IfAddr[0])
+                : toText(nodeData.IfAddr)
+            const rawNodeVlan = toText(nodeData.VLAN || nodeData.Vlan || nodeData.VLANID || nodeData.VlanID)
+            const rawNodeVni = toText(nodeData.VNI || nodeData.Vni)
+            const rawNodeBroadcast = toText(nodeData.Broadcast || nodeData.BROADCAST)
+            const fallbackNodeIP = normalizeIP(rawNodeIPv4 || rawNodeIfAddr)
+            const hasUntaggedHint = [rawNodeNetwork, rawNodeVlan, rawNodeVni, rawNodeBroadcast]
+                .some((v) => /(^|:\/\/)untagged$/i.test(v) || /untagged/i.test(v))
+            const isUntaggedNetwork =
+                /^(vlan:\/\/)?untagged$/i.test(rawNetworkName || "") ||
+                /^(vlan:\/\/)?untagged$/i.test(rawNodeNetwork) ||
+                /^(vlan:\/\/)?untagged$/i.test(rawNodeVlan) ||
+                /^(vlan:\/\/)?untagged$/i.test(rawNodeVni) ||
+                /^(vlan:\/\/)?untagged$/i.test(rawNodeBroadcast) ||
+                (/^l2$/i.test(rawNetworkName || "") && hasUntaggedHint)
+            const networkName = isUntaggedNetwork
+                ? "L2 Untagged"
+                : (rawNetworkName || rawNodeNetwork)
+            const detectVlanId = (): string | undefined => {
+                const candidates = [
+                    nodeData.VLAN,
+                    nodeData.Vlan,
+                    nodeData.VLANID,
+                    nodeData.VlanID,
+                    nodeData.Tag,
+                    nodeData.ID,
+                    rawNetworkName
+                ]
+                for (const raw of candidates) {
+                    if (raw === undefined || raw === null) {
+                        continue
+                    }
+                    const text = String(raw).trim()
+                    if (!text) {
+                        continue
+                    }
+                    if (/^\d+$/.test(text)) {
+                        return text
+                    }
+                    const byKeyword = text.match(/vlan[-_ ]?(\d+)/i)
+                    if (byKeyword && byKeyword[1]) {
+                        return byKeyword[1]
+                    }
+                    const byDot = text.match(/\.(\d{1,4})$/)
+                    if (byDot && byDot[1]) {
+                        return byDot[1]
+                    }
+                }
+                return undefined
+            }
+            const vlanId = detectVlanId()
+
+            const displayIP = ip || fallbackNodeIP
+
+            if (displayIP && interfaceName) {
+                return `${displayIP}\n${interfaceName}`
+            }
+            if (displayIP) {
+                return displayIP
+            }
+            if (interfaceName) {
+                return interfaceName
+            }
+            if (networkName && vlanId) {
+                return `${networkName}\nVLAN ${vlanId}`
+            }
+            if (networkName) {
+                return networkName
+            }
+            if (vlanId) {
+                return `VLAN ${vlanId}`
+            }
+            if (isUntaggedNetwork) {
+                return "L2 Untagged"
+            }
+            return attrsName
+        }
+
+        return vmNameMap[attrsName] || attrsName
+    }
+
     private topologyLayoutCardWidth(node: D3Node): number {
-        const wrapped = node.data.wrapped
-        const attrsName = String(this.props.nodeAttrs(wrapped).name || wrapped.data?.Name || '')
-        const displayName = this.props.vmNameMap?.[attrsName] || attrsName
+        const displayName = this.topologyNodeDisplayName(node)
         const longestLineLength = displayName.split("\n").reduce((length, line) => Math.max(length, line.length), 0)
         return longestLineLength <= 14 ? topologyCardWidth : topologyMediumCardWidth
     }
@@ -2323,6 +2689,23 @@ export class Topology extends React.Component<Props, {}> {
             this.shiftHierarchySubtreeX(subtree.host, targetLeft - subtree.left)
             cursor += subtree.width + compactHostSubtreeGap
         })
+    }
+
+    private separateTopologyBranches(root: any) {
+        const descendants = root.descendants() as D3Node[]
+        const byID = new Map(descendants.map(node => [node.data.id, node]))
+        const offsets = topologyBranchOffsets(descendants.map(node => {
+            const backplate = node.data.type === WrapperType.Group ? 13 : 0
+            return {
+                id: node.data.id, parentID: node.parent?.data.id,
+                visible: node.data.type !== WrapperType.Hidden && node.data.wrapped !== this.root,
+                expanded: !!node.data.wrapped.state.expanded,
+                x: node.x + backplate / 2, y: node.y,
+                width: this.topologyLayoutCardWidth(node) + backplate,
+                height: isKubernetesThreeLineTopologyType(node.data.wrapped.data?.Type) ? topologyWorkloadCardHeight : topologyCardHeight
+            }
+        }))
+        offsets.forEach((offset, id) => this.shiftHierarchySubtreeX(byID.get(id)!, offset))
     }
 
     private nodeByID(id: string): Node | undefined {
@@ -4277,25 +4660,78 @@ export class Topology extends React.Component<Props, {}> {
 
     private showLevelLabel(d: LevelRect) {
         var label = select("#level-label-" + d.weight)
+        const centerY = d.bb.height / 2
+        // Keep the icon-over-title stack aligned inside the shared panel.
+        // Its row remains aligned with the topology at every zoom level.
+        const labelScale = this.levelLabelScale()
         label
-            .attr("transform", `translate(${-this.absTransformX},${d.bb.y + 2})`)
-            .select("rect")
-            .attr("height", d.bb.height - 4)
-
-        var text = label.select("text.level-label-title")
-        var element = text.node()
-        if (element) {
-            const bbox = (element as SVGTextElement).getBBox()
-            const centerY = d.bb.height / 2 + bbox.height / 4
-            label.select("text.level-label-icon").attr("y", centerY - 32)
-            const switchIconScale = 1.68
-            const switchIconOffset = (1.4 - switchIconScale) * 32
-            label.select("g.level-label-switch-icon")
-                .attr("transform", `translate(${((localStorage.getItem("language") || "ko") === "en" ? 75 : 65) + switchIconOffset},${centerY - 86 + switchIconOffset}) scale(${switchIconScale})`)
-            label.select("text.level-label-badge").attr("y", centerY - 32)
-            const titleLines = label.select("text.level-label-title").selectAll("tspan").size()
-            label.select("text.level-label-title").attr("y", centerY + (titleLines > 1 ? 32 : 44))
+            .attr("transform", `translate(${-this.absTransformX},${d.bb.y + centerY}) scale(${labelScale}) translate(0,${-centerY})`)
+        // Row surfaces stay aligned with the body guides, independently of the
+        // compact icon/text scale. Their panel and indicator widths are pixels.
+        const rowY = centerY - centerY / labelScale
+        const rowHeight = d.bb.height / labelScale
+        const screenScale = this.currentZoom() * labelScale
+        const rowWidth = topologyLevelLabelSafeInset / screenScale
+        label.select('rect.level-label-hit-area')
+            .attr('y', rowY).attr('width', rowWidth).attr('height', rowHeight)
+        const rowPadding = Math.min(8 / screenScale, rowHeight * 0.1)
+        label.select('rect.level-label-row-bg')
+            .attr('x', 20 / screenScale).attr('y', rowY + rowPadding)
+            .attr('width', rowWidth - 40 / screenScale).attr('height', rowHeight - rowPadding * 2)
+            .attr('rx', 8 / screenScale).attr('ry', 8 / screenScale)
+        label.select('rect.level-label-indicator')
+            .attr('x', 20 / screenScale).attr('y', rowY + rowPadding)
+            .attr('width', 2.5 / screenScale).attr('height', rowHeight - rowPadding * 2)
+            .attr('rx', 1.25 / screenScale)
+        label.select('line.level-label-divider')
+            .attr('x1', 52 / screenScale).attr('x2', rowWidth - 26 / screenScale)
+            .attr('y1', rowY + rowHeight).attr('y2', rowY + rowHeight)
+        const textX = 60 / screenScale
+        const centerX = 76 / screenScale
+        const rowPixels = d.bb.height * this.currentZoom()
+        const titlePixels = Math.min(15, rowPixels / 4.5)
+        const gapPixels = Math.min(12, rowPixels * 0.08)
+        const title = label.select('text.level-label-title')
+            .style('font-size', `${titlePixels / screenScale}px`)
+            .attr('x', textX).attr('y', 0)
+        title.selectAll('tspan').attr('x', textX)
+        let titleBox = (title.node() as SVGTextElement).getBBox()
+        const titleWidth = rowWidth - textX - 26 / screenScale
+        if (titleBox.width > titleWidth) {
+            title.style('font-size', `${titlePixels / screenScale * titleWidth / titleBox.width}px`)
+            titleBox = (title.node() as SVGTextElement).getBBox()
         }
+        // Fit the standalone glyph above the title in the existing row.
+        let iconPixels = Math.max(0, Math.min(32,
+            rowPixels - titleBox.height * screenScale - gapPixels - Math.min(12, rowPixels * 0.1)))
+        const icon = label.select('text.level-label-icon')
+            .style('font-size', `${iconPixels / screenScale}px`)
+            .attr('x', centerX).attr('y', 0)
+        let measuredIconBox = (icon.node() as SVGTextElement).getBBox()
+        const glyphSize = Math.max(measuredIconBox.width, measuredIconBox.height)
+        const availableGlyphSize = iconPixels / screenScale
+        if (glyphSize > availableGlyphSize) {
+            iconPixels *= availableGlyphSize / glyphSize
+            icon.style('font-size', `${iconPixels / screenScale}px`)
+            measuredIconBox = (icon.node() as SVGTextElement).getBBox()
+        }
+        // The Font Awesome glyph is hidden for the custom switch icon.
+        const iconBox = measuredIconBox.height ? measuredIconBox : {
+            height: iconPixels / screenScale, y: -iconPixels / screenScale * 0.875
+        }
+        const contentTop = centerY - (iconBox.height + gapPixels / screenScale + titleBox.height) / 2
+        const iconCenterY = contentTop + iconBox.height / 2
+        const iconBaseline = iconCenterY - iconBox.height / 2 - iconBox.y
+        icon.attr('y', iconBaseline)
+        title.attr('y', contentTop + iconBox.height + gapPixels / screenScale - titleBox.y)
+        const switchIconScale = 1.92 * iconPixels / 48
+        label.select('g.level-label-switch-icon')
+            .attr('transform', `translate(${centerX - 32 * switchIconScale},${iconCenterY - 32 * switchIconScale}) scale(${switchIconScale})`)
+        label.select('text.level-label-badge')
+            .style('font-size', `${Math.min(12, iconPixels / 4) / screenScale}px`)
+            .attr('x', centerX + iconPixels / screenScale * 0.46)
+            .attr('y', iconBaseline + iconPixels / screenScale * 0.08)
+        this.updateLevelLabelRail()
         label.transition()
             .duration(animDuration)
             .style("opacity", 1)
@@ -4305,12 +4741,20 @@ export class Topology extends React.Component<Props, {}> {
         switch (title) {
             case "쿠버네티스 네임스페이스":
                 return ["쿠버네티스", "네임스페이스"]
+            case "쿠버네티스 클러스터":
+                return ["쿠버네티스", "클러스터"]
+            case "쿠버네티스 노드":
+                return ["쿠버네티스", "노드"]
             case "쿠버네티스 워크로드 컨트롤러":
                 return ["쿠버네티스", "워크로드 컨트롤러"]
             case "쿠버네티스 스토리지":
                 return ["쿠버네티스", "스토리지"]
             case "Kubernetes Namespaces":
                 return ["Kubernetes", "Namespaces"]
+            case "Kubernetes Clusters":
+                return ["Kubernetes", "Clusters"]
+            case "Kubernetes Nodes":
+                return ["Kubernetes", "Nodes"]
             case "Kubernetes Workload Controllers":
                 return ["Kubernetes", "Workload Controllers"]
             case "Kubernetes Storage":
@@ -4332,7 +4776,7 @@ export class Topology extends React.Component<Props, {}> {
             lines.forEach((line, index) => {
                 text.append("tspan")
                     .attr("x", x)
-                    .attr("dy", index === 0 ? 0 : "1.15em")
+                    .attr("dy", index === 0 ? 0 : "1.3em")
                     .text(line)
             })
         })
@@ -4445,13 +4889,57 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     private hideAllLevelLabels() {
+        this.gLevelLabels.select('path.level-label-rail').style('opacity', 0)
         this.gLevelLabels.selectAll('g.level-label')
             .style("opacity", 0)
             .interrupt()
     }
 
     private showAllLevelLabels() {
-        selectAll("g.level-label").each((d: LevelRect) => this.showLevelLabel(d))
+        this.gLevelLabels.selectAll('g.level-label').each((d: LevelRect) => this.showLevelLabel(d))
+    }
+
+    private updateLevelLabelRail() {
+        this.updateLevelLabelBackdrop()
+        const tops = this.levelRects.map(level => level.bb.y)
+        const bottoms = this.levelRects.map(level => level.bb.y + level.bb.height)
+        const railX = 72 * this.levelLabelScale()
+        const top = Math.min(...tops)
+        const bottom = Math.max(...bottoms)
+        const railInset = Math.min(20 / this.currentZoom(), (bottom - top) / 4)
+        this.gLevelLabels.select('path.level-label-rail')
+            .attr('transform', `translate(${-this.absTransformX},0)`)
+            .attr('d', tops.length ? `M${railX},${top + railInset} L${railX},${bottom - railInset}` : '')
+            .style('opacity', 1)
+    }
+
+    private levelLabelScale(): number {
+        // Keep panel content in screen coordinates. Each row fits its stack
+        // independently, without changing the topology's layer heights.
+        return 0.5 / this.currentZoom()
+    }
+
+    private updateLevelLabelBackdrop() {
+        if (!this.gLevelLabels || !this.svgDiv) return
+        const scale = this.currentZoom()
+        // Mask panned nodes beneath a softly inset surface; the graph layout
+        // and hit areas stay unchanged. All surface dimensions are screen pixels.
+        this.gLevelLabels.select('rect.level-label-backdrop')
+            .attr('x', -this.absTransformX).attr('y', -this.absTransformY)
+            .attr('width', topologyLevelLabelSafeInset / scale)
+            .attr('height', this.svgDiv.clientHeight / scale)
+        const panelTop = Math.max(-this.absTransformY + 12 / scale,
+            Math.min(...this.levelRects.map(level => level.bb.y)) - 16 / scale)
+        const panelBottom = Math.min(-this.absTransformY + (this.svgDiv.clientHeight - 12) / scale,
+            Math.max(...this.levelRects.map(level => level.bb.y + level.bb.height)) + 16 / scale)
+        this.gLevelLabels.select('rect.level-label-panel-surface')
+            .attr('x', -this.absTransformX + 12 / scale)
+            .attr('y', this.levelRects.length ? panelTop : -this.absTransformY)
+            .attr('width', (topologyLevelLabelSafeInset - 24) / scale)
+            .attr('height', this.levelRects.length ? Math.max(0, panelBottom - panelTop) : 0)
+            .attr('rx', 14 / scale).attr('ry', 14 / scale)
+        this.svg.select('feDropShadow.level-label-panel-shadow')
+            .attr('dy', 6 / scale).attr('stdDeviation', 9 / scale)
     }
 
     private groupBB(node: NodeWrapper): BoundingBox | null {
@@ -4484,8 +4972,6 @@ export class Topology extends React.Component<Props, {}> {
 
     private renderLevels() {
         var self = this
-        const lang = localStorage.getItem("language") || "ko";
-
         if (this.invalidated) {
             this.updateLevelRects(this.levelNodes())
         }
@@ -4498,13 +4984,17 @@ export class Topology extends React.Component<Props, {}> {
             .attr("class", "level-label")
             .style("opacity", 0)
             .attr("transform", (d: LevelRect) => `translate(${-self.absTransformX},${d.bb.y})`)
-        levelLabelEnter.append("rect")
-            .attr("width", lang === "en" ? 240 : 220)
-            .attr("height", (d: LevelRect) => d.bb.height);
+        levelLabelEnter.append('rect').attr('class', 'level-label-row-bg')
+            .attr('pointer-events', 'none').attr('aria-hidden', 'true')
+        levelLabelEnter.append('rect').attr('class', 'level-label-indicator')
+            .attr('pointer-events', 'none').attr('aria-hidden', 'true')
+        levelLabelEnter.append('line').attr('class', 'level-label-divider')
+            .attr('pointer-events', 'none').attr('aria-hidden', 'true')
+        levelLabelEnter.append('rect').attr('class', 'level-label-hit-area')
         levelLabelEnter.append("text")
             .attr("class", "level-label-icon")
             .attr("text-anchor", "middle")
-            .attr("x", lang === "en" ? 120 : 110)
+            .attr("x", 82)
             .text((d: LevelRect) => self.levelLabelIcon(self.weightTitles.get(d.weight) || 'Level ' + d.weight))
         const switchIcon = levelLabelEnter.append("g")
             .attr("class", "level-label-switch-icon")
@@ -4533,12 +5023,12 @@ export class Topology extends React.Component<Props, {}> {
         levelLabelEnter.append("text")
             .attr("class", "level-label-badge")
             .attr("text-anchor", "middle")
-            .attr("x", lang === "en" ? 120 : 110)
+            .attr("x", 103)
             .text((d: LevelRect) => self.levelLabelBadgeIcon(self.weightTitles.get(d.weight) || 'Level ' + d.weight))
         levelLabelEnter.append("text")
             .attr("class", "level-label-title")
-            .attr("text-anchor", "middle")
-            .attr("x", lang === "en" ? 120 : 110)
+            .attr("text-anchor", "start")
+            .attr("x", 128)
         levelLabelEnter.append("title")
             .attr("class", "level-label-tooltip")
         this.updateLevelLabelTitleText(levelLabelEnter.select("text.level-label-title"))
@@ -4548,6 +5038,7 @@ export class Topology extends React.Component<Props, {}> {
         allLevelLabels.select("title.level-label-tooltip")
             .text((d: LevelRect) => self.weightTitles.get(d.weight) || 'Level ' + d.weight)
         levelLabel.exit().remove()
+        this.updateLevelLabelRail()
 
         this.updateLevelLabelActiveClass()
 
@@ -4606,6 +5097,39 @@ export class Topology extends React.Component<Props, {}> {
             .duration(animDuration)
             .attr("d", hieraLinker)
             .style("opacity", 1)
+    }
+
+    private renderTopologyGroupRegions(cardWidth: (node: D3Node) => number, cardHeight: (node: D3Node) => number) {
+        // Both product layers use the same visible-tree geometry and surfaces.
+        // Tag filtering happens during tree normalization, before presentation.
+        const regions = topologyGroupRegions(Array.from(this.d3nodes.values()).map(node => ({
+            id: node.data.id,
+            parentID: node.parent?.data.id,
+            visible: node.data.type !== WrapperType.Hidden && node.data.wrapped !== this.root,
+            expanded: !!node.data.wrapped.state.expanded,
+            x: node.x,
+            y: node.y,
+            width: cardWidth(node),
+            height: cardHeight(node)
+        })))
+        const group = this.gGroupRegions.selectAll('g.topology-group-region')
+            .data(regions, (region: any) => region.id)
+        group.exit().remove()
+        const entered = group.enter().append('g').attr('class', 'topology-group-region')
+        entered.append('path').attr('class', 'topology-group-region__base').attr('transform', 'translate(0,4)')
+        entered.append('path').attr('class', 'topology-group-region__shade')
+        entered.append('path').attr('class', 'topology-group-region__pattern')
+        const merged = entered.merge(group)
+            .attr('data-group-id', region => region.id)
+            .attr('data-tone', region => region.variant)
+        // Paths follow the final layout immediately; only their opacity fades.
+        // This avoids malformed path interpolation when rows are added/removed.
+        merged.select('path.topology-group-region__base').attr('d', region => region.path)
+        merged.select('path.topology-group-region__shade').attr('d', region => region.path)
+            .attr('fill', region => `url(#topology-group-surface-${region.variant})`)
+        merged.select('path.topology-group-region__pattern').attr('d', region => region.path)
+            .attr('fill', region => `url(#topology-group-dots-${region.variant})`)
+        entered.style('opacity', 0).transition().duration(animDuration).style('opacity', 1)
     }
 
     private renderGroups() {
@@ -4842,19 +5366,7 @@ export class Topology extends React.Component<Props, {}> {
             return type === 'libvirt' || isTopologyInterfaceData(data)
         }
         const isGroupCardNode = (d: D3Node) => d.data.type === WrapperType.Group
-        const groupCardScope = (d: D3Node) => {
-            const data = d.data.wrapped.data || {}
-            const storedScope = String(data.GroupScopeLabel || '').trim()
-            if (storedScope) return storedScope
-            if (String(data.Manager || '').toLowerCase() !== 'k8s') return ''
-
-            const parentData = d.parent?.data?.wrapped?.data || {}
-            const parentType = String(parentData.Type || '').toLowerCase()
-            if (["cluster", "namespace", "deployment", "statefulset", "daemonset", "job", "cronjob", "storageclass", "persistentvolumeclaim"].indexOf(parentType) < 0) {
-                return ''
-            }
-            return String(parentData.Name || '').trim()
-        }
+        const groupCardScope = (d: D3Node) => self.topologyGroupCardScope(d)
         const groupCardTooltip = (d: D3Node) => {
             const groupName = String(self.props.nodeAttrs(d.data.wrapped).name || d.data.wrapped.data?.Name || '')
             const scope = groupCardScope(d)
@@ -4871,9 +5383,7 @@ export class Topology extends React.Component<Props, {}> {
             if (isGroupContainerNode(d)) {
                 return groupContainerWidth
             }
-            const displayName = getNodeDisplayName(d)
-            const longestLineLength = displayName.split("\n").reduce((length, line) => Math.max(length, line.length), 0)
-            return longestLineLength <= 14 ? topologyCardWidth : topologyMediumCardWidth
+            return self.topologyLayoutCardWidth(d)
         }
         const cardIconX = (d: D3Node) => -cardWidthForNode(d) / 2 + 38
         const workloadTypes = new Set(['deployment', 'statefulset', 'daemonset', 'job', 'cronjob'])
@@ -5112,307 +5622,9 @@ export class Topology extends React.Component<Props, {}> {
             })
         }
 
-        function kubernetesNodeNamespace(nodeData: any): string {
-            return String(
-                nodeData.Namespace
-                || nodeData.namespace
-                || nodeData.K8s?.Namespace
-                || nodeData.K8s?.namespace
-                || nodeData.K8s?.Extra?.ObjectMeta?.Namespace
-                || nodeData.K8s?.Extra?.ObjectMeta?.namespace
-                || nodeData.K8s?.Extra?.metadata?.namespace
-                || ''
-            ).trim()
-        }
+        function kubernetesNodeNamespace(nodeData: any) { return self.topologyKubernetesNamespace(nodeData) }
 
-        function getNodeDisplayName(d: D3Node) {
-            const attrsName = self.props.nodeAttrs(d.data.wrapped).name
-            const nodeData = d.data.wrapped.data || {}
-            const vmNameMap = self.props.vmNameMap || {}
-            const vmNetworkMap = self.props.vmNetworkMap || {}
-
-            if (d.data.type === WrapperType.Group) {
-                const scope = groupCardScope(d)
-                if (scope) {
-                    return `${attrsName}\n${scope}`
-                }
-            }
-
-            if (d.data.type !== WrapperType.Group && String(nodeData.Manager || '').toLowerCase() === 'k8s') {
-                const storageType = String(nodeData.Type || '').toLowerCase()
-                if (isKubernetesStorageType(storageType)) {
-                    return kubernetesTopologyNodeText(attrsName, storageType, kubernetesNodeNamespace(nodeData)).accessibleName
-                }
-            }
-
-            // For VM child NIC nodes, prefer operator-facing label:
-            // IP > Mold network name > existing interface name.
-            const nodeType = typeof nodeData.Type === "string" ? nodeData.Type.toLowerCase() : ""
-            const nodeDriver = typeof nodeData.Driver === "string" ? nodeData.Driver.toLowerCase() : ""
-            if (
-                nodeType === "tuntap" ||
-                nodeType === "tun" ||
-                nodeDriver === "tun" ||
-                nodeDriver === "tuntap"
-            ) {
-                let parent = d.data.wrapped.parent
-                while (parent && parent.data?.Type !== "libvirt") {
-                    parent = parent.parent
-                }
-                const libvirtName = parent?.data?.Name
-                const parentDisplayName = parent ? self.props.nodeAttrs(parent).name : undefined
-                const vmNameMapped = libvirtName ? vmNameMap[libvirtName] : undefined
-                const vmKeys = [
-                    libvirtName,
-                    vmNameMapped,
-                    parentDisplayName,
-                    parent?.data?.UUID,
-                    parent?.data?.ID,
-                    parent?.data?.ExtID,
-                    parent?.data?.VirtualMachineID,
-                    parent?.data?.instanceName
-                ]
-                    .map((v) => (typeof v === "string" ? v.trim() : ""))
-                    .filter((v, idx, arr) => !!v && arr.indexOf(v) === idx)
-                let nicList: Array<{ networkName: string, macAddress: string, ipAddress: string }> = []
-                for (const key of vmKeys) {
-                    const found = vmNetworkMap[key]
-                    if (Array.isArray(found) && found.length > 0) {
-                        nicList = found
-                        break
-                    }
-                }
-
-                const normalizeMac = (value: any): string => {
-                    if (typeof value !== "string") {
-                        return ""
-                    }
-                    return value.toLowerCase().replace(/[^0-9a-f]/g, "")
-                }
-                const normalizeIP = (value: any): string => {
-                    if (typeof value !== "string") {
-                        return ""
-                    }
-                    return value.trim().split("/")[0]
-                }
-                const normalizeIfToken = (value: any): string => {
-                    if (typeof value !== "string") {
-                        return ""
-                    }
-                    return value.trim().toLowerCase()
-                }
-                const collectIfTokens = (value: any): string[] => {
-                    const raw = normalizeIfToken(value)
-                    if (!raw) {
-                        return []
-                    }
-                    // e.g. "ens3 / vnet13" -> ["ens3", "vnet13"]
-                    return raw.split(/[\/,\s]+/).map((v) => v.trim()).filter(Boolean)
-                }
-                const pickText = (obj: any, keys: string[]): string => {
-                    for (const key of keys) {
-                        const value = obj?.[key]
-                        if (value !== undefined && value !== null) {
-                            const text = String(value).trim()
-                            if (text) {
-                                return text
-                            }
-                        }
-                    }
-                    return ""
-                }
-                const nodeMacCandidates = [
-                    nodeData.MAC,
-                    nodeData.PeerIntfMAC,
-                    nodeData?.Libvirt?.MAC,
-                    nodeData?.Libvirt?.Mac,
-                ]
-                    .map((v) => normalizeMac(v))
-                    .filter((v, idx, arr) => !!v && arr.indexOf(v) === idx)
-                const nodeIPs = [
-                    ...(Array.isArray(nodeData.IPV4) ? nodeData.IPV4 : [nodeData.IPV4]),
-                    ...(Array.isArray(nodeData.IPV6) ? nodeData.IPV6 : [nodeData.IPV6]),
-                    ...(Array.isArray(nodeData.IfAddr) ? nodeData.IfAddr : [nodeData.IfAddr]),
-                    ...(Array.isArray(nodeData.Addresses) ? nodeData.Addresses : [nodeData.Addresses]),
-                ]
-                    .map((v) => normalizeIP(typeof v === "string" ? v : String(v || "")))
-                    .filter((v) => !!v)
-                const nodeIPSet = new Set(nodeIPs)
-                const nodeIfTokens = [
-                    ...collectIfTokens(nodeData.Name),
-                    ...collectIfTokens(nodeData.IfName),
-                    ...collectIfTokens(nodeData.PeerIfName),
-                    ...collectIfTokens(nodeData.Interface),
-                ]
-                const nodeIfTokenSet = new Set(nodeIfTokens)
-                const matchedNic = nicList.find((nic: any) => {
-                    const nicIP = normalizeIP(pickText(nic, ["ipAddress", "ip", "ip_address", "fixedIp", "fixed_ip"]))
-                    if (nicIP && nodeIPSet.has(nicIP)) {
-                        return true
-                    }
-                    const nicMac = normalizeMac(pickText(nic, ["macAddress", "mac", "mac_address", "macAddr"]))
-                    if (nicMac && nodeMacCandidates.some((m) => m === nicMac)) {
-                        return true
-                    }
-                    if (nodeIfTokenSet.size === 0) {
-                        return false
-                    }
-                    const nicIfCandidates = [
-                        nic.interfaceName,
-                        nic.ifName,
-                        nic.tapName,
-                        nic.tap_name,
-                        nic.deviceName,
-                        nic.device_name,
-                        nic.device,
-                        nic.name,
-                        nic.iface,
-                        nic.interface
-                    ]
-                    const nicTokens = nicIfCandidates.reduce((acc: string[], raw: any) => {
-                        const tokens = collectIfTokens(raw)
-                        if (tokens.length) {
-                            acc.push(...tokens)
-                        }
-                        return acc
-                    }, [] as string[])
-                    if (nicTokens.length === 0) {
-                        return false
-                    }
-                    return nicTokens.some((token) => nodeIfTokenSet.has(token))
-                })
-
-                const fallbackNic = matchedNic || (nicList.length === 1 ? nicList[0] : undefined)
-                const ip = pickText(fallbackNic, ["ipAddress", "ip", "ip_address", "fixedIp", "fixed_ip"])
-                const interfaceFromNic = pickText(fallbackNic, [
-                    "interfaceName",
-                    "ifName",
-                    "guestInterface",
-                    "guestInterfaceName",
-                    "guestDeviceName",
-                    "guestDevice",
-                    "deviceName",
-                    "device_name",
-                    "device",
-                    "iface",
-                    "interface"
-                ])
-                const interfaceFromNode = pickText(nodeData, [
-                    "GuestInterface",
-                    "GuestInterfaceName",
-                    "GuestDeviceName",
-                    "GuestDevice",
-                    "IfName",
-                    "PeerIfName",
-                    "Interface",
-                    "Name"
-                ])
-                const pickInterfaceName = (...values: string[]): string => {
-                    const tokens = values.reduce((acc: string[], value) => {
-                        acc.push(...collectIfTokens(value))
-                        return acc
-                    }, [] as string[])
-                        .filter((token, index, array) => !!token && array.indexOf(token) === index)
-                    const guestToken = tokens.find((token) => /^(eth|ens|eno|enp)\d/i.test(token))
-                    if (guestToken) {
-                        return guestToken
-                    }
-                    const nonTapToken = tokens.find((token) => !/^(vnet|tap|tun|tuntap)/i.test(token))
-                    return nonTapToken || tokens[0] || ""
-                }
-                const interfaceName = pickInterfaceName(interfaceFromNic, interfaceFromNode)
-                const rawNetworkName = pickText(fallbackNic, ["networkName", "network", "network_name", "name"])
-                const toText = (value: any): string => {
-                    if (value === undefined || value === null) {
-                        return ""
-                    }
-                    return String(value).trim()
-                }
-                const rawNodeNetwork = toText(nodeData.Network)
-                const rawNodeIPv4 = Array.isArray(nodeData.IPV4)
-                    ? toText(nodeData.IPV4[0])
-                    : toText(nodeData.IPV4)
-                const rawNodeIfAddr = Array.isArray(nodeData.IfAddr)
-                    ? toText(nodeData.IfAddr[0])
-                    : toText(nodeData.IfAddr)
-                const rawNodeVlan = toText(nodeData.VLAN || nodeData.Vlan || nodeData.VLANID || nodeData.VlanID)
-                const rawNodeVni = toText(nodeData.VNI || nodeData.Vni)
-                const rawNodeBroadcast = toText(nodeData.Broadcast || nodeData.BROADCAST)
-                const fallbackNodeIP = normalizeIP(rawNodeIPv4 || rawNodeIfAddr)
-                const hasUntaggedHint = [rawNodeNetwork, rawNodeVlan, rawNodeVni, rawNodeBroadcast]
-                    .some((v) => /(^|:\/\/)untagged$/i.test(v) || /untagged/i.test(v))
-                const isUntaggedNetwork =
-                    /^(vlan:\/\/)?untagged$/i.test(rawNetworkName || "") ||
-                    /^(vlan:\/\/)?untagged$/i.test(rawNodeNetwork) ||
-                    /^(vlan:\/\/)?untagged$/i.test(rawNodeVlan) ||
-                    /^(vlan:\/\/)?untagged$/i.test(rawNodeVni) ||
-                    /^(vlan:\/\/)?untagged$/i.test(rawNodeBroadcast) ||
-                    (/^l2$/i.test(rawNetworkName || "") && hasUntaggedHint)
-                const networkName = isUntaggedNetwork
-                    ? "L2 Untagged"
-                    : (rawNetworkName || rawNodeNetwork)
-                const detectVlanId = (): string | undefined => {
-                    const candidates = [
-                        nodeData.VLAN,
-                        nodeData.Vlan,
-                        nodeData.VLANID,
-                        nodeData.VlanID,
-                        nodeData.Tag,
-                        nodeData.ID,
-                        rawNetworkName
-                    ]
-                    for (const raw of candidates) {
-                        if (raw === undefined || raw === null) {
-                            continue
-                        }
-                        const text = String(raw).trim()
-                        if (!text) {
-                            continue
-                        }
-                        if (/^\d+$/.test(text)) {
-                            return text
-                        }
-                        const byKeyword = text.match(/vlan[-_ ]?(\d+)/i)
-                        if (byKeyword && byKeyword[1]) {
-                            return byKeyword[1]
-                        }
-                        const byDot = text.match(/\.(\d{1,4})$/)
-                        if (byDot && byDot[1]) {
-                            return byDot[1]
-                        }
-                    }
-                    return undefined
-                }
-                const vlanId = detectVlanId()
-
-                const displayIP = ip || fallbackNodeIP
-
-                if (displayIP && interfaceName) {
-                    return `${displayIP}\n${interfaceName}`
-                }
-                if (displayIP) {
-                    return displayIP
-                }
-                if (interfaceName) {
-                    return interfaceName
-                }
-                if (networkName && vlanId) {
-                    return `${networkName}\nVLAN ${vlanId}`
-                }
-                if (networkName) {
-                    return networkName
-                }
-                if (vlanId) {
-                    return `VLAN ${vlanId}`
-                }
-                if (isUntaggedNetwork) {
-                    return "L2 Untagged"
-                }
-                return attrsName
-            }
-
-            return vmNameMap[attrsName] || attrsName
-        }
+        function getNodeDisplayName(d: D3Node) { return self.topologyNodeDisplayName(d) }
 
         const trimNodeTitle = (value: string, d?: D3Node) => {
             if (!value) return ''
@@ -6131,6 +6343,8 @@ export class Topology extends React.Component<Props, {}> {
         node
             .filter((d: D3Node) => d.data.wrapped.state.selected)
             .raise()
+
+        this.renderTopologyGroupRegions(cardWidthForNode, cardHeightForNode)
     }
 
     private linkClass(d: Link) {
@@ -6577,9 +6791,17 @@ export class Topology extends React.Component<Props, {}> {
         var normRoot = this.normalizeTree(this.root)
 
         var root = hierarchy(normRoot)
+        // Reserve the width actually rendered, including secondary labels and
+        // the stacked backplates of proxy groups, before flextree places cards.
+        root.each((node: D3Node) => {
+            if (node.data.type === WrapperType.Hidden || node.data.wrapped === this.root) return
+            const backplate = node.data.type === WrapperType.Group ? 13 : 0
+            node.data.size[0] = Math.max(node.data.size[0], this.topologyLayoutCardWidth(node) + backplate + topologySiblingCardGap)
+        })
         this.tree(root)
         this.compactSystemVmRouterLayout(root)
         this.compactHostSubtreeLayout(root)
+        this.separateTopologyBranches(root)
 
         // update d3nodes cache
         this.d3nodes = new Map<string, D3Node>()

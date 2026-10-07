@@ -1,15 +1,12 @@
+import { DetailSectionIcon } from './common/DetailSectionIcon'
 import * as React from 'react'
-import InfoIcon from '@material-ui/icons/Info'
 import AccountTreeIcon from '@material-ui/icons/AccountTree'
-import SecurityIcon from '@material-ui/icons/Security'
-import SettingsIcon from '@material-ui/icons/Settings'
 
 import { Node } from '../Topology'
 import { kubernetesLabelValue, matchesKubernetesSelector } from '../KubernetesSelectors'
 import {
     BasicInfoRows,
     ConnectedResourceListSection,
-    DetailAdvancedInfo,
     DetailSectionCard,
     KubernetesMetadataRows,
     KubernetesSelectorSummary
@@ -245,23 +242,23 @@ const KubernetesRelationshipResourceDetailPanel = ({ node }: Props) => {
 
     return (
         <div className="netdive-k8s-relationship-detail">
-            <DetailSectionCard icon={<InfoIcon />} title={`${kind} 기본 정보`} collapsible collapsed={basicCollapsed} onToggle={() => setBasicCollapsed(!basicCollapsed)}>
+            <DetailSectionCard icon={<DetailSectionIcon role="basic" />} title={`${kind} 기본 정보`} collapsible collapsed={basicCollapsed} onToggle={() => setBasicCollapsed(!basicCollapsed)}>
                 <BasicInfoRows density="compact" rows={baseRows} labelWidth={122} copyTooltip="복사" />
-                <DetailAdvancedInfo title="고급 정보" active={basicInfoAdvanced} onChange={setBasicInfoAdvanced}>
-                    <BasicInfoRows density="compact" rows={advancedRows} labelWidth={122} copyTooltip="복사" />
-                    <KubernetesMetadataRows items={[
-                        { key: 'labels', label: '라벨', resourceName: resourceName(node), resourceKind: kind, metadataKind: 'label', data: labels, modalTitle: `${kind} 라벨` },
-                        { key: 'annotations', label: '어노테이션', resourceName: resourceName(node), resourceKind: kind, metadataKind: 'annotation', data: annotations, modalTitle: `${kind} 어노테이션` }
-                    ]} />
-                </DetailAdvancedInfo>
+            </DetailSectionCard>
+            <DetailSectionCard icon={<DetailSectionIcon role="advanced" />} title="고급 정보" collapsible collapsed={!basicInfoAdvanced} onToggle={() => setBasicInfoAdvanced(!basicInfoAdvanced)}>
+                <BasicInfoRows density="compact" rows={advancedRows} labelWidth={122} copyTooltip="복사" />
+                <KubernetesMetadataRows items={[
+                    { key: 'labels', label: '라벨', resourceName: resourceName(node), resourceKind: kind, metadataKind: 'label', data: labels, modalTitle: `${kind} 라벨` },
+                    { key: 'annotations', label: '어노테이션', resourceName: resourceName(node), resourceKind: kind, metadataKind: 'annotation', data: annotations, modalTitle: `${kind} 어노테이션` }
+                ]} />
             </DetailSectionCard>
             {detailRows.length > 0 && (
-                <DetailSectionCard icon={type === 'networkpolicy' || type === 'serviceaccount' ? <SecurityIcon /> : <SettingsIcon />} title={`${kind} 구성`}>
+                <DetailSectionCard icon={<DetailSectionIcon role="configuration" />} title={`${kind} 구성`}>
                     <BasicInfoRows density="compact" rows={detailRows} labelWidth={122} />
                 </DetailSectionCard>
             )}
             <ConnectedResourceListSection
-                icon={<AccountTreeIcon />}
+                icon={<DetailSectionIcon role="related" />}
                 title="연결 자원"
                 emptyText="연결된 Kubernetes 자원이 없습니다."
                 groups={relatedGroups} />

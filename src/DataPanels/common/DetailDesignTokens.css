@@ -1,6 +1,6 @@
 :root {
-    --netdive-detail-panel-gap: 12px;
-    --netdive-detail-panel-bottom-padding: 8px;
+    --netdive-detail-panel-gap: 16px;
+    --netdive-detail-panel-bottom-padding: 12px;
     --netdive-detail-card-radius: var(--netdive-ant-radius, 4px);
     --netdive-detail-card-border: var(--netdive-ant-border, #d9d9d9);
     --netdive-detail-card-shadow: var(--netdive-ant-card-shadow, 0 1px 2px rgba(0, 0, 0, 0.03));

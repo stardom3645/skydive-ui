@@ -1,3 +1,4 @@
+import { DetailSectionIcon } from './common/DetailSectionIcon'
 import * as React from 'react'
 import { Avatar, Button, Input, List, Switch, Tooltip, Typography } from 'antd'
 import { DownOutlined, MinusOutlined, PlusOutlined, RightOutlined } from '@ant-design/icons'
@@ -330,7 +331,7 @@ class GroupDetailPanel extends React.Component<Props, State> {
                 <DetailSection
                     className="netdive-group-detail-card"
                     bodyClassName="netdive-group-detail-content"
-                    icon={<span className="fa fas fa-layer-group" />}
+                    icon={<DetailSectionIcon role="groups" />}
                     title={translate('groupInfo')}
                     description={podGroup ? groupScope || undefined : groupScope ? `${groupScope} · ${groupCountDescription}` : groupCountDescription}
                     action={

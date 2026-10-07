@@ -1,15 +1,7 @@
+import { DetailSectionIcon } from './common/DetailSectionIcon'
 import * as React from 'react'
 import { Table } from 'antd'
-import {
-    ApartmentOutlined,
-    BarChartOutlined,
-    DesktopOutlined,
-    InfoCircleOutlined,
-    LineChartOutlined,
-    LinkOutlined,
-    SettingOutlined,
-    ThunderboltOutlined
-} from '@ant-design/icons'
+import { BarChartOutlined, DesktopOutlined, LineChartOutlined, LinkOutlined } from '@ant-design/icons'
 
 import { translate } from '../Config'
 import Tools from '../Tools'
@@ -356,25 +348,25 @@ class NicDetailPanel extends React.Component<Props, State> {
         const hasAdvanced = ['Features', 'FDB', 'Neighbors', 'RoutingTables'].some(key => data[key] !== undefined && data[key] !== null) || Object.keys(this.netlinkData()).length > 0
         return (
             <div className="netdive-nic-detail">
-                <DetailSection icon={<InfoCircleOutlined />} title={translate('hostBasicInfo')}>
+                <DetailSection icon={<DetailSectionIcon role="basic" />} title={translate('hostBasicInfo')}>
                     <DetailKeyValueList rows={this.basicRows()} copyTooltip={translate('copy')} />
                 </DetailSection>
-                <DetailSection icon={<LinkOutlined />} title={translate('hostConnectedResources')}>
+                <DetailSection icon={<DetailSectionIcon role="related" />} title={translate('hostConnectedResources')}>
                     {this.renderConnectedResources(peers)}
                 </DetailSection>
                 {this.linkRows().length > 0 && (
-                    <DetailSection icon={<ThunderboltOutlined />} title={translate('nicLinkStatus')}>
+                    <DetailSection icon={<DetailSectionIcon role="linkStatus" />} title={translate('nicLinkStatus')}>
                         <DetailKeyValueList rows={this.linkRows()} />
                     </DetailSection>
                 )}
                 {lldpRows.length > 0 && (
-                    <DetailSection icon={<ApartmentOutlined />} title={translate('nicLldpNeighbor')}>
+                    <DetailSection icon={<DetailSectionIcon role="neighbor" />} title={translate('nicLldpNeighbor')}>
                         <DetailKeyValueList rows={lldpRows} />
                     </DetailSection>
                 )}
                 {data.LastUpdateMetric !== undefined && this.collapsibleSection('recent', <LineChartOutlined />, translate('lastUpdateMetric'), this.renderMetric(data.LastUpdateMetric, true))}
                 {data.Metric !== undefined && this.collapsibleSection('accumulated', <BarChartOutlined />, translate('metric'), this.renderMetric(data.Metric, false))}
-                {hasAdvanced && this.collapsibleSection('advanced', <SettingOutlined />, translate('detailAdvancedInfo'), this.renderAdvanced())}
+                {hasAdvanced && this.collapsibleSection('advanced', <DetailSectionIcon role="advanced" />, translate('detailAdvancedInfo'), this.renderAdvanced())}
             </div>
         )
     }

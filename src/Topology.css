@@ -14,25 +14,71 @@ svg {
     opacity: 1;
 }
 
-.level-label > rect {
-    fill: var(--topology-level-label-fill);
-    stroke: var(--topology-level-label-stroke);
-    stroke-width: 1;
-    rx: 14;
-    ry: 14;
+.level-label-backdrop {
+    fill: var(--topology-bg, #fff);
+    stroke: none;
+    pointer-events: none;
 }
+
+.level-label-panel-surface {
+    fill: url(#level-label-panel-glass);
+    stroke: var(--topology-level-panel-rim, rgba(255, 255, 255, 0.92));
+    stroke-width: 1px;
+    vector-effect: non-scaling-stroke;
+    filter: url(#level-label-panel-shadow);
+    pointer-events: none;
+}
+
+.level-label-panel-glass-start { stop-color: var(--topology-level-panel-start, #f8fbff); }
+.level-label-panel-glass-end { stop-color: var(--topology-level-panel-fill, #edf3fa); }
+.level-label-active-glass-start { stop-color: var(--topology-level-label-active-fill, #e4efff); }
+.level-label-active-glass-end { stop-color: var(--topology-level-panel-start, #f8fbff); stop-opacity: 0.35; }
+.level-label-panel-shadow { flood-color: var(--topology-level-panel-shadow, #6682a6); flood-opacity: 0.14; }
+
+.level-label-divider {
+    stroke: var(--topology-level-panel-divider, rgba(205, 217, 232, 0.42));
+    stroke-width: 1px;
+    vector-effect: non-scaling-stroke;
+    pointer-events: none;
+}
+
+.level-label-row-bg { fill: transparent; stroke: none; }
+.level-label-indicator {
+    fill: var(--topology-level-label-active-text, #1677ff);
+    opacity: 0;
+    stroke: none;
+}
+
+.level-label.level-label-active .level-label-row-bg {
+    fill: url(#level-label-active-glass);
+    stroke: var(--topology-level-panel-rim, rgba(255, 255, 255, 0.92));
+    stroke-width: 0.6px;
+    vector-effect: non-scaling-stroke;
+}
+
+.level-label.level-label-active .level-label-indicator { opacity: 1; }
+
+.level-label-rail {
+    fill: none;
+    stroke: var(--topology-level-rail, #e1e6ed);
+    stroke-width: 1px;
+    vector-effect: non-scaling-stroke;
+    pointer-events: none;
+}
+
+.level-label-hit-area { fill: transparent; stroke: none; }
 
 .level-label text {
     fill: var(--topology-level-label-text);
     font-family: var(--netdive-font-family);
-    font-weight: 700;
-    font-size: 24px;
+    font-weight: 500;
+    font-size: 26px;
 }
 
 .level-label .level-label-icon {
     fill: var(--topology-level-label-icon);
     font-family: 'Font Awesome 5 Free' !important;
-    font-size: 68px;
+    font-size: 96px;
     font-weight: 900;
 }
 
@@ -62,39 +108,25 @@ svg {
 .level-label .level-label-badge {
     fill: var(--topology-level-label-icon);
     font-family: 'Font Awesome 5 Free' !important;
-    font-size: 20px;
+    font-size: 24px;
     font-weight: 900;
 }
 
 .level-label .level-label-title {
     fill: var(--topology-level-label-title);
-    font-size: 24px;
-    font-weight: 700;
+    font-size: 34px;
+    font-weight: 400;
     text-decoration: none;
 }
 
-.level-label:hover > rect {
-    fill: var(--topology-level-label-hover);
-}
-
-.level-label:hover .level-label-switch-icon__body {
-    fill: none;
-    stroke: var(--topology-level-label-icon);
-}
-
-.level-label:hover .level-label-switch-icon__detail {
-    fill: var(--topology-level-label-icon);
-}
-
-.level-label.level-label-active > rect {
-    fill: var(--topology-level-label-active-fill);
-    stroke: var(--topology-level-label-active-stroke);
-}
-
 .level-label.level-label-active .level-label-icon,
-.level-label.level-label-active .level-label-badge,
-.level-label.level-label-active .level-label-title {
+.level-label.level-label-active .level-label-badge {
     fill: var(--topology-level-label-active-text);
+}
+
+.level-label.level-label-active .level-label-title {
+    fill: var(--topology-level-label-active-title, #0958d9);
+    font-weight: 500;
 }
 
 .level-label.level-label-active .level-label-switch-icon__body {
@@ -1617,4 +1649,41 @@ svg {
 .MuiTableCell-root {
     word-break: keep-all;
     white-space: nowrap;
+}
+
+/* The white canvas, pastel group surfaces and raised cards form three layers. */
+.topology-group-regions, .topology-group-region path { pointer-events: none; }
+.topology-group-region__base {
+    fill: var(--topology-group-base-color, #d4dce5);
+    fill-opacity: var(--topology-group-base-opacity, 0.22);
+    stroke: none;
+}
+.topology-group-region__shade {
+    fill-opacity: var(--topology-group-shade-opacity, 0.82);
+    stroke: var(--topology-group-rim-color, rgba(255, 255, 255, 0.88));
+    stroke-width: 1px;
+    vector-effect: non-scaling-stroke;
+    filter: drop-shadow(0 6px 12px var(--topology-group-shadow, rgba(43, 57, 77, 0.075)));
+}
+.topology-group-surface-stop--0 { stop-color: var(--topology-group-surface-0, #eef6fe); }
+.topology-group-surface-stop--1 { stop-color: var(--topology-group-surface-1, #e3eee7); }
+.topology-group-surface-stop--2 { stop-color: var(--topology-group-surface-2, #f6f4fb); }
+.topology-group-surface-stop--3 { stop-color: var(--topology-group-surface-3, #f0e7dd); }
+.topology-group-region__pattern { stroke: none; }
+.topology-group-dot { fill: var(--topology-group-dot-color, #8290a0); fill-opacity: 0.18; }
+.topology-group-dot--1 { fill-opacity: 0.24; }
+.topology-group-dot--2 { fill-opacity: 0.16; }
+.topology-group-dot--3 { fill-opacity: 0.26; }
+.topology-scene .node:not(.node-selected):not(:hover) .node-card-bg {
+    fill: #ffffff;
+    filter: drop-shadow(0 2px 3px rgba(31, 45, 65, 0.06))
+        drop-shadow(0 12px 22px var(--topology-card-shadow, rgba(31, 45, 65, 0.14)));
+}
+.topology-scene .level-zone {
+    fill: none;
+    stroke: var(--topology-group-guide-color, #a6b1c0);
+    stroke-width: 1.25px;
+    stroke-dasharray: 3 7;
+    vector-effect: non-scaling-stroke;
+    opacity: var(--topology-group-guide-opacity, 0.62);
 }

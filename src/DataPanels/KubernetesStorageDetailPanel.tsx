@@ -1,7 +1,6 @@
+import { DetailSectionIcon } from './common/DetailSectionIcon'
 import * as React from 'react'
 import AccountTreeIcon from '@material-ui/icons/AccountTree'
-import HistoryIcon from '@material-ui/icons/History'
-import InfoIcon from '@material-ui/icons/Info'
 import StorageIcon from '@material-ui/icons/Storage'
 
 import { translate } from '../Config'
@@ -14,7 +13,6 @@ import {
     BasicInfoRows,
     connectedResourcePopoverItems,
     collectKubernetesEventGroups,
-    DetailAdvancedInfo,
     DetailBadge,
     DetailBadgeTone,
     DetailLongValue,
@@ -51,7 +49,6 @@ interface Props {
 interface State {
     basicCollapsed: boolean
     basicInfoAdvanced: boolean
-    policyAdvanced: boolean
     relatedModal?: 'pvc' | 'pv' | 'storageclass' | 'pod' | 'workload'
 }
 
@@ -140,7 +137,13 @@ const STORAGE_EVENT_TONES = {
 }
 
 class KubernetesStorageDetailPanel extends React.Component<Props, State> {
-    state: State = { basicCollapsed: false, basicInfoAdvanced: false, policyAdvanced: false }
+    state: State = { basicCollapsed: false, basicInfoAdvanced: false }
+
+    componentDidUpdate(prevProps: Props) {
+        if (prevProps.node.id !== this.props.node.id) {
+            this.setState({ basicCollapsed: false, basicInfoAdvanced: false })
+        }
+    }
     private lastDebugSignature = ''
 
     private debugMapping(payload: any) {
@@ -728,17 +731,67 @@ class KubernetesStorageDetailPanel extends React.Component<Props, State> {
             { key: 'event-history', label: '과거 스토리지 이벤트 이력', state: pvEventCollectionState }
         ])
         return <div className="netdive-k8s-storage-detail">
-            <DetailSectionCard icon={<InfoIcon />} title={type === 'storageclass' ? '스토리지 클래스 기본 정보' : `${kindLabel} 기본 정보`} collapsible collapsed={this.state.basicCollapsed} onToggle={() => this.setState({ basicCollapsed: !this.state.basicCollapsed })}>
+            <DetailSectionCard icon={<DetailSectionIcon role="basic" />} title={type === 'storageclass' ? '스토리지 클래스 기본 정보' : `${kindLabel} 기본 정보`} collapsible collapsed={this.state.basicCollapsed} onToggle={() => this.setState({ basicCollapsed: !this.state.basicCollapsed })}>
                 <BasicInfoRows density="compact" rows={basicRows} labelWidth={122} copyTooltip={translate('copy')} />
-                <DetailAdvancedInfo title={translate('kubernetesAdvancedInformation')} active={this.state.basicInfoAdvanced} onChange={basicInfoAdvanced => this.setState({ basicInfoAdvanced })}>
-                    <BasicInfoRows density="compact" rows={advancedRows} labelWidth={122} copyTooltip={translate('copy')} />
-                    <KubernetesMetadataRows items={[
-                        { key: 'labels', label: '라벨', resourceName: name, resourceKind: kindLabel, metadataKind: 'label', data: meta.Labels || meta.labels, modalTitle: `${kindLabel} 라벨`, collected: metadataSource !== undefined },
-                        { key: 'annotations', label: '어노테이션', resourceName: name, resourceKind: kindLabel, metadataKind: 'annotation', data: meta.Annotations || meta.annotations, modalTitle: `${kindLabel} 어노테이션`, collected: metadataSource !== undefined }
-                    ]} />
-                </DetailAdvancedInfo>
             </DetailSectionCard>
-            {type !== 'storageclass' && <DetailSectionCard icon={this.topologyIcon(this.props.node)} title={`${kindLabel} 운영 상태`}>
+            <DetailSectionCard icon={<DetailSectionIcon role="advanced" />} title={translate('kubernetesAdvancedInformation')} collapsible collapsed={!this.state.basicInfoAdvanced} onToggle={() => this.setState({ basicInfoAdvanced: !this.state.basicInfoAdvanced })}>
+                <BasicInfoRows density="compact" rows={advancedRows} labelWidth={122} copyTooltip={translate('copy')} />
+                <KubernetesMetadataRows items={[
+                    { key: 'labels', label: '라벨', resourceName: name, resourceKind: kindLabel, metadataKind: 'label', data: meta.Labels || meta.labels, modalTitle: `${kindLabel} 라벨`, collected: metadataSource !== undefined },
+                    { key: 'annotations', label: '어노테이션', resourceName: name, resourceKind: kindLabel, metadataKind: 'annotation', data: meta.Annotations || meta.annotations, modalTitle: `${kindLabel} 어노테이션`, collected: metadataSource !== undefined }
+                ]} />
+                {type === 'persistentvolume' && pvAffinity.showPolicyDetail && <React.Fragment>
+                    <BasicInfoRows density="compact" labelWidth={122} rows={[{
+                        label: '노드 배치 조건',
+                        value: <KubernetesStructuredDataModalAction
+                            resourceKind="PV"
+                            resourceName={name}
+                            title="PV 노드 배치 조건"
+                            sectionTitle={`노드 배치 조건 ${pvAffinity.conditionCount}개`}
+                            description="PV spec.nodeAffinity의 조건 그룹과 노드 라벨·필드 선택 조건입니다. 조건 그룹 간에는 OR, 같은 그룹 안의 조건에는 AND가 적용됩니다."
+                            rows={pvAffinityRows}
+                            operatorTitle="연산자"
+                            rawValue={pvNodeAffinity}
+                            rawTitle="원본 nodeAffinity JSON 보기">
+                            {`${pvAffinity.conditionCount}개`}
+                        </KubernetesStructuredDataModalAction>
+                    }]} />
+                </React.Fragment>}
+                {type === 'storageclass' && (topologyRows.length > 0 || mountOptionRows.length > 0) && <React.Fragment>
+                    <BasicInfoRows density="compact" labelWidth={122} rows={[
+                        ...(topologyRows.length ? [{
+                            label: '허용 토폴로지',
+                            value: <KubernetesStructuredDataModalAction
+                                resourceKind="StorageClass"
+                                resourceName={name}
+                                title="StorageClass 허용 토폴로지"
+                                sectionTitle={`허용 토폴로지 ${topologyRows.length}개 조건`}
+                                description="볼륨을 프로비저닝할 수 있는 zone·node topology 조건입니다."
+                                rows={topologyRows}
+                                operatorTitle="연산자"
+                                rawValue={allowedTopologies}
+                                rawTitle="원본 allowedTopologies JSON 보기">
+                                {`${topologyRows.length}개 조건`}
+                            </KubernetesStructuredDataModalAction>
+                        }] : []),
+                        ...(mountOptionRows.length ? [{
+                            label: '마운트 옵션',
+                            value: <KubernetesStructuredDataModalAction
+                                resourceKind="StorageClass"
+                                resourceName={name}
+                                title="StorageClass 마운트 옵션"
+                                sectionTitle={`마운트 옵션 ${mountOptionRows.length}개`}
+                                description="이 StorageClass로 생성된 볼륨에 적용되는 마운트 옵션입니다."
+                                rows={mountOptionRows}
+                                rawValue={mountOptions}
+                                rawTitle="원본 mountOptions JSON 보기">
+                                {`${mountOptionRows.length}개`}
+                            </KubernetesStructuredDataModalAction>
+                        }] : [])
+                    ]} />
+                </React.Fragment>}
+            </DetailSectionCard>
+            {type !== 'storageclass' && <DetailSectionCard icon={<DetailSectionIcon role="operational" />} title={`${kindLabel} 운영 상태`}>
                 {type === 'persistentvolumeclaim' ? <React.Fragment>
                     <StatusSummaryGrid
                         verdict={pvcOperational.verdict}
@@ -816,7 +869,7 @@ class KubernetesStorageDetailPanel extends React.Component<Props, State> {
                     ]} />}
             </DetailSectionCard>}
             <DetailSectionCard
-                icon={<StorageIcon />}
+                icon={<DetailSectionIcon role="policy" />}
                 title={type === 'storageclass' ? '프로비저닝 정책' : '용량 및 정책'}
                 action={type === 'storageclass' && defaultStorageClass === true
                     ? <DetailBadge
@@ -826,67 +879,11 @@ class KubernetesStorageDetailPanel extends React.Component<Props, State> {
                     </DetailBadge>
                     : undefined}>
                 <BasicInfoRows density="compact" rows={policyRows} labelWidth={122} copyTooltip={translate('copy')} />
-                {type === 'persistentvolume' && pvAffinity.showPolicyDetail && <DetailAdvancedInfo
-                    title="고급 정보"
-                    hierarchy="supporting"
-                    active={this.state.policyAdvanced}
-                    onChange={policyAdvanced => this.setState({ policyAdvanced })}>
-                    <BasicInfoRows density="compact" labelWidth={122} rows={[{
-                        label: '노드 배치 조건',
-                        value: <KubernetesStructuredDataModalAction
-                            resourceKind="PV"
-                            resourceName={name}
-                            title="PV 노드 배치 조건"
-                            sectionTitle={`노드 배치 조건 ${pvAffinity.conditionCount}개`}
-                            description="PV spec.nodeAffinity의 조건 그룹과 노드 라벨·필드 선택 조건입니다. 조건 그룹 간에는 OR, 같은 그룹 안의 조건에는 AND가 적용됩니다."
-                            rows={pvAffinityRows}
-                            operatorTitle="연산자"
-                            rawValue={pvNodeAffinity}
-                            rawTitle="원본 nodeAffinity JSON 보기">
-                            {`${pvAffinity.conditionCount}개`}
-                        </KubernetesStructuredDataModalAction>
-                    }]} />
-                </DetailAdvancedInfo>}
-                {type === 'storageclass' && (topologyRows.length > 0 || mountOptionRows.length > 0) && <DetailAdvancedInfo
-                    title="고급 정책"
-                    hierarchy="supporting"
-                    active={this.state.policyAdvanced}
-                    onChange={policyAdvanced => this.setState({ policyAdvanced })}>
-                    <BasicInfoRows density="compact" labelWidth={122} rows={[
-                        ...(topologyRows.length ? [{
-                            label: '허용 토폴로지',
-                            value: <KubernetesStructuredDataModalAction
-                                resourceKind="StorageClass"
-                                resourceName={name}
-                                title="StorageClass 허용 토폴로지"
-                                sectionTitle={`허용 토폴로지 ${topologyRows.length}개 조건`}
-                                description="볼륨을 프로비저닝할 수 있는 zone·node topology 조건입니다."
-                                rows={topologyRows}
-                                operatorTitle="연산자"
-                                rawValue={allowedTopologies}
-                                rawTitle="원본 allowedTopologies JSON 보기">
-                                {`${topologyRows.length}개 조건`}
-                            </KubernetesStructuredDataModalAction>
-                        }] : []),
-                        ...(mountOptionRows.length ? [{
-                            label: '마운트 옵션',
-                            value: <KubernetesStructuredDataModalAction
-                                resourceKind="StorageClass"
-                                resourceName={name}
-                                title="StorageClass 마운트 옵션"
-                                sectionTitle={`마운트 옵션 ${mountOptionRows.length}개`}
-                                description="이 StorageClass로 생성된 볼륨에 적용되는 마운트 옵션입니다."
-                                rows={mountOptionRows}
-                                rawValue={mountOptions}
-                                rawTitle="원본 mountOptions JSON 보기">
-                                {`${mountOptionRows.length}개`}
-                            </KubernetesStructuredDataModalAction>
-                        }] : [])
-                    ]} />
-                </DetailAdvancedInfo>}
+
+
             </DetailSectionCard>
-            <RelatedResourceGrid icon={<AccountTreeIcon />} title={translate('hostConnectedResources')} emptyText="연결된 스토리지 자원이 없습니다." groups={relatedGroups} />
-            {((type !== 'storageclass' && type !== 'persistentvolumeclaim' && type !== 'persistentvolume') || eventsCollected) && <DetailSectionCard icon={<HistoryIcon />} title="최근 이벤트">
+            <RelatedResourceGrid icon={<DetailSectionIcon role="related" />} title={translate('hostConnectedResources')} emptyText="연결된 스토리지 자원이 없습니다." groups={relatedGroups} />
+            {((type !== 'storageclass' && type !== 'persistentvolumeclaim' && type !== 'persistentvolume') || eventsCollected) && <DetailSectionCard icon={<DetailSectionIcon role="events" />} title="최근 이벤트">
                 <KubernetesRecentEvents
                     groups={recentEventGroups}
                     lookbackLabel={type === 'storageclass' ? '최근 24시간' : type === 'persistentvolumeclaim' || type === 'persistentvolume' ? '최근 1시간' : undefined}

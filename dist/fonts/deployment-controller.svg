@@ -1,0 +1,15 @@
+<!--
+  Kubernetes Deployment icon, optimized from the Kubernetes Community icon set.
+  Source: https://github.com/kubernetes/community/blob/main/icons/svg/resources/unlabeled/deploy.svg
+  License: Apache-2.0 or CC-BY-4.0
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18.035334 17.500378" role="img" aria-label="Kubernetes Deployment">
+  <defs>
+    <mask id="deployment-symbol">
+      <rect width="18.035334" height="17.500378" fill="#fff"/>
+      <path fill="#000" d="M9.2 13.84a4.49 4.49 0 1 1 4.284-4.725l-1.784.116a2.7 2.7 0 1 0-2.586 2.72Z"/>
+      <path fill="#000" d="m10.123 9.121 1.419 3.472 3.276-3.472Z"/>
+    </mask>
+  </defs>
+  <path fill="#334155" mask="url(#deployment-symbol)" d="M9.052 1.174c-.183 0-.364.043-.529.122L2.586 4.132a1.136 1.136 0 0 0-.614.764L.507 11.271a1.125 1.125 0 0 0 .218.954l4.111 5.112c.216.268.542.424.888.424h6.593c.347 0 .673-.156.888-.423l4.109-5.113c.219-.272.3-.631.22-.97l-1.467-6.377a1.136 1.136 0 0 0-.615-.764L9.504 1.296a1.167 1.167 0 0 0-.452-.122Z"/>
+</svg>

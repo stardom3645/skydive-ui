@@ -1,10 +1,8 @@
+import { DetailSectionIcon } from './common/DetailSectionIcon'
 import * as React from 'react'
 import { Button, Select, Table } from 'antd'
-import AccountTreeIcon from '@material-ui/icons/AccountTree'
-import ErrorOutlineIcon from '@material-ui/icons/ErrorOutline'
 import InfoIcon from '@material-ui/icons/Info'
-import StorageIcon from '@material-ui/icons/Storage'
-import { HistoryOutlined } from '@ant-design/icons'
+
 
 import { translate } from '../Config'
 import { session } from '../Store'
@@ -25,7 +23,6 @@ import {
     CollapsibleSummaryRow,
     CompactEmptyState,
     collectKubernetesEventGroups,
-    DetailAdvancedInfo,
     DetailBadge,
     DetailBadgeTone,
     DetailLayerIcon,
@@ -615,6 +612,7 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
                     </div>}>
                     <DetailMetricRow
                         primary
+                        unavailable={metric.usage === undefined}
                         label={metric.key === 'pods' ? '활성 파드' : '현재 사용량'}
                         value={`${metric.usage || '없음'} / ${metric.allocatable || '없음'}`}
                         ratio={percentLabel}
@@ -873,17 +871,14 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
         }
         const riskModal = this.state.riskModal ? riskModalConfigs[this.state.riskModal] : undefined
         return <div className="netdive-k8s-node-detail">
-            <DetailSectionCard icon={<InfoIcon />} title={translate('kubernetesNodeBasicInfo')} collapsible collapsed={this.state.basicCollapsed} onToggle={() => this.setState({ basicCollapsed: !this.state.basicCollapsed })}>
+            <DetailSectionCard icon={<DetailSectionIcon role="basic" />} title={translate('kubernetesNodeBasicInfo')} collapsible collapsed={this.state.basicCollapsed} onToggle={() => this.setState({ basicCollapsed: !this.state.basicCollapsed })}>
                 <BasicInfoRows density="compact" rows={overviewRows} labelWidth={122} copyTooltip={translate('copy')} />
-                <DetailAdvancedInfo
-                    title={translate('kubernetesAdvancedInformation')}
-                    active={this.state.basicInfoAdvanced}
-                    onChange={basicInfoAdvanced => this.setState({ basicInfoAdvanced })}>
-                    <BasicInfoRows density="compact" rows={advancedRows} labelWidth={122} copyTooltip={translate('copy')} />
-                </DetailAdvancedInfo>
+            </DetailSectionCard>
+            <DetailSectionCard icon={<DetailSectionIcon role="advanced" />} title={translate('kubernetesAdvancedInformation')} collapsible collapsed={!this.state.basicInfoAdvanced} onToggle={() => this.setState({ basicInfoAdvanced: !this.state.basicInfoAdvanced })}>
+                <BasicInfoRows density="compact" rows={advancedRows} labelWidth={122} copyTooltip={translate('copy')} />
             </DetailSectionCard>
 
-            <DetailSectionCard icon={this.topologyIcon(this.props.node)} title={translate('kubernetesNodeOperationalStatus')}>
+            <DetailSectionCard icon={<DetailSectionIcon role="operational" />} title={translate('kubernetesNodeOperationalStatus')}>
                 <StatusSummaryGrid
                     verdict={netdiveVerdict}
                     verdictTone={netdiveTone}
@@ -898,15 +893,15 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
                     ]} />
             </DetailSectionCard>
 
-            <ResourceSectionCard icon={<StorageIcon />} title="리소스 현황">
+            <ResourceSectionCard icon={<DetailSectionIcon role="resources" />} title="리소스 현황">
                 {this.renderCapacity(currentPodCount)}
             </ResourceSectionCard>
 
-            <DetailSectionCard icon={<ErrorOutlineIcon />} title={translate('kubernetesNodeConditions')}>
+            <DetailSectionCard icon={<DetailSectionIcon role="conditions" />} title={translate('kubernetesNodeConditions')}>
                 {this.renderConditions()}
             </DetailSectionCard>
 
-            <DetailSectionCard icon={<AccountTreeIcon />} title="위험 및 종속성">
+            <DetailSectionCard icon={<DetailSectionIcon role="risk" />} title="위험 및 종속성">
                 <StatusEvidenceList columnHeaders={{ state: '상태', value: '대상 수' }}>
                     <StatusEvidenceRow
                         title={translate('kubernetesSingleReplicaWorkloads')}
@@ -958,7 +953,7 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
                 </StatusEvidenceList>
             </DetailSectionCard>
             <RelatedResourceGrid
-                icon={<AccountTreeIcon />}
+                icon={<DetailSectionIcon role="related" />}
                 title={translate('hostConnectedResources')}
                 emptyText={translate('hostNoConnectedResources')}
                 groups={[{
@@ -971,7 +966,7 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
                     ]
                 }]} />
 
-            <DetailSectionCard icon={<HistoryOutlined />} title={translate('kubernetesNodeRecentEvents')}>{this.renderImportantEvents(connected)}</DetailSectionCard>
+            <DetailSectionCard icon={<DetailSectionIcon role="events" />} title={translate('kubernetesNodeRecentEvents')}>{this.renderImportantEvents(connected)}</DetailSectionCard>
 
             <HistoryModal
                 visible={!!riskModal}

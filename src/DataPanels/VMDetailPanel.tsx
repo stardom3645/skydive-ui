@@ -1,7 +1,7 @@
+import { DetailSectionIcon } from './common/DetailSectionIcon'
 import * as React from 'react'
 import { Card, Progress, Statistic } from 'antd'
 import InfoIcon from '@material-ui/icons/Info'
-import DeviceHubIcon from '@material-ui/icons/DeviceHub'
 import StorageIcon from '@material-ui/icons/Storage'
 import MemoryIcon from '@material-ui/icons/Memory'
 import DnsIcon from '@material-ui/icons/Dns'
@@ -707,14 +707,14 @@ class VMDetailPanel extends React.Component<Props> {
 
         return (
             <div className={classes.root}>
-                {this.renderSection(<InfoIcon />, translate('hostBasicInfo'), this.renderRows(basicRows))}
-                {managementRows.some(row => !isBlank(row.value)) && this.renderSection(<InfoIcon />, translate('managementServerInfo'), this.renderRows(managementRows))}
-                {managementResourceRows.some(row => !isBlank(row.value)) && this.renderSection(<DnsIcon />, translate('managementServerResources'), this.renderRows(managementResourceRows))}
-                {managementJvmRows.some(row => !isBlank(row.value)) && this.renderSection(<MemoryIcon />, translate('managementServerJvm'), this.renderRows(managementJvmRows))}
-                {this.renderSection(<DeviceHubIcon />, translate('hostConnectedResources'), this.renderOverviewGrid(connectedResources))}
+                {this.renderSection(<DetailSectionIcon role="basic" />, translate('hostBasicInfo'), this.renderRows(basicRows))}
+                {managementRows.some(row => !isBlank(row.value)) && this.renderSection(<DetailSectionIcon role="management" />, translate('managementServerInfo'), this.renderRows(managementRows))}
+                {managementResourceRows.some(row => !isBlank(row.value)) && this.renderSection(<DetailSectionIcon role="serverResources" />, translate('managementServerResources'), this.renderRows(managementResourceRows))}
+                {managementJvmRows.some(row => !isBlank(row.value)) && this.renderSection(<DetailSectionIcon role="jvm" />, translate('managementServerJvm'), this.renderRows(managementJvmRows))}
+                {this.renderSection(<DetailSectionIcon role="related" />, translate('hostConnectedResources'), this.renderOverviewGrid(connectedResources))}
                 <HostResourceTrendPanel node={node} session={this.props.session} data={data} target="vm" />
-                {hasResourceMetrics && this.renderSection(<DnsIcon />, translate('hostResourceUsage'), this.renderMetricGrid(resourceMetrics))}
-                {hasRecentSignals && this.renderSection(<InfoIcon />, translate('hostRecentSignals'), this.renderRows(eventRows, translate('hostNoRecentSignals')))}
+                {hasResourceMetrics && this.renderSection(<DetailSectionIcon role="resources" />, translate('hostResourceUsage'), this.renderMetricGrid(resourceMetrics))}
+                {hasRecentSignals && this.renderSection(<DetailSectionIcon role="events" />, translate('hostRecentSignals'), this.renderRows(eventRows, translate('hostNoRecentSignals')))}
             </div>
         )
     }

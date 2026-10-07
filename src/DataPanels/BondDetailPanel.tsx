@@ -1,14 +1,7 @@
+import { DetailSectionIcon } from './common/DetailSectionIcon'
 import * as React from 'react'
 import { Table } from 'antd'
-import {
-    ApiOutlined,
-    BarChartOutlined,
-    DesktopOutlined,
-    InfoCircleOutlined,
-    LineChartOutlined,
-    LinkOutlined,
-    SettingOutlined
-} from '@ant-design/icons'
+import { ApiOutlined, BarChartOutlined, DesktopOutlined, LineChartOutlined } from '@ant-design/icons'
 
 import { translate } from '../Config'
 import Tools from '../Tools'
@@ -424,16 +417,16 @@ class BondDetailPanel extends React.Component<Props, State> {
         const hasAdvanced = this.hasField('Features', 'FDB', 'Neighbors', 'RoutingTables', 'RoutingTable')
         return (
             <div className="netdive-bond-detail">
-                <DetailSection icon={<InfoCircleOutlined />} title={translate('hostBasicInfo')}>
+                <DetailSection icon={<DetailSectionIcon role="basic" />} title={translate('hostBasicInfo')}>
                     <DetailKeyValueList rows={this.basicRows()} copyTooltip={translate('copy')} />
                 </DetailSection>
-                <DetailSection icon={<LinkOutlined />} title={translate('hostConnectedResources')}>
+                <DetailSection icon={<DetailSectionIcon role="related" />} title={translate('hostConnectedResources')}>
                     {this.renderConnectedResources(slaves)}
                 </DetailSection>
                 {hasBondConfiguration && this.section('configuration', <ApiOutlined />, translate('bondConfiguration'), this.renderBondConfiguration(slaves))}
                 {this.hasField('LastUpdateMetric') && this.section('recent', <LineChartOutlined />, translate('lastUpdateMetric'), this.renderMetric(data.LastUpdateMetric, true))}
                 {this.hasField('Metric') && this.section('accumulated', <BarChartOutlined />, translate('metric'), this.renderMetric(data.Metric, false))}
-                {hasAdvanced && this.section('advanced', <SettingOutlined />, translate('detailAdvancedInfo'), this.renderAdvanced())}
+                {hasAdvanced && this.section('advanced', <DetailSectionIcon role="advanced" />, translate('detailAdvancedInfo'), this.renderAdvanced())}
             </div>
         )
     }

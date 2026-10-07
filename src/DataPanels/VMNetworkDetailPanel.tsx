@@ -1,9 +1,10 @@
+import { DetailSectionIcon } from './common/DetailSectionIcon'
 import * as React from 'react'
 import { Tooltip } from 'antd'
-import { ApartmentOutlined as DeviceHubIcon } from '@ant-design/icons'
-import { InfoCircleOutlined as InfoIcon } from '@ant-design/icons'
-import { LineChartOutlined as TimelineIcon } from '@ant-design/icons'
-import { ApiOutlined as SettingsInputComponentIcon } from '@ant-design/icons'
+
+
+
+
 
 import { Node } from '../Topology'
 import { hostDetailClasses as classes } from './HostDetailPanelClasses'
@@ -477,13 +478,13 @@ class VMNetworkDetailPanel extends React.Component<Props, State> {
         const hasAdvanced = Object.keys(this.advancedInfo()).length > 0
         return (
             <div className={classes.root}>
-                {this.renderSection('basic', <InfoIcon />, '기본 정보', '인터페이스 식별 정보와 장치 속성입니다.', this.renderRows(this.basicRows()))}
-                {hasConnectionInfo && this.renderSection('connection', <DeviceHubIcon />, '연결 정보', 'Libvirt 메타데이터와 링크 플래그입니다.', this.renderConnectionInfo())}
-                {hasAddresses && this.renderSection('addresses', <SettingsInputComponentIcon />, '주소 정보', 'IPv4 / IPv6 주소를 분리해 표시합니다.', this.renderAddressInfo())}
-                {recentMetricRows.length > 0 && this.renderSection('recent', <TimelineIcon />, '최근 수집 지표', '최근 수집된 트래픽 지표입니다.', <DetailKeyValueList rows={recentMetricRows} />)}
-                {accumulatedMetricRows.length > 0 && this.renderSection('accumulated', <TimelineIcon />, '누적 수집 지표', '누적 트래픽 카운터입니다.', <DetailKeyValueList rows={accumulatedMetricRows} />)}
-                {hasFeatures && this.renderSection('features', <SettingsInputComponentIcon />, '장비 기능', 'Offload 기능 목록입니다. true 항목을 먼저 표시합니다.', this.renderFeatures(), true)}
-                {hasAdvanced && this.renderSection('advanced', <InfoIcon />, '고급 정보', 'FDB, 인접 장비, 라우팅 테이블과 raw 데이터입니다.', this.renderAdvanced(), true)}
+                {this.renderSection('basic', <DetailSectionIcon role="basic" />, '기본 정보', '인터페이스 식별 정보와 장치 속성입니다.', this.renderRows(this.basicRows()))}
+                {hasConnectionInfo && this.renderSection('connection', <DetailSectionIcon role="endpoints" />, '연결 정보', 'Libvirt 메타데이터와 링크 플래그입니다.', this.renderConnectionInfo())}
+                {hasAddresses && this.renderSection('addresses', <DetailSectionIcon role="addresses" />, '주소 정보', 'IPv4 / IPv6 주소를 분리해 표시합니다.', this.renderAddressInfo())}
+                {recentMetricRows.length > 0 && this.renderSection('recent', <DetailSectionIcon role="recentMetrics" />, '최근 수집 지표', '최근 수집된 트래픽 지표입니다.', <DetailKeyValueList rows={recentMetricRows} />)}
+                {accumulatedMetricRows.length > 0 && this.renderSection('accumulated', <DetailSectionIcon role="accumulatedMetrics" />, '누적 수집 지표', '누적 트래픽 카운터입니다.', <DetailKeyValueList rows={accumulatedMetricRows} />)}
+                {hasFeatures && this.renderSection('features', <DetailSectionIcon role="features" />, '장비 기능', 'Offload 기능 목록입니다. true 항목을 먼저 표시합니다.', this.renderFeatures(), true)}
+                {hasAdvanced && this.renderSection('advanced', <DetailSectionIcon role="advanced" />, '고급 정보', 'FDB, 인접 장비, 라우팅 테이블과 raw 데이터입니다.', this.renderAdvanced(), true)}
             </div>
         )
     }

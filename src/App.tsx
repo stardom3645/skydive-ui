@@ -404,6 +404,9 @@ interface VMConsoleAPIError extends Error {
 interface MoldKubernetesCluster {
   id: string
   name: string
+  accountName?: string
+  domainName?: string
+  projectName?: string
   state: string
   apiServer: string
   description?: string
@@ -2247,7 +2250,8 @@ class App extends React.Component<Props, State> {
     this.reconcileManualPortMappingLinks()
 
     if (this.initialTopologyLayerPending) {
-      const initialTag = this.state.initialTopologyLayer === "kubernetes" && this.tc.nodeTagStates.has("kubernetes")
+      // Kubernetes remains selectable while collection is empty or loading.
+      const initialTag = this.state.initialTopologyLayer === "kubernetes"
         ? "kubernetes"
         : this.config.defaultNodeTag()
       this.tc.activeNodeTag(initialTag)
@@ -2257,7 +2261,7 @@ class App extends React.Component<Props, State> {
       this.tc.activeNodeTag(this.nextTag)
       this.nextTag = ""
     } else {
-      this.tc.activeNodeTag(this.config.defaultNodeTag())
+      this.tc.activeNodeTag(this.activeNodeTagName())
     }
 
     this.state.nodeTagStates = this.tc.nodeTagStates
@@ -2406,6 +2410,9 @@ class App extends React.Component<Props, State> {
         // snapshot must never be replayed into the rebuilt tree.
         this.pendingTopologyEdges.clear()
         if (this.tc) {
+          if (!this.initialTopologyLayerPending && !this.nextTag) {
+            this.nextTag = this.activeNodeTagName()
+          }
           this.tc.resetTree(true)
           try {
             this.parseTopology(data.Obj)
@@ -5818,15 +5825,34 @@ class App extends React.Component<Props, State> {
       {
         title: translate("kubernetesClusterName"),
         key: "name",
-        width: "15%",
+        width: "14%",
         render: (_value: any, cluster: MoldKubernetesCluster) => <KubernetesCollectionCellText
           value={cluster.name || cluster.id}
           className={classes.kubernetesNameCell} />
       },
       {
+        title: translate("kubernetesClusterOwner"),
+        key: "owner",
+        width: "12%",
+        render: (_value: any, cluster: MoldKubernetesCluster) => {
+          const owner = cluster.accountName || (cluster.projectName
+            ? `${translate("kubernetesClusterProject")}: ${cluster.projectName}`
+            : translate("kubernetesNotCollected"))
+          const ownership = [
+            cluster.accountName ? `${translate("kubernetesClusterOwnerAccount")}: ${cluster.accountName}` : null,
+            cluster.domainName ? `${translate("hostDomain")}: ${cluster.domainName}` : null,
+            cluster.projectName ? `${translate("kubernetesClusterProject")}: ${cluster.projectName}` : null
+          ].filter(Boolean).join(' · ')
+          return <KubernetesCollectionCellText
+            value={ownership || owner}
+            displayValue={owner}
+            className={classes.kubernetesMutedCell} />
+        }
+      },
+      {
         title: translate("kubernetesMoldClusterId"),
         key: "id",
-        width: "10%",
+        width: "9%",
         render: (_value: any, cluster: MoldKubernetesCluster) => <KubernetesCollectionCellText
           value={cluster.id || "-"}
           displayValue={this.compactIdentifier(cluster.id)}
@@ -5835,13 +5861,13 @@ class App extends React.Component<Props, State> {
       {
         title: translate("moldStatus"),
         key: "state",
-        width: "8%",
+        width: "7%",
         render: (_value: any, cluster: MoldKubernetesCluster) => <AntTag>{this.localizeMoldState(cluster.state)}</AntTag>
       },
       {
         title: translate("kubernetesApiServer"),
         key: "apiServer",
-        width: "18%",
+        width: "15%",
         render: (_value: any, cluster: MoldKubernetesCluster) => <span className={classes.kubernetesApiCell}>
           <Tooltip title={cluster.apiServer || "-"}>
             <span>{this.middleEllipsis(cluster.apiServer, 32)}</span>
@@ -5859,7 +5885,7 @@ class App extends React.Component<Props, State> {
       {
         title: translate("netdiveCollection"),
         key: "collection",
-        width: "11%",
+        width: "10%",
         render: (_value: any, cluster: MoldKubernetesCluster) => <span className={classes.kubernetesSwitchCell}>
           <AntSwitch
             size="small"
@@ -5872,7 +5898,7 @@ class App extends React.Component<Props, State> {
       {
         title: translate("kubernetesLastConnectionTest"),
         key: "lastTest",
-        width: "14%",
+        width: "12%",
         render: (_value: any, cluster: MoldKubernetesCluster) => {
           const last = this.state.kubernetesLastTests[cluster.id]
           const label = last ? `${last.ok ? translate("success") : translate("failed")} · ${last.checkedAt}` : "-"
@@ -5882,13 +5908,14 @@ class App extends React.Component<Props, State> {
       {
         title: translate("kubernetesLastCollectionStatus"),
         key: "collectionStatus",
-        width: "12%",
+        width: "11%",
         render: (_value: any, cluster: MoldKubernetesCluster) => <span className={classes.kubernetesMutedCell}>{this.collectionStateLabel(cluster)}</span>
       },
       {
         title: translate("kubernetesActions"),
         key: "actions",
-        width: "12%",
+        width: 112,
+        fixed: "right",
         render: (_value: any, cluster: MoldKubernetesCluster) => {
           const last = this.state.kubernetesLastTests[cluster.id]
           const disabled = this.state.kubernetesTestLoading || this.state.kubernetesTestAllLoading
@@ -5974,11 +6001,6 @@ class App extends React.Component<Props, State> {
           okText={translate("activate")} cancelText={translate("cancel")}>
           <p>{translate("kubernetesEnableConfirmDescription")}</p>
           {confirmCluster && <div className="netdive-collection-confirm-target"><ClusterOutlined />{confirmCluster.name || confirmCluster.id}</div>}
-          <div className="netdive-collection-confirm-steps">
-            <span>1. {translate("kubernetesStepKubeconfig")}</span>
-            <span>2. {translate("kubernetesStepConnection")}</span>
-            <span>3. {translate("collectionRunning")}</span>
-          </div>
         </AntModal>
         <Dialog open={!!this.state.kubernetesStopClusterId} onClose={() => this.setState({ kubernetesStopClusterId: "" })} maxWidth="xs" fullWidth>
           <DialogTitle>{translate("kubernetesDisableConfirmTitle")}</DialogTitle>

@@ -1,9 +1,7 @@
+import { DetailSectionIcon } from './common/DetailSectionIcon'
 import * as React from 'react'
-import AccountTreeIcon from '@material-ui/icons/AccountTree'
 import InfoIcon from '@material-ui/icons/Info'
-import StorageIcon from '@material-ui/icons/Storage'
-import ViewModuleIcon from '@material-ui/icons/ViewModule'
-import { HistoryOutlined } from '@ant-design/icons'
+
 
 import { translate } from '../Config'
 import { session } from '../Store'
@@ -23,7 +21,6 @@ import {
     BasicInfoRows,
     collectKubernetesEventGroups,
     ConnectedResourceListSection,
-    DetailAdvancedInfo,
     DetailBadgeTone,
     DetailLongValue,
     DetailSectionCard,
@@ -440,18 +437,18 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
             firstRaw(this.props.node.data || {}, ['K8s.Extra.Events', 'K8s.Events', 'Events'])
         ], POD_EVENT_TONES)
         return <div className="netdive-k8s-pod-detail">
-            <DetailSectionCard icon={<InfoIcon />} title="파드 기본 정보" collapsible collapsed={this.state.basicCollapsed} onToggle={() => this.setState({ basicCollapsed: !this.state.basicCollapsed })}>
+            <DetailSectionCard icon={<DetailSectionIcon role="basic" />} title="파드 기본 정보" collapsible collapsed={this.state.basicCollapsed} onToggle={() => this.setState({ basicCollapsed: !this.state.basicCollapsed })}>
                 <BasicInfoRows density="compact" rows={basicRows} labelWidth={122} copyTooltip={translate('copy')} />
-                <DetailAdvancedInfo title={translate('kubernetesAdvancedInformation')} active={this.state.basicInfoAdvanced} onChange={basicInfoAdvanced => this.setState({ basicInfoAdvanced })}>
-                    <BasicInfoRows density="compact" rows={advancedRows} labelWidth={122} copyTooltip={translate('copy')} />
-                    <KubernetesMetadataRows items={[
-                        { key: 'labels', label: '라벨', resourceName: detail.name || this.props.node.id, resourceKind: 'Pod', metadataKind: 'label', data: detail.labels, modalTitle: 'Pod 라벨' },
-                        { key: 'annotations', label: '어노테이션', resourceName: detail.name || this.props.node.id, resourceKind: 'Pod', metadataKind: 'annotation', data: detail.annotations, modalTitle: 'Pod 어노테이션' }
-                    ]} />
-                </DetailAdvancedInfo>
+            </DetailSectionCard>
+            <DetailSectionCard icon={<DetailSectionIcon role="advanced" />} title={translate('kubernetesAdvancedInformation')} collapsible collapsed={!this.state.basicInfoAdvanced} onToggle={() => this.setState({ basicInfoAdvanced: !this.state.basicInfoAdvanced })}>
+                <BasicInfoRows density="compact" rows={advancedRows} labelWidth={122} copyTooltip={translate('copy')} />
+                <KubernetesMetadataRows items={[
+                    { key: 'labels', label: '라벨', resourceName: detail.name || this.props.node.id, resourceKind: 'Pod', metadataKind: 'label', data: detail.labels, modalTitle: 'Pod 라벨' },
+                    { key: 'annotations', label: '어노테이션', resourceName: detail.name || this.props.node.id, resourceKind: 'Pod', metadataKind: 'annotation', data: detail.annotations, modalTitle: 'Pod 어노테이션' }
+                ]} />
             </DetailSectionCard>
 
-            <DetailSectionCard icon={this.topologyIcon(this.props.node)} title="Pod 운영 상태">
+            <DetailSectionCard icon={<DetailSectionIcon role="operational" />} title="Pod 운영 상태">
                 <StatusSummaryGrid
                     verdict={statusLabel}
                     verdictTone={statusTone}
@@ -471,20 +468,20 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
                 ]} />
             </DetailSectionCard>
 
-            <DetailSectionCard icon={<ViewModuleIcon />} title="컨테이너 및 이미지">
+            <DetailSectionCard icon={<DetailSectionIcon role="containers" />} title="컨테이너 및 이미지">
                 <KubernetesContainerDetails containers={containerPresentations} summaryItems={initContainers.length ? [{ key: 'init', label: '초기화 컨테이너', value: `${initContainers.filter(container => kubernetesPodContainerRuntime(container).healthy).length}/${initContainers.length} 완료` }] : undefined} />
             </DetailSectionCard>
 
-            {list(detail.conditions).length > 0 && <DetailSectionCard icon={<InfoIcon />} title="파드 상태 조건">
+            {list(detail.conditions).length > 0 && <DetailSectionCard icon={<DetailSectionIcon role="conditions" />} title="파드 상태 조건">
                 <KubernetesConditionRows conditions={detail.conditions} definitions={POD_CONDITION_DEFINITIONS} showRawValue={false} />
             </DetailSectionCard>}
 
-            {volumePresentations.length > 0 && <DetailSectionCard icon={<StorageIcon />} title="볼륨">
+            {volumePresentations.length > 0 && <DetailSectionCard icon={<DetailSectionIcon role="volumes" />} title="볼륨">
                 <KubernetesVolumeList resourceKind="Pod" resourceName={detail.name || this.props.node.id} volumes={volumePresentations} />
             </DetailSectionCard>}
 
             <ConnectedResourceListSection
-                icon={<AccountTreeIcon />}
+                icon={<DetailSectionIcon role="related" />}
                 title={translate('hostConnectedResources')}
                 emptyText={translate('hostNoConnectedResources')}
                 groups={[
@@ -494,7 +491,7 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
                     { key: 'storage', title: 'PVC', items: this.connectedListItems(pvcs, 'PVC') }
                 ]} />
 
-            <DetailSectionCard icon={<HistoryOutlined />} title="최근 이벤트">
+            <DetailSectionCard icon={<DetailSectionIcon role="events" />} title="최근 이벤트">
                 <KubernetesRecentEvents groups={recentEventGroups} lookbackLabel="최근 1시간" onResourceClick={group => this.openResource({ uid: group.resourceUid, name: group.resourceName, kind: group.resourceKind })} />
             </DetailSectionCard>
 

@@ -1,9 +1,8 @@
+import { DetailSectionIcon } from './common/DetailSectionIcon'
 import * as React from 'react'
-import { Badge, Button, Collapse, Divider, Modal, Select, Space, Spin, Table, Tag, Tooltip, Typography } from 'antd'
+import { Alert, Badge, Button, Collapse, ConfigProvider, Divider, Modal, Select, Space, Spin, Table, Tag, Timeline, Tooltip, Typography } from 'antd'
 import { HistoryOutlined, RightOutlined } from '@ant-design/icons'
-import AccountTreeIcon from '@material-ui/icons/AccountTree'
-import ErrorOutlineIcon from '@material-ui/icons/ErrorOutline'
-import InfoIcon from '@material-ui/icons/Info'
+import { ClusterOperationalSection, ClusterOperationalSummary as StatusSummaryGrid, ClusterMetricRow as DetailMetricRow, ClusterCollapsibleSummary as CollapsibleSummaryRow, ClusterEvidenceRow as StatusEvidenceRow, ClusterEvidenceTable as StatusEvidenceList } from './KubernetesClusterPresentation'
 
 import { translate } from '../Config'
 import { session } from '../Store'
@@ -12,18 +11,13 @@ import { aggregatePods, getPodClassification, kubernetesPodLifecycle, kubernetes
 import {
     BasicInfoRows,
     connectedResourcePopoverItems,
-    CollapsibleSummaryRow,
     CompactEmptyState,
-    ConnectedResourceListSection,
     DetailBadge,
     DetailBadgeTone,
-    DetailCardSubsectionHeader,
     DetailInfoTooltip,
     DetailLayerIcon,
     DetailModalResourceCell,
     DetailModalTextCell,
-    DetailMetaInfoRow,
-    DetailMetricRow,
     DetailNavigationTabs,
     DetailSectionCard,
     HistoryModal,
@@ -34,9 +28,6 @@ import {
     KubernetesPodUsageTable,
     RelatedResourceGrid,
     ResourceMetricBlock,
-    StatusEvidenceRow,
-    StatusEvidenceList,
-    StatusSummaryGrid,
     kubernetesCpuCores,
     kubernetesMemoryBytes,
     podCpuResourceCores,
@@ -56,7 +47,7 @@ interface Props {
 
 interface State {
     basicCollapsed: boolean
-    basicInfoActiveKey: string
+    advancedInfoCollapsed: boolean
     expandedRecentChangeKey: string
     recentChangesModalOpen: boolean
     summary?: any
@@ -296,7 +287,7 @@ const ServiceName = ({ value }: { value: string }) => {
         title={truncated ? value : undefined}
         placement="top"
         mouseEnterDelay={0.35}
-        overlayClassName="netdive-k8s-cluster-detail__service-name-tooltip">
+        classNames={{ root: "netdive-k8s-cluster-detail__service-name-tooltip" }}>
         <span ref={nameRef} onMouseEnter={measure} className="netdive-k8s-cluster-detail__service-name">{value}</span>
     </Tooltip>
 }
@@ -307,7 +298,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
 
     state: State = {
         basicCollapsed: false,
-        basicInfoActiveKey: '',
+        advancedInfoCollapsed: true,
         expandedRecentChangeKey: '',
         recentChangesModalOpen: false,
         instabilityWindow: '1h',
@@ -339,7 +330,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
     componentDidUpdate(prevProps: Props) {
         if (prevProps.node.id !== this.props.node.id) {
             this.memoryRequestOverageSince = 0
-            this.setState({ basicCollapsed: false, basicInfoActiveKey: '', expandedRecentChangeKey: '', recentChangesModalOpen: false, instabilityWindow: '1h', podStatusModalMode: '', podStatusModalKey: '', resourceUsageModal: '', memoryRequestInsightVisible: false, memoryRequestInsightExpanded: false, terminationHistoryExpanded: false, activeDetailTab: 'overview', serviceNamespaceFilter: 'all', summary: undefined, summaryError: false, summaryClusterID: undefined }, () => this.loadClusterSummary())
+            this.setState({ basicCollapsed: false, advancedInfoCollapsed: true, expandedRecentChangeKey: '', recentChangesModalOpen: false, instabilityWindow: '1h', podStatusModalMode: '', podStatusModalKey: '', resourceUsageModal: '', memoryRequestInsightVisible: false, memoryRequestInsightExpanded: false, terminationHistoryExpanded: false, activeDetailTab: 'overview', serviceNamespaceFilter: 'all', summary: undefined, summaryError: false, summaryClusterID: undefined }, () => this.loadClusterSummary())
             return
         }
         const previousCluster = this.moldClusterFrom(prevProps)
@@ -863,30 +854,23 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                     {namespaces.map(namespace => <Select.Option value={namespace} key={namespace}>{namespace}</Select.Option>)}
                 </Select>
             </div>
-            <ConnectedResourceListSection
-                icon={<AccountTreeIcon />}
-                title="서비스 목록"
-                emptyText="수집된 Service가 없습니다."
-                groups={[{
-                    key: 'services',
-                    items: filtered
-                        .slice()
-                        .sort((left, right) => {
-                            const namespaceOrder = namespaceFor(left).localeCompare(namespaceFor(right))
-                            return namespaceOrder || firstValue(left.data || {}, ['Name', 'K8s.Name']).localeCompare(firstValue(right.data || {}, ['Name', 'K8s.Name']))
-                        })
-                        .map(service => {
-                            const name = firstValue(service.data || {}, ['Name', 'K8s.Name']) || service.id
-                            return {
-                                key: service.id,
-                                name: <ServiceName value={name} />,
-                                description: namespaceFor(service),
-                                icon: <img className="netdive-k8s-cluster-detail__service-resource-icon" src="assets/icons/service.svg" alt="" />,
-                                className: 'netdive-connected-resource-list__item--service',
-                                onClick: () => this.openServiceDetail(service)
-                            }
-                        })
-                }]} />
+            <DetailSectionCard icon={<DetailSectionIcon role="services" />} title="서비스 목록">
+                <Table size="small" pagination={false} rowKey="id"
+                    className="netdive-cluster-ant-services"
+                    locale={{ emptyText: '수집된 Service가 없습니다.' }}
+                    dataSource={filtered.slice().sort((left, right) => {
+                        const namespaceOrder = namespaceFor(left).localeCompare(namespaceFor(right))
+                        return namespaceOrder || firstValue(left.data || {}, ['Name', 'K8s.Name']).localeCompare(firstValue(right.data || {}, ['Name', 'K8s.Name']))
+                    }).map(service => ({ id: service.id, service }))}
+                    columns={[
+                        { key: 'name', title: '서비스', render: (_value, { service }) => <Button type="link" size="small"
+                            onClick={() => this.openServiceDetail(service)}>
+                            <ServiceName value={firstValue(service.data || {}, ['Name', 'K8s.Name']) || service.id} />
+                        </Button> },
+                        { key: 'namespace', title: '네임스페이스', width: '40%',
+                            render: (_value, { service }) => <Tooltip title={namespaceFor(service)}><Typography.Text>{namespaceFor(service)}</Typography.Text></Tooltip> }
+                    ]} />
+            </DetailSectionCard>
         </div>
     }
 
@@ -954,10 +938,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
             <div className="netdive-k8s-cluster-detail__metadata-list">
                 {items.map(item => (
                     <Tooltip key={item.key} title={`${item.key}: ${item.value}`} placement="top">
-                        <span className="netdive-k8s-cluster-detail__metadata-item">
-                            <span>{item.key}</span>
-                            {item.value && <strong>{item.value}</strong>}
-                        </span>
+                        <Tag>{item.key}{item.value && `: ${item.value}`}</Tag>
                     </Tooltip>
                 ))}
             </div>
@@ -969,6 +950,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         unitTooltip: React.ReactNode
         allocatableValue: string
         usageValue: string
+        usageUnavailable?: boolean
         usagePercent?: number
         requestsValue?: string
         requestsPercent?: number
@@ -1010,6 +992,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                 : <React.Fragment>
                     <DetailMetricRow
                         primary
+                        unavailable={config.usageUnavailable}
                         label={config.pod ? '활성 Pod' : '현재 사용량'}
                         value={usageWithAllocatable}
                         ratio={ratio(config.usagePercent)}
@@ -1100,6 +1083,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                             unitTooltip: translate('kubernetesCpuUnitDescription'),
                             allocatableValue: allocatableCpu > 0 ? `${formatCoreNumber(allocatableCpu)} Core` : translate('kubernetesUnknown'),
                             usageValue: metricsAvailable ? `${formatCoreNumber(usageCpu)} Core` : translate('kubernetesNotCollected'),
+                            usageUnavailable: !metricsAvailable,
                             requestsValue: `${formatCoreNumber(requestsCpu)} Core`,
                             limitsValue: `${formatCoreNumber(limitsCpu)} Core`,
                             usagePercent: usageCpuPercent,
@@ -1113,6 +1097,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                             unitTooltip: translate('kubernetesMemoryUnitDescription'),
                             allocatableValue: allocatableMemory > 0 ? formatGiB(allocatableMemory) : translate('kubernetesUnknown'),
                             usageValue: metricsAvailable ? formatGiB(usageMemory) : translate('kubernetesNotCollected'),
+                            usageUnavailable: !metricsAvailable,
                             requestsValue: formatGiB(requestsMemory),
                             limitsValue: formatGiB(limitsMemory),
                             usagePercent: usageMemoryPercent,
@@ -1139,43 +1124,32 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                     </ResourceMetricStack>
                 )}
                 <Divider className="netdive-k8s-cluster-detail__capacity-compare-divider" />
-                <Collapse
-                    bordered={false}
-                    className="netdive-k8s-cluster-detail__capacity-compare-collapse"
-                    expandIconPosition="end">
-                    <Collapse.Panel
-                        key="allocation-basis"
-                        header={<span className="netdive-k8s-cluster-detail__capacity-compare-title">
+                <Collapse bordered={false} size="small"
+                    className="netdive-cluster-ant-collapse netdive-cluster-ant-allocation"
+                    expandIconPlacement="end"
+                    items={[{ key: 'allocation-basis', label: <span className="netdive-k8s-cluster-detail__capacity-compare-title">
                             <Typography.Text strong>할당 기준 비교</Typography.Text>
                             <DetailInfoTooltip description={<div>
                                 <div>왼쪽 값은 Mold에서 Kubernetes 클러스터 VM에 할당한 총 vCPU와 메모리입니다.</div>
                                 <div>오른쪽 값은 OS와 Kubernetes 시스템 예약분을 제외한 Allocatable 기준입니다.</div>
                                 <div>CPU는 VM 할당량을 vCPU, Kubernetes 사용 가능 자원을 Core 단위로 표시합니다.</div>
                             </div>} ariaLabel="할당 기준 비교 정보" />
-                        </span>}>
-                        <div className="netdive-k8s-cluster-detail__capacity-compare">
-                            <div className="netdive-k8s-cluster-detail__capacity-compare-columns" aria-hidden="true">
-                                <span>구분</span>
-                                <span>Mold 할당량</span>
-                                <span>Kubernetes Allocatable</span>
-                            </div>
-                            <div className="netdive-k8s-cluster-detail__capacity-compare-row">
-                                <Typography.Text type="secondary">CPU</Typography.Text>
-                                <strong>{provisionedCores ? `${formatCoreNumber(provisionedCores)} vCPU` : translate('kubernetesNotCollected')}</strong>
-                                <strong>{allocatableCpu ? `${formatCoreNumber(allocatableCpu)} Core` : translate('kubernetesNotCollected')}</strong>
-                            </div>
-                            <div className="netdive-k8s-cluster-detail__capacity-compare-row">
-                                <Typography.Text type="secondary">메모리</Typography.Text>
-                                <strong>{provisionedMemory ? formatBinaryBytes(provisionedMemoryBytes, 'GiB') : translate('kubernetesNotCollected')}</strong>
-                                <strong>{allocatableMemory ? formatGiB(allocatableMemory) : translate('kubernetesNotCollected')}</strong>
-                            </div>
+                        </span>, children: <div className="netdive-k8s-cluster-detail__capacity-compare">
+                            <Table size="small" pagination={false} rowKey="resource"
+                                columns={[
+                                    { title: '구분', dataIndex: 'resource', width: 55 },
+                                    { title: 'Mold 할당량', dataIndex: 'provisioned' },
+                                    { title: 'Kubernetes Allocatable', dataIndex: 'allocatable' }
+                                ]}
+                                dataSource={[
+                                    { resource: 'CPU', provisioned: provisionedCores ? `${formatCoreNumber(provisionedCores)} vCPU` : translate('kubernetesNotCollected'), allocatable: allocatableCpu ? `${formatCoreNumber(allocatableCpu)} Core` : translate('kubernetesNotCollected') },
+                                    { resource: '메모리', provisioned: provisionedMemory ? formatBinaryBytes(provisionedMemoryBytes, 'GiB') : translate('kubernetesNotCollected'), allocatable: allocatableMemory ? formatGiB(allocatableMemory) : translate('kubernetesNotCollected') }
+                                ]} />
                             {reservedMemory > 0 && <div className="netdive-k8s-cluster-detail__capacity-compare-note">
                                 <span>시스템 예약분:</span>
                                 <strong>메모리 {formatGiB(reservedMemory)}</strong>
                             </div>}
-                        </div>
-                    </Collapse.Panel>
-                </Collapse>
+                        </div> }]} />
             </div>
         )
     }
@@ -1189,13 +1163,14 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
     }
 
     private renderMetricsUnavailable(state: { label: string, tone: DetailBadgeTone, description: string }, compact = false) {
-        return (
-            <div className={`netdive-k8s-cluster-detail__metrics-empty ${compact ? 'netdive-k8s-cluster-detail__metrics-empty--compact' : ''}`}>
-                <InfoIcon />
-                <div><strong>{translate('kubernetesMetricsCannotCollect')}</strong><span>{state.description}</span></div>
-                <DetailBadge tone={state.tone}>{state.label}</DetailBadge>
-            </div>
-        )
+        return <Alert
+            className={`netdive-cluster-ant-alert ${compact ? 'is-compact' : ''}`}
+            type={state.tone === 'danger' ? 'error' : 'info'} showIcon
+            title={translate('kubernetesMetricsCannotCollect')}
+            description={<Space orientation="vertical" size={6}>
+                <Typography.Text type="secondary">{state.description}</Typography.Text>
+                <Tag color={state.tone === 'warning' ? 'warning' : state.tone === 'danger' ? 'error' : undefined}>{state.label}</Tag>
+            </Space>} />
     }
 
     private riskItems(nodeStatus: StatusSummary, podStatus: PodHealthSummary, unavailableWorkloads: Node[], affectedServices: number, hostPlacements: PlacementSummary[], switchPlacements: PlacementSummary[], controlPlane: StatusSummary, externalPathCount: number, externalPathsEvaluated: boolean): any[] {
@@ -1467,8 +1442,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         const expanded = this.state.terminationHistoryExpanded
         const toggleExpanded = () => this.setState({ terminationHistoryExpanded: !expanded })
 
-        return <React.Fragment>
-            <DetailCardSubsectionHeader title="과거 이력" />
+        return <ClusterOperationalSection title="과거 이력" className="netdive-cluster-ant-operational-followup">
             <div className={`netdive-k8s-cluster-detail__history-section${expanded ? ' is-expanded' : ''}`}>
                 <CollapsibleSummaryRow
                     title="누적/종료 이력"
@@ -1499,7 +1473,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                     </div>
                 </CollapsibleSummaryRow>
             </div>
-        </React.Fragment>
+        </ClusterOperationalSection>
     }
 
     private recentChangeGroups(): RecentChangeGroup[] {
@@ -1535,57 +1509,40 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
     }
 
     private renderRecentChanges(groups: RecentChangeGroup[], limit?: number, context = 'panel') {
-        if (!groups.length) return <div className="netdive-k8s-cluster-detail__change-empty">{translate('kubernetesNoRecentChanges')}</div>
+        if (!groups.length) return <CompactEmptyState description={translate('kubernetesNoRecentChanges')} compact />
         const visibleGroups = limit ? groups.slice(0, limit) : groups
-        return (
-            <div className={`netdive-k8s-cluster-detail__change-list ${context === 'modal' ? 'netdive-k8s-cluster-detail__change-list--modal' : ''}`}>
-                {visibleGroups.map((change, index) => {
-                    const representativeTone = this.recentChangeGroupTone(change)
-                    const changeKey = `${context}-${change.resource}-${change.time}-${index}`
-                    const expanded = this.state.expandedRecentChangeKey === changeKey
-                    const additionalEvents = change.events.slice(1)
-                    return (
-                        <div key={changeKey} className={expanded ? 'is-expanded' : ''}>
-                            <span className={`netdive-k8s-cluster-detail__change-dot netdive-k8s-cluster-detail__change-dot--${representativeTone}`} />
-                            <div className="netdive-k8s-cluster-detail__change-main">
-                                <div className="netdive-k8s-cluster-detail__change-heading">
-                                    <Tooltip title={change.resource} placement="top">
-                                        <strong>{change.resource}</strong>
-                                    </Tooltip>
-                                    <time>{formatDate(change.time)}</time>
-                                </div>
-                                <div className="netdive-k8s-cluster-detail__change-summary">
-                                    <span>{change.message}</span>
-                                    <small className={`netdive-k8s-cluster-detail__change-status netdive-k8s-cluster-detail__change-status--${representativeTone}`}>
-                                        {this.recentChangeToneLabel(representativeTone)}
-                                    </small>
-                                    {additionalEvents.length > 0 && <button
-                                        type="button"
-                                        className="netdive-k8s-cluster-detail__change-count"
-                                        aria-expanded={expanded}
-                                        onClick={() => this.setState({ expandedRecentChangeKey: expanded ? '' : changeKey })}>
-                                        {expanded
-                                            ? translate('kubernetesCollapseEvents')
-                                            : translate('kubernetesRelatedEvents').replace('{count}', String(additionalEvents.length))}
-                                    </button>}
-                                </div>
-                                {expanded && <div className="netdive-k8s-cluster-detail__change-details">
-                                    {additionalEvents.map((event, eventIndex) => <div className={`netdive-k8s-cluster-detail__change-detail-event netdive-k8s-cluster-detail__change-detail-event--${this.recentChangeTone(event)}`} key={`${event.time}-${eventIndex}`}>
-                                        <time>{formatDate(event.time)}</time>
-                                        <span className="netdive-k8s-cluster-detail__change-detail-message">
-                                            <span>{event.message}</span>
-                                            <small className={`netdive-k8s-cluster-detail__change-status netdive-k8s-cluster-detail__change-status--${this.recentChangeTone(event)}`}>
-                                                {this.recentChangeToneLabel(this.recentChangeTone(event))}
-                                            </small>
-                                        </span>
-                                    </div>)}
-                                </div>}
-                            </div>
-                        </div>
-                    )
-                })}
-            </div>
-        )
+        const tagColor = (tone: RecentChangeTone) => tone === 'danger' ? 'error' : tone === 'default' ? undefined : tone
+        return <Timeline className="netdive-cluster-ant-timeline" items={visibleGroups.map((change, index) => {
+            const representativeTone = this.recentChangeGroupTone(change)
+            const changeKey = `${context}-${change.resource}-${change.time}-${index}`
+            const expanded = this.state.expandedRecentChangeKey === changeKey
+            const additionalEvents = change.events.slice(1)
+            return { key: changeKey, color: representativeTone === 'danger' ? 'red' : representativeTone === 'success' ? 'green' : representativeTone === 'warning' ? 'orange' : 'gray',
+                content: <Space orientation="vertical" size={4} style={{ width: '100%' }}>
+                    <div className="netdive-k8s-cluster-detail__change-heading">
+                        <Tooltip title={change.resource}><Typography.Text strong ellipsis>{change.resource}</Typography.Text></Tooltip>
+                        <Typography.Text type="secondary">{formatDate(change.time)}</Typography.Text>
+                    </div>
+                    <Space size={[4, 4]} wrap className="netdive-cluster-ant-change-summary">
+                        <Typography.Text>{change.message}</Typography.Text>
+                        <Tag color={tagColor(representativeTone)}>{this.recentChangeToneLabel(representativeTone)}</Tag>
+                        {additionalEvents.length > 0 && <Button type="link" size="small" aria-expanded={expanded}
+                            onClick={() => this.setState({ expandedRecentChangeKey: expanded ? '' : changeKey })}>
+                            {expanded ? translate('kubernetesCollapseEvents') : translate('kubernetesRelatedEvents').replace('{count}', String(additionalEvents.length))}
+                        </Button>}
+                    </Space>
+                    {expanded && <Timeline items={additionalEvents.map((event, eventIndex) => ({
+                        key: `${event.time}-${eventIndex}`,
+                        content: <Space orientation="vertical" size={2}>
+                            <Typography.Text type="secondary">{formatDate(event.time)}</Typography.Text>
+                            <Space wrap><Typography.Text>{event.message}</Typography.Text>
+                                <Tag color={tagColor(this.recentChangeTone(event))}>{this.recentChangeToneLabel(this.recentChangeTone(event))}</Tag>
+                            </Space>
+                        </Space>
+                    }))} />}
+                </Space>
+            }
+        })} />
     }
 
     private recentChangeTone(change: any): RecentChangeTone {
@@ -1792,6 +1749,9 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
             : { label: translate('kubernetesResilienceGood'), tone: 'success' as DetailBadgeTone, value: externalPathCount ? '다중 경로' : '노출 없음', short: externalPathCount ? `외부 노출 경로 ${externalPathCount}개 · 다중 외부 경로` : '외부 노출 경로 0개 · 확인된 외부 노출 경로 없음', description: externalPathCount > 1 ? translate('kubernetesExternalPathMultipleDescription').replace('{count}', String(externalPathCount)) : translate('kubernetesExternalPathNoneDescription') }
         const overviewRows: any[] = [
             { label: translate('kubernetesClusterName'), value: name, textValue: name, copyText: name, valueMaxLines: 6 },
+            { label: translate('kubernetesClusterOwnerAccount'), value: moldCluster?.accountName || translate('kubernetesNotCollected') },
+            moldCluster?.domainName ? { label: translate('hostDomain'), value: moldCluster.domainName } : null,
+            moldCluster?.projectName ? { label: translate('kubernetesClusterProject'), value: moldCluster.projectName } : null,
             { label: translate('kubernetesVersion'), value: version || translate('kubernetesUnknown') },
             moldCluster?.state ? { label: translate('kubernetesMoldDeploymentStatus'), value: <DetailBadge tone={/running/i.test(moldCluster.state) ? 'success' : 'warning'}>{moldCluster.state}</DetailBadge> } : null
         ].filter(Boolean)
@@ -1799,8 +1759,8 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
             { label: translate('kubernetesApiServer'), value: apiServer || translate('kubernetesNoConnectionInfo'), textValue: apiServer, copyText: apiServer || undefined },
             moldCluster?.zoneName ? { label: translate('kubernetesZone'), value: moldCluster.zoneName } : null,
             moldCluster?.networkName ? { label: translate('kubernetesNetwork'), value: moldCluster.networkName } : null,
-            { label: translate('kubernetesClusterUid'), value: uid || translate('kubernetesNotCollected'), textValue: uid, copyText: uid || undefined },
-            { label: translate('kubernetesMoldClusterId'), value: moldCluster?.id || translate('kubernetesNoConnectionInfo'), textValue: moldCluster?.id, copyText: moldCluster?.id },
+            { label: translate('kubernetesClusterUid'), value: uid || translate('kubernetesNotCollected'), textValue: uid, copyText: uid || undefined, wrap: true },
+            { label: translate('kubernetesMoldClusterId'), value: moldCluster?.id || translate('kubernetesNoConnectionInfo'), textValue: moldCluster?.id, copyText: moldCluster?.id, wrap: true },
             moldCluster?.serviceOffering ? { label: translate('kubernetesServiceOffering'), value: moldCluster.serviceOffering } : null,
             createdAt ? { label: translate('kubernetesCreatedAt'), value: createdAt } : null
         ].filter(Boolean)
@@ -2045,6 +2005,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         </div>
 
         return (
+            <ConfigProvider theme={{ token: { fontSize: 12, fontSizeSM: 11, fontSizeLG: 14 }, components: { Card: { headerFontSizeSM: 14 }, Statistic: { contentFontSize: 16, titleFontSize: 12 }, Table: { cellFontSizeSM: 12 }, Alert: { withDescriptionIconSize: 16 } } }}>
             <div className="netdive-k8s-cluster-detail">
                 <DetailNavigationTabs
                     activeKey={this.state.activeDetailTab}
@@ -2056,23 +2017,12 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                 />
                 {this.state.activeDetailTab === 'overview' ? <React.Fragment>
                 <DetailSectionCard
-                    icon={<InfoIcon />}
+                    icon={<DetailSectionIcon role="basic" />}
                     title={translate('kubernetesClusterBasicInfo')}
                     collapsible
                     collapsed={this.state.basicCollapsed}
                     onToggle={() => this.setState({ basicCollapsed: !this.state.basicCollapsed })}>
-                    <BasicInfoRows density="compact" rows={overviewRows} copyTooltip={translate('copy')} />
-                    <Collapse
-                        accordion
-                        bordered={false}
-                        className="netdive-k8s-cluster-detail__basic-collapse"
-                        activeKey={this.state.basicInfoActiveKey}
-                        expandIconPosition="end"
-                        onChange={key => this.setState({ basicInfoActiveKey: Array.isArray(key) ? String(key[0] || '') : String(key || '') })}>
-                        <Collapse.Panel header={translate('kubernetesAdvancedInformation')} key="advanced">
-                            <BasicInfoRows density="compact" rows={advancedRows} copyTooltip={translate('copy')} />
-                        </Collapse.Panel>
-                    </Collapse>
+                    <BasicInfoRows className="netdive-cluster-ant-descriptions" rows={overviewRows} copyTooltip={translate('copy')} />
                     {(labels.length > 0 || annotations.length > 0) && <div className="netdive-k8s-cluster-detail__metadata">
                         <div className="netdive-k8s-cluster-detail__metadata-group">
                             <div className="netdive-k8s-cluster-detail__metadata-title">{translate('kubernetesLabels')}</div>
@@ -2086,9 +2036,20 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                 </DetailSectionCard>
 
                 <DetailSectionCard
-                    icon={this.topologyIcon(this.props.node)}
+                    icon={<DetailSectionIcon role="advanced" />}
+                    title={translate('kubernetesAdvancedInformation')}
+                    collapsible
+                    collapsed={this.state.advancedInfoCollapsed}
+                    onToggle={() => this.setState({ advancedInfoCollapsed: !this.state.advancedInfoCollapsed })}>
+                    <BasicInfoRows className="netdive-cluster-ant-descriptions" rows={advancedRows} copyTooltip={translate('copy')} />
+                </DetailSectionCard>
+
+                <DetailSectionCard
+                    icon={<DetailSectionIcon role="operational" />}
                     title={translate('kubernetesOperationalStatus')}
-                    action={<Space size={5} className="netdive-k8s-cluster-detail__collection-summary">
+                    >
+                    <div className="netdive-k8s-cluster-detail__collection-summary">
+                        <Space size={5}>
                         <Badge
                             status={metricState.tone === 'success'
                                 ? 'success'
@@ -2099,12 +2060,14 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                                         : 'default'}
                             text={metricState.label} />
                         <DetailInfoTooltip description={metricState.description} ariaLabel="메트릭 수집 상태 정보" />
-                        <Typography.Text type="secondary">·</Typography.Text>
+                        </Space>
+                        <Space size={5}>
                         <Typography.Text type="secondary">{collectionTimeText}</Typography.Text>
                         <DetailInfoTooltip
                             description={collectedAt ? `마지막 수집 시각: ${collectedAt}` : metricState.description}
                             ariaLabel="마지막 수집 시각 정보" />
-                    </Space>}>
+                        </Space>
+                    </div>
                     <StatusSummaryGrid
                         summaryTitle="상태 요약"
                         metricsTitle="자원 현황"
@@ -2137,8 +2100,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                                 ? () => this.setState({ activeDetailTab: 'services', serviceNamespaceFilter: 'all' })
                                 : undefined
                         }))} />
-                    {abnormalItems.length > 0 && <React.Fragment>
-                        <DetailCardSubsectionHeader title="현재 이상" />
+                    {abnormalItems.length > 0 && <ClusterOperationalSection title="현재 이상" className="netdive-cluster-ant-operational-followup">
                         <StatusEvidenceList columnHeaders={{ state: '상태', value: '대상 수', action: true }}>
                             {abnormalItems.map(item => <StatusEvidenceRow
                                 key={item.key}
@@ -2152,9 +2114,8 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                                 actionIndicator={!!item.onClick}
                             />)}
                         </StatusEvidenceList>
-                    </React.Fragment>}
-                    {instabilityWindowAvailable && <React.Fragment>
-                        <DetailCardSubsectionHeader
+                    </ClusterOperationalSection>}
+                    {instabilityWindowAvailable && <ClusterOperationalSection className="netdive-cluster-ant-operational-followup"
                             title={<Space size={4}>
                                 <span>최근 이상</span>
                                 <DetailInfoTooltip description={<React.Fragment>
@@ -2163,7 +2124,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                                     {podSummary.recentTimestampEstimatedCount > 0 && historyTimeQualityTooltip}
                                 </React.Fragment>} ariaLabel="최근 이상징후 집계 정보" />
                             </Space>}
-                            action={<Space size={5}><Typography.Text type="secondary">조회 기간</Typography.Text>{this.renderInstabilityWindowSelect()}</Space>} />
+                            action={<Space size={5}><Typography.Text type="secondary">조회 기간</Typography.Text>{this.renderInstabilityWindowSelect()}</Space>}>
                         <div className="netdive-k8s-cluster-detail__instability">
                         {this.state.summaryLoading
                             ? <div className="netdive-k8s-cluster-detail__instability-fetch-state"><Spin size="small" /><span>기간 데이터를 불러오는 중입니다.</span></div>
@@ -2173,30 +2134,31 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                                     <Button type="link" size="small" onClick={() => this.loadClusterSummary(true)}>다시 시도</Button>
                                 </div>
                                 : null}
-                        {!this.state.summaryLoading && !this.state.summaryError && <DetailMetaInfoRow items={[{
-                            key: 'recent-anomalies',
-                            label: '최근 이상징후',
-                            value: recentAnomalyPodNodes.length + recentPressureSignals.length,
-                            tone: hasRecentInstability ? (hasCurrentInstabilityImpact ? 'danger' : 'warning') : 'success',
-                            tooltip: `실제 이상 Pod ${recentAnomalyPodNodes.length}건과 활성 ${KUBERNETES_DETAIL_LABELS.nodePressure} ${recentPressureSignals.length}건을 집계했습니다.`,
-                            tooltipDetail: `영향받은 노드 ${recentAffectedNodeNames.size}개 · 영향 워크로드 ${recentAffectedWorkloadNames.size}개 · 미복구 워크로드 ${unrecoveredWorkloadTargets.length}개`
-                        }]} />}
+                        {!this.state.summaryLoading && !this.state.summaryError && <div className="netdive-cluster-ant-recent-count">
+                            <Space size={4}>
+                                <Typography.Text type="secondary">최근 이상징후</Typography.Text>
+                                <DetailInfoTooltip
+                                    description={`실제 이상 Pod ${recentAnomalyPodNodes.length}건과 활성 ${KUBERNETES_DETAIL_LABELS.nodePressure} ${recentPressureSignals.length}건을 집계했습니다.`}
+                                    detail={`영향받은 노드 ${recentAffectedNodeNames.size}개 · 영향 워크로드 ${recentAffectedWorkloadNames.size}개 · 미복구 워크로드 ${unrecoveredWorkloadTargets.length}개`} />
+                            </Space>
+                            <Badge status={hasRecentInstability ? (hasCurrentInstabilityImpact ? 'error' : 'warning') : 'success'}
+                                text={<Typography.Text strong>{recentAnomalyPodNodes.length + recentPressureSignals.length}</Typography.Text>} />
+                        </div>}
                         {hasRecentInstability
-                            ? <button
-                                type="button"
+                            ? <Button type="text" block size="small"
                                 className="netdive-k8s-cluster-detail__instability-detail-trigger"
                                 onClick={() => this.setState({ podStatusModalMode: 'recent', podStatusModalKey: '' })}>
                                 <span>이상징후 목록 보기</span>
                                 <RightOutlined />
-                            </button>
+                            </Button>
                             : null}
                         </div>
-                    </React.Fragment>}
+                    </ClusterOperationalSection>}
                     {this.renderTerminationHistory(podSummary)}
                 </DetailSectionCard>
 
                 <ResourceSectionCard
-                    icon={<AccountTreeIcon />}
+                    icon={<DetailSectionIcon role="resources" />}
                     title={<span className="netdive-k8s-cluster-detail__capacity-section-title">
                         {translate('kubernetesResourceCapacity')}
                         <ResourceInfoTooltip
@@ -2206,9 +2168,9 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                     {this.renderResourceCapacity(moldCluster, activePodResources.length, allocatablePodCount)}
                 </ResourceSectionCard>
 
-                <DetailSectionCard icon={<ErrorOutlineIcon />} title={translate('kubernetesRiskResilience')}>
+                <DetailSectionCard icon={<DetailSectionIcon role="risk" />} title={translate('kubernetesRiskResilience')}>
                     <div className={`netdive-k8s-cluster-detail__alert-summary ${currentRisks.length ? 'has-alert' : !currentImpact.evaluated ? 'is-unavailable' : ''}`}>
-                        <span className="netdive-k8s-cluster-detail__alert-dot" />
+                        <Badge status={currentRisks.length ? 'warning' : !currentImpact.evaluated ? 'default' : 'success'} />
                         <strong>{currentRisks.length ? currentRisks[0].title : !currentImpact.evaluated ? '현재 경보 평가 불가' : translate('kubernetesNoCurrentAlerts')}</strong>
                         {currentRisks.length > 1 && <small>+{currentRisks.length - 1}</small>}
                     </div>
@@ -2277,7 +2239,8 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                             : undefined} />
                 </DetailSectionCard>
                 <RelatedResourceGrid
-                    icon={<AccountTreeIcon />}
+                    className="netdive-cluster-connected-resources"
+                    icon={<DetailSectionIcon role="related" />}
                     title={translate('hostConnectedResources')}
                     emptyText={translate('hostNoConnectedResources')}
                     groups={[
@@ -2306,20 +2269,19 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                     ]} />
 
                 <DetailSectionCard
-                    icon={<HistoryOutlined />}
+                    icon={<DetailSectionIcon role="events" />}
                     title={translate('kubernetesRecentChanges')}
-                    action={recentChangeGroups.length > 4 ? <button
-                        type="button"
+                    action={recentChangeGroups.length > 4 ? <Button type="link" size="small"
                         className="netdive-k8s-cluster-detail__change-view-all"
                         onClick={() => this.setState({ recentChangesModalOpen: true, expandedRecentChangeKey: '' })}>
                         {translate('kubernetesRecentChangesViewAll')}
-                    </button> : undefined}>
+                    </Button> : undefined}>
                     {this.renderRecentChanges(recentChangeGroups, 4)}
                 </DetailSectionCard>
                 </React.Fragment> : this.renderServiceBrowser(serviceResource.nodes)}
 
                 <HistoryModal
-                    visible={!!this.state.podStatusModalMode}
+                    open={!!this.state.podStatusModalMode}
                     className={`netdive-k8s-cluster-detail__eviction-modal netdive-list-modal ${this.state.podStatusModalMode === 'recent' ? 'netdive-k8s-cluster-detail__resource-usage-modal' : ''}`}
                     title={this.state.podStatusModalMode === 'history'
                         ? `과거 종료 이력 · ${selectedPodStatusGroup?.label || '전체'}`
@@ -2385,24 +2347,24 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                 </HistoryModal>
 
                 <Modal
-                    visible={this.state.recentChangesModalOpen}
+                    open={this.state.recentChangesModalOpen}
                     className="netdive-k8s-cluster-detail__change-modal netdive-list-modal"
                     title={<span className="netdive-k8s-cluster-detail__change-modal-title"><HistoryOutlined />{translate('kubernetesRecentChangesAllTitle')}</span>}
                     width={540}
                     footer={null}
-                    destroyOnClose
+                    destroyOnHidden
                     onCancel={() => this.setState({ recentChangesModalOpen: false, expandedRecentChangeKey: '' })}>
                     {this.renderRecentChanges(recentChangeGroups, undefined, 'modal')}
                 </Modal>
 
                 <Modal
-                    visible={!!this.state.resourceUsageModal}
+                    open={!!this.state.resourceUsageModal}
                     className="netdive-k8s-cluster-detail__resource-usage-modal netdive-list-modal"
                     title={this.state.resourceUsageModal === 'memory-unset'
                         ? '메모리 Requests 미설정 Pod'
                         : `${this.state.resourceUsageModal === 'memory' ? '메모리' : 'CPU'} 상위 사용 Pod`}
                     width={760}
-                    destroyOnClose
+                    destroyOnHidden
                     footer={null}
                     keyboard
                     getContainer={() => document.body}
@@ -2466,18 +2428,14 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                 </Modal>
 
                 {!moldCluster && (
-                    <div className="netdive-k8s-cluster-detail__notice">
-                        <InfoIcon />
-                        <span>{translate('kubernetesClusterMoldMissing')}</span>
-                    </div>
+                    <Alert type="info" showIcon className="netdive-cluster-ant-alert" title={translate('kubernetesClusterMoldMissing')} />
                 )}
                 {!this.state.summaryLoading && moldCluster && (this.state.summaryError || !this.state.summary?.resources?.metricsAvailable) && (
-                    <div className="netdive-k8s-cluster-detail__notice">
-                        <InfoIcon />
-                        <span><strong>{translate('kubernetesSummaryFallback')}</strong><small>{translate('kubernetesSummaryFallbackDetail')}</small></span>
-                    </div>
+                    <Alert type="info" showIcon className="netdive-cluster-ant-alert"
+                        title={translate('kubernetesSummaryFallback')} description={translate('kubernetesSummaryFallbackDetail')} />
                 )}
             </div>
+            </ConfigProvider>
         )
     }
 }

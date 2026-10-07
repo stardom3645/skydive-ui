@@ -1,15 +1,7 @@
+import { DetailSectionIcon } from './common/DetailSectionIcon'
 import * as React from 'react'
 import { Table } from 'antd'
-import {
-    BarChartOutlined,
-    DesktopOutlined,
-    GlobalOutlined,
-    InfoCircleOutlined,
-    LineChartOutlined,
-    LinkOutlined,
-    SettingOutlined,
-    TagOutlined
-} from '@ant-design/icons'
+import { BarChartOutlined, DesktopOutlined, LineChartOutlined, LinkOutlined, TagOutlined } from '@ant-design/icons'
 
 import { translate } from '../Config'
 import Tools from '../Tools'
@@ -362,21 +354,21 @@ class VlanDetailPanel extends React.Component<Props, State> {
         const hasAdvanced = Object.keys(this.advancedInterfaceData()).length > 0 || ['Features', 'FDB', 'Neighbors', 'RoutingTables'].some(key => hasContent(data[key]))
         return (
             <div className="netdive-vlan-detail">
-                <DetailSection icon={<InfoCircleOutlined />} title={translate('hostBasicInfo')}>
+                <DetailSection icon={<DetailSectionIcon role="basic" />} title={translate('hostBasicInfo')}>
                     <DetailKeyValueList rows={this.basicRows()} copyTooltip={translate('copy')} />
                 </DetailSection>
-                <DetailSection icon={<LinkOutlined />} title={translate('hostConnectedResources')}>
+                <DetailSection icon={<DetailSectionIcon role="related" />} title={translate('hostConnectedResources')}>
                     {this.renderConnectedResources(interfaces)}
                 </DetailSection>
                 {configurationRows.length > 0 && this.section('configuration', <TagOutlined />, translate('vlanConfiguration'), <DetailKeyValueList rows={configurationRows} copyTooltip={translate('copy')} />)}
                 {addresses.length > 0 && (
-                    <DetailSection icon={<GlobalOutlined />} title={translate('bridgeNetworkAddresses')}>
+                    <DetailSection icon={<DetailSectionIcon role="addresses" />} title={translate('bridgeNetworkAddresses')}>
                         <DetailKeyValueList rows={addresses} copyTooltip={translate('copy')} />
                     </DetailSection>
                 )}
                 {recentRows.length > 0 && this.section('recent', <LineChartOutlined />, translate('lastUpdateMetric'), <DetailKeyValueList rows={recentRows} />)}
                 {accumulatedRows.length > 0 && this.section('accumulated', <BarChartOutlined />, translate('metric'), <DetailKeyValueList rows={accumulatedRows} />)}
-                {hasAdvanced && this.section('advanced', <SettingOutlined />, translate('detailAdvancedInfo'), this.renderAdvanced())}
+                {hasAdvanced && this.section('advanced', <DetailSectionIcon role="advanced" />, translate('detailAdvancedInfo'), this.renderAdvanced())}
             </div>
         )
     }
