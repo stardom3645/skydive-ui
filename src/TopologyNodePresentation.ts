@@ -16,9 +16,9 @@ export interface TopologyNodePresentation {
 }
 
 export const TOPOLOGY_CARD_SIZES = {
-    large: { width: 420, height: 156 },
-    medium: { width: 340, height: 140 },
-    compact: { width: 280, height: 112 }
+    large: { width: 580, height: 184 },
+    medium: { width: 320, height: 264 },
+    compact: { width: 280, height: 208 }
 }
 const kinds: Record<string, string> = {
     cluster: '쿠버네티스 클러스터', node: '쿠버네티스 노드', namespace: '네임스페이스',
@@ -48,7 +48,7 @@ export const topologyCardDimensions = (node: Node, group = false) => {
     group = group || (type === 'namespace' && (node.children || []).length > 0)
     const size: TopologyCardSize = ['cluster', 'host'].includes(type) && !group ? 'large'
         : group || ['node', 'namespace', 'deployment', 'statefulset', 'daemonset', 'job', 'cronjob', 'libvirt', 'switch'].includes(type) ? 'medium' : 'compact'
-    return { size, ...TOPOLOGY_CARD_SIZES[size], ...(group ? { width: 380, height: 112 } : {}) }
+    return { size, ...TOPOLOGY_CARD_SIZES[size], ...(group ? { width: 560, height: 124 } : {}) }
 }
 
 /** A view model only: graph ownership and the shared status classifiers remain

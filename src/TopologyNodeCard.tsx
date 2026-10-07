@@ -87,7 +87,7 @@ export const TopologyNodeCard = React.memo(({ model, icon, iconClass, href, onTo
 }) => <foreignObject className="topology-object-foreign" x={-model.width / 2} y={-model.height / 2}
     width={model.width} height={model.height}>
     <ConfigProvider theme={{ token: { fontSize: 14, fontFamily: 'var(--netdive-font-family)' } }}>
-        <article className={`topology-object-card is-${model.size} ${model.group ? 'is-group' : ''}`}
+        <article className={`topology-object-card is-${model.size} ${model.group ? 'is-group' : model.size === 'large' ? '' : 'is-tile'}`}
             aria-label={`${model.kind}: ${model.name}`}>
             <div className="topology-object-card__header">
                 <TopologyTypeIcon icon={icon} iconClass={iconClass} href={href} />
