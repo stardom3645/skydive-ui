@@ -2,6 +2,8 @@ import * as React from 'react'
 import { Popover, Tabs, Tooltip } from 'antd'
 import { InfoCircleOutlined } from '@ant-design/icons'
 import { TOPOLOGY_TOOLTIP_DISMISS_EVENT, topologyTooltipAnchorValid, watchTopologyTooltipAnchor } from './TopologyTooltipAnchor'
+import { TopologyObjectStatusBadge } from './TopologyNodeCard'
+import type { TopologyCardTone } from './TopologyNodePresentation'
 
 export const TOPOLOGY_STATUS_BADGE_RADIUS = 15
 export const TOPOLOGY_STATUS_BADGE_STEP = 34
@@ -162,10 +164,20 @@ const topologyNodeLegendItems = [
         key: 'supporting',
         label: '보조 정보',
         description: '노드 이름 아래의 작은 텍스트는 자원 유형 또는 소속 정보를 나타냅니다.'
+    },
+    {
+        key: 'metrics',
+        label: '핵심 지표',
+        description: '카드 아래 칩은 수집된 사용량이나 자원 수를 표시합니다. 미수집은 0%를 뜻하지 않습니다.'
+    },
+    {
+        key: 'relationships',
+        label: '연결 관계',
+        description: '선택하거나 가리킨 객체의 직접 부모·자식과 연결선이 강조됩니다.'
     }
 ]
 
-const topologyStatusLegendContent = () => <div className="netdive-topology-status-legend__panel">
+const topologyNumericBadgeLegendContent = () => <div className="netdive-topology-status-legend__panel">
     <div className="netdive-topology-status-legend__title">상태 배지 의미</div>
     <div className="netdive-topology-status-legend__items" role="list">
         {topologyStatusLegendItems.map(item => <div
@@ -196,6 +208,29 @@ const topologyStatusLegendContent = () => <div className="netdive-topology-statu
     </div>
 </div>
 
+const topologyStatusLegendContent = () => <div className="netdive-topology-status-legend__panel">
+    <div className="netdive-topology-status-legend__title">객체 카드 상태</div>
+    <div className="netdive-topology-status-legend__items" role="list">
+        {([
+            ['normal', '정상', '현재 리소스 자체에 운영 이상이 확인되지 않았습니다.'],
+            ['warning', '주의', '확인이 필요한 운영 상태입니다.'],
+            ['critical', '장애', '현재 리소스 자체에 이상이 확인됐습니다.'],
+            ['unknown', '알 수 없음', '상태를 판단할 수 있는 수집 데이터가 없습니다.'],
+            ['inactive', '비활성', '정지 등으로 현재 운영되지 않는 자원입니다.']
+        ] as Array<[TopologyCardTone, string, string]>).map(([tone, label, description]) =>
+            <div key={tone} role="listitem" className="netdive-topology-status-legend__item is-object-card">
+                <TopologyObjectStatusBadge status={{ tone, label, description }} />
+                <span className="netdive-topology-status-legend__item-copy"><small>{description}</small></span>
+            </div>)}
+    </div>
+    <div className="netdive-topology-status-legend__description">
+        그룹의 숫자는 바로 아래 자원의 상태 분포입니다. 주의에는 하위 자원 이상도 포함됩니다. 작은 카드와 축소 화면에서는 상태 점만 표시합니다.
+    </div>
+    <details className="netdive-topology-status-legend__numeric-help">
+        <summary>상세 패널의 숫자 배지</summary>{topologyNumericBadgeLegendContent()}
+    </details>
+</div>
+
 const topologyNodeLegendContent = () => <div className="netdive-topology-status-legend__panel">
     <div className="netdive-topology-status-legend__title">노드 표현 의미</div>
     <div className="netdive-topology-node-legend__items" role="list">
@@ -206,8 +241,8 @@ const topologyNodeLegendContent = () => <div className="netdive-topology-status-
     </div>
 </div>
 
-/** Global topology help. Its samples reuse the exact card badge glyph, radius
- * and tone classes instead of maintaining a second legend-only badge style. */
+/** Global help reuses the actual object-card status component. Numeric badges
+ * remain documented for the existing detailed state summaries. */
 export const TopologyStatusBadgeLegend = ({ compact = false }: { compact?: boolean }) => {
     const [open, setOpen] = React.useState(false)
 

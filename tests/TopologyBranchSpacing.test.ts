@@ -6,6 +6,7 @@ import * as vm from 'vm'
 import { topologyBranchOffsets } from '../src/TopologyBranchSpacing'
 import { topologyGroupRegions, TOPOLOGY_GROUP_TONE_LIGHTNESS, TopologyRegionNode } from '../src/TopologyGroupRegions'
 import { kubernetesTopologyNodeText, isKubernetesStorageType } from '../src/KubernetesTopologyNodePresentation'
+import { topologyCardDimensions } from '../src/TopologyNodePresentation'
 
 const card = (id: string, parentID: string | undefined, x: number, width = 360): TopologyRegionNode => ({
     id, parentID, x, width, y: parentID ? 400 : 0, height: 108, visible: true, expanded: true
@@ -75,7 +76,7 @@ function measurementProbe() {
     const component = ast.statements.find(n => ts.isClassDeclaration(n) && n.name!.text === 'Topology') as ts.ClassDeclaration
     const names = ['topologyNodeDisplayName', 'topologyGroupCardScope', 'topologyKubernetesNamespace', 'topologyLayoutCardWidth']
     const methods = component.members.filter(n => n.name && names.includes(n.name.getText(ast))).map(n => n.getText(ast)).join('\n')
-    const context: any = { kubernetesTopologyNodeText, isKubernetesStorageType, topologyCardWidth: 280, topologyMediumCardWidth: 360, WrapperType: { Group: 3 } }
+    const context: any = { kubernetesTopologyNodeText, isKubernetesStorageType, topologyCardDimensions, WrapperType: { Group: 3 } }
     vm.createContext(context)
     vm.runInContext(ts.transpile(`class Probe { ${methods} }; this.Probe = Probe`, { target: ts.ScriptTarget.ES2018 }), context)
     const probe = new context.Probe()
@@ -84,16 +85,16 @@ function measurementProbe() {
 }
 
 describe('Topology card layout measurement', () => {
-    it('reserves the width of a long PVC namespace even when its name is short', () => {
+    it('keeps a long PVC context in the compact card tier', () => {
         const probe = measurementProbe()
         const pvc = { data: { type: 1, wrapped: { data: { Name: 'redis-data', Manager: 'k8s', Type: 'persistentvolumeclaim', K8s: { Namespace: 'namespace-with-long-context' } } } } }
-        assert.strictEqual(probe.topologyLayoutCardWidth(pvc), 360)
+        assert.strictEqual(probe.topologyLayoutCardWidth(pvc), topologyCardDimensions(pvc.data.wrapped as any).width)
     })
 
     it('reserves a group card scope without changing the displayed name', () => {
         const probe = measurementProbe()
         const group = { data: { type: 3, wrapped: { data: { Name: '노드 그룹', Manager: 'k8s', GroupScopeLabel: 'k8s-lifecycle31-v13412-long-cluster' } } } }
         assert.strictEqual(probe.topologyNodeDisplayName(group), '노드 그룹\nk8s-lifecycle31-v13412-long-cluster')
-        assert.strictEqual(probe.topologyLayoutCardWidth(group), 360)
+        assert.strictEqual(probe.topologyLayoutCardWidth(group), topologyCardDimensions(group.data.wrapped as any, true).width)
     })
 })

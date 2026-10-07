@@ -20,6 +20,10 @@ import { topologyBranchOffsets } from './TopologyBranchSpacing'
 import { topologyGroupRegions } from './TopologyGroupRegions'
 import { TopologyReactRoots } from './TopologyReactRoots'
 import { TopologyCaptureIndicator } from './TopologyCaptureIndicator'
+import { TopologyNodeCard } from './TopologyNodeCard'
+import { topologyCardDimensions, topologyNodePresentation } from './TopologyNodePresentation'
+import { topologyVisualGroups, TopologyVisualGroup } from './TopologyGroupBackground'
+import { topologyCardEdge, topologyHierarchyEdgeIDs } from './TopologyEdgePresentation'
 import { Avatar, Button, Card, Input, List, Tag, Typography } from 'antd'
 import { NodeIndexOutlined } from '@ant-design/icons'
 import { hierarchy } from 'd3-hierarchy'
@@ -41,15 +45,8 @@ import {
     kubernetesTopologyNodeText
 } from './KubernetesTopologyNodePresentation'
 import {
-    kubernetesTopologyAttentionPathIDs,
-    kubernetesTopologyBadgeGroupSummary,
-    kubernetesTopologyCountBadges
+    kubernetesTopologyAttentionPathIDs
 } from './KubernetesTopologyBadgeAggregation'
-import {
-    TopologyStatusBadgeGroupSummary,
-    TopologyStatusBadgeRail,
-    TopologyStatusBadgeTooltip
-} from './TopologyStatusBadge'
 import {
     topologyRelationPathClosure,
     topologyNetworkRootPathClosure,
@@ -76,8 +73,6 @@ const nodeHeight = 200
 const topologyCardWidth = 280
 // 중간 길이 이름 노드의 카드 너비입니다.
 const topologyMediumCardWidth = 360
-// 노드 카드에서 아이콘/배지 영역을 제외한 텍스트 계산 여백입니다.
-const topologyCardTextPadding = 104
 // 같은 계층의 카드 경계 사이에 유지할 최소 가로 여백입니다.
 const topologySiblingCardGap = 36
 // 일반 토폴로지 노드 카드의 높이입니다.
@@ -85,11 +80,6 @@ const topologyCardHeight = 92
 // Kubernetes workload and storage cards reserve two name rows and one
 // resource-kind/context row.
 const topologyWorkloadCardHeight = 108
-// 2줄 노드 이름의 줄 간격입니다.
-const topologyCardTitleLineGap = 20
-const topologyWorkloadTitleLineGap = 18
-const topologyWorkloadKindFontSize = 14
-// 상태 배지의 실제 렌더링 간격과 제목 사이의 안전 여백입니다.
 // 컨테이너형 그룹 UI의 전체 너비입니다.
 const groupContainerWidth = 620
 // 컨테이너형 그룹 UI의 헤더 높이입니다.
@@ -648,6 +638,7 @@ export class Topology extends React.Component<Props, {}> {
     private gRaisedLinkLabels: Selection<SVGGraphicsElement, {}, null, undefined>
     private topologyContextMenuRoot: HTMLDivElement | null
     private reactRoots = new TopologyReactRoots()
+    private objectCardRenderKeys = new WeakMap<Element, string>()
     private zoom: zoom
     private liner: line
     private showLevelLabelsTimeoutID: number
@@ -1002,6 +993,7 @@ export class Topology extends React.Component<Props, {}> {
                 this.absTransformX = event.transform.x * 1 / event.transform.k
                 this.absTransformY = event.transform.y * 1 / event.transform.k
                 this.updateLevelLabelBackdrop()
+                this.updateTopologyDensity(event.transform.k)
                 if (this.props.onZoomChange) {
                     this.props.onZoomChange(event.transform.k)
                 }
@@ -2495,9 +2487,17 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     private topologyLayoutCardWidth(node: D3Node): number {
-        const displayName = this.topologyNodeDisplayName(node)
-        const longestLineLength = displayName.split("\n").reduce((length, line) => Math.max(length, line.length), 0)
-        return longestLineLength <= 14 ? topologyCardWidth : topologyMediumCardWidth
+        return topologyCardDimensions(node.data.wrapped, node.data.type === WrapperType.Group).width
+    }
+
+    private topologyLayoutCardHeight(node: D3Node): number {
+        return topologyCardDimensions(node.data.wrapped, node.data.type === WrapperType.Group).height
+    }
+
+    private topologyEdgeBounds(node: D3Node) {
+        const visible = node.data.type !== WrapperType.Hidden && node.data.wrapped !== this.root
+        return { x: node.x, y: node.y, width: visible ? this.topologyLayoutCardWidth(node) : 0,
+            height: visible ? this.topologyLayoutCardHeight(node) : 0 }
     }
 
     private shiftHierarchySubtreeX(node: D3Node, delta: number) {
@@ -2702,7 +2702,7 @@ export class Topology extends React.Component<Props, {}> {
                 expanded: !!node.data.wrapped.state.expanded,
                 x: node.x + backplate / 2, y: node.y,
                 width: this.topologyLayoutCardWidth(node) + backplate,
-                height: isKubernetesThreeLineTopologyType(node.data.wrapped.data?.Type) ? topologyWorkloadCardHeight : topologyCardHeight
+                height: this.topologyLayoutCardHeight(node)
             }
         }))
         offsets.forEach((offset, id) => this.shiftHierarchySubtreeX(byID.get(id)!, offset))
@@ -2773,6 +2773,7 @@ export class Topology extends React.Component<Props, {}> {
         selectAll("g.link-label").each(function (d: Link) {
             select(this).style("opacity", self.linkLabelOpacity(d))
         })
+        this.syncTopologyRelationEmphasis()
     }
 
     private clearRaisedLinkLabel() {
@@ -4606,6 +4607,7 @@ export class Topology extends React.Component<Props, {}> {
 
         select("#node-overlay-" + id)
             .style("opacity", opacity)
+        this.syncTopologyRelationEmphasis(active ? id : undefined)
     }
 
     private isLinkVisible(link: Link): boolean {
@@ -5074,9 +5076,8 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     private renderHieraLinks(root: any) {
-        const hieraLinker = linkVertical()
-            .x(d => d.x)
-            .y(d => d.y)
+        const hieraLinker = (edge: any) => topologyCardEdge(
+            this.topologyEdgeBounds(edge.source), this.topologyEdgeBounds(edge.target), true)
 
         var hieraLink = this.gHieraLinks.selectAll('path.hiera-link')
             .data(root.links(), (d: any) => d.source.data.id + d.target.data.id)
@@ -5299,1052 +5300,144 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     private renderNodes(root: any) {
-        var self = this
-
-        var node = this.gNodes.selectAll('g.node')
-            .interrupt()
-            .data(root.descendants(), (d: D3Node) => d.data.id)
-
-        const nodeClass = (d: D3Node) => new Array<string>().concat("node",
-            d.data.type === WrapperType.Group ? "node-group-card" : "",
-            d.data.type === WrapperType.Group && d.data.wrapped.state.expanded ? "node-group-expanded" : "",
-            this.props.nodeAttrs(d.data.wrapped).classes,
-            d.data.wrapped.state.selected ? "node-selected" : "").join(" ")
-
-        var nodeEnter = node.enter()
-            .filter((d: D3Node) => d.data.type !== WrapperType.Hidden && d.data.wrapped !== this.root)
-            .append("g")
-            .attr("id", (d: D3Node) => "node-" + d.data.id)
-            .attr("class", nodeClass)
-            .style("opacity", 0)
-            .attr("transform", (d: D3Node) => `translate(${d.x},${d.y})`)
-            .on("dblclick", (d: D3Node) => this.nodeDoubleClicked(d))
-            .on("click", (d: D3Node) => this.nodeClicked(d))
-            .on("contextmenu", (d: D3Node) => {
-                event.preventDefault()
-                this.showNodeContextMenu(d)
+        const self = this
+        const links = Array.from(this.links.values())
+        const nodeClass = (d: D3Node) => ['node', 'node-object-card',
+            d.data.type === WrapperType.Group ? 'node-group-card' : '',
+            d.data.type === WrapperType.Group && d.data.wrapped.state.expanded ? 'node-group-expanded' : '',
+            ...this.props.nodeAttrs(d.data.wrapped).classes,
+            d.data.wrapped.state.selected ? 'node-selected' : ''].join(' ')
+        let node = this.gNodes.selectAll<SVGGElement, D3Node>('g.node')
+            .interrupt().data(root.descendants().filter((d: D3Node) =>
+                d.data.type !== WrapperType.Hidden && d.data.wrapped !== this.root), (d: D3Node) => d.data.id)
+        node.exit().transition().duration(animDuration).style('opacity', 0)
+            .on('end.dispose', (_d, index, elements) => this.unmountNodeContent(elements[index])).remove()
+        const entered = node.enter().append('g').attr('id', d => 'node-' + d.data.id)
+            .attr('class', nodeClass).style('opacity', 0).attr('transform', d => `translate(${d.x},${d.y})`)
+            .on('click', d => this.nodeClicked(d)).on('dblclick', d => this.nodeDoubleClicked(d))
+            .on('contextmenu', d => { event.preventDefault(); this.showNodeContextMenu(d) })
+            .on('mouseenter', d => this.overNode(d.data.id, true))
+            .on('mouseleave', d => this.overNode(d.data.id, false))
+        entered.append('rect').attr('class', 'node-card-bg').attr('rx', 14).attr('ry', 14)
+        entered.append('g').attr('class', 'node-object-content')
+        entered.append('g').attr('class', 'node-capture-status').attr('pointer-events', 'none')
+        entered.append('g').attr('class', 'node-badges').attr('pointer-events', 'none')
+        const pinned = entered.append('g').attr('class', 'node-pinned').style('opacity', 0).attr('pointer-events', 'none')
+        pinned.append('text').text('\uf3c5')
+        node = entered.merge(node).attr('class', nodeClass)
+        node.select('rect.node-card-bg').attr('x', d => -self.topologyLayoutCardWidth(d) / 2)
+            .attr('y', d => -self.topologyLayoutCardHeight(d) / 2)
+            .attr('width', d => self.topologyLayoutCardWidth(d)).attr('height', d => self.topologyLayoutCardHeight(d))
+        node.select('g.node-pinned text').attr('y', d => -self.topologyLayoutCardHeight(d) / 2 - 12)
+        node.select('g.node-object-content').each(function (d) {
+            const resource = d.data.wrapped
+            const attrs = self.props.nodeAttrs(resource)
+            const model = topologyNodePresentation(resource, {
+                name: self.topologyNodeDisplayName(d), group: d.data.type === WrapperType.Group,
+                scope: d.data.type === WrapperType.Group ? self.topologyGroupCardScope(d) : '',
+                children: String(resource.data?.Manager || '').toLowerCase() === 'k8s'
+                    ? self.renderedKubernetesBadgeChildren(d.data) : resource.children,
+                links
             })
-            .on("mouseover", (d: D3Node) => {
-                this.overNode(d.data.id, true)
-            })
-            .on("mouseout", (d: D3Node) => {
-                this.overNode(d.data.id, false)
-            })
-        node.exit()
-            .each((_d, index, elements) => this.unmountNodeContent(elements[index]))
-            .transition()
-            .duration(animDuration).style("opacity", 0)
-            .remove()
-
-        nodeEnter.transition()
-            .duration(animDuration)
-            .style("opacity", 1)
-
-        const hexSize = 30
-
-        nodeEnter.append("circle")
-            .attr("id", (d: D3Node) => "node-overlay-" + d.data.id)
-            .attr("class", "node-overlay")
-            .attr("r", hexSize + 16)
-            .style("opacity", 0)
-            .attr("pointer-events", "none")
-
-        var highlight = nodeEnter.append("g")
-            .attr("id", (d: D3Node) => "node-pinned-" + d.data.id)
-            .attr("class", "node-pinned")
-            .style("opacity", 0)
-            .attr("pointer-events", "none")
-        highlight.append("circle")
-            .attr("r", hexSize + 16)
-        highlight.append("text")
-            .text("\uf3c5")
-            .attr("dy", -58)
-
-        const isVmCardNode = (d: D3Node) => {
-            const data = d.data.wrapped.data || {}
-            const type = String(data.Type || '').toLowerCase()
-            return type === 'libvirt' || isTopologyInterfaceData(data)
-        }
-        const isGroupCardNode = (d: D3Node) => d.data.type === WrapperType.Group
-        const groupCardScope = (d: D3Node) => self.topologyGroupCardScope(d)
-        const groupCardTooltip = (d: D3Node) => {
-            const groupName = String(self.props.nodeAttrs(d.data.wrapped).name || d.data.wrapped.data?.Name || '')
-            const scope = groupCardScope(d)
-            const scopedName = scope ? `${scope} / ${groupName}` : groupName
-            return `${scopedName}\n${d.data.wrapped.state.expanded ? "더블클릭하여 접기" : "클릭하여 모든 노드 보기"}`
-        }
-        const isGroupContainerNode = (d: D3Node) => this.isGroupContainerNode(d)
-        const isGroupListNode = (_: D3Node) => false
-        const groupListWidthForNode = (node: Node) => isCompactGroupListType(node.data?.GroupType || node.data?.Type) ? compactGroupListWidth : groupListWidth
-        const cardWidthForNode = (d: D3Node) => {
-            if (isGroupListNode(d)) {
-                return groupListWidthForNode(d.data.wrapped)
-            }
-            if (isGroupContainerNode(d)) {
-                return groupContainerWidth
-            }
-            return self.topologyLayoutCardWidth(d)
-        }
-        const cardIconX = (d: D3Node) => -cardWidthForNode(d) / 2 + 38
-        const workloadTypes = new Set(['deployment', 'statefulset', 'daemonset', 'job', 'cronjob'])
-        const isWorkloadControllerNode = (node: Node): boolean =>
-            String(node.data?.Manager || '').toLowerCase() === 'k8s'
-            && workloadTypes.has(String(node.data?.Type || '').toLowerCase())
-        const isStorageResourceNode = (node: Node): boolean =>
-            String(node.data?.Manager || '').toLowerCase() === 'k8s'
-            && isKubernetesStorageType(node.data?.Type)
-        const isKubernetesThreeLineCardNode = (node: Node): boolean =>
-            isWorkloadControllerNode(node) || isStorageResourceNode(node)
-        interface TopologyStatusBadge {
-            key: string
-            label: string
-            count: number
-            displayText?: string
-            tone: 'running' | 'warning' | 'problem' | 'inactive'
-            tooltip: TopologyStatusBadgeTooltip
-        }
-        const isKubernetesResource = (node: Node): boolean => String(node.data?.Manager || '').toLowerCase() === 'k8s'
-        const topologyStatusBadges = (wrapper: NodeWrapper): TopologyStatusBadge[] | undefined => {
-            if (!isKubernetesResource(wrapper.wrapped)) return undefined
-            return kubernetesTopologyCountBadges(wrapper.wrapped, self.renderedKubernetesBadgeChildren(wrapper))
-        }
-
-        const cardTextX = (d: D3Node) => cardIconX(d) + 43
-        const cardTextRightPadding = (d: D3Node) => {
-            // Kubernetes badges are top-right overlays. Their count must never
-            // reduce or shift the independent name/type text region.
-            if (isKubernetesResource(d.data.wrapped)) return 18
-            const hasBadge = d.data.wrapped.children.length > 0
-                || self.props.nodeAttrs(d.data.wrapped).badges.length > 0
-            return hasBadge ? 50 : 18
-        }
-        const cardTextAvailableWidth = (d: D3Node) => Math.max(72, cardWidthForNode(d) / 2 - cardTextX(d) - cardTextRightPadding(d))
-        const cardTitleX = (d: D3Node) => {
-            const left = cardTextX(d)
-            return left + cardTextAvailableWidth(d) / 2
-        }
-        const cardHeightForNode = (d: D3Node) => {
-            if (isGroupListNode(d)) {
-                const filtered = self.filteredGroupNavigatorNodes(d.data.wrapped.children as Node[], d.data.wrapped.id)
-                return self.groupListHeight(filtered.length)
-            }
-            if (isGroupContainerNode(d)) return this.groupContainerHeightForGroup(d.data.wrapped.children)
-            return isKubernetesThreeLineCardNode(d.data.wrapped) ? topologyWorkloadCardHeight : topologyCardHeight
-        }
-        const cardTopY = -topologyCardHeight / 2
-        const cardTopYForNode = (d: D3Node) => isKubernetesThreeLineCardNode(d.data.wrapped)
-            ? -topologyWorkloadCardHeight / 2
-            : cardTopY
-        // 그룹 카드의 가까운 백플레이트가 앞 카드에서 분리되는 오른쪽/아래 간격입니다.
-        const groupBackplateNearOffset = { x: 6, y: 5 }
-        // 그룹 카드의 먼 백플레이트가 계층 깊이를 드러내는 오른쪽/아래 간격입니다.
-        const groupBackplateFarOffset = { x: 13, y: 10.5 }
-
-        var card = nodeEnter.append("g")
-            .attr("class", "node-card")
-            .attr("pointer-events", "all")
-
-        card.append("rect")
-            .attr("class", "node-group-backplate node-group-backplate-2")
-            .attr("x", (d: D3Node) => -cardWidthForNode(d) / 2 + groupBackplateFarOffset.x)
-            .attr("y", cardTopY + groupBackplateFarOffset.y)
-            .attr("width", (d: D3Node) => cardWidthForNode(d))
-            .attr("height", (d: D3Node) => topologyCardHeight)
-            .attr("rx", 12)
-            .attr("ry", 12)
-            .attr("pointer-events", "none")
-
-        card.append("rect")
-            .attr("class", "node-group-backplate node-group-backplate-1")
-            .attr("x", (d: D3Node) => -cardWidthForNode(d) / 2 + groupBackplateNearOffset.x)
-            .attr("y", cardTopY + groupBackplateNearOffset.y)
-            .attr("width", (d: D3Node) => cardWidthForNode(d))
-            .attr("height", (d: D3Node) => topologyCardHeight)
-            .attr("rx", 12)
-            .attr("ry", 12)
-            .attr("pointer-events", "none")
-
-        card.append("rect")
-            .attr("class", "node-card-bg")
-            .attr("x", (d: D3Node) => -cardWidthForNode(d) / 2)
-            .attr("y", (d: D3Node) => cardTopYForNode(d))
-            .attr("width", (d: D3Node) => cardWidthForNode(d))
-            .attr("height", (d: D3Node) => cardHeightForNode(d))
-            .attr("rx", 12)
-            .attr("ry", 12)
-            .attr("pointer-events", "all")
-            .append("title")
-            .text((d: D3Node) => isGroupCardNode(d) ? groupCardTooltip(d) : getNodeDisplayName(d))
-
-        card.append("circle")
-            .attr("class", "node-card-icon-bg")
-            .attr("cx", (d: D3Node) => cardIconX(d))
-            .attr("cy", 0)
-            .attr("r", 29)
-
-        nodeEnter.append("circle")
-            .attr("class", "node-circle")
-            .attr("r", hexSize + 16)
-
-        nodeEnter.append("circle")
-            .attr("class", "node-disc")
-            .attr("r", hexSize + 8)
-            .attr("pointer-events", "none")
-
-        nodeEnter.append("path")
-            .attr("class", "node-hexagon")
-            .attr("d", (d: D3Node) => this.liner(this.hexagon(d, hexSize)))
-            .attr("pointer-events", "none")
-
-        const isImgIcon = (d: D3Node): boolean => {
-            if (this.props.nodeAttrs(d.data.wrapped).href) {
-                return true
-            }
-            return false
-        }
-
-        const imageIconDimensions = (d: D3Node): { width: number, height: number } => {
-            return this.props.nodeAttrs(d.data.wrapped).iconClass === "network-switch-icon"
-                ? { width: 48, height: 62 }
-                : { width: 34, height: 34 }
-        }
-
-        nodeEnter.each(function (d: D3Node) {
-            var el = select(this)
-            var attrs = self.props.nodeAttrs(d.data.wrapped)
-
-            if (isImgIcon(d)) {
-                el.append("image")
-                    .attr("class", (d: D3Node) => "node-icon " + attrs.iconClass)
-                    .attr("transform", (d: D3Node) => {
-                        const dimensions = imageIconDimensions(d)
-                        return `translate(${cardIconX(d) - dimensions.width / 2},${-dimensions.height / 2})`
-                    })
-                    .attr("width", (d: D3Node) => imageIconDimensions(d).width)
-                    .attr("height", (d: D3Node) => imageIconDimensions(d).height)
-                    .attr("preserveAspectRatio", (d: D3Node) => attrs.iconClass === "network-switch-icon" ? "none" : "xMidYMid meet")
-                    .attr("xlink:href", (d: D3Node) => attrs.href)
-                    .attr("pointer-events", "none")
-            } else {
-                el.append("text")
-                    .attr("class", (d: D3Node) => "node-icon " + attrs.iconClass)
-                    .attr("x", (d: D3Node) => cardIconX(d))
-                    .attr("dy", 10)
-                    .text((d: D3Node) => attrs.icon)
-                    .attr("pointer-events", "none")
-            }
+            const key = JSON.stringify([model, attrs.icon, attrs.iconClass, attrs.href])
+            if (self.objectCardRenderKeys.get(this) === key) return
+            self.objectCardRenderKeys.set(this, key)
+            self.reactRoots.render(<TopologyNodeCard model={model} icon={attrs.icon} iconClass={attrs.iconClass} href={attrs.href}
+                onToggle={() => {
+                    const current = self.nodeByID(resource.id)
+                    if (current) self.expand(current)
+                }} />, this)
         })
-
-        var wrapText = (text: Selection<SVGTextElement, any, null, undefined>, lineHeight: number, width: number) => {
-            text.each(function () {
-                var text = select(this)
-                const d = text.datum() as D3Node
-                const isUserVmNode = d?.data?.wrapped?.data?.Type === "libvirt"
-                const isKubernetesNode = d?.data?.wrapped?.data?.Manager === "k8s" && d?.data?.wrapped?.data?.Type === "node"
-                const labelWidth = isUserVmNode
-                    ? width + userVmNameWidthBoost
-                    : isKubernetesNode
-                        ? width + kubernetesNodeLabelWidthBoost
-                        : width
-                var y = text.attr("y")
-                var dy = parseFloat(text.attr("dy"))
-                const rawText = text.text() || ""
-                const explicitLines = rawText.split("\n").filter((v: string) => v.length > 0)
-
-                text.text(null)
-                text.append("title").text(rawText)
-
-                // Respect explicit multi-line labels first (e.g. IP + network name).
-                if (explicitLines.length > 1) {
-                    explicitLines.forEach((lineText, idx) => {
-                        text.append("tspan")
-                            .attr("x", 0)
-                            .attr("y", y)
-                            .attr("dy", (dy + idx * lineHeight) + "em")
-                            .text(lineText)
-                    })
-                } else {
-                    let words: Array<string> | null = null
-                    if (isKubernetesNode) {
-                        const hyphenChunks = rawText
-                            .split(/-/g)
-                            .filter((chunk: string) => chunk.length > 0)
-                            .map((chunk: string, idx: number, arr: Array<string>) => idx < arr.length - 1 ? `${chunk}-` : chunk)
-                        words = hyphenChunks.length > 1 ? hyphenChunks : rawText.match(/.{1,12}/g)
-                    } else {
-                        words = rawText.match(/.{1,10}/g)
-                    }
-                    if (!words) {
-                        words = [rawText]
-                    }
-                    words = words.reverse()
-                    var line = new Array<string>()
-
-                    var tspan = text.append("tspan").attr("x", 0).attr("y", y).attr("dy", dy + "em")
-
-                    var lineNumber = 0
-                    var word = words.pop()
-                    while (word) {
-                        line.push(word)
-                        tspan.text(line.join(""))
-
-                        let element = tspan.node()
-                        if (!element) {
-                            continue
-                        }
-                        if (element.getComputedTextLength() > labelWidth) {
-                            line.pop()
-
-                            if (line.length) {
-                                tspan.text(line.join(""))
-                                line = [word]
-                                tspan = text.append("tspan")
-                                    .attr("x", 0)
-                                    .attr("y", y)
-                                    .attr("dy", ++lineNumber * lineHeight + dy + "em")
-                                    .text(word)
-                            }
-                        }
-                        word = words.pop()
-                    }
-                }
-
-                var bb = this.getBBox()
-
-                select(this.parentNode).insert("rect", "text")
-                    .attr("class", "node-name-wrap")
-                    .attr("x", bb.x - 12)
-                    .attr("y", bb.y - 8)
-                    .attr("width", bb.width + 24)
-                    .attr("height", bb.height + 16)
-                    .attr("rx", 10)
-                    .attr("ry", 10)
-            })
-        }
-
-        function kubernetesNodeNamespace(nodeData: any) { return self.topologyKubernetesNamespace(nodeData) }
-
-        function getNodeDisplayName(d: D3Node) { return self.topologyNodeDisplayName(d) }
-
-        const trimNodeTitle = (value: string, d?: D3Node) => {
-            if (!value) return ''
-            const width = d ? cardWidthForNode(d) : topologyCardWidth
-            const textWidth = Math.max(80, width - topologyCardTextPadding)
-            const maxLength = Math.max(8, Math.floor(textWidth / 11.5))
-            return value.length > maxLength ? `${value.substring(0, Math.max(1, maxLength - 3))}...` : value
-        }
-
-        const fitNodeTitle = (text: Selection<SVGTextElement, D3Node, any, any>) => {
-            text.each(function (d: D3Node) {
-                const title = select(this)
-                const fullText = getNodeDisplayName(d)
-                const availableWidth = cardTextAvailableWidth(d)
-                const textNode = this as SVGTextElement
-                const textX = cardTitleX(d)
-
-                const isWorkloadCard = isWorkloadControllerNode(d.data.wrapped)
-                const storageTypes = new Set(["storageclass", "persistentvolumeclaim", "persistentvolume"])
-                const isStorageCard = d.data.type !== WrapperType.Group
-                    && d.data.wrapped.data?.Manager === "k8s"
-                    && storageTypes.has(String(d.data.wrapped.data?.Type || "").toLowerCase())
-                const isScopedGroupCard = d.data.type === WrapperType.Group && !!String(d.data.wrapped.data?.GroupScopeLabel || '').trim()
-                const fitLine = (value: string, fontSize?: number): string => {
-                    if (fontSize) {
-                        title.style("font-size", `${fontSize}px`)
-                    }
-                    title.text(value)
-                    if (textNode.getComputedTextLength() <= availableWidth) {
-                        if (fontSize) title.style("font-size", null)
-                        return value
-                    }
-                    let low = 1
-                    let high = value.length
-                    let best = ""
-                    while (low <= high) {
-                        const mid = Math.floor((low + high) / 2)
-                        const candidate = `${value.substring(0, mid)}...`
-                        title.text(candidate)
-                        if (textNode.getComputedTextLength() <= availableWidth) {
-                            best = candidate
-                            low = mid + 1
-                        } else {
-                            high = mid - 1
-                        }
-                    }
-                    if (fontSize) title.style("font-size", null)
-                    return best || "..."
-                }
-
-                title.attr("text-anchor", "middle")
-                title.text(null)
-
-                let targetLines: string[]
-                let secondaryLineIndex = -1
-                let secondaryLineClass = "node-card-title-secondary"
-                const splitLongName = (value: string): string[] => {
-                    title.text(value)
-                    const fitsOneLine = textNode.getComputedTextLength() <= availableWidth
-                    title.text(null)
-                    if (fitsOneLine) {
-                        return [value]
-                    }
-                    let low = 1
-                    let high = value.length - 1
-                    let maximumFit = 1
-                    while (low <= high) {
-                        const mid = Math.floor((low + high) / 2)
-                        title.text(value.substring(0, mid))
-                        if (textNode.getComputedTextLength() <= availableWidth) {
-                            maximumFit = mid
-                            low = mid + 1
-                        } else {
-                            high = mid - 1
-                        }
-                    }
-                    const prefix = value.substring(0, maximumFit)
-                    const separatorIndexes = [prefix.lastIndexOf('-'), prefix.lastIndexOf('_'), prefix.lastIndexOf(' ')]
-                    const preferredSeparator = Math.max(...separatorIndexes)
-                    const splitIndex = preferredSeparator >= Math.max(6, maximumFit - 12)
-                        ? preferredSeparator + 1
-                        : maximumFit
-                    const first = value.substring(0, splitIndex).replace(/[-_\s]+$/, "")
-                    const second = value.substring(splitIndex).replace(/^[-_\s]+/, "")
-                    return (second ? [first, second] : [value]).slice(0, 2)
-                }
-
-                const explicitLines = fullText.split("\n").filter((line) => line.length > 0)
-                if (isWorkloadCard || isStorageCard) {
-                    const resourceText = kubernetesTopologyNodeText(
-                        d.data.wrapped.data?.Name || explicitLines[0] || d.data.wrapped.id,
-                        d.data.wrapped.data?.Type,
-                        kubernetesNodeNamespace(d.data.wrapped.data || {})
-                    )
-                    const resourceNameLines = splitLongName(resourceText.name).slice(0, 2)
-                    targetLines = [resourceNameLines[0] || resourceText.name, resourceNameLines[1] || "\u00a0", resourceText.kind]
-                    secondaryLineIndex = 2
-                    secondaryLineClass = "node-card-title-kubernetes-kind"
-                } else if (fullText.indexOf("\n") < 0) {
-                    targetLines = splitLongName(fullText)
-                } else {
-                    targetLines = explicitLines.length > 1 ? explicitLines.slice(0, 2) : [fullText]
-                }
-
-                const fittedLines = targetLines.map((line, index) => {
-                    const secondaryFontSize = index === secondaryLineIndex
-                        ? (isWorkloadCard || isStorageCard) ? topologyWorkloadKindFontSize : 17
-                        : index === 1 && isScopedGroupCard
-                            ? 15
-                        : undefined
-                    return fitLine(line, secondaryFontSize)
-                })
-                const titleY = isWorkloadCard || isStorageCard ? -topologyWorkloadTitleLineGap : fittedLines.length > 1 ? -4 : 7
-                title.attr("y", titleY)
-                title.text(null)
-                fittedLines.forEach((line, index) => {
-                    title.append("tspan")
-                        .attr("class", index === secondaryLineIndex ? secondaryLineClass : null)
-                        .attr("x", textX)
-                        .attr("dy", index === 0 ? 0 : isWorkloadCard || isStorageCard ? topologyWorkloadTitleLineGap : topologyCardTitleLineGap)
-                        .text(line)
-                })
-
-                title.selectAll("title").remove()
-                title.append("title").text(fullText)
-            })
-        }
-
-        const cardTextEnter = nodeEnter.append("g")
-            .attr("class", "node-card-text")
-            .attr("pointer-events", "none")
-
-        cardTextEnter.append("text")
-            .attr("class", "node-card-title")
-            .attr("x", (d: D3Node) => cardTitleX(d))
-            .attr("y", 7)
-            .each(function (d: D3Node) {
-                fitNodeTitle(select(this) as Selection<SVGTextElement, D3Node, any, any>)
-            })
-
-        cardTextEnter.append("text")
-            .attr("class", "node-card-chevron")
-            .attr("x", (d: D3Node) => cardWidthForNode(d) / 2 - 18)
-            .attr("y", 6)
-            .text((d: D3Node) => isWorkloadControllerNode(d.data.wrapped) ? "›" : "")
-
-        const clusterPreview = nodeEnter.append("g")
-            .attr("class", "node-container-grid")
-            .attr("pointer-events", "auto")
-            .style("opacity", (d: D3Node) => isGroupCardNode(d) ? 1 : 0)
-
-        clusterPreview.append("text")
-            .attr("class", "node-container-more")
-            .attr("x", (d: D3Node) => cardTextX(d) + 104)
-            .attr("y", 33)
-
-        nodeEnter.append("g")
-            .attr("class", "node-group-list")
-            .attr("pointer-events", "auto")
-
-        // Update names only when vmNameMap changed to reduce long-running render overhead.
-        if (this.lastVmNameMapRef !== this.props.vmNameMap || this.lastVmNetworkMapRef !== this.props.vmNetworkMap) {
-            node.select("text.node-card-title")
-                .each(function (d: D3Node) {
-                    fitNodeTitle(select(this) as Selection<SVGTextElement, D3Node, any, any>)
-                })
-            this.lastVmNameMapRef = this.props.vmNameMap
-            this.lastVmNetworkMapRef = this.props.vmNetworkMap
-        }
-
-        const renderNodeBadge = function (d: D3Node) {
-            var badge = select(this).selectAll("g.node-badge")
-                .data(self.props.nodeAttrs(d.data.wrapped).badges.filter(badge => badge.className !== 'node-badge-capture'))
-
-            var badgeEnter = badge.enter()
-                .append("g")
-            badge.exit().remove()
-
-            badgeEnter
-                .append("rect")
-
-            badgeEnter
-                .append("text")
-
-            var badgeMerged = badgeEnter.merge(badge as any)
-
-            badgeMerged
-                .attr("class", (d: BadgeAttrs) => `node-badge ${d.className || ""}`.trim())
-
-            badgeMerged
-                .select("rect")
-                .attr("x", (d: BadgeAttrs, i: number) => 66 - i * 28)
-                .attr("y", -41)
-                .attr("width", 24)
-                .attr("height", 24)
-                .attr("rx", 12)
-                .attr("ry", 12)
-                .attr("fill", (d: BadgeAttrs) => d.fill ? d.fill : "#6975a9")
-
-            badgeMerged
-                .select("text")
-                .attr("class", (d: BadgeAttrs) => d.iconClass ? d.iconClass : "")
-                .attr("dx", (d: BadgeAttrs, i: number) => 78 - i * 28)
-                .attr("dy", -23)
-                .text((d: BadgeAttrs) => d.text)
-                .attr("pointer-events", "none")
-                .attr("fill", (d: BadgeAttrs) => d.stroke ? d.stroke : "var(--topology-node-name-wrap-fill)")
-        }
-
-        nodeEnter
-            .append("g")
-            .attr("class", "node-badges")
-            .attr("pointer-events", "none")
-            .each(renderNodeBadge)
-
-        nodeEnter.append('g')
-            .attr('class', 'node-capture-status')
-            .attr('pointer-events', 'none')
-
-        node = node.merge(nodeEnter as any)
-
-        node.attr("class", nodeClass)
-
-        node.each(renderNodeBadge)
-
-        node.select('g.node-capture-status').each(function (d: D3Node) {
+        node.select('g.node-capture-status').each(function (d) {
             const capturing = self.props.nodeAttrs(d.data.wrapped).badges.some(badge => badge.className === 'node-badge-capture')
-            if (capturing) {
-                self.reactRoots.render(<TopologyCaptureIndicator y={-cardHeightForNode(d) / 2} />, this)
-            } else {
-                self.reactRoots.unmount(this)
-            }
+            if (capturing) self.reactRoots.render(<TopologyCaptureIndicator y={-self.topologyLayoutCardHeight(d) / 2} />, this)
+            else self.reactRoots.unmount(this)
         })
+        node.select('g.node-badges').each(function (d) {
+            const badges = select(this).selectAll<SVGGElement, BadgeAttrs>('g.node-badge')
+                .data(self.props.nodeAttrs(d.data.wrapped).badges.filter(badge => badge.className !== 'node-badge-capture'))
+            badges.exit().remove()
+            const enter = badges.enter().append('g').attr('class', 'node-badge')
+            enter.append('rect').attr('width', 24).attr('height', 24).attr('rx', 12)
+            enter.append('text')
+            const merged = enter.merge(badges)
+            merged.attr('class', badge => `node-badge ${badge.className || ''}`)
+            merged.select('rect').attr('x', (_, index) => self.topologyLayoutCardWidth(d) / 2 - 24 - index * 28)
+                .attr('y', -self.topologyLayoutCardHeight(d) / 2 - 12).attr('fill', badge => badge.fill || '#6975a9')
+            merged.select('text').attr('class', badge => badge.iconClass || '')
+                .attr('x', (_, index) => self.topologyLayoutCardWidth(d) / 2 - 12 - index * 28)
+                .attr('y', -self.topologyLayoutCardHeight(d) / 2 + 6)
+                .attr('fill', badge => badge.stroke || 'var(--topology-node-name-wrap-fill)').text(badge => badge.text)
+        })
+        node.transition().duration(animDuration).style('opacity', 1).attr('transform', d => `translate(${d.x},${d.y})`)
+        node.filter(d => d.data.wrapped.state.selected).raise()
+        this.renderTopologyGroupRegions(d => this.topologyLayoutCardWidth(d), d => this.topologyLayoutCardHeight(d))
+        this.renderTopologyVisualGroups()
+        this.updateTopologyDensity(this.currentZoom())
+    }
 
-        node.select("rect.node-card-bg")
-            .transition()
-            .duration(animDuration)
-            .attr("x", (d: D3Node) => -cardWidthForNode(d) / 2)
-            .attr("y", (d: D3Node) => cardTopYForNode(d))
-            .attr("width", (d: D3Node) => cardWidthForNode(d))
-            .attr("height", (d: D3Node) => cardHeightForNode(d))
+    private updateTopologyDensity(scale: number) {
+        if (!this.g) return
+        this.g.classed('topology-density-overview', scale < 0.5)
+            .classed('topology-density-compact', scale >= 0.5 && scale < 0.7)
+    }
 
-        node.select("rect.node-group-backplate-1")
-            .interrupt()
-            .attr("x", (d: D3Node) => -cardWidthForNode(d) / 2 + groupBackplateNearOffset.x)
-            .attr("y", cardTopY + groupBackplateNearOffset.y)
-            .attr("width", (d: D3Node) => cardWidthForNode(d))
-            .attr("height", topologyCardHeight)
-
-        node.select("rect.node-group-backplate-2")
-            .interrupt()
-            .attr("x", (d: D3Node) => -cardWidthForNode(d) / 2 + groupBackplateFarOffset.x)
-            .attr("y", cardTopY + groupBackplateFarOffset.y)
-            .attr("width", (d: D3Node) => cardWidthForNode(d))
-            .attr("height", topologyCardHeight)
-
-        node.select("rect.node-card-bg")
-            .style("display", (d: D3Node) => isGroupListNode(d) ? "none" : null)
-
-        node.select("circle.node-card-icon-bg")
-            .attr("cx", (d: D3Node) => cardIconX(d))
-
-        node.select("image.node-icon")
-            .attr("class", (d: D3Node) => {
-                const attrs = self.props.nodeAttrs(d.data.wrapped)
-                return "node-icon " + attrs.iconClass
-            })
-            .attr("transform", (d: D3Node) => {
-                const dimensions = imageIconDimensions(d)
-                return `translate(${cardIconX(d) - dimensions.width / 2},${-dimensions.height / 2})`
-            })
-            .attr("width", (d: D3Node) => imageIconDimensions(d).width)
-            .attr("height", (d: D3Node) => imageIconDimensions(d).height)
-            .attr("preserveAspectRatio", (d: D3Node) => self.props.nodeAttrs(d.data.wrapped).iconClass === "network-switch-icon" ? "none" : "xMidYMid meet")
-            .attr("xlink:href", (d: D3Node) => self.props.nodeAttrs(d.data.wrapped).href)
-
-        node.select("text.node-icon")
-            .attr("class", (d: D3Node) => {
-                const attrs = self.props.nodeAttrs(d.data.wrapped)
-                return "node-icon " + attrs.iconClass
-            })
-            .attr("x", (d: D3Node) => cardIconX(d))
-            .text((d: D3Node) => self.props.nodeAttrs(d.data.wrapped).icon)
-
-        node.select("text.node-card-title")
-            .attr("x", (d: D3Node) => cardTitleX(d))
-            .each(function (d: D3Node) {
-                fitNodeTitle(select(this) as Selection<SVGTextElement, D3Node, any, any>)
-            })
-
-        node.select("text.node-card-chevron")
-            .attr("x", (d: D3Node) => cardWidthForNode(d) / 2 - 18)
-            .text((d: D3Node) => isWorkloadControllerNode(d.data.wrapped) ? "›" : "")
-
-        node.select("rect.node-card-bg title")
-            .text((d: D3Node) => isGroupCardNode(d)
-                ? groupCardTooltip(d)
-                : isWorkloadControllerNode(d.data.wrapped)
-                    ? `${getNodeDisplayName(d)}\n클릭하여 상세 보기`
-                    : getNodeDisplayName(d))
-
-        node.select("text.node-container-more")
-            .attr("x", (d: D3Node) => cardTextX(d) + 104)
-            .text("")
-
-        const miniCardDisplayName = (node: Node) => {
-            return self.nodeDisplayNameForGroupList(node)
-        }
-
-        const miniCardName = (node: Node) => {
-            const name = miniCardDisplayName(node)
-            const type = String(node.data?.Type || "").toLowerCase()
-            const maxLength = type === "libvirt" || type === "host" ? 52 : 44
-            return name.length > maxLength ? `${name.substring(0, Math.max(1, maxLength - 3))}...` : name
-        }
-
-        const miniCardStatus = (node: Node) => {
-            return topologyNodeStatus(node)
-        }
-
-        const miniCardTooltip = (node: Node) => {
-            const attrs = self.props.nodeAttrs(node)
-            const status = miniCardStatus(node)
-            const data = node.data || {}
-            const details = [
-                miniCardDisplayName(node),
-                `상태: ${status.label}`,
-                data.IP || data.IPV4 || data.Address || data.MgtAddr ? `IP: ${data.IP || data.IPV4 || data.Address || data.MgtAddr}` : "",
-                data.CPU || data.CPUNumber ? `CPU: ${data.CPU || data.CPUNumber}` : "",
-                data.Memory || data.MemorySize ? `Memory: ${data.Memory || data.MemorySize}` : "",
-                "Click → 상세 보기"
-            ].filter(Boolean)
-            return details.join("\n")
-        }
-
-        const renderGroupList = function (this: SVGGElement, d: D3Node) {
-            const g = select(this)
-            const data: D3Node[] = []
-            var navigator = g.selectAll<SVGForeignObjectElement, D3Node>("foreignObject.node-group-navigator")
-                .data(data, (d: D3Node) => d.data.wrapped.id)
-
-            navigator.exit()
-                .each(function (d: D3Node) {
-                    const root = select(this).select("div.node-group-navigator-root").node()
-                    if (root) {
-                        self.reactRoots.unmount(root as Element)
-                    }
-                    self.groupNavigatorRenderKeys.delete(d.data.wrapped.id)
-                })
-                .remove()
-
-            const navigatorEnter = navigator.enter()
-                .append("foreignObject")
-                .attr("class", "node-group-navigator")
-                .attr("pointer-events", "all")
-
-            navigatorEnter
-                .append("xhtml:div")
-                .attr("class", "node-group-navigator-root")
-
-            navigator = navigatorEnter.merge(navigator as any)
-            navigator
-                .each(function (d: D3Node) {
-                    const navigatorElement = this as SVGForeignObjectElement
-                    const navigatorWidth = groupListWidthForNode(d.data.wrapped)
-                    const navigatorHeight = self.groupListHeight(self.filteredGroupNavigatorNodes(d.data.wrapped.children as Node[], d.data.wrapped.id).length)
-                    const navigatorAttrs: { [key: string]: number } = {
-                        x: -navigatorWidth / 2,
-                        y: -navigatorHeight / 2,
-                        width: navigatorWidth,
-                        height: navigatorHeight
-                    }
-                    Object.keys(navigatorAttrs).forEach((key) => {
-                        const nextValue = String(navigatorAttrs[key])
-                        if (navigatorElement.getAttribute(key) !== nextValue) {
-                            navigatorElement.setAttribute(key, nextValue)
-                        }
-                    })
-                    const root = select(this).select("div.node-group-navigator-root").node()
-                    if (!root) {
-                        return
-                    }
-                    const rootElement = root as HTMLElement
-                    const groupID = d.data.wrapped.id
-                    const filter = self.groupNavigatorFilter(groupID)
-                    const children = d.data.wrapped.children as Node[]
-                    // Navigator must stay mounted across name/status refreshes so its internal scroll position is not reset.
-                    const nodeKey = children.map((node: Node) => node.id).join("|")
-                    const renderKey = `${groupID}|${filter.search}|${nodeKey}`
-                    if (self.groupNavigatorRenderKeys.get(groupID) !== renderKey) {
-                        self.reactRoots.render(
-                            <VMGroupNavigator
-                                title={self.props.nodeAttrs(d.data.wrapped).name || d.data.wrapped.data?.Name || "VM 그룹"}
-                                nodes={children}
-                                selectedIDs={new Set(self.selectedGroupListNodeIDs)}
-                                search={filter.search}
-                                displayName={(node: Node) => miniCardDisplayName(node)}
-                                status={(node: Node) => miniCardStatus(node)}
-                                onSearchChange={(value: string) => self.setGroupNavigatorFilter(groupID, { search: value })} />,
-                            root as Element
-                        )
-                        self.groupNavigatorRenderKeys.set(groupID, renderKey)
-                    }
-                    rootElement.querySelectorAll(".topology-vm-navigator-item").forEach((rowElement: Element) => {
-                        const row = rowElement as HTMLElement
-                        const nodeID = row.getAttribute("data-node-id")
-                        row.classList.toggle("is-selected", !!nodeID && self.selectedGroupListNodeIDs.has(nodeID))
-                    })
-                    const wheelGuard = (domEvent: WheelEvent) => {
-                        domEvent.stopPropagation()
-                        if (typeof (domEvent as any).stopImmediatePropagation === "function") {
-                            ;(domEvent as any).stopImmediatePropagation()
-                        }
-                    }
-                    if ((rootElement as any).__topologyWheelGuard) {
-                        rootElement.removeEventListener("wheel", (rootElement as any).__topologyWheelGuard, true)
-                    }
-                    ;(rootElement as any).__topologyWheelGuard = wheelGuard
-                    rootElement.addEventListener("wheel", wheelGuard, true)
-                    rootElement.onmousedown = (domEvent: MouseEvent) => {
-                        domEvent.stopPropagation()
-                    }
-                    rootElement.onmouseover = (domEvent: MouseEvent) => {
-                        domEvent.stopPropagation()
-                    }
-                    rootElement.onmouseout = (domEvent: MouseEvent) => {
-                        domEvent.stopPropagation()
-                    }
-                    rootElement.onclick = (domEvent: MouseEvent) => {
-                        const target = domEvent.target as HTMLElement | null
-                        if (!target) {
-                            return
-                        }
-                        if (target.closest(".ant-input, .ant-input-affix-wrapper")) {
-                            domEvent.stopPropagation()
-                            return
-                        }
-                        const action = target.closest("[data-group-action]") as HTMLElement | null
-                        if (action) {
-                            const actionType = action.getAttribute("data-group-action")
-                            domEvent.preventDefault()
-                            domEvent.stopPropagation()
-                            if (actionType === "select-all") {
-                                const nodes = self.filteredGroupNavigatorNodes(d.data.wrapped.children as Node[], groupID)
-                                self.setGroupListNodes(nodes, true)
-                            }
-                            if (actionType === "clear-selection") {
-                                self.setGroupListNodes(d.data.wrapped.children as Node[], false)
-                            }
-                            return
-                        }
-                        const row = target.closest("[data-node-id]") as HTMLElement | null
-                        if (!row) {
-                            domEvent.stopPropagation()
-                            return
-                        }
-                        const nodeID = row.getAttribute("data-node-id")
-                        const child = (d.data.wrapped.children as Node[]).find((node: Node) => node.id === nodeID)
-                        if (!child) {
-                            return
-                        }
-                        domEvent.preventDefault()
-                        domEvent.stopPropagation()
-                        self.toggleGroupListNode(child)
-                    }
-                    rootElement.onwheel = (domEvent: WheelEvent) => {
-                        domEvent.stopPropagation()
-                        if (typeof (domEvent as any).stopImmediatePropagation === "function") {
-                            ;(domEvent as any).stopImmediatePropagation()
-                        }
-                    }
-                })
-        }
-
-        const renderContainerGrid = function (this: SVGGElement, d: D3Node) {
-            const g = select(this)
-            const expanded = isGroupContainerNode(d)
-            const layout = expanded ? self.groupContainerDrilldownLayout(d.data.wrapped.children) : { items: [], networkItems: [], height: 0, more: 0 }
-            var cards = g.selectAll<SVGGElement, GroupContainerLayoutItem>("g.node-container-mini-card")
-                .data(layout.items, (item: GroupContainerLayoutItem) => item.node.id)
-
-            cards.exit().remove()
-
-            const cardsEnter = cards.enter()
-                .append("g")
-                .attr("class", "node-container-mini-card")
-                .attr("pointer-events", "all")
-                .on("click", (item: GroupContainerLayoutItem) => {
-                    event.stopPropagation()
-                    self.hideNodeContextMenu()
-                    const child = item.node as Node
-                    const isExpanded = self.expandedContainerMiniNodeIDs.has(child.id)
-                    if (isExpanded) {
-                        self.expandedContainerMiniNodeIDs.delete(child.id)
-                        if (self.pinnedContainerMiniNodeID === child.id) {
-                            self.pinnedContainerMiniNodeID = ""
-                        }
-                    } else {
-                        self.expandedContainerMiniNodeIDs.add(child.id)
-                        self.pinnedContainerMiniNodeID = child.id
-                    }
-                    self.renderTree()
-                    self.syncContainerMiniCardActiveClass()
-                    self.syncContainerMiniLinkVisibility()
-                    if (self.props.onNodeSelected) {
-                        self.props.onNodeSelected(child, !isExpanded)
-                    }
-                })
-                .on("dblclick", (item: GroupContainerLayoutItem) => {
-                    event.stopPropagation()
-                    self.hideNodeContextMenu()
-                    const child = item.node as Node
-                    self.pinnedContainerMiniNodeID = child.id
-                    self.expandedContainerMiniNodeIDs.add(child.id)
-                    self.renderTree()
-                    self.syncContainerMiniCardActiveClass()
-                    self.syncContainerMiniLinkVisibility()
-                    if (self.props.onNodeSelected) {
-                        self.props.onNodeSelected(child, true)
-                    }
-                })
-
-            cardsEnter.append("rect")
-                .attr("class", "node-container-mini-card-bg")
-                .attr("rx", 8)
-                .attr("ry", 8)
-
-            cardsEnter.append("text")
-                .attr("class", "node-container-mini-card-title")
-
-            cardsEnter.append("circle")
-                .attr("class", "node-container-mini-card-status-dot")
-                .attr("r", 3.5)
-
-            cardsEnter.append("text")
-                .attr("class", "node-container-mini-card-status")
-
-            cardsEnter.append("title")
-
-            cards = cardsEnter.merge(cards as any)
-            cards
-                .transition()
-                .duration(animDuration)
-                .attr("transform", (item: GroupContainerLayoutItem) => {
-                    const x = -groupContainerWidth / 2 + groupContainerPaddingX + item.x
-                    const y = groupContainerGridOffsetY + item.y
-                    return `translate(${x},${y})`
-                })
-
-            cards.select("rect.node-container-mini-card-bg")
-                .transition()
-                .duration(animDuration)
-                .attr("width", (item: GroupContainerLayoutItem) => item.width)
-                .attr("height", (item: GroupContainerLayoutItem) => item.height)
-
-            cards.select("text.node-container-mini-card-title")
-                .attr("x", 10)
-                .attr("y", 16)
-                .text((item: GroupContainerLayoutItem) => miniCardName(item.node as Node))
-
-            cards.select("circle.node-container-mini-card-status-dot")
-                .attr("cx", 11)
-                .attr("cy", 30)
-                .attr("class", (item: GroupContainerLayoutItem) => `node-container-mini-card-status-dot ${miniCardStatus(item.node as Node).className}`)
-
-            cards.select("text.node-container-mini-card-status")
-                .attr("x", 20)
-                .attr("y", 34)
-                .attr("class", (item: GroupContainerLayoutItem) => `node-container-mini-card-status ${miniCardStatus(item.node as Node).className}`)
-                .text((item: GroupContainerLayoutItem) => miniCardStatus(item.node as Node).label)
-
-            cards.select("title")
-                .text((item: GroupContainerLayoutItem) => miniCardTooltip(item.node as Node))
-
-            var networkCards = g.selectAll<SVGGElement, GroupContainerNetworkItem>("g.node-container-network-mini")
-                .data(layout.networkItems, (item: GroupContainerNetworkItem) => item.node.id)
-
-            networkCards.exit().remove()
-
-            const networkCardsEnter = networkCards.enter()
-                .append("g")
-                .attr("class", "node-container-network-mini")
-                .attr("pointer-events", "all")
-                .on("click", (item: GroupContainerNetworkItem) => {
-                    event.stopPropagation()
-                    self.hideNodeContextMenu()
-                    const activeMiniNodeID = self.pinnedContainerMiniNodeID
-                    self.selectNode(item.node.id, true)
-                    self.pinnedContainerMiniNodeID = activeMiniNodeID
-                    if (activeMiniNodeID) {
-                        self.expandedContainerMiniNodeIDs.add(activeMiniNodeID)
-                    }
-                    self.syncContainerMiniCardActiveClass()
-                    self.syncContainerMiniLinkVisibility()
-                })
-
-            networkCardsEnter.append("rect")
-                .attr("class", "node-container-network-mini-bg")
-                .attr("rx", 7)
-                .attr("ry", 7)
-
-            networkCardsEnter.append("text")
-                .attr("class", "node-container-network-mini-title")
-
-            networkCardsEnter.append("title")
-
-            networkCards = networkCardsEnter.merge(networkCards as any)
-            networkCards
-                .transition()
-                .duration(animDuration)
-                .attr("transform", (item: GroupContainerNetworkItem) => {
-                    const x = -groupContainerWidth / 2 + groupContainerPaddingX + item.x
-                    const y = groupContainerGridOffsetY + item.y
-                    return `translate(${x},${y})`
-                })
-
-            networkCards.select("rect.node-container-network-mini-bg")
-                .transition()
-                .duration(animDuration)
-                .attr("width", (item: GroupContainerNetworkItem) => item.width)
-                .attr("height", (item: GroupContainerNetworkItem) => item.height)
-
-            networkCards.select("text.node-container-network-mini-title")
-                .attr("x", 10)
-                .attr("y", 25)
-                .text((item: GroupContainerNetworkItem) => miniCardName(item.node))
-
-            networkCards.select("title")
-                .text((item: GroupContainerNetworkItem) => miniCardTooltip(item.node))
-
-            g.select("text.node-container-more")
-                .attr("x", -groupContainerWidth / 2 + groupContainerPaddingX)
-                .attr("y", cardHeightForNode(d) - topologyCardHeight / 2 - 12)
-                .text(layout.more > 0 ? `+${layout.more}개 더 있음` : "")
-        }
-
-        node.select("g.node-container-grid")
-            .each(renderContainerGrid)
-
-        node.select("g.node-group-list")
-            .each(renderGroupList)
-
-        var exco = nodeEnter
-            .append("g")
-            .attr("class", "node-exco")
-            .attr("pointer-events", "all")
-
-        interface DisplayBadge {
-            key: string
-            count: number
-            displayText?: string
-            tone: string
-            label?: string
-            tooltip: string | TopologyStatusBadgeTooltip
-        }
-        const displayBadges = (d: D3Node): DisplayBadge[] => {
-            const statusBadges = topologyStatusBadges(d.data)
-            if (statusBadges !== undefined) return statusBadges
-            const count = isKubernetesPod(d.data.wrapped)
-                ? d.data.wrapped.children.filter(child => isCurrentKubernetesPod(child)).length
-                : d.data.wrapped.children.length
-            return count > 0
-                ? [{ key: 'children', count, tone: 'running', tooltip: `연결된 자원 ${count}` }]
-                : []
-        }
-
-        const badgeGroupSummary = (d: D3Node, badges: DisplayBadge[]): TopologyStatusBadgeGroupSummary => {
-            if (isKubernetesResource(d.data.wrapped)) {
-                return kubernetesTopologyBadgeGroupSummary(
-                    d.data.wrapped,
-                    badges as any,
-                    self.renderedKubernetesBadgeChildren(d.data))
-            }
-            const total = badges.filter(item => item.key !== 'self-problem').reduce((sum, item) => sum + item.count, 0)
+    private renderTopologyVisualGroups() {
+        const surfaces = topologyVisualGroups(Array.from(this.d3nodes.values()).map(node => {
+            // Expanded proxy groups and their cards are layout siblings. Their
+            // canonical membership, rather than D3 parenthood, owns the surface.
+            const owner = this.nodeGroup.get(node.data.wrapped.id)
+            const groupParent = owner && owner.id !== node.data.id && this.d3nodes.has(owner.id) ? owner.id : undefined
             return {
-                title: '하위 자원 상태',
-                totalLabel: `하위 자원 총 ${total}개`,
-                states: badges.filter(item => item.count > 0).map(item => ({
-                    key: item.key,
-                    tone: item.tone,
-                    label: item.tone === 'problem'
-                        ? '자체 이상'
-                        : item.tone === 'warning'
-                            ? '하위 자원 이상'
-                            : item.tone === 'inactive' ? '비활성' : '정상',
-                    count: item.count
-                }))
+                id: node.data.id, parentID: groupParent || node.parent?.data.id,
+                visible: node.data.type !== WrapperType.Hidden && node.data.wrapped !== this.root,
+                expanded: !!node.data.wrapped.state.expanded,
+                group: node.data.type === WrapperType.Group || String(node.data.wrapped.data?.Type).toLowerCase() === 'namespace',
+                x: node.x, y: node.y, width: this.topologyLayoutCardWidth(node), height: this.topologyLayoutCardHeight(node)
             }
+        }))
+        const groups = this.gGroupRegions.selectAll<SVGPathElement, TopologyVisualGroup>('path.topology-visual-group')
+            .data(surfaces, group => group.id)
+        groups.exit().remove()
+        groups.enter().append('path').attr('class', 'topology-visual-group')
+            .attr('pointer-events', 'none').attr('aria-hidden', 'true').merge(groups)
+            .attr('data-group-id', group => group.id).attr('data-shape', group => group.shape).attr('d', group => group.path)
+    }
+
+    private syncTopologyRelationEmphasis(hoveredID?: string) {
+        if (!this.gHieraLinks || !this.gNodes) return
+        const focused = new Set<string>()
+        this.d3nodes.forEach(node => { if (node.data.wrapped.state.selected) focused.add(node.data.id) })
+        if (hoveredID) focused.add(hoveredID)
+        const related = new Set(focused)
+        const groupMembers = new Set<string>()
+        focused.forEach(id => {
+            const group = this.d3nodes.get(id)
+            if (group?.data.type !== WrapperType.Group) return
+            group.data.wrapped.children.forEach(child => {
+                if (this.d3nodes.has(child.id)) { groupMembers.add(child.id); related.add(child.id) }
+            })
+        })
+        const hierarchyAccess = {
+            id: (node: D3Node) => node.data.id,
+            hidden: (node: D3Node) => node.data.type === WrapperType.Hidden,
+            parent: (node: D3Node) => node.parent,
+            children: (node: D3Node) => node.children || []
         }
-
-        const renderStatusBadges = function (d: D3Node) {
-            const root = select(this)
-            const badges = isGroupContainerNode(d) || isGroupListNode(d) ? [] : displayBadges(d)
-            if (badges.length > 0) {
-                self.reactRoots.render(<TopologyStatusBadgeRail
-                    badges={badges}
-                    summary={badgeGroupSummary(d, badges)}
-                    x={cardWidthForNode(d) / 2 - 12}
-                    // Keep the badge rail anchored to the top border. Badges remain
-                    // independent from the name/type layout at every badge count.
-                    y={-cardHeightForNode(d) / 2} />, this)
-            } else {
-                self.reactRoots.unmount(this)
-            }
-            root.style("opacity", badges.length > 0 ? 1 : 0)
-        }
-
-        exco.each(renderStatusBadges)
-        node.select("g.node-exco").each(renderStatusBadges)
-
-        node.transition()
-            .duration(animDuration)
-            .style("opacity", 1)
-            .attr("transform", (d: D3Node) => `translate(${d.x},${d.y})`)
-
-        node
-            .filter((d: D3Node) => d.data.wrapped.state.selected)
-            .raise()
-
-        this.renderTopologyGroupRegions(cardWidthForNode, cardHeightForNode)
+        this.gHieraLinks.selectAll<SVGPathElement, any>('path.hiera-link')
+            .classed('is-related', edge => {
+                const ids = topologyHierarchyEdgeIDs(edge.source, edge.target, hierarchyAccess)
+                const hit = focused.has(ids.source) || ids.targets.some(id => focused.has(id) || groupMembers.has(id))
+                if (hit) { related.add(ids.source); ids.targets.forEach(id => related.add(id)) }
+                return hit
+            })
+        this.gLinks.selectAll<SVGPathElement, Link>('path.link').classed('is-related', edge => {
+            const hit = focused.has(edge.source.id) || focused.has(edge.target.id)
+            if (hit) { related.add(edge.source.id); related.add(edge.target.id) }
+            return hit
+        })
+        this.g.classed('has-relation-focus', focused.size > 0)
+        this.gNodes.selectAll<SVGGElement, D3Node>('g.node').classed('is-related', node => related.has(node.data.id))
     }
 
     private linkClass(d: Link) {
@@ -6483,6 +5576,14 @@ export class Topology extends React.Component<Props, {}> {
 
             if (!dSource || !dTarget) {
                 return
+            }
+
+            if (!dSource.embedded && !dTarget.embedded) {
+                const source = this.d3nodes.get(dSource.node.id)!
+                const target = this.d3nodes.get(dTarget.node.id)!
+                return topologyCardEdge(
+                    { x: dSource.x, y: dSource.y, width: this.topologyLayoutCardWidth(source), height: this.topologyLayoutCardHeight(source) },
+                    { x: dTarget.x, y: dTarget.y, width: this.topologyLayoutCardWidth(target), height: this.topologyLayoutCardHeight(target) })
             }
 
             var line = linkerCache.get(d.id)
@@ -6631,8 +5732,8 @@ export class Topology extends React.Component<Props, {}> {
                         continue
                     }
 
-                    const nodeCardWidth = node.data.wrapped.data?.Type === "libvirt" || node.data.wrapped.data?.Type === "tuntap" || node.data.wrapped.data?.Type === "tun" || node.data.wrapped.data?.Type === "tap" ? topologyMediumCardWidth : topologyCardWidth
-                    const overlapsNodeCard = intersects(x, y, labelWidth, labelHeight, node.x, node.y, nodeCardWidth + 16, topologyCardHeight + 16)
+                    const overlapsNodeCard = intersects(x, y, labelWidth, labelHeight, node.x, node.y,
+                        this.topologyLayoutCardWidth(node) + 16, this.topologyLayoutCardHeight(node) + 16)
                     if (overlapsNodeCard) {
                         count++
                     }
@@ -6759,8 +5860,11 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     private unmountNodeContent(element: Element) {
-        select(element).selectAll<Element, unknown>('g.node-exco, g.node-capture-status, div.node-group-navigator-root')
-            .each((_d, index, elements) => this.reactRoots.unmount(elements[index]))
+        select(element).selectAll<Element, unknown>('g.node-object-content, g.node-exco, g.node-capture-status, div.node-group-navigator-root')
+            .each((_d, index, elements) => {
+                this.objectCardRenderKeys.delete(elements[index])
+                this.reactRoots.unmount(elements[index])
+            })
     }
 
     private pruneGroupState() {
@@ -6816,6 +5920,7 @@ export class Topology extends React.Component<Props, {}> {
         this.renderLinks()
         this.refreshTopologyNodeFocus()
         this.applyTopologyNodeFocus()
+        this.syncTopologyRelationEmphasis()
 
         this.invalidated = false
     }
