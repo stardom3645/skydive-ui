@@ -80,8 +80,8 @@ export const TopologyGroupHeaderSummary = ({ children }: { children: NonNullable
             </TopologyCardTooltip>)}
     </div>
 
-/** D3 owns positions and input delegation; this component owns presentation
- * inside one SVG foreignObject. Zoom details are controlled with scene CSS. */
+/** D3 owns positions, readable display scale and input delegation; this
+ * component keeps the same presentation inside one SVG foreignObject. */
 export const TopologyNodeCard = React.memo(({ model, icon, iconClass, href, onToggle }: {
     model: TopologyNodePresentation; icon: string; iconClass?: string; href?: string; onToggle: () => void
 }) => <foreignObject className="topology-object-foreign" x={-model.width / 2} y={-model.height / 2}
@@ -107,7 +107,7 @@ export const TopologyNodeCard = React.memo(({ model, icon, iconClass, href, onTo
                     onClick={event => { event.stopPropagation(); onToggle() }} />}
             </div>
             {model.group && model.children ? <TopologyGroupHeaderSummary children={model.children} /> :
-                model.metrics.length > 0 && <div className={`topology-object-card__metrics ${model.metrics.length === 1 ? 'is-single' : ''}`}>
+                model.metrics.length > 0 && <div className="topology-object-card__metrics">
                     {model.metrics.map(metric => <TopologyMetricChip key={metric.key} metric={metric} />)}
                 </div>}
         </article>

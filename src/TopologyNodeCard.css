@@ -6,33 +6,31 @@
 }
 .topology-object-card__header { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1; }
 .topology-object-icon {
-    width: max(42px, calc(16px / var(--topology-card-zoom, 1))); height: max(42px, calc(16px / var(--topology-card-zoom, 1)));
-    border-radius: 12px; flex: 0 0 max(42px, calc(16px / var(--topology-card-zoom, 1)));
+    width: 42px; height: 42px; border-radius: 12px; flex: 0 0 42px;
     display: inline-flex; align-items: center; justify-content: center;
     background: var(--topology-object-icon-surface, #eef3fb); color: var(--topology-object-muted, #63748d);
-    font-size: max(25px, calc(14px / var(--topology-card-zoom, 1)));
+    font-size: 25px;
 }
 .topology-object-icon > .fa { font-family: 'Font Awesome 5 Free'; font-weight: 900; }
-.topology-object-icon > img { width: max(28px, calc(14px / var(--topology-card-zoom, 1))); height: max(28px, calc(14px / var(--topology-card-zoom, 1))); object-fit: contain; filter: grayscale(1); opacity: 0.85; }
-.topology-object-card.is-large .topology-object-icon { width: max(48px, calc(18px / var(--topology-card-zoom, 1))); height: max(48px, calc(18px / var(--topology-card-zoom, 1))); flex-basis: max(48px, calc(18px / var(--topology-card-zoom, 1))); font-size: max(29px, calc(15px / var(--topology-card-zoom, 1))); }
+.topology-object-icon > img { width: 28px; height: 28px; object-fit: contain; filter: grayscale(1); opacity: 0.85; }
+.topology-object-card.is-large .topology-object-icon { width: 48px; height: 48px; flex-basis: 48px; font-size: 29px; }
 .topology-object-card__identity { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 5px; }
 .topology-card-tooltip-anchor { display: inline-flex; flex-shrink: 0; }
 .topology-card-tooltip-anchor.is-block { display: block; min-width: 0; }
-.topology-object-card__name { display: block; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: max(18px, calc(12px / var(--topology-card-zoom, 1))); font-weight: 600; line-height: 1.2; }
-.topology-object-card.is-large .topology-object-card__name { font-size: max(21px, calc(13px / var(--topology-card-zoom, 1))); }
-.topology-object-card__subtitle { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: max(13px, calc(10px / var(--topology-card-zoom, 1))); line-height: 1.4; color: var(--topology-object-muted, #63748d); }
+.topology-object-card__name { display: block; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 18px; font-weight: 600; line-height: 24px; }
+.topology-object-card.is-large .topology-object-card__name { font-size: 21px; line-height: 27px; }
+.topology-object-card__subtitle { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13px; line-height: 18px; color: var(--topology-object-muted, #63748d); }
 .topology-object-status.ant-tag {
     display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0; margin: 0;
     padding: 2px 7px; border-radius: 20px; border: 1px solid transparent;
     font-size: 12px; line-height: 18px; font-weight: 500;
     background: var(--topology-object-status-surface, #f3f5f8); color: #7e899b;
 }
-.topology-object-status__dot { width: max(6px, calc(4px / var(--topology-card-zoom, 1))); height: max(6px, calc(4px / var(--topology-card-zoom, 1))); border-radius: 50%; flex: 0 0 max(6px, calc(4px / var(--topology-card-zoom, 1))); display: inline-block; background: currentColor; }
+.topology-object-status__dot { width: 6px; height: 6px; border-radius: 50%; flex: 0 0 6px; display: inline-block; background: currentColor; }
 .topology-object-status.is-normal { color: #089b7a; background: #edf9f4; border-color: #d9f1e8; }
 .topology-object-status.is-warning { color: #c18526; background: #fff8eb; border-color: #f6e9cd; }
 .topology-object-status.is-critical { color: #d85b60; background: #fff1f1; border-color: #f8dedf; }
-.topology-object-card__toggle.ant-btn { width: max(24px, calc(13px / var(--topology-card-zoom, 1))); height: max(26px, calc(13px / var(--topology-card-zoom, 1))); min-width: max(24px, calc(13px / var(--topology-card-zoom, 1))); padding: 0; color: var(--topology-object-muted, #63748d); background: var(--topology-object-chip, #f7faff); border-radius: 8px; flex-shrink: 0; }
-.topology-object-card__toggle.ant-btn .anticon { font-size: max(14px, calc(10px / var(--topology-card-zoom, 1))); }
+.topology-object-card__toggle.ant-btn { width: 24px; height: 26px; min-width: 24px; padding: 0; color: var(--topology-object-muted, #63748d); background: var(--topology-object-chip, #f7faff); border-radius: 8px; flex-shrink: 0; }
 .topology-object-card__metrics { display: flex; gap: 8px; min-width: 0; }
 .topology-metric-chip { flex: 1; min-width: 0; background: var(--topology-object-chip, #f7faff); border: 1px solid var(--topology-object-border, #e7eef8); border-radius: 8px; padding: 6px 8px; font-size: 12px; line-height: 18px; }
 .topology-metric-chip__line { display: flex; gap: 5px; justify-content: space-between; min-width: 0; }
@@ -54,25 +52,7 @@
 .topology-object-card.is-group .topology-group-summary { padding: 5px 8px; border: 1px solid var(--topology-object-border, #e7eef8); border-radius: 8px; background: var(--topology-object-chip, #f7faff); }
 .topology-object-card.is-group { gap: 8px; padding-block: 12px; }
 .topology-object-card.is-compact { gap: 8px; padding-block: 12px; }
-.topology-object-card.is-compact .topology-object-icon { width: max(34px, calc(16px / var(--topology-card-zoom, 1))); height: max(34px, calc(16px / var(--topology-card-zoom, 1))); flex-basis: max(34px, calc(16px / var(--topology-card-zoom, 1))); border-radius: 10px; font-size: max(22px, calc(14px / var(--topology-card-zoom, 1))); }
-.topology-object-card.is-compact .topology-object-card__name { font-size: max(17px, calc(11.5px / var(--topology-card-zoom, 1))); }
+.topology-object-card.is-compact .topology-object-icon { width: 34px; height: 34px; flex-basis: 34px; border-radius: 10px; font-size: 22px; }
+.topology-object-card.is-compact .topology-object-card__name { font-size: 17px; line-height: 22px; }
 .topology-object-card.is-compact .topology-object-status__label { display: none; }
 .topology-object-card.is-compact .topology-object-status { padding: 5px; background: transparent; border: 0; }
-.topology-density-compact .topology-object-card__subtitle { display: none; }
-.topology-density-overview .topology-object-card__subtitle { display: none; }
-.topology-density-overview .topology-object-status__label { display: none; }
-.topology-density-overview .topology-object-status { padding: 4px; background: transparent; border: 0; }
-/* At 34%, 17px text would render at 5.8px. Compensate the contents while
- * keeping the existing graph geometry, card tiers and branch spacing intact. */
-.topology-density-overview .topology-object-card { padding: 8px 12px; gap: 6px; }
-.topology-density-overview .topology-object-card__header { gap: max(6px, calc(4px / var(--topology-card-zoom, 1))); }
-.topology-density-overview .topology-metric-chip { padding: 2px 4px; font-size: calc(10px / var(--topology-card-zoom, 1)); line-height: 1.2; }
-.topology-density-overview .topology-object-card:not(.is-compact) .topology-metric-chip__line { flex-direction: column; gap: 1px; }
-.topology-density-overview .topology-object-card .topology-metric-chip__line > span { font-size: calc(9.5px / var(--topology-card-zoom, 1)); }
-.topology-density-overview .topology-object-card.is-large .topology-metric-chip__line > strong { font-size: calc(10px / var(--topology-card-zoom, 1)); }
-.topology-density-overview .topology-object-card.is-compact .topology-metric-chip__line > span { display: none; }
-.topology-density-overview .topology-object-card.is-compact .is-single .topology-metric-chip__line > span { display: block; }
-.topology-density-overview .topology-metric-chip .ant-progress { display: none; }
-.topology-density-overview .topology-object-card.is-group .topology-group-summary { padding: 2px 4px; gap: 6px; font-size: calc(10px / var(--topology-card-zoom, 1)); line-height: 1.2; }
-.topology-density-tiny .topology-object-card__metrics,
-.topology-density-tiny .topology-object-card.is-group .topology-group-summary { display: none; }

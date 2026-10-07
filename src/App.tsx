@@ -127,7 +127,7 @@ import {
 } from '@ant-design/icons'
 
 import { styles } from './AppStyles'
-import { Topology, Node, NodeAttrs, LinkAttrs, LinkTagState, Link, isTopologyDownNode, topologyNodeStatus, topologyMinimumZoom } from './Topology'
+import { Topology, Node, NodeAttrs, LinkAttrs, LinkTagState, Link, isTopologyDownNode, topologyNodeStatus } from './Topology'
 import {
   infrastructureResourceCategory,
   kubernetesResourceCategory
@@ -3511,7 +3511,7 @@ class App extends React.Component<Props, State> {
   }
 
   onTopologyZoomChange(zoom: number) {
-    const normalized = Math.max(topologyMinimumZoom, Math.min(1.5, zoom || 1))
+    const normalized = Math.max(0.1, Math.min(1.5, zoom || 1))
     if (Math.abs((this.state.topologyZoom || 1) - normalized) < 0.005) {
       return
     }
@@ -3543,7 +3543,7 @@ class App extends React.Component<Props, State> {
   renderTopologyZoomControls(classes: any) {
     const zoom = this.state.topologyZoom || 1
     const zoomPercent = `${Math.round(zoom * 100)}%`
-    const canZoomOut = zoom > topologyMinimumZoom + 0.005
+    const canZoomOut = zoom > 0.105
     const canZoomIn = zoom < 1.495
     return (
       <div className={classes.toolbarZoomGroup}>

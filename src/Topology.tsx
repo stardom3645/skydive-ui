@@ -56,11 +56,10 @@ import TopologyContextMenu, { TopologyContextMenuAction } from './TopologyContex
 const flextree = require('d3-flextree').flextree;
 
 import './Topology.css'
+import { topologyCardPresentationScale } from './TopologyCardScale'
 
 // 토폴로지 노드/링크 전환 애니메이션 시간(ms)입니다.
 const animDuration = 500
-// Below this scale, even compensated text loses its usable card width.
-export const topologyMinimumZoom = 0.34
 // 이 개수 이하는 그룹 노드로 묶지 않고 일반 노드로 펼쳐 표시합니다.
 const defaultGroupSize = 6
 // 그룹 전체 펼침 시 최대 표시 가능한 하위 노드 수입니다.
@@ -666,6 +665,7 @@ export class Topology extends React.Component<Props, {}> {
     private selectedGroupListNodeIDs: Set<string>
     private groupNavigatorFilters: Map<string, GroupNavigatorFilter>
     private groupNavigatorRenderKeys: Map<string, string>
+    private cardPresentationScale = 1
     private zoomFitTimeoutID: number
     private zoomFitAnimationFrameID: number
     private kubernetesProblemsOnly: boolean
@@ -985,7 +985,7 @@ export class Topology extends React.Component<Props, {}> {
         this.absTransformX = this.absTransformY = 0
 
         this.zoom = zoom()
-            .scaleExtent([topologyMinimumZoom, 1.5])
+            .scaleExtent([0.1, 1.5])
             .on("zoom", () => {
                 this.hideAllLevelLabels()
                 this.hideNodeContextMenu()
@@ -994,12 +994,34 @@ export class Topology extends React.Component<Props, {}> {
                 this.absTransformX = event.transform.x * 1 / event.transform.k
                 this.absTransformY = event.transform.y * 1 / event.transform.k
                 this.updateLevelLabelBackdrop()
-                this.updateTopologyDensity(event.transform.k)
                 if (this.props.onZoomChange) {
                     this.props.onZoomChange(event.transform.k)
                 }
             })
             .on("end", () => {
+                const nextCardScale = topologyCardPresentationScale(this.currentZoom())
+                if (Math.abs(nextCardScale - this.cardPresentationScale) > 0.001) {
+                    const transform = (this.svg.node() as any).__zoom
+                    const view = this.viewSize()
+                    const centerX = (view.width / 2 - transform.x) / transform.k
+                    const centerY = (view.height / 2 - transform.y) / transform.k
+                    const anchor = Array.from(this.d3nodes.values())
+                        .filter(node => node.data.type !== WrapperType.Hidden && node.data.wrapped !== this.root)
+                        .sort((a, b) => Math.hypot(a.x - centerX, a.y - centerY) - Math.hypot(b.x - centerX, b.y - centerY))[0]
+                    const previous = anchor && { id: anchor.data.id, x: anchor.x, y: anchor.y }
+                    this.cardPresentationScale = nextCardScale
+                    this.invalidated = true
+                    this.renderTree()
+                    const nextAnchor = previous && this.d3nodes.get(previous.id)
+                    if (nextAnchor) {
+                        // Keep the resource nearest the viewport center in place
+                        // as space is reserved for the readable card dimensions.
+                        this.svg.call(this.zoom.transform, zoomIdentity
+                            .translate(transform.x + (previous.x - nextAnchor.x) * transform.k,
+                                transform.y + (previous.y - nextAnchor.y) * transform.k)
+                            .scale(transform.k))
+                    }
+                }
                 if (this.showLevelLabelsTimeoutID) {
                     window.clearTimeout(this.showLevelLabelsTimeoutID)
                 }
@@ -2484,11 +2506,11 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     private topologyLayoutCardWidth(node: D3Node): number {
-        return topologyCardDimensions(node.data.wrapped, node.data.type === WrapperType.Group).width
+        return topologyCardDimensions(node.data.wrapped, node.data.type === WrapperType.Group).width * (this.cardPresentationScale || 1)
     }
 
     private topologyLayoutCardHeight(node: D3Node): number {
-        return topologyCardDimensions(node.data.wrapped, node.data.type === WrapperType.Group).height
+        return topologyCardDimensions(node.data.wrapped, node.data.type === WrapperType.Group).height * (this.cardPresentationScale || 1)
     }
 
     private topologyEdgeBounds(node: D3Node) {
@@ -2998,7 +3020,7 @@ export class Topology extends React.Component<Props, {}> {
         var midX = bounds.x + width / 2, midY = bounds.y + height / 2
 
         const usableWidth = Math.max(320, viewSize.width - topologyLevelLabelSafeInset)
-        var scale = Math.max(topologyMinimumZoom, 0.65 / Math.max(width / usableWidth, height / viewSize.height))
+        var scale = Math.max(0.1, 0.65 / Math.max(width / usableWidth, height / viewSize.height))
         if (scale > 1) {
             scale = 1
         }
@@ -3062,7 +3084,7 @@ export class Topology extends React.Component<Props, {}> {
         }
         const current = (this.svg.node() as any).__zoom || zoomIdentity
         const viewSize = this.viewSize()
-        const nextScale = Math.max(topologyMinimumZoom, Math.min(1.5, scale))
+        const nextScale = Math.max(0.1, Math.min(1.5, scale))
         const centerX = viewSize.width / 2
         const centerY = viewSize.height / 2
         const sourceScale = current.k || 1
@@ -3834,7 +3856,7 @@ export class Topology extends React.Component<Props, {}> {
             return
         }
         const current = (this.svg.node() as any)?.__zoom || zoomIdentity
-        const scale = Math.max(topologyMinimumZoom, Math.min(1.5, current.k || 1))
+        const scale = Math.max(0.1, Math.min(1.5, current.k || 1))
         const viewSize = this.viewSize()
         const transform = zoomIdentity
             .translate(viewSize.width / 2 - scale * d.x, viewSize.height / 2 - scale * d.y)
@@ -4251,8 +4273,8 @@ export class Topology extends React.Component<Props, {}> {
         if (scale > 1) {
             scale = 1
         }
-        if (scale < topologyMinimumZoom) {
-            scale = topologyMinimumZoom
+        if (scale < 0.1) {
+            scale = 0.1
         }
 
         this.absTransformX = topologyLevelLabelSafeInset + usableWidth / 2 - midX * scale
@@ -5258,7 +5280,7 @@ export class Topology extends React.Component<Props, {}> {
             .attr('y', d => -self.topologyLayoutCardHeight(d) / 2)
             .attr('width', d => self.topologyLayoutCardWidth(d)).attr('height', d => self.topologyLayoutCardHeight(d))
         node.select('g.node-pinned text').attr('y', d => -self.topologyLayoutCardHeight(d) / 2 - 12)
-        node.select('g.node-object-content').each(function (d) {
+        node.select('g.node-object-content').attr('transform', `scale(${this.cardPresentationScale})`).each(function (d) {
             const resource = d.data.wrapped
             const attrs = self.props.nodeAttrs(resource)
             const model = topologyNodePresentation(resource, {
@@ -5301,17 +5323,6 @@ export class Topology extends React.Component<Props, {}> {
         node.transition().duration(animDuration).style('opacity', 1).attr('transform', d => `translate(${d.x},${d.y})`)
         node.filter(d => d.data.wrapped.state.selected).raise()
         this.renderTopologyGroupRegions(d => this.topologyLayoutCardWidth(d), d => this.topologyLayoutCardHeight(d))
-        this.updateTopologyDensity(this.currentZoom())
-    }
-
-    private updateTopologyDensity(scale: number) {
-        if (!this.g) return
-        // Keep card text readable at overview zoom without scaling the cards,
-        // changing their bounds or rerendering the React contents on each tick.
-        this.g.style('--topology-card-zoom', String(Math.max(0.3, scale)))
-            .classed('topology-density-tiny', scale < 0.32)
-            .classed('topology-density-overview', scale < 0.5)
-            .classed('topology-density-compact', scale >= 0.5 && scale < 0.7)
     }
 
     private syncTopologyRelationEmphasis(hoveredID?: string) {
@@ -5808,9 +5819,13 @@ export class Topology extends React.Component<Props, {}> {
         // Reserve the width actually rendered, including secondary labels and
         // the stacked backplates of proxy groups, before flextree places cards.
         root.each((node: D3Node) => {
-            if (node.data.type === WrapperType.Hidden || node.data.wrapped === this.root) return
+            if (node.data.type === WrapperType.Hidden || node.data.wrapped === this.root) {
+                node.data.size[1] *= this.cardPresentationScale
+                return
+            }
             const backplate = node.data.type === WrapperType.Group ? 13 : 0
-            node.data.size[0] = Math.max(node.data.size[0], this.topologyLayoutCardWidth(node) + backplate + topologySiblingCardGap)
+            node.data.size[0] = Math.max(node.data.size[0] * this.cardPresentationScale, this.topologyLayoutCardWidth(node) + backplate + topologySiblingCardGap)
+            node.data.size[1] *= this.cardPresentationScale
         })
         this.tree(root)
         this.compactSystemVmRouterLayout(root)
