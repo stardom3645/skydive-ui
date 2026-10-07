@@ -1,11 +1,6 @@
 import { strict as assert } from 'assert'
-import * as fs from 'fs'
-import * as path from 'path'
-import * as ts from 'typescript'
-import * as vm from 'vm'
 import { topologyCardDimensions, topologyNodePresentation } from '../src/TopologyNodePresentation'
 import { kubernetesResourceSelfStatus, kubernetesTopologyDirectChildSummary } from '../src/KubernetesTopologyBadgeAggregation'
-import { topologyVisualGroups, TopologyVisualGroupNode } from '../src/TopologyGroupBackground'
 import { topologyCardEdge, topologyHierarchyEdgeIDs } from '../src/TopologyEdgePresentation'
 
 const resource = (id: string, type: string, extra: any = {}): any => ({
@@ -86,67 +81,13 @@ describe('Topology object presentation', () => {
         assert.equal(present(pvc).metrics[0].value, '120Gi')
         assert.deepEqual(present(resource('svc', 'service')).metrics, [])
     })
-})
-
-const card = (id: string, parentID?: string, x = 0, y = 0): TopologyVisualGroupNode => ({
-    id, parentID, x, y, visible: true, expanded: true, group: !parentID, width: 280, height: 112
-})
-describe('Topology visual group background', () => {
-    it('wraps canonical group members even when the layout represents them as siblings', () => {
-        const source = fs.readFileSync(path.resolve(__dirname, '../src/Topology.tsx'), 'utf8')
-        const ast = ts.createSourceFile('Topology.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
-        const topology = ast.statements.filter(ts.isClassDeclaration).find(node => node.name?.text === 'Topology')!
-        const method = topology.members.find(member => member.name?.getText(ast) === 'renderTopologyVisualGroups')!.getText(ast)
-        const context: any = { topologyVisualGroups, WrapperType: { Group: 3, Hidden: 2 } }
-        vm.createContext(context)
-        vm.runInContext(ts.transpile(`class Probe { ${method} }; this.Probe = Probe`, { target: ts.ScriptTarget.ES2018 }), context)
-        let joined: any[] = []
-        const join: any = { data: (groups: any[]) => { joined = groups; return join } }
-        for (const name of ['enter', 'exit', 'append', 'attr', 'merge', 'remove']) join[name] = () => join
-        const root = resource('root', 'root'), group = resource('group', 'node'), member = resource('worker', 'node')
-        const rootD3: any = { data: { id: 'root', type: 1, wrapped: root }, x: 0, y: -200 }
-        const groupD3: any = { data: { id: 'group', type: 3, wrapped: group }, parent: rootD3, x: 0, y: 0 }
-        const memberD3: any = { data: { id: 'worker', type: 1, wrapped: member }, parent: rootD3, x: 400, y: 0 }
-        group.children = [member]
-        const probe = new context.Probe()
-        Object.assign(probe, { root, nodeGroup: new Map([['worker', groupD3.data]]),
-            d3nodes: new Map([['root', rootD3], ['group', groupD3], ['worker', memberD3]]),
-            gGroupRegions: { selectAll: () => join }, topologyLayoutCardWidth: () => 100, topologyLayoutCardHeight: () => 40 })
-        probe.renderTopologyVisualGroups()
-        assert.equal(joined.length, 1)
-        assert.deepEqual(joined[0].nodeIDs, ['group', 'worker'])
-        assert.ok(joined[0].bounds.width >= 540)
-        assert.equal(memberD3.parent, rootD3)
-        assert.equal(group.children[0], member)
-        group.state.expanded = false
-        probe.renderTopologyVisualGroups()
-        assert.equal(joined.length, 0)
-    })
-    it('wraps final irregular child positions without moving them', () => {
-        const nodes = [card('header'), card('left', 'header', -400, 216), card('right', 'header', 500, 430)]
-        const before = JSON.stringify(nodes)
-        const groups = topologyVisualGroups(nodes)
-        assert.equal(groups[0].shape, 'rounded')
-        assert.deepEqual(groups[0].nodeIDs, ['header', 'left', 'right'])
-        assert.equal(groups[0].bounds.x, -560)
-        assert.ok(groups[0].bounds.width > 1100)
-        assert.equal(JSON.stringify(nodes), before)
-    })
-    it('removes the background on collapse while keeping the header geometry', () => {
-        const nodes = [card('header'), card('child', 'header', 0, 216)]
-        assert.equal(topologyVisualGroups(nodes).length, 1)
-        nodes[0].expanded = false
-        assert.deepEqual(topologyVisualGroups(nodes), [])
-        assert.equal(nodes[0].width, 280)
-    })
-    it('excludes hidden spacers and selects the organic fallback around an unrelated card', () => {
-        const nodes = [card('header'), card('left', 'header', -400, 216), card('right', 'header', 500, 216), card('unrelated', undefined, 0, 216)]
-        nodes[3].group = false
-        const hidden = { ...card('hidden', 'header', 9000, 216), visible: false }
-        const group = topologyVisualGroups([...nodes, hidden])[0]
-        assert.equal(group.shape, 'organic')
-        assert.ok(!group.nodeIDs.includes('hidden') && !group.nodeIDs.includes('unrelated'))
-        assert.ok(group.bounds.width < 2000)
+    it('formats collected Kubernetes quantity objects instead of object placeholders', () => {
+        const pvc = resource('data', 'persistentvolumeclaim', { Status: { Capacity: { storage: { String: '120Gi' } } } })
+        assert.equal(present(pvc).metrics[0].value, '120Gi')
+        pvc.data.K8s.Extra.Status.Capacity.storage = { unrecognized: true }
+        assert.equal(present(pvc).metrics[0].value, '확인 불가')
+        delete pvc.data.K8s.Extra.Status.Capacity.storage
+        assert.deepEqual(present(pvc).metrics, [])
     })
 })
 

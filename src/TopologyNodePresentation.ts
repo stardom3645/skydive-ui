@@ -2,6 +2,7 @@ import type { Node, Link } from './Topology'
 import { kubernetesResourceSelfStatus, kubernetesTopologyDirectChildSummary } from './KubernetesTopologyBadgeAggregation'
 import { isCurrentKubernetesPod } from './KubernetesPodLifecycle'
 import { infrastructureAttentionStatus } from './StatusSummary'
+import { formatKubernetesQuantity } from './DataPanels/common/kubernetesQuantity'
 
 export type TopologyCardSize = 'large' | 'medium' | 'compact'
 export type TopologyCardTone = 'normal' | 'warning' | 'critical' | 'unknown' | 'inactive'
@@ -138,7 +139,8 @@ export const topologyNodePresentation = (node: Node, options: {
         count('endpoints', 'Endpoint', read(data, ['EndpointCount', 'K8s.EndpointCount']))
         count('service-type', '유형', read(data, ['K8s.Extra.Spec.Type', 'K8s.Extra.Spec.type']))
     } else if (['persistentvolume', 'persistentvolumeclaim'].includes(type) && !group) {
-        count('capacity', '용량', read(data, ['K8s.Extra.Status.Capacity.storage', 'K8s.Extra.Status.capacity.storage', 'K8s.Extra.Spec.Capacity.storage', 'K8s.Extra.Spec.capacity.storage']))
+        const capacity = read(data, ['K8s.Extra.Status.Capacity.storage', 'K8s.Extra.Status.capacity.storage', 'K8s.Extra.Spec.Capacity.storage', 'K8s.Extra.Spec.capacity.storage'])
+        count('capacity', '용량', formatKubernetesQuantity(capacity, '', '확인 불가'))
         count('storage-class', '클래스', read(data, ['K8s.Extra.Spec.StorageClassName', 'K8s.Extra.Spec.storageClassName']))
     } else if (!group && children.length) count('children', '연결 자원', distribution?.total)
     const dimensions = topologyCardDimensions(node, group)

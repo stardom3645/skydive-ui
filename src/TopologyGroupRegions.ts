@@ -102,9 +102,9 @@ export const topologyVisibleBranches = (nodes: TopologyRegionNode[]): Array<{ id
     return Array.from(branches.entries()).map(([id, branch]) => ({ id, nodes: branch }))
 }
 
-// Approximate lightness of the four blue-gray surfaces. Preserve a visible
+// Lightness of the four neutral surfaces. Preserve a visible
 // intensity difference between neighboring branches.
-export const TOPOLOGY_GROUP_TONE_LIGHTNESS = [245, 236, 246, 237]
+export const TOPOLOGY_GROUP_TONE_LIGHTNESS = [250, 240, 251, 239]
 
 export const topologyGroupRegions = (nodes: TopologyRegionNode[]): TopologyGroupRegion[] => {
     const regions = topologyVisibleBranches(nodes)

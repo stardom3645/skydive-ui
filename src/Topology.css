@@ -29,14 +29,14 @@ svg {
     pointer-events: none;
 }
 
-.level-label-panel-glass-start { stop-color: var(--topology-level-panel-start, #f8fbff); }
-.level-label-panel-glass-end { stop-color: var(--topology-level-panel-fill, #edf3fa); }
+.level-label-panel-glass-start { stop-color: var(--topology-level-panel-start, #ffffff); }
+.level-label-panel-glass-end { stop-color: var(--topology-level-panel-fill, #fafafa); }
 .level-label-active-glass-start { stop-color: var(--topology-level-label-active-fill, #e4efff); }
-.level-label-active-glass-end { stop-color: var(--topology-level-panel-start, #f8fbff); stop-opacity: 0.35; }
-.level-label-panel-shadow { flood-color: var(--topology-level-panel-shadow, #6682a6); flood-opacity: 0.14; }
+.level-label-active-glass-end { stop-color: var(--topology-level-panel-start, #ffffff); stop-opacity: 0.35; }
+.level-label-panel-shadow { flood-color: var(--topology-level-panel-shadow, #8c8c8c); flood-opacity: 0.14; }
 
 .level-label-divider {
-    stroke: var(--topology-level-panel-divider, rgba(205, 217, 232, 0.42));
+    stroke: var(--topology-level-panel-divider, rgba(217, 217, 217, 0.45));
     stroke-width: 1px;
     vector-effect: non-scaling-stroke;
     pointer-events: none;
@@ -1655,36 +1655,30 @@ svg {
     white-space: nowrap;
 }
 
-/* The white canvas, pastel group surfaces and raised cards form three layers. */
+/* A single organic region per branch keeps the white canvas and its dots
+ * visible. Group header cards do not add overlapping rectangular surfaces. */
 .topology-group-regions, .topology-group-region path { pointer-events: none; }
 .topology-group-region__base {
-    fill: var(--topology-group-base-color, #d4dce5);
-    fill-opacity: var(--topology-group-base-opacity, 0.22);
+    fill: var(--topology-group-base-color, #dadada);
+    fill-opacity: var(--topology-group-base-opacity, 0.12);
     stroke: none;
 }
 .topology-group-region__shade {
-    fill-opacity: var(--topology-group-shade-opacity, 0.82);
-    stroke: var(--topology-group-rim-color, rgba(255, 255, 255, 0.88));
+    fill-opacity: var(--topology-group-shade-opacity, 1);
+    stroke: var(--topology-group-rim-color, rgba(255, 255, 255, 0.92));
     stroke-width: 1px;
     vector-effect: non-scaling-stroke;
-    filter: drop-shadow(0 6px 12px var(--topology-group-shadow, rgba(43, 57, 77, 0.075)));
+    filter: drop-shadow(0 6px 12px var(--topology-group-shadow, rgba(0, 0, 0, 0.035)));
 }
-.topology-group-surface-stop--0 { stop-color: var(--topology-group-surface-0, #eef6fe); }
-.topology-group-surface-stop--1 { stop-color: var(--topology-group-surface-1, #e2ebf5); }
-.topology-group-surface-stop--2 { stop-color: var(--topology-group-surface-2, #f6f7fb); }
-.topology-group-surface-stop--3 { stop-color: var(--topology-group-surface-3, #e6edf5); }
+.topology-group-surface-stop--0 { stop-color: var(--topology-group-surface-0, #fafafa); }
+.topology-group-surface-stop--1 { stop-color: var(--topology-group-surface-1, #f0f0f0); }
+.topology-group-surface-stop--2 { stop-color: var(--topology-group-surface-2, #fbfbfb); }
+.topology-group-surface-stop--3 { stop-color: var(--topology-group-surface-3, #efefef); }
 .topology-group-region__pattern { stroke: none; }
-.topology-group-dot { fill: var(--topology-group-dot-color, #8290a0); fill-opacity: 0.18; }
-.topology-group-dot--1 { fill-opacity: 0.24; }
-.topology-group-dot--2 { fill-opacity: 0.16; }
-.topology-group-dot--3 { fill-opacity: 0.26; }
-.topology-visual-group {
-    fill: var(--topology-object-group-surface, rgba(239, 246, 255, 0.58));
-    stroke: var(--topology-object-group-border, #b8cdf0);
-    stroke-width: 1px; stroke-dasharray: 4, 5; pointer-events: none;
-    vector-effect: non-scaling-stroke;
-}
-.topology-group-region__pattern { opacity: 0.35; }
+.topology-group-dot { fill: var(--topology-group-dot-color, #8c8c8c); fill-opacity: 0.24; }
+.topology-group-dot--1 { fill-opacity: 0.34; }
+.topology-group-dot--2 { fill-opacity: 0.20; }
+.topology-group-dot--3 { fill-opacity: 0.30; }
 .topology-scene .node:not(.node-selected):not(:hover) .node-card-bg {
     fill: var(--topology-object-surface, #fcfdff);
     filter: drop-shadow(0 4px 9px var(--topology-card-shadow, rgba(31, 45, 65, 0.08)));

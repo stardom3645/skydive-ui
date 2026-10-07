@@ -22,7 +22,6 @@ import { TopologyReactRoots } from './TopologyReactRoots'
 import { TopologyCaptureIndicator } from './TopologyCaptureIndicator'
 import { TopologyNodeCard } from './TopologyNodeCard'
 import { topologyCardDimensions, topologyNodePresentation } from './TopologyNodePresentation'
-import { topologyVisualGroups, TopologyVisualGroup } from './TopologyGroupBackground'
 import { topologyCardEdge, topologyHierarchyEdgeIDs } from './TopologyEdgePresentation'
 import { Avatar, Button, Card, Input, List, Tag, Typography } from 'antd'
 import { NodeIndexOutlined } from '@ant-design/icons'
@@ -933,7 +932,7 @@ export class Topology extends React.Component<Props, {}> {
                 .attr("patternUnits", "userSpaceOnUse")
                 .attr("width", 12).attr("height", 12)
             pattern.append("circle").attr("cx", 3).attr("cy", 3)
-                .attr("r", 0.8).attr("class", `topology-group-dot topology-group-dot--${variant}`)
+                .attr("r", 1).attr("class", `topology-group-dot topology-group-dot--${variant}`)
             const surface = defs.append('linearGradient')
                 .attr('id', `topology-group-surface-${variant}`)
                 .attr('x1', '0%').attr('y1', '0%').attr('x2', '0%').attr('y2', '100%')
@@ -5372,7 +5371,6 @@ export class Topology extends React.Component<Props, {}> {
         node.transition().duration(animDuration).style('opacity', 1).attr('transform', d => `translate(${d.x},${d.y})`)
         node.filter(d => d.data.wrapped.state.selected).raise()
         this.renderTopologyGroupRegions(d => this.topologyLayoutCardWidth(d), d => this.topologyLayoutCardHeight(d))
-        this.renderTopologyVisualGroups()
         this.updateTopologyDensity(this.currentZoom())
     }
 
@@ -5380,28 +5378,6 @@ export class Topology extends React.Component<Props, {}> {
         if (!this.g) return
         this.g.classed('topology-density-overview', scale < 0.5)
             .classed('topology-density-compact', scale >= 0.5 && scale < 0.7)
-    }
-
-    private renderTopologyVisualGroups() {
-        const surfaces = topologyVisualGroups(Array.from(this.d3nodes.values()).map(node => {
-            // Expanded proxy groups and their cards are layout siblings. Their
-            // canonical membership, rather than D3 parenthood, owns the surface.
-            const owner = this.nodeGroup.get(node.data.wrapped.id)
-            const groupParent = owner && owner.id !== node.data.id && this.d3nodes.has(owner.id) ? owner.id : undefined
-            return {
-                id: node.data.id, parentID: groupParent || node.parent?.data.id,
-                visible: node.data.type !== WrapperType.Hidden && node.data.wrapped !== this.root,
-                expanded: !!node.data.wrapped.state.expanded,
-                group: node.data.type === WrapperType.Group || String(node.data.wrapped.data?.Type).toLowerCase() === 'namespace',
-                x: node.x, y: node.y, width: this.topologyLayoutCardWidth(node), height: this.topologyLayoutCardHeight(node)
-            }
-        }))
-        const groups = this.gGroupRegions.selectAll<SVGPathElement, TopologyVisualGroup>('path.topology-visual-group')
-            .data(surfaces, group => group.id)
-        groups.exit().remove()
-        groups.enter().append('path').attr('class', 'topology-visual-group')
-            .attr('pointer-events', 'none').attr('aria-hidden', 'true').merge(groups)
-            .attr('data-group-id', group => group.id).attr('data-shape', group => group.shape).attr('d', group => group.path)
     }
 
     private syncTopologyRelationEmphasis(hoveredID?: string) {
