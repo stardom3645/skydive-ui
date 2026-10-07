@@ -80,7 +80,7 @@ export const TopologyGroupHeaderSummary = ({ children }: { children: NonNullable
             </TopologyCardTooltip>)}
     </div>
 
-/** D3 owns positions, readable display scale and input delegation; this
+/** D3 owns positions and input delegation; this
  * component keeps the same presentation inside one SVG foreignObject. */
 export const TopologyNodeCard = React.memo(({ model, icon, iconClass, href, onToggle }: {
     model: TopologyNodePresentation; icon: string; iconClass?: string; href?: string; onToggle: () => void
