@@ -22,6 +22,7 @@ import { TopologyReactRoots } from './TopologyReactRoots'
 import { TopologyCaptureIndicator } from './TopologyCaptureIndicator'
 import { TopologyNodeCard } from './TopologyNodeCard'
 import { topologyCardDimensions, topologyNodePresentation } from './TopologyNodePresentation'
+import { TopologyResourceData, topologyResourcePlan } from './TopologyResourceData'
 import { topologyCardEdge, topologyHierarchyEdgeIDs } from './TopologyEdgePresentation'
 import { Avatar, Button, Card, Input, List, Tag, Typography } from 'antd'
 import { NodeIndexOutlined } from '@ant-design/icons'
@@ -67,7 +68,7 @@ const defaultMaxExpandSize = 100
 // 기본 트리 레이아웃에서 노드가 차지하는 가로 간격입니다.
 const nodeWidth = 320
 // 기본 트리 레이아웃에서 계층 간 세로 간격입니다.
-const nodeHeight = 400
+const nodeHeight = 440
 // 짧은 이름 노드의 기본 카드 너비입니다.
 const topologyCardWidth = 280
 // 중간 길이 이름 노드의 카드 너비입니다.
@@ -592,6 +593,12 @@ interface Props {
     vmNetworkMap?: Record<string, Array<{ networkName: string, macAddress: string, ipAddress: string }>>
     onZoomChange?: (zoom: number) => void
     emptyKubernetesContent?: React.ReactNode
+    resourceSession?: { endpoint: string; token?: string }
+    resourceDataEnabled?: boolean
+    kubernetesClusters?: any[]
+    moldInventory?: any
+    vmDetailMap?: Record<string, any>
+    infrastructureHostSummaries?: Record<string, any>
 }
 
 interface GroupNavigatorFilter {
@@ -638,6 +645,10 @@ export class Topology extends React.Component<Props, {}> {
     private topologyContextMenuRoot: HTMLDivElement | null
     private reactRoots = new TopologyReactRoots()
     private objectCardRenderKeys = new WeakMap<Element, string>()
+    private resourceData?: TopologyResourceData
+    private resourceRefs = new Map<string, { detail?: string; summary?: string; wall?: string }>()
+    private resourceRefreshTimer?: number
+    private resourceCardRefreshTimer?: number
     private zoom: zoom
     private liner: line
     private showLevelLabelsTimeoutID: number
@@ -731,9 +742,60 @@ export class Topology extends React.Component<Props, {}> {
             })
 
         this.createSVG()
+        this.startResourceData()
+        this.resourceRefreshTimer = window.setInterval(() => this.syncResourceData(), 60000)
+    }
+
+    componentDidUpdate(prevProps: Props) {
+        if (prevProps.resourceSession?.endpoint !== this.props.resourceSession?.endpoint
+            || prevProps.resourceSession?.token !== this.props.resourceSession?.token
+            || prevProps.resourceDataEnabled !== this.props.resourceDataEnabled) this.startResourceData()
+        if (prevProps.kubernetesClusters !== this.props.kubernetesClusters || prevProps.moldInventory !== this.props.moldInventory
+            || prevProps.vmDetailMap !== this.props.vmDetailMap || prevProps.infrastructureHostSummaries !== this.props.infrastructureHostSummaries) {
+            this.syncResourceData()
+            this.refreshResourceCards()
+        }
+    }
+
+    private startResourceData() {
+        this.resourceData?.dispose()
+        this.resourceData = undefined
+        this.resourceRefs.clear()
+        if (this.props.resourceSession && this.props.resourceDataEnabled !== false) {
+            this.resourceData = new TopologyResourceData(() => this.refreshResourceCards())
+            this.syncResourceData()
+        }
+        this.refreshResourceCards()
+    }
+
+    private syncResourceData() {
+        if (!this.resourceData || !this.props.resourceSession) return
+        const visible = Array.from(this.d3nodes.values()).filter(node => node.data.type === WrapperType.Normal && node.data.wrapped !== this.root)
+            .map(node => node.data.wrapped)
+        const plan = topologyResourcePlan(visible, this.props.resourceSession.endpoint, this.props.kubernetesClusters,
+            this.props.moldInventory, this.props.vmDetailMap)
+        this.resourceRefs = plan.refs
+        this.resourceData.sync(plan.requests, this.props.resourceSession.token)
+    }
+
+    private refreshResourceCards() {
+        if (this.resourceCardRefreshTimer !== undefined) return
+        this.resourceCardRefreshTimer = window.setTimeout(() => {
+            this.resourceCardRefreshTimer = undefined
+            const root = this.d3nodes.get('root')
+            if (root && this.gNodes) {
+                this.renderNodes(root)
+                this.refreshTopologyNodeFocus()
+                this.applyTopologyNodeFocus()
+                this.syncTopologyRelationEmphasis()
+            }
+        }, 30)
     }
 
     componentWillUnmount() {
+        this.resourceData?.dispose()
+        if (this.resourceRefreshTimer !== undefined) window.clearInterval(this.resourceRefreshTimer)
+        if (this.resourceCardRefreshTimer !== undefined) window.clearTimeout(this.resourceCardRefreshTimer)
         select("body")
             .on("keydown.topology", null)
             .on("keyup.topology", null)
@@ -5229,6 +5291,7 @@ export class Topology extends React.Component<Props, {}> {
     private renderNodes(root: any) {
         const self = this
         const links = Array.from(this.links.values())
+        const allNodes = Array.from(this.nodes.values())
         const nodeClass = (d: D3Node) => ['node', 'node-object-card',
             d.data.type === WrapperType.Group ? 'node-group-card' : '',
             d.data.type === WrapperType.Group && d.data.wrapped.state.expanded ? 'node-group-expanded' : '',
@@ -5258,13 +5321,16 @@ export class Topology extends React.Component<Props, {}> {
         node.select('g.node-pinned text').attr('y', d => -self.topologyLayoutCardHeight(d) / 2 - 12)
         node.select('g.node-object-content').each(function (d) {
             const resource = d.data.wrapped
+            const ref = self.resourceRefs.get(resource.id)
             const attrs = self.props.nodeAttrs(resource)
             const model = topologyNodePresentation(resource, {
                 name: self.topologyNodeDisplayName(d), group: d.data.type === WrapperType.Group,
                 scope: d.data.type === WrapperType.Group ? self.topologyGroupCardScope(d) : '',
                 children: String(resource.data?.Manager || '').toLowerCase() === 'k8s'
                     ? self.renderedKubernetesBadgeChildren(d.data) : resource.children,
-                links
+                links, allNodes,
+                infrastructureSummary: self.props.infrastructureHostSummaries?.[resource.id],
+                resourceData: { detail: self.resourceData?.get(ref?.detail), summary: self.resourceData?.get(ref?.summary), wall: self.resourceData?.get(ref?.wall) }
             })
             const key = JSON.stringify([model, attrs.icon, attrs.iconClass, attrs.href])
             if (self.objectCardRenderKeys.get(this) === key) return
@@ -5819,6 +5885,7 @@ export class Topology extends React.Component<Props, {}> {
         this.applyTopologyNodeFocus()
         this.syncTopologyRelationEmphasis()
 
+        this.syncResourceData()
         this.invalidated = false
     }
 

@@ -3,10 +3,12 @@ import { kubernetesResourceSelfStatus, kubernetesTopologyDirectChildSummary } fr
 import { isCurrentKubernetesPod } from './KubernetesPodLifecycle'
 import { infrastructureAttentionStatus } from './StatusSummary'
 import { formatKubernetesQuantity } from './DataPanels/common/kubernetesQuantity'
+import { topologyResourceMetrics } from './TopologyResourceMetrics'
+import type { TopologyResourceSnapshot } from './TopologyResourceData'
 
 export type TopologyCardSize = 'large' | 'medium' | 'compact'
 export type TopologyCardTone = 'normal' | 'warning' | 'critical' | 'unknown' | 'inactive'
-export interface TopologyMetric { key: string; label: string; value: string; percent?: number }
+export interface TopologyMetric { key: string; label: string; value: string; percent?: number; description?: string }
 export interface TopologyNodePresentation {
     name: string; subtitle: string; kind: string; size: TopologyCardSize
     width: number; height: number; group: boolean; expanded: boolean; expandable: boolean
@@ -16,8 +18,8 @@ export interface TopologyNodePresentation {
 }
 
 export const TOPOLOGY_CARD_SIZES = {
-    large: { width: 580, height: 300 },
-    medium: { width: 380, height: 352 },
+    large: { width: 580, height: 380 },
+    medium: { width: 440, height: 352 },
     compact: { width: 340, height: 304 }
 }
 const kinds: Record<string, string> = {
@@ -36,34 +38,29 @@ const read = (data: any, paths: string[]) => {
         if (value !== undefined && value !== null && value !== '') return value
     }
 }
-const percent = (data: any, paths: string[]): number | undefined => {
-    const value = read(data, paths)
-    if (value === undefined || typeof value === 'boolean') return undefined
-    const numeric = Number(String(value).replace(/%$/, ''))
-    return Number.isFinite(numeric) && numeric >= 0 && numeric <= 100 ? numeric : undefined
-}
 
 export const topologyCardDimensions = (node: Node, group = false) => {
     const type = typeOf(node)
     group = group || (type === 'namespace' && (node.children || []).length > 0)
     const size: TopologyCardSize = ['cluster', 'host'].includes(type) && !group ? 'large'
         : group || ['node', 'namespace', 'deployment', 'statefulset', 'daemonset', 'job', 'cronjob', 'libvirt', 'switch'].includes(type) ? 'medium' : 'compact'
-    if (group) return { size, width: TOPOLOGY_CARD_SIZES.large.width, height: TOPOLOGY_CARD_SIZES.medium.height }
+    if (group) return { size, width: TOPOLOGY_CARD_SIZES.large.width, height: TOPOLOGY_CARD_SIZES.large.height }
     // Keep room for actual details; a name/status-only resource needs no empty
     // metric area. Layout and SVG rendering use this same measurement.
     const data = node.data || {}
-    const hasMetrics = ['cluster', 'node', 'host', 'libvirt', 'namespace', 'deployment', 'statefulset', 'daemonset', 'job', 'cronjob'].includes(type)
+    const hasMetrics = ['cluster', 'node', 'host', 'libvirt', 'namespace', 'pod', 'deployment', 'statefulset', 'daemonset', 'job', 'cronjob'].includes(type)
         || (type === 'service' ? read(data, ['EndpointCount', 'K8s.EndpointCount', 'K8s.Extra.Spec.Type', 'K8s.Extra.Spec.type']) !== undefined
             : ['persistentvolume', 'persistentvolumeclaim'].includes(type)
                 ? read(data, ['K8s.Extra.Status.Capacity.storage', 'K8s.Extra.Status.capacity.storage', 'K8s.Extra.Spec.Capacity.storage', 'K8s.Extra.Spec.capacity.storage', 'K8s.Extra.Spec.StorageClassName', 'K8s.Extra.Spec.storageClassName']) !== undefined
                 : (node.children || []).length > 0)
-    return { size, ...TOPOLOGY_CARD_SIZES[size], ...(!hasMetrics ? { height: 184 } : {}) }
+    return { size, ...TOPOLOGY_CARD_SIZES[size], ...(type === 'host' ? { height: 300 } : {}), ...(!hasMetrics ? { height: 184 } : {}) }
 }
 
 /** A view model only: graph ownership and the shared status classifiers remain
  * authoritative. Absent measurements never become zero or a fabricated rate. */
 export const topologyNodePresentation = (node: Node, options: {
     name: string; group?: boolean; scope?: string; children?: Node[]; links?: Link[]
+    resourceData?: TopologyResourceSnapshot; allNodes?: Node[]; infrastructureSummary?: any
 }): TopologyNodePresentation => {
     const type = typeOf(node), data = node.data || {}
     const group = !!options.group || (type === 'namespace' && (node.children || []).length > 0)
@@ -127,15 +124,12 @@ export const topologyNodePresentation = (node: Node, options: {
             count(key, label, new Set(collected.filter(item => types.includes(typeOf(item))).map(item => item.data?.K8s?.Extra?.ObjectMeta?.UID || item.id)).size)
         }
     } else if (['node', 'host', 'libvirt'].includes(type) && !group) {
-        for (const [key, label, paths] of [
-            ['cpu', 'CPU', ['CPUUsagePercent', 'Metrics.CPUUsagePercent', 'K8s.Metrics.CPUUsagePercent']],
-            ['memory', '메모리', ['MemoryUsagePercent', 'Metrics.MemoryUsagePercent', 'K8s.Metrics.MemoryUsagePercent']]
-        ] as Array<[string, string, string[]]>) {
-            const rate = percent(data, paths)
-            metrics.push({ key, label, value: rate === undefined ? '미수집' : `${Math.round(rate)}%`, percent: rate })
+        metrics.push(...topologyResourceMetrics(node, options.resourceData, options.allNodes))
+        if (type === 'node') count('pods', '파드', options.resourceData?.detail?.podCount ?? read(data, ['PodCount', 'K8s.PodCount', 'K8s.Extra.Status.PodCount']))
+        else {
+            count('children', '연결 자원', children.length)
+            count('vms', '가상머신', options.infrastructureSummary?.userVMs ?? read(data, ['UserVMCount', 'userVmCount', 'RunningVMCount', 'runningVmCount']))
         }
-        if (type === 'node') count('pods', '파드', read(data, ['PodCount', 'K8s.PodCount', 'K8s.Extra.Status.PodCount']))
-        else count('children', '연결 자원', children.length)
     } else if (type === 'namespace' && !group) {
         count('workloads', '워크로드', children.filter(item => ['deployment', 'statefulset', 'daemonset', 'job', 'cronjob'].includes(typeOf(item))).length)
         count('children', '자원', children.length)
@@ -151,11 +145,12 @@ export const topologyNodePresentation = (node: Node, options: {
         const capacity = read(data, ['K8s.Extra.Status.Capacity.storage', 'K8s.Extra.Status.capacity.storage', 'K8s.Extra.Spec.Capacity.storage', 'K8s.Extra.Spec.capacity.storage'])
         count('capacity', '용량', formatKubernetesQuantity(capacity, '', '확인 불가'))
         count('storage-class', '클래스', read(data, ['K8s.Extra.Spec.StorageClassName', 'K8s.Extra.Spec.storageClassName']))
-    } else if (!group && children.length) count('children', '연결 자원', distribution?.total)
+    } else if (!group && type !== 'pod' && children.length) count('children', '연결 자원', distribution?.total)
+    if (!group && !['node', 'host', 'libvirt'].includes(type)) metrics.push(...topologyResourceMetrics(node, options.resourceData, options.allNodes))
     const dimensions = topologyCardDimensions(node, group)
     if (distribution?.total) status.description += ` · 바로 아래 자원 ${distribution.total}개: 정상 ${distribution.normal}, 주의 ${distribution.warning}, 장애 ${distribution.critical}, 비활성 ${distribution.inactive}`
     return { ...dimensions, group, name: (!options.group && kubernetes ? String(data.Name || lines[0] || node.id).replace(/\s*\n\s*/g, ' ') : primaryName) || node.id,
         kind, subtitle: options.scope || (group ? `${kind} · ${distribution?.total || 0}개 자원` : type === 'cluster' ? kind : namespace ? `${kind} · ${namespace}` : lines[1] || kind),
         expanded: !!node.state.expanded, expandable: children.length > 0, status,
-        metrics: metrics.slice(0, dimensions.size === 'large' ? 4 : 3), children: distribution }
+        metrics: metrics.slice(0, dimensions.size === 'large' ? 6 : 4), children: distribution }
 }

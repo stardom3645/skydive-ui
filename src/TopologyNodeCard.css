@@ -67,6 +67,9 @@
 .topology-object-card.is-group .topology-object-card__subtitle { white-space: normal; overflow-wrap: anywhere; font-size: 24px; line-height: 32px; }
 .topology-object-card.is-group .topology-group-summary { margin-top: auto; padding: 12px; border: 1px solid var(--topology-object-border, #e7eef8); border-radius: 10px; background: var(--topology-object-chip, #f7faff); }
 
+.topology-object-card.is-medium .topology-metric-chip.is-quantity .topology-metric-chip__line,
 .topology-object-card.is-compact .topology-metric-chip__line { flex-direction: column; align-items: flex-start; gap: 2px; }
+.topology-object-card.is-medium .topology-metric-chip.is-quantity .topology-metric-chip__line > span,
+.topology-object-card.is-medium .topology-metric-chip.is-quantity .topology-metric-chip__line > strong,
 .topology-object-card.is-compact .topology-metric-chip__line > span,
 .topology-object-card.is-compact .topology-metric-chip__line > strong { max-width: 100%; }

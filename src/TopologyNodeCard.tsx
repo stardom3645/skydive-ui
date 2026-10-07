@@ -54,7 +54,7 @@ export const TopologyTypeIcon = ({ icon, iconClass, href }: { icon: string; icon
     </span>
 
 export const TopologyMetricChip = ({ metric }: { metric: TopologyMetric }) =>
-    <div className={`topology-metric-chip ${metric.percent !== undefined ? 'has-meter' : ''}`} title={`${metric.label}: ${metric.value}`}>
+    <div className={`topology-metric-chip ${metric.percent !== undefined ? 'has-meter' : metric.description && metric.value !== '미수집' ? 'is-quantity' : ''}`} title={`${metric.label}: ${metric.value}${metric.description ? ` · ${metric.description}` : ''}`}>
         <span className="topology-metric-chip__line"><span>{metric.label}</span><strong>{metric.value}</strong></span>
         {metric.percent !== undefined && <Progress percent={metric.percent} showInfo={false} size="small"
             strokeColor={metric.percent >= 90 ? '#ff7875' : metric.percent >= 75 ? '#ffc069' : '#85b7f5'} railColor="#e8eef6" />}

@@ -6301,6 +6301,12 @@ class App extends React.Component<Props, State> {
               defaultLinkTagMode={this.config.defaultLinkTagMode.bind(this.config)}
               vmNameMap={this.state.vmNameMap}
               vmNetworkMap={this.state.vmNetworkMap}
+              resourceSession={this.props.session}
+              resourceDataEnabled={!this.state.isTimetravelOpen && !this.state.timeContext}
+              kubernetesClusters={this.state.kubernetesClusters}
+              moldInventory={this.state.moldInventory}
+              vmDetailMap={this.state.vmDetailMap}
+              infrastructureHostSummaries={infrastructureHostSummaries}
               onZoomChange={this.onTopologyZoomChange.bind(this)}
               emptyKubernetesContent={this.renderKubernetesEmptyLayer()}
             />

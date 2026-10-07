@@ -70,7 +70,7 @@ describe('Topology object presentation', () => {
         const duplicate = attach(namespace, resource('volume-alias', 'persistentvolumeclaim'))
         duplicate.data.K8s.Extra.ObjectMeta.UID = 'volume-a'
         const metrics = present(cluster).metrics
-        assert.deepEqual(metrics.map(metric => metric.value), ['1', '1', '1', '1'])
+        assert.deepEqual(metrics.filter(metric => ['namespaces', 'nodes', 'workloads', 'storage'].includes(metric.key)).map(metric => metric.value), ['1', '1', '1', '1'])
         assert.equal(cluster.state.expanded, false)
         assert.equal(namespace.children.length, 3)
     })
