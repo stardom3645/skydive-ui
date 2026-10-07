@@ -121,7 +121,7 @@ const kubernetesNodeLabelWidthBoost = 95
 // Kubernetes 네임스페이스 계층에서 노드 간 가로 간격을 추가로 넓히는 값입니다.
 const kubernetesNamespaceHorizontalGapBoost = 160
 // 고정된 좌측 계층 라벨과 토폴로지 카드 사이의 화면 안전 영역입니다.
-const topologyLevelLabelSafeInset = 260
+const topologyLevelLabelSafeInset = 128
 // 시스템 VM / 가상 라우터 compact 레이아웃의 카드 및 그룹 최소 간격입니다.
 const compactVmNodeGap = 24
 const compactVmGroupGap = 64
@@ -4718,7 +4718,7 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     private showLevelLabel(d: LevelRect) {
-        const label = select("#level-label-" + d.weight)
+        const label = this.gLevelLabels.selectAll<SVGGElement, LevelRect>('g.level-label').filter(level => level.weight === d.weight)
         const centerY = d.bb.height / 2
         const labelScale = this.levelLabelScale()
         label.attr("transform", `translate(${-this.absTransformX},${d.bb.y + centerY}) scale(${labelScale}) translate(0,${-centerY})`)
@@ -4731,36 +4731,29 @@ export class Topology extends React.Component<Props, {}> {
         const rowPixels = d.bb.height * this.currentZoom()
         const highlightHeight = Math.min(32, Math.max(0, rowPixels - 4)) / screenScale
         const highlightY = centerY - highlightHeight / 2
-        label.select('rect.level-label-row-bg')
-            .attr('x', 18 / screenScale).attr('y', highlightY)
-            .attr('width', rowWidth - 36 / screenScale).attr('height', highlightHeight)
-            .attr('rx', 6 / screenScale).attr('ry', 6 / screenScale)
         label.select('rect.level-label-indicator')
-            .attr('x', 18 / screenScale).attr('y', highlightY)
+            .attr('x', 8 / screenScale).attr('y', highlightY)
             .attr('width', 2.5 / screenScale).attr('height', highlightHeight)
             .attr('rx', 1.25 / screenScale)
 
-        const textX = 56 / screenScale
+        const textX = rowWidth / 2
         const titlePixels = Math.min(13, Math.max(12, rowPixels * 0.32))
         const fullTitle = this.weightTitles.get(d.weight) || 'Level ' + d.weight
         const title = label.select('text.level-label-title')
             .style('font-size', `${titlePixels / screenScale}px`)
-            .attr('x', textX).attr('y', 0).text(fullTitle)
+            .attr('text-anchor', 'middle').attr('x', textX).attr('y', 0)
+        const titleWidth = rowWidth - 32 / screenScale
+        const linePixels = titlePixels + 4
+        const maxLines = Math.min(3, Math.max(1, Math.floor((rowPixels - 30) / linePixels)))
+        this.wrapLevelLabelTitle(title, fullTitle, titleWidth, maxLines, linePixels / screenScale, textX)
         let titleBox = (title.node() as SVGTextElement).getBBox()
-        const titleWidth = rowWidth - textX - 24 / screenScale
-        if (titleBox.width > titleWidth) {
-            // Keep one readable line; the SVG title retains the full label.
-            let length = Math.max(1, Math.floor(fullTitle.length * titleWidth / titleBox.width) - 1)
-            do {
-                title.text(fullTitle.slice(0, length) + '…')
-                titleBox = (title.node() as SVGTextElement).getBBox()
-                length--
-            } while (titleBox.width > titleWidth && length > 0)
-        }
-        title.attr('y', centerY - titleBox.y - titleBox.height / 2)
+        const iconPixels = Math.min(28, Math.max(12, rowPixels - titleBox.height * screenScale - 12))
+        const contentHeight = iconPixels / screenScale + 8 / screenScale + titleBox.height
+        const contentTop = centerY - contentHeight / 2
+        title.attr('y', contentTop + iconPixels / screenScale + 8 / screenScale - titleBox.y)
 
-        const iconPixels = Math.min(16, Math.max(0, rowPixels - 8))
-        const iconX = 36 / screenScale
+        const iconX = textX
+        const iconCenterY = contentTop + iconPixels / (2 * screenScale)
         const icon = label.select('text.level-label-icon')
             .style('font-size', `${iconPixels / screenScale}px`).attr('x', iconX).attr('y', 0)
         let iconBox = (icon.node() as SVGTextElement).getBBox()
@@ -4769,17 +4762,46 @@ export class Topology extends React.Component<Props, {}> {
             icon.style('font-size', `${iconPixels / screenScale * (iconPixels / screenScale) / glyphSize}px`)
             iconBox = (icon.node() as SVGTextElement).getBBox()
         }
-        const iconBaseline = centerY - iconBox.y - iconBox.height / 2
+        const iconBaseline = iconCenterY - iconBox.y - iconBox.height / 2
         icon.attr('y', iconBaseline)
         const switchScale = iconPixels / (46 * screenScale)
         label.select('g.level-label-switch-icon')
-            .attr('transform', `translate(${iconX - 32 * switchScale},${centerY - 32 * switchScale}) scale(${switchScale})`)
+            .attr('transform', `translate(${iconX - 32 * switchScale},${iconCenterY - 32 * switchScale}) scale(${switchScale})`)
         label.select('text.level-label-badge')
             .style('font-size', `${Math.min(8, iconPixels * 0.4) / screenScale}px`)
             .attr('x', iconX + iconPixels / screenScale * 0.46)
-            .attr('y', centerY + iconPixels / screenScale * 0.4)
+            .attr('y', iconCenterY + iconPixels / screenScale * 0.4)
         this.updateLevelLabelBackdrop()
         label.transition().duration(animDuration).style("opacity", 1)
+    }
+
+    private wrapLevelLabelTitle(title: any, fullTitle: string, width: number, maxLines: number, lineHeight: number, x: number) {
+        title.text('')
+        const measure = title.append('tspan')
+        const fits = (text: string) => {
+            measure.text(text)
+            return (measure.node() as SVGTextContentElement).getComputedTextLength() <= width
+        }
+        const lines: string[] = []
+        let line = ''
+        for (const word of fullTitle.trim().split(/\s+/)) {
+            if (line && fits(`${line} ${word}`)) { line += ` ${word}`; continue }
+            if (line) { lines.push(line); line = '' }
+            for (const char of Array.from(word)) {
+                if (line && !fits(line + char)) { lines.push(line); line = '' }
+                line += char
+            }
+        }
+        if (line) lines.push(line)
+        const visible = lines.slice(0, maxLines)
+        if (lines.length > maxLines) {
+            let last = visible[visible.length - 1]
+            while (last && !fits(last + '…')) last = Array.from(last).slice(0, -1).join('')
+            visible[visible.length - 1] = last + '…'
+        }
+        measure.remove()
+        visible.forEach((text, index) => title.append('tspan').attr('x', x)
+            .attr('dy', index ? lineHeight : 0).text(text))
     }
 
     private updateLevelLabelTitleText(selection: any) {
@@ -4903,7 +4925,7 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     private levelLabelScale(): number {
-        // Keep the horizontal icon/text row in screen coordinates
+        // Keep the stacked icon/label in screen coordinates
         // without changing the topology's layer heights.
         return 0.5 / this.currentZoom()
     }
@@ -4922,9 +4944,9 @@ export class Topology extends React.Component<Props, {}> {
         const panelBottom = Math.min(-this.absTransformY + (this.svgDiv.clientHeight - 12) / scale,
             Math.max(...this.levelRects.map(level => level.bb.y + level.bb.height)) + 16 / scale)
         this.gLevelLabels.select('rect.level-label-panel-surface')
-            .attr('x', -this.absTransformX + 12 / scale)
+            .attr('x', -this.absTransformX + 8 / scale)
             .attr('y', this.levelRects.length ? panelTop : -this.absTransformY)
-            .attr('width', (topologyLevelLabelSafeInset - 24) / scale)
+            .attr('width', (topologyLevelLabelSafeInset - 16) / scale)
             .attr('height', this.levelRects.length ? Math.max(0, panelBottom - panelTop) : 0)
             .attr('rx', 14 / scale).attr('ry', 14 / scale)
         this.svg.select('feDropShadow.level-label-panel-shadow')
@@ -4973,8 +4995,6 @@ export class Topology extends React.Component<Props, {}> {
             .attr("class", "level-label")
             .style("opacity", 0)
             .attr("transform", (d: LevelRect) => `translate(${-self.absTransformX},${d.bb.y})`)
-        levelLabelEnter.append('rect').attr('class', 'level-label-row-bg')
-            .attr('pointer-events', 'none').attr('aria-hidden', 'true')
         levelLabelEnter.append('rect').attr('class', 'level-label-indicator')
             .attr('pointer-events', 'none').attr('aria-hidden', 'true')
         levelLabelEnter.append('rect').attr('class', 'level-label-hit-area')
@@ -5014,7 +5034,7 @@ export class Topology extends React.Component<Props, {}> {
             .text((d: LevelRect) => self.levelLabelBadgeIcon(self.weightTitles.get(d.weight) || 'Level ' + d.weight))
         levelLabelEnter.append("text")
             .attr("class", "level-label-title")
-            .attr("text-anchor", "start")
+            .attr("text-anchor", "middle")
             .attr("x", 128)
         levelLabelEnter.append("title")
             .attr("class", "level-label-tooltip")

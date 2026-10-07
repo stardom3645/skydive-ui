@@ -42,11 +42,6 @@ svg {
     stroke: none;
 }
 
-.level-label.level-label-active .level-label-row-bg {
-    fill: url(#level-label-active-glass);
-    stroke: none;
-}
-
 .level-label.level-label-active .level-label-indicator { opacity: 1; }
 
 .level-label-hit-area { fill: transparent; stroke: none; }
