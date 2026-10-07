@@ -69,15 +69,15 @@ export const TopologyObjectStatusBadge = ({ status }: { status: TopologyNodePres
 
 export const TopologyGroupHeaderSummary = ({ children }: { children: NonNullable<TopologyNodePresentation['children']> }) =>
     <div className="topology-group-summary" aria-label={`바로 아래 자원 ${children.total}개`}>
-        <span className="topology-group-summary__total">자식 <strong>{children.total}</strong></span>
-        {([
+        <span className="topology-group-summary__total">자원 수 <strong>{children.total}</strong></span>
+        <div className="topology-group-summary__states">{([
             ['normal', '정상'], ['warning', '주의'], ['critical', '장애'], ['inactive', '비활성']
         ] as const).filter(([key]) => key !== 'inactive' || children.inactive > 0).map(([key, label]) =>
             <TopologyCardTooltip key={key} title={`바로 아래 ${label} 자원 ${children[key]}개`}>
                 <span className={`topology-group-summary__state is-${key}`} aria-label={`${label} ${children[key]}개`}>
-                    <span className="topology-object-status__dot" />{children[key]}
+                    <span className="topology-object-status__dot" /><span>{label}</span><strong>{children[key]}</strong>
                 </span>
-            </TopologyCardTooltip>)}
+            </TopologyCardTooltip>)}</div>
     </div>
 
 /** D3 owns positions and input delegation; this

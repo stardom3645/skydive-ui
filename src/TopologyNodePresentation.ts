@@ -48,7 +48,16 @@ export const topologyCardDimensions = (node: Node, group = false) => {
     group = group || (type === 'namespace' && (node.children || []).length > 0)
     const size: TopologyCardSize = ['cluster', 'host'].includes(type) && !group ? 'large'
         : group || ['node', 'namespace', 'deployment', 'statefulset', 'daemonset', 'job', 'cronjob', 'libvirt', 'switch'].includes(type) ? 'medium' : 'compact'
-    return { size, ...TOPOLOGY_CARD_SIZES[size], ...(group ? { width: 640, height: 176 } : {}) }
+    if (group) return { size, width: TOPOLOGY_CARD_SIZES.large.width, height: TOPOLOGY_CARD_SIZES.medium.height }
+    // Keep room for actual details; a name/status-only resource needs no empty
+    // metric area. Layout and SVG rendering use this same measurement.
+    const data = node.data || {}
+    const hasMetrics = ['cluster', 'node', 'host', 'libvirt', 'namespace', 'deployment', 'statefulset', 'daemonset', 'job', 'cronjob'].includes(type)
+        || (type === 'service' ? read(data, ['EndpointCount', 'K8s.EndpointCount', 'K8s.Extra.Spec.Type', 'K8s.Extra.Spec.type']) !== undefined
+            : ['persistentvolume', 'persistentvolumeclaim'].includes(type)
+                ? read(data, ['K8s.Extra.Status.Capacity.storage', 'K8s.Extra.Status.capacity.storage', 'K8s.Extra.Spec.Capacity.storage', 'K8s.Extra.Spec.capacity.storage', 'K8s.Extra.Spec.StorageClassName', 'K8s.Extra.Spec.storageClassName']) !== undefined
+                : (node.children || []).length > 0)
+    return { size, ...TOPOLOGY_CARD_SIZES[size], ...(!hasMetrics ? { height: 184 } : {}) }
 }
 
 /** A view model only: graph ownership and the shared status classifiers remain
