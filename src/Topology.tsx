@@ -642,7 +642,8 @@ export class Topology extends React.Component<Props, {}> {
     private liner: line
     private showLevelLabelsTimeoutID: number
     private raisedLinkLabelID: string
-    private d3nodes: Map<string, D3Node>
+    // SVG selection cleanup can run on the first sync, before renderTree.
+    private d3nodes = new Map<string, D3Node>()
     private absTransformX: number
     private absTransformY: number
     private nodeTagActive: string
