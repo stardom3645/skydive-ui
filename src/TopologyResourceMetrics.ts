@@ -6,6 +6,7 @@ import { kubernetesCpuCores, kubernetesMemoryBytes } from './DataPanels/common/k
 import { formatPodCpuUsage, formatPodMemoryUsage } from './DataPanels/common/KubernetesPodUsageMetrics'
 import { isCurrentKubernetesPod } from './KubernetesPodLifecycle'
 import { resolveKubernetesPodTopController } from './KubernetesWorkloadOwnership'
+import { rootDiskResources, formatRootDiskBytes, rootDiskDescription } from './DataPanels/common/RootDiskResources'
 
 const raw = (data: any, paths: string[]) => {
     for (const path of paths) {
@@ -20,6 +21,12 @@ const numeric = (value: any): number | undefined => {
 }
 const format = (value: number, memory: boolean) =>
     (memory ? formatPodMemoryUsage(value) : formatPodCpuUsage(value)).replace(/ /g, '')
+// Mold VM memory is in MiB when unitless, unlike Kubernetes byte quantities.
+export const vmMemoryBytes = (value: any) => {
+    const mib = numeric(value)
+    return mib !== undefined ? mib * 1024 * 1024
+        : typeof value === 'string' ? kubernetesMemoryBytes(value.trim().replace(/B$/i, '')) : undefined
+}
 const metric = (key: string, usage?: number, basis?: number, directPercent?: number): TopologyMetric => {
     const memory = key === 'memory'
     const percent = usage !== undefined && basis !== undefined && basis > 0 ? usage / basis * 100 : directPercent
@@ -55,15 +62,18 @@ export const topologyResourceMetrics = (node: Node, snapshot: TopologyResourceSn
         const usage = detail.usage || detail.currentUsage || detail.metrics?.usage
             || raw(data, ['K8s.Metrics.Usage', 'K8s.Extra.Usage', 'Metrics.Usage']) || {}
         const basis = detail.allocatable || raw(data, ['K8s.Extra.Status.Allocatable', 'K8s.Extra.status.allocatable', 'K8s.Status.Allocatable']) || {}
-        return ['cpu', 'memory'].map(key => {
+        const metrics = ['cpu', 'memory'].map(key => {
             const series = snapshot.wall?.series?.find(item => item.key === key)
             const paths = key === 'cpu' ? ['CPUUsagePercent', 'CPUPercent', 'CpuUsagePercent', 'cpuUsagePercent', 'CPUUsage', 'cpuUsage', 'Metrics.CPUUsagePercent', 'K8s.Metrics.CPUUsagePercent']
                 : ['MemoryUsagePercent', 'MemoryPercent', 'memoryPercent', 'memoryUsagePercent', 'Metrics.MemoryUsagePercent', 'K8s.Metrics.MemoryUsagePercent']
             const rate = numeric(series?.lastValue) ?? numeric(raw(data, paths))
             const result = metric(key, key === 'cpu' ? kubernetesCpuCores(usage.cpu) : kubernetesMemoryBytes(usage.memory),
-                key === 'cpu' ? kubernetesCpuCores(basis.cpu) ?? (type === 'host' ? numeric(data.CpuNumber) : undefined)
-                    : kubernetesMemoryBytes(basis.memory) ?? (type === 'host' ? kubernetesMemoryBytes(data.MemoryTotal) : undefined),
+                key === 'cpu' ? kubernetesCpuCores(basis.cpu) ?? (['host', 'libvirt'].includes(type) ? numeric(data.CpuNumber) : undefined)
+                    : kubernetesMemoryBytes(basis.memory) ?? (type === 'host' ? kubernetesMemoryBytes(data.MemoryTotal)
+                        : type === 'libvirt' ? vmMemoryBytes(data.Memory) : undefined),
                 rate !== undefined && rate <= 100 ? rate : undefined)
+            if (type === 'libvirt') return { ...result, label: result.label.replace(' 용량', ' 할당'),
+                description: result.description?.replace('할당 가능 용량', '할당 자원') }
             if (type === 'host' && result.percent === undefined) {
                 const allocated = numeric(data[key === 'cpu' ? 'CPUAllocatedPercent' : 'MemoryAllocatedPercent'])
                 const used = numeric(data[key === 'cpu' ? 'CPUAllocated' : 'MemoryAllocated'])
@@ -75,6 +85,11 @@ export const topologyResourceMetrics = (node: Node, snapshot: TopologyResourceSn
             }
             return result
         })
+        const disk = ['host', 'libvirt'].includes(type) ? rootDiskResources(snapshot.wall) : undefined
+        if (disk) metrics.push({ key: 'root-disk', label: '루트 디스크',
+            value: disk.used !== undefined ? `${formatRootDiskBytes(disk.used)} / ${formatRootDiskBytes(disk.total)}` : formatRootDiskBytes(disk.total),
+            percent: disk.percent, description: rootDiskDescription(disk) })
+        return metrics
     }
     const supported = ['pod', 'namespace', 'deployment', 'statefulset', 'daemonset', 'job', 'cronjob'].includes(type)
     if (!supported) return []

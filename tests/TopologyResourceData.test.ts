@@ -69,6 +69,60 @@ describe('Topology resource data sources', () => {
             .map(metric => [metric.value, metric.percent]), [['0%', 0], ['48.5%', 48.5]])
     })
 
+    it('reads VM detail-map resources as vCPU and MiB without inventing utilization', () => {
+        const vm = node('topology-vm', 'libvirt', { Manager: 'libvirt', Name: 'i-2-42-VM', UUID: 'vm-uuid' })
+        const original = JSON.stringify(vm.data)
+        const details = { 'VM-UUID': { cpuNumber: '4', memory: '4096', instanceName: 'i-2-42-VM', displayName: 'app server' } }
+        const inventory = topologyInventoryData(vm, undefined, details)
+        const model = topologyNodePresentation(vm, { name: vm.data.Name, resourceData: { inventory } })
+        assert.deepEqual(model.metrics.slice(0, 2).map(metric => [metric.label, metric.value, metric.percent]),
+            [['CPU 할당', '4Core', undefined], ['메모리 할당', '4GiB', undefined]])
+        assert.ok(model.metrics[0].description!.includes('실시간 사용량 미수집'))
+        assert.ok(model.metrics[1].description!.includes('할당 자원 4GiB'))
+        assert.equal(JSON.stringify(vm.data), original)
+        const wall = { series: [{ key: 'cpu', lastValue: 0 }, { key: 'memory', lastValue: 48.5 }] }
+        assert.deepEqual(topologyResourceMetrics(vm, { inventory, wall }).map(metric => [metric.label, metric.value, metric.percent]),
+            [['CPU', '0%', 0], ['메모리', '48.5%', 48.5]])
+        const missing = topologyResourceMetrics(vm, { wall: { series: [{ key: 'cpu', lastValue: null }] } })
+        assert.deepEqual(missing.map(metric => [metric.value, metric.percent]), [['미수집', undefined], ['미수집', undefined]])
+    })
+
+    it('falls back to the VM inventory and preserves the libvirt domain for Wall queries', () => {
+        const vm = node('topology-vm', 'libvirt', { Manager: 'libvirt', Name: 'i-2-42-VM', UUID: 'vm-uuid' })
+        const inventory = { listvirtualmachinesresponse: { virtualmachine: [
+            { id: 'other-vm', name: 'other', cpunumber: 8, memory: 8192 },
+            { id: 'vm-uuid', Name: 'app server', instance_name: 'i-2-42-VM', displayname: 'app server', cpunumber: 2, memory: 2048 }
+        ] } }
+        const data = topologyInventoryData(vm, inventory)
+        assert.equal(data.Name, 'i-2-42-VM')
+        assert.deepEqual(topologyResourceMetrics(vm, { inventory: data }).map(metric => metric.value), ['2Core', '2GiB'])
+        const plan = topologyResourcePlan([vm], 'http://localhost:8082', [], inventory)
+        const request = new URL(plan.refs.get(vm.id)!.wall!)
+        assert.equal(request.pathname, '/api/wall/vms/trend')
+        assert.equal(request.searchParams.get('domain'), 'i-2-42-VM')
+        assert.equal(request.searchParams.get('instanceName'), 'i-2-42-VM')
+        assert.equal(request.searchParams.get('uuid'), 'vm-uuid')
+        assert.equal(request.searchParams.get('displayName'), 'app server')
+        const fallback = node('vm', 'libvirt', { Manager: 'libvirt', Name: undefined, instance_name: 'i-2-42-VM' })
+        assert.equal(topologyInventoryData(fallback, inventory).CpuNumber, 2)
+        const overridden = topologyInventoryData(vm, inventory, { 'vm-uuid': { cpuNumber: 6, memory: 6144 } })
+        assert.equal(overridden.CpuNumber, 6)
+    })
+
+    it('keeps local system VMs separate from Mold VM allocations and supports collected capacities', () => {
+        const ccvm = node('ccvm', 'libvirt', { Manager: 'libvirt' })
+        const inventory = { vms: [{ name: 'ccvm', cpuNumber: 99, memory: 1024 }] }
+        assert.equal(topologyInventoryData(ccvm, inventory, { ccvm: inventory.vms[0] }), ccvm.data)
+        const collected = node('scvm', 'libvirt', { Manager: 'libvirt', Cpus: 4, Memory: '8GiB' })
+        assert.deepEqual(topologyResourceMetrics(collected).map(metric => metric.value), ['4Core', '8GiB'])
+        const agentData = node('ccvm', 'libvirt', { Manager: 'libvirt', CpuNumber: 4, Memory: 8192 })
+        const agentInventory = topologyInventoryData(agentData, inventory)
+        assert.deepEqual(topologyResourceMetrics(agentData, { inventory: agentInventory }).map(metric => [metric.label, metric.value]),
+            [['CPU 할당', '4Core'], ['메모리 할당', '8GiB']])
+        const invalid = node('vm', 'libvirt', { Manager: 'libvirt', cpuNumber: 'unknown', memory: -1 })
+        assert.deepEqual(topologyResourceMetrics(invalid).map(metric => metric.value), ['미수집', '미수집'])
+    })
+
     it('calculates node utilization from the same usage/allocatable quantities as the detail panel', () => {
         const worker = node('worker', 'node')
         const resourceData = { detail: { usage: { cpu: '250m', memory: '2Gi' }, allocatable: { cpu: '4', memory: '8Gi' }, podCount: 0 } }

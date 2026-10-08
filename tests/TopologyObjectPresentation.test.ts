@@ -61,6 +61,32 @@ describe('Topology object presentation', () => {
         assert.equal(model.children!.normal, canonical.healthy.length)
         assert.deepEqual(topologyCardDimensions(namespace), { size: 'medium', width: model.width, height: model.height })
     })
+    it('changes only fully expanded groups into low summary cards while preserving their counts', () => {
+        const group = resource('VM 그룹', 'libvirt'); group.data.Manager = 'libvirt'
+        for (let index = 0; index < 50; index++) {
+            const child = attach(group, resource(`vm-${index}`, 'libvirt'))
+            Object.assign(child.data, { Manager: 'libvirt', State: 'UP' })
+        }
+        group.state.expanded = false; group.state.groupFullSize = false
+        const closed = present(group, { group: true })
+        group.state.expanded = true
+        const partial = present(group, { group: true })
+        assert.equal(partial.fullyExpanded, false)
+        assert.equal(partial.height, closed.height)
+        group.state.groupFullSize = true
+        const expanded = present(group, { group: true })
+        assert.equal(expanded.fullyExpanded, true)
+        assert.equal(expanded.height, 180)
+        assert.ok(expanded.height < closed.height)
+        assert.equal(expanded.width, closed.width)
+        assert.deepEqual(expanded.children, closed.children)
+        assert.equal(expanded.children!.total, 50)
+        assert.ok(group.children.every((child: any) => !child.state.selected))
+        group.state.expanded = false
+        const collapsed = present(group, { group: true })
+        assert.equal(collapsed.fullyExpanded, false)
+        assert.equal(collapsed.height, closed.height)
+    })
     it('preserves descendant attention in cluster groups and exposes it on each card', () => {
         const group = resource('clusters', 'cluster'); group.data.IsTopologyGroup = true
         for (let index = 0; index < 6; index++) {

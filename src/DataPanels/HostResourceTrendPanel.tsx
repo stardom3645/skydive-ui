@@ -8,6 +8,7 @@ import './HostResourceTrendPanel.css'
 
 import { translate } from '../Config'
 import { Node } from '../Topology'
+import { RootDiskPanel } from './common/RootDiskPanel'
 import { session } from '../Store'
 
 interface Props {
@@ -205,7 +206,8 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
             }
         }
 
-        this.setState({ loading: true, error: '', loadedFor })
+        this.setState(previous => ({ loading: true, error: '', loadedFor,
+            trend: previous.loadedFor === loadedFor ? previous.trend : undefined }))
 
         fetch(`${this.endpoint()}${path}?${params.toString()}`, {
             cache: 'no-store',
@@ -592,6 +594,8 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         const hasTrend = displayItems.length > 0
 
         return (
+            <>
+            <RootDiskPanel wall={trend} loading={loading} error={error} vm={this.props.target === 'vm'} />
             <ResourceSectionCard icon={<DetailSectionIcon role="recentMetrics" />} title={this.trendTitle()} empty={!hasTrend} action={
                     <div className={classes.headerActions}>
                         <Select
@@ -641,6 +645,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
                         </div>
                     )}
             </ResourceSectionCard>
+            </>
         )
     }
 }

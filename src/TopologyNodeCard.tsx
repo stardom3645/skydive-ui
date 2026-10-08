@@ -1,6 +1,6 @@
 import * as React from 'react'
-import { Button, ConfigProvider, Progress, Tag, Tooltip } from 'antd'
-import { DownOutlined, UpOutlined, ThunderboltOutlined, BlockOutlined, AppstoreOutlined,
+import { ConfigProvider, Progress, Tag, Tooltip } from 'antd'
+import { ThunderboltOutlined, BlockOutlined, AppstoreOutlined,
     ApartmentOutlined, DatabaseOutlined, FolderOutlined, HddOutlined, DeploymentUnitOutlined,
     CloudServerOutlined, LinkOutlined, BranchesOutlined, TagsOutlined } from '@ant-design/icons'
 import { TopologyNodePresentation, TopologyMetric } from './TopologyNodePresentation'
@@ -58,17 +58,17 @@ export const TopologyTypeIcon = ({ icon, iconClass, href }: { icon: string; icon
 
 const metricIcons = {
     cpu: ThunderboltOutlined, memory: BlockOutlined, pods: AppstoreOutlined, children: ApartmentOutlined,
-    capacity: DatabaseOutlined, storage: DatabaseOutlined, 'storage-class': TagsOutlined,
+    capacity: DatabaseOutlined, storage: DatabaseOutlined, 'root-disk': HddOutlined, 'storage-class': TagsOutlined,
     namespaces: FolderOutlined, nodes: HddOutlined, workloads: DeploymentUnitOutlined,
     vms: CloudServerOutlined, endpoints: LinkOutlined, replicas: BranchesOutlined
 }
 
 export const TopologyMetricChip = ({ metric }: { metric: TopologyMetric }) => {
     const Icon = metricIcons[metric.key] || ApartmentOutlined
-    const resource = metric.key === 'cpu' || metric.key === 'memory'
+    const resource = ['cpu', 'memory', 'root-disk'].includes(metric.key)
     const tone = metric.percent !== undefined && metric.percent >= 90 ? 'critical'
         : metric.percent !== undefined && metric.percent >= 75 ? 'warning' : metric.key === 'cpu' ? 'cpu' : 'memory'
-    return <div className={`topology-metric-chip ${resource ? 'is-resource' : ''} is-${tone} ${metric.percent !== undefined ? 'has-meter' : metric.description && metric.value !== '미수집' ? 'is-quantity' : ''}`}
+    return <div className={`topology-metric-chip ${resource ? 'is-resource' : ''} ${metric.key === 'root-disk' ? 'is-root-disk' : ''} is-${tone} ${metric.percent !== undefined ? 'has-meter' : metric.description && metric.value !== '미수집' ? 'is-quantity' : ''}`}
         title={`${metric.label}: ${metric.value}${metric.description ? ` · ${metric.description}` : ''}`}>
         <span className="topology-metric-chip__line">
             <span className="topology-metric-chip__label"><Icon aria-hidden="true" /><span>{metric.label}</span></span>
@@ -96,19 +96,19 @@ export const TopologyGroupHeaderSummary = ({ children }: { children: NonNullable
         ] as const).filter(([key]) => key !== 'inactive' || children.inactive > 0).map(([key, label]) =>
             <TopologyCardTooltip key={key} title={`${key === 'normal' ? '자체와 하위 계층 모두 이상이 없는 자원' : key === 'warning' ? '자체 상태 확인이 필요하거나 하위 계층에 이상·미확인 상태가 있는 자원' : key === 'critical' ? '자체 상태에 이상이 있는 자원' : '현재 운영되지 않는 자원'} ${children[key]}개. 숫자는 바로 아래 자원 기준입니다.`}>
                 <span className={`topology-group-summary__state is-${key}`} aria-label={`${label} ${children[key]}개`}>
-                    <span className="topology-object-status__dot" /><span>{label}</span><strong>{children[key]}</strong>
+                    <span className="topology-object-status__dot" /><span className="topology-group-summary__state-label">{label}</span><strong>{children[key]}</strong>
                 </span>
             </TopologyCardTooltip>)}</div>
     </div>
 
 /** D3 owns positions and input delegation; this
  * component keeps the same presentation inside one SVG foreignObject. */
-export const TopologyNodeCard = React.memo(({ model, icon, iconClass, href, onToggle }: {
-    model: TopologyNodePresentation; icon: string; iconClass?: string; href?: string; onToggle: () => void
+export const TopologyNodeCard = React.memo(({ model, icon, iconClass, href }: {
+    model: TopologyNodePresentation; icon: string; iconClass?: string; href?: string
 }) => <><foreignObject className="topology-object-foreign" x={-model.width / 2} y={-model.height / 2}
     width={model.width} height={model.height}>
     <ConfigProvider theme={{ token: { fontSize: 14, fontFamily: 'var(--netdive-font-family)' } }}>
-        <article className={`topology-object-card is-${model.size} ${model.group ? 'is-group' : model.size === 'large' ? '' : 'is-tile'}`}
+        <article className={`topology-object-card is-${model.size} ${model.group ? `is-group ${model.fullyExpanded ? 'is-group-expanded' : ''}` : model.size === 'large' ? '' : 'is-tile'}`}
             aria-label={`${model.kind}: ${model.name}`}>
             <div className="topology-object-card__header">
                 <TopologyTypeIcon icon={icon} iconClass={iconClass} href={href} />
@@ -119,13 +119,7 @@ export const TopologyNodeCard = React.memo(({ model, icon, iconClass, href, onTo
                     <span className="topology-object-card__subtitle" title={model.subtitle}>{model.subtitle}</span>
                 </div>
                 {(!model.group || model.status.tone === 'critical' || model.status.tone === 'inactive') && <TopologyObjectStatusBadge status={model.status} />}
-                {model.expandable && <Button type="text" size="small" className="topology-object-card__toggle"
-                    aria-label={model.expanded ? '하위 자원 접기' : '하위 자원 펼치기'}
-                    aria-expanded={model.expanded} title={model.expanded ? '하위 자원 접기' : '하위 자원 펼치기'}
-                    icon={model.expanded ? <UpOutlined /> : <DownOutlined />}
-                    onMouseDown={event => event.stopPropagation()}
-                    onDoubleClick={event => event.stopPropagation()}
-                    onClick={event => { event.stopPropagation(); onToggle() }} />}
+                {model.group && model.fullyExpanded && <span className="topology-object-card__group-state">전체 펼침</span>}
             </div>
             {model.group && model.children ? <TopologyGroupHeaderSummary children={model.children} /> :
                 model.metrics.length > 0 && <div className="topology-object-card__metrics">

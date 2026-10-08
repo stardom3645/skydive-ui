@@ -335,6 +335,10 @@ svg {
     stroke: #b8cdf0;
 }
 
+.node-group-fully-expanded .node-card-bg {
+    filter: drop-shadow(0 3px 8px rgba(15, 23, 42, 0.06));
+}
+
 .node:hover .node-card-bg {
     stroke: rgba(22, 119, 255, 0.48);
     filter: drop-shadow(0 10px 24px rgba(15, 23, 42, 0.16));

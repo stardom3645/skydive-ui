@@ -14,7 +14,7 @@ export type TopologyCardTone = 'normal' | 'warning' | 'critical' | 'unknown' | '
 export interface TopologyMetric { key: string; label: string; value: string; percent?: number; description?: string }
 export interface TopologyNodePresentation {
     name: string; subtitle: string; kind: string; size: TopologyCardSize
-    width: number; height: number; group: boolean; expanded: boolean; expandable: boolean
+    width: number; height: number; group: boolean; expanded: boolean; fullyExpanded: boolean; expandable: boolean
     status: { tone: TopologyCardTone; label: string; description: string }
     metrics: TopologyMetric[]
     badges: TopologyStatusBadgeItem[]
@@ -37,6 +37,7 @@ const kinds: Record<string, string> = {
     device: '네트워크 인터페이스', vlan: 'VLAN', port: '포트', switchport: '스위치 포트'
 }
 const typeOf = (node: Node) => String(node.data?.Type || '').toLowerCase()
+export const topologyGroupFullyExpanded = (node: Node) => !!node.state?.expanded && !!node.state?.groupFullSize
 const read = (data: any, paths: string[]) => {
     for (const path of paths) {
         const value = path.split('.').reduce((source, key) => source?.[key], data)
@@ -54,8 +55,13 @@ export const topologyCardDimensions = (node: Node, group = false) => {
         // Reserve extra lines only for long group names or Kubernetes scopes.
         const nameRows = String(node.data?.Name || '').length > 24 ? 34 : 0
         const scopeRows = String(node.data?.GroupScopeLabel || '').length > 36 ? 28 : 0
-        return { size, width: TOPOLOGY_CARD_SIZES.large.width, height: 280 + nameRows + scopeRows }
+        return { size, width: TOPOLOGY_CARD_SIZES.large.width,
+            height: (topologyGroupFullyExpanded(node) ? 180 : 280) + nameRows + scopeRows }
     }
+    // Switch cards show identity/status and a connection count, not VM metrics.
+    // Keep enough height for two name lines without an empty resource area.
+    if (type === 'switch') return { size, width: TOPOLOGY_CARD_SIZES[size].width,
+        height: (node.children || []).length ? 280 : 224 }
     // Keep room for actual details; a name/status-only resource needs no empty
     // metric area. Layout and SVG rendering use this same measurement.
     const data = node.data || {}
@@ -64,7 +70,8 @@ export const topologyCardDimensions = (node: Node, group = false) => {
             : ['persistentvolume', 'persistentvolumeclaim'].includes(type)
                 ? read(data, ['K8s.Extra.Status.Capacity.storage', 'K8s.Extra.Status.capacity.storage', 'K8s.Extra.Spec.Capacity.storage', 'K8s.Extra.Spec.capacity.storage', 'K8s.Extra.Spec.StorageClassName', 'K8s.Extra.Spec.storageClassName']) !== undefined
                 : (node.children || []).length > 0)
-    return { size, ...TOPOLOGY_CARD_SIZES[size], ...(type === 'host' ? { height: 340 } : {}),
+    return { size, ...TOPOLOGY_CARD_SIZES[size], ...(type === 'host' ? { height: 404 } : {}),
+        ...(type === 'libvirt' ? { height: 432 } : {}),
         ...(type === 'pod' ? { height: 328 } : {}), ...(!hasMetrics ? { height: 224 } : {}) }
 }
 
@@ -174,6 +181,10 @@ export const topologyNodePresentation = (node: Node, options: {
     } else if (!group && type !== 'pod' && children.length) count('children', '연결 자원', distribution?.total)
     if (!group && !['node', 'host', 'libvirt'].includes(type)) metrics.push(...topologyResourceMetrics(node, options.resourceData, options.allNodes))
     const dimensions = topologyCardDimensions(node, group)
+    // A full-width filesystem row follows the two-column metrics/counts. Keep
+    // it visible without dropping existing host/VM counts at the metric limit.
+    const rootDisk = metrics.find(metric => metric.key === 'root-disk')
+    if (rootDisk) { metrics.splice(metrics.indexOf(rootDisk), 1); metrics.push(rootDisk) }
     const badges: TopologyStatusBadgeItem[] = kubernetes ? kubernetesTopologyCountBadges(node, children)
         : children.length ? [{ key: 'children', count: children.length, tone: 'running', label: '연결 자원', tooltip: `연결된 자원 ${children.length}개` }] : []
     const badgeSummary: TopologyStatusBadgeGroupSummary = kubernetes ? kubernetesTopologyBadgeGroupSummary(node, badges as any, children)
@@ -181,6 +192,6 @@ export const topologyNodePresentation = (node: Node, options: {
     if (distribution?.total) status.description += ` · 바로 아래 자원 ${distribution.total}개: 정상 ${distribution.normal}, 주의 ${distribution.warning}, 장애 ${distribution.critical}, 비활성 ${distribution.inactive}`
     return { ...dimensions, group, name: (!options.group && kubernetes ? String(data.Name || lines[0] || node.id).replace(/\s*\n\s*/g, ' ') : primaryName) || node.id,
         kind, subtitle: options.scope || (group ? `${kind} · ${distribution?.total || 0}개 자원` : type === 'cluster' ? kind : namespace ? `${kind} · ${namespace}` : lines[1] || kind),
-        expanded: !!node.state.expanded, expandable: children.length > 0, status,
-        metrics: metrics.slice(0, dimensions.size === 'large' ? 6 : 4), children: distribution, badges, badgeSummary }
+        expanded: !!node.state.expanded, fullyExpanded: group && topologyGroupFullyExpanded(node), expandable: children.length > 0, status,
+        metrics: metrics.slice(0, dimensions.size === 'large' ? 7 : type === 'libvirt' ? 5 : 4), children: distribution, badges, badgeSummary }
 }

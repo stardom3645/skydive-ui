@@ -3,7 +3,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import * as ts from 'typescript'
 import * as vm from 'vm'
-import { topologyCardDimensions } from '../src/TopologyNodePresentation'
+import { topologyCardDimensions, topologyGroupFullyExpanded } from '../src/TopologyNodePresentation'
 import { topologyBranchOffsets } from '../src/TopologyBranchSpacing'
 
 // Run the production placement methods against real hierarchy/flextree output,
@@ -17,11 +17,13 @@ const names = ['compactVmLayerKind', 'compactVmLayerLayout', 'shiftHierarchySubt
     'topologyLayoutCardHeight', 'compactHostSubtreeLayout', 'isHostSubtreeRoot', 'visibleHostSubtreeNodes',
     'horizontalNodeBounds', 'separateTopologyBranches']
 const methods = component.members.filter(n => n.name && names.includes(n.name.getText(ast))).map(n => n.getText(ast)).join('\n')
-const context: any = { topologyCardDimensions, topologyBranchOffsets,
+const stackOffset = ast.statements.filter(ts.isVariableStatement).find(statement =>
+    statement.declarationList.declarations.some(declaration => declaration.name.getText(ast) === 'topologyGroupStackOffset'))!.getText(ast)
+const context: any = { topologyCardDimensions, topologyGroupFullyExpanded, topologyBranchOffsets,
     compactVmNodeGap: 24, compactVmGroupGap: 64, compactHostSubtreeGap: 80,
     WrapperType: { Normal: 1, Hidden: 2, Group: 3 } }
 vm.createContext(context)
-vm.runInContext(ts.transpile(`class Probe { ${methods} }; this.Probe = Probe`, { target: ts.ScriptTarget.ES2018 }), context)
+vm.runInContext(ts.transpile(`${stackOffset}\nclass Probe { ${methods} }; this.Probe = Probe`, { target: ts.ScriptTarget.ES2018 }), context)
 
 const wrapper = (id: string, weight: number, type = 1, children: any[] = []): any => ({
     id, type, children, size: [type === 2 ? 50 : 604, 440],

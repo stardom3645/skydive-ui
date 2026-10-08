@@ -110,11 +110,34 @@ export const normalizeTopologyHost = (host: any) => {
     return result
 }
 
-export const topologyInfrastructureData = (node: Node, snapshot: TopologyResourceSnapshot = {}) => ({
-    ...node.data, ...(String(node.data?.Type).toLowerCase() === 'host' ? normalizeTopologyHost(node.data) : {}),
-    ...snapshot.inventory, ...snapshot.host,
-    Type: node.data?.Type, Manager: node.data?.Manager
-})
+// Keep the collected libvirt domain name/state; only normalize resource and
+// lookup fields from the same Mold VM data used by the detail panel.
+export const normalizeTopologyVM = (vm: any) => {
+    const fields: Record<string, string[]> = {
+        CpuNumber: ['CpuNumber', 'cpuNumber', 'cpunumber', 'CPUNumber', 'Cpus', 'cpus', 'CpuCount', 'cpuCount', 'cpucount', 'CPUCount'],
+        Memory: ['Memory', 'memory', 'MemoryTotal', 'memoryTotal', 'memorytotal', 'MaxMemory', 'maxMemory', 'maxmemory'],
+        InstanceName: ['InstanceName', 'instanceName', 'instancename', 'instance_name'],
+        DisplayName: ['DisplayName', 'displayName', 'displayname']
+    }
+    const result: any = {}
+    Object.entries(fields).forEach(([key, paths]) => {
+        for (const path of paths) {
+            const value = first(vm, [path])
+            const text = value === undefined ? '' : String(value).trim().toLowerCase()
+            if (!text || text === '-' || text === 'n/a') continue
+            result[key] = value
+            break
+        }
+    })
+    return result
+}
+
+export const topologyInfrastructureData = (node: Node, snapshot: TopologyResourceSnapshot = {}) => {
+    const type = String(node.data?.Type).toLowerCase()
+    const data = { ...node.data, ...(type === 'host' ? normalizeTopologyHost(node.data) : {}), ...snapshot.inventory, ...snapshot.host }
+    return { ...data, ...(type === 'libvirt' ? { ...normalizeTopologyVM(node.data), ...normalizeTopologyVM(snapshot.inventory) } : {}),
+        Type: node.data?.Type, Manager: node.data?.Manager }
+}
 export const topologyKubernetesCluster = (node: Node, clusters: any[] = []) => {
     const keys = new Set<string>()
     const visited = new Set<Node>()
@@ -140,8 +163,26 @@ export const topologyInventoryData = (node: Node, inventory?: any, vmDetails?: R
         .filter(Boolean).map(value => String(value).toLowerCase())
     keys.push(node.id.toLowerCase())
     if (String(data.Type).toLowerCase() === 'libvirt') {
-        const detail = Object.entries(vmDetails || {}).find(([key]) => keys.includes(key.toLowerCase()))?.[1]
-        return { ...data, ...detail }
+        const name = String(first(data, ['Name', 'name']) || '').toLowerCase()
+        // These local system VMs are not registered Mold virtual machines.
+        if (name === 'ccvm' || name === 'scvm') return data
+        const vmPaths = ['UUID', 'uuid', 'ID', 'Id', 'id', 'ExtID', 'VirtualMachineID', 'virtualMachineId', 'vmid', 'vm_id',
+            'InstanceName', 'instanceName', 'instancename', 'instance_name', 'Name', 'name', 'VMName', 'vmName',
+            'DisplayName', 'displayName', 'displayname']
+        const vmKeys = vmPaths.map(path => first(data, [path])).filter(Boolean).map(value => String(value).toLowerCase())
+        vmKeys.push(node.id.toLowerCase())
+        const entries = Object.entries(vmDetails || {})
+        const vms = [inventory?.virtualMachines, inventory?.virtualmachines, inventory?.vms, inventory?.VMs,
+            inventory?.data?.virtualMachines, inventory?.data?.virtualmachines, inventory?.data?.vms,
+            inventory?.inventory?.virtualMachines, inventory?.inventory?.virtualmachines,
+            inventory?.listvirtualmachinesresponse?.virtualmachine, inventory?.listVirtualMachinesResponse?.virtualmachine,
+            inventory?.ListVirtualMachinesResponse?.VirtualMachine, inventory?.items].find(Array.isArray) || []
+        const detail = vmKeys.map(key => entries.find(([entryKey]) => entryKey.toLowerCase() === key)?.[1]).find(Boolean)
+            || vmKeys.map(key => vms.find(vm => vmPaths.some(path => {
+                const value = first(vm, [path]); return value !== undefined && String(value).toLowerCase() === key
+            }))).find(Boolean)
+        return { ...data, ...detail, ...normalizeTopologyVM(data), ...normalizeTopologyVM(detail),
+            Name: first(data, ['Name', 'name']) || first(detail, ['Name', 'name']), Type: data.Type, Manager: data.Manager }
     }
     const hosts = [inventory?.hosts, inventory?.host, inventory?.Hosts, inventory?.data?.hosts, inventory?.data?.host,
         inventory?.inventory?.hosts, inventory?.listhostsresponse?.host, inventory?.listHostsResponse?.host, inventory?.ListHostsResponse?.Host, inventory?.items]

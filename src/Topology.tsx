@@ -22,7 +22,7 @@ import { topologyLayerGlyph } from './TopologyLayerIcons'
 import { TopologyReactRoots } from './TopologyReactRoots'
 import { TopologyCaptureIndicator } from './TopologyCaptureIndicator'
 import { TopologyNodeCard } from './TopologyNodeCard'
-import { topologyCardDimensions, topologyNodePresentation } from './TopologyNodePresentation'
+import { topologyCardDimensions, topologyNodePresentation, topologyGroupFullyExpanded } from './TopologyNodePresentation'
 import { TopologyResourceData, topologyResourcePlan, topologyInventoryData } from './TopologyResourceData'
 import { topologyCardEdge, topologyHierarchyEdgeIDs } from './TopologyEdgePresentation'
 import { Avatar, Button, Card, Input, List, Tag, Typography } from 'antd'
@@ -676,6 +676,7 @@ export class Topology extends React.Component<Props, {}> {
     private lastVmNetworkMapRef: Record<string, Array<{ networkName: string, macAddress: string, ipAddress: string }>> | undefined
     private pinnedContainerMiniNodeID: string
     private expandedContainerMiniNodeIDs: Set<string>
+    // Group-list visibility is independent of NodeState.selected (link focus).
     private selectedGroupListNodeIDs: Set<string>
     private groupNavigatorFilters: Map<string, GroupNavigatorFilter>
     private groupNavigatorRenderKeys: Map<string, string>
@@ -874,6 +875,12 @@ export class Topology extends React.Component<Props, {}> {
         })
     }
 
+    private syncGroupDisplaySize(group: Node) {
+        const currentChildren = group.children.filter(child => !isKubernetesPod(child) || isCurrentKubernetesPod(child))
+        group.state.groupFullSize = currentChildren.length > 0
+            && currentChildren.every(child => this.selectedGroupListNodeIDs.has(child.id))
+    }
+
     private toggleGroupListNode(child: Node) {
         const group = this.nodeGroup.get(child.id)
         this.hideNodeContextMenu()
@@ -882,37 +889,37 @@ export class Topology extends React.Component<Props, {}> {
             group.wrapped.state.groupFullSize = false
             group.wrapped.state.groupOffset = 0
         }
-        const selected = this.selectedGroupListNodeIDs.has(child.id)
-        if (selected) {
+        const visible = this.selectedGroupListNodeIDs.has(child.id)
+        if (visible) {
             this.selectedGroupListNodeIDs.delete(child.id)
-            child.state.selected = false
         } else {
             this.selectedGroupListNodeIDs.add(child.id)
-            child.state.selected = true
         }
+        if (group) this.syncGroupDisplaySize(group.wrapped)
         this.renderTree()
         this.hideLinks()
     }
 
-    private setGroupListNodes(children: Node[], selected: boolean) {
+    private setGroupListNodes(children: Node[], visible: boolean) {
         this.hideNodeContextMenu()
+        const groups = new Set<Node>()
         children.forEach(child => {
             const group = this.nodeGroup.get(child.id)
             if (group) {
                 group.wrapped.state.expanded = true
                 group.wrapped.state.groupFullSize = false
                 group.wrapped.state.groupOffset = 0
+                groups.add(group.wrapped)
             }
-            const alreadySelected = this.selectedGroupListNodeIDs.has(child.id)
-            if (selected && !alreadySelected) {
+            const alreadyVisible = this.selectedGroupListNodeIDs.has(child.id)
+            if (visible && !alreadyVisible) {
                 this.selectedGroupListNodeIDs.add(child.id)
-                child.state.selected = true
             }
-            if (!selected && alreadySelected) {
+            if (!visible && alreadyVisible) {
                 this.selectedGroupListNodeIDs.delete(child.id)
-                child.state.selected = false
             }
         })
+        groups.forEach(group => this.syncGroupDisplaySize(group))
         this.renderTree()
         this.hideLinks()
     }
@@ -1217,7 +1224,7 @@ export class Topology extends React.Component<Props, {}> {
             state.groupFullSize = true
             state.groupOffset = 0
             const group = this.groups.get(groupID)
-            if (group) this.setFullGroupSelection(group.wrapped, true)
+            if (group) this.setFullGroupDisplay(group.wrapped, true)
         })
 
         // 3차: 그룹 상태 변경을 반영해서 다시 한 번 전체 토폴로지를 렌더링합니다.
@@ -1250,10 +1257,6 @@ export class Topology extends React.Component<Props, {}> {
             state.expanded = false
             state.groupFullSize = false
             state.groupOffset = 0
-        })
-        this.selectedGroupListNodeIDs.forEach(nodeID => {
-            const node = this.nodes.get(nodeID)
-            if (node) node.state.selected = false
         })
         this.selectedGroupListNodeIDs.clear()
 
@@ -1941,15 +1944,13 @@ export class Topology extends React.Component<Props, {}> {
         node.children.forEach((child: Node) => this.collapse(child))
     }
 
-    private setFullGroupSelection(groupNode: Node, selected: boolean) {
+    private setFullGroupDisplay(groupNode: Node, visible: boolean) {
         groupNode.children.forEach(child => {
-            if (selected && isKubernetesPod(child) && !isCurrentKubernetesPod(child)) {
-                child.state.selected = false
+            if (visible && isKubernetesPod(child) && !isCurrentKubernetesPod(child)) {
                 this.selectedGroupListNodeIDs.delete(child.id)
                 return
             }
-            child.state.selected = selected
-            if (selected) {
+            if (visible) {
                 this.selectedGroupListNodeIDs.add(child.id)
             } else {
                 this.selectedGroupListNodeIDs.delete(child.id)
@@ -1960,7 +1961,7 @@ export class Topology extends React.Component<Props, {}> {
     expand(node: Node) {
         const isGroup = this.groupStates.has(node.id)
         if (node.state.expanded && (!isGroup || node.state.groupFullSize)) {
-            this.setFullGroupSelection(node, false)
+            this.setFullGroupDisplay(node, false)
             this.collapse(node)
             node.state.groupFullSize = false
             node.state.groupOffset = 0
@@ -1969,7 +1970,7 @@ export class Topology extends React.Component<Props, {}> {
             if (isGroup) {
                 node.state.groupFullSize = true
                 node.state.groupOffset = 0
-                this.setFullGroupSelection(node, true)
+                this.setFullGroupDisplay(node, true)
             }
         }
 
@@ -2762,7 +2763,7 @@ export class Topology extends React.Component<Props, {}> {
         const descendants = root.descendants() as D3Node[]
         const byID = new Map(descendants.map(node => [node.data.id, node]))
         const offsets = topologyBranchOffsets(descendants.map(node => {
-            const backplate = node.data.type === WrapperType.Group ? topologyGroupStackOffset : 0
+            const backplate = node.data.type === WrapperType.Group && !topologyGroupFullyExpanded(node.data.wrapped) ? topologyGroupStackOffset : 0
             return {
                 id: node.data.id, parentID: node.parent?.data.id,
                 visible: node.data.type !== WrapperType.Hidden && node.data.wrapped !== this.root,
@@ -5329,6 +5330,7 @@ export class Topology extends React.Component<Props, {}> {
         const nodeClass = (d: D3Node) => ['node', 'node-object-card',
             d.data.type === WrapperType.Group ? 'node-group-card' : '',
             d.data.type === WrapperType.Group && d.data.wrapped.state.expanded ? 'node-group-expanded' : '',
+            d.data.type === WrapperType.Group && topologyGroupFullyExpanded(d.data.wrapped) ? 'node-group-fully-expanded' : '',
             ...this.props.nodeAttrs(d.data.wrapped).classes,
             d.data.wrapped.state.selected ? 'node-selected' : ''].join(' ')
         let node = this.gNodes.selectAll<SVGGElement, D3Node>('g.node')
@@ -5351,7 +5353,7 @@ export class Topology extends React.Component<Props, {}> {
         node = entered.merge(node).attr('class', nodeClass)
         // Skydive's stacked group silhouette. Decoration never owns interactions.
         const backplates = node.selectAll<SVGRectElement, D3Node>('rect.node-group-backplate')
-            .data(d => d.data.type === WrapperType.Group ? [d, d] : [])
+            .data(d => d.data.type === WrapperType.Group && !topologyGroupFullyExpanded(d.data.wrapped) ? [d, d] : [])
         backplates.exit().remove()
         backplates.enter().insert('rect', 'rect.node-card-bg').merge(backplates)
             .attr('class', (_d, index) => `node-group-backplate node-group-backplate-${2 - index}`)
@@ -5382,11 +5384,7 @@ export class Topology extends React.Component<Props, {}> {
             const key = JSON.stringify([model, attrs.icon, attrs.iconClass, attrs.href])
             if (self.objectCardRenderKeys.get(this) === key) return
             self.objectCardRenderKeys.set(this, key)
-            self.reactRoots.render(<TopologyNodeCard model={model} icon={attrs.icon} iconClass={attrs.iconClass} href={attrs.href}
-                onToggle={() => {
-                    const current = self.nodeByID(resource.id)
-                    if (current) self.expand(current)
-                }} />, this)
+            self.reactRoots.render(<TopologyNodeCard model={model} icon={attrs.icon} iconClass={attrs.iconClass} href={attrs.href} />, this)
         })
         node.select('g.node-capture-status').each(function (d) {
             const capturing = self.props.nodeAttrs(d.data.wrapped).badges.some(badge => badge.className === 'node-badge-capture')
@@ -5925,7 +5923,7 @@ export class Topology extends React.Component<Props, {}> {
         // the stacked backplates of proxy groups, before flextree places cards.
         root.each((node: D3Node) => {
             if (node.data.type === WrapperType.Hidden || node.data.wrapped === this.root) return
-            const backplate = node.data.type === WrapperType.Group ? topologyGroupStackOffset : 0
+            const backplate = node.data.type === WrapperType.Group && !topologyGroupFullyExpanded(node.data.wrapped) ? topologyGroupStackOffset : 0
             node.data.size[0] = Math.max(node.data.size[0], this.topologyLayoutCardWidth(node) + backplate + topologySiblingCardGap)
         })
         this.tree(root)

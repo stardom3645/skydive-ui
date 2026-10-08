@@ -12,6 +12,8 @@ import { translate } from '../Config'
 import { session } from '../Store'
 import { styles } from './VMDetailPanelStyles'
 import HostResourceTrendPanel from './HostResourceTrendPanel'
+import { normalizeTopologyVM } from '../TopologyResourceData'
+import { vmMemoryBytes } from '../TopologyResourceMetrics'
 import {
     connectedResourcePopoverItems,
     DetailBadge,
@@ -215,8 +217,7 @@ class VMDetailPanel extends React.Component<Props> {
             HostName: firstValue(vm, ['HostName', 'hostName', 'hostname', 'Host', 'host']),
             PrivateIpAddress: firstValue(vm, ['PrivateIpAddress', 'privateIpAddress', 'privateipaddress', 'IpAddress', 'ipAddress', 'ipaddress']),
             GuestOS: firstValue(vm, ['GuestOS', 'guestOS', 'guestos', 'OsDisplayName', 'osDisplayName', 'osdisplayname', 'OS', 'os']),
-            CpuNumber: firstValue(vm, ['CpuNumber', 'cpuNumber', 'cpunumber', 'Cpus', 'cpus', 'CpuCount', 'cpuCount', 'cpucount']),
-            Memory: firstValue(vm, ['Memory', 'memory', 'MemoryTotal', 'memoryTotal', 'memorytotal', 'MaxMemory', 'maxMemory', 'maxmemory'])
+            ...normalizeTopologyVM(vm)
         }
     }
 
@@ -224,7 +225,10 @@ class VMDetailPanel extends React.Component<Props> {
         const inventoryVM = this.inventoryVMDetail()
         return {
             ...(this.props.node.data || {}),
-            ...(inventoryVM ? this.normalizeMoldVM(inventoryVM) : {})
+            ...(inventoryVM ? this.normalizeMoldVM(inventoryVM) : {}),
+            // Empty Mold allocation fields must not erase libvirt resources.
+            ...normalizeTopologyVM(this.props.node.data),
+            ...normalizeTopologyVM(inventoryVM)
         }
     }
 
@@ -437,11 +441,9 @@ class VMDetailPanel extends React.Component<Props> {
     private formatMemory(value: string): string {
         const text = stringify(value)
         if (!text) return ''
-        const match = text.replace(/,/g, '').match(/-?\d+(\.\d+)?/)
-        if (!match) return text
-
-        const mb = Number(match[0])
-        if (Number.isNaN(mb) || mb <= 0) return text
+        const bytes = vmMemoryBytes(text.replace(/,/g, ''))
+        if (bytes === undefined || bytes <= 0) return text
+        const mb = bytes / (1024 * 1024)
         const gb = mb / 1024
         return `${trimFixed(mb, mb >= 10 ? 0 : 1)} MB (${trimFixed(gb, gb >= 10 ? 0 : 1)} GB)`
     }
