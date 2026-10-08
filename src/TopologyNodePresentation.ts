@@ -49,7 +49,13 @@ export const topologyCardDimensions = (node: Node, group = false) => {
     group = group || (type === 'namespace' && (node.children || []).length > 0)
     const size: TopologyCardSize = ['cluster', 'host'].includes(type) && !group ? 'large'
         : group || ['node', 'namespace', 'deployment', 'statefulset', 'daemonset', 'job', 'cronjob', 'libvirt', 'switch'].includes(type) ? 'medium' : 'compact'
-    if (group) return { size, width: TOPOLOGY_CARD_SIZES.large.width, height: TOPOLOGY_CARD_SIZES.large.height }
+    if (group) {
+        // Groups contain an identity and a direct-child summary, not metrics.
+        // Reserve extra lines only for long group names or Kubernetes scopes.
+        const nameRows = String(node.data?.Name || '').length > 24 ? 34 : 0
+        const scopeRows = String(node.data?.GroupScopeLabel || '').length > 36 ? 28 : 0
+        return { size, width: TOPOLOGY_CARD_SIZES.large.width, height: 280 + nameRows + scopeRows }
+    }
     // Keep room for actual details; a name/status-only resource needs no empty
     // metric area. Layout and SVG rendering use this same measurement.
     const data = node.data || {}

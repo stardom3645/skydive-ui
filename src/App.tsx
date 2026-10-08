@@ -170,6 +170,7 @@ import { translate } from "./Config"
 import EventHistory, { ChangeEvent } from './EventHistory'
 import MoldCredentialsPanel from './MoldCredentialsPanel'
 import { getMoldCredentialsStatus } from './MoldCredentialsAPI'
+import RelatedServicesMenu from './RelatedServicesMenu'
 
 export let currentLanguage: "en" | "ko" = "ko";
 
@@ -4371,45 +4372,7 @@ class App extends React.Component<Props, State> {
   renderMenuButtons(classes: any) {
     return (
       <div className={classes.toolbarUtilityActions}>
-        <IconButton
-          aria-controls="menu-selection"
-          aria-haspopup="true"
-          onClick={(event: React.MouseEvent<HTMLElement>) => this.props.selection.length > 0 && this.openMenu("selection", event)}
-          color="inherit">
-          <Badge badgeContent={this.props.selection.length} color="secondary">
-            <ListIcon />
-          </Badge>
-        </IconButton>
-        <Menu
-          id="menu-selection"
-          anchorEl={this.state.anchorEl.get("selection")}
-          anchorOrigin={{
-            vertical: 'top',
-            horizontal: 'right',
-          }}
-          keepMounted
-          transformOrigin={{
-            vertical: 'top',
-            horizontal: 'right',
-          }}
-          open={Boolean(this.state.anchorEl.get("selection"))}
-          onClose={this.closeMenu.bind(this, "selection")}>
-          <MenuItem onClick={() => { this.closeMenu("selection"); this.openSelection() }}>
-            <ListItemIcon>
-              <KeyboardArrowDown fontSize="small" />
-            </ListItemIcon>
-            <Typography>{translate('showSelection')}</Typography>
-          </MenuItem>
-          <Divider />
-          {this.renderSelectionMenuItem(classes)}
-          <Divider />
-          <MenuItem onClick={() => { this.closeMenu("selection"); this.unselectAll() }}>
-            <ListItemIcon>
-              <RemoveShoppingCartIcon fontSize="small" />
-            </ListItemIcon>
-            <Typography>{translate('unselectAll')}</Typography>
-          </MenuItem>
-        </Menu>
+        <RelatedServicesMenu userSession={this.props.session} />
         {/* <IconButton
           aria-label="account of current user"
           aria-controls="menu-profile"

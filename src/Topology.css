@@ -313,19 +313,18 @@ svg {
 .node-group-backplate {
     display: none;
     fill: #fbfcfe;
-    stroke: rgba(180, 192, 210, 0.76);
+    stroke: #d4dfeb;
     stroke-width: 1.1px;
     vector-effect: non-scaling-stroke;
+    pointer-events: none;
 }
 
 .node-group-backplate-1 {
-    opacity: 0.86;
-    filter: drop-shadow(0 2px 4px rgba(15, 23, 42, 0.055));
+    fill: #f8fafd;
 }
 
 .node-group-backplate-2 {
-    opacity: 0.58;
-    filter: drop-shadow(0 3px 6px rgba(15, 23, 42, 0.045));
+    fill: #f2f5fa;
 }
 
 .node-group-card .node-group-backplate {
@@ -333,7 +332,7 @@ svg {
 }
 
 .node-group-card.node-selected .node-group-backplate {
-    stroke: rgba(208, 213, 221, 0.58);
+    stroke: #b8cdf0;
 }
 
 .node:hover .node-card-bg {

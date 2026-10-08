@@ -128,6 +128,8 @@ const compactVmNodeGap = 24
 const compactVmGroupGap = 64
 // 서로 다른 호스트 서브트리 경계 사이에 유지할 최소 여백입니다.
 const compactHostSubtreeGap = 80
+// Two visible group backplates; include the outer offset in horizontal spacing.
+const topologyGroupStackOffset = 28
 
 const isTopologyInterfaceData = (data?: any): boolean => {
     if (!data) {
@@ -2760,7 +2762,7 @@ export class Topology extends React.Component<Props, {}> {
         const descendants = root.descendants() as D3Node[]
         const byID = new Map(descendants.map(node => [node.data.id, node]))
         const offsets = topologyBranchOffsets(descendants.map(node => {
-            const backplate = node.data.type === WrapperType.Group ? 13 : 0
+            const backplate = node.data.type === WrapperType.Group ? topologyGroupStackOffset : 0
             return {
                 id: node.data.id, parentID: node.parent?.data.id,
                 visible: node.data.type !== WrapperType.Hidden && node.data.wrapped !== this.root,
@@ -5347,6 +5349,17 @@ export class Topology extends React.Component<Props, {}> {
         const pinned = entered.append('g').attr('class', 'node-pinned').style('opacity', 0).attr('pointer-events', 'none')
         pinned.append('text').text('\uf3c5')
         node = entered.merge(node).attr('class', nodeClass)
+        // Skydive's stacked group silhouette. Decoration never owns interactions.
+        const backplates = node.selectAll<SVGRectElement, D3Node>('rect.node-group-backplate')
+            .data(d => d.data.type === WrapperType.Group ? [d, d] : [])
+        backplates.exit().remove()
+        backplates.enter().insert('rect', 'rect.node-card-bg').merge(backplates)
+            .attr('class', (_d, index) => `node-group-backplate node-group-backplate-${2 - index}`)
+            .attr('aria-hidden', 'true').attr('pointer-events', 'none')
+            .attr('rx', 14).attr('ry', 14)
+            .attr('x', (d, index) => -self.topologyLayoutCardWidth(d) / 2 + topologyGroupStackOffset / (index + 1))
+            .attr('y', (d, index) => -self.topologyLayoutCardHeight(d) / 2 + (index === 0 ? 24 : 12))
+            .attr('width', d => self.topologyLayoutCardWidth(d)).attr('height', d => self.topologyLayoutCardHeight(d))
         node.select('rect.node-card-bg').attr('x', d => -self.topologyLayoutCardWidth(d) / 2)
             .attr('y', d => -self.topologyLayoutCardHeight(d) / 2)
             .attr('width', d => self.topologyLayoutCardWidth(d)).attr('height', d => self.topologyLayoutCardHeight(d))
@@ -5912,7 +5925,7 @@ export class Topology extends React.Component<Props, {}> {
         // the stacked backplates of proxy groups, before flextree places cards.
         root.each((node: D3Node) => {
             if (node.data.type === WrapperType.Hidden || node.data.wrapped === this.root) return
-            const backplate = node.data.type === WrapperType.Group ? 13 : 0
+            const backplate = node.data.type === WrapperType.Group ? topologyGroupStackOffset : 0
             node.data.size[0] = Math.max(node.data.size[0], this.topologyLayoutCardWidth(node) + backplate + topologySiblingCardGap)
         })
         this.tree(root)

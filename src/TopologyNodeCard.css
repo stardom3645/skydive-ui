@@ -72,9 +72,11 @@
 .topology-group-summary__state.is-warning > span:not(.topology-object-status__dot) { font-size: 18px; }
 .topology-group-summary__state.is-critical { color: #d85b60; }
 .topology-group-summary__state.is-inactive { color: #8a96a6; }
+.topology-object-card.is-group { padding: 18px; gap: 12px; justify-content: center; }
 .topology-object-card.is-group .topology-object-card__header { flex: initial; align-items: flex-start; }
 .topology-object-card.is-group .topology-object-card__subtitle { white-space: normal; overflow-wrap: anywhere; font-size: var(--topology-card-label-size); line-height: 28px; }
-.topology-object-card.is-group .topology-group-summary { margin-top: auto; padding: 12px; border: 1px solid var(--topology-object-border, #e7eef8); border-radius: 10px; background: var(--topology-object-chip, #f7faff); }
+.topology-object-card.is-group .topology-group-summary { padding: 10px; gap: 8px; border: 1px solid var(--topology-object-border, #e7eef8); border-radius: 10px; background: var(--topology-object-chip, #f7faff); }
+.topology-object-card.is-group .topology-group-summary__states { gap: 8px 24px; }
 
 .topology-object-card.is-medium .topology-metric-chip.is-quantity .topology-metric-chip__line,
 .topology-object-card.is-compact .topology-metric-chip__line { flex-direction: column; align-items: flex-start; gap: 2px; }
