@@ -59,31 +59,53 @@ const regionPathFromBands = (bands: TopologyRegionBand[], padding = 32, softenRo
     if (!bands.length) return ''
     const first = bands[0], last = bands[bands.length - 1]
     const radius = Math.min(padding, 32, (first.bottom - first.top) / 3, (last.bottom - last.top) / 3)
+    const firstRadius = softenRows && first.right - first.left > 1600 ? Math.min(64, (first.bottom - first.top) / 3) : radius
+    const lastRadius = softenRows && last.right - last.left > 1600 ? Math.min(64, (last.bottom - last.top) / 3) : radius
     // Begin each curve inside the halo so adjacent rows form a soft shoulder,
     // even when their vertical gap is small. Large sideways jumps keep the
     // transition outside the cards; the layout profile itself is unchanged.
     const shoulders = bands.slice(1).map((next, index) => {
         const band = bands[index]
-        const jump = Math.max(Math.abs(next.left - band.left), Math.abs(next.right - band.right))
-        return softenRows ? Math.min(jump > 1200 ? 24 : 36, (band.bottom - band.top) / 3, (next.bottom - next.top) / 3) : 0
+        const side = (edge: 'left' | 'right') => {
+            const jump = Math.abs(next[edge] - band[edge])
+            const expands = edge === 'left' ? next.left < band.left : next.right > band.right
+            const depth = Math.max(36, Math.sqrt(jump) * 6)
+            // Expanding into free space can start earlier in the narrow row.
+            // Contracting can finish later in the narrow row. The opposite end
+            // stays in its halo so wide-row cards remain fully enclosed.
+            return {
+                start: softenRows ? Math.min(expands ? depth : 32, (band.bottom - band.top) / 3) : 0,
+                end: softenRows ? Math.min(expands ? 32 : depth, (next.bottom - next.top) / 3) : 0
+            }
+        }
+        return { left: side('left'), right: side('right') }
     })
-    let path = `M ${first.left},${first.top + radius} C ${first.left},${first.top - radius / 3} ${first.right},${first.top - radius / 3} ${first.right},${first.top + radius}`
+    // Keep wide-row end rounding local. Stretching one shallow cubic across
+    // thousands of pixels creates square-looking ends and can shave card corners.
+    const control = 1 - 0.55228475
+    let path = firstRadius !== radius
+        ? `M ${first.left},${first.top + firstRadius} C ${first.left},${first.top + firstRadius * control} ${first.left + firstRadius * control},${first.top} ${first.left + firstRadius},${first.top}`
+            + ` L ${first.right - firstRadius},${first.top} C ${first.right - firstRadius * control},${first.top} ${first.right},${first.top + firstRadius * control} ${first.right},${first.top + firstRadius}`
+        : `M ${first.left},${first.top + radius} C ${first.left},${first.top - radius / 3} ${first.right},${first.top - radius / 3} ${first.right},${first.top + radius}`
     bands.forEach((band, index) => {
-        path += ` L ${band.right},${band.bottom - (index === bands.length - 1 ? radius : shoulders[index])}`
+        path += ` L ${band.right},${band.bottom - (index === bands.length - 1 ? lastRadius : shoulders[index].right.start)}`
         const next = bands[index + 1]
         if (next) {
-            const middleY = (band.bottom + next.top) / 2
-            path += ` C ${band.right},${middleY} ${next.right},${middleY} ${next.right},${next.top + shoulders[index]}`
+            const middleY = (band.bottom - shoulders[index].right.start + next.top + shoulders[index].right.end) / 2
+            path += ` C ${band.right},${middleY} ${next.right},${middleY} ${next.right},${next.top + shoulders[index].right.end}`
         }
     })
-    path += ` C ${last.right},${last.bottom + radius / 3} ${last.left},${last.bottom + radius / 3} ${last.left},${last.bottom - radius}`
+    path += lastRadius !== radius
+        ? ` C ${last.right},${last.bottom - lastRadius * control} ${last.right - lastRadius * control},${last.bottom} ${last.right - lastRadius},${last.bottom}`
+            + ` L ${last.left + lastRadius},${last.bottom} C ${last.left + lastRadius * control},${last.bottom} ${last.left},${last.bottom - lastRadius * control} ${last.left},${last.bottom - lastRadius}`
+        : ` C ${last.right},${last.bottom + radius / 3} ${last.left},${last.bottom + radius / 3} ${last.left},${last.bottom - radius}`
     for (let index = bands.length - 1; index >= 0; index--) {
         const band = bands[index]
-        path += ` L ${band.left},${band.top + (index === 0 ? radius : shoulders[index - 1])}`
+        path += ` L ${band.left},${band.top + (index === 0 ? firstRadius : shoulders[index - 1].left.end)}`
         const previous = bands[index - 1]
         if (previous) {
-            const middleY = (previous.bottom + band.top) / 2
-            path += ` C ${band.left},${middleY} ${previous.left},${middleY} ${previous.left},${previous.bottom - shoulders[index - 1]}`
+            const middleY = (previous.bottom - shoulders[index - 1].left.start + band.top + shoulders[index - 1].left.end) / 2
+            path += ` C ${band.left},${middleY} ${previous.left},${middleY} ${previous.left},${previous.bottom - shoulders[index - 1].left.start}`
         }
     }
     return path + ' Z'
@@ -106,9 +128,13 @@ export const topologyGroupRegionEnvelope = (nodes: TopologyRegionNode[]): Topolo
         const previousCenter = (previous.top + previous.bottom) / 2
         const nextCenter = (next.top + next.bottom) / 2
         const fraction = (center - previousCenter) / (nextCenter - previousCenter)
+        // A very wide VM row must not turn a single router/bridge row into a
+        // several-thousand-pixel empty slab. This limit affects the background
+        // alone; every occupied card and the continuous branch stay covered.
+        const spread = 384
         return { ...band,
-            left: Math.min(band.left, previous.left + (next.left - previous.left) * fraction),
-            right: Math.max(band.right, previous.right + (next.right - previous.right) * fraction) }
+            left: Math.max(band.left - spread, Math.min(band.left, previous.left + (next.left - previous.left) * fraction)),
+            right: Math.min(band.right + spread, Math.max(band.right, previous.right + (next.right - previous.right) * fraction)) }
     })
 }
 

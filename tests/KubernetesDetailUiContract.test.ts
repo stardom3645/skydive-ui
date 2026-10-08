@@ -318,7 +318,7 @@ describe('Kubernetes detail UI contract', () => {
         assert.ok(badgeView.includes('export const TopologyStatusBadgeRail'))
         assert.ok(badgeView.includes('className="netdive-topology-numeric-badge-group"'))
         assert.ok(badgeView.includes('netdive-topology-numeric-badge-group__trigger'))
-        assert.ok(badgeView.includes('title={badgeGroupSummaryContent(summary)}'))
+        assert.ok(badgeView.includes('title={badgeGroupSummaryContent(summary, badges)}'))
         assert.ok(badgeView.includes("item.badge.key === 'self-problem' || item.badge.key === 'self-inactive'"))
         assert.ok(badgeView.includes("item.badge.key !== 'self-problem' && item.badge.key !== 'self-inactive'"))
         assert.ok(badgeView.includes('text={text} pointerEvents="all"'))

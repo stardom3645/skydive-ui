@@ -1,6 +1,6 @@
 import type { Node } from './Topology'
 
-export interface TopologyResourceSnapshot { detail?: any; summary?: any; wall?: any }
+export interface TopologyResourceSnapshot { detail?: any; summary?: any; wall?: any; inventory?: any; host?: any }
 export interface TopologyResourceRequest { key: string; url: string }
 interface Entry { request: TopologyResourceRequest; checked?: number; data?: any; controller?: AbortController }
 
@@ -51,6 +51,8 @@ export class TopologyResourceData {
                 .then(data => {
                     entry.data = entry.request.url.includes('/api/wall/')
                         ? { series: (data.series || []).map(item => ({ key: item.key, lastValue: item.lastValue })) }
+                        : entry.request.url.includes('/api/mold/hosts/detail')
+                            ? data?.moldMatched === false ? undefined : normalizeTopologyHost(data?.mold || data?.host || data?.data || data)
                         : entry.request.url.includes('/nodes/detail')
                             ? { usage: data.usage || data.currentUsage || data.metrics?.usage, allocatable: data.allocatable,
                                 capacity: data.capacity, podCount: data.podCount, maxPodCount: data.maxPodCount }
@@ -75,6 +77,44 @@ const first = (data: any, paths: string[]) => {
         if (value !== undefined && value !== null && value !== '') return Array.isArray(value) ? value[0] : value
     }
 }
+
+// Shared with HostDetailPanel: Mold uses lower-case fields while topology
+// collectors use canonical names. Missing fields must not erase collected data.
+export const normalizeTopologyHost = (host: any) => {
+    const fields: Record<string, string[]> = {
+        MoldHostId: ['MoldHostId', 'CloudStackHostId', 'HostId', 'HostID', 'id', 'uuid'],
+        Name: ['Name', 'name', 'Hostname', 'hostname', 'HostName'],
+        Hostname: ['Hostname', 'hostname', 'Name', 'name', 'HostName'],
+        ManagementIP: ['ManagementIP', 'ManagementIp', 'managementIp', 'managementip', 'managementipaddress', 'privateIpAddress', 'privateipaddress', 'IpAddress', 'ipaddress'],
+        Zone: ['Zone', 'zone', 'ZoneName', 'zonename'], Pod: ['Pod', 'pod', 'PodName', 'podname'],
+        Cluster: ['Cluster', 'cluster', 'ClusterName', 'clustername'],
+        Hypervisor: ['Hypervisor', 'hypervisor', 'HypervisorType', 'hypervisorType', 'hypervisortype'],
+        ResourceState: ['ResourceState', 'resourceState', 'resourcestate', 'AllocationState', 'allocationState'],
+        State: ['State', 'state', 'Status', 'status', 'AgentStatus', 'agentStatus'],
+        Platform: ['Platform', 'platform', 'OsCategoryName', 'oscategoryname'],
+        PlatformVersion: ['PlatformVersion', 'platformVersion', 'platformversion', 'Version', 'version'],
+        CPUAllocatedPercent: ['CPUAllocatedPercent', 'cpuAllocatedPercent'],
+        MemoryAllocatedPercent: ['MemoryAllocatedPercent', 'memoryAllocatedPercent'],
+        CPUAllocated: ['CPUAllocated', 'cpuAllocated', 'cpuallocated'], CPUTotal: ['CPUTotal', 'cpuTotal', 'cputotal'],
+        MemoryAllocated: ['MemoryAllocated', 'memoryAllocated', 'memoryallocated'], MemoryTotal: ['MemoryTotal', 'memoryTotal', 'memorytotal'],
+        CpuNumber: ['CpuNumber', 'cpuNumber', 'cpunumber', 'CPUNumber', 'CpuCount', 'cpuCount', 'cpucount', 'CPUCount'],
+        StorageUsedPercent: ['StorageUsedPercent', 'storageUsedPercent'],
+        RunningVMCount: ['RunningVMCount', 'runningVmCount', 'runningVMCount', 'UserVMCount', 'userVmCount', 'VmCount', 'vmCount'],
+        UserVMCount: ['UserVMCount', 'userVmCount', 'RunningVMCount', 'runningVmCount', 'VmCount', 'vmCount'],
+        SystemVMCount: ['SystemVMCount', 'systemVmCount', 'systemVMCount'],
+        VirtualRouterCount: ['VirtualRouterCount', 'virtualRouterCount', 'RouterCount', 'routerCount', 'VRCount'],
+        NetworkCount: ['NetworkCount', 'networkCount', 'ConnectedNetworkCount', 'connectedNetworkCount']
+    }
+    const result: any = {}
+    Object.entries(fields).forEach(([key, paths]) => { const value = first(host, paths); if (value !== undefined) result[key] = value })
+    return result
+}
+
+export const topologyInfrastructureData = (node: Node, snapshot: TopologyResourceSnapshot = {}) => ({
+    ...node.data, ...(String(node.data?.Type).toLowerCase() === 'host' ? normalizeTopologyHost(node.data) : {}),
+    ...snapshot.inventory, ...snapshot.host,
+    Type: node.data?.Type, Manager: node.data?.Manager
+})
 export const topologyKubernetesCluster = (node: Node, clusters: any[] = []) => {
     const keys = new Set<string>()
     const visited = new Set<Node>()
@@ -94,32 +134,33 @@ export const topologyKubernetesCluster = (node: Node, clusters: any[] = []) => {
 
 export const topologyInventoryData = (node: Node, inventory?: any, vmDetails?: Record<string, any>) => {
     const data = node.data || {}
-    const keys = ['Name', 'Hostname', 'HostName', 'UUID', 'ID', 'ExtID', 'VirtualMachineID', 'InstanceName', 'DisplayName',
-        'MoldHostId', 'CloudStackHostId', 'HostId', 'IPV4', 'ManagementIP', 'IpAddress']
-        .map(path => first(data, [path])).filter(Boolean).map(value => String(value).toLowerCase())
+    const keys = ['Name', 'Hostname', 'HostName', 'UUID', 'uuid', 'ID', 'Id', 'ExtID', 'VirtualMachineID', 'InstanceName', 'DisplayName',
+        'MoldHostId', 'CloudStackHostId', 'HostId', 'HostID', 'IPV4', 'IPV6', 'IP', 'Addr', 'ManagementIP', 'ManagementIp', 'IpAddress', 'ipaddress']
+        .reduce<any[]>((values, path) => values.concat(Array.isArray(data[path]) ? data[path] : [data[path]]), [])
+        .filter(Boolean).map(value => String(value).toLowerCase())
     keys.push(node.id.toLowerCase())
     if (String(data.Type).toLowerCase() === 'libvirt') {
         const detail = Object.entries(vmDetails || {}).find(([key]) => keys.includes(key.toLowerCase()))?.[1]
         return { ...data, ...detail }
     }
-    const hosts = [inventory?.hosts, inventory?.host, inventory?.Hosts, inventory?.data?.hosts,
-        inventory?.inventory?.hosts, inventory?.listhostsresponse?.host, inventory?.listHostsResponse?.host, inventory?.items]
+    const hosts = [inventory?.hosts, inventory?.host, inventory?.Hosts, inventory?.data?.hosts, inventory?.data?.host,
+        inventory?.inventory?.hosts, inventory?.listhostsresponse?.host, inventory?.listHostsResponse?.host, inventory?.ListHostsResponse?.Host, inventory?.items]
         .find(Array.isArray) || []
-    const detail = hosts.find(host => ['id', 'ID', 'uuid', 'Name', 'name', 'hostname', 'managementip', 'managementipaddress', 'ipaddress']
+    const detail = hosts.find(host => ['id', 'ID', 'Id', 'uuid', 'UUID', 'HostId', 'hostid', 'Name', 'name', 'hostname', 'Hostname', 'HostName', 'ManagementIP', 'ManagementIp', 'managementip', 'managementipaddress', 'ipaddress']
         .some(path => { const value = first(host, [path]); return value && keys.includes(String(value).toLowerCase()) }))
-    return { ...data, ...detail }
+    return { ...data, ...detail, ...normalizeTopologyHost(detail), Type: data.Type, Manager: data.Manager }
 }
 
-export const topologyResourcePlan = (nodes: Node[], endpoint: string, clusters: any[] = [], inventory?: any, vmDetails?: Record<string, any>) => {
+export const topologyResourcePlan = (nodes: Node[], endpoint: string, clusters: any[] = [], inventory?: any, vmDetails?: Record<string, any>, hostDetail: (id: string) => any = () => undefined) => {
     const requests = new Map<string, TopologyResourceRequest>()
-    const refs = new Map<string, { detail?: string; summary?: string; wall?: string }>()
+    const refs = new Map<string, { detail?: string; summary?: string; wall?: string; host?: string }>()
     const add = (path: string, params: URLSearchParams) => {
         const url = `${endpoint.replace(/\/$/, '')}${path}?${params}`
         requests.set(url, { key: url, url }); return url
     }
     nodes.forEach(node => {
         const type = String(node.data?.Type || '').toLowerCase()
-        const ref: { detail?: string; summary?: string; wall?: string } = {}
+        const ref: { detail?: string; summary?: string; wall?: string; host?: string } = {}
         if (String(node.data?.Manager || '').toLowerCase() === 'k8s') {
             const cluster = topologyKubernetesCluster(node, clusters)
             if (!cluster?.id) return
@@ -129,7 +170,14 @@ export const topologyResourcePlan = (nodes: Node[], endpoint: string, clusters: 
                 ref.detail = add('/api/mold/kubernetes-clusters/nodes/detail', new URLSearchParams({ id: cluster.id, uid: String(uid) }))
             }
         } else if (['host', 'libvirt'].includes(type)) {
-            const data = topologyInventoryData(node, inventory, vmDetails)
+            const inventoryData = topologyInventoryData(node, inventory, vmDetails)
+            if (type === 'host') {
+                const lookup = new URLSearchParams({ nodeId: node.id, name: String(first(node.data, ['Name', 'Hostname', 'HostName']) || node.id) })
+                const id = first(inventoryData, ['MoldHostId', 'CloudStackHostId', 'HostId', 'HostID'])
+                if (id) lookup.set('hostId', String(id))
+                ref.host = add('/api/mold/hosts/detail', lookup)
+            }
+            const data = { ...inventoryData, ...(type === 'host' ? hostDetail(node.id) : undefined) }
             const name = String(first(data, ['Name', 'name', 'Hostname', 'HostName']) || node.id)
             const params = new URLSearchParams({ range: '1h', step: '60s', name })
             if (type === 'host') {

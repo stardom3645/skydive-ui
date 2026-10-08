@@ -27,6 +27,7 @@ import { hostDetailClasses as classes } from './HostDetailPanelClasses'
 import './HostDetailPanel.css'
 
 import HostResourceTrendPanel from './HostResourceTrendPanel'
+import { normalizeTopologyHost } from '../TopologyResourceData'
 import {
     connectedResourcePopoverItems,
     DetailEmpty,
@@ -882,29 +883,7 @@ class HostDetailPanel extends React.Component<Props, State> {
     }
 
     private normalizeMoldHost(host: any): any {
-        return {
-            ...host,
-            MoldHostId: firstValue(host, ['MoldHostId', 'CloudStackHostId', 'HostId', 'HostID', 'id', 'uuid']),
-            Name: firstValue(host, ['Name', 'name', 'Hostname', 'hostname', 'HostName']),
-            Hostname: firstValue(host, ['Hostname', 'hostname', 'Name', 'name', 'HostName']),
-            ManagementIP: firstValue(host, ['ManagementIP', 'ManagementIp', 'managementIp', 'managementip', 'managementipaddress', 'privateIpAddress', 'privateipaddress', 'IpAddress', 'ipaddress']),
-            Zone: firstValue(host, ['Zone', 'zone', 'ZoneName', 'zonename']),
-            Pod: firstValue(host, ['Pod', 'pod', 'PodName', 'podname']),
-            Cluster: firstValue(host, ['Cluster', 'cluster', 'ClusterName', 'clustername']),
-            Hypervisor: firstValue(host, ['Hypervisor', 'hypervisor', 'HypervisorType', 'hypervisorType', 'hypervisortype']),
-            ResourceState: firstValue(host, ['ResourceState', 'resourceState', 'resourcestate', 'AllocationState', 'allocationState']),
-            State: firstValue(host, ['State', 'state', 'Status', 'status']),
-            Platform: firstValue(host, ['Platform', 'platform', 'OsCategoryName', 'oscategoryname']),
-            PlatformVersion: firstValue(host, ['PlatformVersion', 'platformVersion', 'platformversion', 'Version', 'version']),
-            CPUAllocatedPercent: firstValue(host, ['CPUAllocatedPercent', 'cpuAllocatedPercent']),
-            MemoryAllocatedPercent: firstValue(host, ['MemoryAllocatedPercent', 'memoryAllocatedPercent']),
-            StorageUsedPercent: firstValue(host, ['StorageUsedPercent', 'storageUsedPercent']),
-            RunningVMCount: firstValue(host, ['RunningVMCount', 'runningVmCount', 'runningVMCount', 'UserVMCount', 'userVmCount', 'VmCount', 'vmCount']),
-            UserVMCount: firstValue(host, ['UserVMCount', 'userVmCount', 'RunningVMCount', 'runningVmCount', 'VmCount', 'vmCount']),
-            SystemVMCount: firstValue(host, ['SystemVMCount', 'systemVmCount', 'systemVMCount']),
-            VirtualRouterCount: firstValue(host, ['VirtualRouterCount', 'virtualRouterCount', 'RouterCount', 'routerCount', 'VRCount']),
-            NetworkCount: firstValue(host, ['NetworkCount', 'networkCount', 'ConnectedNetworkCount', 'connectedNetworkCount'])
-        }
+        return { ...host, ...normalizeTopologyHost(host) }
     }
 
     private endpoint(): string {

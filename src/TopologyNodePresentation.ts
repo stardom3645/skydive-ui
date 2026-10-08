@@ -1,10 +1,13 @@
 import type { Node, Link } from './Topology'
-import { kubernetesResourceSelfStatus, kubernetesTopologyDirectChildSummary } from './KubernetesTopologyBadgeAggregation'
+import { kubernetesResourceSelfStatus, kubernetesTopologyDirectChildSummary, kubernetesTopologyCountBadges, kubernetesTopologyBadgeGroupSummary } from './KubernetesTopologyBadgeAggregation'
+import type { TopologyStatusBadgeItem, TopologyStatusBadgeGroupSummary } from './TopologyStatusBadge'
 import { isCurrentKubernetesPod } from './KubernetesPodLifecycle'
 import { infrastructureAttentionStatus } from './StatusSummary'
 import { formatKubernetesQuantity } from './DataPanels/common/kubernetesQuantity'
 import { topologyResourceMetrics } from './TopologyResourceMetrics'
 import type { TopologyResourceSnapshot } from './TopologyResourceData'
+import { topologyInfrastructureData } from './TopologyResourceData'
+import { topologyLayerKind } from './TopologyLayerIcons'
 
 export type TopologyCardSize = 'large' | 'medium' | 'compact'
 export type TopologyCardTone = 'normal' | 'warning' | 'critical' | 'unknown' | 'inactive'
@@ -14,12 +17,14 @@ export interface TopologyNodePresentation {
     width: number; height: number; group: boolean; expanded: boolean; expandable: boolean
     status: { tone: TopologyCardTone; label: string; description: string }
     metrics: TopologyMetric[]
+    badges: TopologyStatusBadgeItem[]
+    badgeSummary: TopologyStatusBadgeGroupSummary
     children?: { total: number; normal: number; warning: number; critical: number; inactive: number }
 }
 
 export const TOPOLOGY_CARD_SIZES = {
     large: { width: 580, height: 380 },
-    medium: { width: 440, height: 352 },
+    medium: { width: 440, height: 384 },
     compact: { width: 340, height: 304 }
 }
 const kinds: Record<string, string> = {
@@ -53,7 +58,8 @@ export const topologyCardDimensions = (node: Node, group = false) => {
             : ['persistentvolume', 'persistentvolumeclaim'].includes(type)
                 ? read(data, ['K8s.Extra.Status.Capacity.storage', 'K8s.Extra.Status.capacity.storage', 'K8s.Extra.Spec.Capacity.storage', 'K8s.Extra.Spec.capacity.storage', 'K8s.Extra.Spec.StorageClassName', 'K8s.Extra.Spec.storageClassName']) !== undefined
                 : (node.children || []).length > 0)
-    return { size, ...TOPOLOGY_CARD_SIZES[size], ...(type === 'host' ? { height: 300 } : {}), ...(!hasMetrics ? { height: 184 } : {}) }
+    return { size, ...TOPOLOGY_CARD_SIZES[size], ...(type === 'host' ? { height: 340 } : {}),
+        ...(type === 'pod' ? { height: 328 } : {}), ...(!hasMetrics ? { height: 224 } : {}) }
 }
 
 /** A view model only: graph ownership and the shared status classifiers remain
@@ -62,11 +68,12 @@ export const topologyNodePresentation = (node: Node, options: {
     name: string; group?: boolean; scope?: string; children?: Node[]; links?: Link[]
     resourceData?: TopologyResourceSnapshot; allNodes?: Node[]; infrastructureSummary?: any
 }): TopologyNodePresentation => {
-    const type = typeOf(node), data = node.data || {}
+    const type = typeOf(node), data = topologyInfrastructureData(node, options.resourceData)
     const group = !!options.group || (type === 'namespace' && (node.children || []).length > 0)
     const kubernetes = String(data.Manager || '').toLowerCase() === 'k8s'
     const namespace = String(read(data, ['Namespace', 'namespace', 'K8s.Namespace', 'K8s.Extra.ObjectMeta.Namespace', 'K8s.Extra.metadata.namespace']) || '')
-    const kind = kinds[String(data.GroupType || type).toLowerCase()] || String(data.GroupType || data.Type || '리소스')
+    const kind = (!kubernetes ? topologyLayerKind(node.getWeight?.()) : undefined)
+        || kinds[String(data.GroupType || type).toLowerCase()] || String(data.GroupType || data.Type || '리소스')
     const lines = options.name.split('\n').filter(Boolean)
     const rawName = String(data.Name || '')
     // The legacy config shortened plain names before rendering. Let the card
@@ -79,14 +86,23 @@ export const topologyNodePresentation = (node: Node, options: {
             : current.state === 'healthy' ? 'normal' : current.state === 'inactive' ? 'inactive' : 'unknown'
         status.description = current.findings.join(' · ') || (status.tone === 'normal' ? '현재 리소스 자체에 이상이 없습니다.' : '현재 리소스 상태')
     } else if (!options.group) {
-        const current = infrastructureAttentionStatus(node, options.links)
+        const current = infrastructureAttentionStatus({ ...node, data } as Node, options.links)
         status.tone = current.status === 'problem' ? 'critical' : current.status === 'attention' ? 'warning'
             : current.status === 'inactive' ? 'inactive' : current.status === 'unavailable' ? 'unknown'
-                : read(data, ['State', 'Status', 'OperState', 'Health']) !== undefined ? 'normal' : 'unknown'
+                : (type === 'host' ? /^(up|running|ok|connected|enabled|healthy|normal)$/i.test(String(read(data, ['State', 'Status', 'OperState', 'Health']) || ''))
+                    : read(data, ['State', 'Status', 'OperState', 'Health']) !== undefined) ? 'normal' : 'unknown'
         status.description = current.reason || (status.tone === 'normal' ? '현재 운영 이상이 확인되지 않았습니다.' : '상태 데이터가 없습니다.')
+        if (type === 'host') {
+            const state = read(data, ['State', 'Status', 'AgentStatus'])
+            const resourceState = read(data, ['ResourceState', 'AllocationState'])
+            if (/^(maintenance|disabled)$/i.test(String(resourceState))) status.tone = 'inactive'
+            else if (/maintenance|error/i.test(String(resourceState)) && status.tone !== 'critical') status.tone = 'warning'
+            status.description = [state && `호스트 상태 ${state}`, resourceState && `자원 상태 ${resourceState}`, current.reason].filter(Boolean).join(' · ') || status.description
+        }
     }
     status.label = { normal: '정상', warning: '주의', critical: '장애', unknown: '알 수 없음', inactive: '비활성' }[status.tone]
     const children = options.children || node.children || []
+    if (kubernetes && !options.group && children.length && status.tone === 'normal') status.label = '자체 정상'
     let distribution: TopologyNodePresentation['children']
     if (group || children.length) {
         if (kubernetes) {
@@ -127,8 +143,12 @@ export const topologyNodePresentation = (node: Node, options: {
         metrics.push(...topologyResourceMetrics(node, options.resourceData, options.allNodes))
         if (type === 'node') count('pods', '파드', options.resourceData?.detail?.podCount ?? read(data, ['PodCount', 'K8s.PodCount', 'K8s.Extra.Status.PodCount']))
         else {
-            count('children', '연결 자원', children.length)
             count('vms', '가상머신', options.infrastructureSummary?.userVMs ?? read(data, ['UserVMCount', 'userVmCount', 'RunningVMCount', 'runningVmCount']))
+            if (type === 'host') {
+                count('system-vms', '시스템 VM', options.infrastructureSummary?.systemVMs ?? read(data, ['SystemVMCount', 'systemVmCount']))
+                count('routers', '가상 라우터', options.infrastructureSummary?.routers ?? read(data, ['VirtualRouterCount', 'virtualRouterCount']))
+            }
+            count('children', '연결 자원', children.length)
         }
     } else if (type === 'namespace' && !group) {
         count('workloads', '워크로드', children.filter(item => ['deployment', 'statefulset', 'daemonset', 'job', 'cronjob'].includes(typeOf(item))).length)
@@ -148,9 +168,13 @@ export const topologyNodePresentation = (node: Node, options: {
     } else if (!group && type !== 'pod' && children.length) count('children', '연결 자원', distribution?.total)
     if (!group && !['node', 'host', 'libvirt'].includes(type)) metrics.push(...topologyResourceMetrics(node, options.resourceData, options.allNodes))
     const dimensions = topologyCardDimensions(node, group)
+    const badges: TopologyStatusBadgeItem[] = kubernetes ? kubernetesTopologyCountBadges(node, children)
+        : children.length ? [{ key: 'children', count: children.length, tone: 'running', label: '연결 자원', tooltip: `연결된 자원 ${children.length}개` }] : []
+    const badgeSummary: TopologyStatusBadgeGroupSummary = kubernetes ? kubernetesTopologyBadgeGroupSummary(node, badges as any, children)
+        : { title: '연결 자원', totalLabel: `연결 자원 총 ${children.length}개`, states: badges.map(badge => ({ key: badge.key, tone: badge.tone, label: '연결 자원', count: badge.count })) }
     if (distribution?.total) status.description += ` · 바로 아래 자원 ${distribution.total}개: 정상 ${distribution.normal}, 주의 ${distribution.warning}, 장애 ${distribution.critical}, 비활성 ${distribution.inactive}`
     return { ...dimensions, group, name: (!options.group && kubernetes ? String(data.Name || lines[0] || node.id).replace(/\s*\n\s*/g, ' ') : primaryName) || node.id,
         kind, subtitle: options.scope || (group ? `${kind} · ${distribution?.total || 0}개 자원` : type === 'cluster' ? kind : namespace ? `${kind} · ${namespace}` : lines[1] || kind),
         expanded: !!node.state.expanded, expandable: children.length > 0, status,
-        metrics: metrics.slice(0, dimensions.size === 'large' ? 6 : 4), children: distribution }
+        metrics: metrics.slice(0, dimensions.size === 'large' ? 6 : 4), children: distribution, badges, badgeSummary }
 }

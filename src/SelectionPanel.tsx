@@ -39,6 +39,7 @@ import NicDetailPanel from './DataPanels/NicDetailPanel'
 import HostBridgeDetailPanel from './DataPanels/HostBridgeDetailPanel'
 import VirtualBridgeDetailPanel from './DataPanels/VirtualBridgeDetailPanel'
 import VlanDetailPanel from './DataPanels/VlanDetailPanel'
+import LinkDetailPanel from './DataPanels/LinkDetailPanel'
 import KubernetesClusterDetailPanel from './DataPanels/KubernetesClusterDetailPanel'
 import KubernetesNodeDetailPanel from './DataPanels/KubernetesNodeDetailPanel'
 import KubernetesNamespaceDetailPanel from './DataPanels/KubernetesNamespaceDetailPanel'
@@ -234,6 +235,7 @@ class SelectionPanel extends React.Component<Props, State> {
     if (!el || !el.data) {
       return ""
     }
+    if (el.type === 'link') return translate('linkDetailType')
 
     const rawType = String(el.data.Type || el.data.type || el.type || "").trim()
     const isKubernetesService = el.type === 'node'
@@ -577,7 +579,15 @@ class SelectionPanel extends React.Component<Props, State> {
           {el.type === 'node' && this.renderNodeContext(el as Node)}
           {this.props.panelsContent && this.props.panelsContent(el)}
           <TabPanel key={"tabpanel-" + el.id} value={this.state.tab} index={i}>
-            {isTopologyGroupNode(el)
+            {el.type === 'link'
+              ? <LinkDetailPanel key={el.id} link={el as Link}
+                  nodeAttrs={(node: Node) => this.props.config.nodeAttrs(node)}
+                  nodeDisplayName={this.props.nodeDisplayName}
+                  onNodeSelect={this.props.onContextNavigate ? (node: Node) => {
+                    this.setState({ preferredTabID: node.id })
+                    this.props.onContextNavigate?.(node)
+                  } : undefined} />
+              : isTopologyGroupNode(el)
               ? <GroupDetailPanel
                   node={el as Node}
                   visibleNodeIDs={this.props.groupVisibleNodeIDs || new Set<string>()}

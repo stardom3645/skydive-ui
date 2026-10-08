@@ -462,7 +462,7 @@ describe('Infrastructure LLDP port mapping', () => {
 		assert.ok(app.includes('buildManualPortMappingTopologyLinks'))
 		assert.ok(app.includes('reconcileManualPortMappingLinks'))
 		assert.ok(app.includes('scheduleManualPortMappingRefresh'))
-		assert.ok(topology.includes('this.props.linkAttrs(d).classes'))
+		assert.ok(topology.includes('this.renderedLinkAttrs(d).classes'))
 		assert.ok(topologyStyles.includes('.links .manual-port-mapping'))
 		assert.ok(topologyStyles.includes('stroke-dasharray: 8 6'))
 		assert.ok(groupPanel.includes('node.data?.ManualPortMappingPort'))

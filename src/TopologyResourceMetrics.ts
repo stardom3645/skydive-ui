@@ -1,6 +1,7 @@
 import type { Node } from './Topology'
 import type { TopologyMetric } from './TopologyNodePresentation'
 import type { TopologyResourceSnapshot } from './TopologyResourceData'
+import { topologyInfrastructureData } from './TopologyResourceData'
 import { kubernetesCpuCores, kubernetesMemoryBytes } from './DataPanels/common/kubernetesQuantity'
 import { formatPodCpuUsage, formatPodMemoryUsage } from './DataPanels/common/KubernetesPodUsageMetrics'
 import { isCurrentKubernetesPod } from './KubernetesPodLifecycle'
@@ -43,7 +44,7 @@ const clusterName = (node: Node) => {
 }
 
 export const topologyResourceMetrics = (node: Node, snapshot: TopologyResourceSnapshot = {}, allNodes: Node[] = []): TopologyMetric[] => {
-    const data = node.data || {}, type = String(data.Type || '').toLowerCase()
+    const data = topologyInfrastructureData(node, snapshot), type = String(data.Type || '').toLowerCase()
     if (type === 'cluster') {
         const resources = snapshot.summary?.resources || {}
         return [metric('cpu', resources.metricsAvailable === true ? numeric(resources.usageCpuCores) ?? 0 : undefined, numeric(resources.allocatableCpuCores)),
@@ -59,8 +60,20 @@ export const topologyResourceMetrics = (node: Node, snapshot: TopologyResourceSn
             const paths = key === 'cpu' ? ['CPUUsagePercent', 'CPUPercent', 'CpuUsagePercent', 'cpuUsagePercent', 'CPUUsage', 'cpuUsage', 'Metrics.CPUUsagePercent', 'K8s.Metrics.CPUUsagePercent']
                 : ['MemoryUsagePercent', 'MemoryPercent', 'memoryPercent', 'memoryUsagePercent', 'Metrics.MemoryUsagePercent', 'K8s.Metrics.MemoryUsagePercent']
             const rate = numeric(series?.lastValue) ?? numeric(raw(data, paths))
-            return metric(key, key === 'cpu' ? kubernetesCpuCores(usage.cpu) : kubernetesMemoryBytes(usage.memory),
-                key === 'cpu' ? kubernetesCpuCores(basis.cpu) : kubernetesMemoryBytes(basis.memory), rate !== undefined && rate <= 100 ? rate : undefined)
+            const result = metric(key, key === 'cpu' ? kubernetesCpuCores(usage.cpu) : kubernetesMemoryBytes(usage.memory),
+                key === 'cpu' ? kubernetesCpuCores(basis.cpu) ?? (type === 'host' ? numeric(data.CpuNumber) : undefined)
+                    : kubernetesMemoryBytes(basis.memory) ?? (type === 'host' ? kubernetesMemoryBytes(data.MemoryTotal) : undefined),
+                rate !== undefined && rate <= 100 ? rate : undefined)
+            if (type === 'host' && result.percent === undefined) {
+                const allocated = numeric(data[key === 'cpu' ? 'CPUAllocatedPercent' : 'MemoryAllocatedPercent'])
+                const used = numeric(data[key === 'cpu' ? 'CPUAllocated' : 'MemoryAllocated'])
+                const total = numeric(data[key === 'cpu' ? 'CPUTotal' : 'MemoryTotal'])
+                const allocation = allocated ?? (used !== undefined && total !== undefined && total > 0 ? used / total * 100 : undefined)
+                if (allocation !== undefined) return { key, label: key === 'cpu' ? 'CPU 할당' : '메모리 할당',
+                    value: `${Number(allocation.toFixed(1))}%`, percent: allocation,
+                    description: 'Mold 자원 할당률 · 실시간 사용률 미수집' }
+            }
+            return result
         })
     }
     const supported = ['pod', 'namespace', 'deployment', 'statefulset', 'daemonset', 'job', 'cronjob'].includes(type)

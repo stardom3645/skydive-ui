@@ -132,7 +132,7 @@ const topologyStatusLegendItems = [
     },
     {
         key: 'warning', tone: 'warning', text: '1', label: '하위 자원 이상',
-        description: '자체는 정상이나 아래 계층에 이상이 있는 자원 수'
+        description: '자체 상태 확인이 필요하거나 아래 계층에 이상·미확인 상태가 있는 자원 수'
     },
     {
         key: 'healthy', tone: 'running', text: '1', label: '정상',
@@ -224,10 +224,10 @@ const topologyStatusLegendContent = () => <div className="netdive-topology-statu
             </div>)}
     </div>
     <div className="netdive-topology-status-legend__description">
-        그룹의 숫자는 바로 아래 자원의 상태 분포입니다. 주의에는 하위 자원 이상도 포함됩니다. 작은 카드와 축소 화면에서는 상태 점만 표시합니다.
+        카드의 상태 태그는 자체 상태이고, 오른쪽 숫자 배지와 그룹 집계는 바로 아래 자원의 상태 분포입니다. 하위 이상·확인 필요에는 미수집·미확인 상태도 포함됩니다.
     </div>
     <details className="netdive-topology-status-legend__numeric-help">
-        <summary>상세 패널의 숫자 배지</summary>{topologyNumericBadgeLegendContent()}
+        <summary>카드와 상세 패널의 숫자 배지</summary>{topologyNumericBadgeLegendContent()}
     </details>
 </div>
 
@@ -287,7 +287,7 @@ export const TopologyStatusBadgeLegend = ({ compact = false }: { compact?: boole
     </Popover>
 }
 
-const badgeGroupSummaryContent = (summary: TopologyStatusBadgeGroupSummary): React.ReactNode =>
+const badgeGroupSummaryContent = (summary: TopologyStatusBadgeGroupSummary, badges: TopologyStatusBadgeItem[] = []): React.ReactNode =>
     <div className="netdive-topology-badge-tooltip__content netdive-topology-badge-summary">
         <div className="netdive-topology-badge-summary__header">
             <div className="netdive-topology-badge-tooltip__title">{summary.title}</div>
@@ -303,6 +303,13 @@ const badgeGroupSummaryContent = (summary: TopologyStatusBadgeGroupSummary): Rea
                 <strong>{state.count}개</strong>
             </div>)}
         </div>
+        {badges.some(badge => badge.key.startsWith('direct-')) && <div className="netdive-topology-badge-tooltip__description">
+            숫자는 바로 아래 자원 기준입니다. 하위 자원 이상에는 상태 미확인·미수집도 포함되며, 현재 리소스 자체 상태와 구분됩니다.
+        </div>}
+        {badges.filter(badge => badge.count > 0 && isStructuredTooltip(badge.tooltip)).map(badge =>
+            <div className="netdive-topology-badge-tooltip__details" key={badge.key}>
+                {tooltipContent(badge.tooltip)}
+            </div>)}
     </div>
 
 /** Keep body-mounted overlays tied to the actual SVG anchor, including D3
@@ -423,7 +430,7 @@ export const TopologyStatusBadgeRail = ({
             tooltip={badge.tooltip}
             ariaLabel={badge.label || tooltipAriaLabel(badge.tooltip)} />)}
         {numericBadges.length > 0 ? <TopologyBadgeTooltip
-            title={badgeGroupSummaryContent(summary)}
+            title={badgeGroupSummaryContent(summary, badges)}
             contentKey={JSON.stringify([summary, numericLeft, numericRight, y, radius])}>
             <g
                 className="netdive-topology-numeric-badge-group"

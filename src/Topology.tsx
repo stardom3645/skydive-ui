@@ -18,11 +18,12 @@
 import * as React from "react"
 import { topologyBranchOffsets } from './TopologyBranchSpacing'
 import { topologyGroupRegions, TopologyGroupRegion } from './TopologyGroupRegions'
+import { topologyLayerGlyph } from './TopologyLayerIcons'
 import { TopologyReactRoots } from './TopologyReactRoots'
 import { TopologyCaptureIndicator } from './TopologyCaptureIndicator'
 import { TopologyNodeCard } from './TopologyNodeCard'
 import { topologyCardDimensions, topologyNodePresentation } from './TopologyNodePresentation'
-import { TopologyResourceData, topologyResourcePlan } from './TopologyResourceData'
+import { TopologyResourceData, topologyResourcePlan, topologyInventoryData } from './TopologyResourceData'
 import { topologyCardEdge, topologyHierarchyEdgeIDs } from './TopologyEdgePresentation'
 import { Avatar, Button, Card, Input, List, Tag, Typography } from 'antd'
 import { NodeIndexOutlined } from '@ant-design/icons'
@@ -122,7 +123,7 @@ const kubernetesNodeLabelWidthBoost = 95
 const kubernetesNamespaceHorizontalGapBoost = 160
 // 고정된 좌측 계층 라벨과 토폴로지 카드 사이의 화면 안전 영역입니다.
 const topologyLevelLabelSafeInset = 128
-// 시스템 VM / 가상 라우터 compact 레이아웃의 카드 및 그룹 최소 간격입니다.
+// VM 계층 compact 레이아웃의 카드 및 부모 그룹 최소 간격입니다.
 const compactVmNodeGap = 24
 const compactVmGroupGap = 64
 // 서로 다른 호스트 서브트리 경계 사이에 유지할 최소 여백입니다.
@@ -646,7 +647,7 @@ export class Topology extends React.Component<Props, {}> {
     private reactRoots = new TopologyReactRoots()
     private objectCardRenderKeys = new WeakMap<Element, string>()
     private resourceData?: TopologyResourceData
-    private resourceRefs = new Map<string, { detail?: string; summary?: string; wall?: string }>()
+    private resourceRefs = new Map<string, { detail?: string; summary?: string; wall?: string; host?: string }>()
     private resourceRefreshTimer?: number
     private resourceCardRefreshTimer?: number
     private zoom: zoom
@@ -762,7 +763,7 @@ export class Topology extends React.Component<Props, {}> {
         this.resourceData = undefined
         this.resourceRefs.clear()
         if (this.props.resourceSession && this.props.resourceDataEnabled !== false) {
-            this.resourceData = new TopologyResourceData(() => this.refreshResourceCards())
+            this.resourceData = new TopologyResourceData(() => { this.syncResourceData(); this.refreshResourceCards() })
             this.syncResourceData()
         }
         this.refreshResourceCards()
@@ -773,7 +774,7 @@ export class Topology extends React.Component<Props, {}> {
         const visible = Array.from(this.d3nodes.values()).filter(node => node.data.type === WrapperType.Normal && node.data.wrapped !== this.root)
             .map(node => node.data.wrapped)
         const plan = topologyResourcePlan(visible, this.props.resourceSession.endpoint, this.props.kubernetesClusters,
-            this.props.moldInventory, this.props.vmDetailMap)
+            this.props.moldInventory, this.props.vmDetailMap, id => this.resourceData?.get(this.resourceRefs.get(id)?.host))
         this.resourceRefs = plan.refs
         this.resourceData.sync(plan.requests, this.props.resourceSession.token)
     }
@@ -2219,10 +2220,15 @@ export class Topology extends React.Component<Props, {}> {
         return levels
     }
 
-    private compactVmLayerKind(node: D3Node): 'system' | 'router' | undefined {
+    private compactVmLayerKind(node: D3Node): 'system' | 'router' | 'user' | undefined {
+        const weight = node.data.wrapped.getWeight()
+        if (weight === 7060) return 'system'
+        if (weight === 7070) return 'router'
+        if (weight === 7080) return 'user'
         const title = this.weightTitles.get(node.data.wrapped.getWeight()) || ''
         if (/system vm|시스템 가상머신/i.test(title)) return 'system'
         if (/virtual router|가상 라우터/i.test(title)) return 'router'
+        if (/user vm|virtual machine|사용자 가상머신/i.test(title)) return 'user'
         return undefined
     }
 
@@ -2564,12 +2570,12 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     /**
-     * System VM and virtual-router layers are compacted by their nearest visible
-     * parent. The wider of the two child bundles determines the parent slot, so
-     * sparse groups no longer inherit an equal share of the full layer width.
+     * All VM layers share their nearest visible parent's center. The widest
+     * row determines its slot, including expanded user VMs: leaving that row
+     * in flextree's original slot pushed the sparse system/router rows aside.
      */
-    private compactSystemVmRouterLayout(root: any) {
-        type LayerKind = 'system' | 'router'
+    private compactVmLayerLayout(root: any) {
+        type LayerKind = 'system' | 'router' | 'user'
         interface Bundle {
             kind: LayerKind
             parent?: D3Node
@@ -2642,7 +2648,9 @@ export class Topology extends React.Component<Props, {}> {
         const totalWidth = slots.reduce((total, slot, index) => (
             total + slot.width + (index > 0 ? compactVmGroupGap : 0)
         ), 0)
-        const layoutCenter = (slots[0].desiredCenter + slots[slots.length - 1].desiredCenter) / 2
+        const layoutLeft = Math.min(...slots.map(slot => slot.desiredCenter - slot.width / 2))
+        const layoutRight = Math.max(...slots.map(slot => slot.desiredCenter + slot.width / 2))
+        const layoutCenter = (layoutLeft + layoutRight) / 2
         let slotCursor = layoutCenter - totalWidth / 2
 
         slots.forEach(slot => {
@@ -4551,7 +4559,9 @@ export class Topology extends React.Component<Props, {}> {
             return this.isActiveContainerMiniLink(link) ? 1 : 0
         }
 
-        return this.isContainerProxyLink(link) ? 0 : 1
+        // A real measured traffic label must survive collapsed/grouped drawing
+        // endpoints. Unmeasured proxy relations keep the existing hidden policy.
+        return this.isContainerProxyLink(link) && !this.renderedLinkAttrs(link).label ? 0 : 1
     }
 
     private syncContainerMiniCardActiveClass() {
@@ -4829,7 +4839,9 @@ export class Topology extends React.Component<Props, {}> {
             .classed("level-label-active", (d: LevelRect) => selectedWeight !== null && d.weight === selectedWeight)
     }
 
-    private levelLabelIcon(title: string): string {
+    private levelLabelIcon(title: string, weight?: number): string {
+        const glyph = topologyLayerGlyph(weight)
+        if (glyph) return glyph
         if (/kubernetes.*federation|쿠버네티스.*페더레이션/i.test(title)) {
             return "\uf0e8"
         }
@@ -5002,7 +5014,7 @@ export class Topology extends React.Component<Props, {}> {
             .attr("class", "level-label-icon")
             .attr("text-anchor", "middle")
             .attr("x", 82)
-            .text((d: LevelRect) => self.levelLabelIcon(self.weightTitles.get(d.weight) || 'Level ' + d.weight))
+            .text((d: LevelRect) => self.levelLabelIcon(self.weightTitles.get(d.weight) || 'Level ' + d.weight, d.weight))
         const switchIcon = levelLabelEnter.append("g")
             .attr("class", "level-label-switch-icon")
         switchIcon.append("rect")
@@ -5350,7 +5362,9 @@ export class Topology extends React.Component<Props, {}> {
                     ? self.renderedKubernetesBadgeChildren(d.data) : resource.children,
                 links, allNodes,
                 infrastructureSummary: self.props.infrastructureHostSummaries?.[resource.id],
-                resourceData: { detail: self.resourceData?.get(ref?.detail), summary: self.resourceData?.get(ref?.summary), wall: self.resourceData?.get(ref?.wall) }
+                resourceData: { detail: self.resourceData?.get(ref?.detail), summary: self.resourceData?.get(ref?.summary), wall: self.resourceData?.get(ref?.wall),
+                    host: self.resourceData?.get(ref?.host), inventory: ['host', 'libvirt'].includes(String(resource.data?.Type).toLowerCase())
+                        ? topologyInventoryData(resource, self.props.moldInventory, self.props.vmDetailMap) : undefined }
             })
             const key = JSON.stringify([model, attrs.icon, attrs.iconClass, attrs.href])
             if (self.objectCardRenderKeys.get(this) === key) return
@@ -5443,8 +5457,13 @@ export class Topology extends React.Component<Props, {}> {
         }
 
         var classes = new Array<string>()
-        var attrs = this.props.linkAttrs(d)
+        var attrs = this.renderedLinkAttrs(d)
         return classes.concat("link", attrs.classes, attrs.directed ? directedClass(d) : "").join(" ")
+    }
+
+    private renderedLinkAttrs(link: Link): LinkAttrs {
+        // Grouping changes drawing endpoints, not the NICs that collected traffic.
+        return this.props.linkAttrs(this.links.get(link.id) || link)
     }
 
     private renderLinks() {
@@ -5661,7 +5680,7 @@ export class Topology extends React.Component<Props, {}> {
             .attr("d", linkPath)
 
         const linkLabelClass = (d: Link) => new Array<string>().concat("link-label",
-            this.props.linkAttrs(d).classes,
+            this.renderedLinkAttrs(d).classes,
             this.isLinkNodeSelected(d) ? "link-label-priority" : "").join(" ")
 
         const linkLabelPosition = (d: Link) => {
@@ -5694,7 +5713,7 @@ export class Topology extends React.Component<Props, {}> {
                 oy = (dx / len) * 34
             }
 
-            const label = this.props.linkAttrs(d).label || ""
+            const label = this.renderedLinkAttrs(d).label || ""
             const labelWidth = Math.max(76, label.length * 18 + 22)
             const labelHeight = 42
             const intersects = (
@@ -5743,6 +5762,17 @@ export class Topology extends React.Component<Props, {}> {
                 { x: mx, y: my + 54 }
             ]
 
+            // The old fixed offsets were sized for short cards. With resource
+            // cards they can all remain underneath a node in the nodes layer.
+            const sourceCard = this.d3nodes.get(dSource.node.id)!
+            const targetCard = this.d3nodes.get(dTarget.node.id)!
+            const outerX = Math.max(this.topologyLayoutCardWidth(sourceCard), this.topologyLayoutCardWidth(targetCard)) / 2 + labelWidth / 2 + 18
+            const outerY = Math.max(this.topologyLayoutCardHeight(sourceCard), this.topologyLayoutCardHeight(targetCard)) / 2 + labelHeight / 2 + 18
+            candidates.push(
+                { x: mx, y: my - outerY }, { x: mx, y: my + outerY },
+                { x: mx - outerX, y: my }, { x: mx + outerX, y: my }
+            )
+
             let best = candidates[0]
             let bestOverlapCount = countOverlaps(best.x, best.y)
             for (const candidate of candidates.slice(1)) {
@@ -5762,9 +5792,9 @@ export class Topology extends React.Component<Props, {}> {
         const self = this
         var linkLabel = this.gLinkLabels.selectAll('g.link-label')
             .interrupt()
-            .data(visibleLinks.filter((d: Link) => shouldDrawLink(d) && this.props.linkAttrs(d).label), (d: Link) => d.id)
+            .data(visibleLinks.filter((d: Link) => shouldDrawLink(d) && this.renderedLinkAttrs(d).label), (d: Link) => d.id)
 
-        if (this.raisedLinkLabelID && !visibleLinks.some((d: Link) => d.id === this.raisedLinkLabelID && this.props.linkAttrs(d).label)) {
+        if (this.raisedLinkLabelID && !visibleLinks.some((d: Link) => d.id === this.raisedLinkLabelID && this.renderedLinkAttrs(d).label)) {
             this.clearRaisedLinkLabel()
         }
 
@@ -5781,7 +5811,7 @@ export class Topology extends React.Component<Props, {}> {
             .attr("class", "link-label-text")
             .attr("text-anchor", "middle")
             .attr("dy", "0.35em")
-            .text((d: Link) => this.props.linkAttrs(d).label)
+            .text((d: Link) => this.renderedLinkAttrs(d).label)
         linkLabel.exit().remove()
 
         linkLabel = linkLabel.merge(linkLabelEnter)
@@ -5795,7 +5825,7 @@ export class Topology extends React.Component<Props, {}> {
             .on("click", function (d: Link) {
                 self.raiseLinkLabel(this as SVGGElement, d)
             })
-        linkLabel.select('text').text((d: Link) => this.props.linkAttrs(d).label)
+        linkLabel.select('text').text((d: Link) => this.renderedLinkAttrs(d).label)
         linkLabel.each(function () {
             const label = select(this)
             const text = label.select("text").node() as SVGTextElement | null
@@ -5886,7 +5916,7 @@ export class Topology extends React.Component<Props, {}> {
             node.data.size[0] = Math.max(node.data.size[0], this.topologyLayoutCardWidth(node) + backplate + topologySiblingCardGap)
         })
         this.tree(root)
-        this.compactSystemVmRouterLayout(root)
+        this.compactVmLayerLayout(root)
         this.compactHostSubtreeLayout(root)
         this.separateTopologyBranches(root)
 

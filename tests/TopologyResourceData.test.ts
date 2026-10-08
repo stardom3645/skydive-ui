@@ -1,5 +1,5 @@
 import { strict as assert } from 'assert'
-import { TopologyResourceData, topologyResourcePlan } from '../src/TopologyResourceData'
+import { TopologyResourceData, topologyResourcePlan, topologyInventoryData, normalizeTopologyHost } from '../src/TopologyResourceData'
 import { topologyResourceMetrics } from '../src/TopologyResourceMetrics'
 import { topologyNodePresentation } from '../src/TopologyNodePresentation'
 
@@ -24,10 +24,43 @@ describe('Topology resource data sources', () => {
     it('uses the existing Wall host query and Mold management address without changing service ports', () => {
         const host = node('topology-host', 'host', { Manager: 'fabric', Name: 'cube-1' })
         const plan = topologyResourcePlan([host], 'http://localhost:8082', [], { hosts: [{ name: 'cube-1', managementip: '10.0.0.1' }] })
-        const request = new URL(plan.requests[0].url)
+        const request = new URL(plan.refs.get(host.id)!.wall!)
         assert.equal(request.pathname, '/api/wall/hosts/trend')
         assert.equal(request.searchParams.get('managementIp'), '10.0.0.1')
         assert.equal(request.searchParams.get('port'), '3003')
+        assert.equal(new URL(plan.refs.get(host.id)!.host!).pathname, '/api/mold/hosts/detail')
+    })
+
+    it('matches every collected host address and updates the Wall query with the resolved Mold host', () => {
+        const host = node('host', 'host', { Manager: 'fabric', Name: 'cube', IPV4: ['192.0.2.1', '10.0.0.1'] })
+        const inventory = { data: { host: [{ id: 'mold-host', name: 'cube-real', managementip: '10.0.0.1', state: 'Up' }] } }
+        const data = topologyInventoryData(host, inventory)
+        assert.equal(data.State, 'Up')
+        assert.equal(data.ManagementIP, '10.0.0.1')
+        const plan = topologyResourcePlan([host], 'http://localhost:8082', [], inventory, undefined,
+            () => normalizeTopologyHost({ name: 'cube-real', managementIp: '10.0.0.2' }))
+        assert.equal(new URL(plan.refs.get(host.id)!.host!).searchParams.get('hostId'), 'mold-host')
+        assert.equal(new URL(plan.refs.get(host.id)!.wall!).searchParams.get('managementIp'), '10.0.0.2')
+        assert.equal(new URL(plan.refs.get(host.id)!.wall!).searchParams.get('host'), 'cube-real')
+    })
+
+    it('shows Mold host state, allocation and VM counts without mutating topology metadata', () => {
+        const host = node('host', 'host', { Manager: 'fabric' })
+        const original = JSON.stringify(host.data)
+        const detail = normalizeTopologyHost({ state: 'Up', resourceState: 'Enabled', cpuAllocatedPercent: '31.5%',
+            memoryAllocatedPercent: '0%', userVmCount: 6, systemVmCount: 0, virtualRouterCount: 2, type: 'Routing' })
+        const model = topologyNodePresentation(host, { name: 'host', resourceData: { host: detail } })
+        assert.equal(model.status.tone, 'normal')
+        assert.ok(model.status.description.includes('호스트 상태 Up'))
+        assert.deepEqual(model.metrics.map(metric => [metric.label, metric.value]),
+            [['CPU 할당', '31.5%'], ['메모리 할당', '0%'], ['가상머신', '6'], ['시스템 VM', '0'], ['가상 라우터', '2'], ['연결 자원', '0']])
+        assert.equal(JSON.stringify(host.data), original)
+        const wall = { series: [{ key: 'cpu', lastValue: 12 }, { key: 'memory', lastValue: 40 }] }
+        assert.deepEqual(topologyResourceMetrics(host, { host: detail, wall }).map(metric => [metric.label, metric.value]), [['CPU', '12%'], ['메모리', '40%']])
+        detail.State = 'Unknown'
+        assert.equal(topologyNodePresentation(host, { name: 'host', resourceData: { host: detail } }).status.tone, 'unknown')
+        detail.State = 'Up'; detail.ResourceState = 'Maintenance'
+        assert.equal(topologyNodePresentation(host, { name: 'host', resourceData: { host: detail } }).status.tone, 'inactive')
     })
 
     it('uses collected Wall percentages and retains a measured zero', () => {
@@ -70,6 +103,20 @@ describe('Topology resource data sources', () => {
 })
 
 describe('Topology resource request lifecycle', () => {
+    it('retains host detail fields and treats an unmatched Mold host as unavailable', async () => {
+        let matched = true, now = 0
+        const cache = new TopologyResourceData(() => undefined, (async () => ({ ok: true,
+            json: async () => ({ moldMatched: matched, mold: { state: 'Up', userVmCount: 0 } }) })) as any, () => now)
+        const request = { key: 'host-detail', url: '/api/mold/hosts/detail?name=cube' }
+        try {
+            cache.sync([request]); await flush()
+            assert.equal(cache.get(request.key).State, 'Up')
+            assert.equal(cache.get(request.key).UserVMCount, 0)
+            matched = false; now = 60000
+            cache.sync([request]); await flush()
+            assert.equal(cache.get(request.key), undefined)
+        } finally { cache.dispose() }
+    })
     it('bounds concurrency, coalesces repaints, and aborts resources removed from the view', async () => {
         const calls: { signal: AbortSignal; resolve: (response: any) => void }[] = []
         let changes = 0

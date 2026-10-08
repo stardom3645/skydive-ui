@@ -61,6 +61,34 @@ describe('Topology object presentation', () => {
         assert.equal(model.children!.normal, canonical.healthy.length)
         assert.deepEqual(topologyCardDimensions(namespace), { size: 'medium', width: model.width, height: model.height })
     })
+    it('preserves descendant attention in cluster groups and exposes it on each card', () => {
+        const group = resource('clusters', 'cluster'); group.data.IsTopologyGroup = true
+        for (let index = 0; index < 6; index++) {
+            const cluster = attach(group, resource(`cluster-${index}`, 'cluster'))
+            attach(cluster, resource(`unknown-node-${index}`, 'node'))
+            attach(cluster, resource(`bad-pvc-${index}`, 'persistentvolumeclaim', { Status: { Phase: 'Lost' } }))
+            assert.equal(present(cluster).status.tone, 'normal')
+            assert.equal(present(cluster).children!.critical, 1)
+            assert.equal(present(cluster).children!.warning, 1)
+            assert.equal(present(cluster).status.label, '자체 정상')
+            assert.deepEqual(present(cluster).badges.map(badge => [badge.key, badge.count]), [['direct-descendant-problem', 2]])
+        }
+        assert.deepEqual(present(group, { group: true }).children,
+            { total: 6, normal: 0, warning: 6, critical: 0, inactive: 0 })
+        assert.deepEqual(present(group, { group: true }).badges.map(badge => [badge.key, badge.count]), [['direct-descendant-problem', 6]])
+        group.children[0].data.State = 'Failed'
+        group.children[1].data.CollectionState = 'unavailable'
+        group.children[2].data.MoldClusterState = 'Stopped'
+        assert.deepEqual(present(group, { group: true }).children,
+            { total: 6, normal: 0, warning: 4, critical: 1, inactive: 1 })
+    })
+    it('shows connection counts on infrastructure parents without inventing leaf counts', () => {
+        const host = resource('host', 'host'); host.data.Manager = 'fabric'
+        const child = attach(host, resource('vm', 'libvirt')); child.data.Manager = 'libvirt'
+        assert.equal(present(host).badges[0].count, 1)
+        assert.equal(present(host).badgeSummary.states[0].label, '연결 자원')
+        assert.deepEqual(present(child).badges, [])
+    })
     it('counts unique collected resources for a collapsed cluster without changing the graph', () => {
         const cluster = resource('cluster', 'cluster'); cluster.state.expanded = false
         attach(cluster, resource('worker', 'node'))

@@ -1,0 +1,8 @@
+.netdive-link-detail {
+    display: flex;
+    flex-direction: column;
+    gap: var(--netdive-detail-panel-gap);
+    padding-bottom: var(--netdive-detail-panel-bottom-padding);
+}
+.netdive-link-detail__endpoints { grid-template-columns: minmax(0, 1fr); }
+.netdive-link-detail__metadata .netdive-detail-description-text { white-space: pre-wrap; overflow-wrap: anywhere; }

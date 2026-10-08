@@ -20,6 +20,8 @@ import Tools from './Tools'
 import { switchDisplayName } from './SwitchNodeUtils'
 import { isKubernetesTopologyData } from './KubernetesInfrastructureEvidence'
 import { kubernetesWorkloadNodeText } from './KubernetesTopologyNodePresentation'
+import { topologyLayerGlyph } from './TopologyLayerIcons'
+import { topologyLinkTraffic } from './TopologyLinkTraffic'
 
 const SHOW_DEBUG = false
 
@@ -1114,6 +1116,34 @@ export const i18nMap = {
         "deactivate": "Deactivate",
         "details": "Details",
         "retry": "Retry",
+        "linkDetailType": "Connection",
+        "linkBasicInfo": "Connection information",
+        "linkRelationType": "Relation type",
+        "linkLayer2": "Layer 2 connection",
+        "linkVirtualLayer2": "Virtual Layer 2 connection",
+        "linkOwnership": "Ownership",
+        "linkVirtualOwnership": "Virtual ownership",
+        "linkSourceType": "Connection source",
+        "linkManualMapping": "Manual mapping",
+        "linkTopologyRelation": "Collected topology relation",
+        "linkDirection": "Relation direction",
+        "linkDirected": "Directed",
+        "linkUndirected": "Undirected",
+        "linkEndpoints": "Connected objects",
+        "linkEndpointA": "Object A",
+        "linkEndpointB": "Object B",
+        "linkSourceObject": "Source object",
+        "linkTargetObject": "Target object",
+        "linkTraffic": "Traffic",
+        "linkTrafficTotal": "Received + transmitted",
+        "linkReceived": "Received",
+        "linkTransmitted": "Transmitted",
+        "linkMetricSource": "Measured interface",
+        "linkMetricInterval": "Measurement interval",
+        "linkMetricUnavailable": "Not collected",
+        "linkNoTraffic": "Traffic metrics have not been collected.",
+        "linkTrafficNote": "Receive/transmit values are measured at the interface, not individual flows on this connection.",
+        "linkId": "Connection ID",
         "copy": "Copy",
         "copied": "Copied",
         "success": "Success",
@@ -2547,6 +2577,34 @@ export const i18nMap = {
         "deactivate": "비활성화",
         "details": "상세 보기",
         "retry": "재시도",
+        "linkDetailType": "연결",
+        "linkBasicInfo": "연결 기본 정보",
+        "linkRelationType": "관계 유형",
+        "linkLayer2": "L2 연결",
+        "linkVirtualLayer2": "가상 L2 연결",
+        "linkOwnership": "소유 관계",
+        "linkVirtualOwnership": "가상 소유 관계",
+        "linkSourceType": "연결 출처",
+        "linkManualMapping": "수동 매핑",
+        "linkTopologyRelation": "수집된 토폴로지 관계",
+        "linkDirection": "관계 방향",
+        "linkDirected": "방향 있음",
+        "linkUndirected": "방향 없음",
+        "linkEndpoints": "연결된 객체",
+        "linkEndpointA": "객체 A",
+        "linkEndpointB": "객체 B",
+        "linkSourceObject": "출발 객체",
+        "linkTargetObject": "도착 객체",
+        "linkTraffic": "트래픽",
+        "linkTrafficTotal": "수신 + 송신",
+        "linkReceived": "수신",
+        "linkTransmitted": "송신",
+        "linkMetricSource": "수집 인터페이스",
+        "linkMetricInterval": "수집 구간",
+        "linkMetricUnavailable": "미수집",
+        "linkNoTraffic": "트래픽 지표가 수집되지 않았습니다.",
+        "linkTrafficNote": "수신·송신은 수집 인터페이스 기준이며, 이 연결만의 개별 통신량은 아닙니다.",
+        "linkId": "연결 ID",
         "copy": "복사",
         "copied": "복사됨",
         "success": "성공",
@@ -3758,57 +3816,12 @@ class DefaultConfig {
             }]
         }
 
-        // Keep node icons aligned 1:1 with left infrastructure layer icons.
-        switch (attrs.weight) {
-            case WEIGHT_SWITCH:
-                attrs.icon = "\uf6ff"
-                break
-            case WEIGHT_SWITCH_PORTS:
-                attrs.icon = "\uf796"
-                break
-            case WEIGHT_PHY_HOST:
-                attrs.icon = "\uf233"
-                break
-            case WEIGHT_PHY_NIC:
-                attrs.icon = "\uf538"
-                break
-            case WEIGHT_PHY_NET:
-                attrs.icon = "\uf538"
-                break
-            case WEIGHT_PHY_BOND:
-                attrs.icon = "\uf0c1"
-                break
-            case WEIGHT_BRIDGES:
-                attrs.icon = "\uf542"
-                break
-            case WEIGHT_VLAN:
-                attrs.icon = "\uf0e8"
-                break
-            case WEIGHT_VIRT_BRIDGES:
-                attrs.icon = "\uf247"
-                break
-            case WEIGHT_SYSTEM_VMS:
-                attrs.icon = "\uf085"
-                break
-            case WEIGHT_VIRT_ROUTERS:
-                attrs.icon = "\uf4d7"
-                break
-            case WEIGHT_VIRT_VMS:
-                attrs.icon = "\uf108"
-                break
-            case WEIGHT_VIRT_PORTS:
-                attrs.icon = "\uf796"
-                break
-            case WEIGHT_VIRT_NET:
-                attrs.icon = "\uf538"
-                break
-            case WEIGHT_PHY_PORTS:
-                attrs.icon = "\uf796"
-                break
-            case WEIGHT_NONE:
-                attrs.icon = "\uf538"
-                break
-        }
+        // A group keeps its members' layer even though its display name no
+        // longer starts with r-/s-/v- or contains the original NIC metadata.
+        if (node.data.IsTopologyGroup) attrs.weight = node.getWeight()
+
+        // Share the same glyph table with the left layer guide.
+        attrs.icon = topologyLayerGlyph(attrs.weight) || attrs.icon
 
         if (SHOW_DEBUG) {
             attrs.name = attrs.weight.toString() + "|" + attrs.name
@@ -4389,37 +4402,7 @@ class DefaultConfig {
     }
 
     linkAttrs(link: Link): LinkAttrs {
-        const trafficNodeMetric = (node: Node) => {
-            const data = node.data || {}
-            const type = typeof data.Type === "string" ? data.Type.toLowerCase() : ""
-            const driver = typeof data.Driver === "string" ? data.Driver.toLowerCase() : ""
-            const bus = typeof data.BusInfo === "string" ? data.BusInfo.toLowerCase() : ""
-            const ovs = data.Ovs || {}
-
-            if (
-                type === "tuntap" ||
-                type === "tun" ||
-                type === "device" ||
-                type === "switchport" ||
-                driver === "tun" ||
-                bus === "tap"
-            ) {
-                return {
-                    metric: data.LastUpdateMetric || ovs.LastUpdateMetric
-                }
-            }
-
-            return { metric: undefined }
-        }
-
-        const sourceMetric = trafficNodeMetric(link.source)
-        const targetMetric = trafficNodeMetric(link.target)
-        var metric = sourceMetric.metric || targetMetric.metric
-        var bandwidth = 0
-        if (metric && metric.Last > metric.Start) {
-            bandwidth = (metric.RxBytes + metric.TxBytes) * 8
-            bandwidth /= (metric.Last - metric.Start) / 1000
-        }
+        const bandwidth = topologyLinkTraffic(link)?.total ?? 0
         const hasVisibleBandwidth = Number.isFinite(bandwidth) && bandwidth >= 1
 
         var attrs = {

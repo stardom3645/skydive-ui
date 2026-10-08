@@ -5,6 +5,33 @@ const node = (id: string, parentID?: string, overrides: Partial<TopologyRegionNo
     id, parentID, visible: true, expanded: true, x: 0, y: 0, width: 280, height: 92, ...overrides
 })
 
+// Sample the actual SVG cubics, then use ray crossing to check containment.
+const pathContains = (path: string, x: number, y: number) => {
+    const tokens = path.match(/[MLCZ]|-?\d+(?:\.\d+)?(?:e[+-]?\d+)?/gi)!
+    const points: Array<[number, number]> = []
+    let at: [number, number] = [0, 0], index = 0
+    const point = (): [number, number] => [Number(tokens[index++]), Number(tokens[index++])]
+    while (index < tokens.length) {
+        const command = tokens[index++]
+        if (command === 'M' || command === 'L') { at = point(); points.push(at) }
+        else if (command === 'C') {
+            const start = at, a = point(), b = point(), end = point()
+            for (let step = 1; step <= 80; step++) {
+                const t = step / 80, u = 1 - t
+                points.push([0, 1].map(axis => u ** 3 * start[axis] + 3 * u ** 2 * t * a[axis]
+                    + 3 * u * t ** 2 * b[axis] + t ** 3 * end[axis]) as [number, number])
+            }
+            at = end
+        }
+    }
+    let inside = false
+    for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+        const [xi, yi] = points[i], [xj, yj] = points[j]
+        if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside
+    }
+    return inside
+}
+
 describe('Topology subtree background regions', () => {
     it('keeps visible top-level branches separate through invisible layout spacers', () => {
         const result = topologyGroupRegions([
@@ -102,5 +129,31 @@ describe('Topology subtree background regions', () => {
         assert.equal(collapsed.length, 1)
         assert.ok(!contains(collapsed[0].clipPath!, 190, 0))
         assert.ok(contains(collapsed[0].clipPath!, 140, 0))
+    })
+
+    it('keeps large VM rows connected without spreading their full width into a sparse router row', () => {
+        for (const count of [3, 15, 30, 60]) {
+            const nodes = [node('host', undefined, { width: 580, height: 300 }),
+                node('system', 'host', { y: 440, width: 440, height: 352 }),
+                node('router', 'system', { x: -240, y: 880, width: 580, height: 380 }),
+                ...Array.from({ length: count }, (_, index) => node(`vm-${index}`, 'router', {
+                    x: (index - (count - 1) / 2) * 476, y: 1320, width: 440, height: 352 }))]
+            const before = JSON.stringify(nodes)
+            const bands = topologyGroupRegionEnvelope(nodes), regions = topologyGroupRegions(nodes)
+            assert.equal(regions.length, 1)
+            assert.equal(regions[0].nodeIDs.length, nodes.length)
+            assert.ok(bands[2].right - bands[2].left <= 580 + 96 + 2 * 384)
+            assert.ok(bands[3].right - bands[3].left >= (count - 1) * 476 + 440)
+            assert.equal((regions[0].path.match(/M /g) || []).length, 1)
+            assert.equal((regions[0].path.match(/ Z/g) || []).length, 1)
+            assert.ok(!/NaN|Infinity/.test(regions[0].path))
+            nodes.forEach(node => {
+                for (const dx of [-1, 1]) for (const dy of [-1, 1]) {
+                    assert.ok(pathContains(regions[0].path, node.x + dx * node.width / 2, node.y + dy * node.height / 2),
+                        `VM count ${count}: region must enclose ${node.id} corner ${dx},${dy}`)
+                }
+            })
+            assert.equal(JSON.stringify(nodes), before)
+        }
     })
 })
