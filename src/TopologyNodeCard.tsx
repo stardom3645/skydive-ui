@@ -5,7 +5,7 @@ import { ThunderboltOutlined, BlockOutlined, AppstoreOutlined,
     CloudServerOutlined, LinkOutlined, BranchesOutlined, TagsOutlined } from '@ant-design/icons'
 import { TopologyNodePresentation, TopologyMetric } from './TopologyNodePresentation'
 import { TOPOLOGY_TOOLTIP_DISMISS_EVENT, watchTopologyTooltipAnchor } from './TopologyTooltipAnchor'
-import { TopologyStatusBadgeRail } from './TopologyStatusBadge'
+import { TopologyStatusBadgeRail, TOPOLOGY_STATUS_BADGE_RADIUS } from './TopologyStatusBadge'
 import './TopologyNodeCard.css'
 
 /** Ant overlays live outside the SVG. Close them when their D3 anchor moves,
@@ -68,7 +68,7 @@ export const TopologyMetricChip = ({ metric }: { metric: TopologyMetric }) => {
     const resource = ['cpu', 'memory', 'root-disk'].includes(metric.key)
     const tone = metric.percent !== undefined && metric.percent >= 90 ? 'critical'
         : metric.percent !== undefined && metric.percent >= 75 ? 'warning' : metric.key === 'cpu' ? 'cpu' : 'memory'
-    return <div className={`topology-metric-chip ${resource ? 'is-resource' : ''} ${metric.key === 'root-disk' ? 'is-root-disk' : ''} is-${tone} ${metric.percent !== undefined ? 'has-meter' : metric.description && metric.value !== '미수집' ? 'is-quantity' : ''}`}
+    return <div className={`topology-metric-chip ${resource ? 'is-resource' : ''} ${metric.key === 'root-disk' ? 'is-root-disk' : metric.key === 'vms' ? 'is-vm-count' : ''} is-${tone} ${metric.percent !== undefined ? 'has-meter' : metric.description && metric.value !== '미수집' ? 'is-quantity' : ''}`}
         title={`${metric.label}: ${metric.value}${metric.description ? ` · ${metric.description}` : ''}`}>
         <span className="topology-metric-chip__line">
             <span className="topology-metric-chip__label"><Icon aria-hidden="true" /><span>{metric.label}</span></span>
@@ -108,7 +108,7 @@ export const TopologyNodeCard = React.memo(({ model, icon, iconClass, href }: {
 }) => <><foreignObject className="topology-object-foreign" x={-model.width / 2} y={-model.height / 2}
     width={model.width} height={model.height}>
     <ConfigProvider theme={{ token: { fontSize: 14, fontFamily: 'var(--netdive-font-family)' } }}>
-        <article className={`topology-object-card is-${model.size} ${model.group ? `is-group ${model.fullyExpanded ? 'is-group-expanded' : ''}` : model.size === 'large' ? '' : 'is-tile'}`}
+        <article className={`topology-object-card is-${model.size} ${model.infrastructure && !model.group ? 'is-infrastructure-object' : ''} ${!model.group && model.resourceType === 'host' ? 'is-host' : ''} ${!model.group && model.resourceType === 'libvirt' ? 'is-vm' : ''} ${model.group ? `is-group ${model.fullyExpanded ? 'is-group-expanded' : ''}` : model.size === 'large' ? '' : 'is-tile'}`}
             aria-label={`${model.kind}: ${model.name}`}>
             <div className="topology-object-card__header">
                 <TopologyTypeIcon icon={icon} iconClass={iconClass} href={href} />
@@ -116,11 +116,18 @@ export const TopologyNodeCard = React.memo(({ model, icon, iconClass, href }: {
                     <TopologyCardTooltip title={model.name} block>
                         <strong className="topology-object-card__name">{model.name}</strong>
                     </TopologyCardTooltip>
-                    <span className="topology-object-card__subtitle" title={model.subtitle}>{model.subtitle}</span>
+                    {(!model.infrastructure || model.group) && <span className="topology-object-card__subtitle" title={model.subtitle}>{model.subtitle}</span>}
                 </div>
                 {(!model.group || model.status.tone === 'critical' || model.status.tone === 'inactive') && <TopologyObjectStatusBadge status={model.status} />}
                 {model.group && model.fullyExpanded && <span className="topology-object-card__group-state">전체 펼침</span>}
             </div>
+            {!model.group && (model.infrastructure ? !!model.networkSummary?.trim() : model.resourceType === 'libvirt') && <div className="topology-object-card__network"
+                title={model.networkSummary || '연결 네트워크 정보가 없습니다.'}>
+                <span className="topology-object-card__network-label">네트워크</span>
+                {model.infrastructure ? <TopologyCardTooltip title={model.networkSummary || ''} block>
+                    <span className="topology-object-card__network-name">{model.networkCount && model.networkCount > 1 ? `${model.networkCount}개` : model.networkSummary || '정보 없음'}</span>
+                </TopologyCardTooltip> : <span className="topology-object-card__network-name">{model.networkCount && model.networkCount > 1 ? `${model.networkCount}개` : model.networkSummary || '정보 없음'}</span>}
+            </div>}
             {model.group && model.children ? <TopologyGroupHeaderSummary children={model.children} /> :
                 model.metrics.length > 0 && <div className="topology-object-card__metrics">
                     {model.metrics.map(metric => <TopologyMetricChip key={metric.key} metric={metric} />)}
@@ -129,5 +136,5 @@ export const TopologyNodeCard = React.memo(({ model, icon, iconClass, href }: {
     </ConfigProvider>
 </foreignObject>
     {!model.group && <TopologyStatusBadgeRail badges={model.badges} summary={model.badgeSummary}
-        x={model.width / 2 - 15} y={-model.height / 2} />}
+        x={model.width / 2 - TOPOLOGY_STATUS_BADGE_RADIUS} y={-model.height / 2 - TOPOLOGY_STATUS_BADGE_RADIUS / 2} />}
 </>)

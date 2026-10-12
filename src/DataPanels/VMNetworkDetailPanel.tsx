@@ -1,3 +1,4 @@
+import { getMoldNetworkIndex, matchMoldNIC, moldNetworkVLAN, MoldNICNetwork } from '../MoldTopologyNetworks'
 import { DetailSectionIcon } from './common/DetailSectionIcon'
 import * as React from 'react'
 import { Tooltip } from 'antd'
@@ -34,32 +35,10 @@ interface FeatureItem {
     enabled: boolean
 }
 
-interface VMNetworkMapItem {
-    networkName: string
-    macAddress: string
-    ipAddress: string
-    networkType?: string
-    trafficType?: string
-    gateway?: string
-    cidr?: string
-    broadcastUri?: string
-    isDefault?: string
-    networkOffering?: string
-}
-
-interface MatchedVMNetwork {
+type VMNetworkMapItem = MoldNICNetwork
+interface MatchedVMNetwork extends MoldNICNetwork {
     vmKey: string
     vmName: string
-    networkName: string
-    macAddress: string
-    ipAddress: string
-    networkType?: string
-    trafficType?: string
-    gateway?: string
-    cidr?: string
-    broadcastUri?: string
-    isDefault?: string
-    networkOffering?: string
 }
 
 const isBlank = (value: any): boolean => {
@@ -217,32 +196,9 @@ class VMNetworkDetailPanel extends React.Component<Props, State> {
     }
 
     private matchedVMNetwork(): MatchedVMNetwork | undefined {
-        const mac = this.mac().toLowerCase()
-        const ip = this.ipAddress()
-        const vmNetworkMap = this.props.vmNetworkMap || {}
-        for (const vmKey of Object.keys(vmNetworkMap)) {
-            for (const network of vmNetworkMap[vmKey] || []) {
-                const networkMac = String(network.macAddress || '').toLowerCase()
-                const networkIp = String(network.ipAddress || '')
-                if ((mac && networkMac && mac === networkMac) || (ip && networkIp && ip === networkIp)) {
-                    return {
-                        vmKey,
-                        vmName: this.props.vmNameMap?.[vmKey] || vmKey,
-                        networkName: network.networkName || '',
-                        macAddress: network.macAddress || '',
-                        ipAddress: network.ipAddress || '',
-                        networkType: network.networkType || '',
-                        trafficType: network.trafficType || '',
-                        gateway: network.gateway || '',
-                        cidr: network.cidr || '',
-                        broadcastUri: network.broadcastUri || '',
-                        isDefault: network.isDefault || '',
-                        networkOffering: network.networkOffering || ''
-                    }
-                }
-            }
-        }
-        return undefined
+        const match = matchMoldNIC(this.props.node, getMoldNetworkIndex(this.props.vmNetworkMap, this.props.vmDetailMap))
+        if (!match) return undefined
+        return { ...match, vmKey: match.vmUuid || '', vmName: this.props.vmNameMap?.[match.vmInstanceName || ''] || match.vmInstanceName || match.vmUuid || '' }
     }
 
     private ipv4Addresses(): string[] {
@@ -348,6 +304,9 @@ class VMNetworkDetailPanel extends React.Component<Props, State> {
             { label: '상태', value: this.stateText(), variant: 'state' },
             { label: '네트워크 유형', value: this.moldNetworkType(), variant: 'networkType' },
             { label: '네트워크 이름', value: this.networkName() },
+            { label: 'CIDR', value: matched?.cidr },
+            { label: 'VLAN', value: matched ? moldNetworkVLAN(matched) : undefined },
+            { label: 'Zone', value: matched?.zoneName || matched?.zoneId },
             { label: 'IP 주소', value: matched?.ipAddress || this.ipAddress() },
             { label: 'MAC 주소', value: matched?.macAddress || this.mac() },
             { label: 'Primary NIC 여부', value: this.primaryNic() },

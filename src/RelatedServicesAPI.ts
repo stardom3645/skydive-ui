@@ -1,5 +1,6 @@
 import type { session } from './Store'
 import { translate } from './Config'
+import type { MoldNICNetwork } from './MoldTopologyNetworks'
 
 export interface RelatedServiceLink { url?: string; message?: string }
 export interface RelatedServices { mold: RelatedServiceLink; wall: RelatedServiceLink; cube: { port?: number; message?: string } }
@@ -29,4 +30,10 @@ export const getCubeHosts = async (userSession?: session, signal?: AbortSignal):
   const result = await request<{ hosts: CubeHost[] }>(userSession, '/api/mold/hosts', signal, 'cubeHostsLoadFailed')
   if (!Array.isArray(result?.hosts)) throw new Error(translate('cubeHostsLoadFailed'))
   return result.hosts.map(host => ({ id: String(host.id || ''), name: String(host.name || host.id || ''), managementIp: String(host.managementIp || '') }))
+}
+
+export const getMoldNetworks = async (userSession?: session, signal?: AbortSignal): Promise<MoldNICNetwork[]> => {
+  const result = await request<{ networks: MoldNICNetwork[] }>(userSession, '/api/mold/networks', signal)
+  if (!Array.isArray(result?.networks)) throw new Error('Mold 네트워크 목록을 조회하지 못했습니다.')
+  return result.networks.filter(network => typeof network.networkId === 'string' && network.networkId.length > 0)
 }

@@ -1,0 +1,9 @@
+.infrastructure-vm-layout { box-sizing: border-box; flex: 0 1 196px; min-width: 176px; padding: 5px 8px; border: 1px solid var(--netdive-ant-border, #e7eef8); border-radius: 10px; background: var(--netdive-ant-bg, rgba(255,255,255,.78)); }
+.infrastructure-vm-layout__title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 3px; padding-inline: 2px; font-size: 12px; font-weight: 600; color: var(--netdive-ant-heading, #25334b); }
+.infrastructure-vm-layout__title > span { font-size: 11px; font-weight: 400; color: var(--netdive-ant-muted, #63748d); }
+.infrastructure-vm-layout .ant-segmented { background: var(--netdive-ant-hover, #f3f6fb); color: var(--netdive-ant-heading, #25334b); font-size: 12px; }
+.infrastructure-vm-layout .ant-segmented.ant-segmented-sm .ant-segmented-item-label { padding-inline: 5px; }
+@media (max-width: 1450px) {
+    .infrastructure-vm-layout { flex-basis: 180px; padding-inline: 6px; }
+    .infrastructure-vm-layout .ant-segmented.ant-segmented-sm .ant-segmented-item-label { font-size: 11px; padding-inline: 3px; }
+}

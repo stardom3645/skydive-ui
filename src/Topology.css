@@ -1040,7 +1040,7 @@ svg {
 }
 
 .node-exco-children {
-    font-size: 16px;
+    font-size: 28.8px;
     fill: #fff;
     text-anchor: middle;
     font-weight: bold;
@@ -1687,3 +1687,8 @@ svg {
     vector-effect: non-scaling-stroke;
     opacity: var(--topology-group-guide-opacity, 0.62);
 }
+
+/* Network membership is a visual scope, independent of selection and visibility. */
+.node.mold-network-dim, .hiera-link.mold-network-dim, .link.mold-network-dim,
+.link-overlay.mold-network-dim, .link-label.mold-network-dim { filter: opacity(.2); }
+.link.mold-network-hit, .hiera-link.mold-network-hit { stroke: #4a86d7; stroke-width: 3px; }

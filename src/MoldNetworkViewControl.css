@@ -1,0 +1,4 @@
+.mold-network-view { box-sizing: border-box; flex: 0 1 184px; width: 184px; min-width: 144px; padding: 5px 10px; border: 1px solid var(--netdive-ant-border, #e7eef8); border-radius: 10px; background: var(--netdive-ant-bg, rgba(255,255,255,.78)); }
+.mold-network-view__title { display: flex; align-items: center; gap: 6px; color: var(--netdive-ant-heading, #25334b); font-size: 12px; font-weight: 600; }
+.mold-network-view .ant-select { width: 100%; font-size: 12px; }
+.mold-network-view .ant-select-content { padding-inline: 0; }

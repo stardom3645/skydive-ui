@@ -5,11 +5,12 @@ import { TOPOLOGY_TOOLTIP_DISMISS_EVENT, topologyTooltipAnchorValid, watchTopolo
 import { TopologyObjectStatusBadge } from './TopologyNodeCard'
 import type { TopologyCardTone } from './TopologyNodePresentation'
 
-export const TOPOLOGY_STATUS_BADGE_RADIUS = 15
-export const TOPOLOGY_STATUS_BADGE_STEP = 34
-const TOPOLOGY_STATUS_BADGE_LIST_GAP = 4
-const TOPOLOGY_STATUS_BADGE_LIST_VIEWPORT_SCALE = 0.6
-const TOPOLOGY_STATUS_BADGE_VIEWBOX_PADDING = 2
+export const TOPOLOGY_STATUS_BADGE_RADIUS = 27
+export const TOPOLOGY_STATUS_BADGE_STEP = 61.5
+// Enlarge canvas badges while preserving the pixel footprint of panel rows.
+const TOPOLOGY_STATUS_BADGE_LIST_GAP = 6
+const TOPOLOGY_STATUS_BADGE_LIST_VIEWPORT_SCALE = 0.4
+const TOPOLOGY_STATUS_BADGE_VIEWBOX_PADDING = 3
 
 export interface TopologyStatusBadgeTooltip {
     title: string
@@ -115,8 +116,8 @@ const TopologyStatusBadgeGlyph = ({
     {text ? <text
         className="node-exco-children"
         x={x}
-        y={y + 5}
-        style={text.length >= 3 ? { fontSize: 12 } : undefined}>
+        y={y + 9}
+        style={text.length >= 3 ? { fontSize: 21.6 } : undefined}>
         {text}
     </text> : null}
 </g>

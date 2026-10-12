@@ -13,7 +13,9 @@ export type TopologyCardSize = 'large' | 'medium' | 'compact'
 export type TopologyCardTone = 'normal' | 'warning' | 'critical' | 'unknown' | 'inactive'
 export interface TopologyMetric { key: string; label: string; value: string; percent?: number; description?: string }
 export interface TopologyNodePresentation {
-    name: string; subtitle: string; kind: string; size: TopologyCardSize
+    infrastructure?: boolean
+    resourceType: string
+    name: string; subtitle: string; kind: string; size: TopologyCardSize; networkSummary?: string; networkCount?: number
     width: number; height: number; group: boolean; expanded: boolean; fullyExpanded: boolean; expandable: boolean
     status: { tone: TopologyCardTone; label: string; description: string }
     metrics: TopologyMetric[]
@@ -45,8 +47,9 @@ const read = (data: any, paths: string[]) => {
     }
 }
 
-export const topologyCardDimensions = (node: Node, group = false) => {
+export const topologyCardDimensions = (node: Node, group = false, options: { networkSummary?: string } = {}) => {
     const type = typeOf(node)
+    const infrastructure = String(node.data?.Manager || '').toLowerCase() !== 'k8s'
     group = group || (type === 'namespace' && (node.children || []).length > 0)
     const size: TopologyCardSize = ['cluster', 'host'].includes(type) && !group ? 'large'
         : group || ['node', 'namespace', 'deployment', 'statefulset', 'daemonset', 'job', 'cronjob', 'libvirt', 'switch'].includes(type) ? 'medium' : 'compact'
@@ -59,9 +62,10 @@ export const topologyCardDimensions = (node: Node, group = false) => {
             height: (topologyGroupFullyExpanded(node) ? 180 : 280) + nameRows + scopeRows }
     }
     // Switch cards show identity/status and a connection count, not VM metrics.
-    // Keep enough height for two name lines without an empty resource area.
+    // Infrastructure needs at most three name lines and one metric row.
     if (type === 'switch') return { size, width: TOPOLOGY_CARD_SIZES[size].width,
-        height: (node.children || []).length ? 280 : 224 }
+        height: infrastructure ? ((node.children || []).length ? 224 : 148)
+            : (node.children || []).length ? 264 + (String(node.data?.Name || '').length > 24 ? 36 : 0) : 224 }
     // Keep room for actual details; a name/status-only resource needs no empty
     // metric area. Layout and SVG rendering use this same measurement.
     const data = node.data || {}
@@ -71,15 +75,20 @@ export const topologyCardDimensions = (node: Node, group = false) => {
                 ? read(data, ['K8s.Extra.Status.Capacity.storage', 'K8s.Extra.Status.capacity.storage', 'K8s.Extra.Spec.Capacity.storage', 'K8s.Extra.Spec.capacity.storage', 'K8s.Extra.Spec.StorageClassName', 'K8s.Extra.Spec.storageClassName']) !== undefined
                 : (node.children || []).length > 0)
     return { size, ...TOPOLOGY_CARD_SIZES[size], ...(type === 'host' ? { height: 404 } : {}),
-        ...(type === 'libvirt' ? { height: 432 } : {}),
-        ...(type === 'pod' ? { height: 328 } : {}), ...(!hasMetrics ? { height: 224 } : {}) }
+        // All VM kinds share one silhouette and fixed information slots.
+        ...(type === 'libvirt' ? { width: 480, height: infrastructure ? (options.networkSummary?.trim() ? 534 : 400) : 556 } : {}),
+        ...(type === 'pod' ? { height: 352 } : {}),
+        ...(['persistentvolume', 'persistentvolumeclaim'].includes(type) ? { height: 416 } : {}),
+        ...(!hasMetrics ? { height: infrastructure ? 148 : 224 } : {}),
+        ...(infrastructure && type !== 'libvirt' && options.networkSummary?.trim()
+            ? { height: (hasMetrics ? TOPOLOGY_CARD_SIZES[size].height : 148) + 134 } : {}) }
 }
 
 /** A view model only: graph ownership and the shared status classifiers remain
  * authoritative. Absent measurements never become zero or a fabricated rate. */
 export const topologyNodePresentation = (node: Node, options: {
     name: string; group?: boolean; scope?: string; children?: Node[]; links?: Link[]
-    resourceData?: TopologyResourceSnapshot; allNodes?: Node[]; infrastructureSummary?: any
+    resourceData?: TopologyResourceSnapshot; allNodes?: Node[]; infrastructureSummary?: any; networkSummary?: string; networkCount?: number
 }): TopologyNodePresentation => {
     const type = typeOf(node), data = topologyInfrastructureData(node, options.resourceData)
     const group = !!options.group || (type === 'namespace' && (node.children || []).length > 0)
@@ -155,13 +164,10 @@ export const topologyNodePresentation = (node: Node, options: {
     } else if (['node', 'host', 'libvirt'].includes(type) && !group) {
         metrics.push(...topologyResourceMetrics(node, options.resourceData, options.allNodes))
         if (type === 'node') count('pods', '파드', options.resourceData?.detail?.podCount ?? read(data, ['PodCount', 'K8s.PodCount', 'K8s.Extra.Status.PodCount']))
-        else {
+        else if (type === 'host') {
             count('vms', '가상머신', options.infrastructureSummary?.userVMs ?? read(data, ['UserVMCount', 'userVmCount', 'RunningVMCount', 'runningVmCount']))
-            if (type === 'host') {
-                count('system-vms', '시스템 VM', options.infrastructureSummary?.systemVMs ?? read(data, ['SystemVMCount', 'systemVmCount']))
-                count('routers', '가상 라우터', options.infrastructureSummary?.routers ?? read(data, ['VirtualRouterCount', 'virtualRouterCount']))
-            }
-            count('children', '연결 자원', children.length)
+            // Host cards summarize capacity and user VMs. System VM/router
+            // counts remain in details; the connection count is on the badge.
         }
     } else if (type === 'namespace' && !group) {
         count('workloads', '워크로드', children.filter(item => ['deployment', 'statefulset', 'daemonset', 'job', 'cronjob'].includes(typeOf(item))).length)
@@ -180,18 +186,23 @@ export const topologyNodePresentation = (node: Node, options: {
         count('storage-class', '클래스', read(data, ['K8s.Extra.Spec.StorageClassName', 'K8s.Extra.Spec.storageClassName']))
     } else if (!group && type !== 'pod' && children.length) count('children', '연결 자원', distribution?.total)
     if (!group && !['node', 'host', 'libvirt'].includes(type)) metrics.push(...topologyResourceMetrics(node, options.resourceData, options.allNodes))
-    const dimensions = topologyCardDimensions(node, group)
-    // A full-width filesystem row follows the two-column metrics/counts. Keep
-    // it visible without dropping existing host/VM counts at the metric limit.
+    if (type === 'libvirt' && !group && !metrics.some(metric => metric.key === 'root-disk')) {
+        metrics.push({ key: 'root-disk', label: '루트 디스크', value: '미수집',
+            description: '루트 파일시스템 / 용량 미수집' })
+    }
+    const dimensions = topologyCardDimensions(node, group, options)
+    // Root storage belongs directly below CPU/memory, ahead of object counts.
     const rootDisk = metrics.find(metric => metric.key === 'root-disk')
-    if (rootDisk) { metrics.splice(metrics.indexOf(rootDisk), 1); metrics.push(rootDisk) }
+    if (rootDisk) { metrics.splice(metrics.indexOf(rootDisk), 1); metrics.splice(2, 0, rootDisk) }
     const badges: TopologyStatusBadgeItem[] = kubernetes ? kubernetesTopologyCountBadges(node, children)
         : children.length ? [{ key: 'children', count: children.length, tone: 'running', label: '연결 자원', tooltip: `연결된 자원 ${children.length}개` }] : []
     const badgeSummary: TopologyStatusBadgeGroupSummary = kubernetes ? kubernetesTopologyBadgeGroupSummary(node, badges as any, children)
         : { title: '연결 자원', totalLabel: `연결 자원 총 ${children.length}개`, states: badges.map(badge => ({ key: badge.key, tone: badge.tone, label: '연결 자원', count: badge.count })) }
     if (distribution?.total) status.description += ` · 바로 아래 자원 ${distribution.total}개: 정상 ${distribution.normal}, 주의 ${distribution.warning}, 장애 ${distribution.critical}, 비활성 ${distribution.inactive}`
-    return { ...dimensions, group, name: (!options.group && kubernetes ? String(data.Name || lines[0] || node.id).replace(/\s*\n\s*/g, ' ') : primaryName) || node.id,
+    return { ...dimensions, infrastructure: !kubernetes, resourceType: type, group, name: (!options.group && kubernetes ? String(data.Name || lines[0] || node.id).replace(/\s*\n\s*/g, ' ') : primaryName) || node.id,
         kind, subtitle: options.scope || (group ? `${kind} · ${distribution?.total || 0}개 자원` : type === 'cluster' ? kind : namespace ? `${kind} · ${namespace}` : lines[1] || kind),
         expanded: !!node.state.expanded, fullyExpanded: group && topologyGroupFullyExpanded(node), expandable: children.length > 0, status,
+        networkSummary: !group && (!kubernetes || type === 'libvirt') ? options.networkSummary : undefined,
+        networkCount: !group && type === 'libvirt' ? options.networkCount : undefined,
         metrics: metrics.slice(0, dimensions.size === 'large' ? 7 : type === 'libvirt' ? 5 : 4), children: distribution, badges, badgeSummary }
 }

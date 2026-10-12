@@ -1,3 +1,8 @@
+import { MoldNetworkViewControl } from './MoldNetworkViewControl'
+import { InfrastructureVMLayoutControl } from './InfrastructureVMLayoutControl'
+import { InfrastructureVMLayoutMode } from './InfrastructureCompactLayout'
+import { getMoldNetworkIndex, MoldNICNetwork } from './MoldTopologyNetworks'
+import { getMoldNetworks } from './RelatedServicesAPI'
 /*
  * Copyright (C) 2019 Sylvain Afchain
  *
@@ -309,6 +314,10 @@ const saveTopologyDisplayOptions = (options: TopologyDisplayOptions) => {
 }
 
 interface State {
+  infrastructureVMLayout: InfrastructureVMLayoutMode
+  infrastructureVMLayoutResult?: { twoRowVMs: number; reason: string }
+  moldNetworkFocusID?: string
+  moldNetworks?: MoldNICNetwork[]
   vmNameMap?: Record<string, string>
   vmNetworkMap?: Record<string, Array<{ networkName: string, macAddress: string, ipAddress: string }>>
   vmDetailMap?: Record<string, any>
@@ -582,6 +591,7 @@ class App extends React.Component<Props, State> {
     super(props)
 
     this.state = {
+      infrastructureVMLayout: 'linear',
       isContextMenuOn: "none",
       contextMenuX: 0,
       contextMenuY: 0,
@@ -976,6 +986,12 @@ class App extends React.Component<Props, State> {
 
 
   private refreshVmNetworkMap() {
+    getMoldNetworks(this.props.session).then(networks => {
+      if (JSON.stringify(this.state.moldNetworks) !== JSON.stringify(networks)) {
+        const retained = !this.state.moldNetworkFocusID || networks.some(network => network.networkId?.toLowerCase() === this.state.moldNetworkFocusID)
+        this.setState({ moldNetworks: networks, moldNetworkFocusID: retained ? this.state.moldNetworkFocusID : undefined })
+      }
+    }).catch(() => { /* Older analyzers can still expose the NIC-linked catalog. */ })
     const ts = Date.now()
     fetch(`/api/vm-network-map?_=${ts}`, { cache: "no-store" }).then((resp) => {
       if (!resp.ok) {
@@ -6157,6 +6173,13 @@ class App extends React.Component<Props, State> {
             {this.renderLayerFilterMenu(classes)}
             {this.renderConnectionDisplayMenu(classes)}
             {this.renderTopologyDisplayOptions(classes)}
+            {!this.isKubernetesLayerActive() && <MoldNetworkViewControl
+              networks={this.state.moldNetworks || getMoldNetworkIndex(this.state.vmNetworkMap, this.state.vmDetailMap).networks}
+              value={this.state.moldNetworkFocusID}
+              onChange={moldNetworkFocusID => this.setState({ moldNetworkFocusID })} />}
+            {!this.isKubernetesLayerActive() && <InfrastructureVMLayoutControl
+              value={this.state.infrastructureVMLayout} result={this.state.infrastructureVMLayoutResult}
+              onChange={infrastructureVMLayout => this.setState({ infrastructureVMLayout })} />}
             <span className={classes.toolbarSectionDivider} />
             <div className={classes.toolbarActionCluster}>
               <div className={classes.toolbarActionGroup}>
@@ -6264,6 +6287,9 @@ class App extends React.Component<Props, State> {
               defaultLinkTagMode={this.config.defaultLinkTagMode.bind(this.config)}
               vmNameMap={this.state.vmNameMap}
               vmNetworkMap={this.state.vmNetworkMap}
+              moldNetworkFocusID={this.isKubernetesLayerActive() ? undefined : this.state.moldNetworkFocusID}
+              infrastructureVMLayout={this.isKubernetesLayerActive() ? 'linear' : this.state.infrastructureVMLayout}
+              onInfrastructureVMLayoutResult={infrastructureVMLayoutResult => this.setState({ infrastructureVMLayoutResult })}
               resourceSession={this.props.session}
               resourceDataEnabled={!this.state.isTimetravelOpen && !this.state.timeContext}
               kubernetesClusters={this.state.kubernetesClusters}

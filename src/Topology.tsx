@@ -1,3 +1,4 @@
+import { getMoldNetworkIndex, matchMoldNIC, moldVMNetworkSummary, moldVMNetworkCount, moldVMNetworks, moldVMUUID, MoldVMNetworkMap } from './MoldTopologyNetworks'
 /*
  * Copyright (C) 2019 Sylvain Afchain
  *
@@ -23,12 +24,17 @@ import { TopologyReactRoots } from './TopologyReactRoots'
 import { TopologyCaptureIndicator } from './TopologyCaptureIndicator'
 import { TopologyNodeCard } from './TopologyNodeCard'
 import { topologyCardDimensions, topologyNodePresentation, topologyGroupFullyExpanded } from './TopologyNodePresentation'
+import { topologyLaneBounds, topologyLaneOffsets } from './TopologyLaneSpacing'
+import { TOPOLOGY_STATUS_BADGE_RADIUS } from './TopologyStatusBadge'
 import { TopologyResourceData, topologyResourcePlan, topologyInventoryData } from './TopologyResourceData'
 import { topologyCardEdge, topologyHierarchyEdgeIDs } from './TopologyEdgePresentation'
+import { infrastructureCompactLayout, infrastructureVMBridgeIDs, InfrastructureCompactPlan,
+    InfrastructureVMLayoutMode, CompactLayoutNode } from './InfrastructureCompactLayout'
+import { compactTrafficLabel, nearestCompactEdge, RoutingEdge } from './InfrastructureCompactRouting'
 import { Avatar, Button, Card, Input, List, Tag, Typography } from 'antd'
 import { NodeIndexOutlined } from '@ant-design/icons'
 import { hierarchy } from 'd3-hierarchy'
-import { Selection, select, selectAll, event } from 'd3-selection'
+import { Selection, select, selectAll, event, mouse } from 'd3-selection'
 import { line, linkVertical, curveCatmullRom, curveCardinalClosed } from 'd3-shape'
 import { } from 'd3-transition'
 import { zoom, zoomIdentity } from 'd3-zoom'
@@ -593,7 +599,10 @@ interface Props {
     defaultNodeTag?: () => string
     defaultLinkTagMode?: (tag: string) => LinkTagState
     vmNameMap?: Record<string, string>
-    vmNetworkMap?: Record<string, Array<{ networkName: string, macAddress: string, ipAddress: string }>>
+    vmNetworkMap?: MoldVMNetworkMap
+    moldNetworkFocusID?: string
+    infrastructureVMLayout?: InfrastructureVMLayoutMode
+    onInfrastructureVMLayoutResult?: (result: { twoRowVMs: number; reason: string }) => void
     onZoomChange?: (zoom: number) => void
     emptyKubernetesContent?: React.ReactNode
     resourceSession?: { endpoint: string; token?: string }
@@ -672,6 +681,11 @@ export class Topology extends React.Component<Props, {}> {
     private nodeGroup: Map<string, NodeWrapper>
     private weights: Array<number>
     private visibleLinksCache: Array<Link> | undefined
+    private infrastructureCompactPlan?: InfrastructureCompactPlan
+    private infrastructureCompactKey = ''
+    private infrastructureCompactResultKey = ''
+    private infrastructureResizeTimer?: number
+    private infrastructureLayoutTransition = false
     private lastVmNameMapRef: Record<string, string> | undefined
     private lastVmNetworkMapRef: Record<string, Array<{ networkName: string, macAddress: string, ipAddress: string }>> | undefined
     private pinnedContainerMiniNodeID: string
@@ -751,6 +765,13 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     componentDidUpdate(prevProps: Props) {
+        if (prevProps.infrastructureVMLayout !== this.props.infrastructureVMLayout
+            || (this.props.infrastructureVMLayout === 'compact' && prevProps.vmNetworkMap !== this.props.vmNetworkMap)) {
+            this.relayoutInfrastructureVMs()
+        }
+        if (prevProps.moldNetworkFocusID !== this.props.moldNetworkFocusID || prevProps.vmNetworkMap !== this.props.vmNetworkMap
+            || prevProps.vmDetailMap !== this.props.vmDetailMap) this.applyMoldNetworkFocus()
+        if (prevProps.vmNetworkMap !== this.props.vmNetworkMap) this.refreshResourceCards()
         if (prevProps.resourceSession?.endpoint !== this.props.resourceSession?.endpoint
             || prevProps.resourceSession?.token !== this.props.resourceSession?.token
             || prevProps.resourceDataEnabled !== this.props.resourceDataEnabled) this.startResourceData()
@@ -797,6 +818,7 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     componentWillUnmount() {
+        if (this.infrastructureResizeTimer !== undefined) window.clearTimeout(this.infrastructureResizeTimer)
         this.resourceData?.dispose()
         if (this.resourceRefreshTimer !== undefined) window.clearInterval(this.resourceRefreshTimer)
         if (this.resourceCardRefreshTimer !== undefined) window.clearTimeout(this.resourceCardRefreshTimer)
@@ -829,6 +851,28 @@ export class Topology extends React.Component<Props, {}> {
         this.svg
             .attr("width", rect.width)
             .attr("height", rect.height)
+        if (this.props.infrastructureVMLayout === 'compact' && this.nodeTagActive.toLowerCase() !== 'kubernetes') {
+            if (this.infrastructureResizeTimer !== undefined) window.clearTimeout(this.infrastructureResizeTimer)
+            this.infrastructureResizeTimer = window.setTimeout(() => {
+                this.infrastructureResizeTimer = undefined
+                this.relayoutInfrastructureVMs()
+            }, 150)
+        }
+    }
+
+    private relayoutInfrastructureVMs() {
+        if (!this.svg || !this.g || !this.d3nodes.size) return
+        this.cancelScheduledZoomFit()
+        this.svg.interrupt()
+        const anchor = Array.from(this.d3nodes.values()).find(node => node.data.wrapped.state.selected && node.data.type === WrapperType.Normal)
+        const old = anchor ? { id: anchor.data.id, x: anchor.x, y: anchor.y } : undefined
+        const transform = (this.svg.node() as any).__zoom || zoomIdentity
+        this.invalidated = true
+        this.infrastructureLayoutTransition = true
+        try { this.renderTree() } finally { this.infrastructureLayoutTransition = false }
+        const next = old && this.d3nodes.get(old.id)
+        if (next && old) this.svg.call(this.zoom.transform,
+            zoomIdentity.translate(transform.x + (old.x - next.x) * transform.k, transform.y + (old.y - next.y) * transform.k).scale(transform.k))
     }
 
     private nodeDisplayNameForGroupList(node: Node): string {
@@ -2155,20 +2199,9 @@ export class Topology extends React.Component<Props, {}> {
             return null
         }
 
-        var node0 = levelNodes.nodes[0]
-        var minY = node0.y, maxY = node0.y
-
-        for (let node of levelNodes.nodes) {
-            if (minY > node.y) {
-                minY = node.y
-            }
-            if (maxY < node.y) {
-                maxY = node.y
-            }
-        }
+        const bounds = topologyLaneBounds(levelNodes.nodes.map(node => this.topologyLaneItem(node)))
 
         var gBB = this.sceneSizeX()
-        const margin = nodeHeight / 2
 
         var width = this.svgDiv.clientWidth * 10
 
@@ -2176,9 +2209,9 @@ export class Topology extends React.Component<Props, {}> {
             weight: levelNodes.weight,
             bb: {
                 x: gBB[0] - width,
-                y: minY - margin,
+                y: bounds.top,
                 width: (gBB[1] - gBB[0]) + width * 2,
-                height: maxY - minY + margin * 2
+                height: bounds.bottom - bounds.top
             }
         }
     }
@@ -2224,6 +2257,11 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     private compactVmLayerKind(node: D3Node): 'system' | 'router' | 'user' | undefined {
+        // A vNIC may inherit its VM's weight through getWeight(). That does
+        // not make it a VM row: treating it as one repositions the owning VM.
+        const data = node.data.wrapped.data || {}
+        const type = node.data.type === WrapperType.Group ? data.GroupType || data.Type : data.Type
+        if (String(type || '').toLowerCase() !== 'libvirt') return undefined
         const weight = node.data.wrapped.getWeight()
         if (weight === 7060) return 'system'
         if (weight === 7070) return 'router'
@@ -2267,7 +2305,6 @@ export class Topology extends React.Component<Props, {}> {
         const attrsName = self.props.nodeAttrs(d.data.wrapped).name
         const nodeData = d.data.wrapped.data || {}
         const vmNameMap = self.props.vmNameMap || {}
-        const vmNetworkMap = self.props.vmNetworkMap || {}
 
         if (d.data.type === WrapperType.Group) {
             const scope = self.topologyGroupCardScope(d)
@@ -2287,265 +2324,9 @@ export class Topology extends React.Component<Props, {}> {
         // IP > Mold network name > existing interface name.
         const nodeType = typeof nodeData.Type === "string" ? nodeData.Type.toLowerCase() : ""
         const nodeDriver = typeof nodeData.Driver === "string" ? nodeData.Driver.toLowerCase() : ""
-        if (
-            nodeType === "tuntap" ||
-            nodeType === "tun" ||
-            nodeDriver === "tun" ||
-            nodeDriver === "tuntap"
-        ) {
-            let parent = d.data.wrapped.parent
-            while (parent && parent.data?.Type !== "libvirt") {
-                parent = parent.parent
-            }
-            const libvirtName = parent?.data?.Name
-            const parentDisplayName = parent ? self.props.nodeAttrs(parent).name : undefined
-            const vmNameMapped = libvirtName ? vmNameMap[libvirtName] : undefined
-            const vmKeys = [
-                libvirtName,
-                vmNameMapped,
-                parentDisplayName,
-                parent?.data?.UUID,
-                parent?.data?.ID,
-                parent?.data?.ExtID,
-                parent?.data?.VirtualMachineID,
-                parent?.data?.instanceName
-            ]
-                .map((v) => (typeof v === "string" ? v.trim() : ""))
-                .filter((v, idx, arr) => !!v && arr.indexOf(v) === idx)
-            let nicList: Array<{ networkName: string, macAddress: string, ipAddress: string }> = []
-            for (const key of vmKeys) {
-                const found = vmNetworkMap[key]
-                if (Array.isArray(found) && found.length > 0) {
-                    nicList = found
-                    break
-                }
-            }
-
-            const normalizeMac = (value: any): string => {
-                if (typeof value !== "string") {
-                    return ""
-                }
-                return value.toLowerCase().replace(/[^0-9a-f]/g, "")
-            }
-            const normalizeIP = (value: any): string => {
-                if (typeof value !== "string") {
-                    return ""
-                }
-                return value.trim().split("/")[0]
-            }
-            const normalizeIfToken = (value: any): string => {
-                if (typeof value !== "string") {
-                    return ""
-                }
-                return value.trim().toLowerCase()
-            }
-            const collectIfTokens = (value: any): string[] => {
-                const raw = normalizeIfToken(value)
-                if (!raw) {
-                    return []
-                }
-                // e.g. "ens3 / vnet13" -> ["ens3", "vnet13"]
-                return raw.split(/[\/,\s]+/).map((v) => v.trim()).filter(Boolean)
-            }
-            const pickText = (obj: any, keys: string[]): string => {
-                for (const key of keys) {
-                    const value = obj?.[key]
-                    if (value !== undefined && value !== null) {
-                        const text = String(value).trim()
-                        if (text) {
-                            return text
-                        }
-                    }
-                }
-                return ""
-            }
-            const nodeMacCandidates = [
-                nodeData.MAC,
-                nodeData.PeerIntfMAC,
-                nodeData?.Libvirt?.MAC,
-                nodeData?.Libvirt?.Mac,
-            ]
-                .map((v) => normalizeMac(v))
-                .filter((v, idx, arr) => !!v && arr.indexOf(v) === idx)
-            const nodeIPs = [
-                ...(Array.isArray(nodeData.IPV4) ? nodeData.IPV4 : [nodeData.IPV4]),
-                ...(Array.isArray(nodeData.IPV6) ? nodeData.IPV6 : [nodeData.IPV6]),
-                ...(Array.isArray(nodeData.IfAddr) ? nodeData.IfAddr : [nodeData.IfAddr]),
-                ...(Array.isArray(nodeData.Addresses) ? nodeData.Addresses : [nodeData.Addresses]),
-            ]
-                .map((v) => normalizeIP(typeof v === "string" ? v : String(v || "")))
-                .filter((v) => !!v)
-            const nodeIPSet = new Set(nodeIPs)
-            const nodeIfTokens = [
-                ...collectIfTokens(nodeData.Name),
-                ...collectIfTokens(nodeData.IfName),
-                ...collectIfTokens(nodeData.PeerIfName),
-                ...collectIfTokens(nodeData.Interface),
-            ]
-            const nodeIfTokenSet = new Set(nodeIfTokens)
-            const matchedNic = nicList.find((nic: any) => {
-                const nicIP = normalizeIP(pickText(nic, ["ipAddress", "ip", "ip_address", "fixedIp", "fixed_ip"]))
-                if (nicIP && nodeIPSet.has(nicIP)) {
-                    return true
-                }
-                const nicMac = normalizeMac(pickText(nic, ["macAddress", "mac", "mac_address", "macAddr"]))
-                if (nicMac && nodeMacCandidates.some((m) => m === nicMac)) {
-                    return true
-                }
-                if (nodeIfTokenSet.size === 0) {
-                    return false
-                }
-                const nicIfCandidates = [
-                    nic.interfaceName,
-                    nic.ifName,
-                    nic.tapName,
-                    nic.tap_name,
-                    nic.deviceName,
-                    nic.device_name,
-                    nic.device,
-                    nic.name,
-                    nic.iface,
-                    nic.interface
-                ]
-                const nicTokens = nicIfCandidates.reduce((acc: string[], raw: any) => {
-                    const tokens = collectIfTokens(raw)
-                    if (tokens.length) {
-                        acc.push(...tokens)
-                    }
-                    return acc
-                }, [] as string[])
-                if (nicTokens.length === 0) {
-                    return false
-                }
-                return nicTokens.some((token) => nodeIfTokenSet.has(token))
-            })
-
-            const fallbackNic = matchedNic || (nicList.length === 1 ? nicList[0] : undefined)
-            const ip = pickText(fallbackNic, ["ipAddress", "ip", "ip_address", "fixedIp", "fixed_ip"])
-            const interfaceFromNic = pickText(fallbackNic, [
-                "interfaceName",
-                "ifName",
-                "guestInterface",
-                "guestInterfaceName",
-                "guestDeviceName",
-                "guestDevice",
-                "deviceName",
-                "device_name",
-                "device",
-                "iface",
-                "interface"
-            ])
-            const interfaceFromNode = pickText(nodeData, [
-                "GuestInterface",
-                "GuestInterfaceName",
-                "GuestDeviceName",
-                "GuestDevice",
-                "IfName",
-                "PeerIfName",
-                "Interface",
-                "Name"
-            ])
-            const pickInterfaceName = (...values: string[]): string => {
-                const tokens = values.reduce((acc: string[], value) => {
-                    acc.push(...collectIfTokens(value))
-                    return acc
-                }, [] as string[])
-                    .filter((token, index, array) => !!token && array.indexOf(token) === index)
-                const guestToken = tokens.find((token) => /^(eth|ens|eno|enp)\d/i.test(token))
-                if (guestToken) {
-                    return guestToken
-                }
-                const nonTapToken = tokens.find((token) => !/^(vnet|tap|tun|tuntap)/i.test(token))
-                return nonTapToken || tokens[0] || ""
-            }
-            const interfaceName = pickInterfaceName(interfaceFromNic, interfaceFromNode)
-            const rawNetworkName = pickText(fallbackNic, ["networkName", "network", "network_name", "name"])
-            const toText = (value: any): string => {
-                if (value === undefined || value === null) {
-                    return ""
-                }
-                return String(value).trim()
-            }
-            const rawNodeNetwork = toText(nodeData.Network)
-            const rawNodeIPv4 = Array.isArray(nodeData.IPV4)
-                ? toText(nodeData.IPV4[0])
-                : toText(nodeData.IPV4)
-            const rawNodeIfAddr = Array.isArray(nodeData.IfAddr)
-                ? toText(nodeData.IfAddr[0])
-                : toText(nodeData.IfAddr)
-            const rawNodeVlan = toText(nodeData.VLAN || nodeData.Vlan || nodeData.VLANID || nodeData.VlanID)
-            const rawNodeVni = toText(nodeData.VNI || nodeData.Vni)
-            const rawNodeBroadcast = toText(nodeData.Broadcast || nodeData.BROADCAST)
-            const fallbackNodeIP = normalizeIP(rawNodeIPv4 || rawNodeIfAddr)
-            const hasUntaggedHint = [rawNodeNetwork, rawNodeVlan, rawNodeVni, rawNodeBroadcast]
-                .some((v) => /(^|:\/\/)untagged$/i.test(v) || /untagged/i.test(v))
-            const isUntaggedNetwork =
-                /^(vlan:\/\/)?untagged$/i.test(rawNetworkName || "") ||
-                /^(vlan:\/\/)?untagged$/i.test(rawNodeNetwork) ||
-                /^(vlan:\/\/)?untagged$/i.test(rawNodeVlan) ||
-                /^(vlan:\/\/)?untagged$/i.test(rawNodeVni) ||
-                /^(vlan:\/\/)?untagged$/i.test(rawNodeBroadcast) ||
-                (/^l2$/i.test(rawNetworkName || "") && hasUntaggedHint)
-            const networkName = isUntaggedNetwork
-                ? "L2 Untagged"
-                : (rawNetworkName || rawNodeNetwork)
-            const detectVlanId = (): string | undefined => {
-                const candidates = [
-                    nodeData.VLAN,
-                    nodeData.Vlan,
-                    nodeData.VLANID,
-                    nodeData.VlanID,
-                    nodeData.Tag,
-                    nodeData.ID,
-                    rawNetworkName
-                ]
-                for (const raw of candidates) {
-                    if (raw === undefined || raw === null) {
-                        continue
-                    }
-                    const text = String(raw).trim()
-                    if (!text) {
-                        continue
-                    }
-                    if (/^\d+$/.test(text)) {
-                        return text
-                    }
-                    const byKeyword = text.match(/vlan[-_ ]?(\d+)/i)
-                    if (byKeyword && byKeyword[1]) {
-                        return byKeyword[1]
-                    }
-                    const byDot = text.match(/\.(\d{1,4})$/)
-                    if (byDot && byDot[1]) {
-                        return byDot[1]
-                    }
-                }
-                return undefined
-            }
-            const vlanId = detectVlanId()
-
-            const displayIP = ip || fallbackNodeIP
-
-            if (displayIP && interfaceName) {
-                return `${displayIP}\n${interfaceName}`
-            }
-            if (displayIP) {
-                return displayIP
-            }
-            if (interfaceName) {
-                return interfaceName
-            }
-            if (networkName && vlanId) {
-                return `${networkName}\nVLAN ${vlanId}`
-            }
-            if (networkName) {
-                return networkName
-            }
-            if (vlanId) {
-                return `VLAN ${vlanId}`
-            }
-            if (isUntaggedNetwork) {
-                return "L2 Untagged"
-            }
+        if (nodeType === 'tuntap' || nodeType === 'tun' || nodeDriver === 'tun' || nodeDriver === 'tuntap') {
+            const network = matchMoldNIC(d.data.wrapped, getMoldNetworkIndex(this.props.vmNetworkMap, this.props.vmDetailMap))
+            if (network) return network.ipAddress ? network.ipAddress + '\n' + (network.networkName || nodeData.Name || '') : network.networkName || attrsName
             return attrsName
         }
 
@@ -2557,7 +2338,32 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     private topologyLayoutCardHeight(node: D3Node): number {
-        return topologyCardDimensions(node.data.wrapped, node.data.type === WrapperType.Group).height
+        return topologyCardDimensions(node.data.wrapped, node.data.type === WrapperType.Group,
+            { networkSummary: this.topologyCardNetworkSummary(node.data.wrapped) }).height
+    }
+
+    private topologyCardNetworkSummary(node: Node): string | undefined {
+        const index = getMoldNetworkIndex(this.props.vmNetworkMap, this.props.vmDetailMap)
+        return String(node.data?.Type || '').toLowerCase() === 'libvirt'
+            ? moldVMNetworkSummary(node, index) : matchMoldNIC(node, index)?.networkName
+    }
+
+    private topologyLaneItem(node: D3Node) {
+        const group = node.data.type === WrapperType.Group
+        return { weight: node.data.wrapped.getWeight(), y: node.y,
+            height: this.topologyLayoutCardHeight(node),
+            above: group ? 0 : TOPOLOGY_STATUS_BADGE_RADIUS * 1.5,
+            below: group && !topologyGroupFullyExpanded(node.data.wrapped) ? 24 : 0 }
+    }
+
+    private separateTopologyLanes(root: any) {
+        const nodes = root.descendants() as D3Node[]
+        const offsets = topologyLaneOffsets(nodes.filter(node =>
+            node.data.type !== WrapperType.Hidden && node.data.wrapped !== this.root)
+            .map(node => this.topologyLaneItem(node)))
+        nodes.forEach(node => {
+            if (node.data.wrapped !== this.root) node.y += offsets.get(node.data.wrapped.getWeight()) || 0
+        })
     }
 
     private topologyEdgeBounds(node: D3Node) {
@@ -2774,6 +2580,59 @@ export class Topology extends React.Component<Props, {}> {
             }
         }))
         offsets.forEach((offset, id) => this.shiftHierarchySubtreeX(byID.get(id)!, offset))
+    }
+
+    private applyInfrastructureCompactLayout(root: any) {
+        if (this.props.infrastructureVMLayout !== 'compact' || this.nodeTagActive.toLowerCase() === 'kubernetes') {
+            this.infrastructureCompactPlan = undefined
+            this.infrastructureCompactKey = ''
+            return
+        }
+        const descendants = root.descendants() as D3Node[]
+        const cards: CompactLayoutNode[] = descendants.filter(node => node.data.wrapped !== this.root).map(node => {
+            let parent = node.parent, hostID: string | undefined
+            while (parent) {
+                if (this.isHostSubtreeRoot(parent)) { hostID = parent.data.id; break }
+                parent = parent.parent
+            }
+            const painted = this.topologyLaneItem(node)
+            return { id: node.data.id, parentID: node.parent?.data.id, hostID, ...this.topologyEdgeBounds(node),
+                above: node.data.type === WrapperType.Hidden ? 0 : painted.above,
+                below: node.data.type === WrapperType.Hidden ? 0 : painted.below,
+                type: String(node.data.wrapped.data?.Type || '').toLowerCase(), weight: node.data.wrapped.getWeight(),
+                manager: String(node.data.wrapped.data?.Manager || '').toLowerCase(), group: node.data.type === WrapperType.Group }
+        })
+        const ids = new Set(cards.map(card => card.id))
+        const edges: RoutingEdge[] = this.visibleLinks().filter(link => ids.has(link.source.id) && ids.has(link.target.id))
+            .map(link => ({ id: `relation:${link.id}`, sourceID: link.source.id, targetID: link.target.id }))
+        root.links().forEach(edge => {
+            if (ids.has(edge.source.data.id) && ids.has(edge.target.data.id)) edges.push({
+                id: `hierarchy:${edge.source.data.id}->${edge.target.data.id}`, sourceID: edge.source.data.id,
+                targetID: edge.target.data.id, hierarchy: true })
+        })
+        const bridges = infrastructureVMBridgeIDs(Array.from(this.nodes.values()).map(node => ({ id: node.id,
+            parentID: node.parent?.id, type: String(node.data?.Type || '').toLowerCase(), manager: String(node.data?.Manager || '').toLowerCase() })),
+            Array.from(this.links.values()).filter(link => ['layer2', 'vlayer2'].includes(link.data?.RelationType) && !link.data?.ManualPortMapping)
+                .map(link => ({ id: link.id, sourceID: link.source.id, targetID: link.target.id })))
+        cards.forEach(card => { card.bridgeIDs = bridges.get(card.id) })
+        const view = this.viewSize(), viewport = { width: Math.max(320, view.width - topologyLevelLabelSafeInset), height: Math.max(240, view.height) }
+        // Geometry/topology only: counters, labels, hover, selection and zoom
+        // never change the partition or force the router to run again.
+        const key = JSON.stringify([Math.round(viewport.width / 80), Math.round(viewport.height / 80), cards, edges])
+        if (key !== this.infrastructureCompactKey || !this.infrastructureCompactPlan) {
+            this.infrastructureCompactPlan = infrastructureCompactLayout(cards, edges, viewport)
+            this.infrastructureCompactKey = key
+            this.invalidated = true
+        }
+        const plan = this.infrastructureCompactPlan
+        descendants.forEach(node => { const point = plan.positions.get(node.data.id)
+            if (point) { node.x = point.x; node.y = point.y } })
+        const result = { twoRowVMs: plan.twoRowVMs, reason: plan.reason }
+        const resultKey = JSON.stringify(result)
+        if (resultKey !== this.infrastructureCompactResultKey) {
+            this.infrastructureCompactResultKey = resultKey
+            this.props.onInfrastructureVMLayoutResult?.(result)
+        }
     }
 
     private nodeByID(id: string): Node | undefined {
@@ -3685,6 +3544,61 @@ export class Topology extends React.Component<Props, {}> {
             .classed('topology-focus-dim', (link: Link) => !!focus
                 && (focus.mode !== 'connections' || focus.visibleRelationLinkIDs.has(link.id))
                 && !linkFocused(link))
+        this.applyMoldNetworkFocus()
+    }
+
+    private applyMoldNetworkFocus() {
+        const index = getMoldNetworkIndex(this.props.vmNetworkMap, this.props.vmDetailMap)
+        const networkID = this.props.moldNetworkFocusID?.toLowerCase()
+        const active = !!networkID && this.nodeTagActive.toLowerCase() !== 'kubernetes'
+        const hitNodes = new Set<string>(), hitLinks = new Set<string>()
+        const seeds = new Set<string>(), excluded = new Set<string>()
+        const matchedVMs: Node[] = [], matchedNICVMs = new Set<string>()
+        const visible = (node: Node) => this.closestVisibleNodeID(node)
+        if (active) {
+            this.nodes.forEach(node => {
+                if (String(node.data?.Manager).toLowerCase() === 'k8s') return
+                const vm = String(node.data?.Type).toLowerCase() === 'libvirt'
+                const nic = matchMoldNIC(node, index)
+                const belongs = vm ? moldVMNetworks(node, index).some(item => item.networkId?.toLowerCase() === networkID)
+                    : nic?.networkId?.toLowerCase() === networkID
+                if (belongs) {
+                    hitNodes.add(visible(node))
+                    if (vm) matchedVMs.push(node)
+                    else { seeds.add(visible(node)); if (nic?.vmUuid) matchedNICVMs.add(nic.vmUuid) }
+                } else if (vm || nic || ['tun', 'tuntap'].includes(String(node.data?.Type).toLowerCase()) || node.data?.Libvirt) excluded.add(node.id)
+            })
+            matchedVMs.forEach(node => {
+                if (!matchedNICVMs.has(moldVMUUID(node, index))) seeds.add(visible(node))
+            })
+            const edges: TopologyRankedRelationEdge[] = []
+            this.links.forEach(link => {
+                if (excluded.has(link.source.id) || excluded.has(link.target.id) || link.data?.KubernetesPlacementLink) return
+                const sourceID = visible(link.source), targetID = visible(link.target)
+                const source = this.d3nodes.get(sourceID), target = this.d3nodes.get(targetID)
+                if (!source || !target || sourceID === targetID) return
+                edges.push({ id: link.id, sourceID, targetID, sourceLevel: source.y, targetLevel: target.y })
+            })
+            this.gHieraLinks?.selectAll('path.hiera-link').each((link: any) => {
+                const source = link.source, target = link.target
+                if (!source || !target || excluded.has(source.data.wrapped.id) || excluded.has(target.data.wrapped.id)) return
+                edges.push({ id: 'hierarchy:' + this.hierarchyLinkKey(source.data.id, target.data.id),
+                    sourceID: source.data.id, targetID: target.data.id, sourceLevel: source.y, targetLevel: target.y })
+            })
+            seeds.forEach(seed => {
+                const route = topologyNetworkRootPathClosure(seed, edges)
+                route.nodeIDs.forEach(id => hitNodes.add(id)); route.linkIDs.forEach(id => hitLinks.add(id))
+            })
+        }
+        this.gNodes?.selectAll('g.node')
+            .classed('mold-network-hit', (node: D3Node) => active && hitNodes.has(node.data.id))
+            .classed('mold-network-dim', (node: D3Node) => active && !hitNodes.has(node.data.id))
+        this.gHieraLinks?.selectAll('path.hiera-link')
+            .classed('mold-network-hit', (link: any) => active && hitLinks.has('hierarchy:' + this.hierarchyLinkKey(link.source.data.id, link.target.data.id)))
+            .classed('mold-network-dim', (link: any) => active && !hitLinks.has('hierarchy:' + this.hierarchyLinkKey(link.source.data.id, link.target.data.id)))
+        ;[this.gLinks, this.gLinkOverlays, this.gLinkLabels, this.gLinkWraps].forEach(layer => layer?.selectAll('path.link, path.link-overlay, g.link-label, path.link-wrap')
+            .classed('mold-network-hit', (link: Link) => active && hitLinks.has(link.id))
+            .classed('mold-network-dim', (link: Link) => active && !hitLinks.has(link.id)))
     }
 
     private contextMenuItems(d: D3Node): TopologyContextMenuAction[] {
@@ -5096,7 +5010,7 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     private renderHieraLinks(root: any) {
-        const hieraLinker = (edge: any) => topologyCardEdge(
+        const hieraLinker = (edge: any) => this.infrastructureCompactPlan?.routes.get(`hierarchy:${edge.source.data.id}->${edge.target.data.id}`)?.path || topologyCardEdge(
             this.topologyEdgeBounds(edge.source), this.topologyEdgeBounds(edge.target), true)
 
         var hieraLink = this.gHieraLinks.selectAll('path.hiera-link')
@@ -5115,7 +5029,7 @@ export class Topology extends React.Component<Props, {}> {
             .style("opacity", 1)
 
         hieraLink.transition()
-            .duration(animDuration)
+            .duration(this.infrastructureLayoutTransition ? 0 : animDuration)
             .attr("d", hieraLinker)
             .style("opacity", 1)
     }
@@ -5377,6 +5291,8 @@ export class Topology extends React.Component<Props, {}> {
                     ? self.renderedKubernetesBadgeChildren(d.data) : resource.children,
                 links, allNodes,
                 infrastructureSummary: self.props.infrastructureHostSummaries?.[resource.id],
+                networkSummary: self.topologyCardNetworkSummary(resource),
+                networkCount: moldVMNetworkCount(resource, getMoldNetworkIndex(self.props.vmNetworkMap, self.props.vmDetailMap)),
                 resourceData: { detail: self.resourceData?.get(ref?.detail), summary: self.resourceData?.get(ref?.summary), wall: self.resourceData?.get(ref?.wall),
                     host: self.resourceData?.get(ref?.host), inventory: ['host', 'libvirt'].includes(String(resource.data?.Type).toLowerCase())
                         ? topologyInventoryData(resource, self.props.moldInventory, self.props.vmDetailMap) : undefined }
@@ -5407,7 +5323,7 @@ export class Topology extends React.Component<Props, {}> {
                 .attr('y', -self.topologyLayoutCardHeight(d) / 2 + 6)
                 .attr('fill', badge => badge.stroke || 'var(--topology-node-name-wrap-fill)').text(badge => badge.text)
         })
-        node.transition().duration(animDuration).style('opacity', 1).attr('transform', d => `translate(${d.x},${d.y})`)
+        node.transition().duration(this.infrastructureLayoutTransition ? 0 : animDuration).style('opacity', 1).attr('transform', d => `translate(${d.x},${d.y})`)
         node.filter(d => d.data.wrapped.state.selected).raise()
         this.renderTopologyGroupRegions(d => this.topologyLayoutCardWidth(d), d => this.topologyLayoutCardHeight(d))
     }
@@ -5584,6 +5500,8 @@ export class Topology extends React.Component<Props, {}> {
         }
 
         var wrapperLink = (d: Link, margin: number) => {
+            const compact = this.infrastructureCompactPlan?.routes.get(`relation:${d.id}`)
+            if (compact) return compact.path
             var dSource = resolveEndpoint(d, "source")
             var dTarget = resolveEndpoint(d, "target")
 
@@ -5661,7 +5579,7 @@ export class Topology extends React.Component<Props, {}> {
 
         linkOverlay
             .transition()
-            .duration(animDuration)
+            .duration(this.infrastructureLayoutTransition ? 0 : animDuration)
             .style("opacity", (d: Link) => {
                 const displayOpacity = this.linkDisplayOpacity(d)
                 if (displayOpacity === 0) {
@@ -5686,7 +5604,7 @@ export class Topology extends React.Component<Props, {}> {
         link
             .attr("class", (d: Link) => isVisible(d) ? this.linkClass(d) : 'link')
             .transition()
-            .duration(animDuration)
+            .duration(this.infrastructureLayoutTransition ? 0 : animDuration)
             .style("opacity", (d: Link) => this.linkDisplayOpacity(d))
             .attr("d", linkPath)
 
@@ -5695,6 +5613,14 @@ export class Topology extends React.Component<Props, {}> {
             this.isLinkNodeSelected(d) ? "link-label-priority" : "").join(" ")
 
         const linkLabelPosition = (d: Link) => {
+            const compact = this.infrastructureCompactPlan?.routes.get(`relation:${d.id}`)
+            if (compact) {
+                const width = Math.max(76, (this.renderedLinkAttrs(d).label || '').length * 18 + 22)
+                const cards = Array.from(this.d3nodes.values()).filter(node => node.data.type !== WrapperType.Hidden && node.data.wrapped !== this.root)
+                    .map(node => ({ id: node.data.id, ...this.topologyEdgeBounds(node) }))
+                const label = compactTrafficLabel(compact, width, cards)
+                if (label) return label
+            }
             const dSource = resolveEndpoint(d, "source")
             const dTarget = resolveEndpoint(d, "target")
 
@@ -5855,29 +5781,42 @@ export class Topology extends React.Component<Props, {}> {
         var linkWrap = this.gLinkWraps.selectAll('path.link-wrap')
             .interrupt()
             .data(visibleLinks, (d: Link) => d.id)
+        linkWrap.exit().remove()
+        let hoveredCompactLink: Link | undefined
+        const compactHitLink = (fallback: Link): Link => {
+            if (!this.infrastructureCompactPlan?.twoRowVMs) return fallback
+            const point = mouse(this.g.node())
+            const candidates = visibleLinks.filter(link => isVisible(link) && shouldDrawLink(link))
+                .map(link => ({ id: link.id, route: this.infrastructureCompactPlan!.routes.get(`relation:${link.id}`)! })).filter(item => !!item.route)
+            const id = nearestCompactEdge(candidates, { x: point[0], y: point[1] })
+            return visibleLinks.find(link => link.id === id) || fallback
+        }
         var linkWrapEnter = linkWrap.enter()
             .append('path')
             .attr("class", "link-wrap")
-            .on("click", (d: Link) => this.linkClicked(d))
+        linkWrap = linkWrap.merge(linkWrapEnter)
+        linkWrap
+            .on("click", (d: Link) => this.linkClicked(compactHitLink(d)))
             .on("mouseover", (d: Link) => {
-                if (isVisible(d)) {
-                    select("#link-overlay-" + d.id)
+                const focused = compactHitLink(d)
+                hoveredCompactLink = focused
+                if (isVisible(focused)) {
+                    select("#link-overlay-" + focused.id)
                         .style("opacity", 1)
                 }
             })
             .on("mouseout", (d: Link) => {
-                if (!d.source.state.selected && !d.target.state.selected) {
-                    select("#link-overlay-" + d.id)
-                        .style("opacity", (d: Link) => d.state.selected ? 1 : 0)
+                const focused = hoveredCompactLink || d
+                hoveredCompactLink = undefined
+                if (!focused.source.state.selected && !focused.target.state.selected) {
+                    select("#link-overlay-" + focused.id)
+                        .style("opacity", (link: Link) => link.state.selected ? 1 : 0)
                 }
             })
-        linkWrap.exit().remove()
-
-        linkWrap = linkWrap.merge(linkWrapEnter)
         linkWrap
             .style("pointer-events", "auto")
             .transition()
-            .duration(animDuration)
+            .duration(this.infrastructureLayoutTransition ? 0 : animDuration)
             .attr("d", linkPath)
 
         this.syncContainerMiniCardActiveClass()
@@ -5927,6 +5866,7 @@ export class Topology extends React.Component<Props, {}> {
             node.data.size[0] = Math.max(node.data.size[0], this.topologyLayoutCardWidth(node) + backplate + topologySiblingCardGap)
         })
         this.tree(root)
+        this.separateTopologyLanes(root)
         this.compactVmLayerLayout(root)
         this.compactHostSubtreeLayout(root)
         this.separateTopologyBranches(root)
@@ -5936,6 +5876,8 @@ export class Topology extends React.Component<Props, {}> {
         root.each(node => {
             this.d3nodes.set(node.data.id, node)
         })
+
+        this.applyInfrastructureCompactLayout(root)
 
         this.renderLevels()
         this.renderHieraLinks(root)

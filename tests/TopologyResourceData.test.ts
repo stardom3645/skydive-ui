@@ -53,7 +53,7 @@ describe('Topology resource data sources', () => {
         assert.equal(model.status.tone, 'normal')
         assert.ok(model.status.description.includes('호스트 상태 Up'))
         assert.deepEqual(model.metrics.map(metric => [metric.label, metric.value]),
-            [['CPU 할당', '31.5%'], ['메모리 할당', '0%'], ['가상머신', '6'], ['시스템 VM', '0'], ['가상 라우터', '2'], ['연결 자원', '0']])
+            [['CPU 할당', '31.5%'], ['메모리 할당', '0%'], ['가상머신', '6']])
         assert.equal(JSON.stringify(host.data), original)
         const wall = { series: [{ key: 'cpu', lastValue: 12 }, { key: 'memory', lastValue: 40 }] }
         assert.deepEqual(topologyResourceMetrics(host, { host: detail, wall }).map(metric => [metric.label, metric.value]), [['CPU', '12%'], ['메모리', '40%']])
