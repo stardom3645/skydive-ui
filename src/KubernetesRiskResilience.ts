@@ -38,3 +38,22 @@ export function riskPlacementCoverage(items: RiskPlacement[], total: number, unk
 export function currentImpactAssessment(score: number, collected: boolean) {
     return { evaluated: collected || score > 0, partial: !collected && score > 0 }
 }
+
+/** Explain collected structural points only when their components reconcile
+ * with the backend total. Older/partial summaries keep their original total. */
+export function collectedInfrastructureRiskFactors(summary: any): Array<{ label: string; score: number }> {
+    const score = collectedRiskCount(summary?.infrastructureRiskScore)
+    if (!score) return []
+    const counts = ['singleReplicaWorkloadCount', 'singleNodeEndpointServiceCount', 'localStorageDependentWorkloadCount', 'externalPathCount']
+        .map(key => collectedRiskCount(summary?.[key]))
+    const fallback = [{ label: '수집된 구조적 위험 분석', score }]
+    if (typeof summary?.singleControlPlane !== 'boolean' || counts.some(value => value === undefined)) return fallback
+    const factors = [
+        { label: '단일 Control Plane 구성', score: summary.singleControlPlane ? 15 : 0 },
+        { label: '단일 Replica 워크로드', score: counts[0]! > 0 ? 15 : 0 },
+        { label: '단일 노드에 집중된 서비스 엔드포인트', score: counts[1]! > 0 ? 15 : 0 },
+        { label: '로컬 스토리지 의존 워크로드', score: counts[2]! > 0 ? 15 : 0 },
+        { label: '단일 외부 연결 경로', score: counts[3] === 1 ? 10 : 0 }
+    ].filter(factor => factor.score > 0)
+    return Math.min(100, factors.reduce((sum, factor) => sum + factor.score, 0)) === score ? factors : fallback
+}

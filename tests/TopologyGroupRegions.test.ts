@@ -1,5 +1,6 @@
 import * as assert from 'assert'
-import { topologyGroupRegions, topologyGroupRegionPath, topologyGroupRegionEnvelope, TopologyRegionNode } from '../src/TopologyGroupRegions'
+import { topologyBranchOffsets } from '../src/TopologyBranchSpacing'
+import { topologyGroupRegions, topologyGroupRegionPath, topologyGroupRegionEnvelope, topologyHostRegionBounds, topologyHostRegionBands, TopologyRegionNode } from '../src/TopologyGroupRegions'
 
 const node = (id: string, parentID?: string, overrides: Partial<TopologyRegionNode> = {}): TopologyRegionNode => ({
     id, parentID, visible: true, expanded: true, x: 0, y: 0, width: 280, height: 92, ...overrides
@@ -155,5 +156,152 @@ describe('Topology subtree background regions', () => {
             })
             assert.equal(JSON.stringify(nodes), before)
         }
+    })
+})
+
+
+describe('Infrastructure host rectangles', () => {
+    it('encloses every row, NIC, badge and group backplate in a gently varying rounded host outline', () => {
+        const nodes = [node('root', undefined, { visible: false }),
+            node('host', 'root', { type: 'host', width: 580, height: 404, above: 41 }),
+            node('router', 'host', { y: 700, width: 480, height: 558, above: 41 }),
+            node('hidden', 'host', { visible: false, x: -9000, y: 20000 }),
+            ...Array.from({ length: 25 }, (_, index) => node(`vm-${index}`, 'hidden', {
+                x: (index % 7 - 3) * 544, y: 1600 + Math.floor(index / 7) * 800, width: 480, height: 558, above: 41 })),
+            node('nic', 'vm-24', { x: 2400, y: 5200, width: 480, height: 230, above: 41 }),
+            node('nic-group', 'vm-24', { x: 1800, y: 4800, width: 608, below: 24 })]
+        const before = JSON.stringify(nodes), result = topologyGroupRegions(nodes, true)
+        assert.equal(result.length, 1)
+        const region = result[0], bounds = topologyHostRegionBounds(nodes)!
+        assert.equal(region.id, 'host')
+        assert.equal(region.nodeIDs.length, nodes.length - 2)
+        assert.ok((region.path.match(/ C /g) || []).length >= 4)
+        assert.equal(region.clipPath, undefined)
+        const maxInset = (bounds.right - bounds.left) * 0.15
+        assert.ok(pathContains(region.path, bounds.left + maxInset + 1, 300))
+        assert.ok(pathContains(region.path, bounds.right - maxInset - 1, 300))
+        nodes.filter(node => node.visible).forEach(node => {
+            for (const dx of [-1, 1]) for (const dy of [-1, 1])
+                assert.ok(pathContains(region.path, node.x + dx * node.width / 2,
+                    node.y + dy * node.height / 2 + (dy < 0 ? -(node.above || 0) : node.below || 0)), node.id)
+        })
+        assert.equal(topologyHostRegionBounds([]), undefined)
+        assert.equal(topologyHostRegionBounds([node('invalid', undefined, { x: NaN })]), undefined)
+        assert.equal(JSON.stringify(nodes), before)
+    })
+
+    it('responds to sparse and wide levels with only small, smooth side changes inside the host envelope', () => {
+        const nodes = [node('host', undefined, { type: 'host', width: 580, height: 404, above: 41 }),
+            node('router', 'host', { y: 800, width: 100, above: 41 }),
+            node('vm-row', 'host', { y: 1600, width: 2400, height: 558, above: 41 }),
+            node('nic', 'vm-row', { x: 1060, y: 2300, width: 480, height: 230, above: 41 })]
+        const before = JSON.stringify(nodes), bounds = topologyHostRegionBounds(nodes)!
+        const bands = topologyHostRegionBands(nodes), region = topologyGroupRegions(nodes, true)[0]
+        const narrow = bands.find(band => band.top <= 800 && band.bottom >= 800)!
+        const wide = bands.find(band => band.top <= 1600 && band.bottom >= 1600)!
+        const nic = bands.find(band => band.top <= 2300 && band.bottom >= 2300)!
+        const maxInset = (bounds.right - bounds.left) * 0.15
+        assert.ok(narrow.left > bounds.left && narrow.right < bounds.right)
+        assert.ok(Math.abs(narrow.left - bounds.left - maxInset) < 0.000001)
+        assert.ok(Math.abs(bounds.right - narrow.right - maxInset) < 0.000001)
+        assert.ok(wide.left < narrow.left) // the wide VM row gently broadens the left side
+        assert.ok(nic.right > wide.right) // a verified NIC broadens only the required side
+        bands.forEach(band => {
+            assert.ok(band.left >= bounds.left && band.left - bounds.left <= maxInset + 0.000001)
+            assert.ok(band.right <= bounds.right && bounds.right - band.right <= maxInset + 0.000001)
+        })
+        nodes.forEach(node => {
+            for (const dx of [-1, 1]) for (const dy of [-1, 1])
+                assert.ok(pathContains(region.path, node.x + dx * node.width / 2,
+                    node.y + dy * node.height / 2 + (dy < 0 ? -(node.above || 0) : 0)), node.id)
+        })
+        assert.ok(!pathContains(region.path, bounds.left - 1, 1100))
+        assert.ok(!pathContains(region.path, bounds.right + 1, 1100))
+        assert.equal(topologyHostRegionBands([]).length, 0)
+        assert.equal(JSON.stringify(nodes), before)
+    })
+
+    it('assigns descendants to their own host even underneath a visible switch and through hidden wrappers', () => {
+        const nodes = [node('switch', undefined, { type: 'switch' }),
+            node('port', 'switch', { y: 300 }),
+            node('host-a', 'port', { type: 'host', x: -700, y: 700 }),
+            node('host-b', 'port', { type: 'host', x: 700, y: 700 }),
+            node('spacer', 'host-a', { visible: false, x: -9000 }),
+            node('vm-a', 'spacer', { x: -700, y: 1400 }),
+            node('vm-b', 'host-b', { x: 700, y: 1400 })]
+        const regions = topologyGroupRegions(nodes, true)
+        assert.deepEqual(regions.find(region => region.id === 'host-a')!.nodeIDs, ['host-a', 'vm-a'])
+        assert.deepEqual(regions.find(region => region.id === 'host-b')!.nodeIDs, ['host-b', 'vm-b'])
+        assert.deepEqual(regions.find(region => region.id === 'switch')!.nodeIDs, ['switch', 'port'])
+        assert.equal(topologyGroupRegions(nodes).length, 1)
+    })
+
+    it('keeps unequal rectangular silhouettes separate and reserves collapsed neighbors', () => {
+        const nodes = [node('a', undefined, { type: 'host' }), node('a-vm', 'a', { x: 700, y: 1600 }),
+            node('b', undefined, { type: 'host', x: 800 }), node('b-nic', 'b', { x: 500, y: 400 }),
+            node('c', undefined, { type: 'host', x: 1500, expanded: false })]
+        const before = JSON.stringify(nodes), offsets = topologyBranchOffsets(nodes, 80, false, true)
+        const placed = nodes.map(node => ({ ...node, x: node.x + offsets.get(node.parentID || node.id)! }))
+        const a = topologyHostRegionBounds(placed.filter(node => node.id === 'a' || node.parentID === 'a'))!
+        const b = topologyHostRegionBounds(placed.filter(node => node.id === 'b' || node.parentID === 'b'))!
+        const c = topologyHostRegionBounds(placed.filter(node => node.id === 'c'))!
+        assert.ok(b.left - a.right >= 16)
+        assert.ok(c.left - b.right >= 16)
+        const regions = topologyGroupRegions(placed, true)
+        assert.equal(regions.length, 2)
+        assert.equal(regions.every(region => !region.clipPath), true)
+        assert.equal(JSON.stringify(nodes), before)
+    })
+})
+
+describe('Kubernetes cluster frames', () => {
+    it('reuses the host silhouette and includes node/namespace/storage cards, badges and collapsed group backplates', () => {
+        const nodes = [node('cluster', undefined, { type: 'cluster', width: 580, height: 380, above: 41 }),
+            node('worker', 'cluster', { x: 800, y: 600, width: 440, height: 384, above: 41 }),
+            node('namespace', 'cluster', { x: -300, y: 1200, width: 608, height: 384, below: 24 }),
+            node('pv', 'namespace', { x: 1100, y: 1800, width: 340, height: 416, above: 41 })]
+        const before = JSON.stringify(nodes), region = topologyGroupRegions(nodes, true)[0]
+        assert.equal(region.id, 'cluster')
+        const hostNodes = nodes.map(n => ({ ...n, type: n.id === 'cluster' ? 'host' : n.type }))
+        assert.deepEqual(region, topologyGroupRegions(hostNodes, true)[0])
+        const bounds = region.bounds!, maxInset = (bounds.right - bounds.left) * 0.15
+        topologyHostRegionBands(nodes).forEach(band => {
+            assert.ok(band.left - bounds.left <= maxInset + 0.000001)
+            assert.ok(bounds.right - band.right <= maxInset + 0.000001)
+        })
+        nodes.forEach(n => {
+            for (const dx of [-1, 1]) for (const dy of [-1, 1])
+                assert.ok(pathContains(region.path, n.x + dx * n.width / 2,
+                    n.y + dy * n.height / 2 + (dy < 0 ? -(n.above || 0) : n.below || 0)), n.id)
+        })
+        assert.equal(JSON.stringify(nodes), before)
+    })
+
+    it('separates broad cluster frames when sparse rows previously shared horizontal space', () => {
+        const nodes = [node('a', undefined, { type: 'cluster', x: 0, height: 380 }),
+            node('a-worker', 'a', { x: -500, y: 600, width: 1000, height: 384 }),
+            node('a-storage', 'a', { x: 500, y: 1200, width: 1000, height: 416 }),
+            node('b', undefined, { type: 'cluster', x: 1800, height: 380 }),
+            node('b-worker', 'b', { x: 1300, y: 600, width: 1000, height: 384 }),
+            node('b-storage', 'b', { x: 2300, y: 1200, width: 1000, height: 416 })]
+        const before = JSON.stringify(nodes), offsets = topologyBranchOffsets(nodes, 80, false, true)
+        const placed = nodes.map(n => ({ ...n, x: n.x + offsets.get(n.parentID || n.id)! }))
+        const regions = topologyGroupRegions(placed, true)
+        assert.ok(regions[1].bounds!.left - regions[0].bounds!.right >= 16)
+        assert.deepEqual(regions.map(r => r.nodeIDs), [['a', 'a-worker', 'a-storage'], ['b', 'b-worker', 'b-storage']])
+        assert.ok(Array.from(topologyBranchOffsets(placed, 80, false, true).values()).every(offset => Math.abs(offset) < 0.000001))
+        assert.equal(JSON.stringify(nodes), before)
+    })
+
+    it('keeps clusters independent through hidden wrappers and does not create frames for collapsed roots', () => {
+        const nodes = [node('root', undefined, { visible: false }),
+            node('a', 'root', { type: 'cluster' }), node('hidden', 'a', { visible: false }),
+            node('a-child', 'hidden', { y: 600 }),
+            node('b', 'root', { type: 'cluster', x: 1400 }), node('b-child', 'b', { x: 1400, y: 600 }),
+            node('collapsed', 'root', { type: 'cluster', expanded: false, x: 2800 })]
+        const regions = topologyGroupRegions(nodes, true)
+        assert.deepEqual(regions.map(r => r.id), ['a', 'b'])
+        assert.deepEqual(regions[0].nodeIDs, ['a', 'a-child'])
+        assert.deepEqual(regions[1].nodeIDs, ['b', 'b-child'])
     })
 })

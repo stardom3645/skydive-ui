@@ -1052,7 +1052,9 @@
 .netdive-cluster-ant-summary-status .ant-badge-status-text { font-size: 14px; font-weight: 500; line-height: 20px; }
 .netdive-cluster-ant-summary-metric.ant-card-grid { padding: 12px; min-width: 0; }
 .netdive-cluster-ant-summary-metric .ant-statistic-content { font-size: 16px; font-weight: 600; line-height: 22px; }
-.netdive-cluster-ant-summary-metric .ant-btn-link { padding: 0; font-size: 16px; font-weight: 600; line-height: 22px; height: auto; }
+.netdive-cluster-ant-summary-metric .ant-btn-link { padding: 0; font-size: 16px; font-weight: 600; line-height: 22px; height: auto; color: inherit; }
+.netdive-cluster-ant-summary-metric .ant-btn-link:hover,
+.netdive-cluster-ant-summary-metric .ant-btn-link:focus-visible { color: var(--ant-color-primary, #1677ff); }
 .netdive-cluster-ant-summary .ant-statistic-content-value { white-space: normal; overflow-wrap: anywhere; }
 .netdive-cluster-ant-summary .ant-statistic.is-unavailable .ant-statistic-content,
 .netdive-cluster-ant-summary .ant-statistic.is-unavailable .ant-btn-link { font-size: 12px; font-weight: 400; line-height: 18px; }
@@ -1102,9 +1104,9 @@
 .netdive-k8s-cluster-detail .netdive-k8s-cluster-detail__metadata-list { padding: 4px 0 0; }
 .netdive-cluster-connected-resources .ant-card-meta-avatar,
 .netdive-cluster-connected-resources .netdive-connected-resources__group-icon {
-    color: var(--netdive-detail-text, #262626); background: transparent; filter: grayscale(1);
+    color: var(--netdive-detail-connected-resource-icon); background: transparent;
 }
-.netdive-cluster-connected-resources .netdive-k8s-cluster-detail__topology-icon { color: var(--netdive-detail-text, #262626); }
+.netdive-cluster-connected-resources .netdive-k8s-cluster-detail__topology-icon { color: var(--netdive-detail-connected-resource-icon); }
 .netdive-cluster-connected-resources .netdive-ant-resource-card { height: 54px; }
 .netdive-cluster-connected-resources .netdive-ant-resource-card .ant-card-body { padding: 10px; }
 .netdive-cluster-connected-resources .netdive-ant-resource-content { min-height: 32px; gap: 6px; }
@@ -1133,3 +1135,50 @@
 .netdive-cluster-ant-services .ant-btn-link .netdive-k8s-cluster-detail__service-name { min-width: 0; }
 
 .netdive-cluster-ant-evidence .is-interactive { cursor: pointer; }
+
+/* Cluster operational details use one readable type scale and two-line rows. */
+.netdive-k8s-cluster-detail { font-family: var(--netdive-font-family); font-size: 13px; }
+.netdive-k8s-cluster-detail .netdive-cluster-ant-operational-section .ant-typography-secondary,
+.netdive-k8s-cluster-detail .netdive-cluster-ant-evidence-description.ant-typography,
+.netdive-k8s-cluster-detail .netdive-cluster-risk-structure .ant-typography-secondary {
+    font-size: 12px;
+    line-height: 18px;
+    color: var(--netdive-detail-text-secondary, #667085);
+}
+.netdive-cluster-ant-summary-status > .ant-card-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.netdive-cluster-ant-summary-state { min-width: 0; padding: 10px 12px; border-bottom: 1px solid var(--ant-color-border-secondary, #edf0f5); }
+.netdive-cluster-ant-summary-state:first-child { border-right: 1px solid var(--ant-color-border-secondary, #edf0f5); }
+.netdive-cluster-ant-summary-state.is-impact { grid-column: 1 / -1; border-bottom: 0; }
+.netdive-cluster-ant-summary-state > .netdive-cluster-ant-summary-label { display: flex; margin-bottom: 4px; font-size: 12px; line-height: 18px; }
+.netdive-cluster-ant-summary-value { font-size: 14px; line-height: 22px; overflow-wrap: anywhere; }
+.netdive-cluster-ant-summary-value .ant-badge-status-text { font-size: 14px; font-weight: 600; }
+.netdive-cluster-ant-summary-state.is-impact .netdive-cluster-ant-summary-value { font-size: 13px; line-height: 20px; }
+.netdive-cluster-verdict-criteria-trigger.ant-btn { height: auto; padding: 0; font-size: 12px; }
+.netdive-cluster-ant-evidence-row { padding: 10px 0; border-bottom: 1px solid var(--ant-color-border-secondary, #edf0f5); }
+.netdive-cluster-ant-evidence-row:last-child { border-bottom: 0; }
+.netdive-cluster-ant-evidence-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; }
+.netdive-cluster-ant-evidence-heading .netdive-cluster-ant-evidence-title { flex: 1; min-width: 120px; }
+.netdive-cluster-ant-evidence-heading .netdive-cluster-ant-evidence-title > .ant-typography { font-size: 13px; line-height: 20px; }
+.netdive-cluster-ant-evidence-heading .ant-tag { font-size: 12px; line-height: 20px; margin: 0; }
+.netdive-cluster-ant-evidence-description.ant-typography { margin: 4px 0 0; font-size: 12px; line-height: 18px; }
+.netdive-cluster-ant-evidence-result .ant-btn { padding: 0; height: auto; font-size: 13px; line-height: 20px; }
+.netdive-cluster-ant-evidence-result > .ant-typography { font-size: 13px; font-weight: 500; }
+.netdive-cluster-ant-recent-count { align-items: baseline; justify-content: flex-start; gap: 12px; flex-wrap: wrap; }
+.netdive-cluster-ant-recent-count > .ant-badge .ant-typography { font-size: 18px; line-height: 26px; }
+.netdive-cluster-ant-recent-count > .ant-typography { font-size: 12px; line-height: 18px; }
+.netdive-k8s-cluster-detail .netdive-k8s-cluster-detail__instability-detail-trigger.ant-btn { width: 100%; margin: 6px 0 0; padding: 0; height: 24px; min-height: 24px; color: var(--ant-color-primary, #1677ff); font-family: var(--netdive-font-family); font-size: 13px; line-height: 20px; }
+.netdive-cluster-risk-structure { margin: 10px 0; }
+.netdive-cluster-risk-structure .ant-collapse-header-text { font-size: 13px; font-weight: 500; }
+.netdive-cluster-risk-structure .ant-collapse-extra .ant-tag { font-size: 12px; line-height: 20px; margin: 0; }
+.netdive-cluster-risk-structure .ant-collapse-body > .ant-typography { font-size: 12px; line-height: 18px; }
+.netdive-cluster-risk-factors { padding-top: 10px; border-top: 1px solid var(--ant-color-border-secondary, #edf0f5); font-size: 12px; line-height: 20px; }
+.netdive-cluster-risk-factors ul { margin: 6px 0; padding-left: 18px; }
+.netdive-k8s-cluster-detail .netdive-k8s-confidence { margin-top: 12px; padding: 10px 0 0; border-top: 1px solid var(--ant-color-border-secondary, #edf0f5); }
+.netdive-cluster-verdict-criteria { font-family: var(--netdive-font-family); }
+.netdive-cluster-verdict-criteria .ant-modal-body { font-size: 13px; line-height: 20px; }
+.netdive-cluster-verdict-current { margin-bottom: 16px; padding: 12px; border: 1px solid var(--ant-color-border-secondary, #edf0f5); border-radius: 6px; background: var(--ant-color-fill-alter, #fafafa); }
+.netdive-cluster-verdict-current > .ant-tag { margin-left: 10px; }
+.netdive-cluster-verdict-current ul { margin: 8px 0 0; padding-left: 18px; }
+.netdive-cluster-verdict-rules { display: flex; flex-direction: column; gap: 10px; margin: 16px 0; }
+.netdive-cluster-verdict-rules > div { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 10px; align-items: start; }
+.netdive-cluster-verdict-rules .ant-tag { margin: 0; text-align: center; }

@@ -1047,134 +1047,48 @@ svg {
     font-family: var(--netdive-font-family);
 }
 
+/* Ant Design 6 uses container for the tooltip body. */
+.netdive-topology-badge-tooltip .ant-tooltip-container,
 .netdive-topology-badge-tooltip .ant-tooltip-inner {
-    width: 260px;
-    max-width: 300px;
-    padding: 10px 12px;
-    white-space: normal;
+    width: 320px; max-width: calc(100vw - 24px); box-sizing: border-box;
+    padding: 12px 16px; white-space: normal;
+    color: var(--topology-object-text, #25334b);
+    border: 1px solid var(--topology-object-border, #e4ecf8);
+    border-radius: 10px; backdrop-filter: blur(12px);
+    box-shadow: 0 4px 16px rgba(31, 45, 65, .12);
 }
-
-.netdive-topology-badge-tooltip.ant-tooltip {
-    pointer-events: auto;
-}
-
+.netdive-topology-badge-tooltip.ant-tooltip { position: fixed; max-width: min(320px, calc(100vw - 24px)); pointer-events: auto; }
 .netdive-topology-badge-tooltip__content {
-    font-family: var(--netdive-font-family);
-    font-size: 12px;
-    line-height: 1.5;
+    color: var(--topology-object-text, #25334b); font-family: var(--netdive-font-family);
+    font-size: 12px; line-height: 18px;
 }
-
-.netdive-topology-badge-tooltip__title {
-    color: #ffffff;
-    font-weight: 650;
-    line-height: 1.4;
-}
-
-.netdive-topology-badge-tooltip__description {
-    margin-top: 4px;
-    color: rgba(255, 255, 255, 0.78);
-    overflow-wrap: anywhere;
-}
-
+.netdive-topology-badge-tooltip__title { color: inherit; font-size: 14px; font-weight: 600; line-height: 22px; }
+.netdive-topology-badge-tooltip__description { margin-top: 6px; color: var(--topology-object-muted, #63748d); overflow-wrap: anywhere; }
 .netdive-topology-badge-tooltip__summary,
-.netdive-topology-badge-tooltip__details {
-    margin-top: 8px;
-    padding-top: 7px;
-    border-top: 1px solid rgba(255, 255, 255, 0.16);
-}
-
-.netdive-topology-badge-tooltip__details-title {
-    margin-bottom: 3px;
-    color: rgba(255, 255, 255, 0.68);
-    font-size: 11px;
-    font-weight: 500;
-}
-
-.netdive-topology-badge-tooltip__row {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 16px;
-    min-width: 0;
-}
-
-.netdive-topology-badge-tooltip__row > span {
-    min-width: 0;
-    color: rgba(255, 255, 255, 0.82);
-    overflow-wrap: anywhere;
-}
-
-.netdive-topology-badge-tooltip__row > strong {
-    min-width: 0;
-    flex: 0 0 auto;
-    color: #ffffff;
-    font-weight: 650;
-}
-
-.netdive-topology-badge-tooltip__row.is-description {
-    display: grid;
-    grid-template-columns: 8px minmax(0, 1fr);
-    align-items: start;
-    justify-content: initial;
-    gap: 6px;
-}
-
-.netdive-topology-badge-tooltip__row.is-description + .netdive-topology-badge-tooltip__row.is-description {
-    margin-top: 4px;
-}
-
-.netdive-topology-badge-tooltip__row.is-description > strong {
-    text-align: left;
-    font-weight: 550;
-    line-height: 1.45;
-    overflow-wrap: anywhere;
-    word-break: keep-all;
-}
-
-.netdive-topology-badge-tooltip__bullet {
-    text-align: center;
-    line-height: 1.45;
-}
-
-.netdive-topology-badge-summary__total {
-    margin-top: 4px;
-    color: rgba(255, 255, 255, 0.78);
-}
-
-.netdive-topology-badge-summary__header {
-    display: flex;
-    min-width: 0;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-}
-
-.netdive-topology-badge-summary__states {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    margin-top: 8px;
-    padding-top: 7px;
-    border-top: 1px solid rgba(255, 255, 255, 0.16);
-}
-
-.netdive-topology-badge-summary__state {
-    display: grid;
-    grid-template-columns: 12px minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 7px;
-    color: rgba(255, 255, 255, 0.84);
-}
-
-.netdive-topology-badge-summary__state strong {
-    color: #ffffff;
-    font-weight: 650;
-}
-
-.netdive-topology-badge-summary__marker {
-    display: block;
-    overflow: visible;
-}
+.netdive-topology-badge-tooltip__details { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--topology-object-border, #e4ecf8); }
+.netdive-topology-badge-tooltip__details-title { margin-bottom: 6px; color: var(--topology-object-muted, #63748d); font-size: 12px; font-weight: 500; }
+.netdive-topology-badge-tooltip__row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 12px; min-width: 0; padding: 2px 0; }
+.netdive-topology-badge-tooltip__row > span { min-width: 0; color: var(--topology-object-muted, #63748d); overflow-wrap: anywhere; }
+.netdive-topology-badge-tooltip__row > strong { color: var(--topology-object-text, #25334b); font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.netdive-topology-badge-tooltip__row.is-description { grid-template-columns: 8px minmax(0, 1fr); align-items: start; gap: 6px; }
+.netdive-topology-badge-tooltip__row.is-description > strong { overflow-wrap: anywhere; font-weight: 400; }
+.netdive-topology-badge-tooltip__bullet { text-align: center; }
+.netdive-topology-badge-summary__header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.netdive-topology-badge-summary__total { margin-top: 2px; color: var(--topology-object-muted, #63748d); font-size: 12px; }
+.netdive-topology-badge-summary__states { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.netdive-topology-badge-summary__state { min-width: 0; padding: 8px 10px; border-radius: 6px; background: var(--topology-object-chip, #f7faff); }
+.netdive-topology-badge-summary__state:only-child { grid-column: 1 / -1; }
+.netdive-topology-badge-summary__state-heading { display: grid; grid-template-columns: 12px minmax(0, 1fr); align-items: center; gap: 4px 6px; }
+.netdive-topology-badge-summary__state-heading > span { font-size: 12px; line-height: 18px; }
+.netdive-topology-badge-summary__state-heading > strong { grid-column: 2; font-size: 20px; line-height: 26px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.netdive-topology-badge-summary__marker { display: block; overflow: visible; }
+.netdive-topology-badge-summary__state-details { margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--topology-object-border, #e4ecf8); }
+.netdive-topology-badge-summary__state-details .netdive-topology-badge-tooltip__row { gap: 6px; }
+.netdive-topology-badge-summary__basis { margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--topology-object-border, #e4ecf8); color: var(--topology-object-muted, #63748d); font-size: 11px; line-height: 17px; }
+.netdive-topology-badge-summary__basis > strong { display: block; margin-bottom: 4px; font-size: 11px; font-weight: 500; }
+.netdive-topology-badge-summary .netdive-topology-status-legend-trigger.is-compact { color: var(--topology-object-muted, #63748d); }
+.netdive-topology-badge-summary .netdive-topology-status-legend-trigger.is-compact:hover,
+.netdive-topology-badge-summary .netdive-topology-status-legend-trigger.is-compact:focus-visible { color: var(--topology-object-text, #25334b); background: var(--topology-object-chip, #f7faff); }
 
 .netdive-topology-numeric-badge-group__trigger {
     pointer-events: all;
@@ -1636,8 +1550,8 @@ svg {
     white-space: nowrap;
 }
 
-/* A single organic region per branch keeps the white canvas and its dots
- * visible. Group header cards do not add overlapping rectangular surfaces. */
+/* Hosts and Kubernetes clusters share rounded Glass surfaces.
+ * Group header cards do not add separate background surfaces. */
 .topology-group-regions, .topology-group-region path { pointer-events: none; }
 .topology-group-region__base {
     fill: var(--topology-group-base-color, #dadada);
@@ -1660,6 +1574,46 @@ svg {
 .topology-group-dot--1 { fill-opacity: 0.34; }
 .topology-group-dot--2 { fill-opacity: 0.20; }
 .topology-group-dot--3 { fill-opacity: 0.30; }
+/* A quiet rim makes host/cluster ownership visible in sparse upper rows. */
+.topology-group-region:is([data-shape="host-rectangle"], [data-shape="cluster-rectangle"]) .topology-group-region__shade {
+    stroke: var(--topology-group-guide-color, #a6b1c0);
+    fill-opacity: 0.55;
+    stroke-opacity: 0.2;
+    filter: drop-shadow(0 5px 14px var(--topology-group-shadow, rgba(0, 0, 0, 0.035)));
+}
+.topology-group-region:is([data-shape="host-rectangle"], [data-shape="cluster-rectangle"]) .topology-group-region__base { fill-opacity: 0.04; }
+.topology-group-region:is([data-shape="host-rectangle"], [data-shape="cluster-rectangle"]) .topology-group-region__pattern { opacity: 0.32; }
+.topology-host-caption { pointer-events: none; }
+.topology-host-caption foreignObject { overflow: visible; }
+.topology-host-caption__name {
+    box-sizing: border-box;
+    width: max-content;
+    height: 24px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    color: var(--netdive-ant-muted, #63748d);
+    background: rgba(255, 255, 255, 0.78);
+    font-size: 12px;
+    line-height: 18px;
+    font-weight: 600;
+    overflow: visible;
+    white-space: nowrap;
+    text-overflow: clip;
+}
+/* Compact-only ownership surfaces sit above the existing host shading and
+ * below every edge and card. Row tones are subtle, without adding NIC lanes. */
+.infrastructure-vm-bundles, .infrastructure-vm-bundle { pointer-events: none; }
+.infrastructure-vm-bundle {
+    fill: var(--topology-group-surface-0, #f7fbff);
+    fill-opacity: 0.48;
+    stroke: rgba(114, 148, 188, 0.22);
+    stroke-width: 1px;
+    vector-effect: non-scaling-stroke;
+}
+.infrastructure-vm-bundle[data-row-tone="1"] {
+    fill: var(--topology-group-surface-1, #f5faf9);
+    stroke: rgba(116, 153, 148, 0.22);
+}
 .topology-scene .node:not(.node-selected):not(:hover) .node-card-bg {
     fill: var(--topology-object-surface, #fcfdff);
     filter: drop-shadow(0 4px 9px var(--topology-card-shadow, rgba(31, 45, 65, 0.08)));
@@ -1674,6 +1628,14 @@ svg {
     filter: drop-shadow(0 2px 8px rgba(22, 119, 255, 0.12));
 }
 .topology-scene .node.is-related:not(.node-selected) .node-card-bg { stroke: var(--topology-object-group-border, #c9dcf8); }
+.topology-scene .node-group-card:not(.node-selected):not(:hover) .node-card-bg {
+    stroke: color-mix(in srgb, var(--topology-object-border, #e7eef8) 80%, var(--topology-object-text, #25334b) 20%);
+    stroke-width: 1.2px;
+}
+.topology-scene .node-group-card:not(.node-selected):hover .node-card-bg { stroke: #a9bfdc; }
+.topology-scene .node-group-card:has(.is-kubernetes-resource-group) .node-card-bg { vector-effect: non-scaling-stroke; }
+.topology-scene .node-group-card:has(.is-kubernetes-resource-group):not(.node-selected) .node-card-bg { stroke: #75a9f6; stroke-width: 1.3px; }
+.topology-scene .node-group-card:has(.is-kubernetes-resource-group):not(.node-selected):hover .node-card-bg { stroke: #5299ef; }
 .topology-scene .link { stroke-opacity: 0.4; stroke-width: 1.5; }
 .topology-scene .hiera-link.is-related,
 .topology-scene .link.is-related { stroke-opacity: 0.9; stroke-width: 2; }
@@ -1692,3 +1654,25 @@ svg {
 .node.mold-network-dim, .hiera-link.mold-network-dim, .link.mold-network-dim,
 .link-overlay.mold-network-dim, .link-label.mold-network-dim { filter: opacity(.2); }
 .link.mold-network-hit, .hiera-link.mold-network-hit { stroke: #4a86d7; stroke-width: 3px; }
+
+/* These are decorative lane/ownership guides, not measured traffic edges. */
+.topology-scene .level-zone { stroke: none; }
+.topology-scene .hiera-links { display: none; }
+
+/* Keep measured traffic legible when many Infrastructure cards are unfolded. */
+.topology-scene.is-infrastructure-scene .link { stroke-width: 1.75; vector-effect: non-scaling-stroke; }
+.topology-scene.is-infrastructure-scene .link.is-related { stroke-width: 2; }
+.topology-scene.is-infrastructure-scene:not(.has-relation-focus) .link:not(.is-related) { stroke-opacity: .6; }
+.topology-scene.is-infrastructure-scene .link.infra-focus-hit { stroke-width: 2.4; }
+.topology-scene.is-infrastructure-scene .link.topology-focus-hit { stroke-width: 2.8; }
+.topology-scene.is-infrastructure-scene .link.mold-network-hit { stroke-width: 3; }
+
+/* Level boundaries are horizontal guides, independent of ownership surfaces. */
+.infrastructure-level-separator {
+    fill: none;
+    stroke: var(--topology-group-guide-color, #a6b1c0);
+    stroke-opacity: .6;
+    stroke-width: 1px;
+    vector-effect: non-scaling-stroke;
+    pointer-events: none;
+}

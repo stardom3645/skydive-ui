@@ -3,7 +3,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import * as ts from 'typescript'
 import * as vm from 'vm'
-import { topologyLayerGlyph } from '../src/TopologyLayerIcons'
+import { topologyLayerGlyph, topologyLayerTitleLines } from '../src/TopologyLayerIcons'
 import { topologyNodePresentation } from '../src/TopologyNodePresentation'
 
 // Run the production attribute and layer-guide methods; synthetic group names
@@ -69,5 +69,15 @@ describe('Topology layer and object icons', () => {
                 children: [], state: {}, getWeight: () => weight }
             assert.equal(topologyNodePresentation(node, { name: kind, group: true }).kind, kind)
         }
+    })
+})
+
+describe('Stable Kubernetes guide titles', () => {
+    it('splits translated Kubernetes titles into two lines without changing other layers', () => {
+        for (const kind of ['클러스터', '노드', '네임스페이스', '스토리지', '워크로드', '파드'])
+            assert.deepEqual(topologyLayerTitleLines(`쿠버네티스 ${kind}`), ['쿠버네티스', kind])
+        assert.deepEqual(topologyLayerTitleLines('Kubernetes Workload Controllers'), ['Kubernetes', 'Workload Controllers'])
+        assert.equal(topologyLayerTitleLines('사용자 가상머신'), undefined)
+        assert.equal(topologyLayerTitleLines('Custom Layer'), undefined)
     })
 })

@@ -663,9 +663,10 @@
   word-break: break-word;
 }
 
-.netdive-host-resource-group-icon { display: inline-flex; align-items: center; width: 16px; height: 16px; color: var(--netdive-detail-text); }
+.netdive-host-resource-group-icon { display: inline-flex; align-items: center; width: 16px; height: 16px; color: var(--netdive-detail-connected-resource-icon); }
 .netdive-host-resource-group-icon img { display: block; width: 16px; height: 16px; object-fit: contain; }
-.netdive-host-resource-group .ant-card-meta-avatar { color: var(--netdive-detail-text); }
+.netdive-host-resource-group .ant-card-head-title { color: var(--netdive-detail-text-secondary); }
+.netdive-host-resource-group .ant-card-meta-avatar { color: var(--netdive-detail-connected-resource-icon); }
 .netdive-host-resource-group-icon img,
-.netdive-host-resource-group .ant-card-meta-avatar img { filter: grayscale(1); }
+.netdive-host-resource-group .ant-card-meta-avatar img { filter: none; }
 .netdive-host-info-descriptions .ant-descriptions-item-label { white-space: nowrap; }

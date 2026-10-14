@@ -8,6 +8,7 @@ import './HostResourceTrendPanel.css'
 
 import { translate } from '../Config'
 import { Node } from '../Topology'
+import { topologyVMGuestMACs } from '../TopologyResourceData'
 import { RootDiskPanel } from './common/RootDiskPanel'
 import { session } from '../Store'
 
@@ -162,7 +163,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         const instanceName = firstValue(detail, ['InstanceName', 'instanceName', 'instancename'])
         const uuid = firstValue(detail, ['UUID', 'uuid', 'ID', 'Id', 'id', 'ExtID', 'VirtualMachineID', 'virtualMachineId', 'vmid'])
         const displayName = firstValue(detail, ['DisplayName', 'displayName', 'displayname'])
-        return `${node.id}:${name}:${instanceName}:${uuid}:${displayName}`
+        return `${node.id}:${name}:${instanceName}:${uuid}:${displayName}:${topologyVMGuestMACs(node).join(',')}`
     }
 
     private loadTrend() {
@@ -186,6 +187,8 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
             const displayName = firstValue(detail, ['DisplayName', 'displayName', 'displayname'])
             params.set('name', name)
             params.set('domain', name)
+            const guestMACs = topologyVMGuestMACs(node)
+            if (guestMACs.length) params.set('guestMAC', guestMACs.join(','))
             if (instanceName) params.set('instanceName', instanceName)
             if (uuid) {
                 params.set('uuid', uuid)

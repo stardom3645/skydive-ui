@@ -53,6 +53,13 @@ describe('Topology branch separation', () => {
         }
     })
 
+    it('reserves the complete rectangle when rounded frames request it', () => {
+        const nodes = [card('a', undefined, 0), card('a-nic', 'a', 600), card('b', undefined, 600), card('b-vm', 'b', 700)]
+        const offsets = topologyBranchOffsets(nodes, 80, false, true)
+        assert.equal(offsets.get('b')! - offsets.get('a')!, 440)
+        const placed = nodes.map(node => ({ ...node, x: node.x + offsets.get(node.parentID || node.id)! }))
+        topologyBranchOffsets(placed, 80, false, true).forEach(delta => assert.equal(delta, 0))
+    })
     it('cascades separation across three hosts and is stable after applying the offsets', () => {
         const nodes = [card('h1', undefined, 0, 700), card('h2', undefined, 300, 800), card('h3', undefined, 600, 360)]
         const offsets = topologyBranchOffsets(nodes)

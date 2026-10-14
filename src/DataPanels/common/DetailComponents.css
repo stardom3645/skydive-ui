@@ -1279,7 +1279,7 @@
 }
 
 .netdive-connected-resources__group-title.ant-typography {
-    color: #101828;
+    color: var(--netdive-detail-text-secondary);
     font-size: var(--netdive-detail-font-body-label);
     font-weight: var(--netdive-detail-weight-section-title);
     line-height: var(--netdive-detail-line-body-label);
@@ -4053,11 +4053,15 @@ button.netdive-detail-metric-row:focus-visible {
 .netdive-ant-resource-wrapper { min-width: 0; }
 .netdive-ant-resource-content { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .netdive-ant-resource-content .ant-card-meta { display: flex; align-items: center; flex: 1; min-width: 0; margin: 0; }
-.netdive-ant-resource-content .ant-card-meta-avatar { display: flex; align-items: center; flex: 0 0 auto; padding-inline-end: 8px; font-size: 18px; line-height: 1; }
+.netdive-ant-resource-content .ant-card-meta-avatar { color: var(--netdive-detail-connected-resource-icon); display: flex; align-items: center; flex: 0 0 auto; padding-inline-end: 8px; font-size: 18px; line-height: 1; }
 .netdive-ant-resource-content .ant-card-meta-avatar .netdive-detail-topology-icon { width: 18px; height: 18px; line-height: 1; }
 .netdive-ant-resource-content .ant-card-meta-avatar img { width: 18px; height: 18px; object-fit: contain; }
 .netdive-ant-resource-content .ant-card-meta-title { font-size: 12px; margin-bottom: 0; }
-.netdive-ant-resource-content .ant-card-meta-description { font-size: 11px; }
+.netdive-ant-resource-content .ant-card-meta-title .ant-typography { color: var(--netdive-detail-text-secondary); }
+.netdive-ant-resource-content .ant-card-meta-description { color: var(--netdive-detail-text-tertiary); font-size: 11px; }
+.netdive-ant-resource-content .ant-statistic-content { color: var(--netdive-detail-text); }
+.netdive-ant-resource-content > .anticon,
+.netdive-ant-resource-content > .ant-btn { color: var(--netdive-detail-muted, #63748d); }
 .netdive-ant-resource-card.is-selected { border-color: var(--netdive-ant-primary, #1677ff); }
 
 .netdive-detail-description-text.lines-2,
@@ -4090,3 +4094,9 @@ button.netdive-detail-metric-row:focus-visible {
     font-size: 16px;
     line-height: 1;
 }
+
+.netdive-vm-detail-descriptions { min-width: 0; width: 100%; }
+.netdive-vm-detail-descriptions .ant-descriptions-item-content { min-width: 0; overflow: hidden; }
+.netdive-vm-detail-descriptions .netdive-detail-description-value { flex: 1 1 0; width: 100%; max-width: 100%; }
+.netdive-vm-detail-descriptions .netdive-detail-description-text { flex: 1 1 0; }
+.netdive-vm-detail-descriptions .netdive-detail-copy { flex: 0 0 auto; }

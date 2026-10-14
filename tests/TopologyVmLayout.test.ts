@@ -5,9 +5,10 @@ import * as ts from 'typescript'
 import * as vm from 'vm'
 import { topologyCardDimensions, topologyGroupFullyExpanded } from '../src/TopologyNodePresentation'
 import { topologyBranchOffsets } from '../src/TopologyBranchSpacing'
-import { topologyLaneBounds, topologyLaneOffsets } from '../src/TopologyLaneSpacing'
+import { topologyLaneBounds, topologyLaneOffsets, INFRASTRUCTURE_TRAFFIC_LANE_GAP, INFRASTRUCTURE_HOST_CAPTION_GAP } from '../src/TopologyLaneSpacing'
 import { getMoldNetworkIndex, matchMoldNIC, moldVMNetworkSummary } from '../src/MoldTopologyNetworks'
 import { infrastructureCompactLayout, infrastructureVMBridgeIDs } from '../src/InfrastructureCompactLayout'
+import { infrastructureVirtualNICOwners, infrastructureNICGroupOwner } from '../src/InfrastructureVMBundles'
 
 // Run the production placement methods against real hierarchy/flextree output,
 // including the invisible wrappers used to align topology layers.
@@ -26,12 +27,15 @@ const stackOffset = ast.statements.filter(ts.isVariableStatement).find(statement
     statement.declarationList.declarations.some(declaration => declaration.name.getText(ast) === 'topologyGroupStackOffset'))!.getText(ast)
 const context: any = { topologyCardDimensions, topologyGroupFullyExpanded, topologyBranchOffsets,
     getMoldNetworkIndex, matchMoldNIC, moldVMNetworkSummary,
-    infrastructureCompactLayout, infrastructureVMBridgeIDs, topologyLevelLabelSafeInset: 130,
-    topologyLaneBounds, topologyLaneOffsets, TOPOLOGY_STATUS_BADGE_RADIUS,
-    compactVmNodeGap: 24, compactVmGroupGap: 64, compactHostSubtreeGap: 80,
+    infrastructureCompactLayout, infrastructureVMBridgeIDs, infrastructureVirtualNICOwners, infrastructureNICGroupOwner, topologyLevelLabelSafeInset: 130,
+    topologyLaneBounds, topologyLaneOffsets, INFRASTRUCTURE_TRAFFIC_LANE_GAP, INFRASTRUCTURE_HOST_CAPTION_GAP, TOPOLOGY_STATUS_BADGE_RADIUS,
+    compactVmNodeGap: 64, compactVmGroupGap: 64, compactHostSubtreeGap: 80,
     WrapperType: { Normal: 1, Hidden: 2, Group: 3 } }
 vm.createContext(context)
 vm.runInContext(ts.transpile(`${stackOffset}\nclass Probe { ${methods} }; this.Probe = Probe`, { target: ts.ScriptTarget.ES2018 }), context)
+
+// Display labels are supplied by the surrounding app; exercise layout independently.
+context.Probe.prototype.topologyNodeDisplayName = (node: any) => node.data.wrapped.data.Name || node.data.id
 
 const wrapper = (id: string, weight: number, type = 1, children: any[] = []): any => ({
     id, type, children, size: [type === 2 ? 50 : 604, 440],
@@ -72,6 +76,7 @@ function scene(count: number, secondCount?: number, collapsed = false, expanded?
     }
     const root = hierarchy(wrapped), probe = new context.Probe()
     probe.props = {}
+    probe.nodeTagActive = 'infrastructure'
     probe.root = wrapped.wrapped
     probe.weightTitles = new Map() // Classification must not depend on translated labels.
     root.each((node: any) => {
@@ -92,8 +97,15 @@ function assertCentered(root: any, probe: any, id: string) {
     for (const weight of [7060, 7070, 7080]) {
         const row = nodes.filter((n: any) => n.data.id.startsWith(id) && n.data.wrapped.getWeight() === weight
             && probe.compactVmLayerKind(n))
-        const bounds = probe.horizontalNodeBounds(row)
-        assert.ok(Math.abs((bounds.left + bounds.right) / 2 - parent.x) < 0.001, `layer ${weight} shifted away from its parent`)
+        const blocks = row.map((n: any) => n.descendants().filter((child: any) => child.data.type !== 2))
+        const painted = (nodes: any[]) => ({
+            left: Math.min(...nodes.map(n => n.x - probe.topologyLayoutCardWidth(n) / 2)),
+            right: Math.max(...nodes.map(n => n.x + probe.topologyLayoutCardWidth(n) / 2))
+        })
+        const bounds = painted(blocks.flat())
+        assert.ok(Math.abs((bounds.left + bounds.right) / 2 - parent.x) < 0.001, `layer ${weight} footprint shifted away from its parent`)
+        for (let i = 1; i < blocks.length; i++) assert.ok(painted(blocks[i]).left - painted(blocks[i - 1]).right >= 63.999,
+            'expanded VM/NIC footprints must retain a clear corridor between siblings')
         for (let i = 1; i < row.length; i++) {
             const previousRight = row[i - 1].x + probe.topologyLayoutCardWidth(row[i - 1]) / 2
             assert.ok(row[i].x - probe.topologyLayoutCardWidth(row[i]) / 2 - previousRight >= 23.999)
@@ -102,6 +114,48 @@ function assertCentered(root: any, probe: any, id: string) {
 }
 
 describe('VM row placement', () => {
+    it('passes the retained Compact partition through real VM NIC expansion and collapse', () => {
+        let previous: any
+        let previousKey: string | undefined
+        let rows: Map<string, number> | undefined
+        for (const nics of [0, 1, 3, 0]) {
+            const { root, probe, apply } = scene(30, undefined, false,
+                nics ? { kind: 'user', index: 4, nics } : undefined)
+            apply()
+            probe.nodeTagActive = 'infrastructure'
+            probe.props = { infrastructureVMLayout: 'compact' }
+            probe.d3nodes = new Map(root.descendants().map((node: any) => [node.data.id, node]))
+            const real = root.descendants().filter((node: any) => node.data.type !== 2)
+            probe.nodes = new Map(real.map((node: any) => [node.data.id, node.data.wrapped]))
+            real.forEach((node: any) => {
+                let parent = node.parent
+                while (parent && parent.data.type === 2) parent = parent.parent
+                node.data.wrapped.parent = parent?.data.wrapped
+            })
+            const bridge = real.find((node: any) => node.data.id === 'host-a-bridge')
+            const links = real.filter((node: any) => node.data.wrapped.data.Type === 'libvirt' && node.data.wrapped.getWeight() === 7080)
+                .map((node: any) => ({ id: `${node.data.id}-traffic`, source: bridge.data.wrapped,
+                    target: node.data.wrapped, data: { RelationType: 'layer2' } }))
+            probe.links = new Map(links.map((link: any) => [link.id, link]))
+            probe.visibleLinks = () => links
+            probe.viewSize = () => ({ width: 1400, height: 900 })
+            probe.infrastructureCompactPlan = previous
+            probe.infrastructureCompactVMKey = previousKey
+            probe.applyInfrastructureCompactLayout(root)
+            const plan = probe.infrastructureCompactPlan
+            assert.equal(plan.wrappedVMs, 30, `NIC count ${nics}: ${plan.reason}`)
+            if (rows) assert.deepEqual(plan.vmRows, rows)
+            else rows = new Map(plan.vmRows)
+            assert.equal(plan.after.overlaps, 0)
+            const owner = probe.d3nodes.get('host-a-user-4')
+            const nic = probe.d3nodes.get('host-a-user-4-nic-0')
+            if (nic) assert.ok(nic.y - probe.topologyLayoutCardHeight(nic) / 2 > owner.y + probe.topologyLayoutCardHeight(owner) / 2)
+            const bundle = plan.bundles.find((unit: any) => unit.vmID === owner.data.id)
+            assert.ok(bundle)
+            if (nic) assert.ok(bundle.nodeIDs.includes(nic.data.id))
+            previous = plan; previousKey = probe.infrastructureCompactVMKey
+        }
+    })
     it('integrates Compact with real flextree lanes, invisible hierarchy spacers and unchanged upper layers', () => {
         for (const count of [10, 30, 50]) {
             const { root, probe, apply } = scene(count)
@@ -122,10 +176,10 @@ describe('VM row placement', () => {
             const upper = real.filter((node: any) => node.data.wrapped.getWeight() < 7080).map((node: any) => [node.data.id, node.x, node.y])
             probe.applyInfrastructureCompactLayout(root)
             const plan = probe.infrastructureCompactPlan
-            if (count >= 30) assert.equal(plan.twoRowVMs, count, `actual tree fallback: ${plan.reason}`)
+            if (count >= 30) assert.equal(plan.wrappedVMs, count, `actual tree fallback: ${plan.reason}`)
             assert.deepEqual(real.filter((node: any) => node.data.wrapped.getWeight() < 7080).map((node: any) => [node.data.id, node.x, node.y]), upper)
             assert.equal(plan.after.overlaps, 0)
-            if (plan.twoRowVMs) assert.ok(plan.routes.size >= links.length)
+            if (plan.wrappedVMs) assert.ok(plan.routes.size >= links.length)
             // A collector refresh rebuilds the same flextree scene with new
             // counters. The actual component must reuse the routing plan.
             root.descendants().forEach((node: any) => Object.assign(node, baseline.get(node.data.id)))
@@ -134,7 +188,7 @@ describe('VM row placement', () => {
             assert.strictEqual(probe.infrastructureCompactPlan, plan)
         }
     })
-    it('keeps each VM in its original slot when expanding inherited-weight vNICs or NIC groups', () => {
+    it('preserves VM order and separates full NIC footprints when inherited-weight interfaces expand', () => {
         for (const count of [15, 30, 60]) {
             const closed = scene(count)
             closed.apply()
@@ -145,10 +199,12 @@ describe('VM row placement', () => {
                 for (const [nics, grouped] of [[1, false], [3, false], [12, true]] as const) {
                     const opened = scene(count, undefined, false, { kind, index: kind === 'user' ? 4 : 0, nics, grouped })
                     opened.apply()
-                    opened.root.descendants().filter((node: any) => positions.has(node.data.id)).forEach((node: any) => {
-                        assert.ok(Math.abs(node.x - Number(positions.get(node.data.id))) < 0.001,
-                            `${node.data.id} moved when ${kind} VM expanded ${nics} NICs`)
-                    })
+                    for (const weight of [7060, 7070, 7080]) {
+                        const ids = (root: any) => root.descendants().filter((node: any) =>
+                            positions.has(node.data.id) && node.data.wrapped.getWeight() === weight)
+                            .sort((a: any, b: any) => a.x - b.x).map((node: any) => node.data.id)
+                        assert.deepEqual(ids(opened.root), ids(closed.root))
+                    }
                     opened.root.descendants().filter((node: any) => node.data.wrapped.data.Type === 'tun').forEach((node: any) => {
                         assert.equal(opened.probe.compactVmLayerKind(node), undefined)
                     })

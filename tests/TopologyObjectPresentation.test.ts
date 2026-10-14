@@ -1,5 +1,5 @@
 import { strict as assert } from 'assert'
-import { topologyCardDimensions, topologyNodePresentation } from '../src/TopologyNodePresentation'
+import { topologyCardDimensions, topologyNodePresentation, topologyNetworkInfoHeight, topologyNodeStatusPresentation, topologyLayerCardLayouts } from '../src/TopologyNodePresentation'
 import { kubernetesResourceSelfStatus, kubernetesTopologyDirectChildSummary } from '../src/KubernetesTopologyBadgeAggregation'
 import { topologyCardEdge, topologyHierarchyEdgeIDs } from '../src/TopologyEdgePresentation'
 
@@ -10,7 +10,151 @@ const resource = (id: string, type: string, extra: any = {}): any => ({
 const attach = (parent: any, child: any) => { parent.children.push(child); child.parent = parent; return child }
 const present = (node: any, options: any = {}) => topologyNodePresentation(node, { name: node.data.Name, ...options })
 
+describe('Uniform topology layer card slots', () => {
+    const member = (id: string, type: string, weight: number, manager = 'fabric') => {
+        const node = resource(id, type)
+        node.data.Manager = manager
+        node.getWeight = () => weight
+        return node
+    }
+    it('aligns router names, one/two-line networks and absent network data without the unused three-line name slot', () => {
+        const nodes = ['r-161-VM', 'r-242-VM', 'r-255-VM', 'r-284-VM'].map(id => member(id, 'libvirt', 7070))
+        const networks = ['rt1230-gfs2-v13412-r3-net', 'rt1230-v1342-gfs2-r16-net', 'rt1230-v13412-external-etcd-gfs2-r18-net', undefined]
+        const entries = nodes.map((node, i) => ({ node, networkSummary: networks[i] }))
+        const layouts = topologyLayerCardLayouts(entries)
+        const models = entries.map(entry => present(entry.node, { ...entry, cardLayout: layouts.get(entry.node.id) }))
+        assert.equal(new Set(models.map(model => model.height)).size, 1)
+        assert.equal(new Set(models.map(model => model.headerHeight)).size, 1)
+        assert.equal(new Set(models.map(model => model.networkHeight)).size, 1)
+        assert.equal(models[0].headerHeight, 96)
+        assert.equal(models[0].networkHeight, 116)
+        assert.equal(models[0].height, 522)
+        models.forEach((model, i) => assert.equal(model.name, nodes[i].data.Name))
+        assert.equal(models[3].networkSummary, undefined, 'missing data is never fabricated')
+    })
+    it('shares the longest real name slot across hosts, NICs, workloads and storage while retaining complete names', () => {
+        for (const [type, weight, manager] of [['host', 5020, 'fabric'], ['tun', 7090, 'fabric'],
+            ['deployment', 3035, 'k8s'], ['persistentvolumeclaim', 3070, 'k8s']] as Array<[string, number, string]>) {
+            const short = member('brief', type, weight, manager), long = member('very-long-operational-resource-name-'.repeat(4), type, weight, manager)
+            const layouts = topologyLayerCardLayouts([{ node: short }, { node: long }])
+            const models = [short, long].map(node => present(node, { cardLayout: layouts.get(node.id) }))
+            assert.equal(models[0].height, models[1].height)
+            assert.equal(models[0].headerHeight, models[1].headerHeight)
+            assert.equal(models[1].name, long.data.Name)
+            assert.ok(models[1].headerHeight! >= 168)
+            assert.equal(topologyCardDimensions(short, false, { cardLayout: layouts.get(short.id) }).height, models[0].height)
+        }
+    })
+    it('keeps layer slots independent and stable across expansion, network counts and metric updates', () => {
+        const router = member('router', 'libvirt', 7070), vm = member('user-vm-name-'.repeat(5), 'libvirt', 7080)
+        const entries = [{ node: router }, { node: vm, networkSummary: 'a-long-network-'.repeat(8), networkCount: 3 }]
+        const before = topologyLayerCardLayouts(entries)
+        assert.equal(before.get(router.id)!.height, 388)
+        assert.equal(before.get(vm.id)!.networkHeight, 80)
+        vm.state.expanded = false; vm.data.CPU = 70; router.state.expanded = false
+        const after = topologyLayerCardLayouts(entries)
+        assert.deepEqual(after, before)
+        const group = member('VM group', 'libvirt', 7080)
+        group.data.IsTopologyGroup = true; group.children = [vm]
+        const dimensions = topologyCardDimensions(group, true, { memberCardLayout: node => after.get(node.id) })
+        assert.equal(dimensions.height, after.get(vm.id)!.height)
+    })
+    it('keeps NICs compact when their graph weight matches the owning VM', () => {
+        const vm = member('user-vm-name-'.repeat(5), 'libvirt', 7080)
+        const nic = member('10.10.254.173', 'tun', 7080), other = member('10.10.254.174', 'tun', 7080)
+        nic.parent = other.parent = vm
+        const layouts = topologyLayerCardLayouts([{ node: vm, networkSummary: 'ADMIN-L2-Network' },
+            { node: nic, networkSummary: 'ADMIN-L2-Network' }, { node: other }])
+        assert.equal(layouts.get(nic.id)!.height, 234)
+        assert.deepEqual(layouts.get(nic.id), layouts.get(other.id))
+        assert.ok(layouts.get(nic.id)!.height < layouts.get(vm.id)!.height / 2)
+        assert.equal(topologyCardDimensions(nic, false, { cardLayout: layouts.get(nic.id) }).width, 480)
+    })
+})
+
 describe('Topology object presentation', () => {
+    it('separates raw Up/Down from incident judgment on NICs and canonical group children', () => {
+        const group = resource('NIC 그룹', 'device'); group.data.Manager = 'fabric'; group.data.IsTopologyGroup = true
+        const up = attach(group, resource('eno1', 'device')), down = attach(group, resource('eno2', 'device')),
+            unknown = attach(group, resource('eno3', 'device'))
+        for (const node of [up, down, unknown]) node.data.Manager = 'fabric'
+        up.data.OperState = 'UP'; down.data.State = 'DOWN'
+        const downCard = present(down), model = present(group, { group: true })
+        assert.equal(downCard.status.tone, 'normal')
+        assert.equal(downCard.status.label, '이상 없음')
+        assert.equal(downCard.linkState, 'Down')
+        assert.equal(present(up).linkState, 'Up')
+        assert.equal(present(unknown).linkState, undefined)
+        assert.deepEqual(model.linkStates, { up: 1, down: 1, unknown: 1 })
+        assert.equal(model.children!.normal, 3)
+        assert.equal(model.children!.critical, 0)
+        group.state.expanded = false
+        assert.deepEqual(present(group, { group: true }).linkStates, model.linkStates)
+        down.data.Master = 'bridge0'
+        assert.equal(present(down).status.tone, 'warning', 'a used Down path retains the existing attention classification')
+        assert.equal(present(group, { group: true }).children!.warning, 1)
+        assert.deepEqual(present(group, { group: true }).linkStates, model.linkStates)
+        const k8s = resource('worker', 'node'); k8s.data.State = 'DOWN'
+        assert.equal(present(k8s).linkState, undefined)
+        assert.equal(present(k8s).linkStates, undefined)
+        down.data.OperState = 'UP'
+        assert.equal(present(down).linkState, 'Up', 'operational interface state takes precedence over a generic State')
+    })
+    it('keeps Infrastructure NIC and bridge group summaries readable beside compact members', () => {
+        for (const type of ['tun', 'bridge', 'vlan']) {
+            const group = resource(`${type} group`, type), child = attach(group, resource('brief', type))
+            group.data.Manager = child.data.Manager = 'fabric'
+            group.data.IsTopologyGroup = true
+            const normal = present(child), closed = present(group, { group: true })
+            assert.equal(normal.width, 340)
+            assert.ok(normal.height < 280)
+            assert.deepEqual([closed.size, closed.width, closed.height], ['medium', 440, 416])
+            group.state.expanded = true; group.state.groupFullSize = true
+            const open = present(group, { group: true })
+            assert.deepEqual([open.width, open.height], [closed.width, closed.height])
+            assert.deepEqual(open.children, closed.children)
+            child.data.Manager = group.data.Manager = 'k8s'
+            assert.deepEqual([present(group, { group: true }).width, present(group, { group: true }).height],
+                [present(child).width, present(child).height])
+        }
+    })
+    it('widens only canonical VM virtual interfaces, preserving host NIC, group and Kubernetes widths', () => {
+        const host = resource('host', 'host'), vm = resource('vm', 'libvirt')
+        host.data.Manager = vm.data.Manager = 'fabric'
+        const nic = resource('10.10.254.154', 'tuntap')
+        nic.data.Manager = 'fabric'; nic.parent = vm
+        assert.equal(topologyCardDimensions(nic, false, { networkSummary: 'ADMIN-L2-Network' }).width, 480)
+        nic.parent = host
+        assert.equal(topologyCardDimensions(nic).width, 340)
+        nic.parent = vm; nic.data.Manager = 'k8s'
+        assert.equal(topologyCardDimensions(nic).width, 340)
+        nic.data.Manager = 'fabric'
+        assert.equal(topologyCardDimensions(nic, true).width, topologyCardDimensions(nic).width)
+    })
+    it('removes the unused second network line and allocates it only for long values', () => {
+        assert.equal(topologyNetworkInfoHeight(480, 'ADMIN-L2-Network'), 80)
+        assert.equal(topologyNetworkInfoHeight(480, 'long-network-name-'.repeat(8)), 116)
+        assert.equal(topologyNetworkInfoHeight(480, 'long-network-name-'.repeat(8), 3), 80)
+        assert.equal(topologyNetworkInfoHeight(480, '  '), 0)
+        const vm = resource('vm', 'libvirt'); vm.data.Manager = 'fabric'
+        const short = present(vm, { networkSummary: 'ADMIN-L2-Network' })
+        const long = present(vm, { networkSummary: 'long-network-name-'.repeat(8) })
+        assert.equal(long.height - short.height, 36)
+        vm.data.Name = 'very-long-vm-name-'.repeat(5)
+        assert.equal(present(vm, { networkSummary: 'ADMIN-L2-Network' }).height, short.height)
+    })
+    it('sizes interface identities using the displayed IP and restores legacy full names', () => {
+        const nic = resource('very-long-interface-name-'.repeat(5), 'tun'); nic.data.Manager = 'fabric'
+        nic.parent = { data: { Type: 'libvirt' } }
+        const ip = present(nic, { name: '10.10.254.154', networkSummary: 'ADMIN-L2-Network' })
+        assert.equal(ip.height, 234)
+        assert.equal(ip.height, topologyCardDimensions(nic, false, { name: '10.10.254.154', networkSummary: 'ADMIN-L2-Network' }).height)
+        const restored = present(nic, { name: `${nic.data.Name.slice(0, 24)}.` })
+        assert.equal(restored.name, nic.data.Name)
+        assert.equal(restored.height, present(nic).height)
+        nic.data.State = 'UP'
+        assert.equal(present(nic, { name: '10.10.254.154', networkSummary: 'ADMIN-L2-Network' }).height, ip.height)
+    })
     it('uses three card tiers independently from a long name', () => {
         const cluster = resource('cluster', 'cluster'), worker = resource('worker', 'node')
         const pvc = resource('very-long-volume-name-'.repeat(20), 'persistentvolumeclaim')
@@ -22,7 +166,7 @@ describe('Topology object presentation', () => {
     })
     it('does not invent usage percentages, and preserves a measured zero', () => {
         const node = resource('worker', 'node')
-        assert.deepEqual(present(node).metrics.map(metric => [metric.value, metric.percent]), [['미수집', undefined], ['미수집', undefined]])
+        assert.deepEqual(present(node).metrics.map(metric => [metric.value, metric.percent]), [['미수집', undefined], ['미수집', undefined], ['미수집', undefined]])
         Object.assign(node.data, { CPUUsagePercent: 0, MemoryUsagePercent: 48, PodCount: 0 })
         assert.deepEqual(present(node).metrics.map(metric => [metric.value, metric.percent]), [['0%', 0], ['48%', 48], ['0', undefined]])
         node.data.CPUUsagePercent = 800
@@ -61,7 +205,33 @@ describe('Topology object presentation', () => {
         assert.equal(model.children!.normal, canonical.healthy.length)
         assert.deepEqual(topologyCardDimensions(namespace), { size: 'medium', width: model.width, height: model.height })
     })
-    it('changes only fully expanded groups into low summary cards while preserving their counts', () => {
+    it('keeps namespace summaries the same size as resources appear or unfold, without changing virtual groups', () => {
+        const namespace = resource('default', 'namespace', { Status: { Phase: 'Active' } })
+        const empty = present(namespace)
+        assert.equal(empty.namespaceSummary, true)
+        assert.equal(empty.group, true)
+        assert.equal(empty.expandable, false)
+        assert.equal(empty.children!.total, 0)
+        assert.equal(empty.status.tone, 'normal')
+        const workload = attach(namespace, resource('api', 'deployment', { Spec: { Replicas: 2 }, Status: { AvailableReplicas: 1 } }))
+        for (const expanded of [false, true]) {
+            namespace.state.expanded = expanded
+            namespace.state.groupFullSize = expanded
+            const model = present(namespace)
+            assert.deepEqual([model.width, model.height], [empty.width, empty.height])
+            assert.equal(model.fullyExpanded, false)
+            assert.equal(model.expandable, true)
+            assert.equal(model.children!.total, 1)
+            assert.equal(model.children!.critical, 1)
+            assert.strictEqual(namespace.children[0], workload)
+        }
+        namespace.data.IsTopologyGroup = true
+        const virtualGroup = present(namespace, { group: true })
+        assert.equal(virtualGroup.namespaceSummary, false)
+        assert.equal(virtualGroup.fullyExpanded, true)
+        assert.equal(virtualGroup.height, topologyCardDimensions(workload).height)
+    })
+    it('matches VM group silhouettes to their members through partial and full expansion, preserving counts', () => {
         const group = resource('VM 그룹', 'libvirt'); group.data.Manager = 'libvirt'
         for (let index = 0; index < 50; index++) {
             const child = attach(group, resource(`vm-${index}`, 'libvirt'))
@@ -69,6 +239,7 @@ describe('Topology object presentation', () => {
         }
         group.state.expanded = false; group.state.groupFullSize = false
         const closed = present(group, { group: true })
+        assert.deepEqual([closed.width, closed.height], [present(group.children[0]).width, present(group.children[0]).height])
         group.state.expanded = true
         const partial = present(group, { group: true })
         assert.equal(partial.fullyExpanded, false)
@@ -76,8 +247,7 @@ describe('Topology object presentation', () => {
         group.state.groupFullSize = true
         const expanded = present(group, { group: true })
         assert.equal(expanded.fullyExpanded, true)
-        assert.equal(expanded.height, 180)
-        assert.ok(expanded.height < closed.height)
+        assert.equal(expanded.height, closed.height)
         assert.equal(expanded.width, closed.width)
         assert.deepEqual(expanded.children, closed.children)
         assert.equal(expanded.children!.total, 50)
@@ -86,6 +256,9 @@ describe('Topology object presentation', () => {
         const collapsed = present(group, { group: true })
         assert.equal(collapsed.fullyExpanded, false)
         assert.equal(collapsed.height, closed.height)
+        const network = present(group, { group: true, memberNetworkSummary: () => 'ADMIN-L2-Network' })
+        assert.equal(network.height, present(group.children[0], { networkSummary: 'ADMIN-L2-Network' }).height)
+        assert.equal(network.groupResourceCount, 50)
     })
     it('preserves descendant attention in cluster groups and exposes it on each card', () => {
         const group = resource('clusters', 'cluster'); group.data.IsTopologyGroup = true
@@ -128,6 +301,28 @@ describe('Topology object presentation', () => {
         assert.equal(cluster.state.expanded, false)
         assert.equal(namespace.children.length, 3)
     })
+    it('separates direct group membership from unique collected descendants, excluding synthetic groups and completed Pods', () => {
+        const group = resource('namespace-group', 'namespace')
+        group.data.IsTopologyGroup = true
+        group.state.expanded = false
+        const namespace = attach(group, resource('kube-system', 'namespace', { Status: { Phase: 'Active' } }))
+        const deployment = attach(namespace, resource('api', 'deployment'))
+        attach(deployment, resource('running-pod', 'pod', { Status: { Phase: 'Running' } }))
+        attach(deployment, resource('completed-pod', 'pod', { Status: { Phase: 'Succeeded' } }))
+        const synthetic = attach(namespace, resource('storage-group', 'persistentvolumeclaim'))
+        synthetic.data.IsTopologyGroup = true
+        attach(synthetic, resource('data-pvc', 'persistentvolumeclaim'))
+        const duplicate = attach(synthetic, resource('alias-pvc', 'persistentvolumeclaim'))
+        duplicate.data.K8s.Extra.ObjectMeta.UID = 'data-pvc'
+        const before = namespace.children.slice()
+        const model = present(group, { group: true })
+        assert.equal(model.children!.total, 1)
+        assert.equal(model.groupResourceCount, 4)
+        assert.equal(model.height, present(namespace).height)
+        assert.deepEqual(namespace.children, before)
+        assert.equal(group.state.expanded, false)
+        assert.equal(present(namespace).groupResourceCount, undefined)
+    })
     it('preserves full storage context and does not fabricate endpoint traffic', () => {
         const pvc = resource('data', 'persistentvolumeclaim', { Status: { Capacity: { storage: '120Gi' } } })
         pvc.data.K8s.Namespace = 'long-namespace-name'
@@ -168,5 +363,68 @@ describe('Topology card edge endpoints', () => {
     it('routes upward relationships without clipping into the source card', () => {
         const path = topologyCardEdge({ x: 0, y: 216, width: 280, height: 112 }, { x: 0, y: 0, width: 420, height: 156 })
         assert.ok(path.startsWith('M0,160') && path.endsWith('0,78'))
+    })
+})
+
+describe('Search and card shared status', () => {
+    it('keeps status parity across infrastructure snapshots and Kubernetes states', () => {
+        for (const type of ['host', 'libvirt', 'device', 'bridge', 'pod', 'node']) {
+            for (const state of ['UP', 'DOWN', 'Running', 'Error', undefined]) {
+                const node = resource(type, type)
+                if (!['pod', 'node'].includes(type)) node.data.Manager = 'fabric'
+                node.data.State = state
+                for (const options of [{}, { resourceData: { inventory: { State: 'Maintenance', ResourceState: 'Maintenance' } } }])
+                    assert.deepEqual(topologyNodeStatusPresentation(node, options), present(node, options).status)
+            }
+        }
+    })
+})
+
+describe('Kubernetes cluster metric layout bounds', () => {
+    it('reserves two count rows and equal CPU/memory slots within the same SVG/layout height', () => {
+        const cluster = resource('cluster', 'cluster')
+        cluster.data.Name = 'k8s-lifecycle31-v13412-gfs2-r12-long-cluster'
+        const model = present(cluster, { resourceData: { summary: { resources: { allocatableCpuCores: 12, allocatableMemoryBytes: 24653168640 } } } })
+        assert.ok(model.height > 440, 'the full-width name and scope need their own header rows')
+        assert.equal(model.height, topologyCardDimensions(cluster).height)
+        assert.equal(model.metrics.length, 6)
+        assert.deepEqual(model.metrics.slice(-2).map(m => m.key), ['cpu', 'memory'])
+        assert.ok(model.height >= 40 + 116 + 18 + 56 * 2 + 112 + 10 * 2)
+        assert.equal(topologyCardDimensions(cluster, true).height, model.height)
+        const vm = resource('vm', 'libvirt'); vm.data.Manager = 'fabric'
+        assert.equal(topologyCardDimensions(vm).height, present(vm).height)
+    })
+})
+
+describe('Kubernetes content and stable metric slots', () => {
+    it('makes a leaf card fit its identity and caps long names without reserving unused metrics', () => {
+        const node = resource('brief', 'container')
+        const short = present(node)
+        assert.deepEqual(short.metricRowHeights, [])
+        assert.equal(short.metrics.length, 0)
+        node.data.Name = '긴 컨테이너 이름 '.repeat(15)
+        const long = present(node)
+        assert.ok(long.height > short.height)
+        node.data.Name += '더 긴 이름 '.repeat(50)
+        assert.equal(present(node).height, long.height)
+        assert.equal(present(node).name, node.data.Name)
+        assert.deepEqual(topologyCardDimensions(node), { size: long.size, width: long.width, height: long.height, metricRowHeights: [] })
+    })
+    it('keeps workload, node and pod geometry stable when real usage and counts arrive', () => {
+        for (const type of ['deployment', 'node', 'pod']) {
+            const node = resource(`long-${type}-name-`.repeat(3), type, { Spec: { Replicas: 2 }, Status: { Phase: 'Running', ReadyReplicas: 1 } })
+            node.data.Namespace = 'a-long-namespace-for-operational-context'
+            const before = present(node)
+            assert.deepEqual(before.metrics.slice(0, 2).map(metric => metric.key), ['cpu', 'memory'])
+            assert.ok(before.metrics.slice(0, 2).every(metric => metric.value === '미수집' && metric.percent === undefined))
+            const snapshot = { detail: { podCount: 8, usage: { cpu: '1', memory: '2Gi' }, allocatable: { cpu: '4', memory: '8Gi' } } }
+            const after = present(node, { resourceData: snapshot })
+            assert.equal(after.height, before.height)
+            assert.deepEqual(after.metricRowHeights, before.metricRowHeights)
+            assert.deepEqual(topologyCardDimensions(node).height, before.height)
+            if (type === 'node') assert.equal(after.metrics.find(metric => metric.key === 'pods')!.value, '8')
+            if (type === 'deployment') assert.equal(after.metrics.find(metric => metric.key === 'replicas')!.value, '1/2')
+            assert.equal(after.name, node.data.Name)
+        }
     })
 })

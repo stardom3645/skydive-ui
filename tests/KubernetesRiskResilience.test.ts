@@ -1,5 +1,5 @@
 import * as assert from 'assert'
-import { collectedRiskCount, currentImpactAssessment, riskPlacementCoverage, switchRiskPlacements } from '../src/KubernetesRiskResilience'
+import { collectedInfrastructureRiskFactors, collectedRiskCount, currentImpactAssessment, riskPlacementCoverage, switchRiskPlacements } from '../src/KubernetesRiskResilience'
 
 const unknown = 'unknown'
 describe('Kubernetes risk and resilience', () => {
@@ -95,5 +95,20 @@ describe('Kubernetes cluster panel risk integration', () => {
             assert.strictEqual(analysis.label, '부분 수집')
             assert.ok(analysis.description.includes('10개 노드 중 2개'))
         })
+    })
+})
+
+describe('Collected structural risk explanations', () => {
+    it('breaks down the collected backend score without changing its sum', () => {
+        const factors = collectedInfrastructureRiskFactors({ infrastructureRiskScore: 45, singleControlPlane: true,
+            singleReplicaWorkloadCount: 2, singleNodeEndpointServiceCount: 1, localStorageDependentWorkloadCount: 0, externalPathCount: 0 })
+        assert.deepStrictEqual(factors.map(f => f.label), ['단일 Control Plane 구성', '단일 Replica 워크로드', '단일 노드에 집중된 서비스 엔드포인트'])
+        assert.strictEqual(factors.reduce((sum, f) => sum + f.score, 0), 45)
+    })
+    it('keeps older or inconsistent summaries opaque and does not invent missing risk data', () => {
+        assert.deepStrictEqual(collectedInfrastructureRiskFactors({ infrastructureRiskScore: 45 }), [{ label: '수집된 구조적 위험 분석', score: 45 }])
+        assert.deepStrictEqual(collectedInfrastructureRiskFactors({ infrastructureRiskScore: 90, singleControlPlane: true,
+            singleReplicaWorkloadCount: 2, singleNodeEndpointServiceCount: 1, localStorageDependentWorkloadCount: 0, externalPathCount: 0 }), [{ label: '수집된 구조적 위험 분석', score: 90 }])
+        for (const score of [undefined, null, NaN, -1, 0]) assert.deepStrictEqual(collectedInfrastructureRiskFactors({ infrastructureRiskScore: score }), [])
     })
 })

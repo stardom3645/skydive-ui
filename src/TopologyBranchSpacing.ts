@@ -5,11 +5,18 @@ import { topologyVisibleBranches, topologyGroupRegionBands, topologyGroupRegionE
  * segment conservatively, so entire branches need not become rectangular lanes.
  * Only x offsets are returned: hierarchy, order, heights and state are untouched.
  */
-export const topologyBranchOffsets = (nodes: TopologyRegionNode[], gap = 80): Map<string, number> => {
+export const topologyBranchOffsets = (nodes: TopologyRegionNode[], gap = 80, closeGaps = false, rectangular = false): Map<string, number> => {
     const branches = topologyVisibleBranches(nodes).map(branch => ({
         id: branch.id, center: branch.nodes.find(node => node.id === branch.id)!.x,
         bands: topologyGroupRegionBands(branch.nodes, 24, 0)
     })).filter(branch => branch.bands.length).sort((a, b) => a.center - b.center || a.id.localeCompare(b.id))
+    // Rounded host/cluster frames reserve the full silhouette when requested.
+    // Organic callers can still share space between narrow rows.
+    if (rectangular) branches.forEach(branch => {
+        branch.bands = [{ left: Math.min(...branch.bands.map(band => band.left)),
+            right: Math.max(...branch.bands.map(band => band.right)),
+            top: branch.bands[0].top, bottom: branch.bands[branch.bands.length - 1].bottom }]
+    })
     const offsets = new Map<string, number>()
     if (branches.length < 2) return offsets
     const boundaries: number[] = []
@@ -23,7 +30,7 @@ export const topologyBranchOffsets = (nodes: TopologyRegionNode[], gap = 80): Ma
     })
     const packedRight = levels.slice(1).map(() => -Infinity)
     let finalRight = -Infinity, originalRight = -Infinity
-    branches.forEach(branch => {
+    branches.forEach((branch, branchIndex) => {
         const extents = levels.map(y => extentAt(branch.bands, y))
         const profile = levels.slice(1).map((_, index) => {
             const a = extents[index], b = extents[index + 1]
@@ -31,8 +38,9 @@ export const topologyBranchOffsets = (nodes: TopologyRegionNode[], gap = 80): Ma
             if (!middle) return undefined
             return { left: Math.min(a?.left ?? middle.left, b?.left ?? middle.left), right: Math.max(a?.right ?? middle.right, b?.right ?? middle.right) }
         })
-        let offset = 0
+        let offset = closeGaps && branchIndex > 0 ? -Infinity : 0
         profile.forEach((extent, index) => { if (extent) offset = Math.max(offset, packedRight[index] + gap - extent.left) })
+        if (!Number.isFinite(offset)) offset = 0
         profile.forEach((extent, index) => { if (extent) packedRight[index] = Math.max(packedRight[index], extent.right + offset) })
         offsets.set(branch.id, offset)
         const right = Math.max(...branch.bands.map(band => band.right))

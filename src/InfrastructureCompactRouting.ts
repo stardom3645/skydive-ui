@@ -1,9 +1,10 @@
 import { TopologyCardBounds, topologyCardEdge } from './TopologyEdgePresentation'
 
 export interface RoutePoint { x: number; y: number }
-export interface RoutingCard extends TopologyCardBounds { id: string; above?: number; below?: number }
+export interface RoutingCard extends TopologyCardBounds { id: string; type?: string; group?: boolean; above?: number; below?: number }
 export interface RoutingEdge { id: string; sourceID: string; targetID: string; hierarchy?: boolean }
-export interface CompactRoute { path: string; points: RoutePoint[] }
+export interface CompactRoute { path: string; points: RoutePoint[]; trafficNodeID?: string }
+export interface RoutingRegion extends RoutingCard { nodeIDs: string[] }
 const EPS = 0.01
 const same = (a: RoutePoint, b: RoutePoint) => Math.abs(a.x - b.x) < EPS && Math.abs(a.y - b.y) < EPS
 const distance = (a: RoutePoint, b: RoutePoint) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y)
@@ -147,9 +148,21 @@ const roundedPath = (points: RoutePoint[]) => {
     return `${path} L${end.x},${end.y}`
 }
 
+export function translateCompactRoute(route: CompactRoute, dx: number): CompactRoute {
+    const points = route.points.map(point => ({ x: point.x + dx, y: point.y }))
+    return { ...route, points, path: roundedPath(points) }
+}
+
+export const compactRouteFromPoints = (points: RoutePoint[]): CompactRoute => {
+    const simplified = simplify(points)
+    return { points: simplified, path: roundedPath(simplified) }
+}
+
 /** A shared obstacle graph, not a shared SVG trunk. Each edge retains its own
  * ports, path, hit target and identity. Congestion discourages coincident paths. */
-export function routeCompactEdges(cards: RoutingCard[], edges: RoutingEdge[], trackYs: number[] = []): Map<string, CompactRoute> | undefined {
+export function routeCompactEdges(cards: RoutingCard[], edges: RoutingEdge[], trackYs: number[] = [], regions: RoutingRegion[] = [],
+    options: { padding?: number; side?: (card: RoutingCard, other: RoutingCard) => string } = {}): Map<string, CompactRoute> | undefined {
+    const clearance = options.padding ?? 18
     const byID = new Map(cards.map(card => [card.id, card]))
     const obstacles = cards.filter(card => card.width > 0 && card.height > 0)
     const ports = new Map<string, { anchor: RoutePoint; exit: RoutePoint }>()
@@ -158,7 +171,7 @@ export function routeCompactEdges(cards: RoutingCard[], edges: RoutingEdge[], tr
         const source = byID.get(edge.sourceID), target = byID.get(edge.targetID)
         if (!source || !target) return
         for (const [end, card, other] of [['source', source, target], ['target', target, source]] as const) {
-            const side = Math.abs(other.y - card.y) > 1 ? (other.y > card.y ? 'bottom' : 'top') : (other.x > card.x ? 'right' : 'left')
+            const side = options.side?.(card, other) || (Math.abs(other.y - card.y) > 1 ? (other.y > card.y ? 'bottom' : 'top') : (other.x > card.x ? 'right' : 'left'))
             const key = `${card.id}:${side}`, entries = sides.get(key) || []
             entries.push({ edge, end, card, other, side }); sides.set(key, entries)
         }
@@ -170,7 +183,7 @@ export function routeCompactEdges(cards: RoutingCard[], edges: RoutingEdge[], tr
             const spread = entries.length > 1 ? ((index + 1) / (entries.length + 1) - 0.5) * 0.76 : 0
             const anchor = horizontal ? { x: card.x + card.width * spread, y: card.y + card.height / 2 * (side === 'top' ? -1 : 1) }
                 : { x: card.x + card.width / 2 * (side === 'left' ? -1 : 1), y: card.y + card.height * spread }
-            const box = rect(card, card.width > 0 ? 18 : 0)
+            const box = rect(card, card.width > 0 ? clearance : 0)
             const exit = horizontal ? { x: anchor.x, y: side === 'top' ? box.top : box.bottom }
                 : { x: side === 'left' ? box.left : box.right, y: anchor.y }
             ports.set(`${edge.id}:${end}`, { anchor, exit })
@@ -178,7 +191,9 @@ export function routeCompactEdges(cards: RoutingCard[], edges: RoutingEdge[], tr
     })
     if (!edges.length) return new Map()
     const xs = new Set<number>(), ys = new Set<number>(trackYs)
-    obstacles.forEach(card => { const box = rect(card, 18)
+    obstacles.forEach(card => { const box = rect(card, clearance)
+        xs.add(box.left); xs.add(box.right); ys.add(box.top); ys.add(box.bottom) })
+    regions.forEach(region => { const box = rect(region, 8)
         xs.add(box.left); xs.add(box.right); ys.add(box.top); ys.add(box.bottom) })
     ports.forEach(port => { xs.add(port.exit.x); ys.add(port.exit.y) })
     if (!xs.size || !ys.size) return undefined
@@ -188,19 +203,22 @@ export function routeCompactEdges(cards: RoutingCard[], edges: RoutingEdge[], tr
     // Keep a pathological expanded graph from monopolizing the UI thread.
     if (cols * y.length > 50000) return undefined
     const xIndex = new Map(x.map((v, i) => [v, i])), yIndex = new Map(y.map((v, i) => [v, i]))
-    const padded = obstacles.map(card => rect(card, 18))
-    const clear = (a: RoutePoint, b: RoutePoint) => !padded.some(box => Math.abs(a.y - b.y) < EPS
+    const padded = obstacles.map(card => rect(card, clearance))
+    const regionBoxes = regions.map(region => ({ id: region.id, box: rect(region, 8) }))
+    const crossesBox = (a: RoutePoint, b: RoutePoint, box: ReturnType<typeof rect>) => Math.abs(a.y - b.y) < EPS
         ? a.y > box.top + EPS && a.y < box.bottom - EPS && Math.max(a.x, b.x) > box.left + EPS && Math.min(a.x, b.x) < box.right - EPS
-        : a.x > box.left + EPS && a.x < box.right - EPS && Math.max(a.y, b.y) > box.top + EPS && Math.min(a.y, b.y) < box.bottom - EPS)
+        : a.x > box.left + EPS && a.x < box.right - EPS && Math.max(a.y, b.y) > box.top + EPS && Math.min(a.y, b.y) < box.bottom - EPS
+    const clear = (a: RoutePoint, b: RoutePoint) => !padded.some(box => crossesBox(a, b, box))
     const points: RoutePoint[] = []
     for (const yy of y) for (const xx of x) points.push({ x: xx, y: yy })
     const neighbors = points.map((point, index) => {
-        const result: Array<{ id: number; direction: number; length: number; key: string }> = []
+        const result: Array<{ id: number; direction: number; length: number; key: string; blockedRegions: string[] }> = []
         const col = index % cols, row = Math.floor(index / cols)
         for (const id of [col > 0 ? index - 1 : -1, col + 1 < cols ? index + 1 : -1,
             row > 0 ? index - cols : -1, row + 1 < y.length ? index + cols : -1]) {
             if (id >= 0 && clear(point, points[id])) result.push({ id, direction: Math.abs(id - index) === 1 ? 0 : 1,
-                length: distance(point, points[id]), key: `${Math.min(index, id)}:${Math.max(index, id)}` })
+                length: distance(point, points[id]), key: `${Math.min(index, id)}:${Math.max(index, id)}`,
+                blockedRegions: regionBoxes.filter(region => crossesBox(point, points[id], region.box)).map(region => region.id) })
         }
         return result
     })
@@ -209,6 +227,10 @@ export function routeCompactEdges(cards: RoutingCard[], edges: RoutingEdge[], tr
     const ordered = edges.slice().sort((a, b) => distance(byID.get(b.sourceID)!, byID.get(b.targetID)!)
         - distance(byID.get(a.sourceID)!, byID.get(a.targetID)!) || a.id.localeCompare(b.id))
     for (const edge of ordered) {
+        // An edge may enter its own VM/NIC unit. Other units are obstacles,
+        // including the empty space between their VM and interface cards.
+        const allowedRegions = new Set(regions.filter(region => region.nodeIDs.includes(edge.sourceID)
+            || region.nodeIDs.includes(edge.targetID)).map(region => region.id))
         const startPort = ports.get(`${edge.id}:source`), endPort = ports.get(`${edge.id}:target`)
         if (!startPort || !endPort) return undefined
         const start = yIndex.get(startPort.exit.y)! * cols + xIndex.get(startPort.exit.x)!
@@ -224,6 +246,7 @@ export function routeCompactEdges(cards: RoutingCard[], edges: RoutingEdge[], tr
             const node = Math.floor(item.state / 2), direction = item.state % 2
             if (node === end) { final = item.state; break }
             for (const neighbor of neighbors[node]) {
+                if (neighbor.blockedRegions.some(id => !allowedRegions.has(id))) continue
                 const next = neighbor.id * 2 + neighbor.direction
                 const cost = item.cost + neighbor.length * (1 + (usage.get(neighbor.key) || 0) * 0.35)
                     + (direction === neighbor.direction ? 0 : 60)
@@ -238,12 +261,39 @@ export function routeCompactEdges(cards: RoutingCard[], edges: RoutingEdge[], tr
         ids.slice(1).forEach((id, i) => { const key = `${Math.min(id, ids[i])}:${Math.max(id, ids[i])}`; usage.set(key, (usage.get(key) || 0) + 1) })
         const routePoints = simplify([startPort.anchor, ...ids.map(id => points[id]), endPort.anchor])
         if (routeCardHits(edge, routePoints, obstacles)) return undefined
+        if (regions.some(region => !allowedRegions.has(region.id)
+            && routePoints.slice(1).some((point, i) => segmentHitsCard(routePoints[i], point, region)))) return undefined
         routes.set(edge.id, { path: roundedPath(routePoints), points: routePoints })
     }
     return routes
 }
 
-export function compactTrafficLabel(route: CompactRoute, width: number, cards: RoutingCard[]): RoutePoint | undefined {
+export function compactTrafficLabel(route: CompactRoute, width: number, cards: RoutingCard[],
+    slot?: { index: number; count: number; width: number }): RoutePoint | undefined {
+    const terminal = route.trafficNodeID && cards.find(card => card.id === route.trafficNodeID)
+    if (terminal) {
+        // Shared bridge trunks have no aggregate measurement. Keep each real
+        // interface value immediately above its own visible VM/NIC instead.
+        const labelWidth = Math.max(width, slot?.width || 0), count = slot?.count || 1, index = slot?.index || 0
+        const columns = Math.min(count, Math.max(1, Math.floor((terminal.width - (terminal.group ? 0 : 96) + 12) / (labelWidth + 12))))
+        const row = Math.floor(index / columns), column = index % columns
+        const rowSize = Math.min(columns, count - row * columns)
+        const x = terminal.x + (column - (rowSize - 1) / 2) * (labelWidth + 12)
+        const y = terminal.y - terminal.height / 2 - 34 - row * 52
+        const free = (point: RoutePoint) => !cards.some(card => Math.abs(card.x - point.x) * 2 < card.width + labelWidth + 16
+            && Math.abs(card.y - point.y) * 2 < card.height + 58)
+        for (const offset of [0, -52, -104, -156]) {
+            const point = { x, y: y + offset }
+            if (free(point)) return point
+        }
+        // Stay beside this endpoint when the preceding row leaves little
+        // headroom; never put a fan-out value back on the shared bus.
+        for (const side of [-1, 1]) {
+            const point = { x: terminal.x + side * (terminal.width / 2 + labelWidth / 2 + 18), y }
+            if (free(point)) return point
+        }
+        return { x, y }
+    }
     const segments = route.points.slice(1).map((point, i) => ({ a: route.points[i], b: point }))
         .sort((a, b) => {
             const nearLane = (segment: { a: RoutePoint; b: RoutePoint }) => Math.abs(segment.a.y - segment.b.y) < EPS

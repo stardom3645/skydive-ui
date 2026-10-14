@@ -205,7 +205,7 @@ const topologyNumericBadgeLegendContent = () => <div className="netdive-topology
         </div>)}
     </div>
     <div className="netdive-topology-status-legend__description">
-        숫자는 현재 단계의 자원 상태 개수를 나타냅니다.
+        숫자는 직전 하위 자원(바로 아래 계층)의 상태 개수를 나타냅니다.
     </div>
 </div>
 
@@ -225,7 +225,7 @@ const topologyStatusLegendContent = () => <div className="netdive-topology-statu
             </div>)}
     </div>
     <div className="netdive-topology-status-legend__description">
-        카드의 상태 태그는 자체 상태이고, 오른쪽 숫자 배지와 그룹 집계는 바로 아래 자원의 상태 분포입니다. 하위 이상·확인 필요에는 미수집·미확인 상태도 포함됩니다.
+        카드의 상태 태그는 자체 상태이고, 오른쪽 숫자 배지와 그룹 집계는 직전 하위 자원(바로 아래 계층)의 상태 분포입니다. 하위 이상·확인 필요에는 미수집·미확인 상태도 포함됩니다.
     </div>
     <details className="netdive-topology-status-legend__numeric-help">
         <summary>카드와 상세 패널의 숫자 배지</summary>{topologyNumericBadgeLegendContent()}
@@ -294,23 +294,35 @@ const badgeGroupSummaryContent = (summary: TopologyStatusBadgeGroupSummary, badg
             <div className="netdive-topology-badge-tooltip__title">{summary.title}</div>
             <TopologyStatusBadgeLegend compact />
         </div>
-        <div className="netdive-topology-badge-summary__total">{summary.totalLabel}</div>
+        <div className="netdive-topology-badge-summary__total">{summary.totalLabel.replace(/^.*총 (?=\d)/, '총 ')}</div>
         <div className="netdive-topology-badge-summary__states">
-            {summary.states.filter(state => state.count > 0).map(state => <div className="netdive-topology-badge-summary__state" key={state.key}>
-                <svg className="netdive-topology-badge-summary__marker" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
-                    <TopologyStatusBadgeGlyph x={6} y={6} radius={5} tone={state.tone} text="" />
-                </svg>
-                <span>{state.label}</span>
-                <strong>{state.count}개</strong>
-            </div>)}
+            {summary.states.filter(state => state.count > 0).map(state => {
+                const badge = badges.find(badge => badge.key === state.key)
+                const tooltip = badge && isStructuredTooltip(badge.tooltip) ? badge.tooltip : undefined
+                const rows = [...(tooltip?.summary || []), ...(tooltip?.details || [])]
+                return <section className="netdive-topology-badge-summary__state" key={state.key}>
+                    <div className="netdive-topology-badge-summary__state-heading">
+                        <svg className="netdive-topology-badge-summary__marker" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+                            <TopologyStatusBadgeGlyph x={6} y={6} radius={5} tone={state.tone} text="" />
+                        </svg>
+                        <span>{state.label}</span>
+                        <strong>{state.count}개</strong>
+                    </div>
+                    {tooltip?.description && <div className="netdive-topology-badge-tooltip__description">{tooltip.description}</div>}
+                    {tooltip?.detailsTitle && <div className="netdive-topology-badge-tooltip__details-title">{tooltip.detailsTitle}</div>}
+                    {rows.length > 0 && <div className="netdive-topology-badge-summary__state-details">
+                        {rows.map((item, index) => <div className="netdive-topology-badge-tooltip__row" key={`${item.label || 'detail'}-${index}`}>
+                            <span>{badge?.key.startsWith('direct-') ? item.label?.replace(/\s+(이상|정상|비활성)$/, '') || '확인된 원인' : item.label || '확인된 원인'}</span>
+                            <strong>{item.value}</strong>
+                        </div>)}
+                    </div>}
+                </section>
+            })}
         </div>
-        {badges.some(badge => badge.key.startsWith('direct-')) && <div className="netdive-topology-badge-tooltip__description">
-            숫자는 바로 아래 자원 기준입니다. 하위 자원 이상에는 상태 미확인·미수집도 포함되며, 현재 리소스 자체 상태와 구분됩니다.
+        {badges.some(badge => badge.key.startsWith('direct-')) && <div className="netdive-topology-badge-summary__basis">
+            <strong>집계 기준</strong>
+            <div>직전 하위 자원(바로 아래 계층)의 상태를 집계합니다. 하위 이상에는 미확인·미수집도 포함되며, 현재 객체의 자체 상태와 구분합니다.</div>
         </div>}
-        {badges.filter(badge => badge.count > 0 && isStructuredTooltip(badge.tooltip)).map(badge =>
-            <div className="netdive-topology-badge-tooltip__details" key={badge.key}>
-                {tooltipContent(badge.tooltip)}
-            </div>)}
     </div>
 
 /** Keep body-mounted overlays tied to the actual SVG anchor, including D3
@@ -365,6 +377,7 @@ const TopologyBadgeTooltip = ({ title, contentKey, children }: {
     }
     return <Tooltip
         title={title}
+        color="var(--topology-object-surface, #ffffff)"
         placement="top"
         arrow={{ pointAtCenter: true }}
         autoAdjustOverflow

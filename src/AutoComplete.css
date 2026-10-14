@@ -1,0 +1,29 @@
+.netdive-topology-search { width: 100%; min-width: 0; font-size: 14px; }
+.netdive-topology-search .ant-select { width: 100%; min-height: 34px; color: var(--ant-color-text, #25334b); }
+.netdive-topology-search .ant-select-prefix, .netdive-topology-search .ant-select-placeholder { color: var(--ant-color-text-secondary, #63748d); }
+.netdive-topology-search kbd { font-family: inherit; font-size: 11px; color: var(--ant-color-text-secondary, #63748d); border: 1px solid var(--ant-color-border-secondary, #e7eef8); border-radius: 4px; padding: 1px 4px; }
+.netdive-topology-search-popup { max-width: calc(100vw - 24px); border: 1px solid var(--ant-color-border-secondary, #d7e2f0); background: var(--ant-color-bg-elevated, #fff); border-radius: 8px; box-shadow: 0 2px 8px rgb(0 0 0 / 6%); }
+.netdive-topology-search-popup .ant-select-item-option-content { white-space: normal; min-width: 0; }
+.netdive-topology-search-popup .ant-select-item { height: 56px; box-sizing: border-box; padding: 7px 12px; }
+.netdive-topology-search__result { display: flex; align-items: center; gap: 10px; height: 42px; min-width: 0; color: var(--ant-color-text, #25334b); font-family: var(--ant-font-family, var(--netdive-font-family)); }
+.netdive-topology-search__result .topology-object-icon { width: 28px; height: 28px; flex-basis: 28px; border-radius: 5px; font-size: 16px; background: var(--ant-color-fill-tertiary, #eef3fb); color: var(--ant-color-text-secondary, #63748d); }
+.netdive-topology-search__result .topology-object-icon > img { width: 18px; height: 18px; }
+.netdive-topology-search__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.netdive-topology-search__heading { display: flex; gap: 8px; align-items: center; min-width: 0; }
+.netdive-topology-search__heading .netdive-topology-search__name { min-width: 0; max-width: 100%; font-size: 14px; font-weight: 600; line-height: 20px; }
+.netdive-topology-search__result .topology-object-status { padding: 0 5px; gap: 3px; font-size: 11px; line-height: 16px; border-radius: 4px; }
+.netdive-topology-search__result .topology-object-status__dot { width: 4px; height: 4px; flex-basis: 4px; }
+.netdive-topology-search__meta { display: flex; gap: 5px; white-space: nowrap; overflow: hidden; font-size: 12px; line-height: 16px; color: var(--ant-color-text-secondary, #63748d); }
+.netdive-topology-search__meta > span { flex-shrink: 0; }
+.netdive-topology-search__meta .netdive-topology-search__detail { flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.netdive-topology-search__flag { font-size: 11px; }
+.netdive-topology-search__summary { padding: 6px 12px; display: flex; align-items: center; gap: 10px; font-size: 12px; line-height: 20px; color: var(--ant-color-text, #25334b); background: var(--ant-color-fill-alter, #f3f6fb); border-bottom: 1px solid var(--ant-color-border-secondary, #d7e2f0); }
+.netdive-topology-search__summary .ant-typography { font-size: inherit; }
+.netdive-topology-search__footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 28px; padding: 2px 8px 2px 12px; border-top: 1px solid var(--ant-color-border-secondary, #d7e2f0); }
+.netdive-topology-search__keys { color: var(--ant-color-text-secondary, #63748d); font-size: 11px; line-height: 16px; }
+.netdive-topology-search__footer .ant-btn { font-size: 11px; padding: 0 5px; height: 24px; }
+.netdive-topology-search__tag { display: inline-flex; align-items: center; gap: 4px; max-width: 150px; margin-inline-end: 3px; }
+.netdive-topology-search__tag > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.netdive-search-name-tooltip { max-width: min(420px, calc(100vw - 24px)); }
+.netdive-search-name-tooltip .ant-tooltip-container { overflow-wrap: anywhere; font-size: 12px; line-height: 18px; }
+.netdive-topology-search__result mark { background: var(--ant-control-item-bg-active, #e6f4ff); color: var(--ant-color-primary, #1677ff); border-radius: 2px; }

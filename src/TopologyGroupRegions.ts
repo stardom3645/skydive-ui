@@ -2,6 +2,9 @@
 export interface TopologyRegionNode {
     id: string
     parentID?: string
+    type?: string
+    above?: number
+    below?: number
     visible: boolean
     expanded: boolean
     x: number
@@ -16,6 +19,7 @@ export interface TopologyGroupRegion {
     path: string
     clipPath?: string
     variant: number
+    bounds?: TopologyRegionBand
 }
 
 export interface TopologyRegionBand { left: number; right: number; top: number; bottom: number }
@@ -196,12 +200,13 @@ const regionClipPaths = (branches: Array<{ id: string; nodes: TopologyRegionNode
 /** Partition by the first visible ancestor. A collapsed top-level card and an
  * expanded group proxy without visible descendants do not create an empty halo.
  */
-export const topologyVisibleBranches = (nodes: TopologyRegionNode[]): Array<{ id: string; nodes: TopologyRegionNode[] }> => {
+export const topologyVisibleBranches = (nodes: TopologyRegionNode[], hostRoots = false): Array<{ id: string; nodes: TopologyRegionNode[] }> => {
     const byID = new Map(nodes.map(node => [node.id, node]))
     const owners = new Map<string, TopologyRegionNode>()
     const ownerOf = (node: TopologyRegionNode): TopologyRegionNode => {
         const cached = owners.get(node.id)
         if (cached) return cached
+        if (hostRoots && node.visible && ['host', 'cluster'].includes(node.type || '')) { owners.set(node.id, node); return node }
         const parent = node.parentID ? byID.get(node.parentID) : undefined
         const owner = parent ? ownerOf(parent) : node
         const visibleOwner = owner.visible ? owner : node.visible ? node : owner
@@ -218,18 +223,90 @@ export const topologyVisibleBranches = (nodes: TopologyRegionNode[]): Array<{ id
     return Array.from(branches.entries()).map(([id, branch]) => ({ id, nodes: branch }))
 }
 
+/** Overall host/cluster envelope, including badges and expanded descendants.
+ * Background geometry never changes the cards or their hierarchy. */
+export const topologyHostRegionBounds = (nodes: TopologyRegionNode[], padding = 32): TopologyRegionBand | undefined => {
+    const cards = nodes.filter(node => node.visible && node.width > 0 && node.height > 0
+        && [node.x, node.y, node.width, node.height, node.above || 0, node.below || 0].every(Number.isFinite))
+    if (!cards.length) return undefined
+    return {
+        left: Math.min(...cards.map(node => node.x - node.width / 2)) - padding,
+        right: Math.max(...cards.map(node => node.x + node.width / 2)) + padding,
+        top: Math.min(...cards.map(node => node.y - node.height / 2 - (node.above || 0))) - padding,
+        bottom: Math.max(...cards.map(node => node.y + node.height / 2 + (node.below || 0))) + padding
+    }
+}
+
+/** Keep the rectangular envelope, with only a shallow response to row width.
+ * Insets remain inside that envelope and never clip cards or expanded NICs. */
+export const topologyHostRegionBands = (nodes: TopologyRegionNode[]): TopologyRegionBand[] => {
+    const bounds = topologyHostRegionBounds(nodes)
+    if (!bounds) return []
+    const maxInset = (bounds.right - bounds.left) * 0.15
+    const painted = nodes.map(node => ({ ...node,
+        y: node.y + ((node.below || 0) - (node.above || 0)) / 2,
+        height: node.height + (node.above || 0) + (node.below || 0) }))
+    const bands: TopologyRegionBand[] = []
+    topologyGroupRegionBands(painted, 32, 32).forEach(row => {
+        const band = { ...row, left: Math.min(row.left, bounds.left + maxInset),
+            right: Math.max(row.right, bounds.right - maxInset) }
+        const previous = bands[bands.length - 1]
+        if (previous && Math.abs(previous.left - band.left) < 0.01 && Math.abs(previous.right - band.right) < 0.01)
+            previous.bottom = band.bottom
+        else bands.push(band)
+    })
+    return bands
+}
+
+const roundedHostRegionPath = (nodes: TopologyRegionNode[]): string => {
+    const bands = topologyHostRegionBands(nodes)
+    if (!bands.length) return ''
+    const first = bands[0], last = bands[bands.length - 1]
+    const radius = Math.min(96, (first.bottom - first.top) / 2, (last.bottom - last.top) / 2,
+        ...bands.map(band => (band.right - band.left) / 2))
+    const control = radius * (1 - 0.55228475)
+    let path = `M ${first.left + radius},${first.top} L ${first.right - radius},${first.top}`
+        + ` C ${first.right - control},${first.top} ${first.right},${first.top + control} ${first.right},${first.top + radius}`
+    bands.forEach((band, index) => {
+        path += ` L ${band.right},${band.bottom - (index === bands.length - 1 ? radius : 0)}`
+        const next = bands[index + 1]
+        if (next) {
+            const middle = (band.bottom + next.top) / 2
+            path += ` C ${band.right},${middle} ${next.right},${middle} ${next.right},${next.top}`
+        }
+    })
+    path += ` C ${last.right},${last.bottom - control} ${last.right - control},${last.bottom} ${last.right - radius},${last.bottom}`
+        + ` L ${last.left + radius},${last.bottom} C ${last.left + control},${last.bottom} ${last.left},${last.bottom - control} ${last.left},${last.bottom - radius}`
+    for (let index = bands.length - 1; index >= 0; index--) {
+        const band = bands[index]
+        path += ` L ${band.left},${band.top + (index === 0 ? radius : 0)}`
+        const previous = bands[index - 1]
+        if (previous) {
+            const middle = (previous.bottom + band.top) / 2
+            path += ` C ${band.left},${middle} ${previous.left},${middle} ${previous.left},${previous.bottom}`
+        }
+    }
+    return path + ` C ${first.left},${first.top + control} ${first.left + control},${first.top} ${first.left + radius},${first.top} Z`
+}
+
 // Approximate lightness of the four near-white pastel surfaces. Preserve a visible
 // intensity difference between neighboring branches.
 export const TOPOLOGY_GROUP_TONE_LIGHTNESS = [246, 239, 248, 236]
 
-export const topologyGroupRegions = (nodes: TopologyRegionNode[]): TopologyGroupRegion[] => {
-    const branches = topologyVisibleBranches(nodes)
+export const topologyGroupRegions = (nodes: TopologyRegionNode[], hostRectangles = false): TopologyGroupRegion[] => {
+    const branches = topologyVisibleBranches(nodes, hostRectangles)
     const clips = regionClipPaths(branches)
     const regions = branches
         .filter(branch => branch.nodes.length > 1 && branch.nodes.find(node => node.id === branch.id)!.expanded)
         .sort((a, b) => a.nodes.find(node => node.id === a.id)!.x - b.nodes.find(node => node.id === b.id)!.x || a.id.localeCompare(b.id))
-        .map(branch => ({ id: branch.id, nodeIDs: branch.nodes.map(node => node.id),
-            path: regionPathFromBands(topologyGroupRegionEnvelope(branch.nodes), 32, true), clipPath: clips.get(branch.id), variant: regionVariant(branch.id) }))
+        .map(branch => {
+            const rectangular = hostRectangles && ['host', 'cluster'].includes(branch.nodes.find(node => node.id === branch.id)!.type || '')
+            const bounds = rectangular ? topologyHostRegionBounds(branch.nodes) : undefined
+            return { id: branch.id, nodeIDs: branch.nodes.map(node => node.id), bounds,
+                path: rectangular ? roundedHostRegionPath(branch.nodes)
+                    : regionPathFromBands(topologyGroupRegionEnvelope(branch.nodes), 32, true),
+                clipPath: rectangular ? undefined : clips.get(branch.id), variant: regionVariant(branch.id) }
+        })
         .filter(region => !!region.path)
     regions.forEach((region, index) => {
         if (!index) return

@@ -192,6 +192,12 @@ export const topologyInventoryData = (node: Node, inventory?: any, vmDetails?: R
     return { ...data, ...detail, ...normalizeTopologyHost(detail), Type: data.Type, Manager: data.Manager }
 }
 
+/** Guest NIC identity is separate from the host tap's own MAC. */
+export const topologyVMGuestMACs = (node: Node): string[] => Array.from(new Set((node.children || [])
+    .map(child => first(child.data, ['PeerIntfMAC', 'Libvirt.MAC']))
+    .filter(value => typeof value === 'string' && /^(?:[0-9a-f]{2}:){5}[0-9a-f]{2}$/i.test(value.trim()))
+    .map(value => String(value).trim().toLowerCase())))
+
 export const topologyResourcePlan = (nodes: Node[], endpoint: string, clusters: any[] = [], inventory?: any, vmDetails?: Record<string, any>, hostDetail: (id: string) => any = () => undefined) => {
     const requests = new Map<string, TopologyResourceRequest>()
     const refs = new Map<string, { detail?: string; summary?: string; wall?: string; host?: string }>()
@@ -228,6 +234,8 @@ export const topologyResourcePlan = (nodes: Node[], endpoint: string, clusters: 
                 if (ip) { params.set('managementIp', String(ip)); params.set('ip', String(ip)) }
             } else {
                 params.set('domain', name)
+                const guestMACs = topologyVMGuestMACs(node)
+                if (guestMACs.length) params.set('guestMAC', guestMACs.join(','))
                 const instance = first(data, ['InstanceName', 'instanceName', 'instancename'])
                 const uuid = first(data, ['UUID', 'uuid', 'ID', 'Id', 'id', 'ExtID', 'VirtualMachineID', 'virtualMachineId', 'vmid'])
                 const display = first(data, ['DisplayName', 'displayName', 'displayname'])

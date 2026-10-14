@@ -549,7 +549,7 @@ class VMDetailPanel extends React.Component<Props> {
         const visible = rows.filter(row => row.alwaysShow || !isBlank(row.value))
         if (!visible.length) return this.renderEmpty(emptyText)
         return (
-            <DetailKeyValueList
+            <DetailKeyValueList className="netdive-vm-detail-descriptions"
                 rows={visible.map(row => {
                     const value = stringify(row.value)
                     const displayValue = value || 'N/A'
@@ -560,6 +560,7 @@ class VMDetailPanel extends React.Component<Props> {
                             ? <DetailBadge tone={displayValue === translate('hostStatusNormal') ? 'success' : 'default'}>{displayValue}</DetailBadge>
                             : displayValue,
                         textValue: displayValue,
+                        wrap: true,
                         copyText: row.copy && value ? value : undefined
                     }
                 })}

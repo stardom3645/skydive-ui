@@ -30,6 +30,8 @@
     background: var(--topology-object-status-surface, #f3f5f8); color: #7e899b;
 }
 .topology-object-status__dot { width: 12px; height: 12px; border-radius: 50%; flex: 0 0 12px; display: inline-block; background: currentColor; }
+.topology-object-card__operation { display: flex; align-items: center; gap: 8px; grid-column: 1; grid-row: 1; min-width: 0; }
+.topology-object-link-state.ant-tag { margin: 0; padding: 2px 7px; border-radius: 6px; font-size: 22px; line-height: 28px; color: var(--topology-object-muted, #63748d); background: var(--topology-object-status-surface, #f3f5f8); border-color: var(--topology-object-border, #e7eef8); }
 .topology-object-status.is-normal { color: #089b7a; background: #edf9f4; border-color: #d9f1e8; }
 .topology-object-status.is-warning { color: #c18526; background: #fff8eb; border-color: #f6e9cd; }
 .topology-object-status.is-critical { color: #d85b60; background: #fff1f1; border-color: #f8dedf; }
@@ -48,6 +50,10 @@
 .topology-object-card.is-large .topology-metric-chip { border-radius: 12px; }
 .topology-object-card.is-large .topology-metric-chip__line { gap: 5px; }
 .topology-object-card.is-large .topology-metric-chip:last-child:nth-child(odd) { grid-column: 1 / -1; }
+/* Cluster counts remain compact; CPU and memory always share two-line slots. */
+.topology-object-card.is-cluster .topology-object-card__metrics { grid-template-rows: 56px 56px 112px; }
+.topology-object-card.is-cluster .topology-metric-chip.is-resource .topology-metric-chip__line { flex-direction: column; flex-wrap: nowrap; align-items: flex-start; gap: 2px; }
+.topology-object-card.is-cluster .topology-metric-chip.is-resource .topology-metric-chip__label { max-width: 100%; }
 .topology-object-card.is-host .topology-object-card__header { flex: initial; }
 .topology-object-card.is-host .topology-object-card__metrics { flex: 1; min-height: 0; grid-auto-rows: minmax(0, 1fr); }
 .topology-object-card.is-host .topology-metric-chip { display: flex; flex-direction: column; justify-content: center; }
@@ -112,23 +118,24 @@
 .topology-object-card__network-label { color: var(--topology-object-muted, #63748d); white-space: nowrap; }
 .topology-object-card__network-name { min-width: 0; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; height: 72px; overflow-wrap: anywhere; color: var(--topology-object-text, #25334b); }
 
-/* Infrastructure identities share one row; group and Kubernetes styles stay above. */
-.topology-object-card.is-infrastructure-object .topology-object-card__header {
-    display: flex; align-items: flex-start; gap: 12px; flex: 0 0 auto;
+/* Status and icon occupy their own row, leaving the full name width free. */
+.topology-object-card.is-object-identity .topology-object-card__header {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: 52px auto;
+    align-items: start; gap: 8px 12px; flex: 0 0 auto;
 }
-.topology-object-card.is-infrastructure-object .topology-object-card__identity {
-    display: flex; flex-direction: column; flex: 1; min-width: 0;
+.topology-object-card.is-object-identity .topology-object-icon { grid-column: 1; grid-row: 1; width: 52px; height: 52px; }
+.topology-object-card.is-object-identity .topology-object-card__identity {
+    display: flex; flex-direction: column; grid-column: 1 / -1; grid-row: 2; min-width: 0;
 }
-.topology-object-card.is-infrastructure-object .topology-object-card__name {
+.topology-object-card.is-object-identity .topology-object-card__name {
     -webkit-line-clamp: 3; max-height: 108px;
 }
-.topology-object-card.is-infrastructure-object .topology-object-card__header > .topology-card-tooltip-anchor {
-    margin-top: 3px; align-self: flex-start;
+.topology-object-card.is-object-identity .topology-object-card__header > .topology-card-tooltip-anchor {
+    grid-column: 2; grid-row: 1; margin-top: 3px;
 }
-.topology-object-card.is-infrastructure-object.is-vm .topology-object-card__header { height: 108px; }
 .topology-object-card.is-infrastructure-object.is-tile .topology-object-card__metrics { margin-top: 0; }
 .topology-object-card.is-infrastructure-object .topology-object-card__network {
-    display: flex; flex-direction: column; align-items: stretch; gap: 2px; height: 116px;
+    display: flex; flex-direction: column; align-items: stretch; gap: 2px; height: auto;
     text-align: left;
 }
 .topology-object-card.is-infrastructure-object .topology-object-card__network-label {
@@ -136,4 +143,220 @@
 }
 .topology-object-card.is-infrastructure-object .topology-object-card__network-name {
     height: auto; max-height: 72px; text-overflow: ellipsis;
+}
+
+/* Kubernetes keeps the same identity hierarchy, with its collected scope below. */
+.topology-object-card.is-kubernetes-object .topology-object-card__subtitle {
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+    max-height: 72px; white-space: normal; overflow-wrap: anywhere; font-size: 28px; line-height: 36px;
+}
+.topology-object-card.is-kubernetes-object .topology-object-card__metrics { margin-top: 0; }
+.topology-object-card.is-kubernetes-object .topology-metric-chip { padding: 7px 9px; line-height: 36px; }
+.topology-object-card.is-kubernetes-object .topology-metric-chip__line {
+    flex-direction: column; flex-wrap: nowrap; align-items: flex-start; gap: 2px;
+}
+.topology-object-card.is-kubernetes-object .topology-metric-chip__label { max-width: 100%; }
+.topology-object-card.is-kubernetes-object .topology-metric-chip__line > strong {
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+    max-height: 72px; white-space: normal; overflow-wrap: anywhere; line-height: 36px;
+}
+.topology-object-card.is-kubernetes-object .topology-metric-chip.is-count .topology-metric-chip__line {
+    flex-direction: row; align-items: center; justify-content: space-between;
+}
+.topology-object-card.is-kubernetes-object .topology-metric-chip.is-count .topology-metric-chip__label { flex: 1; }
+.topology-object-card.is-kubernetes-object .topology-metric-chip.is-count .topology-metric-chip__line > strong {
+    display: block; white-space: nowrap;
+}
+
+/* Virtual groups use member-sized silhouettes and the ordinary card's surfaces. */
+.topology-object-card.is-resource-group { padding: 20px; gap: 14px; justify-content: flex-start; }
+.is-resource-group .topology-object-card__header { flex: 0 0 auto; }
+.topology-object-card.is-resource-group .topology-object-icon { width: 52px; height: 52px; flex-basis: 52px; font-size: 32px; }
+.is-resource-group .topology-object-card__identity { gap: 6px; }
+.topology-object-card.is-resource-group .topology-object-card__subtitle {
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+    max-height: 56px; font-size: 24px; line-height: 28px; overflow: hidden; text-overflow: ellipsis;
+}
+.is-resource-group .topology-object-card__header > .topology-card-tooltip-anchor,
+.is-resource-group .topology-object-card__group-state { display: none; }
+.topology-resource-group-summary {
+    display: grid; grid-template-rows: minmax(64px, 0.8fr) minmax(110px, 1.2fr);
+    gap: 12px; min-height: 0; flex: 1;
+}
+.is-tall-group .topology-resource-group-summary { grid-template-rows: minmax(74px, 1fr) minmax(120px, 1.4fr) 52px; }
+.is-resource-group:not(.is-tall-group) .topology-resource-group-summary.has-link-state { grid-template-rows: minmax(64px, 0.8fr) minmax(174px, 1.2fr); }
+.topology-link-state-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; font-size: 20px; line-height: 26px; color: var(--topology-object-muted, #63748d); }
+.topology-link-state-summary > span { white-space: nowrap; }
+.topology-link-state-summary strong { font-weight: 500; }
+.topology-resource-group-summary__distribution > .topology-card-tooltip-anchor:last-child:has(.topology-link-state-summary) { border-top: 1px solid var(--topology-object-border, #e7eef8); padding-top: 6px; }
+.topology-resource-group-summary__counts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; min-width: 0; }
+.topology-resource-group-summary__counts > .topology-card-tooltip-anchor,
+.topology-resource-group-summary__distribution,
+.topology-resource-group-summary__display {
+    box-sizing: border-box; padding: 10px; border-radius: 12px;
+    border: 1px solid color-mix(in srgb, var(--topology-object-border, #e7eef8) 55%, transparent);
+    background: var(--topology-object-chip, #f7faff); min-width: 0;
+}
+.topology-resource-group-summary__counts > .topology-card-tooltip-anchor { display: flex; flex-direction: column; justify-content: center; gap: 4px; }
+.topology-resource-group-summary__counts span,
+.topology-resource-group-summary__heading > span:first-child,
+.topology-resource-group-summary__display > span { color: var(--topology-object-muted, #63748d); font-size: 24px; line-height: 28px; }
+.topology-resource-group-summary__counts strong { font-size: 32px; font-weight: 500; line-height: 36px; }
+.topology-resource-group-summary__distribution { display: flex; flex-direction: column; justify-content: center; gap: 10px; }
+.topology-resource-group-summary__heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.topology-resource-group-summary__heading > span + span { font-size: 22px; line-height: 28px; }
+.topology-resource-group-summary__heading .is-normal { color: #089b7a; }
+.topology-resource-group-summary__heading .is-warning { color: #c18526; }
+.topology-resource-group-summary__heading .is-critical { color: #d85b60; }
+.topology-resource-group-summary__heading .is-inactive,
+.topology-resource-group-summary__heading .is-unknown { color: var(--topology-object-muted, #63748d); }
+.topology-object-card.is-resource-group .topology-group-summary { display: block; padding: 0; border: 0; background: transparent; }
+.is-resource-group .topology-group-summary__total { display: none; }
+.topology-object-card.is-resource-group .topology-group-summary__states { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; }
+.is-resource-group .topology-group-summary__states > .topology-card-tooltip-anchor { min-width: 0; display: flex; }
+.is-resource-group .topology-group-summary__state { width: 100%; gap: 8px; line-height: 32px; }
+.topology-object-card.is-resource-group .topology-group-summary__state-label,
+.topology-object-card.is-resource-group .topology-group-summary__state.is-warning > .topology-group-summary__state-label { display: inline; font-size: 24px; white-space: nowrap; }
+.topology-object-card.is-resource-group .topology-group-summary__state strong { margin-left: auto; font-size: 28px; font-weight: 500; }
+.topology-resource-group-summary__display { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.topology-resource-group-summary__display strong { font-size: 26px; font-weight: 500; line-height: 30px; }
+
+/* Small network objects keep two summary blocks, scaled to their own height. */
+.topology-object-card.is-resource-group.is-dense-group { padding: 8px; gap: 6px; }
+.is-dense-group .topology-object-card__header { gap: 6px; }
+.topology-object-card.is-resource-group.is-dense-group .topology-object-icon { width: 28px; height: 28px; flex-basis: 28px; font-size: 20px; border-radius: 6px; }
+.is-dense-group .topology-object-icon > img { width: 20px; height: 20px; }
+.is-dense-group .topology-object-card__name { font-size: 23px; line-height: 28px; max-height: 28px; -webkit-line-clamp: 1; }
+.topology-object-card.is-resource-group.is-dense-group .topology-object-card__subtitle { display: none; }
+.is-dense-group .topology-resource-group-summary { gap: 6px; grid-template-rows: minmax(24px, 0.6fr) minmax(44px, 1fr); }
+.is-dense-group .topology-resource-group-summary__counts { gap: 6px; }
+.is-dense-group .topology-resource-group-summary__counts > .topology-card-tooltip-anchor { padding: 2px 5px; flex-direction: row; align-items: center; justify-content: space-between; gap: 4px; border-radius: 6px; }
+.is-dense-group .topology-resource-group-summary__counts span { font-size: 18px; line-height: 22px; white-space: nowrap; }
+.is-dense-group .topology-resource-group-summary__counts strong { font-size: 22px; line-height: 24px; }
+.is-dense-group .topology-resource-group-summary__distribution { padding: 2px 5px; border-radius: 6px; }
+.is-dense-group .topology-resource-group-summary__heading { display: none; }
+.topology-object-card.is-resource-group.is-dense-group .topology-group-summary__states { gap: 2px 12px; }
+.is-dense-group .topology-group-summary__state { gap: 4px; line-height: 20px; }
+.is-dense-group .topology-group-summary__state .topology-object-status__dot { width: 6px; height: 6px; flex-basis: 6px; }
+.topology-object-card.is-resource-group.is-dense-group .topology-group-summary__state-label,
+.topology-object-card.is-resource-group.is-dense-group .topology-group-summary__state.is-warning > .topology-group-summary__state-label { font-size: 18px; }
+.topology-object-card.is-resource-group.is-dense-group .topology-group-summary__state strong { font-size: 20px; }
+
+/* Kubernetes virtual groups: header, equal resource blocks, then three states.
+ * Real namespaces and Infrastructure keep their existing presentation. */
+.topology-object-card.is-kubernetes-resource-group { gap: 16px; }
+.topology-object-card.is-kubernetes-resource-group .topology-object-icon {
+    color: #4686e5;
+    background: color-mix(in srgb, var(--topology-object-icon-surface, #eef3fb) 80%, #1677ff 20%);
+}
+.is-kubernetes-resource-group .topology-resource-group-summary {
+    grid-template-rows: minmax(76px, 1fr) minmax(122px, 1.3fr); gap: 16px;
+}
+.is-kubernetes-resource-group .topology-resource-group-summary__counts { gap: 12px; }
+.is-kubernetes-resource-group .topology-resource-group-summary__counts > .topology-card-tooltip-anchor,
+.is-kubernetes-resource-group .topology-resource-group-summary__distribution { padding: 16px; }
+.is-kubernetes-resource-group .topology-resource-group-summary__counts > .topology-card-tooltip-anchor { gap: 8px; }
+.is-kubernetes-resource-group .topology-resource-group-summary__counts strong { font-size: 38px; line-height: 42px; font-weight: 600; }
+.is-kubernetes-resource-group .topology-resource-group-summary__distribution { justify-content: space-evenly; gap: 12px; }
+.is-kubernetes-resource-group .topology-resource-group-summary__heading { align-items: start; }
+.is-kubernetes-resource-group .topology-resource-group-summary__heading > span + span { text-align: right; }
+.topology-object-card.is-kubernetes-resource-group .topology-group-summary__states { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; }
+.is-kubernetes-resource-group .topology-group-summary__states > .topology-card-tooltip-anchor { justify-content: center; }
+.is-kubernetes-resource-group .topology-group-summary__states > .topology-card-tooltip-anchor + .topology-card-tooltip-anchor {
+    border-left: 1px solid var(--topology-object-border, #e7eef8);
+}
+.is-kubernetes-resource-group .topology-group-summary__state {
+    display: grid; grid-template-columns: auto auto; justify-content: center; align-items: center;
+    column-gap: 8px; row-gap: 8px; line-height: 28px;
+}
+.topology-object-card.is-kubernetes-resource-group .topology-group-summary__state-label,
+.topology-object-card.is-kubernetes-resource-group .topology-group-summary__state.is-warning > .topology-group-summary__state-label { font-size: 23px; }
+.topology-object-card.is-kubernetes-resource-group .topology-group-summary__state strong {
+    grid-column: 1 / -1; margin: 0; text-align: center; font-size: 38px; line-height: 42px; font-weight: 600;
+}
+.is-kubernetes-resource-group .topology-group-summary__inactive { display: block; margin-top: 6px; text-align: right; color: var(--topology-object-muted, #63748d); font-size: 20px; line-height: 24px; }
+.is-kubernetes-resource-group .topology-group-summary__inactive strong { font-weight: 500; }
+.topology-object-card.is-kubernetes-resource-group.is-short-kubernetes-group { padding: 16px; gap: 10px; }
+.is-short-kubernetes-group .topology-resource-group-summary { grid-template-rows: minmax(64px, 1fr) minmax(112px, 1.3fr); gap: 10px; }
+.is-short-kubernetes-group .topology-resource-group-summary__counts > .topology-card-tooltip-anchor,
+.is-short-kubernetes-group .topology-resource-group-summary__distribution { padding: 10px; }
+.is-short-kubernetes-group .topology-resource-group-summary__counts > .topology-card-tooltip-anchor { gap: 4px; }
+.is-short-kubernetes-group .topology-resource-group-summary__counts strong { font-size: 34px; line-height: 38px; }
+.is-short-kubernetes-group .topology-resource-group-summary__distribution { gap: 8px; }
+.is-short-kubernetes-group .topology-group-summary__state { row-gap: 4px; line-height: 26px; }
+.topology-object-card.is-kubernetes-resource-group.is-short-kubernetes-group .topology-group-summary__state strong { font-size: 34px; line-height: 36px; }
+.topology-object-card.is-kubernetes-resource-group.is-compact .topology-group-summary__state-label,
+.topology-object-card.is-kubernetes-resource-group.is-compact .topology-group-summary__state.is-warning > .topology-group-summary__state-label { font-size: 18px; }
+.is-kubernetes-resource-group.is-compact .topology-group-summary__state { column-gap: 4px; }
+.is-kubernetes-resource-group.is-compact .topology-group-summary__state .topology-object-status__dot { width: 8px; height: 8px; flex-basis: 8px; }
+.topology-object-card.is-kubernetes-resource-group.is-compact .topology-group-summary__state strong { font-size: 32px; line-height: 36px; }
+.topology-object-card.is-kubernetes-resource-group.is-dense-group { padding: 8px; gap: 6px; }
+.topology-object-card.is-kubernetes-resource-group.is-dense-group .topology-object-card__subtitle { display: -webkit-box; -webkit-line-clamp: 1; font-size: 18px; line-height: 22px; max-height: 22px; }
+.is-kubernetes-resource-group.is-dense-group .topology-resource-group-summary { grid-template-rows: minmax(24px, 0.6fr) minmax(66px, 1fr); gap: 6px; }
+.is-kubernetes-resource-group.is-dense-group .topology-resource-group-summary__counts { gap: 6px; }
+.is-kubernetes-resource-group.is-dense-group .topology-resource-group-summary__counts > .topology-card-tooltip-anchor { padding: 2px 5px; gap: 4px; }
+.is-kubernetes-resource-group.is-dense-group .topology-resource-group-summary__counts strong { font-size: 22px; line-height: 24px; }
+.is-kubernetes-resource-group.is-dense-group .topology-resource-group-summary__distribution { padding: 4px 5px; gap: 4px; }
+.is-kubernetes-resource-group.is-dense-group .topology-resource-group-summary__heading { display: flex; }
+.is-kubernetes-resource-group.is-dense-group .topology-resource-group-summary__heading > span { font-size: 16px; line-height: 20px; }
+.is-kubernetes-resource-group.is-dense-group .topology-group-summary__state { row-gap: 2px; column-gap: 4px; line-height: 20px; }
+.topology-object-card.is-kubernetes-resource-group.is-dense-group .topology-group-summary__state-label,
+.topology-object-card.is-kubernetes-resource-group.is-dense-group .topology-group-summary__state.is-warning > .topology-group-summary__state-label { font-size: 17px; }
+.topology-object-card.is-kubernetes-resource-group.is-dense-group .topology-group-summary__state strong { font-size: 24px; line-height: 26px; }
+.is-kubernetes-resource-group.is-dense-group .topology-group-summary__inactive { margin-top: 2px; font-size: 16px; line-height: 20px; }
+
+/* Retain inactive resources without making the three principal columns uneven. */
+.is-short-kubernetes-group .topology-resource-group-summary.has-inactive { grid-template-rows: minmax(76px, 0.8fr) minmax(114px, 1.2fr); gap: 8px; }
+.is-short-kubernetes-group .has-inactive .topology-resource-group-summary__counts > .topology-card-tooltip-anchor,
+.is-short-kubernetes-group .has-inactive .topology-resource-group-summary__distribution { padding: 6px; gap: 4px; }
+.is-short-kubernetes-group .has-inactive .topology-resource-group-summary__counts span { font-size: 20px; line-height: 24px; }
+.is-short-kubernetes-group .has-inactive .topology-resource-group-summary__counts strong { font-size: 30px; line-height: 34px; }
+.is-short-kubernetes-group .has-inactive .topology-resource-group-summary__heading > span { font-size: 18px; line-height: 22px; }
+.is-short-kubernetes-group .has-inactive .topology-group-summary__state { row-gap: 2px; line-height: 22px; }
+.topology-object-card.is-kubernetes-resource-group.is-short-kubernetes-group .has-inactive .topology-group-summary__state-label,
+.topology-object-card.is-kubernetes-resource-group.is-short-kubernetes-group .has-inactive .topology-group-summary__state.is-warning > .topology-group-summary__state-label { font-size: 18px; }
+.topology-object-card.is-kubernetes-resource-group.is-short-kubernetes-group .has-inactive .topology-group-summary__state strong { font-size: 30px; line-height: 32px; }
+.is-short-kubernetes-group .has-inactive .topology-group-summary__inactive { margin-top: 2px; font-size: 16px; line-height: 18px; }
+.topology-object-card.is-kubernetes-resource-group.is-short-kubernetes-group.is-compact:not(.is-dense-group):has(.has-inactive) { padding: 8px; gap: 8px; }
+.is-kubernetes-resource-group.is-dense-group .topology-resource-group-summary.has-inactive { grid-template-rows: 24px minmax(76px, 1fr); gap: 6px; }
+.is-kubernetes-resource-group.is-dense-group .has-inactive .topology-resource-group-summary__counts > .topology-card-tooltip-anchor { padding: 2px 5px; }
+.is-kubernetes-resource-group.is-dense-group .has-inactive .topology-resource-group-summary__counts span { font-size: 18px; line-height: 22px; }
+.is-kubernetes-resource-group.is-dense-group .has-inactive .topology-resource-group-summary__counts strong { font-size: 22px; line-height: 24px; }
+.is-kubernetes-resource-group.is-dense-group .has-inactive .topology-resource-group-summary__distribution { padding: 4px 5px; }
+.is-kubernetes-resource-group.is-dense-group .has-inactive .topology-resource-group-summary__heading { display: none; }
+.is-kubernetes-resource-group.is-dense-group .has-inactive .topology-group-summary__state { line-height: 20px; }
+.topology-object-card.is-kubernetes-resource-group.is-dense-group .has-inactive .topology-group-summary__state strong { font-size: 24px; line-height: 26px; }
+
+/* Infrastructure groups share the ordered summary layout, with neutral icons
+ * and an independent operational-state footer. Ordinary cards stay unchanged. */
+.topology-object-card.is-infrastructure-resource-group { padding: 16px; gap: 12px; }
+.topology-object-card.is-infrastructure-resource-group .topology-resource-group-summary {
+    grid-template-rows: minmax(90px, 0.85fr) minmax(124px, 1.15fr); gap: 10px;
+}
+.topology-object-card.is-infrastructure-resource-group .topology-resource-group-summary.has-link-state {
+    grid-template-rows: minmax(90px, 0.85fr) minmax(124px, 1.15fr) 48px;
+}
+.is-infrastructure-resource-group .topology-resource-group-summary__counts > .topology-card-tooltip-anchor { padding: 10px; gap: 4px; }
+.is-infrastructure-resource-group .topology-resource-group-summary__counts span,
+.is-infrastructure-resource-group .topology-resource-group-summary__heading > span:first-child { font-size: 22px; line-height: 26px; }
+.is-infrastructure-resource-group .topology-resource-group-summary__counts strong { font-size: 36px; line-height: 40px; font-weight: 600; }
+.is-infrastructure-resource-group .topology-resource-group-summary__distribution { padding: 10px; justify-content: space-evenly; gap: 8px; }
+.topology-object-card.is-infrastructure-resource-group .topology-group-summary__states { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; }
+.is-infrastructure-resource-group .topology-group-summary__states > .topology-card-tooltip-anchor { justify-content: center; }
+.is-infrastructure-resource-group .topology-group-summary__states > .topology-card-tooltip-anchor + .topology-card-tooltip-anchor { border-left: 1px solid var(--topology-object-border, #e7eef8); }
+.is-infrastructure-resource-group .topology-group-summary__state {
+    display: grid; grid-template-columns: auto auto; justify-content: center; align-items: center;
+    column-gap: 6px; row-gap: 4px; line-height: 26px;
+}
+.is-infrastructure-resource-group .topology-group-summary__state .topology-object-status__dot { width: 10px; height: 10px; flex-basis: 10px; }
+.topology-object-card.is-infrastructure-resource-group .topology-group-summary__state-label,
+.topology-object-card.is-infrastructure-resource-group .topology-group-summary__state.is-warning > .topology-group-summary__state-label { font-size: 22px; }
+.topology-object-card.is-infrastructure-resource-group .topology-group-summary__state strong {
+    grid-column: 1 / -1; margin: 0; text-align: center; font-size: 38px; line-height: 42px; font-weight: 600;
+}
+.is-infrastructure-resource-group .topology-group-summary__inactive { display: block; margin-top: 6px; text-align: right; color: var(--topology-object-muted, #63748d); font-size: 20px; line-height: 26px; }
+.is-infrastructure-resource-group .topology-resource-group-summary > .topology-card-tooltip-anchor:has(.topology-link-state-summary) {
+    display: flex; align-items: center; padding: 10px; box-sizing: border-box; border-radius: 12px;
+    border: 1px solid color-mix(in srgb, var(--topology-object-border, #e7eef8) 55%, transparent);
+    background: var(--topology-object-chip, #f7faff);
 }

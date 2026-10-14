@@ -59,7 +59,7 @@ export const TopologyTypeIcon = ({ icon, iconClass, href }: { icon: string; icon
 const metricIcons = {
     cpu: ThunderboltOutlined, memory: BlockOutlined, pods: AppstoreOutlined, children: ApartmentOutlined,
     capacity: DatabaseOutlined, storage: DatabaseOutlined, 'root-disk': HddOutlined, 'storage-class': TagsOutlined,
-    namespaces: FolderOutlined, nodes: HddOutlined, workloads: DeploymentUnitOutlined,
+    namespaces: FolderOutlined, nodes: CloudServerOutlined, workloads: DeploymentUnitOutlined,
     vms: CloudServerOutlined, endpoints: LinkOutlined, replicas: BranchesOutlined
 }
 
@@ -68,7 +68,8 @@ export const TopologyMetricChip = ({ metric }: { metric: TopologyMetric }) => {
     const resource = ['cpu', 'memory', 'root-disk'].includes(metric.key)
     const tone = metric.percent !== undefined && metric.percent >= 90 ? 'critical'
         : metric.percent !== undefined && metric.percent >= 75 ? 'warning' : metric.key === 'cpu' ? 'cpu' : 'memory'
-    return <div className={`topology-metric-chip ${resource ? 'is-resource' : ''} ${metric.key === 'root-disk' ? 'is-root-disk' : metric.key === 'vms' ? 'is-vm-count' : ''} is-${tone} ${metric.percent !== undefined ? 'has-meter' : metric.description && metric.value !== '미수집' ? 'is-quantity' : ''}`}
+    const count = ['pods', 'children', 'namespaces', 'nodes', 'workloads', 'storage', 'vms', 'endpoints', 'replicas'].includes(metric.key)
+    return <div className={`topology-metric-chip ${count ? 'is-count' : ''} ${resource ? 'is-resource' : ''} ${metric.key === 'root-disk' ? 'is-root-disk' : metric.key === 'vms' ? 'is-vm-count' : ''} is-${tone} ${metric.percent !== undefined ? 'has-meter' : metric.description && metric.value !== '미수집' ? 'is-quantity' : ''}`}
         title={`${metric.label}: ${metric.value}${metric.description ? ` · ${metric.description}` : ''}`}>
         <span className="topology-metric-chip__line">
             <span className="topology-metric-chip__label"><Icon aria-hidden="true" /><span>{metric.label}</span></span>
@@ -88,18 +89,51 @@ export const TopologyObjectStatusBadge = ({ status }: { status: TopologyNodePres
         </Tag>
     </TopologyCardTooltip>
 
-export const TopologyGroupHeaderSummary = ({ children }: { children: NonNullable<TopologyNodePresentation['children']> }) =>
-    <div className="topology-group-summary" aria-label={`바로 아래 자원 ${children.total}개`}>
+export const TopologyGroupHeaderSummary = ({ children, compactLabels = false, separateInactive = false, normalLabel = '정상' }: {
+    children: NonNullable<TopologyNodePresentation['children']>; compactLabels?: boolean; separateInactive?: boolean; normalLabel?: string
+}) =>
+    <div className="topology-group-summary" aria-label={`직전 하위 자원 ${children.total}개`}>
         <span className="topology-group-summary__total">자원 수 <strong>{children.total}</strong></span>
         <div className="topology-group-summary__states">{([
-            ['normal', '정상'], ['warning', '하위 이상·확인 필요'], ['critical', '자체 이상'], ['inactive', '비활성']
-        ] as const).filter(([key]) => key !== 'inactive' || children.inactive > 0).map(([key, label]) =>
-            <TopologyCardTooltip key={key} title={`${key === 'normal' ? '자체와 하위 계층 모두 이상이 없는 자원' : key === 'warning' ? '자체 상태 확인이 필요하거나 하위 계층에 이상·미확인 상태가 있는 자원' : key === 'critical' ? '자체 상태에 이상이 있는 자원' : '현재 운영되지 않는 자원'} ${children[key]}개. 숫자는 바로 아래 자원 기준입니다.`}>
+            ['normal', normalLabel], ['warning', '하위 이상·확인 필요'], ['critical', '자체 이상'], ['inactive', '비활성']
+        ] as const).filter(([key]) => key !== 'inactive' || (children.inactive > 0 && !separateInactive)).map(([key, label]) =>
+            <TopologyCardTooltip key={key} title={`${key === 'normal' ? '자체와 하위 계층 모두 이상이 없는 자원' : key === 'warning' ? '자체 상태 확인이 필요하거나 하위 계층에 이상·미확인 상태가 있는 자원' : key === 'critical' ? '자체 상태에 이상이 있는 자원' : '현재 운영되지 않는 자원'} ${children[key]}개. 숫자는 직전 하위 자원(바로 아래 계층) 기준입니다.`}>
                 <span className={`topology-group-summary__state is-${key}`} aria-label={`${label} ${children[key]}개`}>
-                    <span className="topology-object-status__dot" /><span className="topology-group-summary__state-label">{label}</span><strong>{children[key]}</strong>
+                    <span className="topology-object-status__dot" /><span className="topology-group-summary__state-label">{compactLabels && key === 'warning' ? '하위 이상' : label}</span><strong>{children[key]}</strong>
                 </span>
             </TopologyCardTooltip>)}</div>
+        {separateInactive && children.inactive > 0 && <TopologyCardTooltip title={`현재 운영되지 않는 직전 하위 자원 ${children.inactive}개입니다.`} block>
+            <span className="topology-group-summary__inactive">비활성 <strong>{children.inactive}</strong></span>
+        </TopologyCardTooltip>}
     </div>
+
+const TopologyLinkStateSummary = ({ states }: { states: NonNullable<TopologyNodePresentation['linkStates']> }) =>
+    <TopologyCardTooltip title="직전 하위 네트워크 자원의 실제 동작 상태입니다. Down은 연결이 내려간 상태이며, 자체로 오류를 뜻하지 않습니다. 이상 판정과 별도로 집계합니다." block>
+        <div className="topology-link-state-summary" aria-label={`동작 상태 Up ${states.up}개, Down ${states.down}개, 미확인 ${states.unknown}개`}>
+            <span>동작 상태</span><span>Up <strong>{states.up}</strong></span><span>Down <strong>{states.down}</strong></span>
+            {states.unknown > 0 && <span>미확인 <strong>{states.unknown}</strong></span>}
+        </div>
+    </TopologyCardTooltip>
+
+const TopologyResourceGroupSummary = ({ model }: { model: TopologyNodePresentation }) => {
+    const counts = model.children!
+    return <div className={`topology-resource-group-summary ${model.linkStates ? 'has-link-state' : ''} ${counts.inactive > 0 ? 'has-inactive' : ''}`}>
+        <div className="topology-resource-group-summary__counts">
+            <TopologyCardTooltip title="그룹과 그 아래 모든 계층에서 수집된 전체 자원 수입니다. 화면 구성용 그룹과 종료된 Kubernetes Pod는 제외합니다." block>
+                <span>전체 자원</span><strong>{model.groupResourceCount ?? counts.total}</strong>
+            </TopologyCardTooltip>
+            <TopologyCardTooltip title="직전 하위 자원은 그룹의 바로 아래 계층에 속한 자원입니다. 더 아래 계층은 제외하며, 상태 분포도 이 자원들을 기준으로 집계합니다." block>
+                <span>직전 하위 자원</span><strong>{counts.total}</strong>
+            </TopologyCardTooltip>
+        </div>
+        <div className="topology-resource-group-summary__distribution">
+            <div className="topology-resource-group-summary__heading"><span>{model.infrastructure ? '이상 판정' : '상태 분포'}</span></div>
+            <TopologyGroupHeaderSummary children={counts} compactLabels separateInactive normalLabel={model.infrastructure ? '이상 없음' : '정상'} />
+            {!model.infrastructure && model.linkStates && model.height < 460 && <TopologyLinkStateSummary states={model.linkStates} />}
+        </div>
+        {model.infrastructure && !!model.linkStates && <TopologyLinkStateSummary states={model.linkStates} />}
+    </div>
+}
 
 /** D3 owns positions and input delegation; this
  * component keeps the same presentation inside one SVG foreignObject. */
@@ -108,33 +142,40 @@ export const TopologyNodeCard = React.memo(({ model, icon, iconClass, href }: {
 }) => <><foreignObject className="topology-object-foreign" x={-model.width / 2} y={-model.height / 2}
     width={model.width} height={model.height}>
     <ConfigProvider theme={{ token: { fontSize: 14, fontFamily: 'var(--netdive-font-family)' } }}>
-        <article className={`topology-object-card is-${model.size} ${model.infrastructure && !model.group ? 'is-infrastructure-object' : ''} ${!model.group && model.resourceType === 'host' ? 'is-host' : ''} ${!model.group && model.resourceType === 'libvirt' ? 'is-vm' : ''} ${model.group ? `is-group ${model.fullyExpanded ? 'is-group-expanded' : ''}` : model.size === 'large' ? '' : 'is-tile'}`}
+        <article className={`topology-object-card is-${model.size} ${model.group && !model.namespaceSummary ? `is-resource-group ${model.infrastructure ? 'is-infrastructure-resource-group' : 'is-kubernetes-resource-group'} ${!model.infrastructure && model.height < 360 ? 'is-short-kubernetes-group' : ''} ${model.height < 280 ? 'is-dense-group' : ''} ${model.height >= 460 ? 'is-tall-group' : ''}` : ''} ${!model.group ? `is-object-identity ${model.infrastructure ? 'is-infrastructure-object' : model.resourceType !== 'libvirt' ? 'is-kubernetes-object' : ''}` : ''} ${!model.group && model.resourceType === 'host' ? 'is-host' : ''} ${!model.group && !model.infrastructure && model.resourceType === 'cluster' ? 'is-cluster' : ''} ${!model.group && model.resourceType === 'libvirt' ? 'is-vm' : ''} ${model.group ? `is-group ${model.fullyExpanded ? 'is-group-expanded' : ''}` : model.size === 'large' ? '' : 'is-tile'}`}
             aria-label={`${model.kind}: ${model.name}`}>
-            <div className="topology-object-card__header">
-                <TopologyTypeIcon icon={icon} iconClass={iconClass} href={href} />
+            <div className="topology-object-card__header" style={model.headerHeight ? { height: model.headerHeight } : undefined}>
+                {model.linkState ? <span className="topology-object-card__operation">
+                    <TopologyTypeIcon icon={icon} iconClass={iconClass} href={href} />
+                    <TopologyCardTooltip title={`동작 상태 ${model.linkState}. Up/Down은 연결 상태이며 이상 판정과는 별개입니다.`}>
+                        <Tag className="topology-object-link-state">{model.linkState}</Tag>
+                    </TopologyCardTooltip>
+                </span> : <TopologyTypeIcon icon={icon} iconClass={iconClass} href={href} />}
                 <div className="topology-object-card__identity">
                     <TopologyCardTooltip title={model.name} block>
                         <strong className="topology-object-card__name">{model.name}</strong>
                     </TopologyCardTooltip>
                     {(!model.infrastructure || model.group) && <span className="topology-object-card__subtitle" title={model.subtitle}>{model.subtitle}</span>}
                 </div>
-                {(!model.group || model.status.tone === 'critical' || model.status.tone === 'inactive') && <TopologyObjectStatusBadge status={model.status} />}
+                {(!model.group || model.namespaceSummary || model.status.tone === 'critical' || model.status.tone === 'inactive') && <TopologyObjectStatusBadge status={model.status} />}
                 {model.group && model.fullyExpanded && <span className="topology-object-card__group-state">전체 펼침</span>}
             </div>
-            {!model.group && (model.infrastructure ? !!model.networkSummary?.trim() : model.resourceType === 'libvirt') && <div className="topology-object-card__network"
+            {!model.group && (model.infrastructure ? !!model.networkHeight || !!model.networkSummary?.trim() : model.resourceType === 'libvirt') && <div className="topology-object-card__network"
+                style={model.networkHeight ? { height: model.networkHeight } : undefined}
                 title={model.networkSummary || '연결 네트워크 정보가 없습니다.'}>
                 <span className="topology-object-card__network-label">네트워크</span>
                 {model.infrastructure ? <TopologyCardTooltip title={model.networkSummary || ''} block>
                     <span className="topology-object-card__network-name">{model.networkCount && model.networkCount > 1 ? `${model.networkCount}개` : model.networkSummary || '정보 없음'}</span>
                 </TopologyCardTooltip> : <span className="topology-object-card__network-name">{model.networkCount && model.networkCount > 1 ? `${model.networkCount}개` : model.networkSummary || '정보 없음'}</span>}
             </div>}
-            {model.group && model.children ? <TopologyGroupHeaderSummary children={model.children} /> :
-                model.metrics.length > 0 && <div className="topology-object-card__metrics">
+            {model.group && !model.namespaceSummary && model.children ? <TopologyResourceGroupSummary model={model} /> : model.group && model.children ? <TopologyGroupHeaderSummary children={model.children} /> :
+                model.metrics.length > 0 && <div className="topology-object-card__metrics"
+                    style={model.metricRowHeights ? { gridTemplateRows: model.metricRowHeights.map(height => `${height}px`).join(' ') } : undefined}>
                     {model.metrics.map(metric => <TopologyMetricChip key={metric.key} metric={metric} />)}
                 </div>}
         </article>
     </ConfigProvider>
 </foreignObject>
-    {!model.group && <TopologyStatusBadgeRail badges={model.badges} summary={model.badgeSummary}
+    {(!model.group || model.namespaceSummary) && <TopologyStatusBadgeRail badges={model.badges} summary={model.badgeSummary}
         x={model.width / 2 - TOPOLOGY_STATUS_BADGE_RADIUS} y={-model.height / 2 - TOPOLOGY_STATUS_BADGE_RADIUS / 2} />}
 </>)

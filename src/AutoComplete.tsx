@@ -16,195 +16,121 @@
  */
 
 import * as React from 'react'
-import deburr from 'lodash/deburr'
-import Downshift from 'downshift'
-import TextField, { StandardTextFieldProps } from '@material-ui/core/TextField'
-import Paper from '@material-ui/core/Paper'
-import MenuItem, { MenuItemProps } from '@material-ui/core/MenuItem'
-import Chip from '@material-ui/core/Chip'
-import InputAdornment from '@material-ui/core/InputAdornment'
-import SearchIcon from '@material-ui/icons/Search'
+import { Select, Tag, Tooltip, Empty, Button, Typography } from 'antd'
+import type { RefSelectProps } from 'antd'
+import { SearchOutlined } from '@ant-design/icons'
+import { createTopologySearchIndex, TopologySearchEntry, prioritizeRecentSearch, topologySearchResultIdentity } from './TopologySearch'
+import { TopologyTypeIcon } from './TopologyNodeCard'
+import './AutoComplete.css'
 
-import { styles } from './AutoCompleteStyles'
-
-type RenderInputProps = StandardTextFieldProps & {
-  classes: ReturnType<typeof styles>
-  ref?: React.Ref<HTMLDivElement>
+const highlight = (text: string, query: string): React.ReactNode => {
+  const terms = query.trim().split(/\s+/).filter(Boolean).map(term => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+  if (!terms.length) return text
+  const pattern = new RegExp(`(${terms.join('|')})`, 'ig')
+  return text.split(pattern).map((part, index) => index % 2 ? <mark key={index}>{part}</mark> : part)
 }
+const displayName = (entry: TopologySearchEntry) => entry.label === entry.id ? `${entry.type} · 이름 없음` : entry.label
+// Ant Typography only opens this name tooltip when its ellipsis actually clips.
+const nameEllipsis = (name: string) => ({ tooltip: { title: name, placement: 'bottom' as const,
+  getPopupContainer: () => document.body, classNames: { root: 'netdive-search-name-tooltip' } } })
+const compactIdentity = (value: string) => value.toLowerCase().replace(/[\s._:/-]+/g, '')
+const EMPTY_RECENTS: string[] = []
 
-function renderInput(inputProps: RenderInputProps) {
-  const { InputProps, classes, ref, ...other } = inputProps
-
-  return (
-    <TextField
-      InputProps={{
-        inputRef: ref,
-        disableUnderline: true,
-        classes: {
-          root: classes.inputRoot,
-          input: classes.inputInput
-        },
-        ...InputProps,
-      }}
-      {...other}
-    />
-  )
-}
-
-interface RenderSuggestionProps {
-  highlightedIndex: number | null
-  index: number
-  itemProps: MenuItemProps<'div', { button?: never }>
-  selectedItem: string
-  suggestion: string
-}
-
-function renderSuggestion(suggestionProps: RenderSuggestionProps) {
-  const { suggestion, index, itemProps, highlightedIndex, selectedItem } = suggestionProps
-  const isHighlighted = highlightedIndex === index
-  const isSelected = (selectedItem || '').indexOf(suggestion) > -1
-
-  return (
-    <MenuItem
-      {...itemProps}
-      key={suggestion}
-      selected={isHighlighted}
-      component="div"
-      style={{
-        fontWeight: isSelected ? 500 : 400,
-      }}
-    >
-      {suggestion}
-    </MenuItem>
-  )
-}
-
-function getSuggestions(suggestions: Array<string>, value: string, { showEmpty = false } = {}) {
-  const inputValue = deburr(value.trim()).toLowerCase()
-  const inputLength = inputValue.length
-  let count = 0
-
-  return inputLength === 0 && !showEmpty
-    ? []
-    : suggestions.filter(suggestion => {
-      const keep =
-        count < 5 && suggestion.slice(0, inputLength).toLowerCase() === inputValue
-
-      if (keep) {
-        count += 1
+export default function Autocomplete({ placeholder, suggestions, onChange, onSelect, recentIDs = EMPTY_RECENTS, activeLayer = 'infrastructure' }: {
+  placeholder: string; suggestions: TopologySearchEntry[]; onChange: (selected: string[]) => void; activeLayer?: string
+  onSelect?: (id: string) => void; recentIDs?: string[]
+}) {
+  const [query, setQuery] = React.useState(''), [selected, setSelected] = React.useState<string[]>([]), [limit, setLimit] = React.useState(40)
+  const [open, setOpen] = React.useState(false)
+  const search = React.useRef<RefSelectProps>(null)
+  const removingTag = React.useRef(false)
+  const shortcut = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘ K' : 'Ctrl K'
+  const rank = React.useMemo(() => createTopologySearchIndex(suggestions), [suggestions])
+  const ranked = React.useMemo(() => rank(query, activeLayer), [rank, query, activeLayer])
+  const matches = React.useMemo(() => prioritizeRecentSearch(ranked, recentIDs, query), [ranked, recentIDs, query])
+  const entries = React.useMemo(() => new Map(suggestions.map(entry => [entry.id, entry])), [suggestions])
+  React.useEffect(() => {
+    const activate = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && !event.altKey && !event.isComposing && event.key.toLowerCase() === 'k') {
+        event.preventDefault(); event.stopPropagation(); search.current?.focus(); setOpen(true)
       }
-
-      return keep
-    })
-}
-
-interface AutocompleteProps {
-  placeholder: string
-  suggestions: Array<string>
-  onChange: (selected: Array<string>) => void
-}
-
-export default function Autocomplete(props: AutocompleteProps) {
-  const { placeholder, suggestions, onChange } = props
-
-  const classes = styles({})
-  const [inputValue, setInputValue] = React.useState('')
-  const [selectedItem, setSelectedItem] = React.useState<Array<string>>([])
-
-  function handleKeyDown(event: React.KeyboardEvent) {
-    if (selectedItem.length && !inputValue.length && event.key === 'Backspace') {
-      setSelectedItem(selectedItem.slice(0, selectedItem.length - 1))
     }
-  }
-
-  function handleInputChange(event: React.ChangeEvent<{ value: string }>) {
-    setInputValue(event.target.value)
-  }
-
-  function handleChange(item: string) {
-    let newSelectedItem = [...selectedItem]
-    if (item && newSelectedItem.indexOf(item) === -1) {
-      newSelectedItem = [...newSelectedItem, item]
-    }
-    setInputValue('')
-    setSelectedItem(newSelectedItem)
-
-    onChange(newSelectedItem)
-  }
-
-  const handleDelete = (item: string) => () => {
-    const newSelectedItem = [...selectedItem]
-    newSelectedItem.splice(newSelectedItem.indexOf(item), 1)
-    setSelectedItem(newSelectedItem)
-
-    onChange(newSelectedItem)
-  }
-
-  return (
-    <Downshift
-      id="downshift-multiple"
-      inputValue={inputValue}
-      onChange={handleChange}
-      selectedItem={selectedItem}>
-      {({
-        getInputProps,
-        getItemProps,
-        getLabelProps,
-        isOpen,
-        inputValue: inputValue2,
-        selectedItem: selectedItem2,
-        highlightedIndex,
-      }) => {
-        const { onChange, ...inputProps } = getInputProps({
-          onKeyDown: handleKeyDown,
-          placeholder: selectedItem.length > 0 ? '' : placeholder,
-        })
-        return (
-          <div className={classes.container}>
-            {renderInput({
-              fullWidth: true,
-              classes,
-              InputLabelProps: getLabelProps(),
-              InputProps: {
-                disableUnderline: true,
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                    {
-                      selectedItem.map(item => (
-                        <Chip
-                          key={item}
-                          tabIndex={- 1}
-                          label={item}
-                          className={classes.chip}
-                          onDelete={handleDelete(item)}
-                        />))
-                    }
-                  </InputAdornment>
-                ),
-                onChange: event => {
-                  handleInputChange(event)
-                  onChange!(event as React.ChangeEvent<HTMLInputElement>)
-                }
-              },
-              inputProps,
-            })}
-            {isOpen ? (
-              <Paper className={classes.paper} square>
-                {getSuggestions(suggestions, inputValue2!).map((suggestion, index) =>
-                  renderSuggestion({
-                    suggestion,
-                    index,
-                    itemProps: getItemProps({ item: suggestion }),
-                    highlightedIndex,
-                    selectedItem: selectedItem2,
-                  }),
-                )}
-              </Paper>
-            ) : null}
-          </div>
-        )
+    window.addEventListener('keydown', activate, true)
+    return () => window.removeEventListener('keydown', activate, true)
+  }, [])
+  // Deleted resources must not keep stale search pins/tags after a graph refresh.
+  React.useEffect(() => {
+    const next = selected.filter(id => entries.has(id))
+    if (next.length !== selected.length) { setSelected(next); onChange(next) }
+  }, [entries])
+  return <div className="netdive-topology-search" data-netdive-search="true" onMouseDownCapture={() => { removingTag.current = false }}>
+    <Select ref={search} mode="multiple" showSearch allowClear virtual filterOption={false}
+      aria-label="토폴로지 객체 검색" placeholder={placeholder} prefix={<SearchOutlined />} suffixIcon={<kbd>{shortcut}</kbd>}
+      variant="borderless" value={selected} searchValue={query} maxTagCount="responsive"
+      open={open} onOpenChange={setOpen}
+      onInputKeyDown={event => {
+        removingTag.current = event.key === 'Backspace' || event.key === 'Delete'
+        if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); setOpen(false) }
       }}
-    </Downshift>
-  )
+      defaultActiveFirstOption popupMatchSelectWidth={600} listItemHeight={56} listHeight={504} placement="bottomLeft" getPopupContainer={() => document.body}
+      classNames={{ popup: { root: 'netdive-topology-search-popup' } }}
+      onSearch={value => { setQuery(value); setLimit(40); setOpen(true) }}
+      onChange={values => { setSelected(values); setQuery(''); setLimit(40); onChange(values) }}
+      onSelect={id => { onSelect?.(id); setOpen(false) }}
+      onDeselect={id => {
+        // Choosing a recent result again focuses it; tag removal still removes a pin.
+        if (open && !removingTag.current) {
+          setSelected(selected); onChange(selected); onSelect?.(id); setOpen(false)
+        }
+      }}
+      options={matches.slice(0, limit).map(match => ({ value: match.entry.id, label: displayName(match.entry), title: '', match }))}
+      tagRender={({ value, label, closable, onClose }) => <Tooltip title={entries.has(value) ? displayName(entries.get(value)!) : label} placement="bottom" getPopupContainer={() => document.body}>
+        <Tag className="netdive-topology-search__tag" closable={closable} onClose={event => {
+          removingTag.current = true
+          try { onClose?.(event) } finally { removingTag.current = false }
+        }}
+          onMouseDown={event => { event.preventDefault(); event.stopPropagation() }}>
+          <span>{entries.has(value) ? displayName(entries.get(value)!) : label}</span>
+        </Tag>
+      </Tooltip>}
+      optionRender={option => {
+        const { entry, fuzzy } = option.data.match
+        const identity = topologySearchResultIdentity(option.data.match, query)
+        const identityMatched = identity && query.trim().split(/\s+/).filter(Boolean).some(term =>
+          identity.value.toLowerCase().includes(term.toLowerCase()) || compactIdentity(identity.value).includes(compactIdentity(term)))
+        const detail = identityMatched ? `${identity!.kind} ${identity!.value}`
+          : entry.context.split(' › ')[0] || (identity?.kind === 'IP' ? identity.value : '')
+        const name = displayName(entry), status = entry.status || { tone: 'unknown', label: '알 수 없음', description: '상태 데이터가 없습니다.' }
+        const layer = entry.layer === 'kubernetes' ? 'Kubernetes' : 'Infrastructure'
+        return <div className="netdive-topology-search__result">
+          <TopologyTypeIcon icon={entry.icon || ''} iconClass={entry.iconClass} href={entry.href} />
+          <div className="netdive-topology-search__body">
+            <div className="netdive-topology-search__heading">
+              <Typography.Text strong ellipsis={nameEllipsis(name)} className="netdive-topology-search__name">{highlight(name, query)}</Typography.Text>
+              <Tag className={`topology-object-status is-${status.tone}`}><span className="topology-object-status__dot" />{status.label}</Tag>
+            </div>
+            <div className="netdive-topology-search__meta">
+              <span className="netdive-topology-search__type">{highlight(entry.type, query)}</span><span aria-hidden="true">·</span><span>{layer}</span>
+              {detail && <><span aria-hidden="true">·</span><span className="netdive-topology-search__detail">{highlight(detail, query)}</span></>}
+              {entry.hidden && <span className="netdive-topology-search__flag">필터로 숨김</span>}{fuzzy && <span className="netdive-topology-search__flag">유사</span>}
+            </div>
+          </div>
+        </div>
+      }}
+      notFoundContent={<Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="일치하는 객체가 없습니다. 이름 일부, IP, MAC, UUID로 검색하세요." />}
+      popupRender={menu => <div data-netdive-search="true">
+        <div className="netdive-topology-search__summary" role="status">
+          <Typography.Text strong>{query.trim() ? `검색 결과 ${matches.length.toLocaleString()}개` : '객체 검색'}</Typography.Text>
+          <Typography.Text type="secondary">전체 {suggestions.length.toLocaleString()}개</Typography.Text>
+        </div>
+        {menu}
+        <div className="netdive-topology-search__footer">
+          <span className="netdive-topology-search__keys">↑↓ 탐색 · Enter 선택 · Esc 닫기</span>
+          {matches.length > limit && <Button type="text" size="small" onMouseDown={event => event.preventDefault()} onClick={() => setLimit(value => value + 40)}>
+            더 보기 {Math.min(limit, matches.length)} / {matches.length}
+          </Button>}
+        </div>
+      </div>}
+    />
+  </div>
 }

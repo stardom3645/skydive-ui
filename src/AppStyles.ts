@@ -2849,6 +2849,10 @@ export const styles = (theme: Theme) => createStyles({
     }
   },
   content: {
+    '--netdive-selection-panel-width': '600px',
+    [theme.breakpoints.down('xl')]: {
+      '--netdive-selection-panel-width': '500px'
+    },
     flexGrow: 1,
     position: 'relative',
     marginLeft: drawerWidth,
@@ -2888,10 +2892,7 @@ export const styles = (theme: Theme) => createStyles({
     position: 'relative',
     display: 'flex',
     flexDirection: 'column',
-    width: 600,
-    [theme.breakpoints.down('xl')]: {
-      width: 500
-    },
+    width: 'var(--netdive-selection-panel-width)',
     height: `100%`,
     marginTop: 8,
     marginRight: 12,

@@ -4,6 +4,8 @@ import * as path from 'path'
 import * as ts from 'typescript'
 import * as vm from 'vm'
 import { coalesceUpdates, UpdateTimer } from '../src/CoalescedUpdates'
+import { topologySearchEntry } from '../src/TopologySearch'
+import { getMoldNetworkIndex, moldVMNetworks, matchMoldNIC } from '../src/MoldTopologyNetworks'
 import { TopologyPendingEdges } from '../src/TopologyPendingEdges'
 
 // Run the production graph mutation methods without loading SVG/React or a
@@ -45,9 +47,9 @@ function appFilterProbe() {
     const source = fs.readFileSync(path.resolve(__dirname, '../src/App.tsx'), 'utf8')
     const ast = ts.createSourceFile('App.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
     const app = ast.statements.filter(ts.isClassDeclaration).find(node => node.name?.text === 'App')!
-    const methods = app.members.filter(member => member.name && ['updateFilters', 'rebuildSuggestions'].includes(member.name.getText(ast)))
+    const methods = app.members.filter(member => member.name && ['updateFilters', 'rebuildSuggestions', 'searchSuggestion'].includes(member.name.getText(ast)))
         .map(member => member.getText(ast)).join('\n')
-    const context: any = { console }
+    const context: any = { console, topologySearchEntry, getMoldNetworkIndex, moldVMNetworks, matchMoldNIC }
     vm.createContext(context)
     vm.runInContext(ts.transpile(`class AppProbe { ${methods} }; this.AppProbe = AppProbe`,
         { target: ts.ScriptTarget.ES2018 }), context)
@@ -62,7 +64,9 @@ function appFilterProbe() {
         filters: new Map([['deleted', { id: 'deleted' }]]),
         customFilters: [{ id: 'custom' }],
         state: { suggestions: ['deleted-host'], vmNameMap: { vm: 'current-vm' } },
-        tc: { nodes: new Map([['host', { data: { Name: 'current-host', IPV4: ['10.0.0.1'] } }]]) },
+        tc: { nodes: new Map([['host', { id: 'host', data: { Name: 'current-host', IPV4: ['10.0.0.1'] } }], ['vm', { id: 'vm', data: { Type: 'libvirt', Name: 'vm' } }]]) },
+        nodeDisplayName: (node: any) => node.id === 'vm' ? 'current-vm' : node.data.Name,
+        topologyDisplayNodeVisible: () => true,
         debSetState: () => undefined
     })
     return { panel, replies }
@@ -101,7 +105,7 @@ describe('Long-running topology lifecycle', () => {
         await flushPromises()
         assert.strictEqual(panel.filters.has('deleted'), false)
         assert.strictEqual(panel.state.filters.map((filter: any) => filter.id).join(','), 'custom,current-host')
-        assert.strictEqual(panel.state.suggestions.join(','), 'current-host,10.0.0.1,current-vm')
+        assert.strictEqual(panel.state.suggestions.map((entry: any) => entry.label).join(','), 'current-host,current-vm')
         assert.strictEqual(panel.filterRefreshInFlight, false)
     })
 

@@ -153,8 +153,8 @@ describe('Kubernetes topology count badge aggregation', () => {
             ['direct-healthy', 3]
         ])
         expect(kubernetesTopologyBadgeGroupSummary(clusterGroup)).to.deep.equal({
-            title: '클러스터 상태',
-            totalLabel: '클러스터 총 4개',
+            title: '직전 하위 클러스터 상태',
+            totalLabel: '직전 하위 클러스터 총 4개',
             states: [
                 { key: 'direct-self-problem', tone: 'problem', label: '자체 이상', count: 1 },
                 { key: 'direct-healthy', tone: 'running', label: '정상', count: 3 }
@@ -202,8 +202,8 @@ describe('Kubernetes topology count badge aggregation', () => {
             ['direct-self-problem', 2],
             ['direct-healthy', 3]
         ])
-        expect(kubernetesTopologyBadgeGroupSummary(nodeGroup).title).to.equal('노드 상태')
-        expect(kubernetesTopologyBadgeGroupSummary(nodeGroup).totalLabel).to.equal('노드 총 5개')
+        expect(kubernetesTopologyBadgeGroupSummary(nodeGroup).title).to.equal('직전 하위 노드 상태')
+        expect(kubernetesTopologyBadgeGroupSummary(nodeGroup).totalLabel).to.equal('직전 하위 노드 총 5개')
     })
 
     it('keeps the visible Workload Group as the Namespace direct child without recursive counts', () => {
@@ -224,14 +224,14 @@ describe('Kubernetes topology count badge aggregation', () => {
         ])
         const namespaceSummary = kubernetesTopologyDirectChildSummary(namespace)
         expect(namespaceSummary.children.map(child => child.id)).to.deep.equal(['deployment-group'])
-        expect(kubernetesTopologyBadgeGroupSummary(namespace).title).to.equal('하위 워크로드 상태')
+        expect(kubernetesTopologyBadgeGroupSummary(namespace).title).to.equal('직전 하위 워크로드 상태')
         expect(namespaceSummary.selfProblematic.length
             + namespaceSummary.descendantProblematic.length
             + namespaceSummary.healthy.length).to.equal(namespaceSummary.total)
         expect(kubernetesTopologyCountBadges(healthy).map(item => [item.key, item.count])).to.deep.equal([
             ['direct-descendant-problem', 1]
         ])
-        expect(kubernetesTopologyBadgeGroupSummary(healthy).title).to.equal('하위 파드 상태')
+        expect(kubernetesTopologyBadgeGroupSummary(healthy).title).to.equal('직전 하위 파드 상태')
         expect(kubernetesTopologyCountBadges(broken).map(item => [item.key, item.count])).to.deep.equal([
             ['self-problem', 0],
             ['direct-healthy', 1]
@@ -327,8 +327,8 @@ describe('Kubernetes topology count badge aggregation', () => {
             ['direct-inactive', 1, 'inactive']
         ])
         expect(kubernetesTopologyBadgeGroupSummary(clusterGroup)).to.deep.equal({
-            title: '클러스터 상태',
-            totalLabel: '클러스터 총 2개',
+            title: '직전 하위 클러스터 상태',
+            totalLabel: '직전 하위 클러스터 총 2개',
             states: [
                 { key: 'direct-healthy', tone: 'running', label: '정상', count: 1 },
                 { key: 'direct-inactive', tone: 'inactive', label: '비활성', count: 1 }

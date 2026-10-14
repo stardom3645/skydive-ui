@@ -20,3 +20,9 @@ const layerKinds: Record<number, string> = {
     7060: '시스템 가상머신', 7070: '가상 라우터', 7080: '사용자 가상머신'
 }
 export const topologyLayerKind = (weight?: number): string | undefined => weight === undefined ? undefined : layerKinds[weight]
+
+/** Keep Kubernetes guide labels on a stable prefix/kind pair at every zoom. */
+export const topologyLayerTitleLines = (title: string): string[] | undefined => {
+    const parts = title.trim().match(/^(쿠버네티스|Kubernetes)\s+(.+)$/i)
+    return parts ? [parts[1], parts[2].replace(/\s+/g, ' ')] : undefined
+}

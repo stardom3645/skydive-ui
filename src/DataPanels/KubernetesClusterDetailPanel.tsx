@@ -2,7 +2,7 @@ import { DetailSectionIcon } from './common/DetailSectionIcon'
 import * as React from 'react'
 import { Alert, Badge, Button, Collapse, ConfigProvider, Divider, Modal, Select, Space, Spin, Table, Tag, Timeline, Tooltip, Typography } from 'antd'
 import { HistoryOutlined, RightOutlined } from '@ant-design/icons'
-import { ClusterOperationalSection, ClusterOperationalSummary as StatusSummaryGrid, ClusterMetricRow as DetailMetricRow, ClusterCollapsibleSummary as CollapsibleSummaryRow, ClusterEvidenceRow as StatusEvidenceRow, ClusterEvidenceTable as StatusEvidenceList } from './KubernetesClusterPresentation'
+import { ClusterVerdictCriteria, ClusterOperationalSection, ClusterOperationalSummary as StatusSummaryGrid, ClusterMetricRow as DetailMetricRow, ClusterCollapsibleSummary as CollapsibleSummaryRow, ClusterEvidenceRow as StatusEvidenceRow, ClusterEvidenceTable as StatusEvidenceList } from './KubernetesClusterPresentation'
 
 import { translate } from '../Config'
 import { session } from '../Store'
@@ -35,7 +35,7 @@ import {
 } from './common'
 import './KubernetesClusterDetailPanel.css'
 import { RESOURCE_PRESENTATION_COLORS, ResourceSectionCard, ResourceMetricStack, ResourceInfoTooltip } from './common/ResourcePresentation'
-import { collectedRiskCount, currentImpactAssessment, riskPlacementCoverage, switchRiskPlacements, RiskPlacement } from '../KubernetesRiskResilience'
+import { collectedInfrastructureRiskFactors, collectedRiskCount, currentImpactAssessment, riskPlacementCoverage, switchRiskPlacements, RiskPlacement } from '../KubernetesRiskResilience'
 
 interface Props {
     node: Node
@@ -1678,9 +1678,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         const potentialComplete = hostCoverage.complete && networkCoverage.complete && controlPlane.total > 0 && externalPathsEvaluated
         const potentialEvaluated = potentialComplete || potentialScore > 0
         const potentialScoreFactors: Array<{ label: string, score: number }> = [
-            ...(backendInfrastructureRiskScore !== undefined && Number(backendInfrastructureRiskScore) > 0
-                ? [{ label: '수집된 구조적 위험 분석', score: Number(backendInfrastructureRiskScore) }]
-                : []),
+            ...collectedInfrastructureRiskFactors(this.state.summary),
             ...(hostRiskScore ? [{ label: '단일 물리 호스트 집중', score: hostRiskScore }] : []),
             ...(networkRiskScore ? [{ label: '단일 스위치 경로 집중', score: networkRiskScore }] : []),
             ...(backendInfrastructureRiskScore === undefined && controlPlane.total === 1
@@ -1731,6 +1729,12 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
             : availabilityHealth.tone === 'success' && currentRisks.some(risk => risk.severity === 'warning')
             ? { label: translate('kubernetesHealthWarning'), tone: 'warning' as DetailBadgeTone }
             : availabilityHealth
+        const verdictReasons = [
+            ...(controlPlane.notReady ? [`Ready가 아닌 Control Plane ${controlPlane.notReady}개`] : []),
+            ...currentRisks.map(risk => `${risk.title}${risk.count ? ` ${risk.count}개` : ''}: ${risk.message}`),
+            ...(podSummary.unknownNodes.length && !currentRisks.some(risk => risk.title === '현재 문제 파드')
+                ? [`Unknown Pod ${podSummary.unknownNodes.length}개`] : [])
+        ]
         const heroConclusion = this.heroConclusion(controlPlane, nodeSummary, podSummary, unavailableWorkloads, affectedServices, recentNodeSignals.length, currentRisks[0]?.title)
         const currentImpact = currentImpactAssessment(impactScore, requiredCurrentStateCollected && !this.state.summaryError)
         const currentImpactGrade = !currentImpact.evaluated
@@ -2005,7 +2009,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         </div>
 
         return (
-            <ConfigProvider theme={{ token: { fontSize: 12, fontSizeSM: 11, fontSizeLG: 14 }, components: { Card: { headerFontSizeSM: 14 }, Statistic: { contentFontSize: 16, titleFontSize: 12 }, Table: { cellFontSizeSM: 12 }, Alert: { withDescriptionIconSize: 16 } } }}>
+            <ConfigProvider theme={{ token: { fontSize: 13, fontSizeSM: 12, fontSizeLG: 16, fontFamily: 'var(--netdive-font-family)' }, components: { Card: { headerFontSizeSM: 14 }, Statistic: { contentFontSize: 16, titleFontSize: 12 }, Table: { cellFontSizeSM: 12 }, Alert: { withDescriptionIconSize: 16 } } }}>
             <div className="netdive-k8s-cluster-detail">
                 <DetailNavigationTabs
                     activeKey={this.state.activeDetailTab}
@@ -2076,7 +2080,9 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                         rawStatus={rawClusterStatus}
                         rawStatusLabel="API 원본 상태"
                         impact={heroConclusion}
-                        verdictTooltip="현재 Kubernetes 상태와 서비스 영향을 종합한 Netdive 운영 판정입니다."
+                        verdictDetails={<ClusterVerdictCriteria verdict={health.label} tone={health.tone}
+                            reasons={verdictReasons} collected={confidenceCollected} missing={confidenceMissing} />}
+                        verdictTooltip="Node·Control Plane Ready, 활성 Pod, 워크로드 가용 Replica와 서비스 영향을 종합합니다. 판정 기준에서 현재 근거를 확인하세요."
                         rawStatusTooltip="Kubernetes API 연결과 Control Plane에서 확인한 원본 상태입니다."
                         impactTooltip="현재 문제 파드, 비정상 노드와 영향받은 서비스를 기준으로 확인한 현재 영향입니다."
                         metrics={availabilityItems.map(item => ({
@@ -2117,14 +2123,14 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                     </ClusterOperationalSection>}
                     {instabilityWindowAvailable && <ClusterOperationalSection className="netdive-cluster-ant-operational-followup"
                             title={<Space size={4}>
-                                <span>최근 이상</span>
+                                <span>최근 이상징후</span>
                                 <DetailInfoTooltip description={<React.Fragment>
                                     <div>선택한 기간의 실제 이상 Pod와 활성 {KUBERNETES_DETAIL_LABELS.nodePressure} 상태만 집계합니다.</div>
                                     <div>Succeeded·Completed는 과거 종료 이력에만 포함됩니다.</div>
                                     {podSummary.recentTimestampEstimatedCount > 0 && historyTimeQualityTooltip}
                                 </React.Fragment>} ariaLabel="최근 이상징후 집계 정보" />
                             </Space>}
-                            action={<Space size={5}><Typography.Text type="secondary">조회 기간</Typography.Text>{this.renderInstabilityWindowSelect()}</Space>}>
+                            action={this.renderInstabilityWindowSelect()}>
                         <div className="netdive-k8s-cluster-detail__instability">
                         {this.state.summaryLoading
                             ? <div className="netdive-k8s-cluster-detail__instability-fetch-state"><Spin size="small" /><span>기간 데이터를 불러오는 중입니다.</span></div>
@@ -2135,17 +2141,12 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                                 </div>
                                 : null}
                         {!this.state.summaryLoading && !this.state.summaryError && <div className="netdive-cluster-ant-recent-count">
-                            <Space size={4}>
-                                <Typography.Text type="secondary">최근 이상징후</Typography.Text>
-                                <DetailInfoTooltip
-                                    description={`실제 이상 Pod ${recentAnomalyPodNodes.length}건과 활성 ${KUBERNETES_DETAIL_LABELS.nodePressure} ${recentPressureSignals.length}건을 집계했습니다.`}
-                                    detail={`영향받은 노드 ${recentAffectedNodeNames.size}개 · 영향 워크로드 ${recentAffectedWorkloadNames.size}개 · 미복구 워크로드 ${unrecoveredWorkloadTargets.length}개`} />
-                            </Space>
                             <Badge status={hasRecentInstability ? (hasCurrentInstabilityImpact ? 'error' : 'warning') : 'success'}
-                                text={<Typography.Text strong>{recentAnomalyPodNodes.length + recentPressureSignals.length}</Typography.Text>} />
+                                text={<Typography.Text strong>{recentAnomalyPodNodes.length + recentPressureSignals.length}건</Typography.Text>} />
+                            <Typography.Text type="secondary">이상 Pod {recentAnomalyPodNodes.length}건 · {KUBERNETES_DETAIL_LABELS.nodePressure} {recentPressureSignals.length}건</Typography.Text>
                         </div>}
-                        {hasRecentInstability
-                            ? <Button type="text" block size="small"
+                        {!this.state.summaryLoading && !this.state.summaryError && hasRecentInstability
+                            ? <Button type="link" block size="small"
                                 className="netdive-k8s-cluster-detail__instability-detail-trigger"
                                 onClick={() => this.setState({ podStatusModalMode: 'recent', podStatusModalKey: '' })}>
                                 <span>이상징후 목록 보기</span>
@@ -2175,18 +2176,13 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                         {currentRisks.length > 1 && <small>+{currentRisks.length - 1}</small>}
                     </div>
                     <StatusEvidenceList columnHeaders={{ state: '상태', value: '평가' }}>
-                        {this.renderResilienceRow(translate('kubernetesCurrentFailureImpact'), currentImpactGrade.label, currentImpactGrade.tone, currentImpact.evaluated ? `${impactScore} / 100` : '–', currentImpact.evaluated ? `영향 점수 ${impactScore}/100 · ${currentImpact.partial ? '부분 수집 · 확인된 영향만 반영' : '현재 상태 기준'}` : '현재 상태 데이터 미수집 또는 수집 실패 · 평가 불가', <div><strong>현재 장애 영향도</strong><p>높을수록 위험합니다.</p><p>{translate('kubernetesCurrentFailureImpactTooltip')}</p></div>, currentImpactInfrastructureTargets.length ? () => this.focusInfrastructureEvidence(currentImpactInfrastructureTargets) : undefined)}
-                        {instabilityWindowAvailable && this.renderResilienceRow(
-                            '최근 불안정성',
-                            hasRecentInstability
-                                ? (hasCurrentInstabilityImpact ? translate('kubernetesHealthWarning') : '이력 있음')
-                                : translate('kubernetesHealthNormal'),
-                            hasRecentInstability
-                                ? (hasCurrentInstabilityImpact ? 'warning' : 'default')
-                                : 'success',
-                            recentAnomalyPodNodes.length + recentPressureSignals.length,
-                            `최근 ${this.instabilityWindowLabel()} · 실제 이상 Pod ${recentAnomalyPodNodes.length}건, ${KUBERNETES_DETAIL_LABELS.nodePressure} ${recentPressureSignals.length}건`
-                        )}
+                        {this.renderResilienceRow(translate('kubernetesCurrentFailureImpact'), currentImpactGrade.label, currentImpactGrade.tone, currentImpact.evaluated ? `${impactScore} / 100` : '–', currentImpact.evaluated ? `영향 점수 ${impactScore}/100 · ${currentImpact.partial ? '부분 수집 · 확인된 영향만 반영' : '현재 상태 기준'}` : '현재 상태 데이터 미수집 또는 수집 실패 · 평가 불가', <div><strong>현재 장애 영향도</strong><p>Ready가 아닌 Node 1개당 30점, 활성 문제 Pod·가용 Replica 부족 워크로드·영향 서비스 각각 1개당 10점입니다. 합계는 최대 100점입니다.</p><p>{translate('kubernetesCurrentFailureImpactTooltip')}</p></div>, currentImpactInfrastructureTargets.length ? () => this.focusInfrastructureEvidence(currentImpactInfrastructureTargets) : undefined)}
+                    </StatusEvidenceList>
+                    <Collapse size="small" className="netdive-cluster-risk-structure" expandIconPlacement="end"
+                        items={[{ key: 'structure', label: '구성 및 복원력', extra: <Tag color={potentialGrade.tone === 'danger' ? 'error' : potentialGrade.tone === 'warning' ? 'warning' : undefined}>
+                            {potentialEvaluated ? `구조적 위험 ${potentialScore} / 100` : '평가 불가'}</Tag>, children: <>
+                        <Typography.Paragraph type="secondary">호스트·스위치 분산과 이중화 구성을 평가합니다. 점수가 높을수록 장애 시 취약한 구조입니다.</Typography.Paragraph>
+                        <StatusEvidenceList columnHeaders={{ state: '상태', value: '평가' }}>
                         {this.renderResilienceRow('구조적 위험도', potentialEvaluated && potentialScore >= 75 ? '매우 높음' : potentialGrade.label, potentialGrade.tone, potentialEvaluated ? `${potentialScore} / 100` : '–', potentialEvaluated ? `구조적 위험도 ${potentialScore}/100 · ${potentialComplete ? '높을수록 위험' : '부분 수집 · 확인된 위험만 반영'}` : '분석 데이터 미수집 또는 부분 수집 · 전체 평가 불가', potentialScoreTooltip, structuralEvidenceTargets.length ? () => this.focusInfrastructureEvidence(structuralEvidenceTargets) : undefined)}
                         {this.renderResilienceRow(
                             translate('kubernetesHostDistributionShort'),
@@ -2224,6 +2220,13 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                             controlPlaneTargets.length ? () => this.focusInfrastructureEvidence(controlPlaneTargets) : undefined)}
                         {this.renderResilienceRow(translate('kubernetesExternalPaths'), externalAnalysis.label, externalAnalysis.tone, externalAnalysis.value, externalAnalysis.short, externalAnalysis.description)}
                     </StatusEvidenceList>
+                        <div className="netdive-cluster-risk-factors">
+                            <Typography.Text strong>점수 근거</Typography.Text>
+                            {potentialScoreFactors.length ? <ul>{potentialScoreFactors.map(factor => <li key={factor.label}>{factor.label} <strong>+{factor.score}점</strong></li>)}</ul>
+                                : <Typography.Paragraph type="secondary">{potentialEvaluated ? '확인된 가산 항목 없음' : '구조 분석 데이터 미수집'}</Typography.Paragraph>}
+                            <Typography.Text type="secondary">합계 최대 100점 · {!potentialComplete ? '부분 수집: 확인된 위험만 반영' : '수집된 구성 기준'}</Typography.Text>
+                        </div>
+                        </> }]} />
                     {affectedWorkloadTargets.length > 0 && <div className="netdive-k8s-cluster-detail__risk-actions">
                         <Button type="link" size="small" onClick={() => this.focusResources(affectedWorkloadTargets)}>
                             영향 워크로드 보기

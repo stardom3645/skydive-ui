@@ -555,7 +555,7 @@ export const kubernetesTopologyBadgeGroupSummary = (
             count: badge.count
         }))
     const total = states.reduce((sum, state) => sum + state.count, 0)
-    const scopePrefix = isTopologyGroup(node) ? '' : '하위 '
+    const scopePrefix = '직전 하위 '
     return {
         title: `${scopePrefix}${childLabel} 상태`,
         totalLabel: `${scopePrefix}${childLabel} 총 ${total}개`,

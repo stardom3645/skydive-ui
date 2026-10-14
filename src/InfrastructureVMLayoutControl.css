@@ -7,3 +7,26 @@
     .infrastructure-vm-layout { flex-basis: 180px; padding-inline: 6px; }
     .infrastructure-vm-layout .ant-segmented.ant-segmented-sm .ant-segmented-item-label { font-size: 11px; padding-inline: 3px; }
 }
+.infrastructure-vm-layout.is-embedded { width: 100%; min-width: 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
+.infrastructure-vm-layout.is-embedded .infrastructure-vm-layout__title { font-size: 13px; margin-bottom: 10px; padding: 0; }
+.infrastructure-vm-layout.is-embedded .infrastructure-vm-layout__title > span { font-size: 12px; }
+.infrastructure-vm-layout.is-embedded .ant-segmented { font-size: 13px; padding: 4px; }
+.infrastructure-vm-layout.is-embedded .ant-segmented.ant-segmented-sm .ant-segmented-item-label { font-size: 13px; line-height: 30px; padding-inline: 12px; }
+
+.infrastructure-vm-layout.is-embedded .infrastructure-vm-layout__title { color: var(--netdive-detail-title, #25334b); }
+.infrastructure-vm-layout.is-embedded .infrastructure-vm-layout__title > span { color: var(--netdive-detail-muted, #63748d); }
+.infrastructure-vm-layout.is-embedded .ant-segmented { background: var(--netdive-menu-card-soft, #f3f6fb); color: var(--netdive-detail-title, #25334b); }
+.infrastructure-vm-layout.is-embedded .ant-segmented-item-selected, .infrastructure-vm-layout.is-embedded .ant-segmented-thumb { background: var(--netdive-menu-card, #fff); color: var(--netdive-detail-title, #25334b); }
+
+.infrastructure-vm-layout.is-inline { display: inline-flex; min-width: 0; padding: 0; border: 0; background: transparent; flex: 0 0 auto; }
+.infrastructure-vm-layout.is-inline .infrastructure-vm-layout__title { margin: 0; padding: 0; gap: 6px; }
+.infrastructure-vm-layout.is-inline .infrastructure-vm-layout__title > span { font-size: 10px; }
+
+.netdive-view-option-tooltip { max-width: min(320px, calc(100vw - 24px)); }
+.netdive-view-option-tooltip .ant-tooltip-container {
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
+    overflow-wrap: anywhere;
+    white-space: normal;
+    line-height: 1.55;
+}

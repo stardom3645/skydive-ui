@@ -123,6 +123,26 @@ describe('Topology resource data sources', () => {
         assert.deepEqual(topologyResourceMetrics(invalid).map(metric => metric.value), ['미수집', '미수집'])
     })
 
+    it('sends exact guest NIC MACs with system VM trend requests and renders actual Wall guest measurements', () => {
+        const vm = node('ccvm', 'libvirt', { Manager: 'libvirt' })
+        const nic = attach(vm, node('vnet0', 'tun', { PeerIntfMAC: '52:54:00:11:22:33', MAC: 'fe:54:00:11:22:33' }))
+        attach(vm, node('vnet1', 'tun', { Libvirt: { MAC: '52:54:00:AA:BB:CC' } }))
+        attach(vm, node('invalid', 'tun', { PeerIntfMAC: 'invalid', MAC: '52:54:00:DD:EE:FF' }))
+        const url = new URL(topologyResourcePlan([vm], 'http://localhost:8082').refs.get(vm.id)!.wall!)
+        assert.equal(url.pathname, '/api/wall/vms/trend')
+        assert.equal(url.searchParams.get('domain'), 'ccvm')
+        assert.equal(url.searchParams.get('guestMAC'), '52:54:00:11:22:33,52:54:00:aa:bb:cc')
+        const before = topologyNodePresentation(vm, { name: 'ccvm' })
+        const after = topologyNodePresentation(vm, { name: 'ccvm', resourceData: { wall: { series: [
+            { key: 'cpu', lastValue: 0 }, { key: 'memory', lastValue: 54.1 },
+            { key: 'rootDiskTotal', lastValue: 20 * 1024 ** 3 }, { key: 'rootDiskUsed', lastValue: 0 }
+        ] } } })
+        assert.deepEqual(after.metrics.slice(0, 2).map(metric => metric.value), ['0%', '54.1%'])
+        assert.equal(after.metrics.find(metric => metric.key === 'root-disk')!.percent, 0)
+        assert.equal(after.height, before.height)
+        assert.equal(nic.data.MAC, 'fe:54:00:11:22:33')
+    })
+
     it('calculates node utilization from the same usage/allocatable quantities as the detail panel', () => {
         const worker = node('worker', 'node')
         const resourceData = { detail: { usage: { cpu: '250m', memory: '2Gi' }, allocatable: { cpu: '4', memory: '8Gi' }, podCount: 0 } }

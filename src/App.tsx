@@ -1,7 +1,9 @@
+import { TopologySearchEntry, topologySearchEntry, createTopologySearchIndex, normalizeTopologySearch } from './TopologySearch'
 import { MoldNetworkViewControl } from './MoldNetworkViewControl'
 import { InfrastructureVMLayoutControl } from './InfrastructureVMLayoutControl'
+import { TopologyToolbarButton } from './TopologyToolbarButton'
 import { InfrastructureVMLayoutMode } from './InfrastructureCompactLayout'
-import { getMoldNetworkIndex, MoldNICNetwork } from './MoldTopologyNetworks'
+import { getMoldNetworkIndex, moldVMNetworks, matchMoldNIC, MoldNICNetwork } from './MoldTopologyNetworks'
 import { getMoldNetworks } from './RelatedServicesAPI'
 /*
  * Copyright (C) 2019 Sylvain Afchain
@@ -302,10 +304,10 @@ const getSavedTopologyDisplayOptions = (): TopologyDisplayOptions => {
     const raw = localStorage.getItem(TOPOLOGY_DISPLAY_OPTIONS_STORAGE_KEY)
     const parsed = raw ? JSON.parse(raw) : {}
     return {
-      hideDownNodes: parsed?.hideDownNodes === true
+      hideDownNodes: parsed?.hideDownNodes !== false
     }
   } catch (e) {
-    return { hideDownNodes: false }
+    return { hideDownNodes: true }
   }
 }
 
@@ -315,7 +317,7 @@ const saveTopologyDisplayOptions = (options: TopologyDisplayOptions) => {
 
 interface State {
   infrastructureVMLayout: InfrastructureVMLayoutMode
-  infrastructureVMLayoutResult?: { twoRowVMs: number; reason: string }
+  infrastructureVMLayoutResult?: { wrappedVMs: number; rowCount: number; reason: string }
   moldNetworkFocusID?: string
   moldNetworks?: MoldNICNetwork[]
   vmNameMap?: Record<string, string>
@@ -330,7 +332,7 @@ interface State {
   linkTagStates: Map<string, LinkTagState>
   filters: Array<Filter>
   activeFilter: Filter | null
-  suggestions: Array<string>
+  suggestions: TopologySearchEntry[]
   anchorEl: Map<string, null | HTMLElement>
   openDrawerMenuGroup: string | null
   isSelectionOpen: boolean
@@ -591,14 +593,14 @@ class App extends React.Component<Props, State> {
     super(props)
 
     this.state = {
-      infrastructureVMLayout: 'linear',
+      infrastructureVMLayout: 'compact',
       isContextMenuOn: "none",
       contextMenuX: 0,
       contextMenuY: 0,
       nodeTagStates: new Map<string, boolean>(),
       linkTagStates: new Map<string, LinkTagState>(),
       filters: new Array<Filter>(),
-      suggestions: new Array<string>(),
+      suggestions: new Array<TopologySearchEntry>(),
       anchorEl: new Map<string, null | HTMLElement>(),
       openDrawerMenuGroup: null,
       isSelectionOpen: false,
@@ -929,13 +931,13 @@ class App extends React.Component<Props, State> {
     if (!target || !target.closest) {
       return
     }
-    const displayOptionsInteraction = target.closest('[data-netdive-display-options="true"], .netdive-topology-display-options')
-    // Keep the popup mounted until its checkbox/menu click has been handled.
+    const displayOptionsInteraction = target.closest('[data-netdive-display-options="true"], .netdive-topology-display-options, [data-netdive-search="true"]')
+    // Direct view controls must not dismiss the current detail panel.
     if (displayOptionsInteraction) return
     if (this.state.topologyDisplayOptionsOpen) {
       this.setState({ topologyDisplayOptionsOpen: false })
     }
-    if (target.closest('[data-netdive-side-panel="true"], [data-netdive-link-tags="true"], [data-netdive-recent-nodes="true"], [class*="kubernetesManagerPanel"], [class*="sideSettingsPanel"], [data-netdive-drawer="true"], .MuiDialog-root, .ant-modal-root, .ant-dropdown, .ant-select-dropdown')) {
+    if (target.closest('[data-netdive-side-panel="true"], [data-netdive-link-tags="true"], [data-netdive-recent-nodes="true"], [data-netdive-network-view="true"], .mold-network-view-popover, [class*="kubernetesManagerPanel"], [class*="sideSettingsPanel"], [data-netdive-drawer="true"], .MuiDialog-root, .ant-modal-root, .ant-dropdown, .ant-select-dropdown')) {
       return
     }
     if (isLinkTagsExpanded) {
@@ -970,14 +972,11 @@ class App extends React.Component<Props, State> {
       const prev = this.state.vmNameMap || {}
       const same = JSON.stringify(prev) === JSON.stringify(data)
       if (!same) {
-        const suggestions = [...this.state.suggestions]
-        Object.values(data).forEach((displayName) => {
-          if (displayName && !suggestions.includes(displayName)) {
-            suggestions.push(displayName)
-          }
+        this.setState({ vmNameMap: data }, () => {
+          this.rebuildSuggestions()
+          this.setState({ suggestions: this.state.suggestions })
+          this.refreshTopology()
         })
-        this.setState({ vmNameMap: data, suggestions })
-        this.refreshTopology()
       }
     }).catch((err) => {
       console.debug("Failed to refresh vmNameMap", err)
@@ -1768,53 +1767,38 @@ class App extends React.Component<Props, State> {
     }).finally(() => { this.filterRefreshInFlight = false })
   }
 
+  private searchSuggestion(node: Node, links?: Link[]): TopologySearchEntry {
+    const index = getMoldNetworkIndex(this.state.vmNetworkMap, this.state.vmDetailMap)
+    const nic = matchMoldNIC(node, index)
+    const networks = String(node.data?.Type || '').toLowerCase() === 'libvirt' ? moldVMNetworks(node, index) : nic ? [nic] : []
+    const attrs = this.nodeAttrs?.(node)
+    return topologySearchEntry(node, {
+      label: nic?.ipAddress || this.nodeDisplayName(node, true),
+      configuredFields: this.config.suggestions(),
+      additionalAliases: networks.reduce((all, network) => all.concat([network.ipAddress, network.macAddress, network.networkName,
+        network.nicId || '', network.networkId || '', network.vmUuid || '']), [] as string[]),
+      icon: attrs?.icon, iconClass: attrs?.iconClass, href: attrs?.href,
+      status: this.tc?.nodeObjectStatus?.(node, links),
+      hidden: !this.topologyDisplayNodeVisible(node)
+    })
+  }
+
   private updateSuggestions(node: Node) {
-    var suggestions = this.state.suggestions
-    var updated: boolean = false
-
-    for (let key of this.config.suggestions()) {
-      try {
-        var value = eval("node." + key)
-        if (Array.isArray(value)) {
-          for (let v of value) {
-            if (!suggestions.includes(v)) {
-              suggestions.push(v)
-              updated = true
-            }
-          }
-        } else if (typeof value === "string") {
-          if (!suggestions.includes(value)) {
-            suggestions.push(value)
-            updated = true
-          }
-        }
-      } catch (e) { }
-    }
-
-    if (updated) {
-      this.state.suggestions = suggestions
-      this.debSetState(this.state)
-    }
+    const entry = this.searchSuggestion(node), existing = this.state.suggestions.findIndex(item => item.id === node.id)
+    if (existing >= 0 && JSON.stringify(this.state.suggestions[existing]) === JSON.stringify(entry)) return
+    const suggestions = [...this.state.suggestions]
+    if (existing >= 0) suggestions[existing] = entry
+    else suggestions.push(entry)
+    this.state.suggestions = suggestions
+    this.debSetState(this.state)
   }
 
   private rebuildSuggestions() {
-    const suggestions = new Set<string>()
-    const keys = this.config.suggestions()
-    this.tc?.nodes.forEach(node => {
-      for (const key of keys) {
-        try {
-          const value = eval('node.' + key)
-          const values = Array.isArray(value) ? value : [value]
-          values.forEach(item => {
-            if (typeof item === 'string') suggestions.add(item)
-          })
-        } catch (e) { }
-      }
-    })
-    Object.values(this.state.vmNameMap || {}).forEach(name => {
-      if (name) suggestions.add(name)
-    })
-    this.state.suggestions = Array.from(suggestions)
+    const related = new Map<string, Link[]>()
+    this.tc?.links?.forEach(link => [link.source.id, link.target.id].forEach(id => {
+      const links = related.get(id) || []; links.push(link); related.set(id, links)
+    }))
+    this.state.suggestions = Array.from(this.tc?.nodes.values() || []).map(node => this.searchSuggestion(node, related.get(node.id) || []))
   }
 
   addNode(node: any): boolean {
@@ -1858,6 +1842,7 @@ class App extends React.Component<Props, State> {
       return false
     }
 
+    this.updateSuggestions(n)
     // eventually update the panels
     this.bumpRevision(node.ID)
 
@@ -1873,6 +1858,8 @@ class App extends React.Component<Props, State> {
 
     this.pendingTopologyEdges.removeForNode(node.ID)
     this.tc.delNode(node.ID)
+    this.state.suggestions = this.state.suggestions.filter(entry => this.tc!.nodes.has(entry.id))
+    this.debSetState(this.state)
     this.props.selection.filter(element => element.id === node.ID
       || (element.type === 'link' && (!this.tc!.links.has(element.id))))
       .forEach(element => this.props.unselectElement(element))
@@ -2191,6 +2178,8 @@ class App extends React.Component<Props, State> {
     }), () => {
       saveTopologyDisplayOptions(this.state.topologyDisplayOptions)
       if (this.tc) this.tc.refreshDisplayFilters()
+      this.rebuildSuggestions()
+      this.setState({ suggestions: this.state.suggestions })
     })
   }
 
@@ -2949,27 +2938,7 @@ class App extends React.Component<Props, State> {
       return
     }
 
-    const vmNameMap = this.state.vmNameMap || {}
-    const reverseVmNameMap = new Map<string, string>()
-    Object.keys(vmNameMap).forEach((libvirtName) => {
-      const displayName = vmNameMap[libvirtName]
-      if (displayName) {
-        reverseVmNameMap.set(displayName, libvirtName)
-      }
-    })
-
-    const expandedSearchTerms = new Array<string>()
-    selected.forEach((term) => {
-      if (!expandedSearchTerms.includes(term)) {
-        expandedSearchTerms.push(term)
-      }
-      const mappedLibvirtName = reverseVmNameMap.get(term)
-      if (mappedLibvirtName && !expandedSearchTerms.includes(mappedLibvirtName)) {
-        expandedSearchTerms.push(mappedLibvirtName)
-      }
-    })
-
-    const matchedNodes = this.searchTopologyNodes(expandedSearchTerms)
+    const matchedNodes = this.searchTopologyNodes(selected)
     this.syncTopologyNodeTagForNodes(matchedNodes.map(node => node.id))
     this.tc.unpinNodes()
     matchedNodes.forEach(node => {
@@ -2977,6 +2946,16 @@ class App extends React.Component<Props, State> {
         this.tc.pinNode(node, true)
       }
     })
+  }
+
+  onSearchSelect(id: string) {
+    // Use the ordinary selection callback so details and view history stay in sync.
+    const node = this.tc?.nodes.get(id)
+    if (!node || !this.tc) return
+    // A previous multi-search pin may belong to another layer.
+    this.syncTopologyNodeTagForNodes([id])
+    this.tc.pinNode(node, true)
+    this.tc.selectNode(id, true)
   }
 
   private searchTopologyNodes(values: string[]): Node[] {
@@ -2991,20 +2970,17 @@ class App extends React.Component<Props, State> {
       return []
     }
 
-    const exactMatches: Node[] = []
-    this.tc.nodes.forEach((node) => {
-      const candidates = [
-        node.data?.Name,
-        this.config.nodeTabTitle(node),
-        this.config.nodeAttrs(node).name
-      ].filter((candidate) => typeof candidate === "string") as string[]
-
-      if (candidates.some((candidate) => terms.includes(candidate.trim()))) {
-        exactMatches.push(node)
-      }
-    })
-
-    return exactMatches.length > 0 ? exactMatches : this.tc.searchNodes(terms)
+    const matched = new Map<string, Node>()
+    const rank = createTopologySearchIndex(this.state.suggestions)
+    for (const term of terms) {
+      const direct = this.tc.nodes.get(term)
+      if (direct) { matched.set(direct.id, direct); continue }
+      const normalized = normalizeTopologySearch(term)
+      const exact = this.state.suggestions.filter(entry => entry.aliases.some(alias => normalizeTopologySearch(alias) === normalized))
+      const entries = exact.length ? exact : rank(term).map(match => match.entry)
+      entries.forEach(entry => { const node = this.tc!.nodes.get(entry.id); if (node) matched.set(node.id, node) })
+    }
+    return Array.from(matched.values())
   }
 
   subscriberURL(): string {
@@ -3049,13 +3025,9 @@ class App extends React.Component<Props, State> {
     this.setState(this.state)
     this.pruneRecentViewedNodes()
 
-    // Layer visibility and its D3 exit/enter transitions must settle before
-    // measuring bounds. Run Fit once for an actual layer transition only;
-    // normal topology refreshes and reselecting the active layer keep the
-    // user's current viewport.
-    if (layerChanged) {
-      this.tc.zoomFitAfterRender()
-    }
+    // An explicit layer selection restores Fit, including reselecting the
+    // active layer. Background metric refreshes keep the user's viewport.
+    this.tc.zoomFitAfterRender()
   }
 
   private activeNodeTagName(): string {
@@ -3112,9 +3084,11 @@ class App extends React.Component<Props, State> {
     this.setState({ recentViewedNodes: next })
   }
 
-  private nodeDisplayName(node: Node): string {
+  private nodeDisplayName(node: Node, fullName = false): string {
     const attrs = this.nodeAttrs(node)
-    const attrsName = attrs.name || node.data?.Name || node.id
+    const attrsName = fullName && String(node.data?.Type || '').toLowerCase() !== 'switch'
+      ? node.data?.Name || attrs.name || node.id
+      : attrs.name || node.data?.Name || node.id
     if (String(node.data?.Type || "").toLowerCase() !== "libvirt") {
       return attrsName
     }
@@ -3364,7 +3338,7 @@ class App extends React.Component<Props, State> {
   private searchPlaceholder(): string {
     return this.isKubernetesLayerActive()
       ? translate("searchKubernetesByNameExample")
-      : translate("searchNodeByNameExample")
+      : "이름 일부, IP, MAC, UUID로 검색"
   }
 
   private selectTopologyLayer(tag: string) {
@@ -4127,176 +4101,52 @@ class App extends React.Component<Props, State> {
     )
   }
 
-  renderConnectionDisplayMenu(classes: any) {
-    const tags = this.orderedLinkTagsForActiveLayer()
-    const visibleTags = tags.filter((tag) =>
-      tag !== "ownership"
-      && tag !== "vownership")
-    if (visibleTags.length === 0) {
-      return null
-    }
+  private connectionDisplayTags(): string[] {
+    return this.orderedLinkTagsForActiveLayer().filter(tag =>
+      !['ownership', 'vownership'].includes(tag.toLowerCase()))
+  }
 
-    const activeIcon = <SettingsEthernetIcon fontSize="small" />
+  private connectionDisplayState(): LinkTagState {
+    const states = this.connectionDisplayTags().map(tag => this.state.linkTagStates.get(tag))
+    if (!states.length) return LinkTagState.EventBased
+    if (states.every(state => state === LinkTagState.Hidden)) return LinkTagState.Hidden
+    if (states.every(state => state === LinkTagState.Visible)) return LinkTagState.Visible
+    return LinkTagState.EventBased
+  }
 
-    return (
-      <React.Fragment>
-        <Tooltip title={translate("connectionDisplay")}>
-          <Button
-            aria-controls="connection-display-popover"
-            aria-haspopup="true"
-            onClick={(event: React.MouseEvent<HTMLElement>) => this.openMenu("connection-display", event)}
-            className={classes.layerFilterButton}>
-            <span className={classes.layerFilterButtonIcon}>{activeIcon}</span>
-            <span className={classes.layerFilterButtonText}>
-              <span className={classes.layerFilterButtonLabel}>{translate("connectionDisplay")}</span>
-              <span className={classes.layerFilterButtonSummary}>{this.connectionDisplaySummary(visibleTags)}</span>
-            </span>
-            <span className={classes.layerFilterButtonChevron}><KeyboardArrowDown fontSize="small" /></span>
-          </Button>
-        </Tooltip>
-        <Popover
-          id="connection-display-popover"
-          anchorEl={this.state.anchorEl.get("connection-display")}
-          open={Boolean(this.state.anchorEl.get("connection-display"))}
-          onClose={this.closeMenu.bind(this, "connection-display")}
-          anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
-          transformOrigin={{ vertical: "top", horizontal: "left" }}
-          classes={{ paper: classes.connectionDisplayPopoverPaper }}>
-          <div className={classes.connectionDisplayPopoverContent}>
-            <div className={classes.linkTagsHeader}>
-              <div className={classes.linkTagsHeaderLeft}>
-                <div className={classes.linkTagsTitleRow}>
-                  <Typography component="h6" className={classes.linkTagsTitle}>
-                    {translate("connectionDisplay")}
-                  </Typography>
-                  <Tooltip title={translate("connectionDisplayInfoTooltip")}>
-                    <InfoIcon className={classes.linkTagsInfoIcon} />
-                  </Tooltip>
-                </div>
-                <Typography component="p" className={classes.connectionDisplayDescription}>
-                  {this.compactLinkLayerDescription()}
-                </Typography>
-              </div>
-            </div>
-            <div className={classes.linkLayerCards}>
-              {visibleTags.map((key) => {
-                const meta = this.linkTagMeta(key)
-                const stateInfo = this.linkTagStateInfo(this.state.linkTagStates.get(key))
-                const stateClass = stateInfo.className === "visible"
-                  ? classes.linkLayerCardVisible
-                  : stateInfo.className === "event"
-                    ? classes.linkLayerCardEvent
-                    : classes.linkLayerCardHidden
-                return (
-                  <button
-                    type="button"
-                    key={key}
-                    className={clsx(classes.linkLayerCard, stateClass)}
-                    onClick={() => this.cycleLinkTagState(key)}
-                    title={`${meta.description} ${translate("connectionDisplayCurrentState")}: ${stateInfo.label}`}>
-                    <div className={classes.linkLayerCardMain}>
-                      <span className={classes.linkLayerCardTop}>
-                        <span className={classes.linkLayerCardKey}>{meta.key}</span>
-                        {meta.badge && <span className={classes.linkLayerCardBadge}>{meta.badge}</span>}
-                      </span>
-                      <span className={classes.linkLayerCardName}>{meta.name}</span>
-                      <span className={classes.linkLayerCardSummary}>{meta.summary}</span>
-                    </div>
-                    <span className={clsx(classes.linkLayerStateIcon, classes[`linkLayerStateIcon${stateInfo.className}`])}>
-                      {stateInfo.icon}
-                    </span>
-                  </button>
-                )
-              })}
-              {this.additionalLinkTagCount(visibleTags) > 0 &&
-                <span className={classes.linkLayerMoreHint}>{translate("connectionDisplayAdditionalHintPattern").replace("{count}", String(this.additionalLinkTagCount(visibleTags)))}</span>
-              }
-            </div>
-            <div className={classes.linkTagsStateHelp}>
-              <Typography component="strong" className={classes.linkTagsStateHelpTitle}>
-                {translate("connectionDisplayRangeTitle")}
-              </Typography>
-              <div className={classes.linkTagsStateHelpItems}>
-                {[LinkTagState.EventBased, LinkTagState.Visible, LinkTagState.Hidden].map((state) => {
-                  const stateInfo = this.linkTagStateInfo(state)
-                  return (
-                    <div key={stateInfo.className} className={classes.linkTagsStateHelpItem}>
-                      <span className={clsx(classes.linkLayerStateIcon, classes[`linkLayerStateIcon${stateInfo.className}`])}>
-                        {stateInfo.icon}
-                      </span>
-                      <span>
-                        <strong>{stateInfo.label}</strong>
-                        <em>{stateInfo.description}</em>
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-            {this.renderLinkUsageExamples(classes)}
-            {this.isKubernetesLayerActive() &&
-              <div className={classes.connectionDisplayNotice}>
-                <InfoIcon fontSize="small" />
-                <span>{translate("connectionDisplayKubernetesNotice")}</span>
-              </div>
-            }
-          </div>
-        </Popover>
-      </React.Fragment>
-    )
+  private cycleConnectionDisplay() {
+    const state = this.connectionDisplayState()
+    const next = state === LinkTagState.Hidden ? LinkTagState.EventBased
+      : state === LinkTagState.EventBased ? LinkTagState.Visible : LinkTagState.Hidden
+    this.connectionDisplayTags().forEach(tag => this.tc?.setLinkTagState(tag, next))
   }
 
   renderTopologyDisplayOptions(classes: any) {
-    // Down is an infrastructure health state. Kubernetes uses its own shared
-    // status/attention filters, so this display option is intentionally not
-    // exposed or applied on the Kubernetes layer.
-    if (this.isKubernetesLayerActive()) return null
+    const connectionState = this.connectionDisplayState()
+    return <div className="netdive-topology-view-checks" data-netdive-display-options="true" role="group" aria-label="보기 설정">
+      <span className="netdive-topology-view-checks__title"><SettingOutlined /> 보기 설정</span>
+      <Tooltip title={this.linkTagStateInfo(connectionState).description} placement="left" autoAdjustOverflow
+        trigger={['hover', 'focus']} getPopupContainer={() => document.body} classNames={{ root: 'netdive-view-option-tooltip' }}>
+        <AntCheckbox checked={connectionState === LinkTagState.Visible}
+          indeterminate={connectionState === LinkTagState.EventBased}
+          aria-checked={connectionState === LinkTagState.EventBased ? 'mixed' : connectionState === LinkTagState.Visible}
+          onChange={() => this.cycleConnectionDisplay()}>연결 표시</AntCheckbox>
+      </Tooltip>
+      {!this.isKubernetesLayerActive() && <React.Fragment>
+        <InfrastructureVMLayoutControl inline value={this.state.infrastructureVMLayout} result={this.state.infrastructureVMLayoutResult}
+          onChange={infrastructureVMLayout => this.setState({ infrastructureVMLayout })} />
+        <AntCheckbox checked={this.state.topologyDisplayOptions.hideDownNodes}
+          onChange={event => this.setTopologyDisplayOption('hideDownNodes', event.target.checked)}>다운된 객체 숨김</AntCheckbox>
+      </React.Fragment>}
+    </div>
+  }
 
-    const hideDownNodes = this.state.topologyDisplayOptions.hideDownNodes
-    const menu = (
-      <AntMenu
-        selectable={false}
-        onClick={({ key, domEvent }) => {
-          domEvent.stopPropagation()
-          if (key === 'hide-down-nodes') {
-            this.setTopologyDisplayOption('hideDownNodes', !hideDownNodes)
-          }
-        }}>
-        <AntMenu.Item key="hide-down-nodes">
-          <span onClick={event => event.stopPropagation()}>
-            <AntCheckbox
-              checked={hideDownNodes}
-              onChange={event => this.setTopologyDisplayOption('hideDownNodes', event.target.checked)}>
-              다운된 노드 숨기기
-            </AntCheckbox>
-          </span>
-        </AntMenu.Item>
-      </AntMenu>
-    )
-
-    return (
-      <AntDropdown
-        popupRender={() => menu}
-        classNames={{ root: 'netdive-mold-dropdown netdive-topology-display-options' }}
-        trigger={['click']}
-        placement="bottomLeft"
-        open={this.state.topologyDisplayOptionsOpen}
-        onOpenChange={(open) => this.setState({ topologyDisplayOptionsOpen: open })}
-        getPopupContainer={() => document.body}>
-        <Button
-          data-netdive-display-options="true"
-          aria-haspopup="true"
-          aria-label="표시 옵션"
-          className={clsx(classes.layerFilterButton, classes.displayOptionsButton)}>
-          <span className={classes.layerFilterButtonIcon}><EyeOutlined /></span>
-          <span className={classes.layerFilterButtonText}>
-            <span className={classes.layerFilterButtonLabel}>표시 옵션</span>
-            <span className={classes.layerFilterButtonSummary}>{hideDownNodes ? 'Down 숨김' : '전체 노드'}</span>
-          </span>
-          <span className={classes.layerFilterButtonChevron}><KeyboardArrowDown fontSize="small" /></span>
-        </Button>
-      </AntDropdown>
-    )
+  renderTopologyFloatingPanel(classes: any) {
+    const detailPanelOpen = this.state.isSelectionOpen || this.state.isTimetravelOpen
+    return <aside className={clsx('netdive-topology-floating-panel', detailPanelOpen && 'has-detail-panel')}
+      data-netdive-display-options="true" aria-label="토폴로지 보기 도구">
+      {this.renderTopologyDisplayOptions(classes)}
+    </aside>
   }
 
   renderNodeTagButtons(classes: any) {
@@ -6167,19 +6017,17 @@ class App extends React.Component<Props, State> {
               <Typography className={classes.subTitle} variant="caption">{this.config.subTitle()}</Typography>
             }
             <div className={classes.search}>
-              <AutoCompleteInput placeholder={this.searchPlaceholder()} suggestions={this.state.suggestions} onChange={this.onSearchChange.bind(this)} />
+              <AutoCompleteInput placeholder={this.searchPlaceholder()} suggestions={this.state.suggestions}
+                activeLayer={this.isKubernetesLayerActive() ? 'kubernetes' : 'infrastructure'}
+                recentIDs={this.state.recentViewedNodes.map(item => item.id)} onSelect={this.onSearchSelect.bind(this)} onChange={this.onSearchChange.bind(this)} />
             </div>
             <span className={classes.toolbarSectionDivider} />
             {this.renderLayerFilterMenu(classes)}
-            {this.renderConnectionDisplayMenu(classes)}
-            {this.renderTopologyDisplayOptions(classes)}
             {!this.isKubernetesLayerActive() && <MoldNetworkViewControl
+              classes={classes}
               networks={this.state.moldNetworks || getMoldNetworkIndex(this.state.vmNetworkMap, this.state.vmDetailMap).networks}
               value={this.state.moldNetworkFocusID}
               onChange={moldNetworkFocusID => this.setState({ moldNetworkFocusID })} />}
-            {!this.isKubernetesLayerActive() && <InfrastructureVMLayoutControl
-              value={this.state.infrastructureVMLayout} result={this.state.infrastructureVMLayoutResult}
-              onChange={infrastructureVMLayout => this.setState({ infrastructureVMLayout })} />}
             <span className={classes.toolbarSectionDivider} />
             <div className={classes.toolbarActionCluster}>
               <div className={classes.toolbarActionGroup}>
@@ -6220,18 +6068,14 @@ class App extends React.Component<Props, State> {
               </div>
               {this.renderTopologyZoomControls(classes)}
               <Tooltip title={translate("topologyZoomFit")}>
-                <IconButton
-                  color="inherit"
+                <IconButton color="inherit" aria-label={translate("topologyZoomFit")}
                   onClick={this.fitTopology.bind(this)}
-                  className={clsx(classes.topologyIconButton, classes.topologyTextIconButton, classes.topologyStandaloneButton)}
-                >
+                  className={clsx(classes.topologyIconButton, classes.topologyTextIconButton, classes.topologyStandaloneButton)}>
                   <span>{translate("topologyZoomFitShort")}</span>
                 </IconButton>
               </Tooltip>
               <Tooltip title={translate("refresh")}>
-                <IconButton
-                  color="inherit"
-                  onClick={this.sync.bind(this)}
+                <IconButton color="inherit" aria-label={translate("refresh")} onClick={this.sync.bind(this)}
                   className={clsx(classes.topologyIconButton, classes.topologyStandaloneButton)}>
                   <RefreshIcon />
                 </IconButton>
@@ -6262,6 +6106,7 @@ class App extends React.Component<Props, State> {
         {this.renderAboutPanel(classes)}
         {this.renderKubernetesDialogs(classes)}
         <main className={classes.content}>
+          {this.renderTopologyFloatingPanel(classes)}
           <Container maxWidth="xl" className={classes.container}>
             <Topology className={classes.topology} ref={node => {
               this.tc = node
