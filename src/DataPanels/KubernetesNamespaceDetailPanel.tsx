@@ -1,5 +1,6 @@
 import { DetailSectionIcon } from './common/DetailSectionIcon'
 import * as React from 'react'
+import KubernetesResourceLogPanel from './KubernetesResourceLogPanel'
 import { Button, Table } from 'antd'
 import InfoIcon from '@material-ui/icons/Info'
 
@@ -68,7 +69,7 @@ interface State {
     basicInfoAdvanced: boolean
     podModal: NamespacePodModalKey
     policyModal: '' | 'quota' | 'limitRange'
-    activeDetailTab: 'overview' | 'workloads' | 'pods' | 'services' | 'ingress' | 'configuration' | 'storage'
+    activeDetailTab: 'overview' | 'workloads' | 'pods' | 'services' | 'ingress' | 'configuration' | 'storage' | 'logs'
 }
 
 type NamespacePodModalKey = '' | 'problem' | 'not-ready' | 'pending' | 'restart' | 'crashloop' | 'oom-killed'
@@ -545,11 +546,12 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
                 activeKey={this.state.activeDetailTab}
                 tabs={[
                     { key: 'overview', label: '개요' },
+                    { key: 'logs', label: '로그' },
                     { key: 'workloads', label: '워크로드', count: connectedWorkloads.length },
-                    { key: 'pods', label: KUBERNETES_DETAIL_LABELS.pods, count: activeConnectedPods.length },
-                    { key: 'services', label: KUBERNETES_DETAIL_LABELS.services, count: connectedServices.length }
+                    { key: 'pods', label: KUBERNETES_DETAIL_LABELS.pods, count: activeConnectedPods.length }
                 ]}
                 overflowTabs={[
+                    { key: 'services', label: KUBERNETES_DETAIL_LABELS.services, count: connectedServices.length },
                     { key: 'ingress', label: 'Ingress', count: this.namespaceResources('ingress').length },
                     { key: 'configuration', label: '정책 및 설정', count: this.resourceTabNodes('configuration').length },
                     { key: 'storage', label: '스토리지', count: connectedClaims.length }
@@ -721,7 +723,10 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
                 ]} />
 
             <DetailSectionCard icon={<DetailSectionIcon role="events" />} title={translate('kubernetesNamespaceRecentEvents')}>{this.renderImportantEvents(detail)}</DetailSectionCard>
-            </React.Fragment> : this.renderResourceTab(this.state.activeDetailTab)}
+            </React.Fragment> : this.state.activeDetailTab === 'logs'
+                ? <KubernetesResourceLogPanel key={this.props.node.id} node={this.props.node} nodes={allTopologyNodes}
+                    session={this.props.session} kubernetesClusters={this.props.kubernetesClusters} />
+                : this.renderResourceTab(this.state.activeDetailTab)}
 
             <HistoryModal
                 visible={!!podModal}
@@ -769,8 +774,8 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
                 </ResourceMetricBlock>}
             </HistoryModal>
 
-            {this.state.error && <div className="netdive-detail-notice"><InfoIcon /><span>{translate('kubernetesNamespaceDetailFallback')}</span></div>}
-            {!this.cluster() && <div className="netdive-detail-notice"><InfoIcon /><span>{translate('kubernetesClusterMoldMissing')}</span></div>}
+            {this.state.activeDetailTab !== 'logs' && this.state.error && <div className="netdive-detail-notice"><InfoIcon /><span>{translate('kubernetesNamespaceDetailFallback')}</span></div>}
+            {this.state.activeDetailTab !== 'logs' && !this.cluster() && <div className="netdive-detail-notice"><InfoIcon /><span>{translate('kubernetesClusterMoldMissing')}</span></div>}
         </div>
     }
 }

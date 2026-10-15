@@ -658,7 +658,9 @@ class SelectionPanel extends React.Component<Props, State> {
               : isKubernetesWorkload(el)
               ? <KubernetesWorkloadDetailPanel
                   node={el as Node}
-                  nodeAttrs={(node: Node) => this.props.config.nodeAttrs(node)} />
+                  nodeAttrs={(node: Node) => this.props.config.nodeAttrs(node)}
+                  session={this.props.session}
+                  kubernetesClusters={this.props.kubernetesClusters} />
               : isKubernetesService(el)
               ? <KubernetesServiceDetailPanel
                   node={el as Node}

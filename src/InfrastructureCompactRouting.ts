@@ -1,7 +1,7 @@
 import { TopologyCardBounds, topologyCardEdge } from './TopologyEdgePresentation'
 
 export interface RoutePoint { x: number; y: number }
-export interface RoutingCard extends TopologyCardBounds { id: string; type?: string; group?: boolean; above?: number; below?: number }
+export interface RoutingCard extends TopologyCardBounds { id: string; type?: string; group?: boolean; above?: number; below?: number; vmOwnerID?: string }
 export interface RoutingEdge { id: string; sourceID: string; targetID: string; hierarchy?: boolean }
 export interface CompactRoute { path: string; points: RoutePoint[]; trafficNodeID?: string }
 export interface RoutingRegion extends RoutingCard { nodeIDs: string[] }

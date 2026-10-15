@@ -112,6 +112,27 @@
 .topology-object-card.is-vm .topology-object-card__subtitle { grid-column: 1 / 3; grid-row: 2; }
 .topology-object-card.is-vm .topology-card-tooltip-anchor:not(.is-block) { grid-column: 3; grid-row: 2; align-self: center; }
 .topology-object-card.is-vm .topology-object-card__metrics { grid-template-rows: 112px 112px; }
+/* Service VMs use the same two-row silhouette, with operational information
+ * replacing unavailable utilization meters. Scope this to service cards. */
+.topology-service-information .topology-metric-chip__line { flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 2px; }
+.topology-service-information .topology-metric-chip__label { font-size: 24px; line-height: 30px; }
+.topology-service-information .topology-service-information__value {
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+    overflow: hidden; overflow-wrap: anywhere; white-space: normal;
+    font-size: 26px; line-height: 32px; font-weight: 500; max-height: 64px;
+}
+/* Mold service cards retain the shared silhouette without utilization meters. */
+.topology-system-vm-information { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
+.topology-system-vm-information__role-row { display: flex; align-items: center; min-height: 36px; flex-shrink: 0; }
+.topology-system-vm-information__role { color: var(--topology-object-muted, #63748d); font-size: 24px; line-height: 32px; }
+.topology-system-vm-information__states { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; flex: 1; min-height: 112px; }
+.topology-system-vm-information__states .topology-metric-chip { display: flex; flex-direction: column; justify-content: center; }
+.topology-system-vm-information__footer { display: flex; align-items: center; min-height: 64px; flex-shrink: 0; border-top: 1px solid var(--topology-object-border, #e7eef8); font-size: 22px; line-height: 28px; color: var(--topology-object-muted, #63748d); }
+.topology-system-vm-information__footer > .topology-card-tooltip-anchor { width: 100%; }
+.topology-system-vm-information__purpose { overflow-wrap: anywhere; }
+.topology-system-vm-information__sessions { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.topology-system-vm-information__sessions strong { font-size: 32px; font-weight: 500; color: var(--topology-object-text, #25334b); white-space: nowrap; }
+.topology-system-vm-information__sessions small { margin-left: 6px; font-size: 22px; color: var(--topology-object-muted, #63748d); }
 .topology-object-card.is-vm .topology-metric-chip.is-resource .topology-metric-chip__line { flex-direction: column; flex-wrap: nowrap; align-items: flex-start; gap: 2px; }
 .topology-object-card.is-vm .topology-metric-chip.is-resource .topology-metric-chip__line > strong { font-size: var(--topology-card-value-size); line-height: 40px; }
 .topology-object-card__network { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 12px; min-width: 0; height: 90px; flex-shrink: 0; box-sizing: border-box; padding: 8px 10px; border: 1px solid var(--topology-object-border, #e7eef8); border-radius: 12px; background: var(--topology-object-chip, #f7faff); font-size: var(--topology-card-label-size); line-height: 36px; }

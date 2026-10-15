@@ -1,5 +1,5 @@
 import { strict as assert } from 'assert'
-import { rootDiskResources, formatRootDiskBytes } from '../src/DataPanels/common/RootDiskResources'
+import { rootDiskResources, formatRootDiskBytes, resourceUsagePercent } from '../src/DataPanels/common/RootDiskResources'
 import { topologyResourceMetrics } from '../src/TopologyResourceMetrics'
 import { topologyCardDimensions, topologyNodePresentation } from '../src/TopologyNodePresentation'
 
@@ -12,6 +12,19 @@ const node = (type: string): any => ({ id: type, data: { Name: type, Type: type,
     UserVMCount: 25, SystemVMCount: 3, VirtualRouterCount: 6 }, state: {}, children: [] })
 
 describe('Wall root filesystem resources', () => {
+    it('uses actual usage samples, preserves zero and keeps allocations separate from missing percentages', () => {
+        const snapshot = { series: [{ key: 'cpu', lastValue: 0 }, { key: 'memory', lastValue: 27 }] }
+        const before = JSON.stringify(snapshot)
+        assert.equal(resourceUsagePercent(snapshot, 'cpu', 12), 0)
+        assert.equal(resourceUsagePercent(snapshot, 'memory'), 27)
+        assert.equal(resourceUsagePercent(undefined, 'cpu'), undefined)
+        for (const value of [null, NaN, Infinity, -1]) {
+            assert.equal(resourceUsagePercent({ series: [{ key: 'cpu', lastValue: value }] }, 'cpu'), undefined)
+            assert.equal(resourceUsagePercent({ series: [{ key: 'cpu', lastValue: value }] }, 'cpu', 0), 0)
+        }
+        assert.equal(resourceUsagePercent(undefined, 'cpu', 150), 150)
+        assert.equal(JSON.stringify(snapshot), before)
+    })
     it('keeps every VM size and metric slot consistent as disk data arrives or disappears', () => {
         const resource = node('libvirt')
         delete resource.data.UserVMCount

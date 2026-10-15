@@ -40,6 +40,8 @@ export interface TopologyStatusBadgeItem {
 }
 
 export interface TopologyStatusBadgeGroupSummary {
+    variant?: 'connections'
+    breakdown?: Array<{ key: string; label: string; count: number }>
     title: string
     totalLabel: string
     states: Array<{
@@ -288,8 +290,20 @@ export const TopologyStatusBadgeLegend = ({ compact = false }: { compact?: boole
     </Popover>
 }
 
-const badgeGroupSummaryContent = (summary: TopologyStatusBadgeGroupSummary, badges: TopologyStatusBadgeItem[] = []): React.ReactNode =>
-    <div className="netdive-topology-badge-tooltip__content netdive-topology-badge-summary">
+const badgeGroupSummaryContent = (summary: TopologyStatusBadgeGroupSummary, badges: TopologyStatusBadgeItem[] = []): React.ReactNode => {
+    if (summary.variant === 'connections') return <div className="netdive-topology-badge-tooltip__content netdive-topology-badge-summary">
+        <div className="netdive-topology-badge-summary__header">
+            <div className="netdive-topology-badge-tooltip__title">{summary.title}</div>
+            <strong className="netdive-topology-badge-summary__connection-count">{summary.states.reduce((total, state) => total + state.count, 0)}개</strong>
+        </div>
+        {!!summary.breakdown?.length && <div className="netdive-topology-badge-summary__connection-details">
+            {summary.breakdown.map(row => <div className="netdive-topology-badge-tooltip__row" key={row.key}>
+                <span>{row.label}</span><strong>{row.count}개</strong>
+            </div>)}
+        </div>}
+        <div className="netdive-topology-badge-summary__total">직전 하위 자원(바로 아래 계층)의 개수입니다.</div>
+    </div>
+    return <div className="netdive-topology-badge-tooltip__content netdive-topology-badge-summary">
         <div className="netdive-topology-badge-summary__header">
             <div className="netdive-topology-badge-tooltip__title">{summary.title}</div>
             <TopologyStatusBadgeLegend compact />
@@ -324,6 +338,7 @@ const badgeGroupSummaryContent = (summary: TopologyStatusBadgeGroupSummary, badg
             <div>직전 하위 자원(바로 아래 계층)의 상태를 집계합니다. 하위 이상에는 미확인·미수집도 포함되며, 현재 객체의 자체 상태와 구분합니다.</div>
         </div>}
     </div>
+}
 
 /** Keep body-mounted overlays tied to the actual SVG anchor, including D3
  * transitions and zoom transforms that Ant Tooltip cannot observe itself. */

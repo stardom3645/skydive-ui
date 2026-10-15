@@ -1,5 +1,6 @@
 import { DetailSectionIcon } from './common/DetailSectionIcon'
 import * as React from 'react'
+import KubernetesResourceLogPanel from './KubernetesResourceLogPanel'
 import { Button, Select, Table } from 'antd'
 import InfoIcon from '@material-ui/icons/Info'
 
@@ -29,6 +30,7 @@ import {
     DetailModalResourceCell,
     DetailModalTextCell,
     DetailMetricRow,
+    DetailNavigationTabs,
     DetailSectionCard,
     DetailStatusIndicator,
     KUBERNETES_DETAIL_LABELS,
@@ -54,6 +56,7 @@ interface Props {
 }
 
 interface State {
+    activeDetailTab: 'overview' | 'logs'
     detail?: any
     loading: boolean
     error: boolean
@@ -253,14 +256,15 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
         riskModal: '',
         workloadModalOpen: false,
         workloadFilter: 'all',
-        conditionsExpanded: false
+        conditionsExpanded: false,
+        activeDetailTab: 'overview'
     }
 
     componentDidMount() { this.loadDetail() }
 
     componentDidUpdate(prevProps: Props) {
         if (prevProps.node.id !== this.props.node.id || this.cluster()?.id !== this.clusterFrom(prevProps)?.id) {
-            this.setState({ basicCollapsed: false, basicInfoAdvanced: false, podModalOpen: false, riskModal: '', workloadModalOpen: false, workloadFilter: 'all', conditionsExpanded: false })
+            this.setState({ basicCollapsed: false, basicInfoAdvanced: false, podModalOpen: false, riskModal: '', workloadModalOpen: false, workloadFilter: 'all', conditionsExpanded: false, activeDetailTab: 'overview' })
             this.loadDetail()
         }
     }
@@ -871,6 +875,11 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
         }
         const riskModal = this.state.riskModal ? riskModalConfigs[this.state.riskModal] : undefined
         return <div className="netdive-k8s-node-detail">
+            <DetailNavigationTabs activeKey={this.state.activeDetailTab}
+                tabs={[{ key: 'overview', label: '개요' }, { key: 'logs', label: '로그' }]}
+                onChange={activeDetailTab => this.setState({ activeDetailTab: activeDetailTab as State['activeDetailTab'] })} />
+            {this.state.activeDetailTab === 'logs' ? <KubernetesResourceLogPanel key={this.props.node.id}
+                node={this.props.node} nodes={this.topologyNodes()} session={this.props.session} kubernetesClusters={this.props.kubernetesClusters} /> : <React.Fragment>
             <DetailSectionCard icon={<DetailSectionIcon role="basic" />} title={translate('kubernetesNodeBasicInfo')} collapsible collapsed={this.state.basicCollapsed} onToggle={() => this.setState({ basicCollapsed: !this.state.basicCollapsed })}>
                 <BasicInfoRows density="compact" rows={overviewRows} labelWidth={122} copyTooltip={translate('copy')} />
             </DetailSectionCard>
@@ -1034,6 +1043,7 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
 
             {this.state.error && <div className="netdive-k8s-node-detail__notice"><InfoIcon /><span>{translate('kubernetesNodeDetailFallback')}</span></div>}
             {!this.cluster() && <div className="netdive-k8s-node-detail__notice"><InfoIcon /><span>{translate('kubernetesClusterMoldMissing')}</span></div>}
+            </React.Fragment>}
         </div>
     }
 }

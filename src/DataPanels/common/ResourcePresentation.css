@@ -1,6 +1,21 @@
 .netdive-resource-stack { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
 .netdive-resource-metric { min-width: 0; }
 .netdive-resource-metric .ant-card-head-title { white-space: normal; }
+.netdive-resource-usage__metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.netdive-resource-usage__metric { min-width: 0; }
+.netdive-resource-usage__label { color: var(--netdive-detail-muted, #64748b); font-size: 11px; line-height: 18px; }
+.netdive-resource-usage__value { display: block; margin-top: 4px; font-size: 18px; line-height: 26px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.netdive-resource-usage .ant-divider { margin-block: 12px; }
+.netdive-resource-usage .ant-progress { margin-block: 2px 6px; }
+.netdive-resource-usage__disk-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.netdive-resource-usage__disk-header > strong { font-weight: 500; font-variant-numeric: tabular-nums; }
+.netdive-resource-usage .ant-descriptions-item-label { font-size: 11px; color: var(--netdive-detail-muted, #64748b); }
+.netdive-resource-usage .ant-descriptions-item-content { font-variant-numeric: tabular-nums; }
+.netdive-resource-chart { min-width: 0; }
+.netdive-resource-chart__header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 8px; margin-bottom: 6px; }
+.netdive-resource-chart__header > strong { font-size: 12px; font-weight: 500; }
+.netdive-trend-grid.netdive-trend-grid--plain { gap: 0; }
+.netdive-trend-grid--plain > .ant-divider { margin-block: 12px; }
 .netdive-resource-comparison { min-width: 0; }
 .netdive-resource-comparison .netdive-detail-metric-row .ant-typography { font-size: 12px; }
 .netdive-resource-comparison .netdive-detail-metric-row--primary .netdive-detail-metric-row__value { font-size: 14px; font-weight: 500; line-height: 20px; }

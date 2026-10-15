@@ -5,6 +5,7 @@ import * as ts from 'typescript'
 import * as vm from 'vm'
 import { routeInfrastructureTraffic } from '../src/InfrastructureTrafficRouting'
 import { RoutingCard, RoutingEdge, routeCardHits, segmentHitsCard, routeCompactEdges, nearestCompactEdge } from '../src/InfrastructureCompactRouting'
+import { infrastructureVirtualNICOwners } from '../src/InfrastructureVMBundles'
 
 const card = (id: string, x: number, y: number, width = 280, height = 112): RoutingCard => ({ id, x, y, width, height })
 const edge: RoutingEdge = { id: 'relation:nic-port', sourceID: 'nic', targetID: 'port' }
@@ -20,6 +21,53 @@ function assertClear(cards: RoutingCard[], relation = edge) {
 }
 
 describe('Infrastructure traffic card avoidance', () => {
+    it('uses short curves for a clear sparse leading row while preserving the dense lower bus', () => {
+        const bridge = { ...card('bridge', 0, 0), type: 'bridge' }
+        const leading = Array.from({ length: 3 }, (_, i) => ({ ...card(`system-${i}`, (i - 1) * 544, 1100, 480, 388), type: 'libvirt' }))
+        const lower = Array.from({ length: 8 }, (_, i) => ({ ...card(`user-${i}`, i * 544, 2200, 480, 558), type: 'libvirt' }))
+        const cards = [bridge, ...leading, ...lower], before = JSON.stringify(cards)
+        const edges = [...leading, ...lower].map(target => ({ id: `bridge-${target.id}`, sourceID: bridge.id, targetID: target.id }))
+        const routes = routeInfrastructureTraffic(cards, edges)
+        leading.forEach(target => {
+            const edge = edges.find(e => e.targetID === target.id)!, route = routes.get(edge.id)!
+            assert.ok(route.path.includes(' C'), 'clear leading links do not take a side bus')
+            assert.equal(routeCardHits(edge, route.points, cards), 0)
+            assert.ok(route.points.every(p => p.x >= Math.min(bridge.x, target.x) && p.x <= Math.max(bridge.x, target.x)))
+        })
+        const trunks = new Set(lower.map(target => routes.get(`bridge-${target.id}`)!.points[2].x))
+        assert.equal(trunks.size, 1, 'dense lower rows still use one shared corridor')
+        assert.equal(routes.size, edges.length)
+        assert.equal(JSON.stringify(cards), before)
+        // Multiple interfaces can collapse onto one VM; count visible objects,
+        // retain every measurement, and keep labels at their own endpoint.
+        const duplicateEdges = [...edges, ...edges.slice(0, 3).map(e => ({ ...e, id: `${e.id}-extra-nic` }))]
+        const duplicateRoutes = routeInfrastructureTraffic(cards, duplicateEdges)
+        assert.equal(duplicateRoutes.size, duplicateEdges.length)
+        duplicateEdges.filter(e => e.targetID.startsWith('system')).forEach(e => {
+            assert.ok(duplicateRoutes.get(e.id)!.path.includes(' C'))
+            assert.equal(duplicateRoutes.get(e.id)!.trafficNodeID, e.targetID)
+        })
+        const reversed = routeInfrastructureTraffic(cards.slice().reverse(), edges.slice().reverse())
+        edges.forEach(edge => assert.equal(reversed.get(edge.id)?.path, routes.get(edge.id)?.path))
+        const opposite = edges.map(e => ({ ...e, sourceID: e.targetID, targetID: e.sourceID }))
+        opposite.forEach(e => assert.equal(routeCardHits(e, routeInfrastructureTraffic(cards, opposite).get(e.id)!.points, cards), 0))
+        // A real blocker restores the original bus for the entire leading row.
+        const blocked = [...cards, card('blocker', 0, 550, 580, 440)]
+        const fallback = routeInfrastructureTraffic(blocked, edges)
+        leading.forEach(target => assert.equal(fallback.get(`bridge-${target.id}`)!.points.length, 6))
+        const region = { ...card('foreign-bundle', 0, 550, 580, 440), nodeIDs: ['foreign-vm', 'foreign-nic'] }
+        const withRegion = routeInfrastructureTraffic(cards, edges, new Map(), [region])
+        leading.forEach(target => {
+            const route = withRegion.get(`bridge-${target.id}`)!
+            assert.equal(route.points.length, 6)
+            assert.equal(route.points.slice(1).some((p, i) => segmentHitsCard(route.points[i], p, region)), false)
+        })
+        const preferred = new Map(edges.slice(0, 3).map(edge => [edge.id, routes.get(edge.id)!]))
+        const compact = routeInfrastructureTraffic(cards, edges, preferred)
+        leading.forEach(target => assert.equal(compact.get(`bridge-${target.id}`)!.points.length, 6, 'Compact geometry is not replaced by this optimization'))
+        lower.forEach(target => assert.equal(routes.get(`bridge-${target.id}`)!.path, compact.get(`bridge-${target.id}`)!.path,
+            'lower bus geometry remains identical to the previous routing rule'))
+    })
     it('organizes dense bridge fan-out into one side corridor and one lane per VM row', () => {
         const cards = [{ ...card('bridge', -500, 0), type: 'bridge' },
             card('middle-host', 350, 450, 580, 404),
@@ -147,7 +195,7 @@ describe('Infrastructure traffic routing integration', () => {
         const topology = ast.statements.find(n => ts.isClassDeclaration(n) && n.name?.text === 'Topology') as ts.ClassDeclaration
         const method = topology.members.find(n => n.name?.getText(ast) === 'updateInfrastructureTrafficRoutes')!
         let computations = 0
-        const context: any = { WrapperType: { Hidden: 2 }, routeInfrastructureTraffic: (...args: any[]) => {
+        const context: any = { WrapperType: { Hidden: 2 }, infrastructureVirtualNICOwners, routeInfrastructureTraffic: (...args: any[]) => {
             computations++; return (routeInfrastructureTraffic as any)(...args)
         } }
         vm.createContext(context)
@@ -156,7 +204,7 @@ describe('Infrastructure traffic routing integration', () => {
         Object.assign(probe, { nodeTagActive: 'infrastructure', infrastructureTrafficRouteKey: '',
             infrastructureTrafficRoutes: new Map(), topologyEdgeBounds: (node: any) => ({ x: node.x, y: node.y, width: node.width, height: node.height }),
             topologyLaneItem: () => ({ above: 0, below: 0 }), isLinkVisible: () => true, linkDisplayOpacity: () => 1,
-            d3nodes: new Map(cards.map(c => [c.id, { ...c, data: { id: c.id, type: 1, wrapped: {} } }])) })
+            nodes: new Map(), d3nodes: new Map(cards.map(c => [c.id, { ...c, data: { id: c.id, type: 1, wrapped: {} } }])) })
         const links = [{ id: 'nic-port', source: { id: 'nic' }, target: { id: 'port' }, metric: 1 }]
         probe.updateInfrastructureTrafficRoutes(links)
         links[0].metric = 200

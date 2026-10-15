@@ -2,6 +2,13 @@ import { formatPodMemoryUsage } from './KubernetesPodUsageMetrics'
 
 export interface RootDiskResources { total: number; used?: number; available?: number; percent?: number }
 
+// Preserve measured zero; allocation/capacity and absent samples are not usage.
+export const resourceUsagePercent = (wall: Parameters<typeof rootDiskResources>[0], key: string, fallback?: number): number | undefined => {
+    const measured = wall?.series?.find(series => series.key === key)?.lastValue
+    const valid = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0
+    return valid(measured) ? measured : valid(fallback) ? fallback : undefined
+}
+
 // Wall filesystem measurements are bytes, unlike Mold VM memory (MiB) or
 // provisioned volume sizes. Missing measurements must never become zero usage.
 export const rootDiskResources = (wall?: { series?: Array<{ key: string; lastValue?: number | null }> }): RootDiskResources | undefined => {

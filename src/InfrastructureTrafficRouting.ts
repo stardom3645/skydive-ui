@@ -1,4 +1,5 @@
 import { topologyCardEdge } from './TopologyEdgePresentation'
+import { separateVMInterfaceRoutes } from './InfrastructureVMInterfaceRouting'
 import { CompactRoute, RoutingCard, RoutingEdge, RoutingRegion, routeCompactEdges,
     compactRouteFromPoints, routeCardHits, sampleCardEdge, segmentHitsCard } from './InfrastructureCompactRouting'
 
@@ -6,7 +7,7 @@ import { CompactRoute, RoutingCard, RoutingEdge, RoutingRegion, routeCompactEdge
  * Paths may share geometry, but every measured edge keeps its identity, labels
  * and hit target. Only actual bridge relations participate, never ownership. */
 function bridgeFanRoutes(cards: RoutingCard[], edges: RoutingEdge[], clear: (edge: RoutingEdge, route: CompactRoute) => boolean,
-    regions: RoutingRegion[]): Map<string, CompactRoute> {
+    regions: RoutingRegion[], preferred: Map<string, CompactRoute>): Map<string, CompactRoute> {
     const byID = new Map(cards.map(card => [card.id, card]))
     const fans = new Map<string, Array<{ edge: RoutingEdge; bridge: RoutingCard; target: RoutingCard }>>()
     for (const edge of edges) {
@@ -33,9 +34,29 @@ function bridgeFanRoutes(cards: RoutingCard[], edges: RoutingEdge[], clear: (edg
             if (previous && top < previous.bottom) { previous.entries.push(entry); previous.top = Math.min(previous.top, top); previous.bottom = Math.max(previous.bottom, bottom) }
             else rows.push({ top, bottom, entries: [entry] })
         })
-        const top = bridge.y + bridge.height / 2, bottom = Math.max(...rows.map(row => row.bottom))
+        // Keep the existing bus extent for all other rows/bridges even when
+        // the leading row below receives direct connections.
         const left = Math.min(bridge.x - bridge.width / 2, ...entries.map(entry => entry.target.x - entry.target.width / 2))
         const right = Math.max(bridge.x + bridge.width / 2, ...entries.map(entry => entry.target.x + entry.target.width / 2))
+        // A small leading row (typically system VMs) need not follow the side
+        // bus required by dense/lower rows. Use ordinary curves only when the
+        // entire row is clear; leave Compact routes and VM/NIC bundles alone.
+        const first = rows[0]
+        if (new Set(first.entries.map(({ target }) => target.id)).size <= 3 && first.entries.every(({ edge, target }) => !preferred.has(edge.id)
+            && !regions.some(region => region.nodeIDs.includes(target.id)))) {
+            const direct = first.entries.map(({ edge, target }) => {
+                const source = byID.get(edge.sourceID)!, destination = byID.get(edge.targetID)!
+                return { edge, route: { path: topologyCardEdge(source, destination), points: sampleCardEdge(source, destination), trafficNodeID: target.id } }
+            })
+            if (direct.every(({ edge, route }) => clear(edge, route))) {
+                direct.forEach(({ edge, route }) => routes.set(edge.id, route))
+                const ids = new Set(direct.map(({ edge }) => edge.id))
+                entries = entries.filter(({ edge }) => !ids.has(edge.id))
+                rows.shift()
+                if (!rows.length) return
+            }
+        }
+        const top = bridge.y + bridge.height / 2, bottom = Math.max(...rows.map(row => row.bottom))
         const obstacles = [...cards, ...regions].filter(card => card.x + card.width / 2 >= left - 64
             && card.x - card.width / 2 <= right + 64 && card.y + card.height / 2 + (card.below || 0) >= top
             && card.y - card.height / 2 - (card.above || 0) <= bottom)
@@ -98,7 +119,7 @@ export function routeInfrastructureTraffic(cards: RoutingCard[], edges: RoutingE
             .some(card => segmentHitsCard(route.points[index], point, { ...card, above: 0, below: 0 })))
         && !regions.some(region => !region.nodeIDs.includes(edge.sourceID) && !region.nodeIDs.includes(edge.targetID)
             && route.points.slice(1).some((point, index) => segmentHitsCard(route.points[index], point, region)))
-    bridgeFanRoutes(cards, edges, clear, regions).forEach((route, id) => routes.set(id, route))
+    bridgeFanRoutes(cards, edges, clear, regions, preferred).forEach((route, id) => routes.set(id, route))
     for (const edge of edges.slice().sort((a, b) => a.id.localeCompare(b.id))) {
         if (routes.has(edge.id)) continue
         const source = byID.get(edge.sourceID), target = byID.get(edge.targetID)
@@ -141,5 +162,6 @@ export function routeInfrastructureTraffic(cards: RoutingCard[], edges: RoutingE
         // Preserve edge identity if overlapping cards leave no valid corridor.
         routes.set(edge.id, result || original)
     }
+    separateVMInterfaceRoutes(cards, edges, routes, preferred, clear)
     return routes
 }

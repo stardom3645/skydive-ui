@@ -715,8 +715,13 @@ class VMDetailPanel extends React.Component<Props> {
                 {managementResourceRows.some(row => !isBlank(row.value)) && this.renderSection(<DetailSectionIcon role="serverResources" />, translate('managementServerResources'), this.renderRows(managementResourceRows))}
                 {managementJvmRows.some(row => !isBlank(row.value)) && this.renderSection(<DetailSectionIcon role="jvm" />, translate('managementServerJvm'), this.renderRows(managementJvmRows))}
                 {this.renderSection(<DetailSectionIcon role="related" />, translate('hostConnectedResources'), this.renderOverviewGrid(connectedResources))}
-                <HostResourceTrendPanel node={node} session={this.props.session} data={data} target="vm" />
-                {hasResourceMetrics && this.renderSection(<DetailSectionIcon role="resources" />, translate('hostResourceUsage'), this.renderMetricGrid(resourceMetrics))}
+                <HostResourceTrendPanel node={node} session={this.props.session} data={data} target="vm"
+                    usageDetails={{
+                        cpu: { percent: cpuPercent, capacity: cpuCount !== undefined ? `${cpuCount} vCPU` : undefined },
+                        memory: { percent: memoryPercent, capacity: memory ? this.formatMemory(memory) : undefined },
+                        additional: resourceMetrics.slice(2).filter(item => !isBlank(item.value)).map(item => ({ label: item.label, value: item.value }))
+                    }}
+                    legacyResourceUsage={hasResourceMetrics ? this.renderSection(<DetailSectionIcon role="resources" />, translate('hostResourceUsage'), this.renderMetricGrid(resourceMetrics)) : undefined} />
                 {hasRecentSignals && this.renderSection(<DetailSectionIcon role="events" />, translate('hostRecentSignals'), this.renderRows(eventRows, translate('hostNoRecentSignals')))}
             </div>
         )

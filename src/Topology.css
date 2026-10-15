@@ -1074,6 +1074,8 @@ svg {
 .netdive-topology-badge-tooltip__row.is-description > strong { overflow-wrap: anywhere; font-weight: 400; }
 .netdive-topology-badge-tooltip__bullet { text-align: center; }
 .netdive-topology-badge-summary__header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.netdive-topology-badge-summary__connection-count { font-size: 20px; line-height: 26px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.netdive-topology-badge-summary__connection-details { display: grid; gap: 7px; margin-block: 10px 8px; padding-block: 10px; border-block: 1px solid var(--topology-object-border, #e4ecf8); }
 .netdive-topology-badge-summary__total { margin-top: 2px; color: var(--topology-object-muted, #63748d); font-size: 12px; }
 .netdive-topology-badge-summary__states { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
 .netdive-topology-badge-summary__state { min-width: 0; padding: 8px 10px; border-radius: 6px; background: var(--topology-object-chip, #f7faff); }
@@ -1553,6 +1555,15 @@ svg {
 /* Hosts and Kubernetes clusters share rounded Glass surfaces.
  * Group header cards do not add separate background surfaces. */
 .topology-group-regions, .topology-group-region path { pointer-events: none; }
+.topology-namespace-region, .topology-namespace-region__shade { pointer-events: none; }
+.topology-namespace-region__shade {
+    fill: var(--topology-group-base-color, #dadada);
+    fill-opacity: 0.12;
+    stroke: var(--topology-group-guide-color, #a6b1c0);
+    stroke-opacity: 0.26;
+    stroke-width: 1px;
+    vector-effect: non-scaling-stroke;
+}
 .topology-group-region__base {
     fill: var(--topology-group-base-color, #dadada);
     fill-opacity: var(--topology-group-base-opacity, 0.12);

@@ -4,6 +4,7 @@ export interface MoldNICNetwork {
     vmUuid?: string; vmInstanceName?: string; networkId?: string; nicId?: string
     networkName: string; macAddress: string; ipAddress: string
     networkType?: string; cidr?: string; vlan?: string; zoneId?: string; zoneName?: string
+    networkCreatedAt?: string
     trafficType?: string; gateway?: string; broadcastUri?: string; isDefault?: string; networkOffering?: string
 }
 export type MoldVMNetworkMap = Record<string, MoldNICNetwork[]>

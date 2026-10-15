@@ -8,12 +8,17 @@ import { topologyResourceMetrics } from './TopologyResourceMetrics'
 import type { TopologyResourceSnapshot } from './TopologyResourceData'
 import { topologyInfrastructureData } from './TopologyResourceData'
 import { topologyLayerKind } from './TopologyLayerIcons'
+import { topologyServiceVMRole, topologyServiceVMInformation, topologySystemVMInformation } from './TopologyServiceVM'
+import type { TopologySystemVMInformation } from './TopologyServiceVM'
+import { topologyHostChildBreakdown } from './TopologyHostChildBreakdown'
 
 export type TopologyCardSize = 'large' | 'medium' | 'compact'
 export type TopologyCardTone = 'normal' | 'warning' | 'critical' | 'unknown' | 'inactive'
 export interface TopologyMetric { key: string; label: string; value: string; percent?: number; description?: string }
 export interface TopologyCardLayout { height: number; headerHeight?: number; networkHeight?: number }
 export interface TopologyNodePresentation {
+    serviceVM?: boolean
+    systemVMInformation?: TopologySystemVMInformation
     infrastructure?: boolean
     namespaceSummary?: boolean
     groupResourceCount?: number
@@ -333,6 +338,9 @@ export const topologyNodePresentation = (node: Node, options: {
         }
     }
     const metrics: TopologyMetric[] = []
+    const serviceRole = !group ? topologyServiceVMRole(node, data) : undefined
+    const systemVMInformation = serviceRole && serviceRole !== '가상 라우터'
+        ? topologySystemVMInformation(node, data, serviceRole, options.resourceData) : undefined
     const count = (key: string, label: string, value: any) => {
         if (value !== undefined && value !== null && value !== '') metrics.push({ key, label, value: String(value) })
     }
@@ -352,7 +360,9 @@ export const topologyNodePresentation = (node: Node, options: {
             count(key, label, new Set(collected.filter(item => types.includes(typeOf(item))).map(item => item.data?.K8s?.Extra?.ObjectMeta?.UID || item.id)).size)
         }
     } else if (['node', 'host', 'libvirt'].includes(type) && !group) {
-        metrics.push(...topologyResourceMetrics(node, options.resourceData, options.allNodes))
+        metrics.push(...(systemVMInformation ? []
+            : serviceRole ? topologyServiceVMInformation(node, data, serviceRole)
+            : topologyResourceMetrics(node, options.resourceData, options.allNodes)))
         if (type === 'node') count('pods', '파드', options.resourceData?.detail?.podCount ?? read(data, ['PodCount', 'K8s.PodCount', 'K8s.Extra.Status.PodCount']) ?? '미수집')
         else if (type === 'host') {
             count('vms', '가상머신', options.infrastructureSummary?.userVMs ?? read(data, ['UserVMCount', 'userVmCount', 'RunningVMCount', 'runningVmCount']))
@@ -381,7 +391,7 @@ export const topologyNodePresentation = (node: Node, options: {
             || { key, label: key === 'cpu' ? 'CPU' : '메모리', value: '미수집', description: '실시간 사용량 미수집' })
         metrics.splice(0, metrics.length, ...resources, ...metrics.filter(metric => !['cpu', 'memory'].includes(metric.key)))
     }
-    if (type === 'libvirt' && !group && !metrics.some(metric => metric.key === 'root-disk')) {
+    if (type === 'libvirt' && !group && !serviceRole && !metrics.some(metric => metric.key === 'root-disk')) {
         metrics.push({ key: 'root-disk', label: '루트 디스크', value: '미수집',
             description: '루트 파일시스템 / 용량 미수집' })
     }
@@ -392,10 +402,14 @@ export const topologyNodePresentation = (node: Node, options: {
     const badges: TopologyStatusBadgeItem[] = kubernetes ? kubernetesTopologyCountBadges(node, children)
         : children.length ? [{ key: 'children', count: children.length, tone: 'running', label: '연결 자원', tooltip: `연결된 자원 ${children.length}개` }] : []
     const badgeSummary: TopologyStatusBadgeGroupSummary = kubernetes ? kubernetesTopologyBadgeGroupSummary(node, badges as any, children)
-        : { title: '연결 자원', totalLabel: `연결 자원 총 ${children.length}개`, states: badges.map(badge => ({ key: badge.key, tone: badge.tone, label: '연결 자원', count: badge.count })) }
+        : { variant: 'connections', title: '연결 자원', totalLabel: `연결 자원 총 ${children.length}개`, states: badges.map(badge => ({ key: badge.key, tone: badge.tone, label: '연결 자원', count: badge.count })) }
+    if (!kubernetes && !group && type === 'host' && children.length) {
+        badgeSummary.title = '하위 자원 구성'
+        badgeSummary.breakdown = topologyHostChildBreakdown(children)
+    }
     if (distribution?.total) status.description += ` · 직전 하위 자원 ${distribution.total}개: ${kubernetes ? '정상' : '이상 없음'} ${distribution.normal}, 주의 ${distribution.warning}, 장애 ${distribution.critical}, 비활성 ${distribution.inactive}`
     return { ...dimensions, infrastructure: !kubernetes, namespaceSummary, groupResourceCount, resourceType: type, group, name: (!options.group && kubernetes ? String(data.Name || lines[0] || node.id).replace(/\s*\n\s*/g, ' ') : primaryName) || node.id,
-        kind, subtitle: options.scope || (group ? `${kind} · ${distribution?.total || 0}개 자원` : type === 'cluster' ? kind : namespace ? `${kind} · ${namespace}` : lines[1] || kind),
+        systemVMInformation, serviceVM: !!serviceRole, kind, subtitle: options.scope || (group ? `${kind} · ${distribution?.total || 0}개 자원` : type === 'cluster' ? kind : namespace ? `${kind} · ${namespace}` : lines[1] || kind),
         expanded: !!node.state.expanded, fullyExpanded: group && !namespaceSummary && topologyGroupFullyExpanded(node), expandable: children.length > 0, status,
         linkState: !group ? topologyNetworkLinkState({ ...node, data } as Node) : undefined, linkStates,
         networkSummary: !group && (!kubernetes || type === 'libvirt') ? options.networkSummary : undefined,

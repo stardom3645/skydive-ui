@@ -1,6 +1,6 @@
 import { DetailSectionIcon } from './common/DetailSectionIcon'
 import * as React from 'react'
-import { Empty, Select, Space, Spin } from 'antd'
+import { Divider, Empty, Select, Space, Spin } from 'antd'
 import { RESOURCE_PRESENTATION_COLORS, ResourceSectionCard, ResourceMetricTile, ResourceInfoTooltip } from './common/ResourcePresentation'
 
 import { hostTrendClasses as classes } from './HostResourceTrendPanelClasses'
@@ -9,7 +9,8 @@ import './HostResourceTrendPanel.css'
 import { translate } from '../Config'
 import { Node } from '../Topology'
 import { topologyVMGuestMACs } from '../TopologyResourceData'
-import { RootDiskPanel } from './common/RootDiskPanel'
+import { RootDiskPanel, ResourceUsageDetails } from './common/RootDiskPanel'
+import { rootDiskResources } from './common/RootDiskResources'
 import { session } from '../Store'
 
 interface Props {
@@ -17,6 +18,8 @@ interface Props {
     session?: session
     data?: any
     target?: 'host' | 'vm'
+    legacyResourceUsage?: React.ReactNode
+    usageDetails?: ResourceUsageDetails
 }
 
 interface State {
@@ -125,13 +128,8 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         return this.props.session?.endpoint || `${window.location.protocol}//${window.location.host}`
     }
 
-    private rangeLabel(): string {
-        const item = trendRanges.find(range => range.value === this.state.trendRange)
-        return item ? translate(item.labelKey) : this.state.trendRange
-    }
-
     private trendTitle(): string {
-        return translate('resourceTrendTitlePattern').replace('{range}', this.rangeLabel())
+        return translate('resourceUsageTrendTitle')
     }
 
     private handleRangeChange(trendRange: string) {
@@ -595,10 +593,11 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         const { loading, error, trend } = this.state
         const displayItems = this.displayItems(trend?.series || [])
         const hasTrend = displayItems.length > 0
+        const hasRootDisk = !!rootDiskResources(trend)
 
         return (
             <>
-            <RootDiskPanel wall={trend} loading={loading} error={error} vm={this.props.target === 'vm'} />
+            <RootDiskPanel wall={trend} loading={loading} error={error} vm={this.props.target === 'vm'} usageDetails={this.props.usageDetails} />
             <ResourceSectionCard icon={<DetailSectionIcon role="recentMetrics" />} title={this.trendTitle()} empty={!hasTrend} action={
                     <div className={classes.headerActions}>
                         <Select
@@ -634,9 +633,11 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
                     )}
 
                     {hasTrend && (
-                        <div className={classes.grid}>
-                            {displayItems.map(item => (
-                                <ResourceMetricTile key={`${item.key}-${this.state.trendRange}-${trend?.start || 0}-${trend?.end || 0}`}
+                        <div className={`${classes.grid}${hasRootDisk ? ' netdive-trend-grid--plain' : ''}`}>
+                            {displayItems.map((item, index) => (
+                                <React.Fragment key={`${item.key}-${this.state.trendRange}-${trend?.start || 0}-${trend?.end || 0}`}>
+                                {hasRootDisk && index > 0 && <Divider />}
+                                <ResourceMetricTile appearance={hasRootDisk ? 'plain' : undefined}
                                     title={item.label}
                                     headerRight={<Space size={6} align="center">
                                         {item.key === 'networkTraffic' ? this.renderNetworkCurrentValues(item) : this.renderMetricValue(item.value)}
@@ -644,10 +645,12 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
                                     </Space>}>
                                     {this.renderSparkline(item, trend)}
                                 </ResourceMetricTile>
+                                </React.Fragment>
                             ))}
                         </div>
                     )}
             </ResourceSectionCard>
+            {!hasRootDisk && this.props.legacyResourceUsage}
             </>
         )
     }

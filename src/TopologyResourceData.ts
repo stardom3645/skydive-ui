@@ -1,6 +1,7 @@
 import type { Node } from './Topology'
+import { topologyServiceVMRole } from './TopologyServiceVM'
 
-export interface TopologyResourceSnapshot { detail?: any; summary?: any; wall?: any; inventory?: any; host?: any }
+export interface TopologyResourceSnapshot { detail?: any; summary?: any; wall?: any; inventory?: any; host?: any; service?: any }
 export interface TopologyResourceRequest { key: string; url: string }
 interface Entry { request: TopologyResourceRequest; checked?: number; data?: any; controller?: AbortController }
 
@@ -53,6 +54,8 @@ export class TopologyResourceData {
                         ? { series: (data.series || []).map(item => ({ key: item.key, lastValue: item.lastValue })) }
                         : entry.request.url.includes('/api/mold/hosts/detail')
                             ? data?.moldMatched === false ? undefined : normalizeTopologyHost(data?.mold || data?.host || data?.data || data)
+                        : entry.request.url.includes('/api/mold/system-vms/detail')
+                            ? data?.moldMatched === true ? data.systemVM : undefined
                         : entry.request.url.includes('/nodes/detail')
                             ? { usage: data.usage || data.currentUsage || data.metrics?.usage, allocatable: data.allocatable,
                                 capacity: data.capacity, podCount: data.podCount, maxPodCount: data.maxPodCount }
@@ -200,14 +203,14 @@ export const topologyVMGuestMACs = (node: Node): string[] => Array.from(new Set(
 
 export const topologyResourcePlan = (nodes: Node[], endpoint: string, clusters: any[] = [], inventory?: any, vmDetails?: Record<string, any>, hostDetail: (id: string) => any = () => undefined) => {
     const requests = new Map<string, TopologyResourceRequest>()
-    const refs = new Map<string, { detail?: string; summary?: string; wall?: string; host?: string }>()
+    const refs = new Map<string, { detail?: string; summary?: string; wall?: string; host?: string; service?: string }>()
     const add = (path: string, params: URLSearchParams) => {
         const url = `${endpoint.replace(/\/$/, '')}${path}?${params}`
         requests.set(url, { key: url, url }); return url
     }
     nodes.forEach(node => {
         const type = String(node.data?.Type || '').toLowerCase()
-        const ref: { detail?: string; summary?: string; wall?: string; host?: string } = {}
+        const ref: { detail?: string; summary?: string; wall?: string; host?: string; service?: string } = {}
         if (String(node.data?.Manager || '').toLowerCase() === 'k8s') {
             const cluster = topologyKubernetesCluster(node, clusters)
             if (!cluster?.id) return
@@ -226,6 +229,15 @@ export const topologyResourcePlan = (nodes: Node[], endpoint: string, clusters: 
             }
             const data = { ...inventoryData, ...(type === 'host' ? hostDetail(node.id) : undefined) }
             const name = String(first(data, ['Name', 'name', 'Hostname', 'HostName']) || node.id)
+            const role = topologyServiceVMRole(node, data)
+            if (role && role !== '가상 라우터') {
+                const lookup = new URLSearchParams({ name: String(first(data, ['InstanceName', 'instanceName', 'instancename']) || name) })
+                const id = first(data, ['UUID', 'uuid', 'VirtualMachineID', 'virtualMachineId', 'vmid'])
+                if (id) lookup.set('id', String(id))
+                ref.service = add('/api/mold/system-vms/detail', lookup)
+                refs.set(node.id, ref)
+                return
+            }
             const params = new URLSearchParams({ range: '1h', step: '60s', name })
             if (type === 'host') {
                 params.set('host', String(first(data, ['Hostname', 'HostName', 'Name']) || name))

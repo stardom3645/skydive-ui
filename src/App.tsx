@@ -6026,6 +6026,7 @@ class App extends React.Component<Props, State> {
             {!this.isKubernetesLayerActive() && <MoldNetworkViewControl
               classes={classes}
               networks={this.state.moldNetworks || getMoldNetworkIndex(this.state.vmNetworkMap, this.state.vmDetailMap).networks}
+              linkedNetworks={getMoldNetworkIndex(this.state.vmNetworkMap, this.state.vmDetailMap).networks}
               value={this.state.moldNetworkFocusID}
               onChange={moldNetworkFocusID => this.setState({ moldNetworkFocusID })} />}
             <span className={classes.toolbarSectionDivider} />

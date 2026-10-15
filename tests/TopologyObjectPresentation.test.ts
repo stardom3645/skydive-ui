@@ -286,7 +286,11 @@ describe('Topology object presentation', () => {
         const child = attach(host, resource('vm', 'libvirt')); child.data.Manager = 'libvirt'
         assert.equal(present(host).badges[0].count, 1)
         assert.equal(present(host).badgeSummary.states[0].label, '연결 자원')
+        assert.deepEqual(present(host).badgeSummary.breakdown, [{ key: 'userVM', label: '사용자 가상머신', count: 1 }])
         assert.deepEqual(present(child).badges, [])
+        assert.equal(present(child).badgeSummary.breakdown, undefined)
+        const bridge = resource('bridge', 'bridge'); attach(bridge, resource('nic', 'device'))
+        assert.equal(present(bridge).badgeSummary.breakdown, undefined)
     })
     it('counts unique collected resources for a collapsed cluster without changing the graph', () => {
         const cluster = resource('cluster', 'cluster'); cluster.state.expanded = false

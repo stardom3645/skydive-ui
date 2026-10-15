@@ -24,12 +24,16 @@ interface ResourceTileProps {
     headerRight?: React.ReactNode
     children: React.ReactNode
     className?: string
+    appearance?: 'plain'
 }
 
-export const ResourceMetricTile = ({ title, headerRight, children, className = '' }: ResourceTileProps) => (
-    <Card size="small" className={`netdive-resource-metric ${className}`} title={title} extra={headerRight}
+export const ResourceMetricTile = ({ title, headerRight, children, className = '', appearance }: ResourceTileProps) => appearance === 'plain'
+    ? <section className={`netdive-resource-chart ${className}`}>
+        <div className="netdive-resource-chart__header"><strong>{title}</strong><div>{headerRight}</div></div>
+        {children}
+    </section>
+    : <Card size="small" className={`netdive-resource-metric ${className}`} title={title} extra={headerRight}
         styles={{ header: { fontSize: 12 } }}>{children}</Card>
-)
 
 export const ResourceInfoTooltip = ({ description, ariaLabel }: { description?: React.ReactNode, ariaLabel: string }) => {
     if (!description) return null

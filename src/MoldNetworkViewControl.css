@@ -1,14 +1,32 @@
-.mold-network-view-menu { width: 330px; max-width: calc(100vw - 56px); color: var(--netdive-detail-title, #25334b); }
-.mold-network-view-menu__title { display: block; font-size: 14px; margin-bottom: 12px; }
-.mold-network-view-menu__list { max-height: 320px; overflow-y: auto; margin-top: 10px; }
-.mold-network-view-menu__option { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px; border: 0; border-radius: 8px; background: transparent; color: inherit; text-align: left; cursor: pointer; font: inherit; }
-.mold-network-view-menu__option > span:first-child { display: flex; flex-direction: column; flex: 1; min-width: 0; gap: 4px; }
-.mold-network-view-menu__option strong { font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mold-network-view-menu__option small { color: var(--netdive-detail-muted, #63748d); font-size: 12px; overflow-wrap: anywhere; }
-.mold-network-view-menu__option:hover, .mold-network-view-menu__option[aria-selected="true"] { background: var(--netdive-menu-hover, #f0f5ff); }
-.mold-network-view-menu__option[aria-selected="true"] { color: var(--netdive-menu-active-text, #1677ff); }
-.mold-network-view-popover .ant-popover-inner { border: 1px solid var(--netdive-ant-border, #d7e2f0); background: var(--netdive-recent-glass-bg, rgba(255,255,255,.96)); backdrop-filter: blur(16px); border-radius: 12px; }
-
-.mold-network-view-menu .ant-input-affix-wrapper, .mold-network-view-menu .ant-input { background: var(--netdive-menu-card-soft, #fff); color: var(--netdive-detail-text, #25334b); }
-.mold-network-view-menu .ant-input::placeholder, .mold-network-view-menu .ant-input-prefix, .mold-network-view-menu .ant-input-clear-icon, .mold-network-view-menu .ant-empty-description { color: var(--netdive-detail-muted, #63748d); }
-.mold-network-view-menu__option:focus-visible { outline: 2px solid var(--netdive-menu-active-text, #1677ff); outline-offset: -2px; }
+.mold-network-view-menu { width: 362px; max-width: calc(100vw - 56px); color: var(--netdive-ant-heading, #171717); }
+.mold-network-view-menu__header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.mold-network-view-menu__header > .anticon { color: var(--netdive-ant-text, #555); font-size: 13px; }
+.mold-network-view-menu__title { font-size: 14px; line-height: 22px; font-weight: 600; }
+.mold-network-view-menu > .ant-input-affix-wrapper { height: 32px; padding-inline: 10px; font-size: 13px; border-radius: 6px; }
+.mold-network-view-menu > .ant-input-affix-wrapper .ant-input { font-size: 13px; }
+.mold-network-view-menu > .ant-input-affix-wrapper .ant-input-prefix { margin-inline-end: 8px; }
+.mold-network-view-menu__filters { margin-top: 8px; }
+.mold-network-view-menu__filters .ant-segmented { width: 100%; height: 32px; padding: 2px; border-radius: 6px; background: transparent; color: var(--netdive-ant-muted, #8c8c8c); }
+.mold-network-view-menu__filters .ant-segmented-item-label { min-height: 28px; line-height: 28px; padding-inline: 7px; font-size: 12px; }
+.mold-network-view-menu__filters .ant-segmented-item { border-radius: 5px; }
+.mold-network-view-menu__filters .ant-segmented-item-selected, .mold-network-view-menu__filters .ant-segmented-thumb { border-radius: 5px; background: var(--netdive-ant-selected, #e6f4ff); color: var(--netdive-ant-primary, #1677ff); box-shadow: none; }
+.mold-network-view-menu__filters .ant-segmented-item-selected { font-weight: 500; }
+.mold-network-view-menu__count { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px; padding-bottom: 6px; color: var(--netdive-ant-muted, #929292); font-size: 11px; line-height: 16px; }
+.mold-network-view-menu__sort.ant-btn { height: 24px; padding-inline: 5px; color: var(--netdive-ant-text, #555); font-size: 11px; }
+.mold-network-view-menu__sort .anticon { font-size: 9px; }
+.mold-network-view-menu__list { display: grid; gap: 2px; max-height: 320px; overflow-y: auto; padding-top: 6px; border-top: 1px solid var(--netdive-ant-divider, #f0f0f0); scrollbar-width: thin; }
+.mold-network-view-menu__option { display: flex; align-items: center; gap: 10px; width: 100%; height: 48px; padding: 5px 10px; border: 0; border-radius: 5px; background: transparent; color: inherit; text-align: left; cursor: pointer; font: inherit; }
+.mold-network-view-menu__option > span:not(.anticon) { display: flex; flex-direction: column; flex: 1; min-width: 0; gap: 2px; }
+.mold-network-view-menu__network-icon { flex: 0 0 14px; color: var(--netdive-ant-text, #555); font-size: 14px; }
+.mold-network-view-menu__option strong { display: block; font-size: 13px; line-height: 20px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mold-network-view-menu__option small { color: var(--netdive-ant-muted, #858585); font-size: 11px; line-height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mold-network-view-menu__option:hover { background: var(--netdive-ant-soft-bg, #fafafa); }
+.mold-network-view-menu__option[aria-selected="true"] { background: var(--netdive-ant-selected, #e6f4ff); }
+.mold-network-view-menu__option[aria-selected="true"] > .anticon { color: var(--netdive-ant-primary, #1677ff); }
+.mold-network-view-menu__option > .anticon:last-child:not(:first-child) { font-size: 12px; }
+.mold-network-view-popover { filter: none; }
+.mold-network-view-popover .ant-popover-container { padding: 12px; border: 1px solid color-mix(in srgb, var(--netdive-ant-border, #d9d9d9) 75%, var(--netdive-ant-bg, #fff)); background: var(--netdive-ant-bg, #fff); border-radius: 12px; box-shadow: none; }
+.mold-network-view-menu .ant-input-affix-wrapper, .mold-network-view-menu .ant-input { background: transparent; color: var(--netdive-ant-heading, #171717); }
+.mold-network-view-menu .ant-input::placeholder, .mold-network-view-menu .ant-empty-description { color: var(--netdive-ant-muted, #929292); }
+.mold-network-view-menu .ant-input-prefix, .mold-network-view-menu .ant-input-clear-icon { color: var(--netdive-ant-text, #555); }
+.mold-network-view-menu__option:focus-visible { outline: 2px solid var(--netdive-ant-primary, #1677ff); outline-offset: -2px; }

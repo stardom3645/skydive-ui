@@ -43,3 +43,46 @@ export const topologyHierarchyEdgeIDs = <T>(source: T, target: T, access: {
     visit(target)
     return { source: access.id(ancestor), targets }
 }
+
+/** Draw execution ownership only where a real workload and its Pod are both
+ * rendered. Hidden alignment wrappers are not relationship endpoints. */
+export const kubernetesPodOwnershipEdges = <T>(nodes: T[], access: {
+    id: (node: T) => string; type: (node: T) => string; manager: (node: T) => string
+    hidden: (node: T) => boolean; group: (node: T) => boolean
+    parent: (node: T) => T | null | undefined
+}): Array<{ source: T; target: T }> => {
+    const workloads = new Set(['deployment', 'daemonset', 'statefulset', 'job', 'cronjob', 'replicaset'])
+    const visible = new Set(nodes.filter(node => !access.hidden(node) && !access.group(node)))
+    const edges: Array<{ source: T; target: T }> = []
+    nodes.forEach(target => {
+        if (!visible.has(target) || access.manager(target) !== 'k8s' || access.type(target) !== 'pod') return
+        let source = access.parent(target)
+        const seen = new Set<string>([access.id(target)])
+        while (source && access.hidden(source)) {
+            if (seen.has(access.id(source))) return
+            seen.add(access.id(source)); source = access.parent(source)
+        }
+        if (source && visible.has(source) && access.manager(source) === 'k8s' && workloads.has(access.type(source))) {
+            edges.push({ source, target })
+        }
+    })
+    return edges
+}
+
+/** Reuse a collected link for each ownership pair, regardless of its direction.
+ * Only pairs without an existing link need a display-only ownership link. */
+export const mergeKubernetesPodOwnershipLinks = <TNode, TLink>(edges: Array<{ source: TNode; target: TNode }>, links: TLink[], access: {
+    nodeID: (node: TNode) => string; sourceID: (link: TLink) => string; targetID: (link: TLink) => string
+    reuse: (link: TLink) => TLink; create: (edge: { source: TNode; target: TNode }) => TLink
+}): TLink[] => {
+    const key = (a: string, b: string) => JSON.stringify([a, b].sort())
+    const owners = new Map(edges.map(edge => [key(access.nodeID(edge.source), access.nodeID(edge.target)), edge]))
+    const seen = new Set<string>(), result: TLink[] = []
+    links.forEach(link => {
+        const pair = key(access.sourceID(link), access.targetID(link))
+        if (!owners.has(pair)) { result.push(link); return }
+        if (!seen.has(pair)) { seen.add(pair); result.push(access.reuse(link)) }
+    })
+    owners.forEach((edge, pair) => { if (!seen.has(pair)) result.push(access.create(edge)) })
+    return result
+}

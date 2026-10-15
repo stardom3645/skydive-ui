@@ -19,6 +19,7 @@ import { getMoldNetworkIndex, matchMoldNIC, moldVMNetworkSummary, moldVMNetworkC
 import * as React from "react"
 import { topologyBranchOffsets } from './TopologyBranchSpacing'
 import { topologyGroupRegions, TopologyGroupRegion } from './TopologyGroupRegions'
+import { kubernetesNamespaceOffsets, kubernetesNamespaceRegions, KubernetesNamespaceRegionNode } from './KubernetesNamespaceRegions'
 import { topologyLayerGlyph, topologyLayerTitleLines } from './TopologyLayerIcons'
 import { TopologyReactRoots } from './TopologyReactRoots'
 import { TopologyCaptureIndicator } from './TopologyCaptureIndicator'
@@ -27,7 +28,7 @@ import { topologyCardDimensions, topologyNodePresentation, topologyGroupFullyExp
 import { topologyLaneBounds, topologyLaneOffsets, topologyLaneSeparators, INFRASTRUCTURE_TRAFFIC_LANE_GAP, INFRASTRUCTURE_HOST_CAPTION_GAP } from './TopologyLaneSpacing'
 import { TOPOLOGY_STATUS_BADGE_RADIUS } from './TopologyStatusBadge'
 import { TopologyResourceData, topologyResourcePlan, topologyInventoryData } from './TopologyResourceData'
-import { topologyCardEdge, topologyHierarchyEdgeIDs } from './TopologyEdgePresentation'
+import { topologyCardEdge, topologyHierarchyEdgeIDs, kubernetesPodOwnershipEdges, mergeKubernetesPodOwnershipLinks } from './TopologyEdgePresentation'
 import { infrastructureCompactLayout, infrastructureVMBridgeIDs, InfrastructureCompactPlan,
     InfrastructureVMLayoutMode, CompactLayoutNode } from './InfrastructureCompactLayout'
 import { routeInfrastructureTraffic } from './InfrastructureTrafficRouting'
@@ -661,7 +662,7 @@ export class Topology extends React.Component<Props, {}> {
     private reactRoots = new TopologyReactRoots()
     private objectCardRenderKeys = new WeakMap<Element, string>()
     private resourceData?: TopologyResourceData
-    private resourceRefs = new Map<string, { detail?: string; summary?: string; wall?: string; host?: string }>()
+    private resourceRefs = new Map<string, { detail?: string; summary?: string; wall?: string; host?: string; service?: string }>()
     private resourceRefreshTimer?: number
     private resourceCardRefreshTimer?: number
     private zoom: zoom
@@ -2146,6 +2147,17 @@ export class Topology extends React.Component<Props, {}> {
 
         this.props.onLinkTagChange(tags)
 
+        if (this.nodeTagActive.toLowerCase() === 'kubernetes') {
+            links = mergeKubernetesPodOwnershipLinks(this.renderedKubernetesPodOwnershipEdges(), links, {
+                nodeID: node => node.data.wrapped.id, sourceID: link => link.source.id, targetID: link => link.target.id,
+                reuse: link => new Link(link.id, link.tags, link.source, link.target,
+                    { ...link.data, KubernetesPodOwnershipGuide: true }, link.state),
+                create: edge => new Link(`kubernetes-pod-owner-${edge.source.data.id}-${edge.target.data.id}`, [],
+                    edge.source.data.wrapped, edge.target.data.wrapped,
+                    { RelationType: 'ownership', KubernetesPodOwnershipGuide: true }, { selected: false })
+            })
+        }
+
         // set the cache
         this.visibleLinksCache = links
 
@@ -2634,6 +2646,29 @@ export class Topology extends React.Component<Props, {}> {
             }
         }), this.nodeTagActive.toLowerCase() === 'kubernetes' ? 80 : 112, false, true)
         offsets.forEach((offset, id) => this.shiftHierarchySubtreeX(byID.get(id)!, offset))
+    }
+
+    private namespaceRegionNodes(nodes: D3Node[]): KubernetesNamespaceRegionNode[] {
+        return nodes.map(node => {
+            const data = node.data.wrapped.data || {}, painted = this.topologyLaneItem(node)
+            const backplate = node.data.type === WrapperType.Group && !topologyGroupFullyExpanded(node.data.wrapped) ? topologyGroupStackOffset : 0
+            return { id: node.data.id, resourceID: node.data.wrapped.id, parentID: node.parent?.data.id,
+                type: String(data.Type || '').toLowerCase(), manager: String(data.Manager || '').toLowerCase(),
+                name: String(data.Name || ''), namespace: data.GroupNamespaceName || this.topologyKubernetesNamespace(data),
+                clusterName: data.GroupClusterName || String(data.ClusterName || data.K8s?.ClusterName || ''),
+                group: node.data.type === WrapperType.Group || !!data.IsTopologyGroup,
+                visible: node.data.type !== WrapperType.Hidden && node.data.wrapped !== this.root,
+                expanded: !!node.data.wrapped.state.expanded, x: node.x + backplate / 2, y: node.y,
+                width: this.topologyLayoutCardWidth(node) + backplate, height: this.topologyLayoutCardHeight(node),
+                above: painted.above, below: painted.below }
+        })
+    }
+
+    private layoutKubernetesNamespaces(root: any) {
+        if (this.nodeTagActive.toLowerCase() !== 'kubernetes') return
+        const nodes = root.descendants() as D3Node[]
+        const offsets = kubernetesNamespaceOffsets(this.namespaceRegionNodes(nodes))
+        nodes.forEach(node => { node.x += offsets.get(node.data.id) || 0 })
     }
 
     private applyInfrastructureCompactLayout(root: any) {
@@ -4673,6 +4708,7 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     private isLinkVisible(link: Link): boolean {
+        if (link.data?.KubernetesPodOwnershipGuide && this.nodeTagActive.toLowerCase() === 'kubernetes') return true
         if (link.state.selected) {
             return true
         }
@@ -5111,12 +5147,25 @@ export class Topology extends React.Component<Props, {}> {
             .attr("height", (d: LevelRect) => d.bb.height)
     }
 
+    private renderedKubernetesPodOwnershipEdges() {
+        return kubernetesPodOwnershipEdges(Array.from(this.d3nodes.values()), {
+            id: node => node.data.id, type: node => String(node.data.wrapped.data?.Type || '').toLowerCase(),
+            manager: node => String(node.data.wrapped.data?.Manager || '').toLowerCase(),
+            hidden: node => node.data.type === WrapperType.Hidden || node.data.wrapped === this.root,
+            group: node => node.data.type === WrapperType.Group || !!node.data.wrapped.data?.IsTopologyGroup,
+            parent: node => node.parent
+        })
+    }
+
     private renderHieraLinks(root: any) {
+        // Kubernetes ownership uses the existing solid-link renderer. Do not
+        // add a second hierarchy path over a collected workload/Pod link.
+        const edges = this.nodeTagActive.toLowerCase() === 'kubernetes' ? [] : root.links()
         const hieraLinker = (edge: any) => this.infrastructureCompactPlan?.routes.get(`hierarchy:${edge.source.data.id}->${edge.target.data.id}`)?.path || topologyCardEdge(
             this.topologyEdgeBounds(edge.source), this.topologyEdgeBounds(edge.target), true)
 
         var hieraLink = this.gHieraLinks.selectAll('path.hiera-link')
-            .data(root.links(), (d: any) => d.source.data.id + d.target.data.id)
+            .data(edges, (d: any) => d.source.data.id + d.target.data.id)
             .interrupt()
         var hieraLinkEnter = hieraLink.enter()
             .filter((d: any) => d.target.data.parent.wrapped !== this.root)
@@ -5192,7 +5241,23 @@ export class Topology extends React.Component<Props, {}> {
             .text(captionName)
             .attr('title', captionName)
         this.updateTopologyHostCaptions()
+        this.renderKubernetesNamespaceRegions()
         entered.style('opacity', 0).transition().duration(animDuration).style('opacity', 1)
+    }
+
+    private renderKubernetesNamespaceRegions() {
+        const regions = this.nodeTagActive.toLowerCase() === 'kubernetes'
+            ? kubernetesNamespaceRegions(this.namespaceRegionNodes(Array.from(this.d3nodes.values()))) : []
+        const groups = this.gGroupRegions.selectAll('g.topology-namespace-region').data(regions, (region: any) => region.id)
+        groups.exit().remove()
+        const entered = groups.enter().append('g').attr('class', 'topology-namespace-region')
+            .attr('aria-hidden', 'true').attr('pointer-events', 'none')
+        entered.append('rect').attr('class', 'topology-namespace-region__shade')
+        const merged = entered.merge(groups).attr('data-namespace-id', region => region.id)
+            .attr('data-cluster-id', region => region.clusterID).raise()
+        merged.select('rect').attr('x', region => region.bounds.left).attr('y', region => region.bounds.top)
+            .attr('width', region => region.bounds.right - region.bounds.left)
+            .attr('height', region => region.bounds.bottom - region.bounds.top).attr('rx', 40).attr('ry', 40)
     }
 
     /** Readable host/cluster names belong to the frame, not to a new topology object.
@@ -5437,7 +5502,7 @@ export class Topology extends React.Component<Props, {}> {
                 memberNetworkSummary: member => self.topologyCardNetworkSummary(member),
                 networkCount: moldVMNetworkCount(resource, getMoldNetworkIndex(self.props.vmNetworkMap, self.props.vmDetailMap)),
                 resourceData: { detail: self.resourceData?.get(ref?.detail), summary: self.resourceData?.get(ref?.summary), wall: self.resourceData?.get(ref?.wall),
-                    host: self.resourceData?.get(ref?.host), inventory: ['host', 'libvirt'].includes(String(resource.data?.Type).toLowerCase())
+                    host: self.resourceData?.get(ref?.host), service: self.resourceData?.get(ref?.service), inventory: ['host', 'libvirt'].includes(String(resource.data?.Type).toLowerCase())
                         ? topologyInventoryData(resource, self.props.moldInventory, self.props.vmDetailMap) : undefined }
             })
             const key = JSON.stringify([model, attrs.icon, attrs.iconClass, attrs.href])
@@ -5529,7 +5594,8 @@ export class Topology extends React.Component<Props, {}> {
 
         var classes = new Array<string>()
         var attrs = this.renderedLinkAttrs(d)
-        return classes.concat("link", attrs.classes, attrs.directed ? directedClass(d) : "").join(" ")
+        return classes.concat("link", attrs.classes, d.data?.KubernetesPodOwnershipGuide ? 'is-kubernetes-pod-owner' : '',
+            attrs.directed ? directedClass(d) : "").join(" ")
     }
 
     private renderedLinkAttrs(link: Link): LinkAttrs {
@@ -5543,12 +5609,16 @@ export class Topology extends React.Component<Props, {}> {
             this.infrastructureTrafficRouteKey = ''
             return
         }
+        const nicOwners = infrastructureVirtualNICOwners(Array.from(this.nodes.values()).map(node => ({
+            id: node.id, parentID: node.parent?.id, type: String(node.data?.Type || '').toLowerCase(),
+            driver: String(node.data?.Driver || '').toLowerCase(), manager: String(node.data?.Manager || '').toLowerCase()
+        })))
         const cards = Array.from(this.d3nodes.values()).filter(node =>
             node.data.type !== WrapperType.Hidden && node.data.wrapped !== this.root).map(node => {
                 const painted = this.topologyLaneItem(node)
                 const data = node.data.wrapped.data || {}
                 return { id: node.data.id, type: String(data.GroupType || data.Type || '').toLowerCase(), group: node.data.type === WrapperType.Group,
-                    ...this.topologyEdgeBounds(node), above: painted.above, below: painted.below }
+                    ...this.topologyEdgeBounds(node), above: painted.above, below: painted.below, vmOwnerID: nicOwners.get(node.data.wrapped.id) }
             })
         const ids = new Set(cards.map(card => card.id))
         const edges = links.filter(link => ids.has(link.source.id) && ids.has(link.target.id))
@@ -5803,6 +5873,8 @@ export class Topology extends React.Component<Props, {}> {
         link = link.merge(linkEnter)
         link
             .attr("class", (d: Link) => isVisible(d) ? this.linkClass(d) : 'link')
+            .attr('data-source-id', (d: Link) => d.data?.KubernetesPodOwnershipGuide ? d.source.id : null)
+            .attr('data-target-id', (d: Link) => d.data?.KubernetesPodOwnershipGuide ? d.target.id : null)
             .transition()
             .duration(this.infrastructureLayoutTransition ? 0 : animDuration)
             .style("opacity", (d: Link) => this.linkDisplayOpacity(d))
@@ -6078,6 +6150,7 @@ export class Topology extends React.Component<Props, {}> {
         this.separateTopologyLanes(root)
         this.compactVmLayerLayout(root)
         this.compactHostSubtreeLayout(root)
+        this.layoutKubernetesNamespaces(root)
         this.separateTopologyBranches(root)
 
         // update d3nodes cache
@@ -6089,6 +6162,7 @@ export class Topology extends React.Component<Props, {}> {
         this.applyInfrastructureCompactLayout(root)
 
         this.g.classed('is-infrastructure-scene', this.nodeTagActive.toLowerCase() !== 'kubernetes')
+        this.g.classed('is-kubernetes-scene', this.nodeTagActive.toLowerCase() === 'kubernetes')
         this.renderLevels()
         this.renderHieraLinks(root)
         this.renderNodes(root)

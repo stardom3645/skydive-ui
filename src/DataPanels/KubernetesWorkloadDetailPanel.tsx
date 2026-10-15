@@ -4,6 +4,8 @@ import * as React from 'react'
 
 import { translate } from '../Config'
 import { Node } from '../Topology'
+import { session } from '../Store'
+import KubernetesResourceLogPanel from './KubernetesResourceLogPanel'
 import { aggregateKubernetesPods } from '../KubernetesPodLifecycle'
 import {
     currentKubernetesReplicaSetForDeployment,
@@ -24,6 +26,7 @@ import {
     ConnectedResourceListSection,
     DetailBadgeTone,
     DetailLongValue,
+    DetailNavigationTabs,
     DetailModalAction,
     DetailCardSubsectionHeader,
     DetailSectionCard,
@@ -63,9 +66,12 @@ import './KubernetesWorkloadDetailPanel.css'
 interface Props {
     node: Node
     nodeAttrs: (node: Node) => any
+    session: session
+    kubernetesClusters?: any[]
 }
 
 interface State {
+    activeDetailTab: 'overview' | 'logs'
     basicCollapsed: boolean
     basicInfoAdvanced: boolean
     pvcModalOpen: boolean
@@ -124,10 +130,10 @@ const optionalText = (value: any): string => value === undefined || value === nu
 const intOrStringValue = (value: any): any => value?.StrVal ?? value?.strVal ?? value?.IntVal ?? value?.intVal ?? value
 
 class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
-    state: State = { basicCollapsed: false, basicInfoAdvanced: false, pvcModalOpen: false }
+    state: State = { basicCollapsed: false, basicInfoAdvanced: false, pvcModalOpen: false, activeDetailTab: 'overview' }
 
     componentDidUpdate(prevProps: Props) {
-        if (prevProps.node.id !== this.props.node.id) this.setState({ basicCollapsed: false, basicInfoAdvanced: false, pvcModalOpen: false })
+        if (prevProps.node.id !== this.props.node.id) this.setState({ basicCollapsed: false, basicInfoAdvanced: false, pvcModalOpen: false, activeDetailTab: 'overview' })
     }
 
     private topologyNodes(): Node[] {
@@ -754,6 +760,11 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
             return row
         })
         return <div className="netdive-k8s-workload-detail">
+            <DetailNavigationTabs activeKey={this.state.activeDetailTab}
+                tabs={[{ key: 'overview', label: '개요' }, { key: 'logs', label: '로그' }]}
+                onChange={activeDetailTab => this.setState({ activeDetailTab: activeDetailTab as State['activeDetailTab'] })} />
+            {this.state.activeDetailTab === 'logs' ? <KubernetesResourceLogPanel key={this.props.node.id}
+                node={this.props.node} nodes={this.topologyNodes()} session={this.props.session} kubernetesClusters={this.props.kubernetesClusters} /> : <React.Fragment>
             <DetailSectionCard icon={<DetailSectionIcon role="basic" />} title={translate('kubernetesWorkloadBasicInfo')} collapsible collapsed={this.state.basicCollapsed} onToggle={() => this.setState({ basicCollapsed: !this.state.basicCollapsed })}>
                 <BasicInfoRows density="compact" rows={basicRows} labelWidth={122} copyTooltip={translate('copy')} />
             </DetailSectionCard>
@@ -917,6 +928,7 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
                 if (target) this.focusResources([target])
             }} /></DetailSectionCard>
             {kind === 'statefulset' && this.renderPvcTemplateModal(spec)}
+            </React.Fragment>}
         </div>
     }
 }

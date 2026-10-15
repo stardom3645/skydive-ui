@@ -1,5 +1,6 @@
 import { DetailSectionIcon } from './common/DetailSectionIcon'
 import * as React from 'react'
+import KubernetesResourceLogPanel from './KubernetesResourceLogPanel'
 import { Alert, Badge, Button, Collapse, ConfigProvider, Divider, Modal, Select, Space, Spin, Table, Tag, Timeline, Tooltip, Typography } from 'antd'
 import { HistoryOutlined, RightOutlined } from '@ant-design/icons'
 import { ClusterVerdictCriteria, ClusterOperationalSection, ClusterOperationalSummary as StatusSummaryGrid, ClusterMetricRow as DetailMetricRow, ClusterCollapsibleSummary as CollapsibleSummaryRow, ClusterEvidenceRow as StatusEvidenceRow, ClusterEvidenceTable as StatusEvidenceList } from './KubernetesClusterPresentation'
@@ -61,7 +62,7 @@ interface State {
     memoryRequestInsightVisible: boolean
     memoryRequestInsightExpanded: boolean
     terminationHistoryExpanded: boolean
-    activeDetailTab: 'overview' | 'services'
+    activeDetailTab: 'overview' | 'services' | 'logs'
     serviceNamespaceFilter: string
 }
 
@@ -2015,7 +2016,8 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                     activeKey={this.state.activeDetailTab}
                     tabs={[
                         { key: 'overview', label: '개요' },
-                        { key: 'services', label: '서비스', count: serviceResource.nodes.length }
+                        { key: 'services', label: '서비스', count: serviceResource.nodes.length },
+                        { key: 'logs', label: '로그' }
                     ]}
                     onChange={activeDetailTab => this.setState({ activeDetailTab: activeDetailTab as State['activeDetailTab'] })}
                 />
@@ -2281,7 +2283,10 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                     </Button> : undefined}>
                     {this.renderRecentChanges(recentChangeGroups, 4)}
                 </DetailSectionCard>
-                </React.Fragment> : this.renderServiceBrowser(serviceResource.nodes)}
+                </React.Fragment> : this.state.activeDetailTab === 'logs'
+                    ? <KubernetesResourceLogPanel key={this.props.node.id} node={this.props.node} nodes={this.topologyNodes()}
+                        session={this.props.session} kubernetesClusters={this.props.kubernetesClusters} />
+                    : this.renderServiceBrowser(serviceResource.nodes)}
 
                 <HistoryModal
                     open={!!this.state.podStatusModalMode}
@@ -2430,10 +2435,10 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                         : <CompactEmptyState description="Pod별 metrics-server 사용량을 확인할 수 없습니다." compact />}
                 </Modal>
 
-                {!moldCluster && (
+                {this.state.activeDetailTab !== 'logs' && !moldCluster && (
                     <Alert type="info" showIcon className="netdive-cluster-ant-alert" title={translate('kubernetesClusterMoldMissing')} />
                 )}
-                {!this.state.summaryLoading && moldCluster && (this.state.summaryError || !this.state.summary?.resources?.metricsAvailable) && (
+                {this.state.activeDetailTab !== 'logs' && !this.state.summaryLoading && moldCluster && (this.state.summaryError || !this.state.summary?.resources?.metricsAvailable) && (
                     <Alert type="info" showIcon className="netdive-cluster-ant-alert"
                         title={translate('kubernetesSummaryFallback')} description={translate('kubernetesSummaryFallbackDetail')} />
                 )}

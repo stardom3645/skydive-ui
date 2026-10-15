@@ -10,6 +10,7 @@ import { getPodClassification, registerKubernetesPodCurrentStatusDetail } from '
 import { kubernetesLabelValue, matchesKubernetesSelector } from '../KubernetesSelectors'
 import { kubernetesOperationalPodDataset } from '../KubernetesNodeDetailAggregation'
 import { resolveKubernetesPodTopController } from '../KubernetesWorkloadOwnership'
+import KubernetesPodLogPanel from './KubernetesPodLogPanel'
 import {
     kubernetesPodContainerKindLabel,
     kubernetesPodContainerRuntime,
@@ -23,6 +24,7 @@ import {
     ConnectedResourceListSection,
     DetailBadgeTone,
     DetailLongValue,
+    DetailNavigationTabs,
     DetailSectionCard,
     KubernetesConditionRows,
     KubernetesContainerDetails,
@@ -44,6 +46,7 @@ interface Props {
 }
 
 interface State {
+    activeDetailTab: 'overview' | 'logs'
     detail?: any
     loading: boolean
     error: boolean
@@ -92,13 +95,13 @@ const POD_EVENT_TONES = {
 }
 
 class KubernetesPodDetailPanel extends React.Component<Props, State> {
-    state: State = { loading: false, error: false, requestKey: '', basicCollapsed: false, basicInfoAdvanced: false }
+    state: State = { loading: false, error: false, requestKey: '', basicCollapsed: false, basicInfoAdvanced: false, activeDetailTab: 'overview' }
 
     componentDidMount() { this.loadDetail() }
 
     componentDidUpdate(prevProps: Props) {
         if (prevProps.node.id !== this.props.node.id || this.clusterFrom(prevProps)?.id !== this.cluster()?.id) {
-            this.setState({ basicCollapsed: false, basicInfoAdvanced: false })
+            this.setState({ basicCollapsed: false, basicInfoAdvanced: false, activeDetailTab: 'overview' })
             this.loadDetail()
         }
     }
@@ -437,6 +440,12 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
             firstRaw(this.props.node.data || {}, ['K8s.Extra.Events', 'K8s.Events', 'Events'])
         ], POD_EVENT_TONES)
         return <div className="netdive-k8s-pod-detail">
+            <DetailNavigationTabs activeKey={this.state.activeDetailTab}
+                tabs={[{ key: 'overview', label: '개요' }, { key: 'logs', label: '로그' }]}
+                onChange={activeDetailTab => this.setState({ activeDetailTab: activeDetailTab as State['activeDetailTab'] })} />
+            {this.state.activeDetailTab === 'logs' ? <KubernetesPodLogPanel key={`${this.cluster()?.id || ''}:${this.uid()}`}
+                session={this.props.session} clusterID={this.cluster()?.id} uid={this.uid()}
+                namespace={detail.namespace} name={detail.name} containers={containers} /> : <React.Fragment>
             <DetailSectionCard icon={<DetailSectionIcon role="basic" />} title="파드 기본 정보" collapsible collapsed={this.state.basicCollapsed} onToggle={() => this.setState({ basicCollapsed: !this.state.basicCollapsed })}>
                 <BasicInfoRows density="compact" rows={basicRows} labelWidth={122} copyTooltip={translate('copy')} />
             </DetailSectionCard>
@@ -497,6 +506,7 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
 
             {this.state.error && <div className="netdive-detail-notice"><InfoIcon /><span>{translate('kubernetesPodDetailFallback')}</span></div>}
             {!this.cluster() && <div className="netdive-detail-notice"><InfoIcon /><span>{translate('kubernetesClusterMoldMissing')}</span></div>}
+            </React.Fragment>}
         </div>
     }
 }

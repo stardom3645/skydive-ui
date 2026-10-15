@@ -2,7 +2,7 @@ import * as React from 'react'
 import { ConfigProvider, Progress, Tag, Tooltip } from 'antd'
 import { ThunderboltOutlined, BlockOutlined, AppstoreOutlined,
     ApartmentOutlined, DatabaseOutlined, FolderOutlined, HddOutlined, DeploymentUnitOutlined,
-    CloudServerOutlined, LinkOutlined, BranchesOutlined, TagsOutlined } from '@ant-design/icons'
+    CloudServerOutlined, LinkOutlined, BranchesOutlined, TagsOutlined, PoweroffOutlined, GlobalOutlined } from '@ant-design/icons'
 import { TopologyNodePresentation, TopologyMetric } from './TopologyNodePresentation'
 import { TOPOLOGY_TOOLTIP_DISMISS_EVENT, watchTopologyTooltipAnchor } from './TopologyTooltipAnchor'
 import { TopologyStatusBadgeRail, TOPOLOGY_STATUS_BADGE_RADIUS } from './TopologyStatusBadge'
@@ -60,10 +60,12 @@ const metricIcons = {
     cpu: ThunderboltOutlined, memory: BlockOutlined, pods: AppstoreOutlined, children: ApartmentOutlined,
     capacity: DatabaseOutlined, storage: DatabaseOutlined, 'root-disk': HddOutlined, 'storage-class': TagsOutlined,
     namespaces: FolderOutlined, nodes: CloudServerOutlined, workloads: DeploymentUnitOutlined,
-    vms: CloudServerOutlined, endpoints: LinkOutlined, replicas: BranchesOutlined
+    vms: CloudServerOutlined, endpoints: LinkOutlined, replicas: BranchesOutlined,
+    'service-role': DeploymentUnitOutlined, 'service-state': PoweroffOutlined,
+    'service-ip': GlobalOutlined, 'service-host': CloudServerOutlined, 'service-agent': LinkOutlined
 }
 
-export const TopologyMetricChip = ({ metric }: { metric: TopologyMetric }) => {
+export const TopologyMetricChip = ({ metric, emptyMeter = true }: { metric: TopologyMetric; emptyMeter?: boolean }) => {
     const Icon = metricIcons[metric.key] || ApartmentOutlined
     const resource = ['cpu', 'memory', 'root-disk'].includes(metric.key)
     const tone = metric.percent !== undefined && metric.percent >= 90 ? 'critical'
@@ -73,12 +75,14 @@ export const TopologyMetricChip = ({ metric }: { metric: TopologyMetric }) => {
         title={`${metric.label}: ${metric.value}${metric.description ? ` · ${metric.description}` : ''}`}>
         <span className="topology-metric-chip__line">
             <span className="topology-metric-chip__label"><Icon aria-hidden="true" /><span>{metric.label}</span></span>
-            <strong>{metric.value}</strong>
+            {metric.key.startsWith('service-') ? <TopologyCardTooltip title={metric.value} block>
+                <strong className="topology-service-information__value">{metric.value}</strong>
+            </TopologyCardTooltip> : <strong>{metric.value}</strong>}
         </span>
         {resource && (metric.percent !== undefined
             ? <Progress percent={metric.percent} showInfo={false} size={['100%', 7]}
                 strokeColor={tone === 'critical' ? '#ff8a80' : tone === 'warning' ? '#ffc36b' : tone === 'cpu' ? '#35c99b' : '#5795ff'} railColor="var(--topology-metric-rail, #e9eff6)" />
-            : <span className="topology-metric-chip__unavailable" aria-label="실시간 사용률 미수집" />)}
+            : emptyMeter ? <span className="topology-metric-chip__unavailable" aria-label="실시간 사용률 미수집" /> : null)}
     </div>
 }
 
@@ -135,6 +139,22 @@ const TopologyResourceGroupSummary = ({ model }: { model: TopologyNodePresentati
     </div>
 }
 
+const TopologySystemVMServiceSummary = ({ information }: {
+    information: NonNullable<TopologyNodePresentation['systemVMInformation']>
+}) => <div className="topology-system-vm-information">
+    <div className="topology-system-vm-information__role-row">
+        <span className="topology-system-vm-information__role">{information.role}</span>
+    </div>
+    <div className="topology-system-vm-information__states topology-service-information">
+        {[information.state, information.agent].map(metric => <TopologyMetricChip key={metric.key} metric={metric} />)}
+    </div>
+    <div className="topology-system-vm-information__footer" title={information.purpose}>
+        {information.sessions !== undefined ? <TopologyCardTooltip title="Mold가 보고한 현재 활성 콘솔 세션 수입니다. 0은 연결 중인 콘솔이 없다는 뜻이며 이상 상태가 아닙니다." block>
+            <span className="topology-system-vm-information__sessions"><span>활성 콘솔 세션</span><strong>{information.sessions}<small>개</small></strong></span>
+        </TopologyCardTooltip> : <span className="topology-system-vm-information__purpose">{information.purpose}</span>}
+    </div>
+</div>
+
 /** D3 owns positions and input delegation; this
  * component keeps the same presentation inside one SVG foreignObject. */
 export const TopologyNodeCard = React.memo(({ model, icon, iconClass, href }: {
@@ -169,7 +189,8 @@ export const TopologyNodeCard = React.memo(({ model, icon, iconClass, href }: {
                 </TopologyCardTooltip> : <span className="topology-object-card__network-name">{model.networkCount && model.networkCount > 1 ? `${model.networkCount}개` : model.networkSummary || '정보 없음'}</span>}
             </div>}
             {model.group && !model.namespaceSummary && model.children ? <TopologyResourceGroupSummary model={model} /> : model.group && model.children ? <TopologyGroupHeaderSummary children={model.children} /> :
-                model.metrics.length > 0 && <div className="topology-object-card__metrics"
+                model.systemVMInformation ? <TopologySystemVMServiceSummary information={model.systemVMInformation} /> :
+                model.metrics.length > 0 && <div className={`topology-object-card__metrics ${model.serviceVM ? 'topology-service-information' : ''}`}
                     style={model.metricRowHeights ? { gridTemplateRows: model.metricRowHeights.map(height => `${height}px`).join(' ') } : undefined}>
                     {model.metrics.map(metric => <TopologyMetricChip key={metric.key} metric={metric} />)}
                 </div>}

@@ -79,6 +79,7 @@ function scene(count: number, secondCount?: number, collapsed = false, expanded?
     probe.nodeTagActive = 'infrastructure'
     probe.root = wrapped.wrapped
     probe.weightTitles = new Map() // Classification must not depend on translated labels.
+    probe.layerCardLayouts = new Map()
     root.each((node: any) => {
         if (node.data.type !== 2) node.data.size[0] = probe.topologyLayoutCardWidth(node) + 44
     })
