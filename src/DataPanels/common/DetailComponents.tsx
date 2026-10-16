@@ -1,6 +1,7 @@
+import { KubernetesVerdictCriteria, VerdictCriteriaLabel } from './KubernetesVerdictCriteria'
 import * as React from 'react'
-import { Badge, Button, Card, Collapse, ConfigProvider, Descriptions, Dropdown, Empty, List, Menu, Modal, Popover, Progress, Space, Statistic, Tabs, Tag, Tooltip, Typography } from 'antd'
-import { CopyOutlined, DownOutlined, EllipsisOutlined, InfoCircleOutlined, RightOutlined } from '@ant-design/icons'
+import { Badge, Button, Card, Collapse, ConfigProvider, Descriptions, Empty, List, Menu, Modal, Popover, Progress, Space, Statistic, Tabs, Tag, Tooltip, Typography } from 'antd'
+import { CopyOutlined, DownOutlined, InfoCircleOutlined, RightOutlined } from '@ant-design/icons'
 import type { Node, NodeAttrs } from '../../Topology'
 
 import {
@@ -12,6 +13,7 @@ import {
 
 import './DetailComponents.css'
 import { ResourceMetricTile, ResourceInfoTooltip, ResourceComparisonBody } from './ResourcePresentation'
+import { ScrollableDetailTabBar } from './ScrollableDetailTabBar'
 
 const joinClassNames = (...classNames: Array<string | undefined | false>) => classNames.filter(Boolean).join(' ')
 
@@ -314,7 +316,7 @@ export const DetailKeyValueList = ({
     return <ConfigProvider theme={{ token: { fontSize: 12, fontSizeSM: 11 } }}>
         <Descriptions size="small" bordered column={1} colon={false}
             className={joinClassNames('netdive-detail-descriptions', className)}
-            styles={{ label: { width: labelWidth, minWidth: 0 }, content: { minWidth: 0 } }}
+            styles={{ label: { width: labelWidth, minWidth: 0, paddingInline: 12 }, content: { minWidth: 0 } }}
             items={rows.map((row, index) => ({
                 key: row.key !== undefined ? String(row.key) : String(index),
                 label: row.label,
@@ -400,6 +402,7 @@ export interface DetailOperationalSummaryProps {
     impactLabel?: React.ReactNode
     tooltip?: React.ReactNode
     verdictTooltip?: React.ReactNode
+    criteriaKind?: string
     rawStatusTooltip?: React.ReactNode
     impactTooltip?: React.ReactNode
     metrics?: DetailOperationalMetric[]
@@ -550,6 +553,7 @@ export const DetailOperationalSummary = ({
     impactLabel = KUBERNETES_DETAIL_LABELS.impact,
     tooltip,
     verdictTooltip,
+    criteriaKind,
     rawStatusTooltip,
     impactTooltip,
     metrics = [],
@@ -557,6 +561,7 @@ export const DetailOperationalSummary = ({
     metricsTitle,
     className
 }: DetailOperationalSummaryProps) => {
+    const [criteriaOpen, setCriteriaOpen] = React.useState(false)
     const visibleMetrics = metrics.filter(metric => metric.visible !== false)
     const stateLabel = (label: React.ReactNode, stateTooltip?: React.ReactNode) => (
         <span className="netdive-operational-summary__label">
@@ -569,10 +574,15 @@ export const DetailOperationalSummary = ({
     )
     const content = (
         <div className={joinClassNames('netdive-operational-summary', !!(summaryTitle || metricsTitle) && 'has-section-hierarchy', className)}>
+            {criteriaKind && <div className="netdive-operational-summary__criteria"><KubernetesVerdictCriteria
+                kind={criteriaKind} verdict={verdict} tone={verdictTone} rawStatus={rawStatus} impact={impact}
+                open={criteriaOpen} onOpenChange={setCriteriaOpen}
+                explanation={verdictTooltip || tooltip} /></div>}
             {summaryTitle && <DetailCardSubsectionHeader title={summaryTitle} first />}
             <div className="netdive-operational-summary__states">
                 <div className="netdive-operational-summary__state netdive-operational-summary__state--verdict">
-                    {stateLabel(verdictLabel, verdictTooltip || tooltip)}
+                    {criteriaKind ? <span className="netdive-operational-summary__label"><VerdictCriteriaLabel label={verdictLabel}
+                        onOpen={() => setCriteriaOpen(true)} /></span> : stateLabel(verdictLabel, verdictTooltip || tooltip)}
                     <strong className={joinClassNames(`is-${verdictTone}`, isKubernetesUnavailableValue(verdict) && 'is-unavailable')}><i />{verdict}</strong>
                 </div>
                 <div className="netdive-operational-summary__state">
@@ -763,8 +773,8 @@ export interface DetailNavigationTabsProps {
     className?: string
 }
 
-/** Canonical Ant Design navigation extracted from the established Kubernetes
- * cluster panel. Native Ant Tabs overflow stays portalled outside the panel. */
+/** All detail panels share one scrollable Ant Tabs navigation. Legacy overflow
+ * entries retain their existing order after the primary tabs. */
 export const DetailNavigationTabs = ({
     activeKey,
     tabs,
@@ -772,33 +782,13 @@ export const DetailNavigationTabs = ({
     onChange,
     className
 }: DetailNavigationTabsProps) => {
-    const overflowActive = overflowTabs.some(tab => tab.key === activeKey)
-    const overflowTrigger = overflowTabs.length > 0
-        ? <Dropdown
-            menu={{ items: overflowTabs.map(tab => ({ key: tab.key, label: tab.label })), selectedKeys: overflowActive ? [activeKey] : [], onClick: ({ key }) => onChange(String(key)) }}
-            classNames={{ root: 'netdive-mold-dropdown' }}
-            trigger={['click']}
-            placement="bottomRight"
-            getPopupContainer={() => document.body}>
-            <Button
-                type="text"
-                aria-label="추가 탭"
-                aria-current={overflowActive ? 'page' : undefined}
-                icon={<EllipsisOutlined />}
-                className={joinClassNames(
-                    'netdive-detail-navigation-tabs__overflow-trigger',
-                    overflowActive && 'is-active'
-                )}
-            />
-        </Dropdown>
-        : undefined
-    return <Tabs
-        className={joinClassNames('netdive-detail-navigation-tabs', overflowTabs.length > 0 && 'has-explicit-overflow', className)}
-        activeKey={overflowActive ? '__overflow_active__' : activeKey}
-        onChange={onChange}
-        tabBarExtraContent={overflowTrigger}
-        moreIcon={<EllipsisOutlined />}
-        items={tabs.map(tab => ({ key: tab.key, label: <Space size={4}>{tab.label}{tab.count !== undefined && <Typography.Text type="secondary">{tab.count}</Typography.Text>}</Space> }))} />
+    const items = [...tabs, ...overflowTabs].map(tab => ({ key: tab.key,
+        label: <span className="netdive-detail-navigation-tabs__label">{tab.label}{tab.count !== undefined && tab.count !== null && <> <small>{tab.count}</small></>}</span>
+    }))
+    return <Tabs className={joinClassNames('netdive-detail-navigation-tabs', className)}
+        activeKey={activeKey} onChange={onChange} items={items}
+        renderTabBar={props => <ScrollableDetailTabBar id={props.id} activeKey={props.activeKey} rtl={props.rtl}
+            items={items} onTabClick={props.onTabClick} />} />
 }
 
 export interface DetailMetaInfoItem {
@@ -1286,6 +1276,17 @@ export const connectedResourcePopoverItems = (
     }))
 }
 
+/** Raster resource glyphs cannot inherit CSS color like SVG/font icons.
+ * Use their alpha silhouette only in connected-resource UI; topology assets
+ * and status colors remain unchanged. */
+const connectedResourceIcon = (icon: React.ReactNode): React.ReactNode => {
+    if (!React.isValidElement<{ src?: string; alt?: string; className?: string }>(icon) || icon.type !== 'img' || !icon.props.src) return icon
+    const maskImage = `url(${JSON.stringify(icon.props.src)})`
+    return <span className={joinClassNames('netdive-connected-resource-image-icon', icon.props.className)}
+        style={{ maskImage, WebkitMaskImage: maskImage }}
+        role={icon.props.alt ? 'img' : undefined} aria-label={icon.props.alt || undefined} aria-hidden={icon.props.alt ? undefined : true} />
+}
+
 const DetailConnectedResourcePopover = ({
     title,
     items,
@@ -1322,7 +1323,7 @@ const DetailConnectedResourcePopover = ({
                     event.stopPropagation()
                     onNavigate(item)
                 }}>
-                {item.icon && <span className="netdive-connected-resource-popover__icon">{item.icon}</span>}
+                {item.icon && <span className="netdive-connected-resource-popover__icon">{connectedResourceIcon(item.icon)}</span>}
                 <span className="netdive-connected-resource-popover__text">
                     <Tooltip title={item.tooltip} placement="top">
                         <Typography.Text className="netdive-connected-resource-popover__name">{item.name}</Typography.Text>
@@ -1413,7 +1414,7 @@ export const DetailResourceCard = ({
                     if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onClick?.() }
                 }}>
                 <div className="netdive-ant-resource-content">
-                    <Card.Meta avatar={icon} title={<Tooltip title={labelTooltip !== undefined ? labelTooltip : typeof label === 'string' ? label : undefined}>
+                    <Card.Meta avatar={connectedResourceIcon(icon)} title={<Tooltip title={labelTooltip !== undefined ? labelTooltip : typeof label === 'string' ? label : undefined}>
                         <Typography.Text>{renderDetailResourceLabel(label)}</Typography.Text>
                     </Tooltip>} description={description} />
                     <Statistic value={typeof value === 'number' || typeof value === 'string' ? value : ''}
@@ -1684,7 +1685,7 @@ export const ConnectedResourceListSection = ({ title, icon, groups, emptyText = 
                     </div>}
                     <div className="netdive-connected-resource-list__items">{sortConnectedResourceItems(group.items).map((item, itemIndex) => {
                         const rowContent = <span className="netdive-connected-resource-list__item-layout">
-                                {item.icon && <span className="netdive-connected-resource-list__item-icon">{item.icon}</span>}
+                                {item.icon && <span className="netdive-connected-resource-list__item-icon">{connectedResourceIcon(item.icon)}</span>}
                                 <span className="netdive-connected-resource-list__item-main">
                                     {item.kind && <Typography.Text className="netdive-connected-resource-list__item-kind">{item.kind}</Typography.Text>}
                                     <Typography.Text className="netdive-connected-resource-list__item-name">{item.name}</Typography.Text>

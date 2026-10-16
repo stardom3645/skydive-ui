@@ -510,7 +510,7 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
             </DetailSectionCard>
 
             <DetailSectionCard icon={<DetailSectionIcon role="operational" />} title={translate('kubernetesServiceOperationalStatus')}>
-                <StatusSummaryGrid
+                <StatusSummaryGrid criteriaKind="service"
                     verdict={operational.verdict}
                     verdictTone={operational.tone as DetailBadgeTone}
                     rawStatus={detail.type || '–'}

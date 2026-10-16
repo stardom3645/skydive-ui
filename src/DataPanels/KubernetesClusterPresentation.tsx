@@ -1,7 +1,8 @@
 import * as React from 'react'
-import { Badge, Button, Card, Collapse, Progress, Space, Statistic, Modal, Tag, Typography } from 'antd'
+import { Badge, Button, Card, Collapse, Progress, Space, Statistic, Tag, Typography } from 'antd'
 import { RightOutlined } from '@ant-design/icons'
 import { isKubernetesUnavailableValue } from './common/KubernetesDataPresentation'
+import { VerdictCriteriaAction, VerdictCriteriaLabel, VerdictCriteriaModal, VerdictCriteriaResult, VerdictCriteriaRules, VerdictCriteriaNote } from './common/KubernetesVerdictCriteria'
 import {
     CollapsibleSummaryRowProps, DetailMetricRowProps, DetailOperationalSummaryProps,
     StatusEvidenceRowProps, DetailInfoTooltip
@@ -21,17 +22,21 @@ export const ClusterOperationalSection = ({ title, action, children, grid = fals
 
 /** Cluster-only presentation keeps other resource panels' behavior intact. */
 export const ClusterOperationalSummary = (props: DetailOperationalSummaryProps & { verdictDetails?: React.ReactNode }) => {
+    const [criteriaOpen, setCriteriaOpen] = React.useState(false)
+    const criteria = React.isValidElement<{ open?: boolean; onOpenChange?: (open: boolean) => void }>(props.verdictDetails)
+        ? React.cloneElement(props.verdictDetails, { open: criteriaOpen, onOpenChange: setCriteriaOpen }) : props.verdictDetails
     const label = (text: React.ReactNode, tooltip?: React.ReactNode) => <span className="netdive-cluster-ant-summary-label">
         <span>{text}</span><DetailInfoTooltip description={tooltip} ariaLabel={`${String(text)} 상세 정보`} />
     </span>
     return <div className="netdive-cluster-ant-summary">
-        <ClusterOperationalSection title={props.summaryTitle} action={props.verdictDetails} grid className="netdive-cluster-ant-summary-status">
+        <ClusterOperationalSection title={props.summaryTitle} action={criteria} grid className="netdive-cluster-ant-summary-status">
             {[
                 { label: props.verdictLabel || 'Netdive 판정', value: <Badge status={status(props.verdictTone)} text={props.verdict} />, tooltip: props.verdictTooltip || props.tooltip },
                 { label: props.rawStatusLabel || 'Kubernetes/API 원본 상태', value: props.rawStatus, tooltip: props.rawStatusTooltip },
                 { label: props.impactLabel || '현재 영향', value: props.impact, tooltip: props.impactTooltip }
             ].map((item, index) => <div key={index} className={`netdive-cluster-ant-summary-state ${index === 2 ? 'is-impact' : ''}`}>
-                <Typography.Text type="secondary" className="netdive-cluster-ant-summary-label">{label(item.label, item.tooltip)}</Typography.Text>
+                <Typography.Text type="secondary" className="netdive-cluster-ant-summary-label">{index === 0 && criteria
+                    ? <VerdictCriteriaLabel label={item.label} onOpen={() => setCriteriaOpen(true)} /> : label(item.label, item.tooltip)}</Typography.Text>
                 <div className="netdive-cluster-ant-summary-value">{item.value}</div>
             </div>)}
         </ClusterOperationalSection>
@@ -70,30 +75,35 @@ export const ClusterCollapsibleSummary = (props: CollapsibleSummaryRowProps) => 
     onChange={() => props.onToggle()}
     items={[{ key: 'details', label: props.title, extra: props.summary, children: props.children }]} />
 
-export const ClusterVerdictCriteria = ({ verdict, tone, reasons, collected, missing }: {
+export const ClusterVerdictCriteria = ({ verdict, tone, reasons, collected, missing, open: controlledOpen, onOpenChange }: {
     verdict: string; tone: string; reasons: string[]; collected: string[]; missing: string[]
+    open?: boolean; onOpenChange?: (open: boolean) => void
 }) => {
-    const [open, setOpen] = React.useState(false)
+    const [internalOpen, setInternalOpen] = React.useState(false)
+    const open = controlledOpen ?? internalOpen
+    const setOpen = onOpenChange || setInternalOpen
     return <>
-        <Button type="link" size="small" className="netdive-cluster-verdict-criteria-trigger" onClick={() => setOpen(true)}>판정 기준</Button>
-        <Modal title="Netdive 클러스터 판정 기준" open={open} onCancel={() => setOpen(false)} width={620} destroyOnHidden
-            className="netdive-cluster-verdict-criteria" footer={<Button onClick={() => setOpen(false)}>닫기</Button>}>
-            <div className="netdive-cluster-verdict-current">
-                <Typography.Text strong>현재 판정</Typography.Text><Tag color={color(tone)}>{verdict}</Tag>
-                <ul>{(reasons.length ? reasons : tone === 'default' ? ['운영 상태를 판정할 수집 데이터가 없습니다.'] : ['수집된 자원에서 현재 가용성 이상이 확인되지 않았습니다.']).map(reason => <li key={reason}>{reason}</li>)}</ul>
+        <VerdictCriteriaAction onClick={() => setOpen(true)} />
+        <VerdictCriteriaModal title="Netdive 클러스터 판정 기준" open={open} onClose={() => setOpen(false)}
+            subtitle="클러스터 상태 판정 결과 및 기준 안내"
+            className="netdive-cluster-verdict-criteria">
+            <VerdictCriteriaResult items={[{ key: 'verdict', label: '현재 판정', value: <Tag color={color(tone)}>{verdict}</Tag> }]}>
+                <ul className="netdive-verdict-result__reasons">{(reasons.length ? reasons : tone === 'default' ? ['운영 상태를 판정할 수집 데이터가 없습니다.'] : ['수집된 자원에서 현재 가용성 이상이 확인되지 않았습니다.']).map(reason => <li key={reason}>{reason}</li>)}</ul>
+            </VerdictCriteriaResult>
+            <Typography.Paragraph className="netdive-verdict-explanation">현재 Node·Control Plane의 Ready 상태, 활성 Pod, 워크로드 가용 Replica와 서비스 영향을 종합합니다. 최근 이력과 구성 위험은 각각의 영역에서 평가합니다.</Typography.Paragraph>
+            <VerdictCriteriaRules verdict={verdict} tone={tone === 'danger' ? 'danger' : tone === 'warning' ? 'warning' : tone === 'success' ? 'success' : 'default'} rules={[
+                { label: '심각', description: 'Ready가 아닌 Node·Control Plane, Unknown Pod, 가용 Replica 부족 또는 서비스 영향이 확인된 경우' },
+                { label: '주의', description: '위의 가용성 저하 없이 활성 문제 Pod 등 현재 운영 경보가 확인된 경우' },
+                { label: '정상', description: '수집된 자원에서 현재 가용성 이상이나 운영 경보가 확인되지 않은 경우' },
+                { label: '미확인', description: '확인 가능한 Node·Control Plane·활성 Pod 상태가 없는 경우' }
+            ]} />
+            <div className="netdive-verdict-coverage">
+                <Typography.Text strong>확인한 데이터 수집 범위</Typography.Text>
+                <Typography.Paragraph>{collected.length ? collected.join(' · ') : '확인된 수집 데이터가 없습니다.'}</Typography.Paragraph>
+                {missing.length > 0 && <Typography.Paragraph type="secondary">미수집 또는 부분 수집: {missing.join(' · ')}. 확인된 데이터 범위의 판정입니다.</Typography.Paragraph>}
             </div>
-            <Typography.Paragraph>현재 Node·Control Plane의 Ready 상태, 활성 Pod, 워크로드 가용 Replica와 서비스 영향을 종합합니다. 최근 이력과 구성 위험은 각각의 영역에서 평가합니다.</Typography.Paragraph>
-            <div className="netdive-cluster-verdict-rules">
-                <div><Tag color="error">심각</Tag><span>Ready가 아닌 Node·Control Plane, Unknown Pod, 가용 Replica 부족 또는 서비스 영향이 확인된 경우</span></div>
-                <div><Tag color="warning">주의</Tag><span>위의 가용성 저하 없이 활성 문제 Pod 등 현재 운영 경보가 확인된 경우</span></div>
-                <div><Tag color="success">정상</Tag><span>수집된 자원에서 현재 가용성 이상이나 운영 경보가 확인되지 않은 경우</span></div>
-                <div><Tag>미확인</Tag><span>확인 가능한 Node·Control Plane·활성 Pod 상태가 없는 경우</span></div>
-            </div>
-            <Typography.Text strong>확인한 데이터 수집 범위</Typography.Text>
-            <Typography.Paragraph>{collected.length ? collected.join(' · ') : '확인된 수집 데이터가 없습니다.'}</Typography.Paragraph>
-            {missing.length > 0 && <Typography.Paragraph type="secondary">미수집 또는 부분 수집: {missing.join(' · ')}. 확인된 데이터 범위의 판정입니다.</Typography.Paragraph>}
-            <Typography.Paragraph type="secondary">Succeeded·Completed와 과거 종료 이력은 현재 장애 대상에서 제외하며, 구조적 위험 점수는 현재 운영 판정과 별도로 제공합니다.</Typography.Paragraph>
-        </Modal>
+            <VerdictCriteriaNote>Succeeded·Completed와 과거 종료 이력은 현재 장애 대상에서 제외하며, 구조적 위험 점수는 현재 운영 판정과 별도로 제공합니다.</VerdictCriteriaNote>
+        </VerdictCriteriaModal>
     </>
 }
 

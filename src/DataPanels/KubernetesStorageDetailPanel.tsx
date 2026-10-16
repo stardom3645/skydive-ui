@@ -1,3 +1,6 @@
+import { kubernetesStorageObservation, kubernetesStorageOperationalPresentation } from '../KubernetesStorageStatus'
+import { kubernetesStorageBindings } from '../KubernetesStorageBindings'
+import { kubernetesResourceSelfStatus } from '../KubernetesTopologyBadgeAggregation'
 import { DetailSectionIcon } from './common/DetailSectionIcon'
 import * as React from 'react'
 import AccountTreeIcon from '@material-ui/icons/AccountTree'
@@ -7,11 +10,11 @@ import { translate } from '../Config'
 import { Node } from '../Topology'
 import { matchesKubernetesSelector } from '../KubernetesSelectors'
 import { resolveKubernetesPodTopController } from '../KubernetesWorkloadOwnership'
-import { kubernetesPvcOperationalPresentation } from '../KubernetesPersistentVolumeClaimDetailAggregation'
-import { kubernetesPvNodeAffinityPresentation, kubernetesPvOperationalPresentation, kubernetesPvSourcePresentation } from '../KubernetesPersistentVolumeDetailAggregation'
+import { kubernetesPvNodeAffinityPresentation, kubernetesPvSourcePresentation } from '../KubernetesPersistentVolumeDetailAggregation'
 import {
     BasicInfoRows,
     connectedResourcePopoverItems,
+    navigateInfrastructureConnectedResources,
     collectKubernetesEventGroups,
     DetailBadge,
     DetailBadgeTone,
@@ -221,22 +224,11 @@ class KubernetesStorageDetailPanel extends React.Component<Props, State> {
     }
 
     private pvForPVC(pvc: Node): Node | undefined {
-        const volumeName = text(pvc.data || {}, [
-            'K8s.volumeName',
-            'K8s.VolumeName', 'VolumeName', 'volumeName',
-            'K8s.Extra.Spec.VolumeName', 'K8s.Extra.Spec.volumeName',
-            'K8s.Extra.spec.volumeName', 'K8s.Spec.VolumeName',
-            'K8s.Spec.volumeName', 'Spec.VolumeName', 'spec.volumeName'
-        ])
-        return volumeName ? this.resources('persistentvolume').find(pv => this.name(pv) === volumeName) : undefined
+        return kubernetesStorageBindings(this.topologyNodes()).find(pair => pair.source.id === pvc.id)?.target
     }
 
     private pvcForPV(pv: Node): Node | undefined {
-        const spec = this.spec(pv)
-        const claimRef = field(spec, 'ClaimRef', 'claimRef') || {}
-        const claimName = field(claimRef, 'Name', 'name') || text(pv.data || {}, ['K8s.ClaimRef', 'ClaimRef'])
-        const claimNamespace = field(claimRef, 'Namespace', 'namespace') || text(pv.data || {}, ['K8s.ClaimNamespace', 'ClaimNamespace'])
-        return this.resources('persistentvolumeclaim').find(pvc => this.name(pvc) === claimName && (!claimNamespace || this.namespace(pvc) === claimNamespace))
+        return kubernetesStorageBindings(this.topologyNodes()).find(pair => pair.target.id === pv.id)?.source
     }
 
     private storageClass(node: Node): Node | undefined {
@@ -336,13 +328,10 @@ class KubernetesStorageDetailPanel extends React.Component<Props, State> {
         const none = '없음'
         const empty = '-'
         const collectionFailed = '수집 실패'
-        const phase = String(field(status, 'Phase', 'phase') || text(data, ['K8s.Status', 'Status']) || '')
-        const pvcVolumeName = type === 'persistentvolumeclaim' ? text(data, [
-            'K8s.volumeName', 'K8s.VolumeName', 'VolumeName', 'volumeName',
-            'K8s.Extra.Spec.VolumeName', 'K8s.Extra.Spec.volumeName',
-            'K8s.Extra.spec.volumeName', 'K8s.Spec.VolumeName',
-            'K8s.Spec.volumeName', 'Spec.VolumeName', 'spec.volumeName'
-        ]) : ''
+        const storageObservation = kubernetesStorageObservation(data)
+        const phase = type === 'storageclass' ? String(field(status, 'Phase', 'phase') || text(data, ['K8s.Status', 'Status']) || '')
+            : String(storageObservation.phase || '')
+        const pvcVolumeName = type === 'persistentvolumeclaim' ? String(storageObservation.volumeName || '') : ''
         const pvc = type === 'persistentvolume' ? this.pvcForPV(this.props.node) : undefined
         const pv = type === 'persistentvolumeclaim' ? this.pvForPVC(this.props.node) : undefined
         const storageClass = type === 'storageclass' ? undefined : this.storageClass(this.props.node)
@@ -434,7 +423,7 @@ class KubernetesStorageDetailPanel extends React.Component<Props, State> {
         ] : []
         const pvClaimRef = type === 'persistentvolume' ? field(spec, 'ClaimRef', 'claimRef') || {} : {}
         const pvClaimName = type === 'persistentvolume'
-            ? String(field(pvClaimRef, 'Name', 'name') || text(data, ['K8s.ClaimRef', 'ClaimRef']) || '')
+            ? String(storageObservation.claimName || '')
             : ''
         const pvClaimNamespace = type === 'persistentvolume'
             ? String(field(pvClaimRef, 'Namespace', 'namespace') || text(data, ['K8s.ClaimNamespace', 'ClaimNamespace']) || '')
@@ -658,11 +647,8 @@ class KubernetesStorageDetailPanel extends React.Component<Props, State> {
             : recentFailureCount > 0
                 ? `최근 오류 ${recentFailureCount}건`
                 : '최근 오류 없음'
-        const pvcOperational = kubernetesPvcOperationalPresentation({
-            phase,
-            volumeName: pvcVolumeName,
-            boundPvFound: !!pv
-        })
+        const selfCollection = kubernetesResourceSelfStatus(this.props.node).collection
+        const pvcOperational = kubernetesStorageOperationalPresentation({ type: 'persistentvolumeclaim', phase, volumeName: pvcVolumeName, collection: selfCollection })
         const pvcBasicCollected = !!name && !!namespace
         const pvcBindingCollected = !!phase
         const pvcStorageClassName = this.storageClassName(this.props.node)
@@ -705,7 +691,7 @@ class KubernetesStorageDetailPanel extends React.Component<Props, State> {
         const cumulativeFailureCount = cumulativeEventGroups
             .filter(group => group.tone !== 'success')
             .reduce((sum, group) => sum + group.count, 0)
-        const pvOperational = kubernetesPvOperationalPresentation(phase, pvClaimName)
+        const pvOperational = kubernetesStorageOperationalPresentation({ type: 'persistentvolume', phase, claimName: pvClaimName, collection: selfCollection })
         const pvPolicyCollected = specSource !== undefined || capacityValue !== undefined || !!resolvedPvSourceType
         const pvClaimRelationState: 'collected' | 'partial' | 'uncollected' = !pvClaimName
             ? phase.toLowerCase() === 'available' ? 'collected' : 'uncollected'
@@ -793,16 +779,16 @@ class KubernetesStorageDetailPanel extends React.Component<Props, State> {
             </DetailSectionCard>
             {type !== 'storageclass' && <DetailSectionCard icon={<DetailSectionIcon role="operational" />} title={`${kindLabel} 운영 상태`}>
                 {type === 'persistentvolumeclaim' ? <React.Fragment>
-                    <StatusSummaryGrid
+                    <StatusSummaryGrid criteriaKind={type}
                         verdict={pvcOperational.verdict}
                         verdictTone={pvcOperational.tone}
-                        verdictTooltip="PVC의 현재 phase, 바인딩된 PV 이름과 실제 PV 관계를 기준으로 판정합니다. 이벤트 수집 상태는 이 판정에 포함하지 않습니다."
+                        verdictTooltip="PVC의 현재 phase와 spec.volumeName을 기준으로 판정합니다. 관련 PV 목록과 이벤트의 수집 범위는 별도로 표시하며, 목록 미수집만으로 바인딩 손실을 판정하지 않습니다."
                         rawStatus={kubernetesPvcPhaseLabel(phase)}
                         rawStatusLabel="바인딩 상태"
                         rawStatusTooltip={phase ? `Kubernetes 원본 값: ${phase}` : 'PVC phase가 수집되지 않았습니다.'}
                         impact={pvcOperational.impact}
                         impactTooltip={pvcOperational.tone === 'success'
-                            ? 'PVC가 Bound 상태이고 spec.volumeName에 해당하는 PV 관계가 확인되었습니다. 실제 서비스 영향은 별도 워크로드 관측 범위에 따라 달라질 수 있습니다.'
+                            ? 'PVC가 Bound 상태이고 spec.volumeName에 바인딩된 PV 이름이 확인되었습니다. 실제 서비스 영향은 별도 워크로드 관측 범위에 따라 달라질 수 있습니다.'
                             : '현재 PVC 바인딩 상태와 PV 관계만으로 서비스 가용성 영향을 확정할 수 없습니다.'}
                         metrics={[
                             { key: 'recent', label: '최근 불안정성', value: recentFailureCount, visible: eventsCollected, tone: recentFailureCount > 0 ? 'warning' : 'default', tooltip: '최근 1시간 동안 PVC 자체, 바인딩된 PV, PVC를 사용하는 파드에서 수집된 Binding·Mount·Attach·Provisioning 이상 이벤트 수입니다.' },
@@ -813,7 +799,7 @@ class KubernetesStorageDetailPanel extends React.Component<Props, State> {
                             key: 'current-problem',
                             label: '현재 문제',
                             value: pvcOperational.currentProblem,
-                            tooltip: '현재 Pending·Lost 상태 또는 Bound 상태의 PV 관계 불일치를 표시합니다.'
+                            tooltip: '현재 Pending·Lost 상태 또는 Bound 상태에서 PV 이름을 확인할 수 없는 경우를 표시합니다.'
                         },
                         {
                             key: 'collection',
@@ -825,7 +811,7 @@ class KubernetesStorageDetailPanel extends React.Component<Props, State> {
                         }
                     ]} />
                 </React.Fragment> : type === 'persistentvolume' ? <React.Fragment>
-                    <StatusSummaryGrid
+                    <StatusSummaryGrid criteriaKind={type}
                         verdict={pvOperational.verdict}
                         verdictTone={pvOperational.tone}
                         verdictTooltip="PV의 현재 phase와 claimRef를 기준으로 바인딩 상태를 판정합니다. 이벤트 수집 상태는 이 판정에 포함하지 않습니다."
@@ -845,7 +831,7 @@ class KubernetesStorageDetailPanel extends React.Component<Props, State> {
                             key: 'current-problem',
                             label: '현재 문제',
                             value: pvOperational.currentProblem,
-                            tooltip: '현재 Failed·Released 상태 또는 Bound 상태의 클레임 참조 불일치를 표시합니다.'
+                            tooltip: 'Failed는 볼륨 회수·삭제 실패, Released는 클레임 해제 후 회수 대기입니다. Bound 상태의 클레임 참조 누락도 표시합니다.'
                         },
                         {
                             key: 'collection',
@@ -856,7 +842,7 @@ class KubernetesStorageDetailPanel extends React.Component<Props, State> {
                             tooltipDetail: pvCollection.detail
                         }
                     ]} />
-                </React.Fragment> : <StatusSummaryGrid
+                </React.Fragment> : <StatusSummaryGrid criteriaKind={type}
                     verdict={storageVerdict}
                     verdictTone={storageTone}
                     rawStatus={phase || empty}
@@ -883,11 +869,11 @@ class KubernetesStorageDetailPanel extends React.Component<Props, State> {
 
             </DetailSectionCard>
             <RelatedResourceGrid icon={<DetailSectionIcon role="related" />} title={translate('hostConnectedResources')} emptyText="연결된 스토리지 자원이 없습니다." groups={relatedGroups} />
-            {((type !== 'storageclass' && type !== 'persistentvolumeclaim' && type !== 'persistentvolume') || eventsCollected) && <DetailSectionCard icon={<DetailSectionIcon role="events" />} title="최근 이벤트">
+            {(type !== 'storageclass' || eventsCollected) && <DetailSectionCard icon={<DetailSectionIcon role="events" />} title="최근 이벤트">
                 <KubernetesRecentEvents
                     groups={recentEventGroups}
                     lookbackLabel={type === 'storageclass' ? '최근 24시간' : type === 'persistentvolumeclaim' || type === 'persistentvolume' ? '최근 1시간' : undefined}
-                    emptyText={type === 'persistentvolumeclaim' || type === 'persistentvolume' ? '최근 1시간 동안 발생한 스토리지 관련 중요 이벤트가 없습니다.' : type === 'storageclass' ? undefined : '최근 스토리지 관련 이벤트가 없습니다.'}
+                    emptyText={!eventsCollected ? '이벤트 수집 정보가 없어 최근 이벤트 유무를 확인할 수 없습니다.' : type === 'persistentvolumeclaim' || type === 'persistentvolume' ? '최근 1시간 동안 발생한 스토리지 관련 중요 이벤트가 없습니다.' : type === 'storageclass' ? undefined : '최근 스토리지 관련 이벤트가 없습니다.'}
                     onResourceClick={group => {
                     const target = this.topologyNodes().find(node => (!group.resourceUid || node.id === group.resourceUid || text(node.data || {}, ['K8s.Extra.ObjectMeta.UID', 'UID']) === group.resourceUid)
                         && (!group.resourceName || this.name(node) === group.resourceName))
@@ -907,7 +893,10 @@ class KubernetesStorageDetailPanel extends React.Component<Props, State> {
                         : this.state.relatedModal === 'pv' ? this.storageResourceIcon('persistentvolume')
                             : this.state.relatedModal === 'storageclass' ? this.storageResourceIcon('storageclass')
                                 : this.topologyIcon(resource),
-                    onClick: () => this.focus([resource])
+                    onClick: () => {
+                        this.setState({ relatedModal: undefined })
+                        navigateInfrastructureConnectedResources([resource.id], this.props.node.id, 'item')
+                    }
                 }))}
                 onCancel={() => this.setState({ relatedModal: undefined })} />}
         </div>

@@ -4,20 +4,21 @@ import * as path from 'path'
 import * as ts from 'typescript'
 import * as vm from 'vm'
 import { normalizeTopologyVM, topologyInventoryData } from '../src/TopologyResourceData'
+import { vmPublicIPAddresses } from '../src/VMPublicIPs'
 import { topologyResourceMetrics, vmMemoryBytes } from '../src/TopologyResourceMetrics'
 
 // Run the panel's actual metadata merge and formatter without mounting React.
 const source = fs.readFileSync(path.resolve(__dirname, '../src/DataPanels/VMDetailPanel.tsx'), 'utf8')
 const ast = ts.createSourceFile('VMDetailPanel.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
-const helpers = ['isBlank', 'stringify', 'firstValue', 'trimFixed', 'uniqueStrings']
+const helpers = ['asArray', 'isBlank', 'stringify', 'firstValue', 'trimFixed', 'uniqueStrings']
 const declarations = ast.statements.filter(ts.isVariableStatement)
     .filter(statement => statement.declarationList.declarations.some(declaration => helpers.includes(declaration.name.getText(ast))))
     .map(statement => statement.getText(ast)).join('\n')
 const panelClass = ast.statements.filter(ts.isClassDeclaration).find(node => node.name?.text === 'VMDetailPanel')!
-const names = ['inventoryVirtualMachines', 'vmKeys', 'inventoryVMDetail', 'normalizeMoldVM', 'mergedData', 'formatMemory']
+const names = ['inventoryVirtualMachines', 'vmKeys', 'inventoryVMDetail', 'normalizeMoldVM', 'mergedData', 'formatMemory', 'vmNetworkEntries', 'publicIps']
 const methods = panelClass.members.filter(member => member.name && names.includes(member.name.getText(ast)))
     .map(member => member.getText(ast)).join('\n')
-const context: any = { normalizeTopologyVM, vmMemoryBytes,
+const context: any = { normalizeTopologyVM, vmMemoryBytes, vmPublicIPAddresses,
     React: { Component: class { constructor(public props: any) {} } } }
 vm.createContext(context)
 vm.runInContext(ts.transpile(`${declarations}\nclass VMDetailPanel extends React.Component { ${methods} }; this.Panel = VMDetailPanel`,
@@ -82,5 +83,36 @@ describe('VM detail resources', () => {
         assert.equal(data.Memory, undefined)
         assert.equal(data.CPUPercent, 12)
         assert.equal(data.MemoryPercent, 25)
+    })
+})
+
+
+describe('VM detail NIC and public address identity', () => {
+    it('keeps separate NIC network names, addresses and MACs, including multiple NICs on the same network', () => {
+        const entries = [
+            { networkName: 'Admin L2', macAddress: '02:00:00:00:00:01', ipAddress: '10.0.0.10', vmUuid: 'vm-uuid' },
+            { networkName: 'Guest Isolated', macAddress: '02:00:00:00:00:02', ipAddress: '10.1.0.10', vmUuid: 'vm-uuid' },
+            { networkName: 'Admin L2', macAddress: '02:00:00:00:00:03', ipAddress: '10.0.0.11', vmUuid: 'vm-uuid' },
+            { networkName: 'Other VM', macAddress: '02:00:00:00:00:04', ipAddress: '10.0.0.12', vmUuid: 'other-vm' }
+        ]
+        const panel = new context.Panel({ node: node('i-2-28-VM'), vmNetworkMap: { 'i-2-28-VM': entries } })
+        assert.deepEqual(panel.vmNetworkEntries().map((nic: any) => nic.networkName), ['Admin L2', 'Guest Isolated', 'Admin L2'])
+        assert.deepEqual(panel.vmNetworkEntries().map((nic: any) => nic.macAddress), entries.slice(0, 3).map(nic => nic.macAddress))
+    })
+    it('uses embedded NIC network fields without treating the NIC name as a network name', () => {
+        const panel = new context.Panel({ node: node('i-2-28-VM', { nics: [
+            { name: 'eth0', networkname: 'Guest', ipaddress: '10.0.0.2', macaddress: 'aa:bb:cc:dd:ee:ff' },
+            { name: 'eth1', ipaddress: '10.1.0.2' }
+        ] }) })
+        assert.equal(panel.vmNetworkEntries()[0].networkName, 'Guest')
+        assert.equal(panel.vmNetworkEntries()[1].networkName, '')
+    })
+    it('consumes only the verified publicIps field for the same VM and retains all distinct bindings', () => {
+        const panel = new context.Panel({ node: node('i-2-28-VM', { PublicIP: '192.0.2.200' }), vmDetailMap: {
+            'vm-uuid': { uuid: 'vm-uuid', instanceName: 'i-2-28-VM', publicIps: ['192.0.2.1', '192.0.2.2', '192.0.2.1'] }
+        } })
+        assert.deepEqual(Array.from(panel.publicIps()), ['192.0.2.1', '192.0.2.2'])
+        panel.props.vmDetailMap['vm-uuid'].uuid = 'other-vm'
+        assert.deepEqual(Array.from(panel.publicIps()), [])
     })
 })

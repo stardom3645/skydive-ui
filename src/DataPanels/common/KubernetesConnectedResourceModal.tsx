@@ -21,7 +21,7 @@ export const KubernetesConnectedResourceModal = ({
     resourceLabel,
     items,
     onCancel
-}: KubernetesConnectedResourceModalProps) => <HistoryModal visible={visible} title={title} onCancel={onCancel}>
+}: KubernetesConnectedResourceModalProps) => <HistoryModal open={visible} title={title} onCancel={onCancel}>
     <ConnectedResourceListSection
         title={resourceLabel}
         groups={[{ key: 'resources', items }]}

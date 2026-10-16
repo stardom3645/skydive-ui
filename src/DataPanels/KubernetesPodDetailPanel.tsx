@@ -458,7 +458,7 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
             </DetailSectionCard>
 
             <DetailSectionCard icon={<DetailSectionIcon role="operational" />} title="Pod 운영 상태">
-                <StatusSummaryGrid
+                <StatusSummaryGrid criteriaKind="pod"
                     verdict={statusLabel}
                     verdictTone={statusTone}
                     rawStatus={phaseLabel}

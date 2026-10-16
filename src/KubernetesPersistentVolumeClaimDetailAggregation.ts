@@ -3,7 +3,6 @@ export type KubernetesPvcOperationalTone = 'success' | 'warning' | 'danger' | 'd
 export interface KubernetesPvcOperationalInput {
     phase?: any
     volumeName?: any
-    boundPvFound: boolean
 }
 
 export interface KubernetesPvcOperationalPresentation {
@@ -15,11 +14,11 @@ export interface KubernetesPvcOperationalPresentation {
 
 /** PVC health comes from current Kubernetes API state. Event collection is
  * intentionally absent here so observability failures cannot become PVC
- * failures. */
+ * failures. A Bound API phase with volumeName is the binding evidence;
+ * missing related inventory is reported as collection coverage separately. */
 export const kubernetesPvcOperationalPresentation = ({
     phase,
-    volumeName,
-    boundPvFound
+    volumeName
 }: KubernetesPvcOperationalInput): KubernetesPvcOperationalPresentation => {
     const normalizedPhase = String(phase ?? '').trim().toLowerCase()
     const hasVolumeName = String(volumeName ?? '').trim().length > 0
@@ -33,7 +32,7 @@ export const kubernetesPvcOperationalPresentation = ({
         return { verdict: '보완 권장', tone: 'warning', impact: '영향 확인 필요', currentProblem: '바인딩 대기' }
     }
     if (normalizedPhase === 'bound') {
-        if (hasVolumeName && boundPvFound) {
+        if (hasVolumeName) {
             return { verdict: '정상', tone: 'success', impact: '확인된 영향 없음', currentProblem: '없음' }
         }
         return { verdict: '보완 권장', tone: 'warning', impact: '확인 불가', currentProblem: 'PV 관계 확인 필요' }

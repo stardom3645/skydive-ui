@@ -3,11 +3,10 @@ import { strict as assert } from 'assert'
 import { kubernetesPvcOperationalPresentation } from '../src/KubernetesPersistentVolumeClaimDetailAggregation'
 
 describe('Kubernetes PVC detail aggregation', () => {
-    it('treats a Bound PVC with its named PV relation as healthy', () => {
+    it('treats a Bound PVC with its API-reported PV name as healthy', () => {
         const result = kubernetesPvcOperationalPresentation({
             phase: 'Bound',
-            volumeName: 'pvc-volume-1',
-            boundPvFound: true
+            volumeName: 'pvc-volume-1'
         })
         assert.equal(result.verdict, '정상')
         assert.equal(result.tone, 'success')
@@ -18,16 +17,15 @@ describe('Kubernetes PVC detail aggregation', () => {
     it('does not let event collection state alter PVC binding health', () => {
         const result = kubernetesPvcOperationalPresentation({
             phase: 'Bound',
-            volumeName: 'pvc-volume-1',
-            boundPvFound: true
+            volumeName: 'pvc-volume-1'
         })
         assert.equal(result.verdict, '정상')
     })
 
-    it('distinguishes Pending, Lost, and an unresolved Bound relation', () => {
-        assert.equal(kubernetesPvcOperationalPresentation({ phase: 'Pending', boundPvFound: false }).currentProblem, '바인딩 대기')
-        assert.equal(kubernetesPvcOperationalPresentation({ phase: 'Lost', boundPvFound: false }).tone, 'danger')
-        const unresolved = kubernetesPvcOperationalPresentation({ phase: 'Bound', volumeName: 'pv-1', boundPvFound: false })
+    it('distinguishes Pending, Lost, and a Bound claim missing its volume name', () => {
+        assert.equal(kubernetesPvcOperationalPresentation({ phase: 'Pending' }).currentProblem, '바인딩 대기')
+        assert.equal(kubernetesPvcOperationalPresentation({ phase: 'Lost' }).tone, 'danger')
+        const unresolved = kubernetesPvcOperationalPresentation({ phase: 'Bound', volumeName: '' })
         assert.equal(unresolved.verdict, '보완 권장')
         assert.equal(unresolved.currentProblem, 'PV 관계 확인 필요')
     })

@@ -71,7 +71,7 @@ export const kubernetesPodOwnershipEdges = <T>(nodes: T[], access: {
 
 /** Reuse a collected link for each ownership pair, regardless of its direction.
  * Only pairs without an existing link need a display-only ownership link. */
-export const mergeKubernetesPodOwnershipLinks = <TNode, TLink>(edges: Array<{ source: TNode; target: TNode }>, links: TLink[], access: {
+export const mergeKubernetesRelationLinks = <TNode, TLink>(edges: Array<{ source: TNode; target: TNode }>, links: TLink[], access: {
     nodeID: (node: TNode) => string; sourceID: (link: TLink) => string; targetID: (link: TLink) => string
     reuse: (link: TLink) => TLink; create: (edge: { source: TNode; target: TNode }) => TLink
 }): TLink[] => {
@@ -86,3 +86,4 @@ export const mergeKubernetesPodOwnershipLinks = <TNode, TLink>(edges: Array<{ so
     owners.forEach((edge, pair) => { if (!seen.has(pair)) result.push(access.create(edge)) })
     return result
 }
+export const mergeKubernetesPodOwnershipLinks = mergeKubernetesRelationLinks

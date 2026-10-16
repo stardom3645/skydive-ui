@@ -8,8 +8,10 @@ export interface KubernetesPvOperationalPresentation {
 export const kubernetesPvOperationalPresentation = (phase: any, claimName?: any): KubernetesPvOperationalPresentation => {
     const normalized = String(phase ?? '').trim().toLowerCase()
     if (!normalized) return { verdict: '미확인', tone: 'default', impact: '확인 불가', currentProblem: '확인 불가' }
-    if (normalized === 'failed') return { verdict: '위험', tone: 'danger', impact: '영향 확인 필요', currentProblem: '바인딩 실패' }
-    if (normalized === 'released') return { verdict: '보완 권장', tone: 'warning', impact: '영향 확인 필요', currentProblem: '클레임 해제 후 회수 대기' }
+    if (normalized === 'failed') return { verdict: '위험', tone: 'danger', impact: '영향 확인 필요', currentProblem: '볼륨 회수·삭제 실패' }
+    // Released is a lifecycle state after claim deletion, including the normal
+    // manual-reclamation flow of Retain. Failed is the API's actual failure.
+    if (normalized === 'released') return { verdict: '정상', tone: 'success', impact: '확인된 영향 없음', currentProblem: '없음' }
     if (normalized === 'bound') return String(claimName ?? '').trim()
         ? { verdict: '정상', tone: 'success', impact: '확인된 영향 없음', currentProblem: '없음' }
         : { verdict: '보완 권장', tone: 'warning', impact: '확인 불가', currentProblem: '클레임 참조 확인 필요' }

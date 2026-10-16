@@ -1,8 +1,8 @@
 import * as React from 'react'
 import { ConfigProvider, Progress, Tag, Tooltip } from 'antd'
-import { ThunderboltOutlined, BlockOutlined, AppstoreOutlined,
+import { ThunderboltOutlined, BlockOutlined, AppstoreOutlined, WindowsOutlined, LinuxOutlined, AppleOutlined,
     ApartmentOutlined, DatabaseOutlined, FolderOutlined, HddOutlined, DeploymentUnitOutlined,
-    CloudServerOutlined, LinkOutlined, BranchesOutlined, TagsOutlined, PoweroffOutlined, GlobalOutlined } from '@ant-design/icons'
+    CloudServerOutlined, LinkOutlined, BranchesOutlined, TagsOutlined, PoweroffOutlined, GlobalOutlined, SafetyOutlined, ReloadOutlined } from '@ant-design/icons'
 import { TopologyNodePresentation, TopologyMetric } from './TopologyNodePresentation'
 import { TOPOLOGY_TOOLTIP_DISMISS_EVENT, watchTopologyTooltipAnchor } from './TopologyTooltipAnchor'
 import { TopologyStatusBadgeRail, TOPOLOGY_STATUS_BADGE_RADIUS } from './TopologyStatusBadge'
@@ -56,33 +56,45 @@ export const TopologyTypeIcon = ({ icon, iconClass, href }: { icon: string; icon
         {href ? <img src={href} alt="" /> : <span className={`fa ${iconClass || ''}`}>{icon}</span>}
     </span>
 
+const TopologyVMIcons = ({ model, icon, iconClass, href }: { model: TopologyNodePresentation; icon: string; iconClass?: string; href?: string }) => {
+    const os = model.operatingSystem
+    const vm = <TopologyTypeIcon icon={icon} iconClass={iconClass} href={href} />
+    if (!os) return vm
+    const Icon = os.family === 'windows' ? WindowsOutlined : os.family === 'apple' ? AppleOutlined : LinuxOutlined
+    return <span className="topology-object-card__vm-icons">{vm}<TopologyCardTooltip title={os.name}>
+        <span className="topology-object-card__os-icon" role="img" aria-label={`운영체제: ${os.name}`}><Icon aria-hidden="true" /></span>
+    </TopologyCardTooltip></span>
+}
+
 const metricIcons = {
     cpu: ThunderboltOutlined, memory: BlockOutlined, pods: AppstoreOutlined, children: ApartmentOutlined,
     capacity: DatabaseOutlined, storage: DatabaseOutlined, 'root-disk': HddOutlined, 'storage-class': TagsOutlined,
+    'access-modes': SafetyOutlined, 'reclaim-policy': ReloadOutlined,
     namespaces: FolderOutlined, nodes: CloudServerOutlined, workloads: DeploymentUnitOutlined,
     vms: CloudServerOutlined, endpoints: LinkOutlined, replicas: BranchesOutlined,
     'service-role': DeploymentUnitOutlined, 'service-state': PoweroffOutlined,
     'service-ip': GlobalOutlined, 'service-host': CloudServerOutlined, 'service-agent': LinkOutlined
 }
 
-export const TopologyMetricChip = ({ metric, emptyMeter = true }: { metric: TopologyMetric; emptyMeter?: boolean }) => {
+export const TopologyMetricChip = ({ metric, emptyMeter = true, showSource = true }: { metric: TopologyMetric; emptyMeter?: boolean; showSource?: boolean }) => {
     const Icon = metricIcons[metric.key] || ApartmentOutlined
     const resource = ['cpu', 'memory', 'root-disk'].includes(metric.key)
     const tone = metric.percent !== undefined && metric.percent >= 90 ? 'critical'
         : metric.percent !== undefined && metric.percent >= 75 ? 'warning' : metric.key === 'cpu' ? 'cpu' : 'memory'
     const count = ['pods', 'children', 'namespaces', 'nodes', 'workloads', 'storage', 'vms', 'endpoints', 'replicas'].includes(metric.key)
     return <div className={`topology-metric-chip ${count ? 'is-count' : ''} ${resource ? 'is-resource' : ''} ${metric.key === 'root-disk' ? 'is-root-disk' : metric.key === 'vms' ? 'is-vm-count' : ''} is-${tone} ${metric.percent !== undefined ? 'has-meter' : metric.description && metric.value !== '미수집' ? 'is-quantity' : ''}`}
-        title={`${metric.label}: ${metric.value}${metric.description ? ` · ${metric.description}` : ''}`}>
+        title={`${metric.label}: ${metric.value}${showSource && metric.description ? ` · ${metric.description}` : ''}`}>
         <span className="topology-metric-chip__line">
             <span className="topology-metric-chip__label"><Icon aria-hidden="true" /><span>{metric.label}</span></span>
             {metric.key.startsWith('service-') ? <TopologyCardTooltip title={metric.value} block>
                 <strong className="topology-service-information__value">{metric.value}</strong>
             </TopologyCardTooltip> : <strong>{metric.value}</strong>}
         </span>
-        {resource && (metric.percent !== undefined
+        {resource && metric.source !== 'inventory' && (metric.percent !== undefined
             ? <Progress percent={metric.percent} showInfo={false} size={['100%', 7]}
                 strokeColor={tone === 'critical' ? '#ff8a80' : tone === 'warning' ? '#ffc36b' : tone === 'cpu' ? '#35c99b' : '#5795ff'} railColor="var(--topology-metric-rail, #e9eff6)" />
             : emptyMeter ? <span className="topology-metric-chip__unavailable" aria-label="실시간 사용률 미수집" /> : null)}
+        {showSource && metric.sourceLabel && <span className="topology-metric-chip__source">{metric.sourceLabel}</span>}
     </div>
 }
 
@@ -159,10 +171,17 @@ const TopologySystemVMServiceSummary = ({ information }: {
  * component keeps the same presentation inside one SVG foreignObject. */
 export const TopologyNodeCard = React.memo(({ model, icon, iconClass, href }: {
     model: TopologyNodePresentation; icon: string; iconClass?: string; href?: string
-}) => <><foreignObject className="topology-object-foreign" x={-model.width / 2} y={-model.height / 2}
+}) => {
+    const storage = !model.group && !model.infrastructure && ['persistentvolume', 'persistentvolumeclaim'].includes(model.resourceType)
+    return <><foreignObject className="topology-object-foreign" x={-model.width / 2} y={-model.height / 2}
     width={model.width} height={model.height}>
-    <ConfigProvider theme={{ token: { fontSize: 14, fontFamily: 'var(--netdive-font-family)' } }}>
+    <ConfigProvider theme={{ token: { fontSize: 14, fontFamily: 'var(--netdive-font-family)' },
+        components: { Tooltip: { colorBgSpotlight: '#374151' } } }}>
         <article className={`topology-object-card is-${model.size} ${model.group && !model.namespaceSummary ? `is-resource-group ${model.infrastructure ? 'is-infrastructure-resource-group' : 'is-kubernetes-resource-group'} ${!model.infrastructure && model.height < 360 ? 'is-short-kubernetes-group' : ''} ${model.height < 280 ? 'is-dense-group' : ''} ${model.height >= 460 ? 'is-tall-group' : ''}` : ''} ${!model.group ? `is-object-identity ${model.infrastructure ? 'is-infrastructure-object' : model.resourceType !== 'libvirt' ? 'is-kubernetes-object' : ''}` : ''} ${!model.group && model.resourceType === 'host' ? 'is-host' : ''} ${!model.group && !model.infrastructure && model.resourceType === 'cluster' ? 'is-cluster' : ''} ${!model.group && model.resourceType === 'libvirt' ? 'is-vm' : ''} ${model.group ? `is-group ${model.fullyExpanded ? 'is-group-expanded' : ''}` : model.size === 'large' ? '' : 'is-tile'}`}
+            data-storage-information={storage || undefined}
+            data-kubernetes-node={!model.infrastructure && !model.group && model.resourceType === 'node' || undefined}
+            data-node-metric-source-hidden={!model.infrastructure && !model.group && model.resourceType === 'node'
+                && model.metrics.some(metric => !!metric.sourceLabel) || undefined}
             aria-label={`${model.kind}: ${model.name}`}>
             <div className="topology-object-card__header" style={model.headerHeight ? { height: model.headerHeight } : undefined}>
                 {model.linkState ? <span className="topology-object-card__operation">
@@ -170,7 +189,7 @@ export const TopologyNodeCard = React.memo(({ model, icon, iconClass, href }: {
                     <TopologyCardTooltip title={`동작 상태 ${model.linkState}. Up/Down은 연결 상태이며 이상 판정과는 별개입니다.`}>
                         <Tag className="topology-object-link-state">{model.linkState}</Tag>
                     </TopologyCardTooltip>
-                </span> : <TopologyTypeIcon icon={icon} iconClass={iconClass} href={href} />}
+                </span> : <TopologyVMIcons model={model} icon={icon} iconClass={iconClass} href={href} />}
                 <div className="topology-object-card__identity">
                     <TopologyCardTooltip title={model.name} block>
                         <strong className="topology-object-card__name">{model.name}</strong>
@@ -191,12 +210,14 @@ export const TopologyNodeCard = React.memo(({ model, icon, iconClass, href }: {
             {model.group && !model.namespaceSummary && model.children ? <TopologyResourceGroupSummary model={model} /> : model.group && model.children ? <TopologyGroupHeaderSummary children={model.children} /> :
                 model.systemVMInformation ? <TopologySystemVMServiceSummary information={model.systemVMInformation} /> :
                 model.metrics.length > 0 && <div className={`topology-object-card__metrics ${model.serviceVM ? 'topology-service-information' : ''}`}
-                    style={model.metricRowHeights ? { gridTemplateRows: model.metricRowHeights.map(height => `${height}px`).join(' ') } : undefined}>
-                    {model.metrics.map(metric => <TopologyMetricChip key={metric.key} metric={metric} />)}
+                    style={storage ? { gridTemplateRows: `repeat(${model.metrics.length}, minmax(0, 1fr))` }
+                        : model.metricRowHeights ? { gridTemplateRows: model.metricRowHeights.map(height => `${height}px`).join(' ') } : undefined}>
+                    {model.metrics.map(metric => <TopologyMetricChip key={metric.key} metric={metric}
+                        showSource={model.infrastructure || model.group || model.resourceType !== 'node'} />)}
                 </div>}
         </article>
     </ConfigProvider>
 </foreignObject>
     {(!model.group || model.namespaceSummary) && <TopologyStatusBadgeRail badges={model.badges} summary={model.badgeSummary}
         x={model.width / 2 - TOPOLOGY_STATUS_BADGE_RADIUS} y={-model.height / 2 - TOPOLOGY_STATUS_BADGE_RADIUS / 2} />}
-</>)
+</>})

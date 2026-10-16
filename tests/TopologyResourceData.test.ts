@@ -156,10 +156,10 @@ describe('Topology resource data sources', () => {
         const metrics = topologyResourceMetrics(worker)
         assert.deepEqual(metrics.map(metric => [metric.value, metric.percent]), [['4Core', undefined], ['8GiB', undefined]])
         assert.deepEqual(metrics.map(metric => metric.label), ['CPU 용량', '메모리 용량'])
-        assert.ok(metrics[0].description!.includes('실시간 사용량 미수집'))
+        assert.ok(metrics[0].description!.includes('Kubernetes API'))
         const cluster = topologyResourceMetrics(node('cluster', 'cluster'), { summary: { resources: { metricsAvailable: false, usageCpuCores: 3 } } })
         assert.equal(cluster[0].value, '미수집')
-        const collectedZero = topologyResourceMetrics(node('cluster', 'cluster'), { summary: { resources: { metricsAvailable: true, allocatableCpuCores: 4 } } })
+        const collectedZero = topologyResourceMetrics(node('cluster', 'cluster'), { summary: { resources: { metricsAvailable: true, usageCpuCores: 0, usageMemoryBytes: 0, allocatableCpuCores: 4 } } })
         assert.equal(collectedZero[0].value, '0%')
     })
 

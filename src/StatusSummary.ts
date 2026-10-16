@@ -139,7 +139,7 @@ export const statusSummaryEntries = (
         const result = kubernetesResourceSelfStatus(node)
         const status: SummaryStatus | undefined = result.state === 'inactive' ? 'inactive'
             : result.collection !== 'collected' ? 'unavailable'
-                : result.state === 'unknown' ? 'attention'
+                : ['unknown', 'attention'].includes(result.state) ? 'attention'
                 : result.state === 'problem' ? 'problem' : undefined
         if (status) entries.push({ node, status, reason: result.findings.join(' · ') || (status === 'inactive' ? '현재 운영되지 않는 자원입니다.' : '상태를 확인할 수 없습니다.') })
     } else {

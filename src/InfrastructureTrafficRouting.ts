@@ -1,7 +1,11 @@
 import { topologyCardEdge } from './TopologyEdgePresentation'
 import { separateVMInterfaceRoutes } from './InfrastructureVMInterfaceRouting'
+import { separateInterfaceVLANRoutes } from './InfrastructureVLANRouting'
 import { CompactRoute, RoutingCard, RoutingEdge, RoutingRegion, routeCompactEdges,
     compactRouteFromPoints, routeCardHits, sampleCardEdge, segmentHitsCard } from './InfrastructureCompactRouting'
+
+const routeLength = (route: CompactRoute) => route.points.slice(1).reduce((length, point, i) =>
+    length + Math.hypot(point.x - route.points[i].x, point.y - route.points[i].y), 0)
 
 /** Dense bridge fan-out follows one clear side corridor and one branch per row.
  * Paths may share geometry, but every measured edge keeps its identity, labels
@@ -121,11 +125,29 @@ export function routeInfrastructureTraffic(cards: RoutingCard[], edges: RoutingE
             && route.points.slice(1).some((point, index) => segmentHitsCard(route.points[index], point, region)))
     bridgeFanRoutes(cards, edges, clear, regions, preferred).forEach((route, id) => routes.set(id, route))
     for (const edge of edges.slice().sort((a, b) => a.id.localeCompare(b.id))) {
-        if (routes.has(edge.id)) continue
         const source = byID.get(edge.sourceID), target = byID.get(edge.targetID)
         if (!source || !target || source.id === target.id) continue
-        const original = preferred.get(edge.id) || { path: topologyCardEdge(source, target), points: sampleCardEdge(source, target) }
-        if (clear(edge, original)) { routes.set(edge.id, original); continue }
+        const fanRoute = routes.get(edge.id)
+        const baseline = fanRoute || preferred.get(edge.id)
+        let shorten = false
+        if (baseline) {
+            const start = baseline.points[0], end = baseline.points[baseline.points.length - 1]
+            const minimum = Math.abs(start.x - end.x) + Math.abs(start.y - end.y)
+            // A shared bus serves dense rows, but its farthest member must not
+            // force a nearby endpoint around the entire scene. Optimize only
+            // disproportionate detours; preserve normal buses and Compact units.
+            const compactUnit = preferred.has(edge.id) && regions.some(region =>
+                region.nodeIDs.includes(edge.sourceID) || region.nodeIDs.includes(edge.targetID))
+            shorten = !compactUnit && routeLength(baseline) > minimum * 2 + 128
+            if (fanRoute && !shorten) continue
+        }
+        const baselineClear = !baseline || !shorten || clear(edge, baseline)
+        const original = (!shorten && preferred.get(edge.id)) || { path: topologyCardEdge(source, target), points: sampleCardEdge(source, target) }
+        if (clear(edge, original)) {
+            const route = baseline && baselineClear && routeLength(original) >= routeLength(baseline) ? baseline : original
+            if (baseline?.trafficNodeID) route.trafficNodeID = baseline.trafficNodeID
+            routes.set(edge.id, route); continue
+        }
 
         // A local corridor bounds graph size in large expanded topologies.
         // Validate against every card, adding any obstacles reached by a detour.
@@ -151,7 +173,12 @@ export function routeInfrastructureTraffic(cards: RoutingCard[], edges: RoutingE
                         }
                     })?.get(edge.id)
                     if (!candidate) continue
-                    if (clear(edge, candidate)) { result = candidate; break }
+                    if (clear(edge, candidate)) {
+                        if (!result || routeLength(candidate) < routeLength(result)) result = candidate
+                        // Only expensive fan detours need all departure choices.
+                        if (!shorten) break
+                        continue
+                    }
                     cards.filter(card => !local.has(card.id) && candidate.points.slice(1)
                         .some((point, index) => segmentHitsCard(candidate.points[index], point, card, padding)))
                         .forEach(card => local.set(card.id, card))
@@ -160,8 +187,11 @@ export function routeInfrastructureTraffic(cards: RoutingCard[], edges: RoutingE
             if (result) break
         }
         // Preserve edge identity if overlapping cards leave no valid corridor.
-        routes.set(edge.id, result || original)
+        const route = baseline && shorten && baselineClear && (!result || routeLength(result) >= routeLength(baseline)) ? baseline : result || fanRoute || original
+        if (baseline?.trafficNodeID) route.trafficNodeID = baseline.trafficNodeID
+        routes.set(edge.id, route)
     }
     separateVMInterfaceRoutes(cards, edges, routes, preferred, clear)
+    separateInterfaceVLANRoutes(cards, edges, routes, preferred, clear)
     return routes
 }

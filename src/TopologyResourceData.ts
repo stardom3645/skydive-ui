@@ -1,7 +1,13 @@
 import type { Node } from './Topology'
 import { topologyServiceVMRole } from './TopologyServiceVM'
+import { createKubernetesNodeVMMatcher, KubernetesNodeVMMatch } from './KubernetesNodeVMIdentity'
 
-export interface TopologyResourceSnapshot { detail?: any; summary?: any; wall?: any; inventory?: any; host?: any; service?: any }
+export interface TopologyResourceSnapshot { detail?: any; summary?: any; wall?: any; inventory?: any; host?: any; service?: any; nodeVM?: KubernetesNodeVMMatch }
+export interface TopologyNodeResourceSource {
+    nodeResourceSnapshot(node: Node): TopologyResourceSnapshot
+    subscribeNodeResources(listener: () => void): () => void
+}
+export interface TopologyResourceRef { detail?: string; summary?: string; wall?: string; host?: string; service?: string; nodeVM?: KubernetesNodeVMMatch }
 export interface TopologyResourceRequest { key: string; url: string }
 interface Entry { request: TopologyResourceRequest; checked?: number; data?: any; controller?: AbortController }
 
@@ -51,7 +57,12 @@ export class TopologyResourceData {
                 .then(response => { if (!response.ok) throw new Error('resource data unavailable'); return response.json() })
                 .then(data => {
                     entry.data = entry.request.url.includes('/api/wall/')
-                        ? { series: (data.series || []).map(item => ({ key: item.key, lastValue: item.lastValue })) }
+                        ? { ...(data.rawLabels?.source ? { source: data.rawLabels.source } : {}),
+                            series: (data.series || []).map(item => {
+                                const last = (item.values || []).filter(point => point?.value !== null && point?.value !== undefined).slice(-1)[0]
+                                return { key: item.key, lastValue: item.lastValue,
+                                    ...(Number.isFinite(last?.timestamp) ? { timestamp: last.timestamp } : {}) }
+                            }) }
                         : entry.request.url.includes('/api/mold/hosts/detail')
                             ? data?.moldMatched === false ? undefined : normalizeTopologyHost(data?.mold || data?.host || data?.data || data)
                         : entry.request.url.includes('/api/mold/system-vms/detail')
@@ -203,21 +214,27 @@ export const topologyVMGuestMACs = (node: Node): string[] => Array.from(new Set(
 
 export const topologyResourcePlan = (nodes: Node[], endpoint: string, clusters: any[] = [], inventory?: any, vmDetails?: Record<string, any>, hostDetail: (id: string) => any = () => undefined) => {
     const requests = new Map<string, TopologyResourceRequest>()
-    const refs = new Map<string, { detail?: string; summary?: string; wall?: string; host?: string; service?: string }>()
+    const refs = new Map<string, TopologyResourceRef>()
+    const matchVM = createKubernetesNodeVMMatcher(inventory, vmDetails)
     const add = (path: string, params: URLSearchParams) => {
         const url = `${endpoint.replace(/\/$/, '')}${path}?${params}`
         requests.set(url, { key: url, url }); return url
     }
     nodes.forEach(node => {
         const type = String(node.data?.Type || '').toLowerCase()
-        const ref: { detail?: string; summary?: string; wall?: string; host?: string; service?: string } = {}
+        const ref: TopologyResourceRef = {}
         if (String(node.data?.Manager || '').toLowerCase() === 'k8s') {
             const cluster = topologyKubernetesCluster(node, clusters)
-            if (!cluster?.id) return
-            ref.summary = add('/api/mold/kubernetes-clusters/summary', new URLSearchParams({ id: cluster.id }))
+            if (cluster?.id) ref.summary = add('/api/mold/kubernetes-clusters/summary', new URLSearchParams({ id: cluster.id }))
             if (type === 'node') {
                 const uid = first(node.data, ['K8s.Extra.ObjectMeta.UID', 'K8s.UID', 'UID', 'uid']) || node.id
-                ref.detail = add('/api/mold/kubernetes-clusters/nodes/detail', new URLSearchParams({ id: cluster.id, uid: String(uid) }))
+                if (cluster?.id) ref.detail = add('/api/mold/kubernetes-clusters/nodes/detail', new URLSearchParams({ id: cluster.id, uid: String(uid) }))
+                ref.nodeVM = matchVM(node)
+                if (ref.nodeVM) {
+                    const { uuid, domain } = ref.nodeVM
+                    ref.wall = add('/api/wall/vms/trend', new URLSearchParams({ range: '1h', step: '60s',
+                        name: domain, domain, instanceName: domain, uuid, vmId: uuid }))
+                }
             }
         } else if (['host', 'libvirt'].includes(type)) {
             const inventoryData = topologyInventoryData(node, inventory, vmDetails)

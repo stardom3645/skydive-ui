@@ -1,6 +1,7 @@
 import { DetailSectionIcon } from './common/DetailSectionIcon'
 import * as React from 'react'
-import { Card, Progress, Statistic } from 'antd'
+import { Card, Divider, Progress, Statistic } from 'antd'
+import { vmPublicIPAddresses } from '../VMPublicIPs'
 import InfoIcon from '@material-ui/icons/Info'
 import StorageIcon from '@material-ui/icons/Storage'
 import MemoryIcon from '@material-ui/icons/Memory'
@@ -235,9 +236,13 @@ class VMDetailPanel extends React.Component<Props> {
     private vmNetworkEntries(): Array<{ networkName: string, macAddress: string, ipAddress: string }> {
         const data = this.mergedData()
         const map = this.props.vmNetworkMap || {}
-        for (const key of this.vmKeys(data)) {
+        for (const key of uniqueStrings([this.props.node.data?.Name, this.props.node.data?.InstanceName, ...this.vmKeys(data)])) {
             const found = map[key]
-            if (Array.isArray(found) && found.length > 0) return found
+            if (Array.isArray(found) && found.length > 0) {
+                const uuid = String(data.UUID || data.uuid || '').toLowerCase()
+                const matching = found.filter((nic: any) => !uuid || !nic.vmUuid || String(nic.vmUuid).toLowerCase() === uuid)
+                if (matching.length) return matching
+            }
         }
 
         const nics = [
@@ -249,7 +254,7 @@ class VMDetailPanel extends React.Component<Props> {
             ...asArray(data.nics)
         ]
         return nics.map(nic => ({
-            networkName: firstValue(nic, ['NetworkName', 'networkName', 'networkname', 'Name', 'name']),
+            networkName: firstValue(nic, ['NetworkName', 'networkName', 'networkname']),
             macAddress: firstValue(nic, ['MacAddress', 'macAddress', 'macaddress', 'MAC', 'Mac']),
             ipAddress: firstValue(nic, ['IpAddress', 'ipAddress', 'ipaddress', 'IP', 'IPv4', 'ipv4'])
         })).filter(nic => nic.networkName || nic.macAddress || nic.ipAddress)
@@ -393,38 +398,23 @@ class VMDetailPanel extends React.Component<Props> {
         ]) || this.vmNetworkEntries().map(nic => nic.ipAddress).find(Boolean) || this.ips()[0] || ''
     }
 
-    private publicIp(): string {
-        const data = this.mergedData()
-        const nics = [
-            ...asArray(data.Nic),
-            ...asArray(data.NIC),
-            ...asArray(data.Nics),
-            ...asArray(data.NICs),
-            ...asArray(data.nic),
-            ...asArray(data.nics)
-        ]
-        const fromNic = nics.map(nic => firstValue(nic, [
-            'PublicIP',
-            'PublicIp',
-            'publicIp',
-            'publicip',
-            'PublicIpAddress',
-            'publicIpAddress',
-            'publicipaddress'
-        ])).find(Boolean)
-        return firstValue(data, [
-            'PublicIP',
-            'PublicIp',
-            'publicIp',
-            'publicip',
-            'PublicIpAddress',
-            'publicIpAddress',
-            'publicipaddress',
-            'PublicAddress',
-            'publicAddress',
-            'NatIp',
-            'NATIP'
-        ]) || fromNic || ''
+    private publicIps(): string[] {
+        return vmPublicIPAddresses(this.props.node.data, this.inventoryVMDetail())
+    }
+
+    private renderNetworkInformation() {
+        const entries = this.vmNetworkEntries()
+        if (!entries.length) return null
+        return this.renderSection(<DetailSectionIcon role="related" />, translate('vmNetworkInformation'), <React.Fragment>
+            {entries.map((nic, index) => <React.Fragment key={`${index}:${nic.macAddress}:${nic.ipAddress}`}>
+                {index > 0 && <Divider style={{ marginBlock: 12 }} />}
+                {this.renderRows([
+                    { label: `NIC ${index + 1} · ${translate('vmNetworkName')}`, value: nic.networkName, copy: true },
+                    { label: nic.networkName ? 'IP' : `NIC ${index + 1} · IP`, value: nic.ipAddress, copy: true },
+                    { label: 'MAC', value: nic.macAddress, copy: true }
+                ])}
+            </React.Fragment>)}
+        </React.Fragment>)
     }
 
     private statusText(): string {
@@ -666,12 +656,14 @@ class VMDetailPanel extends React.Component<Props> {
 
         const systemVM = !!this.props.systemVM
         const rawState = firstValue(data, ['State', 'state', 'Status', 'status', 'PowerState', 'powerState'])
+        const publicIps = this.publicIps()
         const basicRows: KeyValueRow[] = [
             { label: translate('vmName'), value: displayName, copy: true, alwaysShow: !systemVM },
             { label: translate('vmLibvirtName'), value: libvirtName, copy: true, alwaysShow: !systemVM },
             { label: 'Host', value: hostName, copy: true, alwaysShow: !systemVM },
             { label: translate('hostOperationalStatus'), value: systemVM ? (rawState ? this.statusText() : '') : this.statusText(), alwaysShow: !systemVM, variant: 'status' },
             { label: translate('vmPrivateIp'), value: this.privateIp(), copy: true, alwaysShow: !systemVM },
+            ...(publicIps.length ? [{ label: translate('vmPublicIp'), value: publicIps.join(', '), copy: true }] : []),
             { label: 'UUID', value: firstValue(data, ['UUID', 'uuid', 'ID', 'Id', 'id', 'ExtID', 'VirtualMachineID', 'virtualMachineId']), copy: true, alwaysShow: !systemVM },
             { label: 'Guest OS', value: os, alwaysShow: !systemVM },
             { label: translate('vmCpu'), value: cpuCount !== undefined ? `${cpuCount} vCPU` : '', copy: false, alwaysShow: !systemVM },
@@ -715,6 +707,7 @@ class VMDetailPanel extends React.Component<Props> {
                 {managementResourceRows.some(row => !isBlank(row.value)) && this.renderSection(<DetailSectionIcon role="serverResources" />, translate('managementServerResources'), this.renderRows(managementResourceRows))}
                 {managementJvmRows.some(row => !isBlank(row.value)) && this.renderSection(<DetailSectionIcon role="jvm" />, translate('managementServerJvm'), this.renderRows(managementJvmRows))}
                 {this.renderSection(<DetailSectionIcon role="related" />, translate('hostConnectedResources'), this.renderOverviewGrid(connectedResources))}
+                {this.renderNetworkInformation()}
                 <HostResourceTrendPanel node={node} session={this.props.session} data={data} target="vm"
                     usageDetails={{
                         cpu: { percent: cpuPercent, capacity: cpuCount !== undefined ? `${cpuCount} vCPU` : undefined },

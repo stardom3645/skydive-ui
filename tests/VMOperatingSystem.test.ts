@@ -1,0 +1,37 @@
+import { strict as assert } from 'assert'
+import { vmOperatingSystem } from '../src/VMOperatingSystem'
+import { vmPublicIPAddresses } from '../src/VMPublicIPs'
+import { topologyNodePresentation } from '../src/TopologyNodePresentation'
+
+describe('VM operating system presentation', () => {
+    it('maps real Windows/Linux/macOS names to bundled icons while keeping the full OS name for the tooltip', () => {
+        for (const name of ['Rocky Linux 10', 'Ubuntu 24.04 LTS', 'Debian GNU/Linux 12', 'CentOS 7', 'Red Hat Enterprise Linux', 'AlmaLinux 9']) {
+            assert.deepEqual(vmOperatingSystem({ guestOS: name }), { name, family: 'linux' })
+        }
+        assert.deepEqual(vmOperatingSystem({ GuestOS: 'Windows Server 2022' }), { name: 'Windows Server 2022', family: 'windows' })
+        assert.deepEqual(vmOperatingSystem({ OS: 'macOS 14' }), { name: 'macOS 14', family: 'apple' })
+        for (const data of [{}, { GuestOS: 'N/A' }, { OS: 'unknown' }, { OS: 'Other (64-bit)' }, { GuestOS: {} }]) assert.equal(vmOperatingSystem(data), undefined)
+    })
+    it('uses Mold OS data without changing VM dimensions, resources, or other object types', () => {
+        const node: any = { id: 'vm', data: { Name: 'i-2-28-VM', Type: 'libvirt', Manager: 'libvirt' }, children: [], state: {} }
+        const before = topologyNodePresentation(node, { name: 'VM' })
+        const after = topologyNodePresentation(node, { name: 'VM', resourceData: { inventory: { guestOS: 'Rocky Linux 10' } } })
+        assert.equal(after.operatingSystem!.family, 'linux')
+        assert.deepEqual([after.width, after.height, after.headerHeight, after.metrics], [before.width, before.height, before.headerHeight, before.metrics])
+        node.data.Type = 'host'; node.data.OS = 'Linux'
+        assert.equal(topologyNodePresentation(node, { name: 'host' }).operatingSystem, undefined)
+        node.data.Type = 'libvirt'; node.data.Manager = 'k8s'
+        assert.equal(topologyNodePresentation(node, { name: 'node' }).operatingSystem, undefined)
+    })
+})
+
+describe('VM public IP binding isolation', () => {
+    it('requires a matching VM UUID or exact internal instance name and never infers a public IP from NICs or NAT gateways', () => {
+        const detail = { uuid: 'vm-1', instanceName: 'i-2-28-VM', publicIps: ['192.0.2.1', '192.0.2.2'] }
+        assert.equal(vmPublicIPAddresses({ Name: 'i-2-28-VM' }, detail).length, 2)
+        assert.equal(vmPublicIPAddresses({ Name: 'same-display-name' }, detail).length, 0)
+        assert.equal(vmPublicIPAddresses({ UUID: 'vm-2', Name: 'i-2-28-VM' }, detail).length, 0)
+        assert.equal(vmPublicIPAddresses({ UUID: 'vm-1' }, { ...detail, publicIps: undefined, PublicIP: '192.0.2.3' }).length, 0)
+        assert.equal(vmPublicIPAddresses({ UUID: 'vm-1' }, undefined).length, 0)
+    })
+})

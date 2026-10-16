@@ -93,6 +93,20 @@
     object-fit: contain;
 }
 
+.netdive-connected-resource-image-icon {
+    display: block;
+    width: 18px;
+    height: 18px;
+    color: var(--netdive-detail-connected-resource-icon);
+    background: currentColor;
+    mask-size: contain;
+    mask-position: center;
+    mask-repeat: no-repeat;
+    -webkit-mask-size: contain;
+    -webkit-mask-position: center;
+    -webkit-mask-repeat: no-repeat;
+}
+
 .netdive-detail-topology-icon {
     display: inline-flex;
     align-items: center;
@@ -309,7 +323,7 @@
     min-height: 52px;
     align-items: center;
     flex-direction: column;
-    justify-content: center;
+    justify-content: flex-start;
     gap: 5px;
     padding: 7px 8px;
     border-right: 1px solid #eef1f5;
@@ -328,6 +342,8 @@
     line-height: var(--netdive-detail-line-body-label);
 }
 .netdive-operational-summary__label {
+    word-break: keep-all;
+    overflow-wrap: anywhere;
     display: inline-flex;
     max-width: 100%;
     align-items: center;
@@ -398,13 +414,14 @@
     max-width: 100%;
     align-items: center;
     gap: 6px;
-    max-height: var(--netdive-detail-line-primary-value-two-lines);
+    flex-shrink: 0;
     justify-content: center;
-    overflow: hidden;
+    overflow: visible;
     color: #101828;
     font-size: 14px;
     font-weight: 500;
     line-height: 20px;
+    word-break: keep-all;
     overflow-wrap: anywhere;
     text-overflow: clip;
     white-space: normal;
@@ -457,12 +474,11 @@
     background: transparent;
 }
 
-/* Four-column operational metrics must keep short resource labels such as
- * "Control Plane" on one line. Horizontal padding is kept compact so the
- * complete label and its info icon fit without ellipsis. */
+/* Preserve complete words and let long labels use a second line rather than
+ * overlapping neighboring metrics. Panel container queries reduce columns. */
 .netdive-operational-summary__metric .netdive-operational-summary__label {
     gap: 3px;
-    white-space: nowrap;
+    white-space: normal;
 }
 
 .netdive-operational-summary__metric:last-child { border-right: 0; }
@@ -1263,7 +1279,7 @@
     width: 22px;
     height: 22px;
     border-radius: 6px;
-    color: #1677ff;
+    color: var(--netdive-detail-connected-resource-icon);
     background: #f0f7ff;
 }
 
@@ -1405,7 +1421,7 @@
     height: 32px;
     border: 1px solid #d7e6ff;
     border-radius: 8px;
-    color: #1677ff;
+    color: var(--netdive-detail-connected-resource-icon);
     background: #f0f7ff;
     line-height: 1;
     vertical-align: middle;
@@ -1697,139 +1713,9 @@ button.netdive-detail-metric-row:focus-visible {
     min-width: 0;
 }
 
-.netdive-detail-navigation-tabs {
-    min-width: 0;
-    margin: -3px 0 0;
-    container-type: inline-size;
-}
-
-.netdive-detail-navigation-tabs .ant-tabs-nav {
-    margin: 0;
-}
-
-.netdive-detail-navigation-tabs .ant-tabs-nav-list {
-    gap: 12px;
-}
-
-.netdive-detail-navigation-tabs .ant-tabs-content-holder {
-    display: none;
-}
-
-.netdive-detail-navigation-tabs .ant-tabs-tab {
-    display: flex;
-    justify-content: center;
-    width: 96px;
-    margin: 0;
-    padding: 7px 10px;
-    color: #667085;
-    font-size: var(--netdive-detail-font-body-label);
-    font-weight: var(--netdive-detail-weight-body-label);
-    line-height: var(--netdive-detail-line-body-label);
-}
-
-.netdive-detail-navigation-tabs .ant-tabs-tab + .ant-tabs-tab {
-    margin-left: 0;
-}
-
-.netdive-detail-navigation-tabs__label {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    line-height: var(--netdive-detail-line-body-label);
-}
-
-.netdive-detail-navigation-tabs__label small {
-    display: inline-flex;
-    min-width: 18px;
-    height: 18px;
-    align-items: center;
-    justify-content: center;
-    padding: 0 5px;
-    border-radius: 9px;
-    color: #98a2b3;
-    background: #f2f4f7;
-    font-size: var(--netdive-detail-font-supporting-text);
-    font-variant-numeric: tabular-nums;
-    font-weight: var(--netdive-detail-weight-section-title);
-    line-height: var(--netdive-detail-line-body-label);
-    text-align: center;
-}
-
-.netdive-detail-navigation-tabs .ant-tabs-tab-active .netdive-detail-navigation-tabs__label small {
-    color: #1677ff;
-    background: #eaf2ff;
-}
-
-.netdive-detail-navigation-tabs .ant-tabs-tab-active .ant-tabs-tab-btn {
-    color: #1677ff;
-}
-
-.netdive-detail-navigation-tabs .ant-tabs-ink-bar {
-    height: 2px;
-    background: #1677ff;
-}
-
-.netdive-detail-navigation-tabs.has-explicit-overflow .ant-tabs-nav-list {
-    gap: 8px;
-}
-
-.netdive-detail-navigation-tabs.has-explicit-overflow .ant-tabs-tab {
-    width: 88px;
-    padding-right: 4px;
-    padding-left: 4px;
-}
-
-.netdive-detail-navigation-tabs.has-explicit-overflow .netdive-detail-navigation-tabs__label {
-    gap: 4px;
-}
-
-@container (max-width: 420px) {
-    .netdive-detail-navigation-tabs.has-explicit-overflow .ant-tabs-tab {
-        width: 80px;
-        padding-right: 2px;
-        padding-left: 2px;
-    }
-}
-
-@container (max-width: 380px) {
-    .netdive-detail-navigation-tabs.has-explicit-overflow .ant-tabs-nav-list {
-        gap: 6px;
-    }
-
-    .netdive-detail-navigation-tabs.has-explicit-overflow .ant-tabs-tab {
-        width: 74px;
-    }
-}
-
-.netdive-detail-navigation-tabs__overflow-trigger.ant-btn {
-    position: relative;
-    display: inline-flex;
-    width: 32px;
-    height: 100%;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    color: #667085;
-    font-size: 18px;
-}
-
-.netdive-detail-navigation-tabs__overflow-trigger.ant-btn:hover,
-.netdive-detail-navigation-tabs__overflow-trigger.ant-btn:focus-visible,
-.netdive-detail-navigation-tabs__overflow-trigger.ant-btn.is-active {
-    color: #1677ff;
-    background: transparent;
-}
-
-.netdive-detail-navigation-tabs__overflow-trigger.ant-btn.is-active::after {
-    position: absolute;
-    right: 2px;
-    bottom: 0;
-    left: 2px;
-    height: 2px;
-    background: #1677ff;
-    content: '';
-}
+.netdive-detail-navigation-tabs { min-width: 0; margin: -3px 0 0; }
+.netdive-detail-navigation-tabs .ant-tabs-content-holder,
+.netdive-detail-navigation-tabs .ant-tabs-body-holder { display: none; }
 
 .netdive-detail-meta-info-row,
 .netdive-detail-collection-status-row {
@@ -4030,12 +3916,21 @@ button.netdive-detail-metric-row:focus-visible {
     justify-content: center;
 }
 
+/* Size against the panel, not the browser window. The native Ant section
+ * must participate in the same container queries as the older detail cards. */
+.netdive-ant-detail-section.ant-card {
+    min-width: 0;
+    max-width: 100%;
+    container-type: inline-size;
+}
+
 /* Native Ant detail surfaces: only content layout and semantic density. */
 .netdive-ant-detail-section > .ant-card-head .netdive-ant-detail-section-toggle {
     justify-content: flex-start;
     min-height: 42px;
-    height: 42px;
-    padding-block: 0;
+    height: auto;
+    padding-block: 8px;
+    white-space: normal;
 }
 .netdive-ant-detail-description { font-size: 11px; }
 .netdive-ant-detail-section .netdive-detail-resource-grid,
@@ -4046,10 +3941,20 @@ button.netdive-detail-metric-row:focus-visible {
 .netdive-ant-detail-section .netdive-detail-compact-resource-list { padding: 0; }
 .netdive-ant-detail-section .netdive-detail-card-subsection-header { margin-inline: 0; }
 .netdive-detail-descriptions .ant-descriptions-view { overflow: hidden; }
-.netdive-detail-descriptions .ant-descriptions-item-label { font-weight: 400; white-space: normal; }
+/* Keep Korean words intact; allow a label to wrap at a space instead of
+ * dropping the last syllable onto its own line. Auto layout reserves the
+ * longest label word while long values can still shrink and wrap. */
+.netdive-detail-descriptions .ant-descriptions-item-label {
+    font-weight: 400;
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+}
+.netdive-detail-descriptions .ant-descriptions-item-content { min-width: 0; }
+.netdive-detail-descriptions .ant-descriptions-item-content > span { min-width: 0; max-width: 100%; }
 .netdive-detail-description-value { display: flex; align-items: center; gap: 4px; min-width: 0; }
 .netdive-detail-description-text { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.netdive-detail-description-text.is-wrapping { white-space: normal; overflow-wrap: anywhere; }
+.netdive-detail-description-text.is-wrapping { white-space: normal; word-break: keep-all; overflow-wrap: anywhere; }
 .netdive-ant-resource-wrapper { min-width: 0; }
 .netdive-ant-resource-content { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .netdive-ant-resource-content .ant-card-meta { display: flex; align-items: center; flex: 1; min-width: 0; margin: 0; }
@@ -4071,7 +3976,7 @@ button.netdive-detail-metric-row:focus-visible {
 .netdive-detail-description-text.lines-3 { -webkit-line-clamp: 3; }
 .netdive-detail-description-text.lines-6 { -webkit-line-clamp: 6; }
 
-.netdive-detail-descriptions table { table-layout: fixed; width: 100%; }
+.netdive-detail-descriptions table { table-layout: auto; width: 100%; }
 .netdive-ant-detail-section .ant-card-head .ant-space-item > img { width: 16px; height: 16px; object-fit: contain; }
 
 /* Shared vertical rhythm for section cards in every detail panel. */
@@ -4081,12 +3986,35 @@ button.netdive-detail-metric-row:focus-visible {
 .netdive-ant-detail-section > .ant-card-body {
     padding-block: 16px;
 }
+.netdive-ant-detail-section > .ant-card-head .ant-card-head-wrapper {
+    min-width: 0;
+    gap: 8px;
+}
+.netdive-ant-detail-section > .ant-card-head .ant-card-head-title {
+    min-width: 0;
+    white-space: normal;
+    overflow: visible;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+}
+.netdive-ant-detail-section > .ant-card-head .ant-card-extra {
+    flex: 0 0 auto;
+    margin-inline-start: 0;
+    white-space: nowrap;
+}
 .netdive-ant-detail-section > .ant-card-head .ant-space {
+    min-width: 0;
+    max-width: 100%;
     align-items: center;
 }
 .netdive-ant-detail-section > .ant-card-head .ant-space-item {
     display: inline-flex;
+    min-width: 0;
     align-items: center;
+}
+.netdive-ant-detail-section > .ant-card-head .ant-space-item:last-child {
+    overflow-wrap: break-word;
+    word-break: keep-all;
 }
 .netdive-detail-section-icon {
     flex: 0 0 auto;

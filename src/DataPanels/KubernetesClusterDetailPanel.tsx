@@ -2440,7 +2440,13 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                 )}
                 {this.state.activeDetailTab !== 'logs' && !this.state.summaryLoading && moldCluster && (this.state.summaryError || !this.state.summary?.resources?.metricsAvailable) && (
                     <Alert type="info" showIcon className="netdive-cluster-ant-alert"
-                        title={translate('kubernetesSummaryFallback')} description={translate('kubernetesSummaryFallbackDetail')} />
+                        title={translate('kubernetesSummaryFallback')} description={translate('kubernetesSummaryFallbackDetail')}
+                        styles={{
+                            title: { fontSize: 'var(--netdive-detail-font-body-label)', fontWeight: 400,
+                                lineHeight: 'var(--netdive-detail-line-body-label)', marginBottom: 4 },
+                            description: { fontSize: 'var(--netdive-detail-font-body-label)',
+                                lineHeight: 'var(--netdive-detail-line-body-label)' }
+                        }} />
                 )}
             </div>
             </ConfigProvider>

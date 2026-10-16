@@ -16,6 +16,8 @@
 }
 .topology-object-icon > .fa { font-family: 'Font Awesome 5 Free'; font-weight: 900; }
 .topology-object-icon > img { width: 32px; height: 32px; object-fit: contain; filter: grayscale(1); opacity: 0.85; }
+.topology-object-card__vm-icons { display: inline-flex; align-items: center; gap: 10px; grid-column: 1; grid-row: 1; }
+.topology-object-card__os-icon { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 44px; font-size: 30px; color: var(--topology-object-muted, #63748d); }
 .topology-object-card.is-large .topology-object-icon,
 .topology-object-card.is-group .topology-object-icon { width: 64px; height: 64px; flex-basis: 64px; font-size: 38px; }
 .topology-object-card__identity { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 8px; }
@@ -172,6 +174,15 @@
     max-height: 72px; white-space: normal; overflow-wrap: anywhere; font-size: 28px; line-height: 36px;
 }
 .topology-object-card.is-kubernetes-object .topology-object-card__metrics { margin-top: 0; }
+.topology-object-card[data-kubernetes-node] .topology-metric-chip.is-count { grid-column: 1 / -1; }
+.topology-object-card[data-kubernetes-node] .topology-metric-chip__source {
+    font-size: 22px; line-height: 26px; color: var(--topology-object-muted, #63748d);
+}
+.topology-object-card[data-node-metric-source-hidden] .topology-metric-chip.is-resource {
+    display: flex; flex-direction: column; justify-content: center;
+}
+.topology-object-card[data-kubernetes-node] .topology-metric-chip__label,
+.topology-object-card[data-kubernetes-node] .topology-metric-chip__label > .anticon { font-size: 22px; }
 .topology-object-card.is-kubernetes-object .topology-metric-chip { padding: 7px 9px; line-height: 36px; }
 .topology-object-card.is-kubernetes-object .topology-metric-chip__line {
     flex-direction: column; flex-wrap: nowrap; align-items: flex-start; gap: 2px;
@@ -188,6 +199,15 @@
 .topology-object-card.is-kubernetes-object .topology-metric-chip.is-count .topology-metric-chip__line > strong {
     display: block; white-space: nowrap;
 }
+
+/* Fit storage configuration into the existing 128px body, without meters or
+ * empty slots when a PVC has no StorageClass. Other card geometry is unchanged. */
+.topology-object-card[data-storage-information] .topology-object-card__metrics { height: 128px; grid-template-columns: minmax(0, 1fr); gap: 4px; }
+.topology-object-card[data-storage-information] .topology-metric-chip { display: flex; align-items: center; padding: 4px 8px; border-radius: 8px; }
+.topology-object-card[data-storage-information] .topology-metric-chip__line { width: 100%; flex-direction: row; flex-wrap: nowrap; align-items: center; gap: 8px; }
+.topology-object-card[data-storage-information] .topology-metric-chip__label { flex: 0 0 auto; font-size: 22px; line-height: 30px; }
+.topology-object-card[data-storage-information] .topology-metric-chip__label > .anticon { font-size: 22px; }
+.topology-object-card[data-storage-information] .topology-metric-chip__line > strong { display: block; min-width: 0; flex: 0 1 auto; font-size: 24px; line-height: 30px; white-space: nowrap; overflow-wrap: normal; }
 
 /* Virtual groups use member-sized silhouettes and the ordinary card's surfaces. */
 .topology-object-card.is-resource-group { padding: 20px; gap: 14px; justify-content: flex-start; }
@@ -222,7 +242,7 @@
 .topology-resource-group-summary__counts span,
 .topology-resource-group-summary__heading > span:first-child,
 .topology-resource-group-summary__display > span { color: var(--topology-object-muted, #63748d); font-size: 24px; line-height: 28px; }
-.topology-resource-group-summary__counts strong { font-size: 32px; font-weight: 500; line-height: 36px; }
+.topology-resource-group-summary__counts strong { font-size: 32px; font-weight: 500; line-height: 36px; text-align: right; font-variant-numeric: tabular-nums; }
 .topology-resource-group-summary__distribution { display: flex; flex-direction: column; justify-content: center; gap: 10px; }
 .topology-resource-group-summary__heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
 .topology-resource-group-summary__heading > span + span { font-size: 22px; line-height: 28px; }

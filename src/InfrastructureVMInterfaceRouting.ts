@@ -1,6 +1,6 @@
 import type { CompactRoute, RoutingCard, RoutingEdge, RoutePoint } from './InfrastructureCompactRouting'
 
-const verticalCurve = (start: RoutePoint, end: RoutePoint, reverse = false): CompactRoute => {
+export const verticalCurve = (start: RoutePoint, end: RoutePoint, reverse = false): CompactRoute => {
     const middle = (start.y + end.y) / 2
     const points = [start]
     for (let i = 1; i <= 16; i++) {

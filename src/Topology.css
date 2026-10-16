@@ -97,6 +97,17 @@ svg {
     text-decoration: none;
 }
 
+/* Guide sizes are screen pixels; only positions follow the scene transform. */
+.level-label.level-label-compact .level-label-title { visibility: hidden; }
+.level-label .level-label-collapsed-count {
+    font-family: var(--netdive-font-family);
+    font-size: 10px;
+    font-weight: 500;
+    fill: var(--topology-level-label-title);
+    pointer-events: none;
+}
+.level-label.level-label-active .level-label-collapsed-count { fill: var(--topology-level-label-active-text); }
+
 .level-label.level-label-active .level-label-icon,
 .level-label.level-label-active .level-label-badge {
     fill: var(--topology-level-label-active-text);

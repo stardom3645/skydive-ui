@@ -789,7 +789,7 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
             </DetailSectionCard>
 
             <DetailSectionCard icon={<DetailSectionIcon role="operational" />} title={`${kindLabel} ${translate('kubernetesOperationalStatusShort')}`}>
-                <StatusSummaryGrid
+                <StatusSummaryGrid criteriaKind={kind}
                     verdict={verdictLabel}
                     verdictTone={verdictTone}
                     rawStatus={health ? health.progress : statusLabel}

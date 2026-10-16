@@ -21,6 +21,7 @@ import { Button, Tabs, Tooltip } from 'antd'
 import { ArrowLeftOutlined, ArrowRightOutlined, CloseOutlined, EnvironmentOutlined } from '@ant-design/icons'
 
 import { Node, Link } from './Topology'
+import type { TopologyNodeResourceSource } from './TopologyResourceData'
 import DataPanel from './StdDataPanel'
 import { TabPanel } from './Tabs'
 import { AppState, session } from './Store'
@@ -67,6 +68,7 @@ interface Props {
   vmNameMap?: Record<string, string>
   vmNetworkMap?: Record<string, Array<{ networkName: string, macAddress: string, ipAddress: string }>>
   vmDetailMap?: Record<string, any>
+  nodeResourceSource?: TopologyNodeResourceSource
   managementServers?: any[]
   groupVisibleNodeIDs?: Set<string>
   hideDownNodes?: boolean
@@ -639,6 +641,7 @@ class SelectionPanel extends React.Component<Props, State> {
               : isKubernetesNode(el)
               ? <KubernetesNodeDetailPanel
                   node={el as Node}
+                  nodeResourceSource={this.props.nodeResourceSource}
                   nodeAttrs={(node: Node) => this.props.config.nodeAttrs(node)}
                   session={this.props.session}
                   vmDetailMap={this.props.vmDetailMap}

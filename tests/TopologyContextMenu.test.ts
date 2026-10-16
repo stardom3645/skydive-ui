@@ -145,7 +145,7 @@ describe('Topology context menu contract', () => {
         assert.ok(!topology.includes("select(`#link-${link.id}`).attr('d')"))
         assert.ok(topology.includes('completeTopologySync()'))
         const app = read('src/App.tsx')
-        assert.ok(app.includes('this.tc.resetTree(true)'))
+        assert.ok(app.includes('this.tc.resetTree(true, Array.isArray(data.Obj?.Nodes))'))
         assert.ok(app.includes('this.tc.completeTopologySync()'))
         assert.ok(!topology.includes('window.setTimeout(() => this.clearTopologyNodeFocus'))
         const nodeTransitionStart = topology.indexOf('        node.transition()')

@@ -19,7 +19,7 @@ describe('Kubernetes PV detail aggregation', () => {
     })
 
     it('distinguishes released and failed phases', () => {
-        assert.equal(kubernetesPvOperationalPresentation('Released').tone, 'warning')
+        assert.equal(kubernetesPvOperationalPresentation('Released').tone, 'success')
         assert.equal(kubernetesPvOperationalPresentation('Failed').tone, 'danger')
         assert.equal(kubernetesPvOperationalPresentation(undefined).verdict, '미확인')
     })

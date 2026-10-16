@@ -21,14 +21,17 @@ import { topologyBranchOffsets } from './TopologyBranchSpacing'
 import { topologyGroupRegions, TopologyGroupRegion } from './TopologyGroupRegions'
 import { kubernetesNamespaceOffsets, kubernetesNamespaceRegions, KubernetesNamespaceRegionNode } from './KubernetesNamespaceRegions'
 import { topologyLayerGlyph, topologyLayerTitleLines } from './TopologyLayerIcons'
+import { topologyLayerGuide, LayerGuideLayout, layerGuideIconPixels, layerGuideCompactHeight } from './TopologyLayerGuide'
 import { TopologyReactRoots } from './TopologyReactRoots'
 import { TopologyCaptureIndicator } from './TopologyCaptureIndicator'
 import { TopologyNodeCard } from './TopologyNodeCard'
 import { topologyCardDimensions, topologyNodePresentation, topologyGroupFullyExpanded, topologyNodeStatusPresentation, topologyLayerCardLayouts, TopologyCardLayout } from './TopologyNodePresentation'
 import { topologyLaneBounds, topologyLaneOffsets, topologyLaneSeparators, INFRASTRUCTURE_TRAFFIC_LANE_GAP, INFRASTRUCTURE_HOST_CAPTION_GAP } from './TopologyLaneSpacing'
 import { TOPOLOGY_STATUS_BADGE_RADIUS } from './TopologyStatusBadge'
-import { TopologyResourceData, topologyResourcePlan, topologyInventoryData } from './TopologyResourceData'
-import { topologyCardEdge, topologyHierarchyEdgeIDs, kubernetesPodOwnershipEdges, mergeKubernetesPodOwnershipLinks } from './TopologyEdgePresentation'
+import { TopologyResourceData, TopologyResourceRef, TopologyResourceSnapshot, topologyResourcePlan, topologyInventoryData, topologyKubernetesCluster } from './TopologyResourceData'
+import { createTopologyResourceMetricsIndex } from './TopologyResourceMetrics'
+import { topologyCardEdge, topologyHierarchyEdgeIDs, kubernetesPodOwnershipEdges, mergeKubernetesPodOwnershipLinks, mergeKubernetesRelationLinks } from './TopologyEdgePresentation'
+import { kubernetesStorageBindings, kubernetesStorageBindingKey, isKubernetesStorageBindingPair } from './KubernetesStorageBindings'
 import { infrastructureCompactLayout, infrastructureVMBridgeIDs, InfrastructureCompactPlan,
     InfrastructureVMLayoutMode, CompactLayoutNode } from './InfrastructureCompactLayout'
 import { routeInfrastructureTraffic } from './InfrastructureTrafficRouting'
@@ -70,6 +73,12 @@ import './Topology.css'
 
 // 토폴로지 노드/링크 전환 애니메이션 시간(ms)입니다.
 const animDuration = 500
+// Start zoomed out even when only one card/group is visible. Manual zoom and
+// explicit Fit keep their existing limits.
+export const topologyInitialScale = 0.55
+export const topologyAutoFitMinScale = 0.28
+export const topologyAutoFitMaxScale = 0.8
+type TopologyZoomFitAnchor = { nodeID: string, x: number, y: number }
 // 이 개수 이하는 그룹 노드로 묶지 않고 일반 노드로 펼쳐 표시합니다.
 const defaultGroupSize = 6
 // 그룹 전체 펼침 시 최대 표시 가능한 하위 노드 수입니다.
@@ -662,12 +671,12 @@ export class Topology extends React.Component<Props, {}> {
     private reactRoots = new TopologyReactRoots()
     private objectCardRenderKeys = new WeakMap<Element, string>()
     private resourceData?: TopologyResourceData
-    private resourceRefs = new Map<string, { detail?: string; summary?: string; wall?: string; host?: string; service?: string }>()
+    private nodeResourceListeners = new Set<() => void>()
+    private resourceRefs = new Map<string, TopologyResourceRef>()
     private resourceRefreshTimer?: number
     private resourceCardRefreshTimer?: number
     private zoom: zoom
     private liner: line
-    private showLevelLabelsTimeoutID: number
     private raisedLinkLabelID: string
     // SVG selection cleanup can run on the first sync, before renderTree.
     private d3nodes = new Map<string, D3Node>()
@@ -677,6 +686,8 @@ export class Topology extends React.Component<Props, {}> {
     private nodeTagCount: Map<string, number>
     private linkTagCount: Map<string, number>
     private invalidated: boolean
+    private levelGuideLayout = new Map<number, LayerGuideLayout>()
+    private levelGuideMetrics = new Map<number, { key: string; titleY: number; titleHeight: number; iconY: number; iconHeight: number; iconFont: number }>()
     private levelRects: Array<LevelRect>
     private groups: Map<string, NodeWrapper>
     private groupStates: Map<string, NodeState>
@@ -704,7 +715,14 @@ export class Topology extends React.Component<Props, {}> {
     private zoomFitTimeoutID: number
     private zoomFitAnimationFrameID: number
     private zoomFitPending = false
+    private viewportManuallyAdjusted = false
+    private zoomFitAnchor?: TopologyZoomFitAnchor
+    private zoomFitMinScale = topologyAutoFitMinScale
+    private zoomFitMaxScale?: number
     private layerCardLayouts = new Map<string, TopologyCardLayout>()
+    private kubernetesMetricLayoutKey = ''
+    private cardWidthCache = new WeakMap<D3Node, number>()
+    private cardHeightCache = new WeakMap<D3Node, number>()
     private kubernetesProblemsOnly: boolean
     private kubernetesAttentionPathIDs: Set<string>
     private kubernetesProblemsExpandedSnapshot: Map<string, boolean> | null
@@ -733,7 +751,6 @@ export class Topology extends React.Component<Props, {}> {
         this.initTree()
 
         this.isCtrlPressed = false
-        this.showLevelLabelsTimeoutID = 0
         this.raisedLinkLabelID = ""
         this.pinnedContainerMiniNodeID = ""
         this.expandedContainerMiniNodeIDs = new Set<string>()
@@ -774,6 +791,8 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     componentDidUpdate(prevProps: Props) {
+        this.cardWidthCache = new WeakMap()
+        this.cardHeightCache = new WeakMap()
         if (prevProps.infrastructureVMLayout !== this.props.infrastructureVMLayout
             || (this.props.infrastructureVMLayout === 'compact' && prevProps.vmNetworkMap !== this.props.vmNetworkMap)) {
             this.relayoutInfrastructureVMs()
@@ -802,14 +821,31 @@ export class Topology extends React.Component<Props, {}> {
         })
     }
 
+    nodeResourceSnapshot(node: Node): TopologyResourceSnapshot {
+        const ref = this.resourceRefs.get(node.id)
+        return { detail: this.resourceData?.get(ref?.detail), wall: this.resourceData?.get(ref?.wall), nodeVM: ref?.nodeVM }
+    }
+
+    subscribeNodeResources(listener: () => void): () => void {
+        this.nodeResourceListeners.add(listener)
+        return () => { this.nodeResourceListeners.delete(listener) }
+    }
+
+    private notifyNodeResources() {
+        this.nodeResourceListeners.forEach(listener => listener())
+    }
+
     private startResourceData() {
         this.resourceData?.dispose()
         this.resourceData = undefined
         this.resourceRefs.clear()
         if (this.props.resourceSession && this.props.resourceDataEnabled !== false) {
+            // Host responses can resolve a different Wall address. Replan
+            // immediately before the request queue pumps; coalesce only paint.
             this.resourceData = new TopologyResourceData(() => { this.syncResourceData(); this.refreshResourceCards() })
             this.syncResourceData()
         }
+        this.notifyNodeResources()
         this.refreshResourceCards()
     }
 
@@ -821,6 +857,7 @@ export class Topology extends React.Component<Props, {}> {
             this.props.moldInventory, this.props.vmDetailMap, id => this.resourceData?.get(this.resourceRefs.get(id)?.host))
         this.resourceRefs = plan.refs
         this.resourceData.sync(plan.requests, this.props.resourceSession.token)
+        this.notifyNodeResources()
     }
 
     private refreshResourceCards() {
@@ -829,7 +866,13 @@ export class Topology extends React.Component<Props, {}> {
             this.resourceCardRefreshTimer = undefined
             const root = this.d3nodes.get('root')
             if (root && this.gNodes) {
-                this.renderNodes(root)
+                const metricsIndex = this.nodeTagActive?.toLowerCase() === 'kubernetes' ? this.createResourceMetricsIndex() : undefined
+                if (metricsIndex && this.kubernetesMetricsLayoutSignature(metricsIndex) !== this.kubernetesMetricLayoutKey) {
+                    this.invalidated = true
+                    this.renderTree()
+                    return
+                }
+                this.renderNodes(root, true, metricsIndex)
                 this.refreshTopologyNodeFocus()
                 this.applyTopologyNodeFocus()
                 this.syncTopologyRelationEmphasis()
@@ -838,6 +881,7 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     componentWillUnmount() {
+        this.nodeResourceListeners.clear()
         if (this.infrastructureResizeTimer !== undefined) window.clearTimeout(this.infrastructureResizeTimer)
         this.resourceData?.dispose()
         if (this.resourceRefreshTimer !== undefined) window.clearInterval(this.resourceRefreshTimer)
@@ -846,10 +890,6 @@ export class Topology extends React.Component<Props, {}> {
             .on("keydown.topology", null)
             .on("keyup.topology", null)
 
-        if (this.showLevelLabelsTimeoutID) {
-            window.clearTimeout(this.showLevelLabelsTimeoutID)
-            this.showLevelLabelsTimeoutID = 0
-        }
         this.cancelScheduledZoomFit()
         this.hideNodeContextMenu()
 
@@ -871,7 +911,7 @@ export class Topology extends React.Component<Props, {}> {
         this.svg
             .attr("width", rect.width)
             .attr("height", rect.height)
-        if (this.zoomFitPending) this.zoomFitAfterRender()
+        if (this.zoomFitPending) this.zoomFitAfterRender(this.zoomFitMinScale, this.zoomFitMaxScale, this.zoomFitAnchor)
         if (this.props.infrastructureVMLayout === 'compact' && this.nodeTagActive.toLowerCase() !== 'kubernetes') {
             if (this.infrastructureResizeTimer !== undefined) window.clearTimeout(this.infrastructureResizeTimer)
             this.infrastructureResizeTimer = window.setTimeout(() => {
@@ -895,7 +935,7 @@ export class Topology extends React.Component<Props, {}> {
         const next = old && this.d3nodes.get(old.id)
         if (next && old) this.svg.call(this.zoom.transform,
             zoomIdentity.translate(transform.x + (old.x - next.x) * transform.k, transform.y + (old.y - next.y) * transform.k).scale(transform.k))
-        if (fitPending) this.zoomFitAfterRender()
+        if (fitPending) this.zoomFitAfterRender(this.zoomFitMinScale, this.zoomFitMaxScale)
     }
 
     private nodeDisplayNameForGroupList(node: Node): string {
@@ -965,6 +1005,7 @@ export class Topology extends React.Component<Props, {}> {
         if (group) this.syncGroupDisplaySize(group.wrapped)
         this.renderTree()
         this.hideLinks()
+        this.fitAfterBranchChange()
     }
 
     private setGroupListNodes(children: Node[], visible: boolean) {
@@ -989,6 +1030,7 @@ export class Topology extends React.Component<Props, {}> {
         groups.forEach(group => this.syncGroupDisplaySize(group))
         this.renderTree()
         this.hideLinks()
+        this.fitAfterBranchChange()
     }
 
     toggleGroupChildDisplay(child: Node) {
@@ -1124,25 +1166,28 @@ export class Topology extends React.Component<Props, {}> {
 
         this.zoom = zoom()
             .scaleExtent([0.1, 1.5])
+            .on("start", () => {
+                if (event.sourceEvent) this.cancelScheduledZoomFit()
+            })
             .on("zoom", () => {
-                this.hideAllLevelLabels()
+                // start also fires for a plain click; only an actual gesture
+                // changing the transform should take over the viewport.
+                if (['wheel', 'mousemove', 'touchmove'].includes(event.sourceEvent?.type)) {
+                    this.viewportManuallyAdjusted = true
+                    this.cancelScheduledZoomFit()
+                }
                 this.hideNodeContextMenu()
                 this.g.attr("transform", event.transform.toString())
 
                 this.absTransformX = event.transform.x * 1 / event.transform.k
                 this.absTransformY = event.transform.y * 1 / event.transform.k
-                this.updateLevelLabelBackdrop()
+                this.showAllLevelLabels()
                 this.updateTopologyHostCaptions()
                 if (this.props.onZoomChange) {
                     this.props.onZoomChange(event.transform.k)
                 }
             })
-            .on("end", () => {
-                if (this.showLevelLabelsTimeoutID) {
-                    window.clearTimeout(this.showLevelLabelsTimeoutID)
-                }
-                this.showLevelLabelsTimeoutID = window.setTimeout(this.showAllLevelLabels.bind(this), 200)
-            })
+
 
         this.svg.call(this.zoom)
             .on("dblclick.zoom", null)
@@ -1216,19 +1261,26 @@ export class Topology extends React.Component<Props, {}> {
             .x(d => d.x)
             .y(d => d.y)
             .curve(curveCardinalClosed.tension(0.7))
+
+        this.setZoomLevel(topologyInitialScale, false, false)
+        document.fonts?.ready.then(() => {
+            if (!this.svgDiv?.isConnected) return
+            this.levelGuideMetrics.clear()
+            this.showAllLevelLabels()
+        })
     }
 
     static defaultState(): NodeState {
         return { expanded: false, selected: false, mouseover: false, groupOffset: 0, groupFullSize: false }
     }
 
-    resetTree(preserveTopologyFocus = false) {
+    resetTree(preserveTopologyFocus = false, deferRender = false) {
         this.topologySyncInProgress = preserveTopologyFocus
         this.unpinNodes()
         this.unselectAllNodes()
         this.unselectAllLinks()
         this.initTree()
-        this.renderTree()
+        if (!deferRender) this.renderTree()
     }
 
     completeTopologySync() {
@@ -1284,11 +1336,11 @@ export class Topology extends React.Component<Props, {}> {
             node.children.forEach(child => expand(child))
         }
 
-        // 1차: 실제 Node 트리를 전부 펼친 상태로 한 번 렌더링해서
-        //      모든 그룹(NodeWrapper)과 groupStates 엔트리를 생성합니다.
+        // Discover proxy groups without laying out/painting an intermediate
+        // tree. Only the final, fully expanded tree needs a DOM update.
         expand(this.root)
         this.invalidated = true
-        this.resetCacheAndRenderTree()
+        this.normalizeTree(this.root)
 
         // 2차: 이제 groupStates 안에 새로 생성된 그룹 상태까지 모두 들어왔으므로
         //      여기에서 "완전 펼침" 설정을 일괄 적용합니다.
@@ -1303,6 +1355,7 @@ export class Topology extends React.Component<Props, {}> {
         // 3차: 그룹 상태 변경을 반영해서 다시 한 번 전체 토폴로지를 렌더링합니다.
         this.invalidated = true
         this.resetCacheAndRenderTree()
+        this.fitAfterBranchChange()
     }
 
     // 전체 토폴로지를 한 번에 접는 기능입니다.
@@ -1336,6 +1389,7 @@ export class Topology extends React.Component<Props, {}> {
         // 3) 전체 토폴로지 다시 그리기
         this.invalidated = true
         this.resetCacheAndRenderTree()
+        this.fitAfterBranchChange()
     }
 
     /** Enable or disable the Kubernetes attention-path view. Problem branches
@@ -2033,6 +2087,14 @@ export class Topology extends React.Component<Props, {}> {
 
     expand(node: Node) {
         const isGroup = this.groupStates.has(node.id)
+        // Keep a real cluster at its click position through sibling relayout
+        // and automatic zoom. A group continues to fit the whole scene.
+        let anchor: TopologyZoomFitAnchor | undefined
+        if (!isGroup && node.data?.Manager === 'k8s' && node.data?.Type === 'cluster') {
+            const current = this.d3nodes.get(node.id)
+            const transform = (this.svg.node() as any).__zoom || zoomIdentity
+            if (current) anchor = { nodeID: node.id, x: transform.x + current.x * transform.k, y: transform.y + current.y * transform.k }
+        }
         if (node.state.expanded && (!isGroup || node.state.groupFullSize)) {
             this.setFullGroupDisplay(node, false)
             this.collapse(node)
@@ -2051,6 +2113,7 @@ export class Topology extends React.Component<Props, {}> {
         this.invalidated = true
 
         this.resetCacheAndRenderTree()
+        this.fitAfterBranchChange(anchor)
     }
 
     private hexagon(d: D3Node, size: number) {
@@ -2076,6 +2139,9 @@ export class Topology extends React.Component<Props, {}> {
         }
 
         var links = new Array<Link>()
+        const storageBindings = this.nodeTagActive.toLowerCase() === 'kubernetes'
+            ? kubernetesStorageBindings(Array.from(this.nodes.values())) : []
+        const storagePairs = new Set(storageBindings.map(pair => kubernetesStorageBindingKey(pair.source, pair.target)))
 
         var findVisible = (node: Node | null) => {
             while (node) {
@@ -2101,6 +2167,10 @@ export class Topology extends React.Component<Props, {}> {
         var tagPresent = new Map<string, boolean>()
 
         this.links.forEach((link: Link) => {
+            // A stale collected storage edge cannot override the current API
+            // binding, including Released references to deleted/recreated PVCs.
+            if (this.nodeTagActive.toLowerCase() === 'kubernetes' && isKubernetesStorageBindingPair(link.source, link.target)
+                && !storagePairs.has(kubernetesStorageBindingKey(link.source, link.target))) return
             if (link.data?.KubernetesPlacementLink) {
                 // Node-Pod scheduling is a relationship shown in details, not a
                 // topology edge in the OwnerReference execution hierarchy.
@@ -2155,6 +2225,20 @@ export class Topology extends React.Component<Props, {}> {
                 create: edge => new Link(`kubernetes-pod-owner-${edge.source.data.id}-${edge.target.data.id}`, [],
                     edge.source.data.wrapped, edge.target.data.wrapped,
                     { RelationType: 'ownership', KubernetesPodOwnershipGuide: true }, { selected: false })
+            })
+            const visible = (node: Node) => {
+                const rendered = this.d3nodes.get(node.id)
+                return rendered?.data.type === WrapperType.Normal && this.displayBranchVisible(node)
+                    && (!this.props.nodeVisible || this.props.nodeVisible(node))
+            }
+            // Storage binding is not Pod ownership. Reuse the same solid-link
+            // renderer once, without enabling other Kubernetes hierarchy lines.
+            links = mergeKubernetesRelationLinks(storageBindings.filter(pair => visible(pair.source) && visible(pair.target)), links, {
+                nodeID: node => node.id, sourceID: link => link.source.id, targetID: link => link.target.id,
+                reuse: link => new Link(link.id, link.tags, link.source, link.target,
+                    { ...link.data, KubernetesStorageBindingLink: true }, link.state),
+                create: pair => new Link(`kubernetes-storage-binding-${pair.source.id}-${pair.target.id}`, [], pair.source, pair.target,
+                    { RelationType: 'persistentvolumeclaim', KubernetesStorageBindingLink: true }, { selected: false })
             })
         }
 
@@ -2375,15 +2459,23 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     private topologyLayoutCardWidth(node: D3Node): number {
-        return topologyCardDimensions(node.data.wrapped, node.data.type === WrapperType.Group).width
+        const cached = this.cardWidthCache?.get(node)
+        if (cached !== undefined) return cached
+        const width = topologyCardDimensions(node.data.wrapped, node.data.type === WrapperType.Group).width
+        this.cardWidthCache?.set(node, width)
+        return width
     }
 
     private topologyLayoutCardHeight(node: D3Node): number {
-        return topologyCardDimensions(node.data.wrapped, node.data.type === WrapperType.Group,
+        const cached = this.cardHeightCache?.get(node)
+        if (cached !== undefined) return cached
+        const height = topologyCardDimensions(node.data.wrapped, node.data.type === WrapperType.Group,
             { name: node.data.type === WrapperType.Group ? undefined : this.topologyNodeDisplayName(node),
                 cardLayout: this.layerCardLayouts.get(node.data.id), memberCardLayout: member => this.layerCardLayouts.get(member.id),
                 networkSummary: this.topologyCardNetworkSummary(node.data.wrapped),
                 memberNetworkSummary: member => this.topologyCardNetworkSummary(member) }).height
+        this.cardHeightCache?.set(node, height)
+        return height
     }
 
     private topologyCardNetworkSummary(node: Node): string | undefined {
@@ -2976,6 +3068,7 @@ export class Topology extends React.Component<Props, {}> {
 
     private cancelScheduledZoomFit() {
         this.zoomFitPending = false
+        this.zoomFitAnchor = undefined
         if (this.zoomFitTimeoutID) {
             window.clearTimeout(this.zoomFitTimeoutID)
             this.zoomFitTimeoutID = 0
@@ -3008,7 +3101,7 @@ export class Topology extends React.Component<Props, {}> {
         return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
     }
 
-    private applyZoomFit(nodeIDs?: Set<string>) {
+    private applyZoomFit(nodeIDs?: Set<string>, maxScale = 1, minScale = 0.1, anchor?: TopologyZoomFitAnchor) {
         if (!this.gNodes) {
             return
         }
@@ -3036,13 +3129,28 @@ export class Topology extends React.Component<Props, {}> {
         var midX = bounds.x + width / 2, midY = bounds.y + height / 2
 
         const usableWidth = Math.max(320, viewSize.width - topologyLevelLabelSafeInset)
-        var scale = Math.max(0.1, 0.65 / Math.max(width / usableWidth, height / viewSize.height))
-        if (scale > 1) {
-            scale = 1
-        }
+        var scale = Math.max(0.1, Math.min(minScale, maxScale), Math.min(maxScale, 0.65 / Math.max(width / usableWidth, height / viewSize.height)))
 
         this.absTransformX = topologyLevelLabelSafeInset + usableWidth / 2 - midX * scale
         this.absTransformY = viewSize.height / 2 - midY * scale
+
+        // Whole-scene bounds still determine scale, but expanding another
+        // cluster must not recenter on earlier, already expanded clusters.
+        const anchorNode = anchor && this.d3nodes.get(anchor.nodeID)
+        if (anchorNode) {
+            this.absTransformX = anchor.x - anchorNode.x * scale
+            this.absTransformY = anchor.y - anchorNode.y * scale
+        }
+        const anchorBounds = anchorNode && this.renderedNodeBounds(new Set([anchor.nodeID]))
+        if (anchorBounds) {
+            const constrain = (value: number, start: number, size: number, min: number, max: number) => {
+                const lower = min - start * scale
+                const upper = max - (start + size) * scale
+                return lower <= upper ? Math.max(lower, Math.min(upper, value)) : (lower + upper) / 2
+            }
+            this.absTransformX = constrain(this.absTransformX, anchorBounds.x, anchorBounds.width, topologyLevelLabelSafeInset + 16, viewSize.width - 16)
+            this.absTransformY = constrain(this.absTransformY, anchorBounds.y, anchorBounds.height, 16, viewSize.height - 16)
+        }
 
         var t = zoomIdentity
             .translate(this.absTransformX, this.absTransformY)
@@ -3054,13 +3162,24 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     zoomFit() {
+        this.viewportManuallyAdjusted = false
         this.cancelScheduledZoomFit()
         this.applyZoomFit()
     }
 
     private zoomFitFocusedNodes(nodeIDs: Set<string>) {
         this.cancelScheduledZoomFit()
-        this.applyZoomFit(nodeIDs)
+        this.applyZoomFit(nodeIDs, topologyAutoFitMaxScale, topologyAutoFitMinScale)
+    }
+
+    private fitAfterBranchChange(anchor?: TopologyZoomFitAnchor) {
+        // The user's overview takes priority over automatic branch Fit,
+        // including manual scales below the automatic minimum of 28%.
+        if (this.viewportManuallyAdjusted) {
+            this.cancelScheduledZoomFit()
+            return
+        }
+        this.zoomFitAfterRender(this.currentZoom() * 0.8, topologyAutoFitMaxScale, anchor)
     }
 
     /**
@@ -3073,8 +3192,17 @@ export class Topology extends React.Component<Props, {}> {
      * layout is already mounted. Waiting for the render transition and two
      * animation frames makes the initial path use the same final bounds.
      */
-    zoomFitAfterRender() {
+    zoomFitAfterRender(minScale = topologyAutoFitMinScale, maxScale = topologyInitialScale, anchor?: TopologyZoomFitAnchor) {
+        // Explicit layer selection/refresh starts a new automatic Fit session.
+        this.viewportManuallyAdjusted = false
         this.cancelScheduledZoomFit()
+        // Do not leave a sparse/new layer at 100% while its layout settles.
+        if (this.currentZoom() > maxScale) this.setZoomLevel(maxScale, false, false)
+        // Expanding a branch can create a very wide row. Retain a readable
+        // scale instead of shrinking the cards to fit every new sibling.
+        this.zoomFitMinScale = Math.max(topologyAutoFitMinScale, minScale)
+        this.zoomFitMaxScale = maxScale
+        this.zoomFitAnchor = anchor
         this.zoomFitPending = true
         this.zoomFitTimeoutID = window.setTimeout(() => {
             this.zoomFitTimeoutID = 0
@@ -3082,7 +3210,9 @@ export class Topology extends React.Component<Props, {}> {
                 this.zoomFitAnimationFrameID = window.requestAnimationFrame(() => {
                     this.zoomFitAnimationFrameID = 0
                     this.zoomFitPending = false
-                    this.applyZoomFit()
+                    const anchor = this.zoomFitAnchor
+                    this.zoomFitAnchor = undefined
+                    this.applyZoomFit(undefined, this.zoomFitMaxScale, this.zoomFitMinScale, anchor)
                 })
             })
         }, animDuration)
@@ -3096,10 +3226,11 @@ export class Topology extends React.Component<Props, {}> {
         return transform?.k || 1
     }
 
-    setZoomLevel(scale: number) {
+    setZoomLevel(scale: number, animate = true, manual = true) {
         if (!this.svg || !this.g) {
             return
         }
+        if (manual) this.viewportManuallyAdjusted = true
         this.cancelScheduledZoomFit()
         const current = (this.svg.node() as any).__zoom || zoomIdentity
         const viewSize = this.viewSize()
@@ -3112,10 +3243,11 @@ export class Topology extends React.Component<Props, {}> {
         const nextTransform = zoomIdentity
             .translate(centerX - sourceX * nextScale, centerY - sourceY * nextScale)
             .scale(nextScale)
-        this.svg
-            .transition()
-            .duration(animDuration)
-            .call(this.zoom.transform, nextTransform)
+        if (animate) {
+            this.svg.transition().duration(animDuration).call(this.zoom.transform, nextTransform)
+        } else {
+            this.svg.interrupt().call(this.zoom.transform, nextTransform)
+        }
     }
 
     resetZoom() {
@@ -3811,6 +3943,9 @@ export class Topology extends React.Component<Props, {}> {
 
     private nodeClicked(d: D3Node) {
         event.stopPropagation()
+        // Selection must never be followed by an older scene Fit, in either layer.
+        this.cancelScheduledZoomFit()
+        this.svg.interrupt()
         this.clearRaisedLinkLabel()
         this.hideNodeContextMenu()
 
@@ -3901,8 +4036,7 @@ export class Topology extends React.Component<Props, {}> {
 
     private moveTo(x: number, y: number) {
         this.cancelScheduledZoomFit()
-        // Automatic object navigation uses 70% of the former 0.8 scale.
-        const scale = 0.56
+        const scale = topologyAutoFitMaxScale
         var viewSize = this.viewSize()
 
         var t = zoomIdentity
@@ -3923,6 +4057,7 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     centerNode(node: Node) {
+        this.cancelScheduledZoomFit()
         if (!node) {
             return
         }
@@ -4099,7 +4234,7 @@ export class Topology extends React.Component<Props, {}> {
         this.unpinNodes()
         const targets = new Set(nodeIDs)
         if (targets.size === 0) {
-            this.zoomFit()
+            this.zoomFitAfterRender()
             return
         }
 
@@ -4346,11 +4481,11 @@ export class Topology extends React.Component<Props, {}> {
         var midX = bounds.x + bounds.width / 2, midY = bounds.y + bounds.height / 2
         const usableWidth = Math.max(320, viewSize.width - topologyLevelLabelSafeInset)
         var scale = 0.72 / Math.max(width / usableWidth, height / viewSize.height)
-        if (scale > 1) {
-            scale = 1
+        if (scale > topologyAutoFitMaxScale) {
+            scale = topologyAutoFitMaxScale
         }
-        if (scale < 0.1) {
-            scale = 0.1
+        if (scale < topologyAutoFitMinScale) {
+            scale = topologyAutoFitMinScale
         }
 
         this.absTransformX = topologyLevelLabelSafeInset + usableWidth / 2 - midX * scale
@@ -4708,7 +4843,8 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     private isLinkVisible(link: Link): boolean {
-        if (link.data?.KubernetesPodOwnershipGuide && this.nodeTagActive.toLowerCase() === 'kubernetes') return true
+        if ((link.data?.KubernetesPodOwnershipGuide || link.data?.KubernetesStorageBindingLink)
+            && this.nodeTagActive.toLowerCase() === 'kubernetes') return true
         if (link.state.selected) {
             return true
         }
@@ -4758,65 +4894,64 @@ export class Topology extends React.Component<Props, {}> {
         return nodes
     }
 
+    private prepareLevelLabel(d: LevelRect) {
+        const label = this.gLevelLabels.selectAll<SVGGElement, LevelRect>('g.level-label').filter(level => level.weight === d.weight)
+        const fullTitle = this.weightTitles.get(d.weight) || 'Level ' + d.weight
+        const key = `${fullTitle}:${this.levelLabelIcon(fullTitle, d.weight)}`
+        const cached = this.levelGuideMetrics.get(d.weight)
+        if (cached?.key === key) return cached
+        const previousDisplay = label.style('display')
+        label.style('display', null)
+        const title = label.select('text.level-label-title')
+            .style('font-size', '13px').attr('x', topologyLevelLabelSafeInset / 2).attr('y', 0)
+        this.wrapLevelLabelTitle(title, fullTitle, topologyLevelLabelSafeInset - 32, 3, 17,
+            topologyLevelLabelSafeInset / 2, topologyLayerTitleLines(fullTitle))
+        // Measure once per title/glyph, not once per zoom frame. Geometry is in screen pixels.
+        const titleBox = (title.node() as SVGTextElement).getBBox()
+        const icon = label.select('text.level-label-icon').style('font-size', `${layerGuideIconPixels}px`).attr('y', 0)
+        let iconBox = (icon.node() as SVGTextElement).getBBox()
+        const size = Math.max(iconBox.width, iconBox.height)
+        const iconFont = size > layerGuideIconPixels ? layerGuideIconPixels * layerGuideIconPixels / size : layerGuideIconPixels
+        icon.style('font-size', `${iconFont}px`)
+        iconBox = (icon.node() as SVGTextElement).getBBox()
+        const metrics = { key, titleY: titleBox.y, titleHeight: titleBox.height,
+            iconY: iconBox.y, iconHeight: iconBox.height, iconFont }
+        label.style('display', previousDisplay)
+        this.levelGuideMetrics.set(d.weight, metrics)
+        return metrics
+    }
+
     private showLevelLabel(d: LevelRect) {
         const label = this.gLevelLabels.selectAll<SVGGElement, LevelRect>('g.level-label').filter(level => level.weight === d.weight)
-        // A layer switch can remove labels before the previous transition ends.
-        if (label.empty()) return
-        const centerY = d.bb.height / 2
-        const labelScale = this.levelLabelScale()
-        label.attr("transform", `translate(${-this.absTransformX},${d.bb.y + centerY}) scale(${labelScale}) translate(0,${-centerY})`)
-        const screenScale = this.currentZoom() * labelScale
-        const rowY = centerY - centerY / labelScale
-        const rowHeight = d.bb.height / labelScale
-        const rowWidth = topologyLevelLabelSafeInset / screenScale
-        label.select('rect.level-label-hit-area')
-            .attr('y', rowY).attr('width', rowWidth).attr('height', rowHeight)
-        const rowPixels = d.bb.height * this.currentZoom()
-        const highlightHeight = Math.min(32, Math.max(0, rowPixels - 4)) / screenScale
-        const highlightY = centerY - highlightHeight / 2
-        label.select('rect.level-label-indicator')
-            .attr('x', 8 / screenScale).attr('y', highlightY)
-            .attr('width', 2.5 / screenScale).attr('height', highlightHeight)
-            .attr('rx', 1.25 / screenScale)
-
-        const textX = rowWidth / 2
-        const titlePixels = Math.min(13, Math.max(12, rowPixels * 0.32))
-        const fullTitle = this.weightTitles.get(d.weight) || 'Level ' + d.weight
-        const title = label.select('text.level-label-title')
-            .style('font-size', `${titlePixels / screenScale}px`)
-            .attr('text-anchor', 'middle').attr('x', textX).attr('y', 0)
-        const titleWidth = rowWidth - 32 / screenScale
-        const linePixels = titlePixels + 4
-        const fixedLines = topologyLayerTitleLines(fullTitle)
-        const maxLines = fixedLines ? 2 : Math.min(3, Math.max(1, Math.floor((rowPixels - 30) / linePixels)))
-        this.wrapLevelLabelTitle(title, fullTitle, titleWidth, maxLines, linePixels / screenScale, textX, fixedLines)
-        let titleBox = (title.node() as SVGTextElement).getBBox()
-        const iconPixels = Math.min(28, Math.max(12, rowPixels - titleBox.height * screenScale - 12))
-        const contentHeight = iconPixels / screenScale + 8 / screenScale + titleBox.height
-        const contentTop = centerY - contentHeight / 2
-        title.attr('y', contentTop + iconPixels / screenScale + 8 / screenScale - titleBox.y)
-
-        const iconX = textX
-        const iconCenterY = contentTop + iconPixels / (2 * screenScale)
-        const icon = label.select('text.level-label-icon')
-            .style('font-size', `${iconPixels / screenScale}px`).attr('x', iconX).attr('y', 0)
-        let iconBox = (icon.node() as SVGTextElement).getBBox()
-        const glyphSize = Math.max(iconBox.width, iconBox.height)
-        if (glyphSize > iconPixels / screenScale) {
-            icon.style('font-size', `${iconPixels / screenScale * (iconPixels / screenScale) / glyphSize}px`)
-            iconBox = (icon.node() as SVGTextElement).getBBox()
-        }
-        const iconBaseline = iconCenterY - iconBox.y - iconBox.height / 2
-        icon.attr('y', iconBaseline)
-        const switchScale = iconPixels / (46 * screenScale)
+        const layout = this.levelGuideLayout.get(d.weight)
+        if (label.empty() || !layout) return
+        label.interrupt().style('opacity', 1).style('display', layout.visible ? null : 'none')
+            .classed('level-label-compact', layout.compact).attr('aria-hidden', layout.visible ? null : 'true')
+        if (!layout.visible) return
+        const metrics = this.prepareLevelLabel(d)
+        const centerY = d.bb.y + d.bb.height / 2
+        label.attr('transform', `translate(${-this.absTransformX},${centerY}) scale(${this.levelLabelScale()})`)
+        const height = layout.compact ? layerGuideCompactHeight : layout.expandedHeight
+        const contentHeight = layerGuideIconPixels + 8 + metrics.titleHeight
+        const iconCenterY = layout.compact ? 0 : -contentHeight / 2 + layerGuideIconPixels / 2
+        label.select('rect.level-label-hit-area').attr('x', 0).attr('y', -height / 2)
+            .attr('width', topologyLevelLabelSafeInset).attr('height', height)
+        label.select('rect.level-label-indicator').attr('x', 8).attr('y', -16)
+            .attr('width', 2.5).attr('height', 32).attr('rx', 1.25)
+        label.select('text.level-label-title').attr('y', -contentHeight / 2 + layerGuideIconPixels + 8 - metrics.titleY)
+        const iconX = topologyLevelLabelSafeInset / 2
+        label.select('text.level-label-icon').attr('x', iconX)
+            .attr('y', iconCenterY - metrics.iconY - metrics.iconHeight / 2)
+        const switchScale = layerGuideIconPixels / 46
         label.select('g.level-label-switch-icon')
             .attr('transform', `translate(${iconX - 32 * switchScale},${iconCenterY - 32 * switchScale}) scale(${switchScale})`)
-        label.select('text.level-label-badge')
-            .style('font-size', `${Math.min(8, iconPixels * 0.4) / screenScale}px`)
-            .attr('x', iconX + iconPixels / screenScale * 0.46)
-            .attr('y', iconCenterY + iconPixels / screenScale * 0.4)
-        this.updateLevelLabelBackdrop()
-        label.transition().duration(animDuration).style("opacity", 1)
+        label.select('text.level-label-badge').style('font-size', '8px')
+            .attr('x', iconX + layerGuideIconPixels * 0.46).attr('y', iconCenterY + layerGuideIconPixels * 0.4)
+        label.select('text.level-label-collapsed-count').attr('x', iconX + 20).attr('y', iconCenterY + 4)
+            .text(layout.members.length > 1 ? `+${layout.members.length - 1}` : '')
+        const names = layout.members.map(weight => this.weightTitles.get(weight) || 'Level ' + weight).join(' · ')
+        label.attr('aria-label', names).attr('data-collapsed-weights', layout.members.join(','))
+        label.select('title.level-label-tooltip').text(names)
     }
 
     private wrapLevelLabelTitle(title: any, fullTitle: string, width: number, maxLines: number, lineHeight: number, x: number, fixedLines?: string[]) {
@@ -4848,22 +4983,6 @@ export class Topology extends React.Component<Props, {}> {
             .attr('dy', index ? lineHeight : 0).text(text))
     }
 
-    private updateLevelLabelTitleText(selection: any) {
-        selection.each((d: LevelRect, index: number, elements: SVGTextElement[]) => {
-            const title = select(elements[index])
-            const fullTitle = this.weightTitles.get(d.weight) || 'Level ' + d.weight
-            const lines = topologyLayerTitleLines(fullTitle)
-            if (!lines) { title.text(fullTitle); return }
-            // Preserve the wrapped title during redraws instead of briefly
-            // replacing it with one line until the transition finishes.
-            if (title.attr('data-layer-title') === fullTitle && title.selectAll('tspan').size() === 2) return
-            title.text('').attr('data-layer-title', fullTitle)
-            const lineHeight = (parseFloat(title.style('font-size')) || 26) + 8
-            lines.forEach((line, i) => title.append('tspan').attr('x', title.attr('x') || 0)
-                .attr('dy', i ? lineHeight : 0).text(line))
-        })
-    }
-
     private selectedLevelWeight(): number | null {
         if (!this.d3nodes) {
             return null
@@ -4883,6 +5002,7 @@ export class Topology extends React.Component<Props, {}> {
         const selectedWeight = this.selectedLevelWeight()
         this.gLevelLabels.selectAll('g.level-label')
             .classed("level-label-active", (d: LevelRect) => selectedWeight !== null && d.weight === selectedWeight)
+        this.showAllLevelLabels()
     }
 
     private levelLabelIcon(title: string, weight?: number): string {
@@ -4972,20 +5092,22 @@ export class Topology extends React.Component<Props, {}> {
         return /system vm|시스템 가상머신/i.test(title) ? "\uf013" : ""
     }
 
-    private hideAllLevelLabels() {
-        this.gLevelLabels.selectAll('g.level-label')
-            .style("opacity", 0)
-            .interrupt()
-    }
-
     private showAllLevelLabels() {
+        if (!this.gLevelLabels || !this.svgDiv) return
+        const scale = this.currentZoom()
+        const items = this.levelRects.map(d => {
+            const metrics = this.prepareLevelLabel(d)
+            return { weight: d.weight, y: (d.bb.y + d.bb.height / 2 + this.absTransformY) * scale,
+                expandedHeight: layerGuideIconPixels + 8 + metrics.titleHeight + 12 }
+        })
+        this.levelGuideLayout = topologyLayerGuide(items, this.svgDiv.clientHeight,
+            this.selectedLevelWeight(), this.levelGuideLayout)
         this.gLevelLabels.selectAll('g.level-label').each((d: LevelRect) => this.showLevelLabel(d))
+        this.updateLevelLabelBackdrop()
     }
 
     private levelLabelScale(): number {
-        // Keep the stacked icon/label in screen coordinates
-        // without changing the topology's layer heights.
-        return 0.5 / this.currentZoom()
+        return 1 / this.currentZoom()
     }
 
     private updateLevelLabelBackdrop() {
@@ -5094,15 +5216,15 @@ export class Topology extends React.Component<Props, {}> {
             .attr("class", "level-label-title")
             .attr("text-anchor", "middle")
             .attr("x", 128)
+        levelLabelEnter.append('text').attr('class', 'level-label-collapsed-count')
+            .attr('aria-hidden', 'true')
         levelLabelEnter.append("title")
             .attr("class", "level-label-tooltip")
-        this.updateLevelLabelTitleText(levelLabelEnter.select("text.level-label-title"))
-        this.updateLevelLabelTitleText(levelLabel.select("text.level-label-title"))
         const allLevelLabels = levelLabelEnter.merge(levelLabel)
         allLevelLabels.classed("level-label-switch", (d: LevelRect) => self.isSwitchLevelLabel(self.weightTitles.get(d.weight) || 'Level ' + d.weight))
         allLevelLabels.select("title.level-label-tooltip")
             .text((d: LevelRect) => self.weightTitles.get(d.weight) || 'Level ' + d.weight)
-        levelLabel.exit().remove()
+        levelLabel.exit().each((d: LevelRect) => this.levelGuideMetrics.delete(d.weight)).remove()
         this.updateLevelLabelBackdrop()
 
         this.updateLevelLabelActiveClass()
@@ -5136,12 +5258,12 @@ export class Topology extends React.Component<Props, {}> {
         levelEnter.transition()
             .duration(animDuration)
             .style("opacity", 1)
-            .on('end', d => this.showLevelLabel(d))
+            .on('end', () => this.showAllLevelLabels())
 
         level.transition()
             .duration(animDuration)
             .style("opacity", 1)
-            .on('end', d => this.showLevelLabel(d))
+            .on('end', () => this.showAllLevelLabels())
             .attr("transform", (d: LevelRect) => `translate(${d.bb.x},${d.bb.y})`)
             .select('rect.level-zone')
             .attr("height", (d: LevelRect) => d.bb.height)
@@ -5452,16 +5574,19 @@ export class Topology extends React.Component<Props, {}> {
         return false
     }
 
-    private renderNodes(root: any) {
+    private renderNodes(root: any, contentOnly = false, metricsIndex?: ReturnType<typeof createTopologyResourceMetricsIndex>) {
         const self = this
-        const links = Array.from(this.links.values())
-        const allNodes = Array.from(this.nodes.values())
         const nodeClass = (d: D3Node) => ['node', 'node-object-card',
             d.data.type === WrapperType.Group ? 'node-group-card' : '',
             d.data.type === WrapperType.Group && d.data.wrapped.state.expanded ? 'node-group-expanded' : '',
             d.data.type === WrapperType.Group && topologyGroupFullyExpanded(d.data.wrapped) ? 'node-group-fully-expanded' : '',
             ...this.props.nodeAttrs(d.data.wrapped).classes,
             d.data.wrapped.state.selected ? 'node-selected' : ''].join(' ')
+        if (contentOnly) {
+            this.renderNodeContents(this.gNodes.selectAll<SVGGElement, D3Node>('g.node')
+                .filter(d => this.d3nodes.has(d.data.id)), metricsIndex)
+            return
+        }
         let node = this.gNodes.selectAll<SVGGElement, D3Node>('g.node')
             .interrupt().data(root.descendants().filter((d: D3Node) =>
                 d.data.type !== WrapperType.Hidden && d.data.wrapped !== this.root), (d: D3Node) => d.data.id)
@@ -5486,22 +5611,40 @@ export class Topology extends React.Component<Props, {}> {
             .attr('y', d => -self.topologyLayoutCardHeight(d) / 2)
             .attr('width', d => self.topologyLayoutCardWidth(d)).attr('height', d => self.topologyLayoutCardHeight(d))
         node.select('g.node-pinned text').attr('y', d => -self.topologyLayoutCardHeight(d) / 2 - 12)
+        this.renderNodeContents(node, metricsIndex)
+        node.transition().duration(this.infrastructureLayoutTransition ? 0 : animDuration).style('opacity', 1).attr('transform', d => `translate(${d.x},${d.y})`)
+        node.filter(d => d.data.wrapped.state.selected).raise()
+        this.renderTopologyGroupRegions(d => this.topologyLayoutCardWidth(d), d => this.topologyLayoutCardHeight(d))
+        this.renderInfrastructureVMBundles()
+    }
+
+    private renderNodeContents(node: Selection<SVGGElement, D3Node, any, any>, metricsIndex?: ReturnType<typeof createTopologyResourceMetricsIndex>) {
+        const self = this
+        const links = Array.from(this.links.values())
+        const allNodes = Array.from(this.nodes.values())
+        const resourceMetricsIndex = metricsIndex || this.createResourceMetricsIndex(allNodes)
+        const attrsByNode = new Map<Node, NodeAttrs>()
+        const attributes = (resource: Node) => {
+            let attrs = attrsByNode.get(resource)
+            if (!attrs) { attrs = this.props.nodeAttrs(resource); attrsByNode.set(resource, attrs) }
+            return attrs
+        }
         node.select('g.node-object-content').each(function (d) {
             const resource = d.data.wrapped
             const ref = self.resourceRefs.get(resource.id)
-            const attrs = self.props.nodeAttrs(resource)
+            const attrs = attributes(resource)
             const model = topologyNodePresentation(resource, {
                 name: self.topologyNodeDisplayName(d), group: d.data.type === WrapperType.Group,
                 scope: d.data.type === WrapperType.Group ? self.topologyGroupCardScope(d) : '',
                 children: String(resource.data?.Manager || '').toLowerCase() === 'k8s'
                     ? self.renderedKubernetesBadgeChildren(d.data) : resource.children,
-                links, allNodes,
+                links, allNodes, resourceMetricsIndex,
                 infrastructureSummary: self.props.infrastructureHostSummaries?.[resource.id],
                 networkSummary: self.topologyCardNetworkSummary(resource),
                 cardLayout: self.layerCardLayouts.get(resource.id), memberCardLayout: member => self.layerCardLayouts.get(member.id),
                 memberNetworkSummary: member => self.topologyCardNetworkSummary(member),
                 networkCount: moldVMNetworkCount(resource, getMoldNetworkIndex(self.props.vmNetworkMap, self.props.vmDetailMap)),
-                resourceData: { detail: self.resourceData?.get(ref?.detail), summary: self.resourceData?.get(ref?.summary), wall: self.resourceData?.get(ref?.wall),
+                resourceData: { detail: self.resourceData?.get(ref?.detail), summary: self.resourceData?.get(ref?.summary), wall: self.resourceData?.get(ref?.wall), nodeVM: ref?.nodeVM,
                     host: self.resourceData?.get(ref?.host), service: self.resourceData?.get(ref?.service), inventory: ['host', 'libvirt'].includes(String(resource.data?.Type).toLowerCase())
                         ? topologyInventoryData(resource, self.props.moldInventory, self.props.vmDetailMap) : undefined }
             })
@@ -5511,13 +5654,22 @@ export class Topology extends React.Component<Props, {}> {
             self.reactRoots.render(<TopologyNodeCard model={model} icon={attrs.icon} iconClass={attrs.iconClass} href={attrs.href} />, this)
         })
         node.select('g.node-capture-status').each(function (d) {
-            const capturing = self.props.nodeAttrs(d.data.wrapped).badges.some(badge => badge.className === 'node-badge-capture')
-            if (capturing) self.reactRoots.render(<TopologyCaptureIndicator y={-self.topologyLayoutCardHeight(d) / 2} />, this)
-            else self.reactRoots.unmount(this)
+            const capturing = attributes(d.data.wrapped).badges.some(badge => badge.className === 'node-badge-capture')
+            if (capturing) {
+                const y = -self.topologyLayoutCardHeight(d) / 2
+                const key = `capture:${y}`
+                if (self.objectCardRenderKeys.get(this) !== key) {
+                    self.objectCardRenderKeys.set(this, key)
+                    self.reactRoots.render(<TopologyCaptureIndicator y={y} />, this)
+                }
+            } else {
+                self.objectCardRenderKeys.delete(this)
+                self.reactRoots.unmount(this)
+            }
         })
         node.select('g.node-badges').each(function (d) {
             const badges = select(this).selectAll<SVGGElement, BadgeAttrs>('g.node-badge')
-                .data(self.props.nodeAttrs(d.data.wrapped).badges.filter(badge => badge.className !== 'node-badge-capture'))
+                .data(attributes(d.data.wrapped).badges.filter(badge => badge.className !== 'node-badge-capture'))
             badges.exit().remove()
             const enter = badges.enter().append('g').attr('class', 'node-badge')
             enter.append('rect').attr('width', 24).attr('height', 24).attr('rx', 12)
@@ -5531,10 +5683,6 @@ export class Topology extends React.Component<Props, {}> {
                 .attr('y', -self.topologyLayoutCardHeight(d) / 2 + 6)
                 .attr('fill', badge => badge.stroke || 'var(--topology-node-name-wrap-fill)').text(badge => badge.text)
         })
-        node.transition().duration(this.infrastructureLayoutTransition ? 0 : animDuration).style('opacity', 1).attr('transform', d => `translate(${d.x},${d.y})`)
-        node.filter(d => d.data.wrapped.state.selected).raise()
-        this.renderTopologyGroupRegions(d => this.topologyLayoutCardWidth(d), d => this.topologyLayoutCardHeight(d))
-        this.renderInfrastructureVMBundles()
     }
 
     private syncTopologyRelationEmphasis(hoveredID?: string) {
@@ -5665,6 +5813,7 @@ export class Topology extends React.Component<Props, {}> {
     private renderLinks() {
         var linkerCache = new Map<string, any>()
         var visibleCache = new Map<string, any>()
+        const paths = new Map<string, string | null | undefined>()
 
         const resolveEndpoint = (link: Link, side: "source" | "target") => {
             const visibleNode = side === "source" ? link.source : link.target
@@ -5733,7 +5882,8 @@ export class Topology extends React.Component<Props, {}> {
         }
 
         const linkPath = (d: Link) => {
-            return shouldDrawLink(d) ? linker(d) : ""
+            if (!paths.has(d.id)) paths.set(d.id, shouldDrawLink(d) ? linker(d) : '')
+            return paths.get(d.id)
         }
 
         const vLinker = linkVertical()
@@ -5873,8 +6023,9 @@ export class Topology extends React.Component<Props, {}> {
         link = link.merge(linkEnter)
         link
             .attr("class", (d: Link) => isVisible(d) ? this.linkClass(d) : 'link')
-            .attr('data-source-id', (d: Link) => d.data?.KubernetesPodOwnershipGuide ? d.source.id : null)
-            .attr('data-target-id', (d: Link) => d.data?.KubernetesPodOwnershipGuide ? d.target.id : null)
+            .attr('data-source-id', (d: Link) => d.data?.KubernetesPodOwnershipGuide || d.data?.KubernetesStorageBindingLink ? d.source.id : null)
+            .attr('data-target-id', (d: Link) => d.data?.KubernetesPodOwnershipGuide || d.data?.KubernetesStorageBindingLink ? d.target.id : null)
+            .attr('data-storage-binding', (d: Link) => d.data?.KubernetesStorageBindingLink ? 'true' : null)
             .transition()
             .duration(this.infrastructureLayoutTransition ? 0 : animDuration)
             .style("opacity", (d: Link) => this.linkDisplayOpacity(d))
@@ -6043,6 +6194,7 @@ export class Topology extends React.Component<Props, {}> {
             const original = this.links.get(d.id) || d
             return `${original.source.data?.Name || original.source.id} → ${original.target.data?.Name || original.target.id}: ${this.renderedLinkAttrs(d).label}`
         })
+        const labelBounds: Array<{ element: SVGGElement; bb: DOMRect }> = []
         linkLabel.each(function () {
             const label = select(this)
             const text = label.select("text").node() as SVGTextElement | null
@@ -6051,7 +6203,12 @@ export class Topology extends React.Component<Props, {}> {
             }
 
             const bb = text.getBBox()
-            label.select("rect")
+            labelBounds.push({ element: this as SVGGElement, bb })
+        })
+        // Read all text bounds before changing any rects; interleaving them
+        // forces the SVG layout to flush once per traffic label.
+        labelBounds.forEach(({ element, bb }) => {
+            select(element).select("rect")
                 .attr("x", bb.x - 10)
                 .attr("y", bb.y - 6)
                 .attr("width", bb.width + 20)
@@ -6126,11 +6283,13 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     renderTree() {
+        this.cardWidthCache = new WeakMap()
+        this.cardHeightCache = new WeakMap()
         // Group expansion can replace a proxy group endpoint with an individual
         // child node, so visible links must follow the newly rendered tree.
         this.visibleLinksCache = undefined
         this.pruneGroupState()
-        this.updateLayerCardLayouts()
+        const resourceMetricsIndex = this.updateLayerCardLayouts()
         // Weights can change as resources are replaced. Historical weights
         // otherwise add redundant normalization passes on every refresh.
         this.weights = Array.from(new Set(Array.from(this.nodes.values(), node => node.getWeight())))
@@ -6165,7 +6324,7 @@ export class Topology extends React.Component<Props, {}> {
         this.g.classed('is-kubernetes-scene', this.nodeTagActive.toLowerCase() === 'kubernetes')
         this.renderLevels()
         this.renderHieraLinks(root)
-        this.renderNodes(root)
+        this.renderNodes(root, false, resourceMetricsIndex)
         this.renderGroups()
         this.renderLinks()
         this.refreshTopologyNodeFocus()
@@ -6174,14 +6333,35 @@ export class Topology extends React.Component<Props, {}> {
 
         this.syncResourceData()
         this.invalidated = false
-        if (this.zoomFitPending) this.zoomFitAfterRender()
+        if (this.zoomFitPending) this.zoomFitAfterRender(this.zoomFitMinScale, this.zoomFitMaxScale, this.zoomFitAnchor)
+    }
+
+    private createResourceMetricsIndex(allNodes = Array.from(this.nodes.values())) {
+        return createTopologyResourceMetricsIndex(allNodes, resource => {
+            const ref = this.resourceRefs.get(resource.id)
+            return { detail: this.resourceData?.get(ref?.detail), summary: this.resourceData?.get(ref?.summary),
+                wall: this.resourceData?.get(ref?.wall), nodeVM: ref?.nodeVM }
+        }, resource => topologyKubernetesCluster(resource, this.props.kubernetesClusters)?.id)
+    }
+
+    private kubernetesMetricsLayoutSignature(index: ReturnType<typeof createTopologyResourceMetricsIndex>) {
+        return Array.from(this.nodes.values()).filter(node => String(node.data?.Manager).toLowerCase() === 'k8s'
+            && ['node', 'pod', 'deployment', 'statefulset', 'daemonset', 'job', 'cronjob'].includes(String(node.data?.Type).toLowerCase()))
+            .map(node => `${node.id}:${String(node.data?.Type).toLowerCase() === 'node' ? index.nodeResourceRowHeight(node) : index.metricsAvailable(node) ? 1 : 0}`).join('|')
     }
 
     private updateLayerCardLayouts() {
+        const allNodes = Array.from(this.nodes.values())
+        const metricsIndex = this.createResourceMetricsIndex(allNodes)
+        this.kubernetesMetricLayoutKey = this.kubernetesMetricsLayoutSignature(metricsIndex)
         const index = getMoldNetworkIndex(this.props.vmNetworkMap, this.props.vmDetailMap)
-        this.layerCardLayouts = topologyLayerCardLayouts(Array.from(this.nodes.values(), node => ({ node,
+        this.layerCardLayouts = topologyLayerCardLayouts(allNodes.map(node => ({ node,
             name: this.topologyResourceDisplayName(node), networkSummary: this.topologyCardNetworkSummary(node),
-            networkCount: moldVMNetworkCount(node, index) })))
+            networkCount: moldVMNetworkCount(node, index),
+            ...(String(node.data?.Manager).toLowerCase() === 'k8s' && String(node.data?.Type).toLowerCase() === 'node'
+                ? { nodeResourceRowHeight: metricsIndex.nodeResourceRowHeight(node) } : {}),
+            ...(String(node.data?.Manager).toLowerCase() === 'k8s' ? { kubernetesMetricsAvailable: metricsIndex.metricsAvailable(node) } : {}) })))
+        return metricsIndex
     }
 
     render() {

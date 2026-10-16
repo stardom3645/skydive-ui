@@ -14,6 +14,7 @@ const locale = () => {
 const NetdiveAntdProvider = ({ children }: Props) => (
   <ConfigProvider
     locale={locale()}
+    theme={{ components: { Tooltip: { colorBgSpotlight: '#374151' } } }}
     getPopupContainer={(triggerNode?: HTMLElement) => triggerNode?.parentElement || document.body}
   >
     <div className="netdive-ant-theme">{children}</div>

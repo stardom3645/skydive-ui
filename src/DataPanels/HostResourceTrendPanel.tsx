@@ -20,6 +20,9 @@ interface Props {
     target?: 'host' | 'vm'
     legacyResourceUsage?: React.ReactNode
     usageDetails?: ResourceUsageDetails
+    // Opt-in for Node details: only show VM-backed measurements whose source
+    // agrees with the topology snapshot. Existing host/VM presentation is unchanged.
+    usageTrendOnly?: { keys: string[]; source: string }
 }
 
 interface State {
@@ -38,6 +41,7 @@ interface HostTrendResponse {
     end: number
     series: TrendSeries[]
     warnings?: string[]
+    rawLabels?: { source?: string }
 }
 
 interface TrendSeries {
@@ -119,7 +123,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         const prevKey = this.queryKey(prevProps.node, prevProps.data, prevProps.target)
         const nextKey = this.queryKey(this.props.node, this.props.data, this.props.target)
 
-        if (prevKey !== nextKey) {
+        if (prevKey !== nextKey || prevProps.usageTrendOnly?.source !== this.props.usageTrendOnly?.source) {
             this.loadTrend()
         }
     }
@@ -134,7 +138,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
 
     private handleRangeChange(trendRange: string) {
         if (trendRange === this.state.trendRange) return
-        this.setState({ trendRange, trend: undefined, error: '', loading: true }, () => this.loadTrend())
+        this.setState({ trendRange, trend: this.props.usageTrendOnly ? this.state.trend : undefined, error: '', loading: true }, () => this.loadTrend())
     }
 
     private isVMTarget(target = this.props.target): boolean {
@@ -169,7 +173,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         const detail = data || node.data || {}
         const trendRange = this.state.trendRange
         const target = this.props.target || 'host'
-        const loadedFor = `${target}:${this.queryKey(node, data, target)}:${trendRange}`
+        const loadedFor = `${target}:${this.queryKey(node, data, target)}:${trendRange}${this.props.usageTrendOnly ? `:${this.props.usageTrendOnly.source}` : ''}`
 
         const params = new URLSearchParams()
         params.set('range', trendRange)
@@ -208,7 +212,9 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
         }
 
         this.setState(previous => ({ loading: true, error: '', loadedFor,
-            trend: previous.loadedFor === loadedFor ? previous.trend : undefined }))
+            trend: previous.loadedFor === loadedFor || (this.props.usageTrendOnly
+                && previous.loadedFor.startsWith(`${target}:${this.queryKey(node, data, target)}:`)
+                && previous.loadedFor.endsWith(`:${this.props.usageTrendOnly.source}`)) ? previous.trend : undefined }))
 
         fetch(`${this.endpoint()}${path}?${params.toString()}`, {
             cache: 'no-store',
@@ -591,13 +597,25 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
 
     render() {
         const { loading, error, trend } = this.state
-        const displayItems = this.displayItems(trend?.series || [])
+        const limited = this.props.usageTrendOnly
+        const sameSource = !limited || (!!trend && (trend.rawLabels?.source || 'libvirt') === limited.source
+            && trend.host === firstValue(this.props.data, ['Name', 'name']))
+        const series = sameSource ? (trend?.series || []).filter(item => !limited || (limited.keys.includes(item.key)
+            && ['percent', 'percentage', '%'].includes(item.unit)
+            && Array.isArray(item.values) && item.values.every(point => point.value === undefined || point.value === null
+                || (Number.isFinite(point.value) && point.value >= 0 && point.value <= 100)))) : []
+        const displayItems = this.displayItems(series)
         const hasTrend = displayItems.length > 0
         const hasRootDisk = !!rootDiskResources(trend)
+        const plain = hasRootDisk || !!limited
+        // No empty trend shell in Node details, including while discovering
+        // whether this VM has usable history. Range changes retain controls.
+        if (limited && !hasTrend && !loading) return null
+        if (limited && !trend) return null
 
         return (
             <>
-            <RootDiskPanel wall={trend} loading={loading} error={error} vm={this.props.target === 'vm'} usageDetails={this.props.usageDetails} />
+            {!limited && <RootDiskPanel wall={trend} loading={loading} error={error} vm={this.props.target === 'vm'} usageDetails={this.props.usageDetails} />}
             <ResourceSectionCard icon={<DetailSectionIcon role="recentMetrics" />} title={this.trendTitle()} empty={!hasTrend} action={
                     <div className={classes.headerActions}>
                         <Select
@@ -633,11 +651,11 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
                     )}
 
                     {hasTrend && (
-                        <div className={`${classes.grid}${hasRootDisk ? ' netdive-trend-grid--plain' : ''}`}>
+                        <div className={`${classes.grid}${plain ? ' netdive-trend-grid--plain' : ''}`}>
                             {displayItems.map((item, index) => (
                                 <React.Fragment key={`${item.key}-${this.state.trendRange}-${trend?.start || 0}-${trend?.end || 0}`}>
-                                {hasRootDisk && index > 0 && <Divider />}
-                                <ResourceMetricTile appearance={hasRootDisk ? 'plain' : undefined}
+                                {plain && index > 0 && <Divider />}
+                                <ResourceMetricTile appearance={plain ? 'plain' : undefined}
                                     title={item.label}
                                     headerRight={<Space size={6} align="center">
                                         {item.key === 'networkTraffic' ? this.renderNetworkCurrentValues(item) : this.renderMetricValue(item.value)}
@@ -650,7 +668,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
                         </div>
                     )}
             </ResourceSectionCard>
-            {!hasRootDisk && this.props.legacyResourceUsage}
+            {!limited && !hasRootDisk && this.props.legacyResourceUsage}
             </>
         )
     }

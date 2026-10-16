@@ -166,11 +166,12 @@ describe('Topology object presentation', () => {
     })
     it('does not invent usage percentages, and preserves a measured zero', () => {
         const node = resource('worker', 'node')
-        assert.deepEqual(present(node).metrics.map(metric => [metric.value, metric.percent]), [['미수집', undefined], ['미수집', undefined], ['미수집', undefined]])
+        assert.deepEqual(present(node).metrics.map(metric => [metric.value, metric.percent]), [['미수집', undefined]])
         Object.assign(node.data, { CPUUsagePercent: 0, MemoryUsagePercent: 48, PodCount: 0 })
         assert.deepEqual(present(node).metrics.map(metric => [metric.value, metric.percent]), [['0%', 0], ['48%', 48], ['0', undefined]])
         node.data.CPUUsagePercent = 800
-        assert.equal(present(node).metrics[0].value, '미수집')
+        assert.equal(present(node).metrics.find(metric => metric.key === 'cpu'), undefined)
+        assert.equal(present(node).metrics.find(metric => metric.key === 'memory')!.value, '48%')
     })
     it('preserves full infrastructure names and configured operator labels', () => {
         const host = resource('host', 'host'); host.data.Manager = 'fabric'
@@ -388,7 +389,7 @@ describe('Kubernetes cluster metric layout bounds', () => {
     it('reserves two count rows and equal CPU/memory slots within the same SVG/layout height', () => {
         const cluster = resource('cluster', 'cluster')
         cluster.data.Name = 'k8s-lifecycle31-v13412-gfs2-r12-long-cluster'
-        const model = present(cluster, { resourceData: { summary: { resources: { allocatableCpuCores: 12, allocatableMemoryBytes: 24653168640 } } } })
+        const model = present(cluster, { resourceData: { summary: { resources: { metricsAvailable: true, allocatableCpuCores: 12, allocatableMemoryBytes: 24653168640 } } } })
         assert.ok(model.height > 440, 'the full-width name and scope need their own header rows')
         assert.equal(model.height, topologyCardDimensions(cluster).height)
         assert.equal(model.metrics.length, 6)
@@ -414,18 +415,25 @@ describe('Kubernetes content and stable metric slots', () => {
         assert.equal(present(node).name, node.data.Name)
         assert.deepEqual(topologyCardDimensions(node), { size: long.size, width: long.width, height: long.height, metricRowHeights: [] })
     })
-    it('keeps workload, node and pod geometry stable when real usage and counts arrive', () => {
+    it('keeps workload and pod slots stable while Node slots reflect available resources', () => {
         for (const type of ['deployment', 'node', 'pod']) {
             const node = resource(`long-${type}-name-`.repeat(3), type, { Spec: { Replicas: 2 }, Status: { Phase: 'Running', ReadyReplicas: 1 } })
             node.data.Namespace = 'a-long-namespace-for-operational-context'
-            const before = present(node)
-            assert.deepEqual(before.metrics.slice(0, 2).map(metric => metric.key), ['cpu', 'memory'])
-            assert.ok(before.metrics.slice(0, 2).every(metric => metric.value === '미수집' && metric.percent === undefined))
-            const snapshot = { detail: { podCount: 8, usage: { cpu: '1', memory: '2Gi' }, allocatable: { cpu: '4', memory: '8Gi' } } }
+            const before = present(node, { resourceData: { summary: { resources: { metricsAvailable: true } } } })
+            if (type !== 'node') {
+                assert.deepEqual(before.metrics.slice(0, 2).map(metric => metric.key), ['cpu', 'memory'])
+                assert.ok(before.metrics.slice(0, 2).every(metric => metric.value === '미수집' && metric.percent === undefined))
+            } else assert.deepEqual(before.metrics.map(metric => metric.key), ['pods'])
+            const snapshot = { summary: { resources: { metricsAvailable: true } }, detail: { podCount: 8, usage: { cpu: '1', memory: '2Gi' }, allocatable: { cpu: '4', memory: '8Gi' } } }
             const after = present(node, { resourceData: snapshot })
-            assert.equal(after.height, before.height)
-            assert.deepEqual(after.metricRowHeights, before.metricRowHeights)
-            assert.deepEqual(topologyCardDimensions(node).height, before.height)
+            if (type === 'node') {
+                assert.equal(after.height - before.height, 146)
+                assert.deepEqual(after.metricRowHeights, [136, 56])
+            } else {
+                assert.equal(after.height, before.height)
+                assert.deepEqual(after.metricRowHeights, before.metricRowHeights)
+            }
+            assert.deepEqual(topologyCardDimensions(node, false, { kubernetesMetricsAvailable: true }).height, before.height)
             if (type === 'node') assert.equal(after.metrics.find(metric => metric.key === 'pods')!.value, '8')
             if (type === 'deployment') assert.equal(after.metrics.find(metric => metric.key === 'replicas')!.value, '1/2')
             assert.equal(after.name, node.data.Name)

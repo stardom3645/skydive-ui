@@ -26,6 +26,10 @@
     right: calc(var(--netdive-selection-panel-width, 500px) + 36px);
 }
 .netdive-topology-view-checks { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.netdive-topology-view-checks__header { display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 8px; }
+.netdive-topology-view-checks__toggle.ant-btn { flex: 0 0 auto; width: 24px; height: 24px; color: var(--netdive-detail-muted, #63748d); }
+.netdive-topology-view-checks__body { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.netdive-topology-view-checks__body[hidden] { display: none; }
 .netdive-topology-view-checks__title {
     display: inline-flex; align-items: center; gap: 6px; width: 100%; font-size: 13px; font-weight: 600;
 }

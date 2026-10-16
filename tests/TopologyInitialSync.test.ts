@@ -18,6 +18,9 @@ function initialSyncProbe() {
         || (member.name && methods.includes(member.name.getText(ast))))
         .map(member => member.getText(ast)).join('\n')
     const nodeClass = classes.find(node => node.name?.text === 'Node')!.getText(ast).replace('export ', '')
+    const minScale = ast.statements.filter(ts.isVariableStatement).find(node =>
+        node.declarationList.declarations.some(declaration => declaration.name.getText(ast) === 'topologyAutoFitMinScale'))!
+        .getText(ast).replace('export ', '')
     const surfaceClasses = new Map<string, boolean>()
     const emptySelection: any = {
         selectAll: () => emptySelection,
@@ -31,7 +34,7 @@ function initialSyncProbe() {
         WrapperType: { Normal: 1, Hidden: 2, Group: 3 }
     }
     vm.createContext(context)
-    vm.runInContext(ts.transpile(`${nodeClass}\nclass Topology extends React.Component { ${members} }; this.Topology = Topology`,
+    vm.runInContext(ts.transpile(`${minScale}\n${nodeClass}\nclass Topology extends React.Component { ${members} }; this.Topology = Topology`,
         { target: ts.ScriptTarget.ES2018 }), context)
     const topology = new context.Topology({ defaultNodeTag: () => 'kubernetes' })
     let renders = 0
@@ -47,6 +50,13 @@ function initialSyncProbe() {
 }
 
 describe('Topology first-sync selection lifecycle', () => {
+    it('defers the empty intermediate render while installing an authoritative snapshot', () => {
+        const { topology, renders } = initialSyncProbe()
+        topology.resetTree(true, true)
+        assert.strictEqual(renders(), 0)
+        topology.renderTree()
+        assert.strictEqual(renders(), 1)
+    })
     it('resets a mounted SVG before the first graph render', () => {
         const { topology, surfaceClasses, renders } = initialSyncProbe()
         assert.doesNotThrow(() => topology.resetTree(true))

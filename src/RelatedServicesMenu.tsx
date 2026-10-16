@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { Button, Input, Popover, Select, Spin, Tooltip } from 'antd'
-import { AppstoreOutlined, CloudOutlined, AreaChartOutlined, HddOutlined,
+import { LinkOutlined, CloudOutlined, AreaChartOutlined, HddOutlined,
   ExportOutlined, DownOutlined, SearchOutlined, ReloadOutlined } from '@ant-design/icons'
 import type { session } from './Store'
 import { translate } from './Config'
@@ -60,7 +60,7 @@ const RelatedServicesMenu = ({ userSession }: { userSession?: session }) => {
   const configuredPort = services?.cube?.port
   const matchingHosts = filterCubeHosts(hosts || [], search)
   const content = <div className="netdive-related-services">
-    <div className="netdive-related-services__heading"><AppstoreOutlined /><strong>{translate('relatedServices')}</strong>{loading && <Spin size="small" />}</div>
+    <div className="netdive-related-services__heading"><LinkOutlined /><strong>{translate('relatedServices')}</strong>{loading && <Spin size="small" />}</div>
     {serviceRow('mold', CloudOutlined, 'Mold', translate('relatedMoldDescription'))}
     {serviceRow('wall', AreaChartOutlined, 'Wall', translate('relatedWallDescription'))}
     {error && <div className="netdive-related-services__notice" role="status"><span>{error}</span><Button type="text" size="small" icon={<ReloadOutlined />} aria-label={translate('retry')} onClick={() => setRetry(value => value + 1)} /></div>}
@@ -98,7 +98,7 @@ const RelatedServicesMenu = ({ userSession }: { userSession?: session }) => {
   return <Popover trigger="click" placement="bottomRight" open={open} onOpenChange={value => { setOpen(value); if (!value) setCubeOpen(false) }} content={content}
     classNames={{ root: 'netdive-related-services-popup' }} arrow={false}>
     <Tooltip title={translate('relatedServices')}>
-      <Button className="netdive-related-services-trigger" type="text" shape="circle" icon={<AppstoreOutlined />} aria-label={translate('relatedServices')} aria-expanded={open} />
+      <Button className="netdive-related-services-trigger" type="text" shape="circle" icon={<LinkOutlined />} aria-label={translate('relatedServices')} aria-expanded={open} />
     </Tooltip>
   </Popover>
 }

@@ -4,7 +4,7 @@ import * as path from 'path'
 import * as ts from 'typescript'
 import * as vm from 'vm'
 import { routeInfrastructureTraffic } from '../src/InfrastructureTrafficRouting'
-import { RoutingCard, RoutingEdge, routeCardHits, segmentHitsCard, routeCompactEdges, nearestCompactEdge } from '../src/InfrastructureCompactRouting'
+import { RoutingCard, RoutingEdge, routeCardHits, segmentHitsCard, routeCompactEdges, nearestCompactEdge, compactRouteFromPoints } from '../src/InfrastructureCompactRouting'
 import { infrastructureVirtualNICOwners } from '../src/InfrastructureVMBundles'
 
 const card = (id: string, x: number, y: number, width = 280, height = 112): RoutingCard => ({ id, x, y, width, height })
@@ -21,6 +21,46 @@ function assertClear(cards: RoutingCard[], relation = edge) {
 }
 
 describe('Infrastructure traffic card avoidance', () => {
+    it('rechecks disproportionate precomputed paths outside Compact VM/NIC units', () => {
+        const cards = [card('nic', 0, 1000), card('port', 600, 0)]
+        const perimeter = compactRouteFromPoints([{ x: 0, y: 944 }, { x: 0, y: 900 }, { x: 6000, y: 900 },
+            { x: 6000, y: 80 }, { x: 600, y: 80 }, { x: 600, y: 56 }])
+        const preferred = new Map([[edge.id, perimeter]])
+        const route = routeInfrastructureTraffic(cards, [edge], preferred).get(edge.id)!
+        assert.ok(route.path.includes(' C'))
+        assert.ok(route.points.every(point => point.x >= 0 && point.x <= 600))
+        const region = { ...card('own-unit', 0, 1000, 320, 160), nodeIDs: ['nic'] }
+        assert.equal(routeInfrastructureTraffic(cards, [edge], preferred, [region]).get(edge.id), perimeter,
+            'keep intentionally precomputed Compact VM/NIC geometry')
+    })
+    it('keeps nearby fan-out endpoints local when a distant row forces the common bus to the far side', () => {
+        const bridge = { ...card('bridge', 0, 0), type: 'bridge' }
+        const targets = [600, 1600, 3400, 6000].map((x, i) => ({ ...card(`vm-${i}`, x, 1300, 480, 388), type: 'libvirt' }))
+        const cards = [bridge, card('left-departure-blocker', -250, 80, 220, 100), ...targets]
+        const edges = targets.map(target => ({ id: `bridge-${target.id}`, sourceID: bridge.id, targetID: target.id }))
+        const before = JSON.stringify(cards), routes = routeInfrastructureTraffic(cards, edges)
+        for (const edge of edges) {
+            const route = routes.get(edge.id)!
+            assert.equal(routeCardHits(edge, route.points, cards), 0)
+            assert.equal(route.trafficNodeID, edge.targetID, 'retain per-interface measurement placement')
+        }
+        const nearby = routes.get(edges[0].id)!
+        assert.ok(nearby.points.every(point => point.x >= 0 && point.x <= targets[0].x), 'do not follow the 6,000px-wide row perimeter')
+        assert.ok(nearby.path.includes(' C'))
+        assert.equal(routes.get(edges[3].id)!.points.length, 6, 'a reasonable distant bus stays organized')
+        assert.equal(JSON.stringify(cards), before)
+        const reversed = routeInfrastructureTraffic(cards.slice().reverse(), edges.slice().reverse())
+        edges.forEach(edge => assert.equal(reversed.get(edge.id)?.path, routes.get(edge.id)?.path))
+
+        // If the direct curve is obstructed, a local orthogonal detour must
+        // remain clear without expanding to the same distant perimeter.
+        const blocked = [...cards, card('local-blocker', 200, 500, 200, 500)]
+        const local = routeInfrastructureTraffic(blocked, edges).get(edges[0].id)!
+        assert.equal(routeCardHits(edges[0], local.points, blocked), 0)
+        assert.ok(local.points.every(point => point.x < 1000))
+        assert.ok(local.path.includes(' Q'))
+    })
+
     it('uses short curves for a clear sparse leading row while preserving the dense lower bus', () => {
         const bridge = { ...card('bridge', 0, 0), type: 'bridge' }
         const leading = Array.from({ length: 3 }, (_, i) => ({ ...card(`system-${i}`, (i - 1) * 544, 1100, 480, 388), type: 'libvirt' }))
@@ -51,20 +91,27 @@ describe('Infrastructure traffic card avoidance', () => {
         edges.forEach(edge => assert.equal(reversed.get(edge.id)?.path, routes.get(edge.id)?.path))
         const opposite = edges.map(e => ({ ...e, sourceID: e.targetID, targetID: e.sourceID }))
         opposite.forEach(e => assert.equal(routeCardHits(e, routeInfrastructureTraffic(cards, opposite).get(e.id)!.points, cards), 0))
-        // A real blocker restores the original bus for the entire leading row.
+        // A real blocker still requires a clear detour, which may now use a
+        // shorter local corridor instead of the far side of the dense row.
         const blocked = [...cards, card('blocker', 0, 550, 580, 440)]
         const fallback = routeInfrastructureTraffic(blocked, edges)
-        leading.forEach(target => assert.equal(fallback.get(`bridge-${target.id}`)!.points.length, 6))
+        leading.forEach(target => {
+            const edge = edges.find(edge => edge.targetID === target.id)!
+            assert.equal(routeCardHits(edge, fallback.get(edge.id)!.points, blocked), 0)
+        })
         const region = { ...card('foreign-bundle', 0, 550, 580, 440), nodeIDs: ['foreign-vm', 'foreign-nic'] }
         const withRegion = routeInfrastructureTraffic(cards, edges, new Map(), [region])
         leading.forEach(target => {
             const route = withRegion.get(`bridge-${target.id}`)!
-            assert.equal(route.points.length, 6)
+            assert.ok(route.points.length >= 4)
             assert.equal(route.points.slice(1).some((p, i) => segmentHitsCard(route.points[i], p, region)), false)
         })
         const preferred = new Map(edges.slice(0, 3).map(edge => [edge.id, routes.get(edge.id)!]))
         const compact = routeInfrastructureTraffic(cards, edges, preferred)
-        leading.forEach(target => assert.equal(compact.get(`bridge-${target.id}`)!.points.length, 6, 'Compact geometry is not replaced by this optimization'))
+        leading.forEach(target => {
+            const edge = edges.find(edge => edge.targetID === target.id)!
+            assert.equal(routeCardHits(edge, compact.get(edge.id)!.points, cards), 0)
+        })
         lower.forEach(target => assert.equal(routes.get(`bridge-${target.id}`)!.path, compact.get(`bridge-${target.id}`)!.path,
             'lower bus geometry remains identical to the previous routing rule'))
     })

@@ -1,10 +1,11 @@
+import { kubernetesStorageObservation, kubernetesStorageOperationalPresentation } from './KubernetesStorageStatus'
 import type { Node } from './Topology'
 import { getPodClassification, isCurrentKubernetesPod } from './KubernetesPodLifecycle'
 import { isKubernetesTopologyData } from './KubernetesInfrastructureEvidence'
 import type { TopologyStatusBadgeTooltip } from './TopologyStatusBadge'
 
 export type KubernetesTopologyCountBadgeTone = 'problem' | 'warning' | 'running' | 'inactive'
-export type KubernetesResourceSelfState = 'healthy' | 'problem' | 'unknown' | 'inactive'
+export type KubernetesResourceSelfState = 'healthy' | 'problem' | 'attention' | 'unknown' | 'inactive'
 export type KubernetesResourceCollectionState = 'collected' | 'unavailable' | 'stale'
 
 export interface KubernetesResourceSelfStatus {
@@ -229,7 +230,7 @@ export const kubernetesResourceSelfStatus = (node: Node, observation?: any): Kub
         return { state: 'unknown', collection: 'unavailable', findings: ['상태 데이터를 수집하지 못했습니다.'] }
     }
     const explicitSelfStates = [moldClusterState, topologySelfState].filter(Boolean)
-    if (explicitSelfStates.some(state => /down|error|fail|unhealthy|critical/.test(state))) {
+    if (!['persistentvolume', 'persistentvolumeclaim'].includes(type) && explicitSelfStates.some(state => /down|error|fail|unhealthy|critical/.test(state))) {
         return { state: 'problem', collection: 'collected', findings: [`${resourceTypeLabel(type)} 자체 상태 이상`] }
     }
     if (explicitSelfStates.some(state => /stale|expired/.test(state))) {
@@ -242,6 +243,14 @@ export const kubernetesResourceSelfStatus = (node: Node, observation?: any): Kub
             collection: unavailable ? 'unavailable' : 'collected',
             findings: [`${resourceTypeLabel(type)} 상태를 확인할 수 없습니다.`]
         }
+    }
+    if (type === 'persistentvolumeclaim' || type === 'persistentvolume') {
+        const input = kubernetesStorageObservation(node.data || {}, observation)
+        const operational = kubernetesStorageOperationalPresentation(input)
+        const state: KubernetesResourceSelfState = operational.tone === 'danger' ? 'problem'
+            : operational.tone === 'warning' ? 'attention' : operational.tone === 'success' ? 'healthy' : 'unknown'
+        return { state, collection: input.phase ? 'collected' : explicitCollection || 'unavailable',
+            findings: state === 'healthy' ? [] : [operational.currentProblem] }
     }
     if (type === 'pod') {
         const classification = getPodClassification(node)
@@ -291,12 +300,6 @@ export const kubernetesResourceSelfStatus = (node: Node, observation?: any): Kub
         const findings = phase !== 'active' ? [`Namespace ${phase}`] : []
         return { state: findings.length ? 'problem' : 'healthy', collection: 'collected', findings }
     }
-    if (type === 'persistentvolumeclaim' || type === 'persistentvolume') {
-        const phase = normalized(firstRawFrom(sources, ['phase', 'Phase', 'status.phase', 'Status.Phase', 'K8s.Extra.Status.Phase', 'K8s.Status']))
-        if (!phase) return { state: 'unknown', collection: explicitCollection || 'unavailable', findings: [`${resourceTypeLabel(type)} 상태를 확인할 수 없습니다.`] }
-        const findings = ['lost', 'failed', 'pending', 'released'].includes(phase) ? [`${resourceTypeLabel(type)} ${phase}`] : []
-        return { state: findings.length ? 'problem' : 'healthy', collection: 'collected', findings }
-    }
     if (type === 'cluster') {
         // A Kubernetes Cluster is a topology scope, not an API object with a
         // native phase/condition. Missing `State` alone therefore cannot be
@@ -316,7 +319,7 @@ export const isProblematicKubernetesTopologyNode = (node: Node): boolean =>
     kubernetesResourceSelfStatus(node).state === 'problem'
 
 export const kubernetesTopologyNodeNeedsAttention = (node: Node): boolean =>
-    ['problem', 'unknown'].includes(kubernetesResourceSelfStatus(node).state)
+    ['problem', 'attention', 'unknown'].includes(kubernetesResourceSelfStatus(node).state)
 
 export const isInactiveKubernetesTopologyNode = (node: Node): boolean =>
     kubernetesResourceSelfStatus(node).state === 'inactive'
@@ -445,7 +448,8 @@ export const kubernetesTopologyCountBadges = (
             description: '현재 Mold에서 정지 상태인 클러스터입니다.'
         }
     }]
-    const selfFindings = kubernetesTopologyProblemFindings(node)
+    const selfStatus = kubernetesResourceSelfStatus(node)
+    const selfFindings = ['problem', 'attention'].includes(selfStatus.state) ? selfStatus.findings : []
     const direct = kubernetesTopologyDirectChildSummary(node, directChildren)
     const groupNode = isTopologyGroup(node)
     const warningProblemTargets = groupNode
@@ -470,13 +474,13 @@ export const kubernetesTopologyCountBadges = (
     return [
         selfFindings.length > 0 ? {
             key: 'self-problem' as const,
-            label: '현재 객체 자체 이상',
+            label: selfStatus.state === 'attention' ? '현재 객체 확인 필요' : '현재 객체 자체 이상',
             count: 0,
             displayText: '!',
-            tone: 'problem' as const,
+            tone: selfStatus.state === 'attention' ? 'warning' as const : 'problem' as const,
             tooltip: {
-                title: '현재 리소스 이상',
-                description: '현재 리소스에서 확인된 문제입니다.',
+                title: selfStatus.state === 'attention' ? '현재 리소스 확인 필요' : '현재 리소스 이상',
+                description: selfStatus.state === 'attention' ? '확인이 필요한 운영 상태이며 서비스 장애를 확정한 것은 아닙니다.' : '현재 리소스에서 확인된 문제입니다.',
                 detailsTitle: '확인된 원인',
                 details: selfFindings.map(finding => ({ value: finding }))
             }

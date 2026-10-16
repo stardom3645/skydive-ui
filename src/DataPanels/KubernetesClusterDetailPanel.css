@@ -1153,7 +1153,6 @@
 .netdive-cluster-ant-summary-value { font-size: 14px; line-height: 22px; overflow-wrap: anywhere; }
 .netdive-cluster-ant-summary-value .ant-badge-status-text { font-size: 14px; font-weight: 600; }
 .netdive-cluster-ant-summary-state.is-impact .netdive-cluster-ant-summary-value { font-size: 13px; line-height: 20px; }
-.netdive-cluster-verdict-criteria-trigger.ant-btn { height: auto; padding: 0; font-size: 12px; }
 .netdive-cluster-ant-evidence-row { padding: 10px 0; border-bottom: 1px solid var(--ant-color-border-secondary, #edf0f5); }
 .netdive-cluster-ant-evidence-row:last-child { border-bottom: 0; }
 .netdive-cluster-ant-evidence-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; }
@@ -1175,10 +1174,3 @@
 .netdive-cluster-risk-factors ul { margin: 6px 0; padding-left: 18px; }
 .netdive-k8s-cluster-detail .netdive-k8s-confidence { margin-top: 12px; padding: 10px 0 0; border-top: 1px solid var(--ant-color-border-secondary, #edf0f5); }
 .netdive-cluster-verdict-criteria { font-family: var(--netdive-font-family); }
-.netdive-cluster-verdict-criteria .ant-modal-body { font-size: 13px; line-height: 20px; }
-.netdive-cluster-verdict-current { margin-bottom: 16px; padding: 12px; border: 1px solid var(--ant-color-border-secondary, #edf0f5); border-radius: 6px; background: var(--ant-color-fill-alter, #fafafa); }
-.netdive-cluster-verdict-current > .ant-tag { margin-left: 10px; }
-.netdive-cluster-verdict-current ul { margin: 8px 0 0; padding-left: 18px; }
-.netdive-cluster-verdict-rules { display: flex; flex-direction: column; gap: 10px; margin: 16px 0; }
-.netdive-cluster-verdict-rules > div { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 10px; align-items: start; }
-.netdive-cluster-verdict-rules .ant-tag { margin: 0; text-align: center; }

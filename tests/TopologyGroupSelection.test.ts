@@ -10,14 +10,14 @@ import { isCurrentKubernetesPod, isKubernetesPod } from '../src/KubernetesPodLif
 const source = fs.readFileSync(path.resolve(__dirname, '../src/Topology.tsx'), 'utf8')
 const ast = ts.createSourceFile('Topology.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
 const topologyClass = ast.statements.filter(ts.isClassDeclaration).find(node => node.name?.text === 'Topology')!
-const names = ['expand', 'collapse', 'expandAllNodes', 'setFullGroupDisplay', 'syncGroupDisplaySize', 'toggleGroupListNode', 'setGroupListNodes',
+const names = ['fitAfterBranchChange', 'expand', 'collapse', 'expandAllNodes', 'setFullGroupDisplay', 'syncGroupDisplaySize', 'toggleGroupListNode', 'setGroupListNodes',
     'groupVisibleNodeIDs', 'selectNode', 'nodeByID', 'visibleNodeIDForID', 'isLinkVisible', 'isLinkNodeSelected',
     'linkOriginalSourceID', 'linkOriginalTargetID', 'linkDisplayOpacity']
 const methods = topologyClass.members.filter(member => member.name && names.includes(member.name.getText(ast)))
     .map(member => member.getText(ast)).join('\n')
 
 function probe(count = 50, manager = 'libvirt') {
-    const context: any = { isCurrentKubernetesPod, isKubernetesPod,
+    const context: any = { isCurrentKubernetesPod, isKubernetesPod, topologyAutoFitMaxScale: 0.8,
         LinkTagState: { Hidden: 0, EventBased: 1, Visible: 2 },
         select: () => ({ classed: () => undefined, raise: () => undefined }) }
     vm.createContext(context)
@@ -29,7 +29,7 @@ function probe(count = 50, manager = 'libvirt') {
             K8s: { Extra: { Status: { Phase: 'Running' } } } },
         state: { selected: false, expanded: false }, children: [] }))
     const group = { id: 'vm-group', children, state: { selected: true, expanded: false, groupFullSize: false, groupOffset: 0 } }
-    let renders = 0
+    let renders = 0, autoFits = 0
     Object.assign(topology, {
         props: {}, root: group, groups: new Map([[group.id, { wrapped: group }]]),
         nodes: new Map(children.map(child => [child.id, child])),
@@ -38,7 +38,9 @@ function probe(count = 50, manager = 'libvirt') {
         selectedGroupListNodeIDs: new Set(), d3nodes: new Map(),
         linkTagStates: new Map([['layer2', context.LinkTagState.EventBased]]),
         hideNodeContextMenu: () => undefined, hideLinks: () => undefined,
+        zoomFitAfterRender: () => { autoFits++ }, currentZoom: () => 0.55,
         renderTree: () => { renders++ }, resetCacheAndRenderTree: () => { renders++ },
+        normalizeTree: () => undefined,
         unselectAllLinks: () => undefined, highlightNeighborLinks: () => undefined,
         syncContainerMiniCardActiveClass: () => undefined, syncContainerMiniLinkVisibility: () => undefined,
         updateLevelLabelActiveClass: () => undefined, activeContainerMiniNodeIDs: () => new Set(),
@@ -52,12 +54,12 @@ function probe(count = 50, manager = 'libvirt') {
     const sourceNode = { id: 'bridge', state: { selected: false } }
     const links = children.map(child => ({ id: `edge-${child.id}`, source: sourceNode, target: child,
         tags: ['layer2'], data: {}, state: { selected: false } }))
-    return { topology, children, group, links, renders: () => renders, modes: context.LinkTagState }
+    return { topology, children, group, links, renders: () => renders, autoFits: () => autoFits, modes: context.LinkTagState }
 }
 
 describe('Group visibility does not select its resources', () => {
     it('expands all 50 VMs while leaving related-only edges hidden', () => {
-        const { topology, children, group, links, renders } = probe()
+        const { topology, children, group, links, renders, autoFits } = probe()
         topology.expand(group)
         assert.equal(group.state.expanded, true)
         assert.equal(group.state.groupFullSize, true)
@@ -66,6 +68,7 @@ describe('Group visibility does not select its resources', () => {
         assert.equal(group.state.selected, true)
         assert.ok(links.every(link => topology.linkDisplayOpacity(link) === 0))
         assert.equal(renders(), 1)
+        assert.equal(autoFits(), 1)
     })
 
     it('shows only the directly selected VM edges and retains explicit selection across expansion', () => {
@@ -108,8 +111,9 @@ describe('Group visibility does not select its resources', () => {
     })
 
     it('also keeps expand-all from selecting resources or enabling all their edges', () => {
-        const { topology, children, links } = probe()
+        const { topology, children, links, renders } = probe()
         topology.expandAllNodes()
+        assert.equal(renders(), 1, 'only the final expanded tree is painted')
         assert.equal(topology.groupVisibleNodeIDs().size, 50)
         assert.ok(children.every(child => child.state.expanded && !child.state.selected))
         assert.ok(links.every(link => topology.linkDisplayOpacity(link) === 0))

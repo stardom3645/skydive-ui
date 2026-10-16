@@ -6,6 +6,14 @@ const root = path.resolve(__dirname, '..')
 const read = (file: string) => fs.readFileSync(path.join(root, file), 'utf8')
 
 describe('Connected resource popover', () => {
+    it('opens Kubernetes related-resource lists with the Ant 6 controlled prop and navigates storage items to their details', () => {
+        const modal = read('src/DataPanels/common/KubernetesConnectedResourceModal.tsx')
+        assert.ok(modal.includes('<HistoryModal open={visible}'))
+        assert.ok(!modal.includes('<HistoryModal visible='))
+        const storage = read('src/DataPanels/KubernetesStorageDetailPanel.tsx')
+        assert.ok(storage.includes("navigateInfrastructureConnectedResources([resource.id], this.props.node.id, 'item')"))
+        assert.ok(storage.includes('this.setState({ relatedModal: undefined })'))
+    })
     it('keeps summary navigation separate from a multi-resource Ant popover', () => {
         const source = read('src/DataPanels/common/DetailComponents.tsx')
         assert.ok(source.includes('const hasResourceList = resources.length > 1'))

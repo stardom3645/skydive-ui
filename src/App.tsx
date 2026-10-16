@@ -27,6 +27,7 @@ import clsx from 'clsx'
 import Websocket from 'react-websocket'
 import { coalesceUpdates, CoalescedUpdate } from './CoalescedUpdates'
 import { resolveKubernetesPodController } from './KubernetesWorkloadOwnership'
+import { kubernetesStorageBindings } from './KubernetesStorageBindings'
 import { isKubernetesTopologyData, isTopologyNodeVisibleInLayer } from './KubernetesInfrastructureEvidence'
 import { TopologyPendingEdges } from './TopologyPendingEdges'
 import {
@@ -111,6 +112,8 @@ import {
   AppstoreOutlined,
   ApartmentOutlined,
   SettingOutlined,
+  UpOutlined,
+  DownOutlined,
   QuestionCircleOutlined,
   BulbOutlined,
   CloseOutlined,
@@ -134,7 +137,7 @@ import {
 } from '@ant-design/icons'
 
 import { styles } from './AppStyles'
-import { Topology, Node, NodeAttrs, LinkAttrs, LinkTagState, Link, isTopologyDownNode, topologyNodeStatus } from './Topology'
+import { Topology, Node, NodeAttrs, LinkAttrs, LinkTagState, Link, isTopologyDownNode, topologyNodeStatus, topologyInitialScale } from './Topology'
 import {
   infrastructureResourceCategory,
   kubernetesResourceCategory
@@ -397,6 +400,7 @@ interface State {
   kubernetesProblemsOnly: boolean
   topologyDisplayOptions: TopologyDisplayOptions
   topologyDisplayOptionsOpen: boolean
+  isViewSettingsCollapsed: boolean
   selectionHistory: SelectionHistoryItem[]
   selectionHistoryIndex: number
 }
@@ -666,11 +670,12 @@ class App extends React.Component<Props, State> {
       moldIntegrationConnected: false,
       recentViewedNodes: getSavedRecentViewedNodes(),
       isRecentViewedNodesCollapsed: true,
-      topologyZoom: 1,
+      topologyZoom: topologyInitialScale,
       groupVisibleNodeIDs: new Set<string>(),
       kubernetesProblemsOnly: false,
       topologyDisplayOptions: getSavedTopologyDisplayOptions(),
       topologyDisplayOptionsOpen: false,
+      isViewSettingsCollapsed: false,
       selectionHistory: [],
       selectionHistoryIndex: -1
     }
@@ -2081,51 +2086,9 @@ class App extends React.Component<Props, State> {
       const cluster = clusters.find(item => sameCluster(item, claim))
       setParent(claim, storageClass || cluster || this.tc!.root)
     })
+    const boundClaims = new Map(kubernetesStorageBindings(nodes).map(pair => [pair.target, pair.source]))
     persistentVolumes.forEach(volume => {
-      const volumeName = resourceName(volume)
-      const claimRefName = firstStorageValue(volume, [
-        "K8s.Extra.Spec.ClaimRef.Name",
-        "K8s.Extra.Spec.ClaimRef.name",
-        "K8s.Extra.spec.claimRef.name",
-        "K8s.Spec.ClaimRef.Name",
-        "K8s.Spec.ClaimRef.name",
-        "K8s.Spec.claimRef.name",
-        "Spec.ClaimRef.Name",
-        "Spec.ClaimRef.name",
-        "spec.claimRef.name",
-        "ClaimRef.Name",
-        "claimRef.name"
-      ])
-      const claimRefNamespace = firstStorageValue(volume, [
-        "K8s.Extra.Spec.ClaimRef.Namespace",
-        "K8s.Extra.Spec.ClaimRef.namespace",
-        "K8s.Extra.spec.claimRef.namespace",
-        "K8s.Spec.ClaimRef.Namespace",
-        "K8s.Spec.ClaimRef.namespace",
-        "K8s.Spec.claimRef.namespace",
-        "Spec.ClaimRef.Namespace",
-        "Spec.ClaimRef.namespace",
-        "spec.claimRef.namespace",
-        "ClaimRef.Namespace",
-        "claimRef.namespace"
-      ])
-      const boundClaim = persistentVolumeClaims.find(claim => {
-        if (!sameCluster(claim, volume)) return false
-        const declaredVolume = firstStorageValue(claim, [
-          "K8s.Extra.Spec.VolumeName",
-          "K8s.Extra.Spec.volumeName",
-          "K8s.Extra.spec.volumeName",
-          "K8s.Spec.VolumeName",
-          "K8s.Spec.volumeName",
-          "Spec.VolumeName",
-          "spec.volumeName",
-          "VolumeName",
-          "volumeName"
-        ])
-        return (!!declaredVolume && declaredVolume === volumeName)
-          || (!!claimRefName && resourceName(claim) === claimRefName
-            && (!claimRefNamespace || namespaceName(claim) === claimRefNamespace))
-      })
+      const boundClaim = boundClaims.get(volume)
       const storageClassName = firstStorageValue(volume, [
         "K8s.Extra.Spec.StorageClassName",
         "K8s.Extra.Spec.storageClassName",
@@ -2419,7 +2382,9 @@ class App extends React.Component<Props, State> {
           if (!this.initialTopologyLayerPending && !this.nextTag) {
             this.nextTag = this.activeNodeTagName()
           }
-          this.tc.resetTree(true)
+          // Install an authoritative snapshot before rendering. Painting the
+          // empty reset tree only to replace it in the same task wastes a pass.
+          this.tc.resetTree(true, Array.isArray(data.Obj?.Nodes))
           try {
             this.parseTopology(data.Obj)
           } finally {
@@ -4124,20 +4089,29 @@ class App extends React.Component<Props, State> {
   renderTopologyDisplayOptions(classes: any) {
     const connectionState = this.connectionDisplayState()
     return <div className="netdive-topology-view-checks" data-netdive-display-options="true" role="group" aria-label="보기 설정">
-      <span className="netdive-topology-view-checks__title"><SettingOutlined /> 보기 설정</span>
-      <Tooltip title={this.linkTagStateInfo(connectionState).description} placement="left" autoAdjustOverflow
-        trigger={['hover', 'focus']} getPopupContainer={() => document.body} classNames={{ root: 'netdive-view-option-tooltip' }}>
-        <AntCheckbox checked={connectionState === LinkTagState.Visible}
-          indeterminate={connectionState === LinkTagState.EventBased}
-          aria-checked={connectionState === LinkTagState.EventBased ? 'mixed' : connectionState === LinkTagState.Visible}
-          onChange={() => this.cycleConnectionDisplay()}>연결 표시</AntCheckbox>
-      </Tooltip>
-      {!this.isKubernetesLayerActive() && <React.Fragment>
-        <InfrastructureVMLayoutControl inline value={this.state.infrastructureVMLayout} result={this.state.infrastructureVMLayoutResult}
-          onChange={infrastructureVMLayout => this.setState({ infrastructureVMLayout })} />
-        <AntCheckbox checked={this.state.topologyDisplayOptions.hideDownNodes}
-          onChange={event => this.setTopologyDisplayOption('hideDownNodes', event.target.checked)}>다운된 객체 숨김</AntCheckbox>
-      </React.Fragment>}
+      <div className="netdive-topology-view-checks__header">
+        <span className="netdive-topology-view-checks__title"><SettingOutlined /> 보기 설정</span>
+        <AntButton type="text" size="small" className="netdive-topology-view-checks__toggle"
+          icon={this.state.isViewSettingsCollapsed ? <DownOutlined /> : <UpOutlined />}
+          aria-label={this.state.isViewSettingsCollapsed ? '보기 설정 펼치기' : '보기 설정 접기'}
+          aria-expanded={!this.state.isViewSettingsCollapsed} aria-controls="netdive-topology-view-options"
+          onClick={() => this.setState(previous => ({ isViewSettingsCollapsed: !previous.isViewSettingsCollapsed }))} />
+      </div>
+      <div id="netdive-topology-view-options" className="netdive-topology-view-checks__body" hidden={this.state.isViewSettingsCollapsed}>
+        <Tooltip title={this.linkTagStateInfo(connectionState).description} placement="left" autoAdjustOverflow
+          trigger={['hover', 'focus']} getPopupContainer={() => document.body} classNames={{ root: 'netdive-view-option-tooltip' }}>
+          <AntCheckbox checked={connectionState === LinkTagState.Visible}
+            indeterminate={connectionState === LinkTagState.EventBased}
+            aria-checked={connectionState === LinkTagState.EventBased ? 'mixed' : connectionState === LinkTagState.Visible}
+            onChange={() => this.cycleConnectionDisplay()}>연결 표시</AntCheckbox>
+        </Tooltip>
+        {!this.isKubernetesLayerActive() && <React.Fragment>
+          <InfrastructureVMLayoutControl inline value={this.state.infrastructureVMLayout} result={this.state.infrastructureVMLayoutResult}
+            onChange={infrastructureVMLayout => this.setState({ infrastructureVMLayout })} />
+          <AntCheckbox checked={this.state.topologyDisplayOptions.hideDownNodes}
+            onChange={event => this.setTopologyDisplayOption('hideDownNodes', event.target.checked)}>다운된 객체 숨김</AntCheckbox>
+        </React.Fragment>}
+      </div>
     </div>
   }
 
@@ -4875,7 +4849,7 @@ class App extends React.Component<Props, State> {
       this.tc.clearInfrastructureFocus()
       this.tc.unpinNodes()
       this.tc.activeNodeTag(this.config.defaultNodeTag())
-      this.tc.zoomFit()
+      this.tc.zoomFitAfterRender()
       this.setState({ infrastructureFocus: "", nodeTagStates: this.tc.nodeTagStates })
       return
     }
@@ -6151,6 +6125,7 @@ class App extends React.Component<Props, State> {
               square={true}>
               {!this.state.isTimetravelOpen &&
                 <SelectionPanel onLocation={this.onSelectionLocation.bind(this)} onClose={this.onSelectionClose.bind(this)} config={this.config}
+                  nodeResourceSource={this.tc}
                   previousSelectionName={this.previousSelection()?.item.name}
                   onPreviousSelection={this.navigateToPreviousSelection.bind(this)}
                   nextSelectionName={this.nextSelection()?.item.name}

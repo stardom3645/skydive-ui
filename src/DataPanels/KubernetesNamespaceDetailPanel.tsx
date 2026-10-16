@@ -570,7 +570,7 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
             </DetailSectionCard>
 
             <DetailSectionCard icon={<DetailSectionIcon role="operational" />} title={translate('kubernetesNamespaceOperationalStatus')}>
-                <StatusSummaryGrid
+                <StatusSummaryGrid criteriaKind="namespace"
                     verdict={statusLabel}
                     verdictTone={statusTone}
                     rawStatus={phaseLabel || translate('kubernetesNotCollected')}

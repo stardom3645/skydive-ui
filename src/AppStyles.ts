@@ -2908,14 +2908,11 @@ export const styles = (theme: Theme) => createStyles({
   },
   rightPanelPaperClose: {
     overflow: 'hidden',
-    transition: theme.transitions.create('width', {
-      easing: theme.transitions.easing.sharp,
-      duration: theme.transitions.duration.leavingScreen,
-    }),
-    width: theme.spacing(7),
-    [theme.breakpoints.up('sm')]: {
-      width: theme.spacing(0),
-    },
+    visibility: 'hidden',
+    pointerEvents: 'none',
+    border: 0,
+    boxShadow: 'none',
+    width: 0,
   },
   nodeTagsPanel: {
     position: 'absolute',

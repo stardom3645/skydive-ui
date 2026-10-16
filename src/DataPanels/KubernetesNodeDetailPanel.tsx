@@ -1,13 +1,19 @@
 import { DetailSectionIcon } from './common/DetailSectionIcon'
 import * as React from 'react'
 import KubernetesResourceLogPanel from './KubernetesResourceLogPanel'
-import { Button, Select, Table } from 'antd'
+import { Button, Divider, Progress, Select, Space, Table } from 'antd'
+import { AppstoreOutlined } from '@ant-design/icons'
+import HostResourceTrendPanel from './HostResourceTrendPanel'
+import { ResourceUsageMetrics } from './common/ResourceUsageMetrics'
 import InfoIcon from '@material-ui/icons/Info'
 
 
 import { translate } from '../Config'
 import { session } from '../Store'
 import { Node } from '../Topology'
+import type { TopologyNodeResourceSource, TopologyResourceSnapshot } from '../TopologyResourceData'
+import { topologyResourceMetrics } from '../TopologyResourceMetrics'
+import { kubernetesQuantityText } from './common/kubernetesQuantity'
 import { resolveKubernetesPodTopController } from '../KubernetesWorkloadOwnership'
 import { kubernetesResourceSelfStatus } from '../KubernetesTopologyBadgeAggregation'
 import {
@@ -29,7 +35,6 @@ import {
     DetailLayerIcon,
     DetailModalResourceCell,
     DetailModalTextCell,
-    DetailMetricRow,
     DetailNavigationTabs,
     DetailSectionCard,
     DetailStatusIndicator,
@@ -38,24 +43,26 @@ import {
     KubernetesRecentEvents,
     HistoryModal,
     RelatedResourceGrid,
-    ResourceMetricBlock,
     StatusEvidenceRow,
     StatusEvidenceList,
     StatusSummaryGrid,
     formatKubernetesValueState
 } from './common'
 import './KubernetesNodeDetailPanel.css'
-import { RESOURCE_PRESENTATION_COLORS, ResourceSectionCard, ResourceMetricStack } from './common/ResourcePresentation'
+import { RESOURCE_PRESENTATION_COLORS, ResourceSectionCard, ResourceInfoTooltip } from './common/ResourcePresentation'
 
 interface Props {
     node: Node
     nodeAttrs: (node: Node) => any
     session: session
     vmDetailMap?: Record<string, any>
+    nodeResourceSource?: TopologyNodeResourceSource
     kubernetesClusters?: any[]
 }
 
 interface State {
+    metricSnapshot?: TopologyResourceSnapshot
+    metricNodeID?: string
     activeDetailTab: 'overview' | 'logs'
     detail?: any
     loading: boolean
@@ -87,9 +94,7 @@ const firstValue = (data: any, paths: string[]): string => {
     return typeof value === 'object' ? JSON.stringify(value) : String(value)
 }
 const quantity = (resources: any, key: string): string => {
-    const value = resources && resources[key]
-    if (value === undefined || value === null || value === '') return '–'
-    return typeof value === 'object' && value.string ? value.string : String(value)
+    return kubernetesQuantityText(resources?.[key]) || '–'
 }
 const formatCapacityMemory = (value: string): string => {
     if (!value || value === '–') return value || '–'
@@ -121,36 +126,6 @@ const formatDate = (value: any): string => {
     const milliseconds = !Number.isNaN(numeric) && numeric > 0 && numeric < 100000000000 ? numeric * 1000 : numeric
     const date = !Number.isNaN(milliseconds) ? new Date(milliseconds) : new Date(source)
     return Number.isNaN(date.getTime()) ? String(source) : date.toLocaleString()
-}
-const cpuCores = (value: string): number | undefined => {
-    if (!value || value === '–') return undefined
-    const match = value.trim().match(/^([0-9.]+)(n|u|m)?$/i)
-    if (!match) return undefined
-    const amount = Number(match[1])
-    if (!Number.isFinite(amount)) return undefined
-    switch ((match[2] || '').toLowerCase()) {
-    case 'n': return amount / 1000000000
-    case 'u': return amount / 1000000
-    case 'm': return amount / 1000
-    default: return amount
-    }
-}
-const memoryBytes = (value: string): number | undefined => {
-    if (!value || value === '–') return undefined
-    const match = value.trim().match(/^([0-9.]+)(Ki|Mi|Gi|Ti|K|M|G|T)?$/i)
-    if (!match) return undefined
-    const amount = Number(match[1])
-    if (!Number.isFinite(amount)) return undefined
-    const unit = (match[2] || '').toLowerCase()
-    const multiplier = unit === 'ti' ? Math.pow(1024, 4)
-        : unit === 'gi' ? Math.pow(1024, 3)
-        : unit === 'mi' ? Math.pow(1024, 2)
-        : unit === 'ki' ? 1024
-        : unit === 't' ? 1e12
-        : unit === 'g' ? 1e9
-        : unit === 'm' ? 1e6
-        : unit === 'k' ? 1e3 : 1
-    return amount * multiplier
 }
 const utilization = (usage: number | undefined, allocatable: number | undefined): number | undefined =>
     usage !== undefined && allocatable !== undefined && allocatable > 0
@@ -260,9 +235,40 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
         activeDetailTab: 'overview'
     }
 
-    componentDidMount() { this.loadDetail() }
+    private unsubscribeResources?: () => void
+
+    componentDidMount() { this.bindNodeResources(); this.loadDetail() }
+    componentWillUnmount() { this.unsubscribeResources?.() }
+
+    private bindNodeResources() {
+        this.unsubscribeResources?.()
+        this.unsubscribeResources = this.props.nodeResourceSource?.subscribeNodeResources(() => this.syncNodeResources())
+        this.syncNodeResources()
+    }
+
+    private syncNodeResources() {
+        const next = this.props.nodeResourceSource?.nodeResourceSnapshot(this.props.node) || {}
+        const previous = this.state.metricSnapshot || {}
+        // The topology replans references as requests settle. Only the selected
+        // Node's changed snapshots should repaint its panel.
+        if (this.state.metricNodeID === this.props.node.id && previous.detail === next.detail && previous.wall === next.wall
+            && previous.nodeVM?.uuid === next.nodeVM?.uuid && previous.nodeVM?.domain === next.nodeVM?.domain
+            && previous.nodeVM?.matchedBy === next.nodeVM?.matchedBy) return
+        this.setState({ metricSnapshot: next, metricNodeID: this.props.node.id })
+    }
+
+    private nodeMetricSnapshot(): TopologyResourceSnapshot {
+        const cached = this.state.metricNodeID === this.props.node.id ? this.state.metricSnapshot : undefined
+        const key = `${this.cluster()?.id || ''}:${this.uid()}`
+        const detail = this.state.requestKey === key ? this.state.detail : undefined
+        // A card snapshot takes precedence, including native measurements. The
+        // panel's existing detail response is only the initial fallback.
+        return { ...cached, detail: cached?.detail || detail || this.detailFromTopology() }
+    }
 
     componentDidUpdate(prevProps: Props) {
+        if (prevProps.node.id !== this.props.node.id || prevProps.nodeResourceSource !== this.props.nodeResourceSource) this.bindNodeResources()
+        else if (prevProps.node !== this.props.node) this.syncNodeResources()
         if (prevProps.node.id !== this.props.node.id || this.cluster()?.id !== this.clusterFrom(prevProps)?.id) {
             this.setState({ basicCollapsed: false, basicInfoAdvanced: false, podModalOpen: false, riskModal: '', workloadModalOpen: false, workloadFilter: 'all', conditionsExpanded: false, activeDetailTab: 'overview' })
             this.loadDetail()
@@ -554,78 +560,71 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
         </React.Fragment>
     }
 
+    private resourceUsageDescription() {
+        const resources = topologyResourceMetrics(this.props.node, this.nodeMetricSnapshot())
+        const labels = (source: string) => resources.filter(metric => metric.source === source && metric.value !== '미수집')
+            .map(metric => metric.key === 'cpu' ? 'CPU' : '메모리').join('·')
+        const vm = labels('vm-usage'), native = labels('usage')
+        const basis = this.nodeMetricSnapshot().wall?.source === 'node_exporter' ? 'VM 운영체제' : 'VM에 배정된 자원'
+        return <div>
+            {vm && <div>{vm}: Wall에서 수집한 연결 {basis} 기준 사용률입니다.</div>}
+            {native && <div>{native}: Kubernetes에서 수집한 노드 사용량입니다.</div>}
+            {!vm && !native && <div>현재 CPU·메모리 사용량은 수집되지 않았습니다.</div>}
+            <div>할당 가능 용량은 Kubernetes가 파드에 배정할 수 있는 자원입니다. VM 사용률과는 측정 기준이 다릅니다.</div>
+            <div>파드 사용량은 현재 활성 파드 수 / 최대 배치 가능 파드 수입니다.</div>
+        </div>
+    }
+
     private renderCapacity(currentPodCount: number) {
-        const detail = this.state.detail
-        if (!detail?.capacity && !detail?.allocatable) return <CompactEmptyState description={translate('kubernetesNodeCapacityUnavailable')} compact />
-        const cpuCapacity = quantity(detail.capacity, 'cpu')
-        const cpuAllocatable = quantity(detail.allocatable, 'cpu')
-        const memoryCapacity = quantity(detail.capacity, 'memory')
-        const memoryAllocatable = quantity(detail.allocatable, 'memory')
-        const usage = detail.usage || detail.currentUsage || detail.metrics?.usage || {}
-        const cpuUsage = quantity(usage, 'cpu')
-        const memoryUsage = quantity(usage, 'memory')
-        const podCapacity = quantity(detail.capacity, 'pods')
-        const podAllocatable = quantity(detail.allocatable, 'pods')
-        const metrics = [
-            {
-                key: 'cpu',
-                label: 'CPU',
-                usage: cpuUsage === '–' ? undefined : formatCapacityCpu(cpuUsage),
-                allocatable: cpuAllocatable === '–' ? undefined : formatCapacityCpu(cpuAllocatable),
-                capacity: cpuCapacity === '–' ? undefined : formatCapacityCpu(cpuCapacity),
-                percent: utilization(cpuCores(cpuUsage), cpuCores(cpuAllocatable))
-            },
-            {
-                key: 'memory',
-                label: translate('kubernetesMemory'),
-                usage: memoryUsage === '–' ? undefined : formatCapacityMemory(memoryUsage),
-                allocatable: memoryAllocatable === '–' ? undefined : formatCapacityMemory(memoryAllocatable),
-                capacity: memoryCapacity === '–' ? undefined : formatCapacityMemory(memoryCapacity),
-                percent: utilization(memoryBytes(memoryUsage), memoryBytes(memoryAllocatable))
-            },
-            {
-                key: 'pods',
-                label: 'Pod 사용량',
-                usage: String(currentPodCount),
-                allocatable: podAllocatable === '–' ? undefined : podAllocatable,
-                capacity: podCapacity === '–' ? undefined : podCapacity,
-                percent: utilization(currentPodCount, Number(podAllocatable))
-            }
-        ]
-        return <ResourceMetricStack>
-            {metrics.map(metric => {
-                const percentLabel = metric.percent === undefined ? '–' : `${metric.percent.toFixed(1)}%`
-                const tone: DetailBadgeTone = metric.percent === undefined
-                    ? 'default'
-                    : metric.percent >= KUBERNETES_UTILIZATION_THRESHOLDS.danger
-                    ? 'danger'
-                    : metric.percent >= KUBERNETES_UTILIZATION_THRESHOLDS.warning
-                    ? 'warning'
-                    : 'success'
-                const strokeColor = tone === 'danger' ? '#d92d20' : tone === 'warning' ? '#f79009' : RESOURCE_PRESENTATION_COLORS.primary
-                return <ResourceMetricBlock
-                    appearance="resource"
-                    key={metric.key}
-                    title={metric.label}
-                    basis="할당 가능"
-                    basisTooltip="오른쪽 값은 시스템 예약분을 제외하고 워크로드에 할당할 수 있는 용량입니다. 사용률은 현재 사용량을 이 값으로 나누어 계산합니다."
-                    tooltip={<div>
-                        <div>전체 용량: {metric.capacity || '확인 불가'}</div>
-                        <div>할당 가능 용량: {metric.allocatable || '확인 불가'}</div>
-                        {metric.key === 'memory' && <div>사용률 기준: 주의 {KUBERNETES_UTILIZATION_THRESHOLDS.warning}% 이상 · 위험 {KUBERNETES_UTILIZATION_THRESHOLDS.danger}% 이상</div>}
-                    </div>}>
-                    <DetailMetricRow
-                        primary
-                        unavailable={metric.usage === undefined}
-                        label={metric.key === 'pods' ? '활성 파드' : '현재 사용량'}
-                        value={`${metric.usage || '없음'} / ${metric.allocatable || '없음'}`}
-                        ratio={percentLabel}
-                        progressPercent={metric.percent === undefined ? 0 : Math.min(100, metric.percent)}
-                        progressColor={strokeColor}
-                    />
-                </ResourceMetricBlock>
-            })}
-        </ResourceMetricStack>
+        const snapshot = this.nodeMetricSnapshot()
+        const detail = snapshot.detail || {}
+        const collected = this.detailFromTopology()
+        const capacity = detail.capacity || collected.capacity
+        const allocatable = detail.allocatable || collected.allocatable
+        const resources = topologyResourceMetrics(this.props.node, snapshot)
+        const measured = resources.some(metric => metric.source !== 'inventory' && metric.value !== '미수집')
+        if (!capacity && !allocatable && !measured) return <CompactEmptyState description={translate('kubernetesNodeCapacityUnavailable')} compact />
+        const strokeColor = (percent?: number) => percent !== undefined && percent >= KUBERNETES_UTILIZATION_THRESHOLDS.danger
+            ? '#d92d20' : percent !== undefined && percent >= KUBERNETES_UTILIZATION_THRESHOLDS.warning
+            ? '#f79009' : RESOURCE_PRESENTATION_COLORS.primary
+        const metric = (key: 'cpu' | 'memory') => {
+            const resource = resources.find(item => item.key === key)
+            const available = !!resource && resource.source !== 'inventory' && resource.value !== '미수집'
+            const format = key === 'cpu' ? formatCapacityCpu : formatCapacityMemory
+            const allocated = quantity(allocatable, key), total = quantity(capacity, key)
+            const percent = available ? resource!.percent : undefined
+            return { value: available ? resource!.value : '미수집', percent, strokeColor: strokeColor(percent),
+                capacity: <React.Fragment>
+                    <div>할당 가능 {allocated === '–' ? '미수집' : format(allocated)}</div>
+                    {total !== '–' && <div>전체 용량 {format(total)}</div>}
+                </React.Fragment> }
+        }
+        const podAllocatable = quantity(allocatable, 'pods'), podCapacity = quantity(capacity, 'pods')
+        const podMaximum = podAllocatable !== '–' ? podAllocatable : podCapacity
+        const podPercent = utilization(currentPodCount, Number(podMaximum))
+        return <div className="netdive-resource-usage">
+            <ResourceUsageMetrics cpu={metric('cpu')} memory={metric('memory')} />
+            <Divider />
+            <div className="netdive-resource-usage__disk-header">
+                <Space size={6}><AppstoreOutlined />파드 사용량</Space>
+                <strong>{currentPodCount} / {podMaximum === '–' ? '미수집' : podMaximum}</strong>
+            </div>
+            {podPercent !== undefined && <Progress percent={Math.min(100, podPercent)} size="small" showInfo={false}
+                strokeColor={strokeColor(podPercent)} />}
+        </div>
+    }
+
+    private renderResourceTrend() {
+        const snapshot = this.nodeMetricSnapshot()
+        const match = snapshot.nodeVM
+        // Native Kubernetes percentages use allocatable resources as their
+        // denominator. VM history is only valid for the VM-backed resources.
+        const keys = topologyResourceMetrics(this.props.node, snapshot)
+            .filter(metric => metric.source === 'vm-usage').map(metric => metric.key)
+        if (!match || !keys.length) return null
+        return <HostResourceTrendPanel key={`${this.props.node.id}:${match.uuid}`} node={this.props.node} session={this.props.session}
+            target="vm" data={{ Name: match.domain, InstanceName: match.domain, UUID: match.uuid }}
+            usageTrendOnly={{ keys, source: snapshot.wall?.source || 'libvirt' }} />
     }
 
     private focusNodes(nodes: Node[]) {
@@ -888,7 +887,7 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
             </DetailSectionCard>
 
             <DetailSectionCard icon={<DetailSectionIcon role="operational" />} title={translate('kubernetesNodeOperationalStatus')}>
-                <StatusSummaryGrid
+                <StatusSummaryGrid criteriaKind="node"
                     verdict={netdiveVerdict}
                     verdictTone={netdiveTone}
                     rawStatus={statusLabel}
@@ -902,9 +901,11 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
                     ]} />
             </DetailSectionCard>
 
-            <ResourceSectionCard icon={<DetailSectionIcon role="resources" />} title="리소스 현황">
+            <ResourceSectionCard icon={<DetailSectionIcon role="resources" />} title={<Space size={4}>리소스 사용 현황<ResourceInfoTooltip
+                ariaLabel="리소스 사용 현황 정보" description={this.resourceUsageDescription()} /></Space>}>
                 {this.renderCapacity(currentPodCount)}
             </ResourceSectionCard>
+            {this.renderResourceTrend()}
 
             <DetailSectionCard icon={<DetailSectionIcon role="conditions" />} title={translate('kubernetesNodeConditions')}>
                 {this.renderConditions()}

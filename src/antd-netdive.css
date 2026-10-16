@@ -332,7 +332,7 @@
   min-height: 28px;
   padding: 6px 8px;
   border-radius: 4px;
-  background: rgba(15, 23, 42, 0.92);
+  background: #374151;
   color: #ffffff;
   font-family: var(--netdive-font-family);
   font-size: 12px;
@@ -343,7 +343,7 @@
 
 .netdive-ant-theme .ant-tooltip-arrow-content,
 .ant-tooltip .ant-tooltip-arrow-content {
-  background: rgba(15, 23, 42, 0.92);
+  background: #374151;
 }
 
 .netdive-kubernetes-collection-cell-tooltip.ant-tooltip {
