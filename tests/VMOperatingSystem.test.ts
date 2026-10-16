@@ -10,7 +10,16 @@ describe('VM operating system presentation', () => {
         }
         assert.deepEqual(vmOperatingSystem({ GuestOS: 'Windows Server 2022' }), { name: 'Windows Server 2022', family: 'windows' })
         assert.deepEqual(vmOperatingSystem({ OS: 'macOS 14' }), { name: 'macOS 14', family: 'apple' })
-        for (const data of [{}, { GuestOS: 'N/A' }, { OS: 'unknown' }, { OS: 'Other (64-bit)' }, { GuestOS: {} }]) assert.equal(vmOperatingSystem(data), undefined)
+        for (const data of [{}, { GuestOS: 'N/A' }, { OS: 'unknown' }, { GuestOS: {} }]) {
+            assert.deepEqual(vmOperatingSystem(data), { name: '운영체제 정보 없음', family: 'unknown' })
+        }
+        for (const name of ['Other (64-bit)', 'Other', 'FreeBSD 14', 'Oracle Solaris 11']) {
+            assert.deepEqual(vmOperatingSystem({ guestOS: name }), { name, family: 'other' })
+        }
+        assert.deepEqual(vmOperatingSystem({ ostypename: 'Debian GNU/Linux 13 (64-bit)' }),
+            { name: 'Debian GNU/Linux 13 (64-bit)', family: 'linux' })
+        assert.deepEqual(vmOperatingSystem({ GuestOS: 'N/A', osTypeName: 'Ubuntu 24.04 LTS' }),
+            { name: 'Ubuntu 24.04 LTS', family: 'linux' })
     })
     it('uses Mold OS data without changing VM dimensions, resources, or other object types', () => {
         const node: any = { id: 'vm', data: { Name: 'i-2-28-VM', Type: 'libvirt', Manager: 'libvirt' }, children: [], state: {} }

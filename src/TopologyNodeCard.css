@@ -17,7 +17,7 @@
 .topology-object-icon > .fa { font-family: 'Font Awesome 5 Free'; font-weight: 900; }
 .topology-object-icon > img { width: 32px; height: 32px; object-fit: contain; filter: grayscale(1); opacity: 0.85; }
 .topology-object-card__vm-icons { display: inline-flex; align-items: center; gap: 10px; grid-column: 1; grid-row: 1; }
-.topology-object-card__os-icon { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 44px; font-size: 30px; color: var(--topology-object-muted, #63748d); }
+.topology-object-card__os-icon .anticon { display: inline-flex; font-size: inherit; }
 .topology-object-card.is-large .topology-object-icon,
 .topology-object-card.is-group .topology-object-icon { width: 64px; height: 64px; flex-basis: 64px; font-size: 38px; }
 .topology-object-card__identity { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 8px; }

@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { ConfigProvider, Progress, Tag, Tooltip } from 'antd'
-import { ThunderboltOutlined, BlockOutlined, AppstoreOutlined, WindowsOutlined, LinuxOutlined, AppleOutlined,
+import { ThunderboltOutlined, BlockOutlined, AppstoreOutlined, WindowsOutlined, LinuxOutlined, AppleOutlined, CodeOutlined, QuestionCircleOutlined,
     ApartmentOutlined, DatabaseOutlined, FolderOutlined, HddOutlined, DeploymentUnitOutlined,
     CloudServerOutlined, LinkOutlined, BranchesOutlined, TagsOutlined, PoweroffOutlined, GlobalOutlined, SafetyOutlined, ReloadOutlined } from '@ant-design/icons'
 import { TopologyNodePresentation, TopologyMetric } from './TopologyNodePresentation'
@@ -60,9 +60,11 @@ const TopologyVMIcons = ({ model, icon, iconClass, href }: { model: TopologyNode
     const os = model.operatingSystem
     const vm = <TopologyTypeIcon icon={icon} iconClass={iconClass} href={href} />
     if (!os) return vm
-    const Icon = os.family === 'windows' ? WindowsOutlined : os.family === 'apple' ? AppleOutlined : LinuxOutlined
+    const icons = { windows: WindowsOutlined, apple: AppleOutlined, linux: LinuxOutlined,
+        other: CodeOutlined, unknown: QuestionCircleOutlined }
+    const Icon = icons[os.family]
     return <span className="topology-object-card__vm-icons">{vm}<TopologyCardTooltip title={os.name}>
-        <span className="topology-object-card__os-icon" role="img" aria-label={`운영체제: ${os.name}`}><Icon aria-hidden="true" /></span>
+        <span className="topology-object-icon topology-object-card__os-icon" role="img" aria-label={`운영체제: ${os.name}`}><Icon aria-hidden="true" /></span>
     </TopologyCardTooltip></span>
 }
 

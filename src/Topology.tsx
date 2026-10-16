@@ -36,6 +36,7 @@ import { infrastructureCompactLayout, infrastructureVMBridgeIDs, InfrastructureC
     InfrastructureVMLayoutMode, CompactLayoutNode } from './InfrastructureCompactLayout'
 import { routeInfrastructureTraffic } from './InfrastructureTrafficRouting'
 import { compactTrafficLabel, nearestCompactEdge, RoutingEdge, CompactRoute } from './InfrastructureCompactRouting'
+import { separateTrafficLabels } from './InfrastructureTrafficLabels'
 import { infrastructureVirtualNICOwners, infrastructureNICGroupOwner } from './InfrastructureVMBundles'
 import { Avatar, Button, Card, Input, List, Tag, Typography } from 'antd'
 import { NodeIndexOutlined } from '@ant-design/icons'
@@ -6176,12 +6177,14 @@ export class Topology extends React.Component<Props, {}> {
         linkLabelEnter.append('title')
         linkLabel.exit().remove()
 
+        const labelPositions = new Map<string, { x: number; y: number }>()
         linkLabel = linkLabel.merge(linkLabelEnter)
         linkLabel
             .attr("class", linkLabelClass)
             .style("opacity", (d: Link) => this.linkLabelOpacity(d))
             .attr("transform", (d: Link) => {
                 const position = linkLabelPosition(d)
+                labelPositions.set(d.id, position)
                 return `translate(${position.x},${position.y})`
             })
             .on("click", function (d: Link) {
@@ -6194,8 +6197,8 @@ export class Topology extends React.Component<Props, {}> {
             const original = this.links.get(d.id) || d
             return `${original.source.data?.Name || original.source.id} → ${original.target.data?.Name || original.target.id}: ${this.renderedLinkAttrs(d).label}`
         })
-        const labelBounds: Array<{ element: SVGGElement; bb: DOMRect }> = []
-        linkLabel.each(function () {
+        const labelBounds: Array<{ element: SVGGElement; bb: DOMRect; link: Link }> = []
+        linkLabel.each(function (d: Link) {
             const label = select(this)
             const text = label.select("text").node() as SVGTextElement | null
             if (!text) {
@@ -6203,8 +6206,27 @@ export class Topology extends React.Component<Props, {}> {
             }
 
             const bb = text.getBBox()
-            labelBounds.push({ element: this as SVGGElement, bb })
+            labelBounds.push({ element: this as SVGGElement, bb, link: d })
         })
+        if (this.nodeTagActive.toLowerCase() !== 'kubernetes') {
+            const cards = Array.from(this.d3nodes.values())
+                .filter(node => node.data.type !== WrapperType.Hidden && node.data.wrapped !== this.root)
+                .map(node => ({ id: node.data.id, ...this.topologyEdgeBounds(node) }))
+            // Selection can reveal a transparent label without rebuilding the
+            // tree. Reserve its space now so that highlighting stays safe too.
+            const separated = separateTrafficLabels(labelBounds
+                .map(({ bb, link }) => ({ id: link.id,
+                    x: labelPositions.get(link.id)!.x + bb.x + bb.width / 2,
+                    y: labelPositions.get(link.id)!.y + bb.y + bb.height / 2,
+                    width: bb.width + 20, height: bb.height + 12,
+                    route: this.infrastructureTrafficRoutes.get(`relation:${link.id}`)
+                        || this.infrastructureCompactPlan?.routes.get(`relation:${link.id}`) })), cards)
+            labelBounds.forEach(({ element, bb, link }) => {
+                const point = separated.get(link.id)
+                if (point) select(element).attr('transform',
+                    `translate(${point.x - bb.x - bb.width / 2},${point.y - bb.y - bb.height / 2})`)
+            })
+        }
         // Read all text bounds before changing any rects; interleaving them
         // forces the SVG layout to flush once per traffic label.
         labelBounds.forEach(({ element, bb }) => {
