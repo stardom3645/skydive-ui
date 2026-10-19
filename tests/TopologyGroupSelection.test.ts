@@ -12,13 +12,13 @@ const ast = ts.createSourceFile('Topology.tsx', source, ts.ScriptTarget.Latest, 
 const topologyClass = ast.statements.filter(ts.isClassDeclaration).find(node => node.name?.text === 'Topology')!
 const names = ['fitAfterBranchChange', 'expand', 'collapse', 'expandAllNodes', 'setFullGroupDisplay', 'syncGroupDisplaySize', 'toggleGroupListNode', 'setGroupListNodes',
     'groupVisibleNodeIDs', 'selectNode', 'nodeByID', 'visibleNodeIDForID', 'isLinkVisible', 'isLinkNodeSelected',
-    'linkOriginalSourceID', 'linkOriginalTargetID', 'linkDisplayOpacity']
+    'linkOriginalSourceID', 'linkOriginalTargetID', 'isInfrastructureGroupLink', 'linkDisplayOpacity']
 const methods = topologyClass.members.filter(member => member.name && names.includes(member.name.getText(ast)))
     .map(member => member.getText(ast)).join('\n')
 
 function probe(count = 50, manager = 'libvirt') {
     const context: any = { isCurrentKubernetesPod, isKubernetesPod, topologyAutoFitMaxScale: 0.8,
-        LinkTagState: { Hidden: 0, EventBased: 1, Visible: 2 },
+        LinkTagState: { Hidden: 0, EventBased: 1, Visible: 2 }, WrapperType: { Group: 3 },
         select: () => ({ classed: () => undefined, raise: () => undefined }) }
     vm.createContext(context)
     vm.runInContext(ts.transpile(`class Topology { ${methods} }; this.Topology = Topology`,
@@ -31,7 +31,8 @@ function probe(count = 50, manager = 'libvirt') {
     const group = { id: 'vm-group', children, state: { selected: true, expanded: false, groupFullSize: false, groupOffset: 0 } }
     let renders = 0, autoFits = 0
     Object.assign(topology, {
-        props: {}, root: group, groups: new Map([[group.id, { wrapped: group }]]),
+        props: {}, nodeTagActive: manager === 'k8s' ? 'kubernetes' : 'infrastructure',
+        root: group, groups: new Map([[group.id, { wrapped: group }]]),
         nodes: new Map(children.map(child => [child.id, child])),
         groupStates: new Map([[group.id, group.state]]),
         nodeGroup: new Map(children.map(child => [child.id, { wrapped: group }])),

@@ -1309,6 +1309,9 @@ const DetailConnectedResourcePopover = ({
         size="small"
         dataSource={sortedItems}
         renderItem={(item, index) => <List.Item key={item.key !== undefined ? item.key : index}>
+            <Tooltip title={item.tooltip || item.name} placement="topLeft" trigger={['hover', 'focus']}
+                getPopupContainer={detailTooltipPopupContainer} autoAdjustOverflow
+                classNames={{ root: 'netdive-connected-resource-name-tooltip' }}>
             <Button
                 type="text"
                 className="netdive-connected-resource-popover__item"
@@ -1325,13 +1328,12 @@ const DetailConnectedResourcePopover = ({
                 }}>
                 {item.icon && <span className="netdive-connected-resource-popover__icon">{connectedResourceIcon(item.icon)}</span>}
                 <span className="netdive-connected-resource-popover__text">
-                    <Tooltip title={item.tooltip} placement="top">
-                        <Typography.Text className="netdive-connected-resource-popover__name">{item.name}</Typography.Text>
-                    </Tooltip>
+                    <Typography.Text className="netdive-connected-resource-popover__name">{item.name}</Typography.Text>
                     {item.description && <Typography.Text className="netdive-connected-resource-popover__description">{item.description}</Typography.Text>}
                 </span>
                 {item.onClick && <RightOutlined className="netdive-connected-resource-popover__row-action" />}
             </Button>
+            </Tooltip>
         </List.Item>} />
 </div>
 }
@@ -1368,8 +1370,8 @@ export const DetailResourceCard = ({
     resourcesPopoverWidth = 'default'
 }: DetailResourceCardProps) => {
     const connectedResourcePopoverSize = resourcesPopoverWidth === 'wide'
-        ? { min: 360, max: 600, ratio: 1.85 }
-        : { min: 260, max: 440, ratio: 1.35 }
+        ? { min: 560, max: 760, ratio: 2.8 }
+        : { min: 480, max: 640, ratio: 2.4 }
     const [resourcesOpen, setResourcesOpen] = React.useState(false)
     const [resourceListWidth, setResourceListWidth] = React.useState<number>()
     const resourceCardRef = React.useRef<HTMLDivElement | null>(null)
@@ -1396,6 +1398,7 @@ export const DetailResourceCard = ({
         if (open && resourceCardRef.current) {
             const cardWidth = resourceCardRef.current.getBoundingClientRect().width
             setResourceListWidth(Math.min(
+                Math.max(0, window.innerWidth - 24),
                 connectedResourcePopoverSize.max,
                 Math.max(connectedResourcePopoverSize.min, Math.round(cardWidth * connectedResourcePopoverSize.ratio))
             ))

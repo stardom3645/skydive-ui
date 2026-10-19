@@ -50,6 +50,7 @@ interface TrendSeries {
     unit: string
     values: TrendPoint[]
     lastValue?: number
+    labels?: { partition_mountpoint?: string; mountpoint?: string }
 }
 
 interface TrendPoint {

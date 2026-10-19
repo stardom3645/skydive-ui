@@ -13,27 +13,38 @@ const source = (file: string) => ts.createSourceFile(file,
     fs.readFileSync(path.resolve(__dirname, '../src', file), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
 const topologySource = source('Topology.tsx'), configSource = source('Config.ts')
 const topologyClass = topologySource.statements.filter(ts.isClassDeclaration).find(node => node.name?.text === 'Topology')!
-const methods = ['renderedLinkAttrs', 'linkDisplayOpacity', 'linkLabelOpacity', 'infrastructureTrafficLabelSlots']
+const methods = ['renderedLinkAttrs', 'hasInlineLinkLabel', 'isInfrastructureGroupLink', 'linkDisplayOpacity', 'linkLabelOpacity', 'linkHitPointerEvents', 'infrastructureTrafficLabelSlots', 'selectLink']
 const members = topologyClass.members.filter(member => member.name && methods.includes(member.name.getText(topologySource)))
     .map(member => member.getText(topologySource)).join('\n')
 const configMethod = configSource.statements.filter(ts.isClassDeclaration)
     .map(node => node.members.find(member => member.name?.getText(configSource) === 'linkAttrs'
         && member.getText(configSource).includes('topologyLinkTraffic'))).find(Boolean)!
 let position: ts.VariableDeclaration | undefined
+let drawPolicy: ts.VariableDeclaration | undefined
+let pathBuilder: ts.VariableDeclaration | undefined
 const visit = (node: ts.Node) => {
     if (ts.isVariableDeclaration(node) && node.name.getText(topologySource) === 'linkLabelPosition') position = node
+    if (ts.isVariableDeclaration(node) && node.name.getText(topologySource) === 'shouldDrawLink') drawPolicy = node
+    if (ts.isVariableDeclaration(node) && node.name.getText(topologySource) === 'linkPath') pathBuilder = node
     ts.forEachChild(node, visit)
 }
 visit(topologyClass)
 
 function probe(original: any, displayed: any = original) {
     const context: any = { topologyLinkTraffic, compactTrafficLabel, Tools: { prettyBandwidth: (rate: number) => `${rate} bps` }, nodeWidth: 320, nodeHeight: 440,
-        WrapperType: { Hidden: 2, Group: 3 } }
+        WrapperType: { Hidden: 2, Group: 3 }, select: () => ({ classed: () => {} }) }
     vm.createContext(context)
     vm.runInContext(ts.transpile(`
         class ConfigProbe { ${configMethod.getText(configSource)} }
         class TopologyProbe {
             ${members}
+            preparePaths() {
+                const paths = new Map();
+                const shouldDrawLink = ${drawPolicy!.initializer!.getText(topologySource)};
+                const linker = d => { this.pathReads++; return this.infrastructureTrafficRoutes.get('relation:' + d.id).path; };
+                const linkPath = ${pathBuilder!.initializer!.getText(topologySource)};
+                return { path: linkPath, measured: d => shouldDrawLink(d) && this.renderedLinkAttrs(d).label };
+            }
             position(d) {
                 const resolveEndpoint = (link, side) => {
                     const node = this.d3nodes.get(link[side].id);
@@ -49,6 +60,7 @@ function probe(original: any, displayed: any = original) {
     const topology = context.topology
     Object.assign(topology, {
         links: new Map([[original.id, original]]),
+        nodeTagActive: 'infrastructure',
         props: { linkAttrs: (link: any) => context.config.linkAttrs(link) },
         isLinkVisible: () => true, isLinkNodeSelected: () => false,
         hasSelectedLinkNode: () => false, activeContainerMiniNodeIDs: () => new Set(),
@@ -70,6 +82,93 @@ const groupedLink = (link: any) => ({ ...link, source: { id: 'host-group', data:
     target: { id: 'port-group', data: { Type: 'switch' }, x: 620 } })
 
 describe('Infrastructure traffic labels', () => {
+    it('prepares hidden VM proxy geometry and measured labels so selection reveals them without another layout', () => {
+        const original: any = trafficLink()
+        original.target.data = { Type: 'bridge' }
+        const displayed = { ...original, source: { id: 'vm', data: { Type: 'libvirt' } } }
+        const topology = probe(original, displayed)
+        topology.isLinkVisible = () => false
+        topology.pathReads = 0
+        topology.infrastructureTrafficRoutes = new Map([[`relation:${original.id}`, { path: 'M0,0 C0,500 600,500 600,1000' }]])
+        const paint = topology.preparePaths()
+        const line = { path: paint.path(displayed), opacity: topology.linkDisplayOpacity(displayed) }
+        assert.equal(line.opacity, 0, 'prepare geometry without making hidden connections visible')
+        assert.equal(topology.linkHitPointerEvents(displayed), 'none', 'hidden prepared paths do not intercept canvas clicks')
+        assert.equal(topology.linkHitPointerEvents(displayed, true), 'none')
+        assert.ok(line.path.includes(' C'), 'the transparent path is not empty')
+        assert.equal(paint.measured(displayed), '14400 bps', 'retain the measured label before selection too')
+        assert.equal(paint.path(displayed), line.path, 'overlay and hit area share the cached geometry')
+        topology.isLinkVisible = () => true
+        topology.isLinkNodeSelected = () => true
+        assert.equal(topology.linkDisplayOpacity(displayed), 1)
+        assert.equal(topology.linkHitPointerEvents(displayed), 'auto', 'the revealed connection remains clickable')
+        assert.equal(topology.linkHitPointerEvents(displayed, true), 'auto')
+        assert.equal(paint.path(displayed), line.path)
+        assert.equal(topology.pathReads, 1, 'selection requires no new path construction')
+        topology.isLinkVisible = () => false
+        assert.equal(topology.linkDisplayOpacity(displayed), 0, 'deselection still hides the path')
+        assert.equal(topology.linkHitPointerEvents(displayed), 'none')
+    })
+    it('keeps the Kubernetes proxy path preparation policy unchanged', () => {
+        const original: any = trafficLink(), displayed = groupedLink(original), topology = probe(original, displayed)
+        topology.nodeTagActive = 'kubernetes'
+        topology.pathReads = 0
+        topology.infrastructureTrafficRoutes = new Map([[`relation:${original.id}`, { path: 'M0,0 C0,500 600,500 600,1000' }]])
+        topology.isLinkVisible = () => false
+        assert.equal(topology.preparePaths().path(displayed), '')
+        assert.equal(topology.linkHitPointerEvents(displayed), 'auto')
+        assert.equal(topology.pathReads, 0)
+        topology.isLinkVisible = () => true
+        assert.ok(topology.preparePaths().path(displayed).includes(' C'))
+    })
+    it('keeps LLDP overview lines without repeating hidden NIC rates, including while selected', () => {
+        const original: any = trafficLink()
+        ;(original.target.data as any).LLDP = { PortID: 'ethernet1/1/32' }
+        const overview = groupedLink(original), topology = probe(original, overview)
+        const measured = topologyLinkTraffic(original)!
+        assert.equal(topology.hasInlineLinkLabel(overview), false)
+        assert.equal(topology.linkLabelOpacity(overview), 0)
+        assert.equal(topology.linkDisplayOpacity(overview), 1)
+        assert.equal(topology.linkHitPointerEvents(overview), 'auto')
+        assert.equal(topology.linkHitPointerEvents(overview, true), 'none', 'suppressed LLDP labels do not become invisible click targets')
+        topology.isLinkNodeSelected = () => true
+        assert.equal(topology.linkLabelOpacity(overview), 0)
+        assert.equal(topology.linkDisplayOpacity(overview), 1)
+        assert.equal(topology.renderedLinkAttrs(overview).label, '14400 bps', 'the original rate remains available to details')
+        assert.equal(topologyLinkTraffic(original)!.node.id, measured.node.id)
+        assert.equal(topologyLinkTraffic(original)!.total, measured.total)
+        topology.infrastructureTrafficRoutes = new Map([[`relation:${overview.id}`, { trafficNodeID: overview.target.id }]])
+        assert.equal(topology.infrastructureTrafficLabelSlots([overview]).size, 0)
+        topology.d3nodes.set(original.source.id, { data: { type: 1 } })
+        assert.equal(topology.hasInlineLinkLabel(overview), false, 'both concrete ports must be visible')
+        topology.d3nodes.set(original.target.id, { data: { type: 1 } })
+        assert.equal(topology.hasInlineLinkLabel(overview), true)
+        assert.equal(topology.linkLabelOpacity(overview), 1)
+        topology.d3nodes.delete(original.target.id)
+        assert.equal(topology.hasInlineLinkLabel(overview), false, 'collapsing removes the rate again')
+    })
+    it('reveals rates for selected expanded ports/hosts and direct line clicks without a tree rebuild', () => {
+        const original: any = trafficLink()
+        original.state = { selected: false }
+        original.target.data.LLDP = { PortID: 'ethernet1/1/6' }
+        const displayed = { ...groupedLink(original), target: original.target }, topology = probe(original, displayed)
+        assert.equal(topology.linkLabelOpacity(displayed), 0)
+        topology.isLinkNodeSelected = () => true
+        assert.equal(topology.linkLabelOpacity(displayed), 1, 'host or visible port selection reveals its rate')
+        topology.isLinkNodeSelected = () => false
+        assert.equal(topology.linkLabelOpacity(displayed), 0)
+        topology.d3nodes.delete(original.target.id)
+        let observedOpacity = 0
+        topology.unselectAllNodes = () => {}
+        topology.unselectAllLinks = () => { original.state.selected = false }
+        topology.hideLinks = () => { observedOpacity = topology.linkLabelOpacity(displayed) }
+        topology.selectLink(original.id, true)
+        assert.equal(observedOpacity, 1, 'direct line clicks reveal the mounted label immediately')
+        topology.selectLink(original.id, true)
+        assert.equal(original.state.selected, true, 're-clicking must not clear the selected edge')
+        topology.selectLink(original.id, false)
+        assert.equal(observedOpacity, 0)
+    })
     it('associates bridge fan-out measurements with their VM endpoint in either edge direction', () => {
         const cards = [{ id: 'bridge', type: 'bridge', x: -500, y: 0, width: 340, height: 136 },
             ...Array.from({ length: 16 }, (_, i) => ({ id: `vm-${i}`, type: 'libvirt', x: (i % 8) * 544,
@@ -124,7 +223,7 @@ describe('Infrastructure traffic labels', () => {
         })
     })
 
-    it('summarizes dense collapsed groups without inventing a bandwidth total or losing interface values', () => {
+    it('hides dense collapsed-group lines and labels without deleting original interface measurements', () => {
         const originals = Array.from({ length: 18 }, (_, i) => ({ ...trafficLink(), id: `traffic-${i}` }))
         const displayed = originals.map(link => ({ ...groupedLink(link), target: { id: 'group', data: { Type: 'libvirt' } } }))
         const topology = probe(originals[0], displayed[0])
@@ -133,23 +232,40 @@ describe('Infrastructure traffic labels', () => {
         topology.d3nodes.set('group', { x: 620, y: 1000, width: 580, height: 280, data: { id: 'group', type: 3 } })
         topology.infrastructureTrafficRoutes = new Map(displayed.map(link => [`relation:${link.id}`, { trafficNodeID: 'group', points: [], path: '' }]))
         const slots = topology.infrastructureTrafficLabelSlots(displayed)
-        const visible = Array.from(slots.values()).filter((slot: any) => !slot.hidden) as any[]
-        assert.equal(visible.length, 1)
-        assert.equal(visible[0].text, '18개 연결')
-        assert.equal(visible[0].detail.split('\n').length, 18)
+        assert.equal(slots.size, 0)
+        displayed.forEach(link => {
+            assert.equal(topology.linkDisplayOpacity(link), 0)
+            assert.equal(topology.linkLabelOpacity(link), 0)
+        })
         assert.equal(topology.links.size, 18)
         assert.equal(topology.renderedLinkAttrs(displayed[0]).label, '14400 bps')
-        const ownerID = Array.from(slots.keys()).find(id => !slots.get(id).hidden)!
-        const point = topology.position(displayed.find(link => link.id === ownerID))
-        assert.equal(point.x, 620)
-        assert.equal(point.y, 826)
     })
 
-    it('reads original interface metrics after drawing endpoints become group cards', () => {
+    it('hides either grouped endpoint even when selected, and restores traffic after both endpoints become individual cards', () => {
+        const original = trafficLink(), displayed = groupedLink(original), topology = probe(original, displayed)
+        for (const endpoint of [displayed.source, displayed.target]) {
+            topology.d3nodes.get(endpoint.id).data.type = 3
+            topology.isLinkNodeSelected = () => true
+            assert.equal(topology.isInfrastructureGroupLink(displayed), true)
+            assert.equal(topology.linkDisplayOpacity(displayed), 0)
+            assert.equal(topology.linkLabelOpacity(displayed), 0)
+            topology.d3nodes.get(endpoint.id).data.type = 1
+        }
+        assert.equal(topology.linkDisplayOpacity(displayed), 1)
+        assert.equal(topology.linkLabelOpacity(displayed), 1)
+        assert.equal(topology.renderedLinkAttrs(displayed).label, '14400 bps')
+        topology.d3nodes.get(displayed.target.id).data.type = 3
+        topology.nodeTagActive = 'kubernetes'
+        assert.equal(topology.isInfrastructureGroupLink(displayed), false)
+        assert.equal(topology.linkDisplayOpacity(displayed), 1)
+    })
+
+    it('retains original interface metrics while a group hides the drawing and its label', () => {
         const original = trafficLink(), grouped = groupedLink(original), topology = probe(original, grouped)
+        topology.d3nodes.get(grouped.target.id).data.type = 3
         assert.equal(topology.renderedLinkAttrs(grouped).label, '14400 bps')
-        assert.equal(topology.linkDisplayOpacity(grouped), 1)
-        assert.equal(topology.linkLabelOpacity(grouped), 1)
+        assert.equal(topology.linkDisplayOpacity(grouped), 0)
+        assert.equal(topology.linkLabelOpacity(grouped), 0)
         original.source.data.LastUpdateMetric.RxBytes = 2000
         assert.equal(topology.renderedLinkAttrs(grouped).label, '22400 bps')
     })

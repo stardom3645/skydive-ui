@@ -49,8 +49,8 @@ export const routeCardHits = (edge: RoutingEdge, points: RoutePoint[], cards: Ro
         && points.slice(1).some((point, index) => segmentHitsCard(points[index], point, card))).length
 
 /** Sample only the path commands emitted by the existing card-edge renderer. */
-export function sampleCardEdge(source: RoutingCard, target: RoutingCard, hierarchy = false): RoutePoint[] {
-    const tokens = topologyCardEdge(source, target, hierarchy).match(/[MCQHV]|-?\d+(?:\.\d+)?(?:e[-+]?\d+)?/gi) || []
+export function sampleCardEdge(source: RoutingCard, target: RoutingCard, hierarchy = false, axis?: 'vertical'): RoutePoint[] {
+    const tokens = topologyCardEdge(source, target, hierarchy, axis).match(/[MCQHV]|-?\d+(?:\.\d+)?(?:e[-+]?\d+)?/gi) || []
     const points: RoutePoint[] = []
     let cursor = { x: 0, y: 0 }, i = 0
     const number = () => Number(tokens[i++])

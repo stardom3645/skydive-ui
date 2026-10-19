@@ -52,7 +52,7 @@ export default function AboutDialog(props: AboutProps) {
                         UI version : {uiVersion}
                     </DialogContentText> */}
                     <DialogContentText>
-                    Copyright (c) 2025, ABLECLOUD.Co.Ltd
+                    Copyright (c) 2026, ABLECLOUD.Co.Ltd
                     </DialogContentText>
                 </div>
             </DialogContent>

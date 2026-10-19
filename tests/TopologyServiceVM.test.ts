@@ -1,6 +1,6 @@
 import { strict as assert } from 'assert'
 import { topologyServiceVMRole } from '../src/TopologyServiceVM'
-import { topologyNodePresentation, topologyLayerCardLayouts } from '../src/TopologyNodePresentation'
+import { topologyNodePresentation, topologyLayerCardLayouts, topologyCardDimensions } from '../src/TopologyNodePresentation'
 import { TopologyResourceData, topologyResourcePlan } from '../src/TopologyResourceData'
 
 const vm = (name: string, extra: any = {}): any => ({ id: name, data: { Type: 'libvirt', Name: name, State: 'UP', ...extra },
@@ -21,8 +21,9 @@ describe('System VM service cards', () => {
         }
         const router = present(vm('r-192-VM'), undefined, { privateIp: '169.254.191.122', hostName: 'owner' })
         assert.equal(router.systemVMInformation, undefined)
-        assert.deepEqual(router.metrics.map(m => m.key), ['service-role', 'service-state', 'service-ip', 'service-host'])
-        assert.equal(router.metrics[2].label, '제어 IP')
+        assert.deepEqual(router.metrics.map(m => m.key), ['service-ip'])
+        assert.equal(router.metrics[0].label, '제어 IP')
+        assert.equal(router.metrics[0].value, '169.254.191.122')
         for (const name of ['ccvm', 'scvm', 'scvm2', 'i-42-VM', 's-custom', 'r-192-VM-backup']) {
             const model = present(vm(name))
             assert.equal(model.serviceVM, false)
@@ -30,6 +31,24 @@ describe('System VM service cards', () => {
         }
         assert.equal(topologyServiceVMRole(vm('s-173-VM', { Manager: 'k8s' })), undefined)
         assert.equal(topologyServiceVMRole(vm('s-173-VM', { IsTopologyGroup: true })), undefined)
+    })
+    it('shrinks router geometry to one full-width IP row while leaving other VM silhouettes unchanged', () => {
+        const router = vm('r-192-VM'), user = vm('i-42-VM')
+        const entries = [router, user].map(node => ({ node, networkSummary: 'tenant-network' }))
+        const layouts = topologyLayerCardLayouts(entries)
+        const model = topologyNodePresentation(router, { name: router.data.Name, networkSummary: 'tenant-network',
+            cardLayout: layouts.get(router.id) })
+        assert.deepEqual(model.metricRowHeights, [92])
+        assert.equal(model.height, 344)
+        assert.equal(model.width, 480)
+        assert.equal(layouts.get(user.id)!.height, 486)
+        assert.deepEqual(topologyCardDimensions(router, false, { networkSummary: 'tenant-network', cardLayout: layouts.get(router.id) }).height, model.height)
+        router.state.expanded = true
+        assert.deepEqual(topologyLayerCardLayouts(entries), layouts)
+        const closed = vm('router group', { IsTopologyGroup: true, GroupType: 'libvirt' })
+        closed.children = [router]
+        assert.equal(topologyCardDimensions(closed, true, { memberCardLayout: member => layouts.get(member.id) }).height, model.height)
+        assert.equal(topologyCardDimensions(router).height, 246)
     })
     it('separates agent connection from execution, health, resource usage and IP/host information', () => {
         const node = vm('s-173-VM')

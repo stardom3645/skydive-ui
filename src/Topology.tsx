@@ -2893,7 +2893,10 @@ export class Topology extends React.Component<Props, {}> {
 
         selectAll("g.link-label").each(function (d: Link) {
             select(this).style("opacity", self.linkLabelOpacity(d))
+                .style("pointer-events", self.linkHitPointerEvents(d, true))
         })
+        this.gLinkWraps?.selectAll("path.link-wrap")
+            .style("pointer-events", (d: Link) => this.linkHitPointerEvents(d))
         this.syncTopologyRelationEmphasis()
     }
 
@@ -3036,22 +3039,18 @@ export class Topology extends React.Component<Props, {}> {
         if (!l) {
             return
         }
-        l.state.selected = active
-
         if (!this.isCtrlPressed && active) {
             this.unselectAllNodes()
             this.unselectAllLinks()
         }
-
-        if (!active) {
-            this.hideLinks()
-        }
+        l.state.selected = active
 
         select("#link-overlay-" + id).classed("link-overlay-selected", active)
 
         if (this.props.onLinkSelected) {
             this.props.onLinkSelected(l, active)
         }
+        this.hideLinks()
     }
 
     private viewSize(): { width: number, height: number } {
@@ -4575,6 +4574,12 @@ export class Topology extends React.Component<Props, {}> {
         return this.linkOriginalSourceID(link) !== link.source.id || this.linkOriginalTargetID(link) !== link.target.id
     }
 
+    private linkHitPointerEvents(link: Link, label = false): 'auto' | 'none' {
+        // Prepared but hidden proxy paths must not intercept canvas clicks.
+        return this.nodeTagActive.toLowerCase() !== 'kubernetes' && this.isContainerProxyLink(link)
+            && (label ? this.linkLabelOpacity(link) : this.linkDisplayOpacity(link)) === 0 ? 'none' : 'auto'
+    }
+
     private isActiveContainerMiniLink(link: Link): boolean {
         const activeIDs = this.activeContainerLinkNodeIDs()
         if (activeIDs.size === 0) {
@@ -4708,7 +4713,15 @@ export class Topology extends React.Component<Props, {}> {
         return groupListHeaderHeight + rows * groupListRowHeight + rowGaps * 8 + scrollVerticalPadding + cardBorderAllowance
     }
 
+    private isInfrastructureGroupLink(link: Link): boolean {
+        if (this.nodeTagActive.toLowerCase() === 'kubernetes') return false
+        return [link.source.id, link.target.id].some(id => this.d3nodes.get(id)?.data.type === WrapperType.Group)
+    }
+
     private linkDisplayOpacity(link: Link): number {
+        // Group cards represent many independent interfaces, not one measured
+        // connection. Selection and all-links mode must not restore their fan-out.
+        if (this.isInfrastructureGroupLink(link)) return 0
         if (!this.isLinkVisible(link)) {
             return 0
         }
@@ -4725,8 +4738,8 @@ export class Topology extends React.Component<Props, {}> {
             return this.isActiveContainerMiniLink(link) ? 1 : 0
         }
 
-        // A real measured traffic label must survive collapsed/grouped drawing
-        // endpoints. Unmeasured proxy relations keep the existing hidden policy.
+        // Keep original NIC measurements for visible individual VM endpoints.
+        // Unmeasured proxy relations retain their existing hidden policy.
         return this.isContainerProxyLink(link) && !this.renderedLinkAttrs(link).label ? 0 : 1
     }
 
@@ -4761,9 +4774,10 @@ export class Topology extends React.Component<Props, {}> {
         this.gLinkLabels.selectAll("g.link-label")
             .interrupt()
             .style("opacity", (d: Link) => this.linkLabelOpacity(d))
+            .style("pointer-events", (d: Link) => this.linkHitPointerEvents(d, true))
 
         this.gLinkWraps.selectAll("path.link-wrap")
-            .style("pointer-events", "auto")
+            .style("pointer-events", (d: Link) => this.linkHitPointerEvents(d))
     }
 
     private visibleNodeIDForID(id: string): string {
@@ -4790,10 +4804,11 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     private hasSelectedLinkNode(): boolean {
-        return this.visibleLinks().some((link: Link) => this.isLinkNodeSelected(link))
+        return this.visibleLinks().some((link: Link) => !this.isInfrastructureGroupLink(link) && this.isLinkNodeSelected(link))
     }
 
     private linkLabelOpacity(link: Link): number {
+        if (!this.hasInlineLinkLabel(link)) return 0
         const displayOpacity = this.linkDisplayOpacity(link)
         if (displayOpacity === 0) {
             return 0
@@ -5752,6 +5767,21 @@ export class Topology extends React.Component<Props, {}> {
         return this.props.linkAttrs(this.links.get(link.id) || link)
     }
 
+    private hasInlineLinkLabel(link: Link): boolean {
+        if (!this.renderedLinkAttrs(link).label) return false
+        if (this.nodeTagActive.toLowerCase() === 'kubernetes') return true
+        const original = this.links.get(link.id) || link
+        const endpoints = [original.source, original.target]
+        const lldpPort = endpoints.some(node => String(node.data?.Type).toLowerCase() === 'switchport'
+            && (node.data?.LLDP?.PortID || String(node.data?.Probe).toLowerCase() === 'lldp'))
+        // Keep the overview quiet. A selected physical connection can reveal
+        // its measured NIC rate even while the other endpoint is collapsed.
+        const visiblePort = endpoints.some(node => String(node.data?.Type).toLowerCase() === 'switchport' && this.d3nodes.has(node.id))
+        return !lldpPort || endpoints.every(node => this.d3nodes.has(node.id))
+            || !!link.state?.selected || !!original.state?.selected
+            || (visiblePort && this.isLinkNodeSelected(link))
+    }
+
     private updateInfrastructureTrafficRoutes(links: Link[]) {
         if (this.nodeTagActive.toLowerCase() === 'kubernetes') {
             this.infrastructureTrafficRoutes.clear()
@@ -5784,7 +5814,7 @@ export class Topology extends React.Component<Props, {}> {
         const groups = new Map<string, Array<{ id: string; width: number; detail: string }>>()
         links.forEach(link => {
             const route = this.infrastructureTrafficRoutes?.get(`relation:${link.id}`)
-            if (!route?.trafficNodeID || this.linkDisplayOpacity(link) === 0) return
+            if (!route?.trafficNodeID || !this.hasInlineLinkLabel(link) || this.linkDisplayOpacity(link) === 0) return
             const label = this.renderedLinkAttrs(link).label
             if (!label) return
             const labels = groups.get(route.trafficNodeID) || []
@@ -5879,6 +5909,11 @@ export class Topology extends React.Component<Props, {}> {
         }
 
         const shouldDrawLink = (d: Link) => {
+            // Infrastructure proxy links can become visible on selection alone.
+            // Retain their already-computed geometry while transparent: an
+            // empty path would wait for the next layout/resize to appear.
+            // Group links are excluded from visibleLinks below as before.
+            if (this.nodeTagActive.toLowerCase() !== 'kubernetes') return true
             return !this.isContainerProxyLink(d) || this.linkDisplayOpacity(d) > 0
         }
 
@@ -5980,7 +6015,9 @@ export class Topology extends React.Component<Props, {}> {
         }
         const linker = (d: Link) => wrapperLink(d, 55)
 
-        var visibleLinks = this.visibleLinks()
+        // Omit the line, overlay, label and hit area together. The independent
+        // hierarchy renderer continues to show the group's structural links.
+        var visibleLinks = this.visibleLinks().filter(link => !this.isInfrastructureGroupLink(link))
         this.updateInfrastructureTrafficRoutes(visibleLinks)
 
         const linkOverlayClass = (d: Link) => new Array<string>().concat("link-overlay",
@@ -6154,9 +6191,11 @@ export class Topology extends React.Component<Props, {}> {
         const self = this
         var linkLabel = this.gLinkLabels.selectAll('g.link-label')
             .interrupt()
+            // Selection updates opacity without rebuilding the scene. Keep
+            // measured labels mounted so a click can reveal their actual rate.
             .data(visibleLinks.filter((d: Link) => shouldDrawLink(d) && this.renderedLinkAttrs(d).label && !branchLabelSlots.get(d.id)?.hidden), (d: Link) => d.id)
 
-        if (this.raisedLinkLabelID && !visibleLinks.some((d: Link) => d.id === this.raisedLinkLabelID && this.renderedLinkAttrs(d).label)) {
+        if (this.raisedLinkLabelID && !visibleLinks.some((d: Link) => d.id === this.raisedLinkLabelID && this.hasInlineLinkLabel(d))) {
             this.clearRaisedLinkLabel()
         }
 
@@ -6182,6 +6221,7 @@ export class Topology extends React.Component<Props, {}> {
         linkLabel
             .attr("class", linkLabelClass)
             .style("opacity", (d: Link) => this.linkLabelOpacity(d))
+            .style("pointer-events", (d: Link) => this.linkHitPointerEvents(d, true))
             .attr("transform", (d: Link) => {
                 const position = linkLabelPosition(d)
                 labelPositions.set(d.id, position)
@@ -6273,7 +6313,7 @@ export class Topology extends React.Component<Props, {}> {
                 }
             })
         linkWrap
-            .style("pointer-events", "auto")
+            .style("pointer-events", (d: Link) => this.linkHitPointerEvents(d))
             .transition()
             .duration(this.infrastructureLayoutTransition ? 0 : animDuration)
             .attr("d", linkPath)

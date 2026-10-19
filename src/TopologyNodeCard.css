@@ -16,6 +16,9 @@
 }
 .topology-object-icon > .fa { font-family: 'Font Awesome 5 Free'; font-weight: 900; }
 .topology-object-icon > img { width: 32px; height: 32px; object-fit: contain; filter: grayscale(1); opacity: 0.85; }
+/* The switch SVG has internal whitespace around a wide, shallow chassis.
+ * Match the host glyph's visual width within the same 52px icon tile. */
+.topology-object-card.is-infrastructure-object .topology-object-icon > img[src$="/network-switch.svg"] { width: 48px; height: 48px; filter: none; opacity: 1; }
 .topology-object-card__vm-icons { display: inline-flex; align-items: center; gap: 10px; grid-column: 1; grid-row: 1; }
 .topology-object-card__os-icon .anticon { display: inline-flex; font-size: inherit; }
 .topology-object-card.is-large .topology-object-icon,
@@ -382,6 +385,9 @@
 .is-infrastructure-resource-group .topology-resource-group-summary__heading > span:first-child { font-size: 22px; line-height: 26px; }
 .is-infrastructure-resource-group .topology-resource-group-summary__counts strong { font-size: 36px; line-height: 40px; font-weight: 600; }
 .is-infrastructure-resource-group .topology-resource-group-summary__distribution { padding: 10px; justify-content: space-evenly; gap: 8px; }
+.topology-lldp-discovery-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--topology-object-muted, #63748d); font-size: 24px; line-height: 32px; }
+.topology-lldp-discovery-summary strong { font-size: 38px; line-height: 42px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.topology-lldp-discovery-note { display: flex; align-items: center; gap: 8px; color: var(--topology-object-muted, #63748d); font-size: 22px; line-height: 30px; }
 .topology-object-card.is-infrastructure-resource-group .topology-group-summary__states { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; }
 .is-infrastructure-resource-group .topology-group-summary__states > .topology-card-tooltip-anchor { justify-content: center; }
 .is-infrastructure-resource-group .topology-group-summary__states > .topology-card-tooltip-anchor + .topology-card-tooltip-anchor { border-left: 1px solid var(--topology-object-border, #e7eef8); }

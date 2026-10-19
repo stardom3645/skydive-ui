@@ -25,6 +25,8 @@
 .netdive-topology-floating-panel.has-detail-panel {
     right: calc(var(--netdive-selection-panel-width, 500px) + 36px);
 }
+.netdive-topology-floating-panel.is-collapsed { width: max-content; }
+.netdive-topology-floating-panel.is-collapsed .netdive-topology-view-checks__title { width: auto; white-space: nowrap; }
 .netdive-topology-view-checks { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
 .netdive-topology-view-checks__header { display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 8px; }
 .netdive-topology-view-checks__toggle.ant-btn { flex: 0 0 auto; width: 24px; height: 24px; color: var(--netdive-detail-muted, #63748d); }

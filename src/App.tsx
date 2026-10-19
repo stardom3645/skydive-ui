@@ -3244,20 +3244,11 @@ class App extends React.Component<Props, State> {
   private renderRecentNodeIcon(classes: any, item: RecentViewedNodeItem) {
     const fallback = this.recentNodeFallbackIcon(item)
     const glyph = item.iconGlyph || fallback.glyph
-    const tone = item.iconTone || fallback.tone
-    const toneClass = tone === "host"
-      ? classes.recentViewedNodeIconHost
-      : tone === "user-vm"
-        ? classes.recentViewedNodeIconUserVM
-        : tone === "system-vm"
-          ? classes.recentViewedNodeIconSystemVM
-          : tone === "router"
-            ? classes.recentViewedNodeIconRouter
-            : classes.recentViewedNodeIconNetwork
+    const maskImage = item.iconHref ? `url(${JSON.stringify(item.iconHref)})` : undefined
     return (
-      <span className={clsx(classes.recentViewedNodeIcon, toneClass)}>
+      <span className={classes.recentViewedNodeIcon} aria-hidden="true">
         {item.iconHref
-          ? <img src={item.iconHref} alt="" />
+          ? <span className={classes.recentViewedNodeImage} style={{ maskImage, WebkitMaskImage: maskImage }} />
           : this.infrastructureIcon(glyph, "connected-resource")}
       </span>
     )
@@ -4015,28 +4006,30 @@ class App extends React.Component<Props, State> {
           )}>
             <div className={classes.recentViewedNodesHeader}>
               <div className={classes.recentViewedNodesHeaderTitle}>
-                <AccessTimeIcon className={classes.recentViewedNodesHeaderIcon} />
+                <HistoryOutlined className={classes.recentViewedNodesHeaderIcon} />
                 <span>{translate("recentViewedNodes")}</span>
               </div>
               <div className={classes.recentViewedNodesHeaderActions}>
                 {this.state.recentViewedNodes.length > 0 &&
                   <span className={classes.recentViewedNodesCount}>{this.state.recentViewedNodes.length}</span>
                 }
-                <Tooltip title={isCollapsed ? translate("expand") : translate("collapse")}>
-                  <IconButton
+                <Tooltip title={`${translate("recentViewedNodes")} ${isCollapsed ? translate("expand") : translate("collapse")}`}>
+                  <AntButton
+                    type="text"
                     size="small"
-                    aria-label={isCollapsed ? translate("expand") : translate("collapse")}
+                    aria-label={`${translate("recentViewedNodes")} ${isCollapsed ? translate("expand") : translate("collapse")}`}
+                    aria-expanded={!isCollapsed}
+                    aria-controls="netdive-recent-nodes-list"
+                    icon={isCollapsed ? <UpOutlined /> : <DownOutlined />}
                     className={classes.recentViewedNodesCollapseButton}
                     onClick={() => this.setState((currentState) => ({
                       isRecentViewedNodesCollapsed: !currentState.isRecentViewedNodesCollapsed
-                    }))}>
-                    {isCollapsed ? <KeyboardArrowDown fontSize="small" /> : <UnfoldLessIcon fontSize="small" />}
-                  </IconButton>
+                    }))} />
                 </Tooltip>
               </div>
             </div>
             {!isCollapsed &&
-              <div className={classes.recentViewedNodesBody}>
+              <div className={classes.recentViewedNodesBody} id="netdive-recent-nodes-list">
                 {this.state.recentViewedNodes.length === 0 &&
                   <div className={classes.recentViewedNodesEmpty}>{translate("recentViewedNodesEmpty")}</div>
                 }
@@ -4046,6 +4039,7 @@ class App extends React.Component<Props, State> {
                     <button
                       type="button"
                       key={item.id}
+                      aria-current={selectedNodeID === item.id ? 'true' : undefined}
                       className={clsx(classes.recentViewedNodeItem, selectedNodeID === item.id && classes.recentViewedNodeItemActive)}
                       onClick={() => this.focusRecentViewedNode(item)}>
                       {this.renderRecentNodeIcon(classes, item)}
@@ -4117,7 +4111,8 @@ class App extends React.Component<Props, State> {
 
   renderTopologyFloatingPanel(classes: any) {
     const detailPanelOpen = this.state.isSelectionOpen || this.state.isTimetravelOpen
-    return <aside className={clsx('netdive-topology-floating-panel', detailPanelOpen && 'has-detail-panel')}
+    return <aside className={clsx('netdive-topology-floating-panel', detailPanelOpen && 'has-detail-panel',
+      this.state.isViewSettingsCollapsed && 'is-collapsed')}
       data-netdive-display-options="true" aria-label="토폴로지 보기 도구">
       {this.renderTopologyDisplayOptions(classes)}
     </aside>

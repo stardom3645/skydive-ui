@@ -1,5 +1,6 @@
 import { strict as assert } from 'assert'
-import { rootDiskResources, formatRootDiskBytes, resourceUsagePercent } from '../src/DataPanels/common/RootDiskResources'
+import { rootDiskResources, formatRootDiskBytes, resourceUsagePercent, rootDiskDescription } from '../src/DataPanels/common/RootDiskResources'
+import { TopologyResourceData } from '../src/TopologyResourceData'
 import { topologyResourceMetrics } from '../src/TopologyResourceMetrics'
 import { topologyCardDimensions, topologyNodePresentation } from '../src/TopologyNodePresentation'
 
@@ -12,6 +13,26 @@ const node = (type: string): any => ({ id: type, data: { Name: type, Type: type,
     UserVMCount: 25, SystemVMCount: 3, VirtualRouterCount: 6 }, state: {}, children: [] })
 
 describe('Wall root filesystem resources', () => {
+    it('preserves the verified Windows drive in the shared card/detail data without changing card dimensions', async () => {
+        const data = { series: [
+            { key: 'rootDiskTotal', lastValue: 100 * gib, labels: { partition_mountpoint: 'C:\\\\', mold_volume_type: 'ROOT' } },
+            { key: 'rootDiskUsed', lastValue: 0 }, { key: 'rootDiskAvailable', lastValue: 100 * gib }
+        ] }
+        const resource = node('libvirt'), before = topologyNodePresentation(resource, { name: 'Windows VM' })
+        const cache = new TopologyResourceData(() => undefined, (async () => ({ ok: true, json: async () => data })) as any)
+        try {
+            cache.sync([{ key: 'vm', url: 'http://localhost/api/wall/vms/trend?domain=i-2-73-VM' }])
+            await new Promise(resolve => setImmediate(resolve))
+            const cached = cache.get('vm'), disk = rootDiskResources(cached)!
+            assert.equal(disk.mountpoint, 'C:\\')
+            assert.equal(disk.used, 0)
+            assert.equal(disk.percent, 0)
+            assert.equal(rootDiskDescription(disk).startsWith('루트 파일시스템 C:\\'), true)
+            const card = topologyNodePresentation(resource, { name: 'Windows VM', resourceData: { wall: cached } })
+            assert.deepEqual([card.width, card.height], [before.width, before.height])
+            assert.equal(card.metrics.find(metric => metric.key === 'root-disk')!.description, rootDiskDescription(rootDiskResources(data)!))
+        } finally { cache.dispose() }
+    })
     it('uses actual usage samples, preserves zero and keeps allocations separate from missing percentages', () => {
         const snapshot = { series: [{ key: 'cpu', lastValue: 0 }, { key: 'memory', lastValue: 27 }] }
         const before = JSON.stringify(snapshot)

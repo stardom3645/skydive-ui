@@ -28,7 +28,7 @@ describe('Uniform topology layer card slots', () => {
         assert.equal(new Set(models.map(model => model.networkHeight)).size, 1)
         assert.equal(models[0].headerHeight, 96)
         assert.equal(models[0].networkHeight, 116)
-        assert.equal(models[0].height, 522)
+        assert.equal(models[0].height, 380)
         models.forEach((model, i) => assert.equal(model.name, nodes[i].data.Name))
         assert.equal(models[3].networkSummary, undefined, 'missing data is never fabricated')
     })
@@ -73,6 +73,80 @@ describe('Uniform topology layer card slots', () => {
 })
 
 describe('Topology object presentation', () => {
+    const lldpSwitch = (data: any = {}): any => ({ id: 'switch', children: [], state: {},
+        data: { Type: 'switch', Probe: 'lldp', Name: 'S4148F-ON', LLDP: { SysName: 'OS10' }, ...data } })
+    it('labels LLDP discovery without claiming switch health or current reachability', () => {
+        const node = lldpSwitch()
+        const status = topologyNodeStatusPresentation(node)
+        assert.equal(status.label, 'LLDP 발견')
+        assert.equal(status.tone, 'unknown')
+        assert.equal(status.description, '연결된 호스트에서 수신한 네트워크 정보를 통해 스위치를 식별했습니다. LLDP 발견은 스위치의 현재 정상 동작 여부를 의미하지 않습니다.')
+        assert.deepEqual(present(node).status, status)
+    })
+    it('preserves explicit switch operational states and collection failures over LLDP discovery', () => {
+        for (const [data, tone, label] of [
+            [{ State: 'UP' }, 'normal', '이상 없음'],
+            [{ Health: 'failed' }, 'critical', '장애'],
+            [{ AdminState: 'disabled' }, 'inactive', '비활성'],
+            [{ CollectionState: 'expired' }, 'unknown', '알 수 없음'],
+            [{ OperationalState: 'unknown' }, 'unknown', '알 수 없음']
+        ] as Array<[any, string, string]>) {
+            const status = topologyNodeStatusPresentation(lldpSwitch(data))
+            assert.equal(status.tone, tone)
+            assert.equal(status.label, label)
+        }
+    })
+    it('leaves non-LLDP resources and virtual group status unchanged', () => {
+        assert.equal(topologyNodeStatusPresentation(lldpSwitch({ Probe: 'other' })).label, '알 수 없음')
+        assert.equal(topologyNodeStatusPresentation(lldpSwitch({ Type: 'host' })).label, '알 수 없음')
+        assert.equal(topologyNodeStatusPresentation(lldpSwitch(), { group: true }).label, '알 수 없음')
+    })
+    it('recognizes remote LLDP switch ports without a Probe field and does not infer link Up', () => {
+        const node = lldpSwitch({ Type: 'switchport', Probe: undefined, LLDP: { PortID: 'ethernet1/1/1', PortIDType: 'Interface Name' } })
+        const model = present(node)
+        assert.equal(model.status.label, 'LLDP 발견')
+        assert.equal(model.status.tone, 'unknown')
+        assert.equal(model.status.description, '연결된 호스트에서 수신한 네트워크 정보를 통해 스위치 포트와 연결 위치를 확인했습니다. LLDP 발견은 포트의 현재 동작 상태(Up/Down)를 의미하지 않습니다.')
+        assert.equal(model.linkState, undefined)
+        assert.deepEqual(topologyNodeStatusPresentation(node), model.status)
+        assert.equal(present(lldpSwitch({ Type: 'switchport', Probe: undefined, LLDP: {} })).status.label, '알 수 없음')
+        assert.equal(present(lldpSwitch({ Type: 'device', Probe: undefined, LLDP: { PortID: 'eno1' } })).status.label, '알 수 없음')
+    })
+    it('preserves measured port link states, operational faults and collection failures over discovery', () => {
+        const port = (data: any = {}) => lldpSwitch({ Type: 'switchport', Probe: undefined,
+            LLDP: { PortID: 'ethernet1/1/1' }, ...data })
+        for (const [data, tone, label, linkState] of [
+            [{ OperState: 'UP' }, 'normal', '이상 없음', 'Up'],
+            [{ OperState: 'DOWN', Master: 'switch' }, 'warning', '주의', 'Down'],
+            [{ Health: 'failed', Master: 'switch' }, 'critical', '장애', undefined],
+            [{ AdminState: 'disabled' }, 'inactive', '비활성', undefined],
+            [{ CollectionState: 'expired' }, 'unknown', '알 수 없음', undefined]
+        ] as Array<[any, string, string, string | undefined]>) {
+            const model = present(port(data))
+            assert.equal(model.status.tone, tone)
+            assert.equal(model.status.label, label)
+            assert.equal(model.linkState, linkState)
+        }
+        assert.equal(topologyNodeStatusPresentation(port(), { group: true }).label, '알 수 없음')
+    })
+    it('presents discovery-only port groups without claiming operational health and restores real status summaries', () => {
+        const group = lldpSwitch({ Type: 'switchport', IsTopologyGroup: true, Probe: undefined, LLDP: undefined })
+        group.children = Array.from({ length: 9 }, (_, i) => ({ ...lldpSwitch({ Type: 'switchport',
+            Probe: undefined, LLDP: { PortID: `ethernet1/1/${i + 1}` } }), id: `port-${i}` }))
+        const model = present(group, { group: true })
+        assert.equal(model.lldpDiscoveryCount, 9)
+        assert.deepEqual(model.linkStates, { up: 0, down: 0, unknown: 9 }, 'raw link-state observations remain intact')
+        assert.ok(!model.status.description.includes('이상 없음 9'))
+        group.children[0].data.OperState = 'UP'
+        const observed = present(group, { group: true })
+        assert.equal(observed.lldpDiscoveryCount, undefined)
+        assert.deepEqual(observed.linkStates, { up: 1, down: 0, unknown: 8 })
+        delete group.children[0].data.OperState
+        group.children[0].data.CollectionState = 'failed'
+        assert.equal(present(group, { group: true }).lldpDiscoveryCount, undefined, 'collection errors are not hidden as discovery')
+        group.children = []
+        assert.equal(present(group, { group: true }).lldpDiscoveryCount, undefined)
+    })
     it('separates raw Up/Down from incident judgment on NICs and canonical group children', () => {
         const group = resource('NIC 그룹', 'device'); group.data.Manager = 'fabric'; group.data.IsTopologyGroup = true
         const up = attach(group, resource('eno1', 'device')), down = attach(group, resource('eno2', 'device')),

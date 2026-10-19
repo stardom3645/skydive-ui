@@ -2,9 +2,9 @@ export interface TopologyCardBounds { x: number; y: number; width: number; heigh
 
 /** Clip endpoints to the card edges without touching relationship identity or
  * the layout. Hierarchy links share the same horizontal branching level. */
-export const topologyCardEdge = (source: TopologyCardBounds, target: TopologyCardBounds, hierarchy = false): string => {
+export const topologyCardEdge = (source: TopologyCardBounds, target: TopologyCardBounds, hierarchy = false, axis?: 'vertical'): string => {
     const dx = target.x - source.x, dy = target.y - source.y
-    if (hierarchy || Math.abs(dy) >= Math.abs(dx) * 0.35) {
+    if (hierarchy || axis === 'vertical' || Math.abs(dy) >= Math.abs(dx) * 0.35) {
         const direction = dy >= 0 ? 1 : -1
         const start = { x: source.x, y: source.y + source.height / 2 * direction }
         const end = { x: target.x, y: target.y - target.height / 2 * direction }

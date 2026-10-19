@@ -61,6 +61,8 @@ export class TopologyResourceData {
                             series: (data.series || []).map(item => {
                                 const last = (item.values || []).filter(point => point?.value !== null && point?.value !== undefined).slice(-1)[0]
                                 return { key: item.key, lastValue: item.lastValue,
+                                    ...(item.key === 'rootDiskTotal' && item.labels ? { labels: {
+                                        partition_mountpoint: item.labels.partition_mountpoint, mountpoint: item.labels.mountpoint } } : {}),
                                     ...(Number.isFinite(last?.timestamp) ? { timestamp: last.timestamp } : {}) }
                             }) }
                         : entry.request.url.includes('/api/mold/hosts/detail')

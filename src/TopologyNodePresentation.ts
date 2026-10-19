@@ -26,6 +26,7 @@ export interface TopologyNodePresentation {
     groupResourceCount?: number
     linkState?: 'Up' | 'Down'
     linkStates?: { up: number; down: number; unknown: number }
+    lldpDiscoveryCount?: number
     resourceType: string
     name: string; subtitle: string; kind: string; size: TopologyCardSize; networkSummary?: string; networkCount?: number
     operatingSystem?: VMOperatingSystem
@@ -161,11 +162,12 @@ export const topologyLayerCardLayouts = (entries: Array<{ node: Node; name?: str
         const dimensions = topologyCardDimensions(node, false, entry)
         const header = cardHeaderHeight(node, dimensions.width, entry.name)
         const network = infrastructure ? topologyNetworkInfoHeight(dimensions.width, entry.networkSummary, entry.networkCount) : 0
-        const body = infrastructure && typeOf(node) === 'libvirt' ? 18 + 112 * 2 + 10
+        const router = infrastructure && topologyServiceVMRole(node) === '가상 라우터'
+        const body = router ? 18 + 92 : infrastructure && typeOf(node) === 'libvirt' ? 18 + 112 * 2 + 10
             : Math.max(0, dimensions.height - 40 - header - network - (network ? 18 : 0))
         // Compact NICs intentionally inherit their owner's graph weight, but
         // they occupy the row below the VM and need their own compact slots.
-        const key = `${infrastructure ? 'infrastructure' : 'kubernetes'}:${node.getWeight?.() ?? typeOf(node)}:${isVMInterface(node) ? 'vm-interface' : 'resource'}`
+        const key = `${infrastructure ? 'infrastructure' : 'kubernetes'}:${node.getWeight?.() ?? typeOf(node)}:${router ? 'router' : isVMInterface(node) ? 'vm-interface' : 'resource'}`
         const layer = layers.get(key) || []
         layer.push({ id: node.id, header, network, body,
             dynamic: !infrastructure && ['node', 'pod', 'deployment', 'statefulset', 'daemonset', 'job', 'cronjob'].includes(typeOf(node)),
@@ -237,6 +239,11 @@ export const topologyCardDimensions = (node: Node, group = false, options: { nam
             ? 18 + metricRowHeights.reduce((sum, height) => sum + height, 0) + (metricRowHeights.length - 1) * 10 : 0), metricRowHeights }
     }
     const headerHeight = infrastructure ? infrastructureHeaderHeight(width, fullName) : 0
+    if (infrastructure && topologyServiceVMRole(node) === '가상 라우터') {
+        const networkHeight = topologyNetworkInfoHeight(width, options.networkSummary, options.networkCount)
+        return { size, width, height: 40 + headerHeight + (networkHeight ? networkHeight + 18 : 0) + 18 + 92,
+            headerHeight, networkHeight, metricRowHeights: [92] }
+    }
     // Switch cards show identity/status and a connection count, not VM metrics.
     // Infrastructure needs at most three name lines and one metric row.
     if (type === 'switch') return { size, width: TOPOLOGY_CARD_SIZES[size].width,
@@ -252,7 +259,8 @@ export const topologyCardDimensions = (node: Node, group = false, options: { nam
                 : (node.children || []).length > 0)
     return { size, ...TOPOLOGY_CARD_SIZES[size], ...(infrastructure && hasMetrics ? { height: Math.max(TOPOLOGY_CARD_SIZES[size].height, 40 + headerHeight + 116) } : {}), ...(type === 'host' ? { height: infrastructure ? 340 + headerHeight : 404 } : {}),
         ...(!infrastructure && type === 'cluster' ? { height: 440 } : {}),
-        // All VM kinds share one silhouette and fixed information slots.
+        // Other VM kinds retain their fixed information slots; router cards
+        // use the compact content-driven measurement above.
         ...(type === 'libvirt' ? { width: 480, height: infrastructure ? (460 + (options.networkSummary?.trim() ? topologyNetworkInfoHeight(480, options.networkSummary, options.networkCount) + 18 : 0)) : 556 } : {}),
         ...(type === 'pod' ? { height: 352 } : {}),
         ...(['persistentvolume', 'persistentvolumeclaim'].includes(type) ? { height: 416 } : {}),
@@ -270,6 +278,7 @@ export const topologyNodeStatusPresentation = (node: Node, options: {
     const kubernetes = String(data.Manager || '').toLowerCase() === 'k8s'
     const children = options.children || node.children || []
     const status: TopologyNodePresentation['status'] = { tone: 'unknown', label: '알 수 없음', description: '상태 데이터가 없습니다.' }
+    let lldpDiscovered = false
     if (kubernetes && !options.group) {
         const current = kubernetesResourceSelfStatus(node)
         status.tone = current.collection !== 'collected' ? 'unknown' : current.state === 'problem' ? 'critical'
@@ -282,6 +291,14 @@ export const topologyNodeStatusPresentation = (node: Node, options: {
                 : (type === 'host' ? /^(up|running|ok|connected|enabled|healthy|normal)$/i.test(String(read(data, ['State', 'Status', 'OperState', 'Health']) || ''))
                     : read(data, ['State', 'Status', 'OperState', 'Health']) !== undefined) ? 'normal' : 'unknown'
         status.description = current.reason || (status.tone === 'normal' ? '현재 운영 이상이 확인되지 않았습니다.' : '상태 데이터가 없습니다.')
+        // Discovery does not establish current reachability or device health.
+        // Keep explicit operational and collection states authoritative.
+        // Remote switch ports carry LLDP.PortID but do not carry Probe.
+        const lldpResource = ['switch', 'switchport'].includes(type)
+            && (String(data.Probe || '').trim().toLowerCase() === 'lldp'
+                || (type === 'switchport' && read(data, ['LLDP.PortID']) !== undefined))
+        lldpDiscovered = lldpResource && status.tone === 'unknown' && current.status === undefined
+            && read(data, ['State', 'Status', 'state', 'status', 'OperState', 'OperationalState', 'LinkState', 'Health']) === undefined
         if (type === 'host') {
             const state = read(data, ['State', 'Status', 'AgentStatus'])
             const resourceState = read(data, ['ResourceState', 'AllocationState'])
@@ -291,6 +308,12 @@ export const topologyNodeStatusPresentation = (node: Node, options: {
         }
     }
     status.label = { normal: kubernetes ? '정상' : '이상 없음', warning: '주의', critical: '장애', unknown: '알 수 없음', inactive: '비활성' }[status.tone]
+    if (lldpDiscovered) {
+        status.label = 'LLDP 발견'
+        status.description = type === 'switchport'
+            ? '연결된 호스트에서 수신한 네트워크 정보를 통해 스위치 포트와 연결 위치를 확인했습니다. LLDP 발견은 포트의 현재 동작 상태(Up/Down)를 의미하지 않습니다.'
+            : '연결된 호스트에서 수신한 네트워크 정보를 통해 스위치를 식별했습니다. LLDP 발견은 스위치의 현재 정상 동작 여부를 의미하지 않습니다.'
+    }
     if (kubernetes && !options.group && children.length && status.tone === 'normal') status.label = '자체 정상'
     if (kubernetes && !options.group && ['persistentvolume', 'persistentvolumeclaim'].includes(type)) {
         status.label = status.tone === 'unknown' ? '미확인' : kubernetesStorageOperationalPresentation(kubernetesStorageObservation(node.data)).verdict
@@ -327,6 +350,10 @@ export const topologyNodePresentation = (node: Node, options: {
         counts[state === 'Up' ? 'up' : state === 'Down' ? 'down' : 'unknown']++
         return counts
     }, { up: 0, down: 0, unknown: 0 }) : undefined
+    const lldpDiscoveryCount = !kubernetes && group && children.length > 0
+        && children.every(child => typeOf(child) === 'switchport'
+            && topologyNodeStatusPresentation(child, { links: options.links }).label === 'LLDP 발견')
+        ? children.length : undefined
     let groupResourceCount: number | undefined
     if (group && !namespaceSummary) {
         const seen = new Set<Node>([node]), resources = new Set<string>()
@@ -382,7 +409,7 @@ export const topologyNodePresentation = (node: Node, options: {
         }
     } else if (['node', 'host', 'libvirt'].includes(type) && !group) {
         metrics.push(...(systemVMInformation ? []
-            : serviceRole ? topologyServiceVMInformation(node, data, serviceRole)
+            : serviceRole ? topologyServiceVMInformation(node, data, serviceRole).filter(metric => metric.key === 'service-ip')
             : topologyResourceMetrics(node, options.resourceData, options.allNodes, options.resourceMetricsIndex)))
         if (type === 'node') count('pods', '파드', options.resourceData?.detail?.podCount ?? read(data, ['PodCount', 'K8s.PodCount', 'K8s.Extra.Status.PodCount']) ?? '미수집')
         else if (type === 'host') {
@@ -412,7 +439,7 @@ export const topologyNodePresentation = (node: Node, options: {
     }
     if (type === 'libvirt' && !group && !serviceRole && !metrics.some(metric => metric.key === 'root-disk')) {
         metrics.push({ key: 'root-disk', label: '루트 디스크', value: '미수집',
-            description: '루트 파일시스템 / 용량 미수집' })
+            description: '루트 파일시스템 용량 미수집' })
     }
     const showKubernetesMetrics = !kubernetes || (options.resourceMetricsIndex
         ? options.resourceMetricsIndex.metricsAvailable(node, options.resourceData)
@@ -441,11 +468,11 @@ export const topologyNodePresentation = (node: Node, options: {
         badgeSummary.title = '하위 자원 구성'
         badgeSummary.breakdown = topologyHostChildBreakdown(children)
     }
-    if (distribution?.total) status.description += ` · 직전 하위 자원 ${distribution.total}개: ${kubernetes ? '정상' : '이상 없음'} ${distribution.normal}, 주의 ${distribution.warning}, 장애 ${distribution.critical}, 비활성 ${distribution.inactive}`
+    if (distribution?.total && lldpDiscoveryCount === undefined) status.description += ` · 직전 하위 자원 ${distribution.total}개: ${kubernetes ? '정상' : '이상 없음'} ${distribution.normal}, 주의 ${distribution.warning}, 장애 ${distribution.critical}, 비활성 ${distribution.inactive}`
     return { ...dimensions, infrastructure: !kubernetes, namespaceSummary, groupResourceCount, resourceType: type, group, name: (!options.group && kubernetes ? String(data.Name || lines[0] || node.id).replace(/\s*\n\s*/g, ' ') : primaryName) || node.id,
         systemVMInformation, serviceVM: !!serviceRole, kind, subtitle: options.scope || (group ? `${kind} · ${distribution?.total || 0}개 자원` : type === 'cluster' ? kind : namespace ? `${kind} · ${namespace}` : lines[1] || kind),
         expanded: !!node.state.expanded, fullyExpanded: group && !namespaceSummary && topologyGroupFullyExpanded(node), expandable: children.length > 0, status,
-        linkState: !group ? topologyNetworkLinkState({ ...node, data } as Node) : undefined, linkStates,
+        linkState: !group ? topologyNetworkLinkState({ ...node, data } as Node) : undefined, linkStates, lldpDiscoveryCount,
         networkSummary: !group && (!kubernetes || type === 'libvirt') ? options.networkSummary : undefined,
         networkCount: !group && type === 'libvirt' ? options.networkCount : undefined,
         operatingSystem: !kubernetes && !group && type === 'libvirt' ? vmOperatingSystem(data) : undefined,

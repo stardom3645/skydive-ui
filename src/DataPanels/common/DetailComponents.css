@@ -2993,7 +2993,7 @@ button.netdive-detail-metric-row:focus-visible {
 }
 
 .netdive-connected-resource-popover-overlay.ant-popover {
-    min-width: 260px;
+    min-width: min(260px, calc(100vw - 24px));
     max-width: calc(100vw - 24px);
 }
 
@@ -3117,6 +3117,21 @@ button.netdive-detail-metric-row:focus-visible {
     font-size: var(--netdive-detail-font-body-label);
     font-weight: var(--netdive-detail-weight-body-label);
     line-height: var(--netdive-detail-line-body-label);
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
+}
+
+.netdive-connected-resource-name-tooltip.ant-tooltip {
+    max-width: min(640px, calc(100vw - 24px));
+}
+
+.netdive-connected-resource-name-tooltip .ant-tooltip-container,
+.netdive-connected-resource-name-tooltip .ant-tooltip-inner {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: normal;
 }
 
 .netdive-connected-resource-popover__description.ant-typography {

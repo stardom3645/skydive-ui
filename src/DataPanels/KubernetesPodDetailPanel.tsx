@@ -11,6 +11,7 @@ import { kubernetesLabelValue, matchesKubernetesSelector } from '../KubernetesSe
 import { kubernetesOperationalPodDataset } from '../KubernetesNodeDetailAggregation'
 import { resolveKubernetesPodTopController } from '../KubernetesWorkloadOwnership'
 import KubernetesPodLogPanel from './KubernetesPodLogPanel'
+import KubernetesPodYAMLPanel from './KubernetesPodYAMLPanel'
 import {
     kubernetesPodContainerKindLabel,
     kubernetesPodContainerRuntime,
@@ -46,7 +47,8 @@ interface Props {
 }
 
 interface State {
-    activeDetailTab: 'overview' | 'logs'
+    activeDetailTab: 'overview' | 'logs' | 'yaml'
+    yamlVisited: boolean
     detail?: any
     loading: boolean
     error: boolean
@@ -95,13 +97,13 @@ const POD_EVENT_TONES = {
 }
 
 class KubernetesPodDetailPanel extends React.Component<Props, State> {
-    state: State = { loading: false, error: false, requestKey: '', basicCollapsed: false, basicInfoAdvanced: false, activeDetailTab: 'overview' }
+    state: State = { loading: false, error: false, requestKey: '', basicCollapsed: false, basicInfoAdvanced: false, activeDetailTab: 'overview', yamlVisited: false }
 
     componentDidMount() { this.loadDetail() }
 
     componentDidUpdate(prevProps: Props) {
         if (prevProps.node.id !== this.props.node.id || this.clusterFrom(prevProps)?.id !== this.cluster()?.id) {
-            this.setState({ basicCollapsed: false, basicInfoAdvanced: false, activeDetailTab: 'overview' })
+            this.setState({ basicCollapsed: false, basicInfoAdvanced: false, activeDetailTab: 'overview', yamlVisited: false })
             this.loadDetail()
         }
     }
@@ -441,11 +443,16 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
         ], POD_EVENT_TONES)
         return <div className="netdive-k8s-pod-detail">
             <DetailNavigationTabs activeKey={this.state.activeDetailTab}
-                tabs={[{ key: 'overview', label: '개요' }, { key: 'logs', label: '로그' }]}
-                onChange={activeDetailTab => this.setState({ activeDetailTab: activeDetailTab as State['activeDetailTab'] })} />
+                tabs={[{ key: 'overview', label: '개요' }, { key: 'logs', label: '로그' }, { key: 'yaml', label: 'YAML' }]}
+                onChange={activeDetailTab => this.setState(state => ({ activeDetailTab: activeDetailTab as State['activeDetailTab'],
+                    yamlVisited: state.yamlVisited || activeDetailTab === 'yaml' }))} />
+            {this.state.yamlVisited && <div hidden={this.state.activeDetailTab !== 'yaml'}>
+                <KubernetesPodYAMLPanel key={`${this.cluster()?.id || ''}:${this.uid()}`} active={this.state.activeDetailTab === 'yaml'}
+                    session={this.props.session} clusterID={this.cluster()?.id} uid={this.uid()} namespace={detail.namespace} name={detail.name} />
+            </div>}
             {this.state.activeDetailTab === 'logs' ? <KubernetesPodLogPanel key={`${this.cluster()?.id || ''}:${this.uid()}`}
                 session={this.props.session} clusterID={this.cluster()?.id} uid={this.uid()}
-                namespace={detail.namespace} name={detail.name} containers={containers} /> : <React.Fragment>
+                namespace={detail.namespace} name={detail.name} containers={containers} /> : this.state.activeDetailTab === 'overview' && <React.Fragment>
             <DetailSectionCard icon={<DetailSectionIcon role="basic" />} title="파드 기본 정보" collapsible collapsed={this.state.basicCollapsed} onToggle={() => this.setState({ basicCollapsed: !this.state.basicCollapsed })}>
                 <BasicInfoRows density="compact" rows={basicRows} labelWidth={122} copyTooltip={translate('copy')} />
             </DetailSectionCard>

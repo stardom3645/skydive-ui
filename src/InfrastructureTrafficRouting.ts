@@ -1,5 +1,5 @@
 import { topologyCardEdge } from './TopologyEdgePresentation'
-import { separateVMInterfaceRoutes } from './InfrastructureVMInterfaceRouting'
+import { separateVMInterfaceRoutes, verticalCurve } from './InfrastructureVMInterfaceRouting'
 import { separateInterfaceVLANRoutes } from './InfrastructureVLANRouting'
 import { CompactRoute, RoutingCard, RoutingEdge, RoutingRegion, routeCompactEdges,
     compactRouteFromPoints, routeCardHits, sampleCardEdge, segmentHitsCard } from './InfrastructureCompactRouting'
@@ -7,7 +7,83 @@ import { CompactRoute, RoutingCard, RoutingEdge, RoutingRegion, routeCompactEdge
 const routeLength = (route: CompactRoute) => route.points.slice(1).reduce((length, point, i) =>
     length + Math.hypot(point.x - route.points[i].x, point.y - route.points[i].y), 0)
 
-/** Dense bridge fan-out follows one clear side corridor and one branch per row.
+/** Try a small set of smooth, monotone corridors around the actual blockers
+ * before using the orthogonal obstacle graph. No card positions are changed. */
+function smoothVerticalDetour(edge: RoutingEdge, source: RoutingCard, target: RoutingCard, cards: RoutingCard[], regions: RoutingRegion[],
+    clear: (edge: RoutingEdge, route: CompactRoute) => boolean): CompactRoute | undefined {
+    const reverse = source.y > target.y
+    const upper = reverse ? target : source, lower = reverse ? source : target
+    const start = { x: upper.x, y: upper.y + upper.height / 2 }
+    const end = { x: lower.x, y: lower.y - lower.height / 2 }
+    if (end.y - start.y < 96) return
+    const direct = verticalCurve(start, end)
+    const obstacles = [...cards.filter(card => card.id !== source.id && card.id !== target.id),
+        ...regions.filter(region => !region.nodeIDs.includes(source.id) && !region.nodeIDs.includes(target.id))]
+    const blockers = obstacles.filter(card => direct.points.slice(1).some((p, i) => segmentHitsCard(direct.points[i], p, card)))
+    const xs = Array.from(new Set([end.x, start.x, (start.x + end.x) / 2,
+        ...blockers.reduce<number[]>((xs, card) => xs.concat(card.x - card.width / 2 - 32, card.x + card.width / 2 + 32), [])])).sort((a,b)=>a-b)
+    let best: CompactRoute | undefined
+    let bestJunction: { x: number; y: number } | undefined
+    const tryJunctions = (ys: number[]) => {
+        for (const y of ys) for (const x of xs) {
+            const junction = { x, y }
+            const a = verticalCurve(start, junction), b = verticalCurve(junction, end)
+            const route = { path: a.path + b.path.slice(b.path.indexOf(' C')), points: [...a.points, ...b.points.slice(1)] }
+            if (clear(edge, route) && (!best || routeLength(route) < routeLength(best))) { best = route; bestJunction = junction }
+        }
+    }
+    tryJunctions([0.5, 0.35, 0.65].map(fraction => start.y + (end.y - start.y) * fraction))
+    if (!best) {
+        // A late VM row may only be reachable after passing the preceding rows.
+        // Fixed fractions miss that open gap and unnecessarily choose a large
+        // right-angle bus. Try the actual row boundaries before falling back.
+        const left = Math.min(start.x, end.x), right = Math.max(start.x, end.x)
+        const ys = Array.from(new Set(obstacles.filter(card => card.x + card.width / 2 >= left && card.x - card.width / 2 <= right)
+            .reduce<number[]>((ys, card) => ys.concat(card.y - card.height / 2 - (card.above || 0) - 32,
+                card.y + card.height / 2 + (card.below || 0) + 32), [])))
+            .filter(y => y > start.y + 48 && y < end.y - 48).sort((a, b) => a - b)
+        tryJunctions(ys)
+    }
+    if (best && reverse) {
+        const a = verticalCurve(end, bestJunction!), b = verticalCurve(bestJunction!, start)
+        return { path: a.path + b.path.slice(b.path.indexOf(' C')), points: best.points.slice().reverse() }
+    }
+    return best
+}
+
+/** Retain a proven obstacle-free vertical corridor, but enter and leave it with
+ * curves when the surrounding space permits. Tight corridors remain unchanged. */
+function smoothTrafficCorridor(edge: RoutingEdge, baseline: CompactRoute,
+    clear: (edge: RoutingEdge, route: CompactRoute) => boolean): CompactRoute | undefined {
+    if (!baseline.path.includes(' L') || baseline.points.length < 3) return
+    const reverse = baseline.points[0].y > baseline.points[baseline.points.length - 1].y
+    const points = reverse ? baseline.points.slice().reverse() : baseline.points
+    const start = points[0], end = points[points.length - 1], gap = end.y - start.y
+    if (gap < 192) return
+    const trunks = points.slice(1).map((point, i) => ({ a: points[i], b: point }))
+        .filter(({ a, b }) => Math.abs(a.x - b.x) < 0.01 && b.y - a.y > 96)
+        .sort((a, b) => (b.b.y - b.a.y) - (a.b.y - a.a.y) || a.a.x - b.a.x).slice(0, 3)
+    let best: CompactRoute | undefined
+    let bestJunctions: Array<{ x: number; y: number }> | undefined
+    for (const { a, b } of trunks) for (const entry of [64, 128, 256, 512]) for (const exit of [64, 128, 256, 512]) {
+        const upper = { x: a.x, y: Math.max(a.y, start.y + entry) }
+        const lower = { x: a.x, y: Math.min(b.y, end.y - exit) }
+        if (upper.y >= lower.y || lower.y >= end.y || upper.y <= start.y) continue
+        const legs = [verticalCurve(start, upper), verticalCurve(upper, lower), verticalCurve(lower, end)]
+        const route = { path: legs[0].path + legs.slice(1).map(leg => leg.path.slice(leg.path.indexOf(' C'))).join(''),
+            points: legs[0].points.concat(...legs.slice(1).map(leg => leg.points.slice(1))), trafficNodeID: baseline.trafficNodeID }
+        if (clear(edge, route) && routeLength(route) < routeLength(best || baseline)) { best = route; bestJunctions = [upper, lower] }
+    }
+    if (best && reverse) {
+        const [upper, lower] = bestJunctions!
+        const legs = [verticalCurve(end, lower), verticalCurve(lower, upper), verticalCurve(upper, start)]
+        return { ...best, path: legs[0].path + legs.slice(1).map(leg => leg.path.slice(leg.path.indexOf(' C'))).join(''),
+            points: best.points.slice().reverse() }
+    }
+    return best
+}
+
+/** Build fallback side corridors for obstructed bridge fan-out rows.
  * Paths may share geometry, but every measured edge keeps its identity, labels
  * and hit target. Only actual bridge relations participate, never ownership. */
 function bridgeFanRoutes(cards: RoutingCard[], edges: RoutingEdge[], clear: (edge: RoutingEdge, route: CompactRoute) => boolean,
@@ -38,28 +114,27 @@ function bridgeFanRoutes(cards: RoutingCard[], edges: RoutingEdge[], clear: (edg
             if (previous && top < previous.bottom) { previous.entries.push(entry); previous.top = Math.min(previous.top, top); previous.bottom = Math.max(previous.bottom, bottom) }
             else rows.push({ top, bottom, entries: [entry] })
         })
-        // Keep the existing bus extent for all other rows/bridges even when
-        // the leading row below receives direct connections.
-        const left = Math.min(bridge.x - bridge.width / 2, ...entries.map(entry => entry.target.x - entry.target.width / 2))
-        const right = Math.max(bridge.x + bridge.width / 2, ...entries.map(entry => entry.target.x + entry.target.width / 2))
-        // A small leading row (typically system VMs) need not follow the side
-        // bus required by dense/lower rows. Use ordinary curves only when the
-        // entire row is clear; leave Compact routes and VM/NIC bundles alone.
-        const first = rows[0]
-        if (new Set(first.entries.map(({ target }) => target.id)).size <= 3 && first.entries.every(({ edge, target }) => !preferred.has(edge.id)
-            && !regions.some(region => region.nodeIDs.includes(target.id)))) {
-            const direct = first.entries.map(({ edge, target }) => {
+        // Density alone is not an obstacle. Recheck every visible destination
+        // row against actual cards/VM units before assigning it a perimeter bus.
+        // Expanding or collapsing a middle layer naturally changes this test.
+        const directIDs = new Set<string>()
+        for (const row of rows) {
+            const direct = row.entries.map(({ edge, target }) => {
                 const source = byID.get(edge.sourceID)!, destination = byID.get(edge.targetID)!
-                return { edge, route: { path: topologyCardEdge(source, destination), points: sampleCardEdge(source, destination), trafficNodeID: target.id } }
+                return { edge, route: { path: topologyCardEdge(source, destination, false, 'vertical'),
+                    points: sampleCardEdge(source, destination, false, 'vertical'), trafficNodeID: target.id } }
             })
-            if (direct.every(({ edge, route }) => clear(edge, route))) {
-                direct.forEach(({ edge, route }) => routes.set(edge.id, route))
-                const ids = new Set(direct.map(({ edge }) => edge.id))
-                entries = entries.filter(({ edge }) => !ids.has(edge.id))
-                rows.shift()
-                if (!rows.length) return
+            const internalUnit = row.entries.some(({ edge }) => preferred.has(edge.id) && regions.some(region =>
+                region.nodeIDs.includes(edge.sourceID) && region.nodeIDs.includes(edge.targetID)))
+            if (!internalUnit && direct.every(({ edge, route }) => clear(edge, route))) {
+                direct.forEach(({ edge, route }) => { routes.set(edge.id, route); directIDs.add(edge.id) })
             }
         }
+        entries = entries.filter(({ edge }) => !directIDs.has(edge.id))
+        for (let i = rows.length - 1; i >= 0; i--) if (rows[i].entries.every(({ edge }) => directIDs.has(edge.id))) rows.splice(i, 1)
+        if (!entries.length) return
+        const left = Math.min(bridge.x - bridge.width / 2, ...entries.map(entry => entry.target.x - entry.target.width / 2))
+        const right = Math.max(bridge.x + bridge.width / 2, ...entries.map(entry => entry.target.x + entry.target.width / 2))
         const top = bridge.y + bridge.height / 2, bottom = Math.max(...rows.map(row => row.bottom))
         const obstacles = [...cards, ...regions].filter(card => card.x + card.width / 2 >= left - 64
             && card.x - card.width / 2 <= right + 64 && card.y + card.height / 2 + (card.below || 0) >= top
@@ -127,27 +202,45 @@ export function routeInfrastructureTraffic(cards: RoutingCard[], edges: RoutingE
     for (const edge of edges.slice().sort((a, b) => a.id.localeCompare(b.id))) {
         const source = byID.get(edge.sourceID), target = byID.get(edge.targetID)
         if (!source || !target || source.id === target.id) continue
+        // Remote ports form a row above hosts/NICs. Even a wide connection
+        // should leave that row vertically instead of entering sibling ports.
+        const verticalPort = [source, target].some(card => card.type === 'switchport') && Math.abs(source.y - target.y) > 1
+        const verticalRelation = !edge.hierarchy && Math.abs(source.y - target.y) > 1
         const fanRoute = routes.get(edge.id)
         const baseline = fanRoute || preferred.get(edge.id)
+        const compactUnit = preferred.has(edge.id) && (source.vmOwnerID === target.id || target.vmOwnerID === source.id
+            || regions.some(region => region.nodeIDs.includes(edge.sourceID) && region.nodeIDs.includes(edge.targetID)))
         let shorten = false
         if (baseline) {
             const start = baseline.points[0], end = baseline.points[baseline.points.length - 1]
             const minimum = Math.abs(start.x - end.x) + Math.abs(start.y - end.y)
-            // A shared bus serves dense rows, but its farthest member must not
-            // force a nearby endpoint around the entire scene. Optimize only
-            // disproportionate detours; preserve normal buses and Compact units.
-            const compactUnit = preferred.has(edge.id) && regions.some(region =>
-                region.nodeIDs.includes(edge.sourceID) || region.nodeIDs.includes(edge.targetID))
-            shorten = !compactUnit && routeLength(baseline) > minimum * 2 + 128
+            // Recheck fan-out against current visible cards. A shared bus is
+            // only a fallback; preserve intentional routes inside a VM unit.
+            shorten = !compactUnit && (!!fanRoute || routeLength(baseline) > minimum * 2 + 128)
             if (fanRoute && !shorten) continue
         }
         const baselineClear = !baseline || !shorten || clear(edge, baseline)
-        const original = (!shorten && preferred.get(edge.id)) || { path: topologyCardEdge(source, target), points: sampleCardEdge(source, target) }
+        const preferCurve = verticalRelation && !compactUnit
+            && (!preferred.has(edge.id) || shorten || verticalPort || !!(source.type && target.type))
+        const axis = preferCurve ? 'vertical' : undefined
+        const original = (!preferCurve && !shorten && preferred.get(edge.id)) || {
+            path: topologyCardEdge(source, target, false, axis), points: sampleCardEdge(source, target, false, axis) }
         if (clear(edge, original)) {
-            const route = baseline && baselineClear && routeLength(original) >= routeLength(baseline) ? baseline : original
+            const route = !preferCurve && baseline && baselineClear && routeLength(original) >= routeLength(baseline) ? baseline : original
             if (baseline?.trafficNodeID) route.trafficNodeID = baseline.trafficNodeID
+            if (verticalPort) route.trafficNodeID = source.y > target.y ? source.id : target.id
             routes.set(edge.id, route); continue
         }
+        if (preferCurve) {
+            const smooth = smoothVerticalDetour(edge, source, target, cards, regions, clear)
+            if (smooth && (!fanRoute || routeLength(smooth) < routeLength(fanRoute))) {
+                smooth.trafficNodeID = baseline?.trafficNodeID || (verticalPort ? (source.y > target.y ? source.id : target.id) : undefined)
+                routes.set(edge.id, smooth); continue
+            }
+        }
+        // The bus is a safe fallback only for branches whose direct/local
+        // curves are actually obstructed, rather than a rule based on counts.
+        if (fanRoute && baselineClear) { routes.set(edge.id, smoothTrafficCorridor(edge, fanRoute, clear) || fanRoute); continue }
 
         // A local corridor bounds graph size in large expanded topologies.
         // Validate against every card, adding any obstacles reached by a detour.
@@ -189,7 +282,8 @@ export function routeInfrastructureTraffic(cards: RoutingCard[], edges: RoutingE
         // Preserve edge identity if overlapping cards leave no valid corridor.
         const route = baseline && shorten && baselineClear && (!result || routeLength(result) >= routeLength(baseline)) ? baseline : result || fanRoute || original
         if (baseline?.trafficNodeID) route.trafficNodeID = baseline.trafficNodeID
-        routes.set(edge.id, route)
+        if (verticalPort) route.trafficNodeID = source.y > target.y ? source.id : target.id
+        routes.set(edge.id, !compactUnit && preferCurve ? smoothTrafficCorridor(edge, route, clear) || route : route)
     }
     separateVMInterfaceRoutes(cards, edges, routes, preferred, clear)
     separateInterfaceVLANRoutes(cards, edges, routes, preferred, clear)

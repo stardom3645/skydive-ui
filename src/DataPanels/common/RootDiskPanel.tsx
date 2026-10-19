@@ -23,7 +23,7 @@ export const RootDiskPanel = ({ wall, loading, error, vm, usageDetails }: {
                 memory={{ percent: resourceUsagePercent(wall, 'memory', usageDetails?.memory?.percent), capacity: usageDetails?.memory?.capacity }} />
             <Divider />
             <div className="netdive-resource-usage__disk-header">
-                <Space size={6}><HddOutlined />루트 디스크 (/)</Space>
+                <Space size={6}><HddOutlined />{`루트 디스크 (${disk.mountpoint || '/'})`}</Space>
                 <strong>{disk.percent === undefined ? '사용률 미수집' : `${Number(disk.percent.toFixed(1))}%`}</strong>
             </div>
             {disk.percent !== undefined && <Progress percent={Number(disk.percent.toFixed(1))} size="small" showInfo={false}
@@ -36,10 +36,10 @@ export const RootDiskPanel = ({ wall, loading, error, vm, usageDetails }: {
             {!!usageDetails?.additional?.length && <Descriptions size="small" column={1} items={usageDetails.additional.map((item, key) => ({ key, label: item.label, children: item.value }))} />}
         </div>
     </ResourceSectionCard>
-    return <ResourceSectionCard icon={<HddOutlined />} title="루트 디스크 (/)" empty={!disk}>
+    return <ResourceSectionCard icon={<HddOutlined />} title={vm ? '루트 디스크' : '루트 디스크 (/)'} empty={!disk}>
         {loading ? <Spin size="small" /> : <span style={{ color: 'var(--netdive-detail-muted, #64748b)', fontSize: 12 }}>
             {error ? 'Wall 자원 데이터를 조회하지 못했습니다.' : vm
-                ? 'VM의 / 파일시스템 정보가 미수집 상태입니다. Guest Agent와 Wall 수집 상태를 확인하세요.'
+                ? 'VM의 루트 파일시스템 정보가 미수집 상태입니다. Guest Agent와 Wall 수집 상태를 확인하세요.'
                 : '호스트의 / 파일시스템 정보가 미수집 상태입니다. Wall 수집 상태를 확인하세요.'}
         </span>}
     </ResourceSectionCard>

@@ -22,8 +22,9 @@ describe('Connected resource popover', () => {
         assert.ok(source.includes('placement="bottomRight"'))
         assert.ok(source.includes('resourceCardRef.current.getBoundingClientRect().width'))
         assert.ok(source.includes("resourcesPopoverWidth === 'wide'"))
-        assert.ok(source.includes('{ min: 360, max: 600, ratio: 1.85 }'))
-        assert.ok(source.includes('{ min: 260, max: 440, ratio: 1.35 }'))
+        assert.ok(source.includes('{ min: 560, max: 760, ratio: 2.8 }'))
+        assert.ok(source.includes('{ min: 480, max: 640, ratio: 2.4 }'))
+        assert.ok(source.includes('window.innerWidth - 24'))
         assert.ok(source.includes("styles={{ root: resourceListWidth ? { width: resourceListWidth } : undefined }}"))
         assert.ok(source.includes('autoAdjustOverflow'))
         assert.ok(source.includes('getPopupContainer={() => document.body}'))
@@ -35,7 +36,7 @@ describe('Connected resource popover', () => {
         const tokens = read('src/DataPanels/common/DetailDesignTokens.css')
         assert.ok(css.includes('.netdive-connected-resource-popover {'))
         assert.ok(css.includes('width: 100%'))
-        assert.ok(css.includes('min-width: 260px'))
+        assert.ok(css.includes('min-width: min(260px, calc(100vw - 24px))'))
         assert.ok(css.includes('.netdive-detail-resource--with-resource-list.ant-btn'))
         assert.ok(tokens.includes('--netdive-detail-resource-action-width: 32%'))
         assert.ok(css.includes('var(--netdive-detail-resource-action-width)'))
@@ -46,13 +47,17 @@ describe('Connected resource popover', () => {
         assert.ok(css.includes('stroke-width: 32'))
     })
 
-    it('keeps names on one line with a full-name tooltip in the wider shared overlay', () => {
+    it('wraps long names and shows the full-name tooltip outside the scrollable overlay', () => {
         const source = read('src/DataPanels/common/DetailComponents.tsx')
         const css = read('src/DataPanels/common/DetailComponents.css')
-        assert.ok(source.includes('<Tooltip title={item.tooltip} placement="top">'))
+        assert.ok(source.includes('<Tooltip title={item.tooltip || item.name} placement="topLeft"'))
+        assert.ok(source.includes("classNames={{ root: 'netdive-connected-resource-name-tooltip' }}"))
+        assert.ok(source.includes('getPopupContainer={detailTooltipPopupContainer} autoAdjustOverflow'))
         assert.ok(css.includes('.netdive-connected-resource-popover__name.ant-typography'))
-        assert.ok(css.includes('text-overflow: ellipsis'))
-        assert.ok(css.includes('white-space: nowrap'))
+        const nameStyle = css.match(/\.netdive-connected-resource-popover__name\.ant-typography\s*\{([^}]+)\}/)![1]
+        assert.ok(nameStyle.includes('white-space: normal'))
+        assert.ok(nameStyle.includes('overflow-wrap: anywhere'))
+        assert.ok(css.includes('max-width: min(640px, calc(100vw - 24px))'))
         assert.ok(css.includes('grid-template-columns: 28px minmax(0, 1fr) 14px'))
     })
 

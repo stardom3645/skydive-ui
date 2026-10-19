@@ -2,7 +2,7 @@ import * as React from 'react'
 import { ConfigProvider, Progress, Tag, Tooltip } from 'antd'
 import { ThunderboltOutlined, BlockOutlined, AppstoreOutlined, WindowsOutlined, LinuxOutlined, AppleOutlined, CodeOutlined, QuestionCircleOutlined,
     ApartmentOutlined, DatabaseOutlined, FolderOutlined, HddOutlined, DeploymentUnitOutlined,
-    CloudServerOutlined, LinkOutlined, BranchesOutlined, TagsOutlined, PoweroffOutlined, GlobalOutlined, SafetyOutlined, ReloadOutlined } from '@ant-design/icons'
+    CloudServerOutlined, LinkOutlined, BranchesOutlined, TagsOutlined, PoweroffOutlined, GlobalOutlined, SafetyOutlined, ReloadOutlined, InfoCircleOutlined } from '@ant-design/icons'
 import { TopologyNodePresentation, TopologyMetric } from './TopologyNodePresentation'
 import { TOPOLOGY_TOOLTIP_DISMISS_EVENT, watchTopologyTooltipAnchor } from './TopologyTooltipAnchor'
 import { TopologyStatusBadgeRail, TOPOLOGY_STATUS_BADGE_RADIUS } from './TopologyStatusBadge'
@@ -135,7 +135,8 @@ const TopologyLinkStateSummary = ({ states }: { states: NonNullable<TopologyNode
 
 const TopologyResourceGroupSummary = ({ model }: { model: TopologyNodePresentation }) => {
     const counts = model.children!
-    return <div className={`topology-resource-group-summary ${model.linkStates ? 'has-link-state' : ''} ${counts.inactive > 0 ? 'has-inactive' : ''}`}>
+    const discoveryOnly = model.lldpDiscoveryCount !== undefined
+    return <div className={`topology-resource-group-summary ${model.linkStates && !discoveryOnly ? 'has-link-state' : ''} ${counts.inactive > 0 ? 'has-inactive' : ''}`}>
         <div className="topology-resource-group-summary__counts">
             <TopologyCardTooltip title="그룹과 그 아래 모든 계층에서 수집된 전체 자원 수입니다. 화면 구성용 그룹과 종료된 Kubernetes Pod는 제외합니다." block>
                 <span>전체 자원</span><strong>{model.groupResourceCount ?? counts.total}</strong>
@@ -145,11 +146,18 @@ const TopologyResourceGroupSummary = ({ model }: { model: TopologyNodePresentati
             </TopologyCardTooltip>
         </div>
         <div className="topology-resource-group-summary__distribution">
-            <div className="topology-resource-group-summary__heading"><span>{model.infrastructure ? '이상 판정' : '상태 분포'}</span></div>
-            <TopologyGroupHeaderSummary children={counts} compactLabels separateInactive normalLabel={model.infrastructure ? '이상 없음' : '정상'} />
+            <div className="topology-resource-group-summary__heading"><span>{discoveryOnly ? '발견 정보' : model.infrastructure ? '이상 판정' : '상태 분포'}</span></div>
+            {discoveryOnly ? <>
+                <TopologyCardTooltip title="연결된 호스트에서 수신한 네트워크 정보를 통해 확인한 스위치 포트 수입니다. 현재 동작 상태(Up/Down)를 의미하지 않습니다." block>
+                    <div className="topology-lldp-discovery-summary"><span>LLDP 발견</span><strong>{model.lldpDiscoveryCount}</strong></div>
+                </TopologyCardTooltip>
+                <TopologyCardTooltip title="현재 수집 정보에는 포트의 운영 상태가 포함되어 있지 않습니다. 정상 또는 장애로 판정하지 않습니다." block>
+                    <div className="topology-lldp-discovery-note"><InfoCircleOutlined /><span>운영 상태 미수집</span></div>
+                </TopologyCardTooltip>
+            </> : <TopologyGroupHeaderSummary children={counts} compactLabels separateInactive normalLabel={model.infrastructure ? '이상 없음' : '정상'} />}
             {!model.infrastructure && model.linkStates && model.height < 460 && <TopologyLinkStateSummary states={model.linkStates} />}
         </div>
-        {model.infrastructure && !!model.linkStates && <TopologyLinkStateSummary states={model.linkStates} />}
+        {model.infrastructure && !!model.linkStates && !discoveryOnly && <TopologyLinkStateSummary states={model.linkStates} />}
     </div>
 }
 
@@ -213,7 +221,8 @@ export const TopologyNodeCard = React.memo(({ model, icon, iconClass, href }: {
                 model.systemVMInformation ? <TopologySystemVMServiceSummary information={model.systemVMInformation} /> :
                 model.metrics.length > 0 && <div className={`topology-object-card__metrics ${model.serviceVM ? 'topology-service-information' : ''}`}
                     style={storage ? { gridTemplateRows: `repeat(${model.metrics.length}, minmax(0, 1fr))` }
-                        : model.metricRowHeights ? { gridTemplateRows: model.metricRowHeights.map(height => `${height}px`).join(' ') } : undefined}>
+                        : model.metricRowHeights ? { gridTemplateRows: model.metricRowHeights.map(height => `${height}px`).join(' '),
+                            ...(model.serviceVM && model.metrics.length === 1 ? { gridTemplateColumns: 'minmax(0, 1fr)' } : {}) } : undefined}>
                     {model.metrics.map(metric => <TopologyMetricChip key={metric.key} metric={metric}
                         showSource={model.infrastructure || model.group || model.resourceType !== 'node'} />)}
                 </div>}
