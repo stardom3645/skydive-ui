@@ -4683,8 +4683,8 @@ export const WorkflowsApiFactory = function (configuration?: Configuration, fetc
     };
 };
 
-export async function fetchVmNameMap(): Promise<Record<string, string>> {
-    const response = await fetch("/api/vm-name-map");
+export async function fetchVmNameMap(options: RequestInit = {}): Promise<Record<string, string>> {
+    const response = await fetch("/api/vm-name-map", options);
     if (!response.ok) throw new Error("Failed to load VM name map");
     return await response.json();
 }

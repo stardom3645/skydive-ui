@@ -42,13 +42,15 @@ export const KubernetesAnalysisConfidence = ({ state, collected, missing, contex
         {contextNote && <div><b>기간별 분석</b><span>{contextNote}</span></div>}
     </div>
     return <div className="netdive-k8s-confidence">
-        <div className="netdive-k8s-confidence__label">
-            <span>{translate('kubernetesAnalysisConfidence')}</span>
-            <DetailInfoTooltip description={<CriteriaTooltip contextNote={contextNote} />} ariaLabel="분석 신뢰도 기준 정보" />
+        <div className="netdive-k8s-confidence__description">
+            <div className="netdive-k8s-confidence__label">
+                <span>{translate('kubernetesAnalysisConfidence')}</span>
+                <DetailInfoTooltip description={<CriteriaTooltip contextNote={contextNote} />} ariaLabel="분석 신뢰도 기준 정보" />
+            </div>
+            <small>{translate(meta.summaryKey)}</small>
         </div>
         <div className="netdive-k8s-confidence__result">
             <span><DetailBadge tone={meta.tone}><i />{label}</DetailBadge><DetailInfoTooltip description={evidence} ariaLabel="현재 분석 신뢰도 정보" /></span>
-            <small>{translate(meta.summaryKey)}</small>
         </div>
     </div>
 }

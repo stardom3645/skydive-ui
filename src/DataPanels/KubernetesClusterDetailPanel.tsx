@@ -3,7 +3,7 @@ import * as React from 'react'
 import KubernetesResourceLogPanel from './KubernetesResourceLogPanel'
 import { Alert, Badge, Button, Collapse, ConfigProvider, Divider, Modal, Select, Space, Spin, Table, Tag, Timeline, Tooltip, Typography } from 'antd'
 import { HistoryOutlined, RightOutlined } from '@ant-design/icons'
-import { ClusterVerdictCriteria, ClusterOperationalSection, ClusterOperationalSummary as StatusSummaryGrid, ClusterMetricRow as DetailMetricRow, ClusterCollapsibleSummary as CollapsibleSummaryRow, ClusterEvidenceRow as StatusEvidenceRow, ClusterEvidenceTable as StatusEvidenceList } from './KubernetesClusterPresentation'
+import { ClusterVerdictCriteria, ClusterOperationalSummary as StatusSummaryGrid, ClusterMetricRow as DetailMetricRow, ClusterRiskAnalysis, ClusterRiskAnalysisModal, ClusterDiagnosticHistoryRow, ClusterEvidenceRow as StatusEvidenceRow, ClusterEvidenceTable as StatusEvidenceList } from './KubernetesClusterPresentation'
 
 import { translate } from '../Config'
 import { session } from '../Store'
@@ -35,6 +35,7 @@ import {
     podMemoryResourceBytes
 } from './common'
 import './KubernetesClusterDetailPanel.css'
+import { VerdictCriteriaNote } from './common/KubernetesVerdictCriteria'
 import { RESOURCE_PRESENTATION_COLORS, ResourceSectionCard, ResourceMetricStack, ResourceInfoTooltip } from './common/ResourcePresentation'
 import { collectedInfrastructureRiskFactors, collectedRiskCount, currentImpactAssessment, riskPlacementCoverage, switchRiskPlacements, RiskPlacement } from '../KubernetesRiskResilience'
 
@@ -51,6 +52,8 @@ interface State {
     advancedInfoCollapsed: boolean
     expandedRecentChangeKey: string
     recentChangesModalOpen: boolean
+    riskAnalysisModalOpen: boolean
+    riskAnalysis: 'current' | 'structural'
     summary?: any
     summaryLoading?: boolean
     summaryError?: boolean
@@ -62,7 +65,9 @@ interface State {
     memoryRequestInsightVisible: boolean
     memoryRequestInsightExpanded: boolean
     terminationHistoryExpanded: boolean
-    activeDetailTab: 'overview' | 'services' | 'logs'
+    activeDetailTab: 'overview' | 'diagnostics' | 'resources' | 'services' | 'logs'
+    recentChangesCollapsed: boolean
+    logsVisited: boolean
     serviceNamespaceFilter: string
 }
 
@@ -295,13 +300,26 @@ const ServiceName = ({ value }: { value: string }) => {
 
 class KubernetesClusterDetailPanel extends React.Component<Props, State> {
     private summaryRefreshTimer?: number
+    private panelRoot = React.createRef<HTMLDivElement>()
+
+    private openDiagnostic(key: string) {
+        this.setState({ activeDetailTab: 'diagnostics' }, () => {
+            const target = this.panelRoot.current?.querySelector<HTMLElement>(`[data-cluster-evidence="${key}"]`)
+            target?.focus({ preventScroll: true })
+            target?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+        })
+    }
     private memoryRequestOverageSince = 0
 
     state: State = {
         basicCollapsed: false,
+        recentChangesCollapsed: true,
+        logsVisited: false,
         advancedInfoCollapsed: true,
         expandedRecentChangeKey: '',
         recentChangesModalOpen: false,
+        riskAnalysisModalOpen: false,
+        riskAnalysis: 'current',
         instabilityWindow: '1h',
         podStatusModalMode: '',
         podStatusModalKey: '',
@@ -331,7 +349,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
     componentDidUpdate(prevProps: Props) {
         if (prevProps.node.id !== this.props.node.id) {
             this.memoryRequestOverageSince = 0
-            this.setState({ basicCollapsed: false, advancedInfoCollapsed: true, expandedRecentChangeKey: '', recentChangesModalOpen: false, instabilityWindow: '1h', podStatusModalMode: '', podStatusModalKey: '', resourceUsageModal: '', memoryRequestInsightVisible: false, memoryRequestInsightExpanded: false, terminationHistoryExpanded: false, activeDetailTab: 'overview', serviceNamespaceFilter: 'all', summary: undefined, summaryError: false, summaryClusterID: undefined }, () => this.loadClusterSummary())
+            this.setState({ basicCollapsed: false, recentChangesCollapsed: true, logsVisited: false, advancedInfoCollapsed: true, expandedRecentChangeKey: '', recentChangesModalOpen: false, riskAnalysisModalOpen: false, riskAnalysis: 'current', instabilityWindow: '1h', podStatusModalMode: '', podStatusModalKey: '', resourceUsageModal: '', memoryRequestInsightVisible: false, memoryRequestInsightExpanded: false, terminationHistoryExpanded: false, activeDetailTab: 'overview', serviceNamespaceFilter: 'all', summary: undefined, summaryError: false, summaryClusterID: undefined }, () => this.loadClusterSummary())
             return
         }
         const previousCluster = this.moldClusterFrom(prevProps)
@@ -812,6 +830,10 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         return this.moldClusterFrom(this.props)
     }
 
+    private navigateFromRiskAnalysis(onNavigate: () => void) {
+        this.setState({ riskAnalysisModalOpen: false }, onNavigate)
+    }
+
     private focusResources(nodes: Node[]) {
         const ids = nodes.map(node => node.id)
         const app = (window as any).App
@@ -1068,15 +1090,12 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         const podUsagePercent = allocatablePodCount > 0 ? activePodCount / allocatablePodCount * 100 : undefined
         const provisionedMemoryBytes = provisionedMemory * 1024 * 1024
         const reservedMemory = provisionedMemoryBytes > allocatableMemory ? provisionedMemoryBytes - allocatableMemory : 0
-        const metricsState = this.metricsState()
-
         if (!resources && !provisionedCores && !provisionedMemory) {
-            return this.renderMetricsUnavailable(metricsState)
+            return <CompactEmptyState compact description="Kubernetes API 자원 정보가 아직 수집되지 않았습니다." />
         }
 
         return (
             <div>
-                {!metricsAvailable && this.renderMetricsUnavailable(metricsState, true)}
                 {resources && (
                     <ResourceMetricStack>
                         {this.renderUtilizationCard({
@@ -1168,10 +1187,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
             className={`netdive-cluster-ant-alert ${compact ? 'is-compact' : ''}`}
             type={state.tone === 'danger' ? 'error' : 'info'} showIcon
             title={translate('kubernetesMetricsCannotCollect')}
-            description={<Space orientation="vertical" size={6}>
-                <Typography.Text type="secondary">{state.description}</Typography.Text>
-                <Tag color={state.tone === 'warning' ? 'warning' : state.tone === 'danger' ? 'error' : undefined}>{state.label}</Tag>
-            </Space>} />
+            description={<Typography.Text type="secondary">{state.tone === 'danger' ? state.description : translate('kubernetesSummaryFallback')}</Typography.Text>} />
     }
 
     private riskItems(nodeStatus: StatusSummary, podStatus: PodHealthSummary, unavailableWorkloads: Node[], affectedServices: number, hostPlacements: PlacementSummary[], switchPlacements: PlacementSummary[], controlPlane: StatusSummary, externalPathCount: number, externalPathsEvaluated: boolean): any[] {
@@ -1443,38 +1459,35 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         const expanded = this.state.terminationHistoryExpanded
         const toggleExpanded = () => this.setState({ terminationHistoryExpanded: !expanded })
 
-        return <ClusterOperationalSection title="과거 이력" className="netdive-cluster-ant-operational-followup">
-            <div className={`netdive-k8s-cluster-detail__history-section${expanded ? ' is-expanded' : ''}`}>
-                <CollapsibleSummaryRow
-                    title="누적/종료 이력"
-                    summary={<span className="netdive-k8s-cluster-detail__history-total">총 <strong>{historyTotal}건</strong></span>}
-                    expanded={expanded}
-                    onToggle={toggleExpanded}>
-                    <div className="netdive-k8s-cluster-detail__history-note">
-                        현재 조회 가능한 종료 Pod 기준 · 현재 장애 판정에서 제외
-                    </div>
-                    <div className="netdive-k8s-cluster-detail__history-reasons">
-                    {summary.terminationHistoryGroups
-                        .filter(item => item.key === 'evicted' || item.key === 'succeeded')
-                        .map(item => {
-                            const tooltip = item.key === 'evicted'
-                                ? 'Evicted는 노드 압박이나 kubelet 정책 등에 의해 종료된 Pod 이력입니다. 현재 활성 Pod 및 현재 장애 판정에는 포함되지 않으며, 최근 이상징후와 미복구 상태를 함께 확인해야 합니다.'
-                                : 'Succeeded는 작업을 완료하고 종료된 Pod 이력입니다. 현재 활성 Pod 및 현재 장애 판정에는 포함되지 않습니다.'
-                            return <Tooltip key={item.key} title={tooltip}>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        this.setState({ podStatusModalMode: 'history', podStatusModalKey: item.key })
-                                    }}>
-                                    <span>{item.label}</span>
-                                    <strong>{item.nodes.length}건</strong>
-                                </button>
-                            </Tooltip>
-                        })}
-                    </div>
-                </CollapsibleSummaryRow>
-            </div>
-        </ClusterOperationalSection>
+        return <div className={`netdive-k8s-cluster-detail__history-section${expanded ? ' is-expanded' : ''}`}>
+            <ClusterDiagnosticHistoryRow
+                title="과거 이력"
+                description="현재 조회 가능한 종료 Pod 기준 · 현재 장애 판정에서 제외"
+                count={historyTotal}
+                expanded={expanded}
+                onToggle={toggleExpanded}>
+                <div className={`netdive-k8s-cluster-detail__history-reasons${summary.terminationHistoryGroups.length === 1 ? ' is-single' : ''}`}>
+                {summary.terminationHistoryGroups
+                    .map(item => {
+                        const tooltip = item.key === 'evicted'
+                            ? 'Evicted는 노드 압박이나 kubelet 정책 등에 의해 종료된 Pod 이력입니다. 현재 활성 Pod 및 현재 장애 판정에는 포함되지 않으며, 최근 이상징후와 미복구 상태를 함께 확인해야 합니다.'
+                            : item.key === 'succeeded'
+                                ? 'Succeeded는 작업을 완료하고 종료된 Pod 이력입니다. 현재 활성 Pod 및 현재 장애 판정에는 포함되지 않습니다.'
+                                : `${item.label}로 분류된 종료 Pod 이력입니다. 현재 활성 Pod 및 현재 장애 판정에는 포함되지 않으며, 최근 이상징후와 미복구 상태를 함께 확인해야 합니다.`
+                        return <Tooltip key={item.key} title={tooltip}>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    this.setState({ podStatusModalMode: 'history', podStatusModalKey: item.key })
+                                }}>
+                                <span>{item.label}</span>
+                                <strong>{item.nodes.length}건</strong>
+                            </button>
+                        </Tooltip>
+                    })}
+                </div>
+            </ClusterDiagnosticHistoryRow>
+        </div>
     }
 
     private recentChangeGroups(): RecentChangeGroup[] {
@@ -2009,19 +2022,54 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
             <div>확인할 수 없으면 생성 시각을 추정값으로 사용합니다.</div>
         </div>
 
+        const currentImpactAnalysis = this.renderResilienceRow(translate('kubernetesCurrentFailureImpact'), currentImpactGrade.label, currentImpactGrade.tone, currentImpact.evaluated ? `${impactScore} / 100` : '–', currentImpact.evaluated ? (currentImpact.partial ? '부분 수집 · 확인된 영향만 반영' : '현재 상태 기준') : '현재 상태 데이터 미수집 또는 수집 실패 · 평가 불가', <div><strong>현재 장애 영향도</strong><p>Ready가 아닌 Node 1개당 30점, 활성 문제 Pod·가용 Replica 부족 워크로드·영향 서비스 각각 1개당 10점입니다. 합계는 최대 100점입니다.</p><p>{translate('kubernetesCurrentFailureImpactTooltip')}</p></div>, currentImpactInfrastructureTargets.length ? () => this.focusInfrastructureEvidence(currentImpactInfrastructureTargets) : undefined)
+        const structuralRiskAnalysis = this.renderResilienceRow('구조적 위험', potentialEvaluated && potentialScore >= 75 ? '매우 높음' : potentialGrade.label, potentialGrade.tone, potentialEvaluated ? `${potentialScore} / 100` : '–', potentialEvaluated ? (potentialComplete ? '점수가 높을수록 구조적 위험이 큽니다.' : '부분 수집 · 확인된 위험만 반영') : '분석 데이터 미수집 또는 부분 수집 · 전체 평가 불가', potentialScoreTooltip, structuralEvidenceTargets.length ? () => this.focusInfrastructureEvidence(structuralEvidenceTargets) : undefined)
+        const analysisConfidence = <KubernetesAnalysisConfidence
+            state={confidenceState}
+            collected={confidenceCollected}
+            missing={confidenceMissing}
+            contextNote={podSummary.timestampEstimatedCount > 0
+                ? `현재 상태·구조 분석과 별도로 파드 종료 이력의 기간 분석에는 정확 시각 ${podSummary.timestampExactCount}건과 생성 시각 기반 추정 ${podSummary.timestampEstimatedCount}건이 사용됩니다.`
+                : undefined} />
+
+        const availabilityMetrics = availabilityItems.map(item => ({
+            key: item.key,
+            label: item.label,
+            value: item.value,
+            tooltip: item.tooltip
+                || (item.key === 'control-plane'
+                    ? '전체 Control Plane 중 Ready 상태인 수입니다.'
+                    : item.key === 'nodes'
+                        ? '전체 Kubernetes 노드 중 Ready 상태인 수입니다.'
+                        : '삭제 중이거나 종료된 객체를 제외한 활성 파드 수입니다.'),
+            tone: (item.key === 'services' && affectedServices > 0 ? 'danger' : 'default') as DetailBadgeTone,
+            onClick: item.key === 'nodes' && nodeResource.nodes.length
+                ? () => this.focusResources(nodeResource.nodes)
+                : item.key === 'pods' && activePodResources.length
+                ? () => this.focusResources(activePodResources)
+                : item.key === 'services' && affectedServices > 0 && affectedServiceFocusTargets.length
+                ? () => this.focusResources(affectedServiceFocusTargets)
+                : item.key === 'services'
+                ? () => this.setState({ activeDetailTab: 'services', serviceNamespaceFilter: 'all' })
+                : undefined
+        }))
+
         return (
             <ConfigProvider theme={{ token: { fontSize: 13, fontSizeSM: 12, fontSizeLG: 16, fontFamily: 'var(--netdive-font-family)' }, components: { Card: { headerFontSizeSM: 14 }, Statistic: { contentFontSize: 16, titleFontSize: 12 }, Table: { cellFontSizeSM: 12 }, Alert: { withDescriptionIconSize: 16 } } }}>
-            <div className="netdive-k8s-cluster-detail">
+            <div className="netdive-k8s-cluster-detail" ref={this.panelRoot}>
                 <DetailNavigationTabs
                     activeKey={this.state.activeDetailTab}
                     tabs={[
                         { key: 'overview', label: '개요' },
+                        { key: 'diagnostics', label: '진단', count: abnormalItems.length || undefined },
+                        { key: 'resources', label: '리소스' },
                         { key: 'services', label: '서비스', count: serviceResource.nodes.length },
                         { key: 'logs', label: '로그' }
                     ]}
-                    onChange={activeDetailTab => this.setState({ activeDetailTab: activeDetailTab as State['activeDetailTab'] })}
+                    onChange={activeDetailTab => this.setState(state => ({ activeDetailTab: activeDetailTab as State['activeDetailTab'],
+                        logsVisited: state.logsVisited || activeDetailTab === 'logs' }))}
                 />
-                {this.state.activeDetailTab === 'overview' ? <React.Fragment>
+                <div className="netdive-cluster-tab-content netdive-cluster-overview" hidden={this.state.activeDetailTab !== 'overview'}>
                 <DetailSectionCard
                     icon={<DetailSectionIcon role="basic" />}
                     title={translate('kubernetesClusterBasicInfo')}
@@ -2029,6 +2077,16 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                     collapsed={this.state.basicCollapsed}
                     onToggle={() => this.setState({ basicCollapsed: !this.state.basicCollapsed })}>
                     <BasicInfoRows className="netdive-cluster-ant-descriptions" rows={overviewRows} copyTooltip={translate('copy')} />
+
+                </DetailSectionCard>
+
+                <DetailSectionCard
+                    icon={<DetailSectionIcon role="advanced" />}
+                    title={translate('kubernetesAdvancedInformation')}
+                    collapsible
+                    collapsed={this.state.advancedInfoCollapsed}
+                    onToggle={() => this.setState({ advancedInfoCollapsed: !this.state.advancedInfoCollapsed })}>
+                    <BasicInfoRows className="netdive-cluster-ant-descriptions" rows={advancedRows} copyTooltip={translate('copy')} />
                     {(labels.length > 0 || annotations.length > 0) && <div className="netdive-k8s-cluster-detail__metadata">
                         <div className="netdive-k8s-cluster-detail__metadata-group">
                             <div className="netdive-k8s-cluster-detail__metadata-title">{translate('kubernetesLabels')}</div>
@@ -2042,39 +2100,10 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                 </DetailSectionCard>
 
                 <DetailSectionCard
-                    icon={<DetailSectionIcon role="advanced" />}
-                    title={translate('kubernetesAdvancedInformation')}
-                    collapsible
-                    collapsed={this.state.advancedInfoCollapsed}
-                    onToggle={() => this.setState({ advancedInfoCollapsed: !this.state.advancedInfoCollapsed })}>
-                    <BasicInfoRows className="netdive-cluster-ant-descriptions" rows={advancedRows} copyTooltip={translate('copy')} />
-                </DetailSectionCard>
-
-                <DetailSectionCard
                     icon={<DetailSectionIcon role="operational" />}
                     title={translate('kubernetesOperationalStatus')}
                     >
-                    <div className="netdive-k8s-cluster-detail__collection-summary">
-                        <Space size={5}>
-                        <Badge
-                            status={metricState.tone === 'success'
-                                ? 'success'
-                                : metricState.tone === 'warning'
-                                    ? 'warning'
-                                    : metricState.tone === 'danger'
-                                        ? 'error'
-                                        : 'default'}
-                            text={metricState.label} />
-                        <DetailInfoTooltip description={metricState.description} ariaLabel="메트릭 수집 상태 정보" />
-                        </Space>
-                        <Space size={5}>
-                        <Typography.Text type="secondary">{collectionTimeText}</Typography.Text>
-                        <DetailInfoTooltip
-                            description={collectedAt ? `마지막 수집 시각: ${collectedAt}` : metricState.description}
-                            ariaLabel="마지막 수집 시각 정보" />
-                        </Space>
-                    </div>
-                    <StatusSummaryGrid
+                    <StatusSummaryGrid section="status"
                         summaryTitle="상태 요약"
                         metricsTitle="자원 현황"
                         verdict={health.label}
@@ -2087,161 +2116,17 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                         verdictTooltip="Node·Control Plane Ready, 활성 Pod, 워크로드 가용 Replica와 서비스 영향을 종합합니다. 판정 기준에서 현재 근거를 확인하세요."
                         rawStatusTooltip="Kubernetes API 연결과 Control Plane에서 확인한 원본 상태입니다."
                         impactTooltip="현재 문제 파드, 비정상 노드와 영향받은 서비스를 기준으로 확인한 현재 영향입니다."
-                        metrics={availabilityItems.map(item => ({
-                            key: item.key,
-                            label: item.label,
-                            value: item.value,
-                            tooltip: item.tooltip
-                                || (item.key === 'control-plane'
-                                    ? '전체 Control Plane 중 Ready 상태인 수입니다.'
-                                    : item.key === 'nodes'
-                                        ? '전체 Kubernetes 노드 중 Ready 상태인 수입니다.'
-                                        : '삭제 중이거나 종료된 객체를 제외한 활성 파드 수입니다.'),
-                            tone: item.key === 'services' && affectedServices > 0 ? 'danger' : 'default',
-                            onClick: item.key === 'nodes' && nodeResource.nodes.length
-                                ? () => this.focusResources(nodeResource.nodes)
-                                : item.key === 'pods' && activePodResources.length
-                                ? () => this.focusResources(activePodResources)
-                                : item.key === 'services' && affectedServices > 0 && affectedServiceFocusTargets.length
-                                ? () => this.focusResources(affectedServiceFocusTargets)
-                                : item.key === 'services'
-                                ? () => this.setState({ activeDetailTab: 'services', serviceNamespaceFilter: 'all' })
-                                : undefined
-                        }))} />
-                    {abnormalItems.length > 0 && <ClusterOperationalSection title="현재 이상" className="netdive-cluster-ant-operational-followup">
-                        <StatusEvidenceList columnHeaders={{ state: '상태', value: '대상 수', action: true }}>
-                            {abnormalItems.map(item => <StatusEvidenceRow
-                                key={item.key}
-                                title={item.label}
-                                evidence={item.evidence}
-                                status={{ label: item.status, tone: item.tone as DetailBadgeTone }}
-                                value={item.value}
-                                valueVariant="number"
-                                tone={item.tone as DetailBadgeTone}
-                                onClick={item.onClick}
-                                actionIndicator={!!item.onClick}
-                            />)}
-                        </StatusEvidenceList>
-                    </ClusterOperationalSection>}
-                    {instabilityWindowAvailable && <ClusterOperationalSection className="netdive-cluster-ant-operational-followup"
-                            title={<Space size={4}>
-                                <span>최근 이상징후</span>
-                                <DetailInfoTooltip description={<React.Fragment>
-                                    <div>선택한 기간의 실제 이상 Pod와 활성 {KUBERNETES_DETAIL_LABELS.nodePressure} 상태만 집계합니다.</div>
-                                    <div>Succeeded·Completed는 과거 종료 이력에만 포함됩니다.</div>
-                                    {podSummary.recentTimestampEstimatedCount > 0 && historyTimeQualityTooltip}
-                                </React.Fragment>} ariaLabel="최근 이상징후 집계 정보" />
-                            </Space>}
-                            action={this.renderInstabilityWindowSelect()}>
-                        <div className="netdive-k8s-cluster-detail__instability">
-                        {this.state.summaryLoading
-                            ? <div className="netdive-k8s-cluster-detail__instability-fetch-state"><Spin size="small" /><span>기간 데이터를 불러오는 중입니다.</span></div>
-                            : this.state.summaryError
-                                ? <div className="netdive-k8s-cluster-detail__instability-fetch-state is-error">
-                                    <span>기간 데이터를 불러오지 못했습니다.</span>
-                                    <Button type="link" size="small" onClick={() => this.loadClusterSummary(true)}>다시 시도</Button>
-                                </div>
-                                : null}
-                        {!this.state.summaryLoading && !this.state.summaryError && <div className="netdive-cluster-ant-recent-count">
-                            <Badge status={hasRecentInstability ? (hasCurrentInstabilityImpact ? 'error' : 'warning') : 'success'}
-                                text={<Typography.Text strong>{recentAnomalyPodNodes.length + recentPressureSignals.length}건</Typography.Text>} />
-                            <Typography.Text type="secondary">이상 Pod {recentAnomalyPodNodes.length}건 · {KUBERNETES_DETAIL_LABELS.nodePressure} {recentPressureSignals.length}건</Typography.Text>
-                        </div>}
-                        {!this.state.summaryLoading && !this.state.summaryError && hasRecentInstability
-                            ? <Button type="link" block size="small"
-                                className="netdive-k8s-cluster-detail__instability-detail-trigger"
-                                onClick={() => this.setState({ podStatusModalMode: 'recent', podStatusModalKey: '' })}>
-                                <span>이상징후 목록 보기</span>
-                                <RightOutlined />
-                            </Button>
-                            : null}
-                        </div>
-                    </ClusterOperationalSection>}
-                    {this.renderTerminationHistory(podSummary)}
-                </DetailSectionCard>
-
-                <ResourceSectionCard
-                    icon={<DetailSectionIcon role="resources" />}
-                    title={<span className="netdive-k8s-cluster-detail__capacity-section-title">
-                        {translate('kubernetesResourceCapacity')}
-                        <ResourceInfoTooltip
-                            description="노드 전체 Capacity에서 시스템 예약분을 제외하고 Pod에 할당할 수 있는 Kubernetes Allocatable 자원입니다."
-                            ariaLabel="자원 용량 정보" />
-                    </span>}>
-                    {this.renderResourceCapacity(moldCluster, activePodResources.length, allocatablePodCount)}
-                </ResourceSectionCard>
-
-                <DetailSectionCard icon={<DetailSectionIcon role="risk" />} title={translate('kubernetesRiskResilience')}>
-                    <div className={`netdive-k8s-cluster-detail__alert-summary ${currentRisks.length ? 'has-alert' : !currentImpact.evaluated ? 'is-unavailable' : ''}`}>
-                        <Badge status={currentRisks.length ? 'warning' : !currentImpact.evaluated ? 'default' : 'success'} />
-                        <strong>{currentRisks.length ? currentRisks[0].title : !currentImpact.evaluated ? '현재 경보 평가 불가' : translate('kubernetesNoCurrentAlerts')}</strong>
-                        {currentRisks.length > 1 && <small>+{currentRisks.length - 1}</small>}
+                        metrics={availabilityMetrics} />
+                    <div className="netdive-cluster-issue-summary" aria-label="주요 이상 요약">
+                        <Typography.Text strong>주요 이상</Typography.Text>
+                        {abnormalItems.length ? abnormalItems.map(item => <Button key={item.key} type="text" block
+                            className="netdive-cluster-issue-summary__item" onClick={() => this.openDiagnostic(item.key)}>
+                            <span><Badge status={item.tone === 'danger' ? 'error' : 'warning'} />{item.label}</span>
+                            <strong>{item.value}</strong><RightOutlined />
+                        </Button>) : <Typography.Paragraph type="secondary">
+                            {health.tone === 'default' ? '현재 운영 상태를 판정할 수집 정보가 부족합니다.' : '현재 확인된 주요 이상이 없습니다.'}
+                        </Typography.Paragraph>}
                     </div>
-                    <StatusEvidenceList columnHeaders={{ state: '상태', value: '평가' }}>
-                        {this.renderResilienceRow(translate('kubernetesCurrentFailureImpact'), currentImpactGrade.label, currentImpactGrade.tone, currentImpact.evaluated ? `${impactScore} / 100` : '–', currentImpact.evaluated ? `영향 점수 ${impactScore}/100 · ${currentImpact.partial ? '부분 수집 · 확인된 영향만 반영' : '현재 상태 기준'}` : '현재 상태 데이터 미수집 또는 수집 실패 · 평가 불가', <div><strong>현재 장애 영향도</strong><p>Ready가 아닌 Node 1개당 30점, 활성 문제 Pod·가용 Replica 부족 워크로드·영향 서비스 각각 1개당 10점입니다. 합계는 최대 100점입니다.</p><p>{translate('kubernetesCurrentFailureImpactTooltip')}</p></div>, currentImpactInfrastructureTargets.length ? () => this.focusInfrastructureEvidence(currentImpactInfrastructureTargets) : undefined)}
-                    </StatusEvidenceList>
-                    <Collapse size="small" className="netdive-cluster-risk-structure" expandIconPlacement="end"
-                        items={[{ key: 'structure', label: '구성 및 복원력', extra: <Tag color={potentialGrade.tone === 'danger' ? 'error' : potentialGrade.tone === 'warning' ? 'warning' : undefined}>
-                            {potentialEvaluated ? `구조적 위험 ${potentialScore} / 100` : '평가 불가'}</Tag>, children: <>
-                        <Typography.Paragraph type="secondary">호스트·스위치 분산과 이중화 구성을 평가합니다. 점수가 높을수록 장애 시 취약한 구조입니다.</Typography.Paragraph>
-                        <StatusEvidenceList columnHeaders={{ state: '상태', value: '평가' }}>
-                        {this.renderResilienceRow('구조적 위험도', potentialEvaluated && potentialScore >= 75 ? '매우 높음' : potentialGrade.label, potentialGrade.tone, potentialEvaluated ? `${potentialScore} / 100` : '–', potentialEvaluated ? `구조적 위험도 ${potentialScore}/100 · ${potentialComplete ? '높을수록 위험' : '부분 수집 · 확인된 위험만 반영'}` : '분석 데이터 미수집 또는 부분 수집 · 전체 평가 불가', potentialScoreTooltip, structuralEvidenceTargets.length ? () => this.focusInfrastructureEvidence(structuralEvidenceTargets) : undefined)}
-                        {this.renderResilienceRow(
-                            translate('kubernetesHostDistributionShort'),
-                            hostAnalysis.tone === 'warning' ? translate('kubernetesResilienceRecommended') : hostAnalysis.label,
-                            hostAnalysis.tone,
-                            hostCoverage.complete ? (hostAnalysis.tone === 'warning' ? '낮음' : '양호') : '–',
-                            !hostPlacementEvaluated
-                                ? '호스트 배치 미수집 · 평가 불가'
-                                : !hostCoverage.complete ? hostAnalysis.description
-                                : hostAnalysis.known.length === 1
-                                    ? '호스트 수 1대 · 단일 호스트 집중'
-                                    : `호스트 수 ${hostAnalysis.known.length}대 · 분산 배치`,
-                            undefined,
-                            hostEvidenceTargets.length ? () => this.focusInfrastructureEvidence(hostDistributionEvidenceTargets) : undefined)}
-                        {this.renderResilienceRow(
-                            '네트워크 복원력',
-                            networkAnalysis.tone === 'warning' ? translate('kubernetesResilienceRecommended') : networkAnalysis.label,
-                            networkAnalysis.tone,
-                            networkCoverage.complete ? (networkAnalysis.tone === 'warning' ? '매우 낮음' : '양호') : '–',
-                            !networkPlacementEvaluated
-                                ? '네트워크 경로 미수집 · 평가 불가'
-                                : !networkCoverage.complete ? networkAnalysis.description
-                                : networkAnalysis.known.length === 1
-                                    ? `단일 경로 비율 ${networkAnalysis.topPercent}% · 연결 스위치 1대`
-                                    : `수집된 연결 기준 최대 집중도 ${networkAnalysis.topPercent}% · 연결 스위치 ${networkAnalysis.known.length}대`,
-                            undefined,
-                            networkEvidenceTargets.length ? () => this.focusInfrastructureEvidence(networkResilienceEvidenceTargets) : undefined)}
-                        {this.renderResilienceRow(
-                            translate('kubernetesControlPlaneResilience'),
-                            !controlPlane.total ? translate('kubernetesResilienceUnavailable') : controlPlane.total === 1 ? translate('kubernetesResilienceRecommended') : translate('kubernetesResilienceGood'),
-                            !controlPlane.total ? 'default' : controlPlane.total === 1 ? 'warning' : 'success',
-                            !controlPlane.total ? '–' : controlPlane.total === 1 ? '낮음' : '양호',
-                            !controlPlane.total ? 'Control Plane 미수집 · 평가 불가' : controlPlane.total === 1 ? 'Control Plane 노드 1대 · 이중화 없음' : `Control Plane 노드 ${controlPlane.total}대 · 다중 구성`,
-                            undefined,
-                            controlPlaneTargets.length ? () => this.focusInfrastructureEvidence(controlPlaneTargets) : undefined)}
-                        {this.renderResilienceRow(translate('kubernetesExternalPaths'), externalAnalysis.label, externalAnalysis.tone, externalAnalysis.value, externalAnalysis.short, externalAnalysis.description)}
-                    </StatusEvidenceList>
-                        <div className="netdive-cluster-risk-factors">
-                            <Typography.Text strong>점수 근거</Typography.Text>
-                            {potentialScoreFactors.length ? <ul>{potentialScoreFactors.map(factor => <li key={factor.label}>{factor.label} <strong>+{factor.score}점</strong></li>)}</ul>
-                                : <Typography.Paragraph type="secondary">{potentialEvaluated ? '확인된 가산 항목 없음' : '구조 분석 데이터 미수집'}</Typography.Paragraph>}
-                            <Typography.Text type="secondary">합계 최대 100점 · {!potentialComplete ? '부분 수집: 확인된 위험만 반영' : '수집된 구성 기준'}</Typography.Text>
-                        </div>
-                        </> }]} />
-                    {affectedWorkloadTargets.length > 0 && <div className="netdive-k8s-cluster-detail__risk-actions">
-                        <Button type="link" size="small" onClick={() => this.focusResources(affectedWorkloadTargets)}>
-                            영향 워크로드 보기
-                            <RightOutlined />
-                        </Button>
-                    </div>}
-                    <KubernetesAnalysisConfidence
-                        state={confidenceState}
-                        collected={confidenceCollected}
-                        missing={confidenceMissing}
-                        contextNote={podSummary.timestampEstimatedCount > 0
-                            ? `현재 상태·구조 분석과 별도로 파드 종료 이력의 기간 분석에는 정확 시각 ${podSummary.timestampExactCount}건과 생성 시각 기반 추정 ${podSummary.timestampEstimatedCount}건이 사용됩니다.`
-                            : undefined} />
                 </DetailSectionCard>
                 <RelatedResourceGrid
                     className="netdive-cluster-connected-resources"
@@ -2273,21 +2158,234 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                         }
                     ]} />
 
-                <DetailSectionCard
-                    icon={<DetailSectionIcon role="events" />}
-                    title={translate('kubernetesRecentChanges')}
-                    action={recentChangeGroups.length > 4 ? <Button type="link" size="small"
-                        className="netdive-k8s-cluster-detail__change-view-all"
-                        onClick={() => this.setState({ recentChangesModalOpen: true, expandedRecentChangeKey: '' })}>
-                        {translate('kubernetesRecentChangesViewAll')}
-                    </Button> : undefined}>
-                    {this.renderRecentChanges(recentChangeGroups, 4)}
+                </div>
+                <div className="netdive-cluster-tab-content netdive-cluster-diagnostics" hidden={this.state.activeDetailTab !== 'diagnostics'}>
+                <DetailSectionCard icon={<DetailSectionIcon role="operational" />} title="현재 이상" className="netdive-cluster-current-section"
+                    action={<Button type="text" size="small" className="netdive-cluster-resource-analysis-action" onClick={() => this.setState({ activeDetailTab: 'resources' })}>리소스 분석<RightOutlined /></Button>}>
+                    {!abnormalItems.length && <CompactEmptyState compact description={health.tone === 'default' ? '현재 상태를 판정할 수집 정보가 부족합니다.' : '현재 확인된 주요 이상이 없습니다.'} />}
+                    <div className="netdive-cluster-current-issues" role="list">
+                        {abnormalItems.map(item => <div key={item.key} data-cluster-evidence={item.key} tabIndex={-1} role="listitem"
+                            className="netdive-cluster-current-issue">
+                            <div className="netdive-cluster-current-issue__heading">
+                                <Typography.Text strong>{item.label}</Typography.Text>
+                                <Tag color={item.tone === 'danger' ? 'error' : 'warning'}>{item.status}</Tag>
+                                <Typography.Text strong className="netdive-cluster-current-issue__count">{item.value}건</Typography.Text>
+                                {item.onClick && <Button type="text" size="small" icon={<RightOutlined />} onClick={item.onClick}
+                                    aria-label={`${item.label} 관련 자원 보기`} />}
+                            </div>
+                            <Typography.Paragraph type="secondary">{item.evidence}</Typography.Paragraph>
+                        </div>)}
+                    </div>
                 </DetailSectionCard>
-                </React.Fragment> : this.state.activeDetailTab === 'logs'
-                    ? <KubernetesResourceLogPanel key={this.props.node.id} node={this.props.node} nodes={this.topologyNodes()}
-                        session={this.props.session} kubernetesClusters={this.props.kubernetesClusters} />
-                    : this.renderServiceBrowser(serviceResource.nodes)}
+                <DetailSectionCard icon={<DetailSectionIcon role="risk" />} title="가용성 및 위험 분석">
+                    <StatusSummaryGrid section="metrics" verdict={health.label} rawStatus={rawClusterStatus} impact={heroConclusion} metrics={availabilityMetrics} />
+                    <ClusterRiskAnalysis onOpen={index => this.setState({ riskAnalysis: index === 0 ? 'current' : 'structural', riskAnalysisModalOpen: true })}>
+                        {currentImpactAnalysis}
+                        {structuralRiskAnalysis}
+                    </ClusterRiskAnalysis>
+                    {analysisConfidence}
+                </DetailSectionCard>
+                <DetailSectionCard icon={<DetailSectionIcon role="events" />} title="이상징후 및 변경 이력">
+                    {instabilityWindowAvailable && <section className="netdive-cluster-history-recent" aria-label="최근 이상징후">
+                        <div className="netdive-cluster-diagnostic-subheading">
+                            <Space size={4}>
+                                <span>최근 이상징후</span>
+                                <DetailInfoTooltip description={<React.Fragment>
+                                    <div>선택한 기간의 실제 이상 Pod와 활성 {KUBERNETES_DETAIL_LABELS.nodePressure} 상태만 집계합니다.</div>
+                                    <div>Succeeded·Completed는 과거 종료 이력에만 포함됩니다.</div>
+                                    {podSummary.recentTimestampEstimatedCount > 0 && historyTimeQualityTooltip}
+                                </React.Fragment>} ariaLabel="최근 이상징후 집계 정보" />
+                            </Space>
+                            {this.renderInstabilityWindowSelect()}
+                        </div>
+                        <div className="netdive-k8s-cluster-detail__instability">
+                        {this.state.summaryLoading
+                            ? <div className="netdive-k8s-cluster-detail__instability-fetch-state"><Spin size="small" /><span>기간 데이터를 불러오는 중입니다.</span></div>
+                            : this.state.summaryError
+                                ? <div className="netdive-k8s-cluster-detail__instability-fetch-state is-error">
+                                    <span>기간 데이터를 불러오지 못했습니다.</span>
+                                    <Button type="link" size="small" onClick={() => this.loadClusterSummary(true)}>다시 시도</Button>
+                                </div>
+                                : null}
+                        {!this.state.summaryLoading && !this.state.summaryError && <Button type="text" block
+                            className="netdive-cluster-anomaly-summary"
+                            disabled={!hasRecentInstability}
+                            aria-label={`최근 이상징후 ${recentAnomalyPodNodes.length + recentPressureSignals.length}건 목록 보기`}
+                            onClick={() => this.setState({ podStatusModalMode: 'recent', podStatusModalKey: '' })}>
+                            <span className="netdive-cluster-anomaly-summary__content">
+                                <Badge status={hasRecentInstability ? (hasCurrentInstabilityImpact ? 'error' : 'warning') : 'success'}
+                                    text={<Typography.Text strong>{recentAnomalyPodNodes.length + recentPressureSignals.length}건</Typography.Text>} />
+                                <Typography.Text type="secondary">이상 Pod {recentAnomalyPodNodes.length}건 · {KUBERNETES_DETAIL_LABELS.nodePressure} {recentPressureSignals.length}건</Typography.Text>
+                            </span>
+                            {hasRecentInstability && <RightOutlined />}
+                        </Button>}
+                        </div>
+                    </section>}
+                    {this.renderTerminationHistory(podSummary)}
+                    <ClusterDiagnosticHistoryRow
+                        title={translate('kubernetesRecentChanges')}
+                        description="최근 24시간의 자원 상태 변화"
+                        count={recentChangeGroups.length}
+                        expanded={!this.state.recentChangesCollapsed}
+                        onToggle={() => this.setState({ recentChangesCollapsed: !this.state.recentChangesCollapsed })}
+                        action={recentChangeGroups.length > 4 ? <Button type="text" size="small"
+                            className="netdive-k8s-cluster-detail__change-view-all"
+                            onClick={event => { event.stopPropagation(); this.setState({ recentChangesModalOpen: true, expandedRecentChangeKey: '' }) }}>
+                            {translate('kubernetesRecentChangesViewAll')}
+                        </Button> : undefined}>
+                        {this.renderRecentChanges(recentChangeGroups, 4)}
+                    </ClusterDiagnosticHistoryRow>
+                </DetailSectionCard>
+                </div>
+                <div className="netdive-cluster-tab-content netdive-cluster-resources" hidden={this.state.activeDetailTab !== 'resources'}>
+                <DetailSectionCard icon={<DetailSectionIcon role="resources" />} title="메트릭 수집 정보">
+                    <div className="netdive-k8s-cluster-detail__collection-summary">
+                        <Space size={5}>
+                        <Badge
+                            status={metricState.tone === 'success'
+                                ? 'success'
+                                : metricState.tone === 'warning'
+                                    ? 'warning'
+                                    : metricState.tone === 'danger'
+                                        ? 'error'
+                                        : 'default'}
+                            text={metricState.label} />
+                        <DetailInfoTooltip description={metricState.description} ariaLabel="메트릭 수집 상태 정보" />
+                        </Space>
+                        <Space size={5}>
+                        <Typography.Text type="secondary">{collectionTimeText}</Typography.Text>
+                        <DetailInfoTooltip
+                            description={collectedAt ? `마지막 수집 시각: ${collectedAt}` : metricState.description}
+                            ariaLabel="마지막 수집 시각 정보" />
+                        </Space>
+                    </div>
+                    <Typography.Paragraph type="secondary" className="netdive-cluster-resource-source">
+                        CPU·메모리 사용량은 실시간 메트릭 기준입니다. Allocatable·Requests/Limits와 Pod 수는 Kubernetes API에서 제공하는 자원 정보입니다.
+                    </Typography.Paragraph>
+                    {!this.state.summaryLoading && (this.state.summaryError || !this.state.summary?.resources?.metricsAvailable) && this.renderMetricsUnavailable(metricState, true)}
+                </DetailSectionCard>
+                <ResourceSectionCard
+                    icon={<DetailSectionIcon role="resources" />}
+                    title={<span className="netdive-k8s-cluster-detail__capacity-section-title">
+                        {translate('kubernetesResourceCapacity')}
+                        <ResourceInfoTooltip
+                            description="노드 전체 Capacity에서 시스템 예약분을 제외하고 Pod에 할당할 수 있는 Kubernetes Allocatable 자원입니다."
+                            ariaLabel="자원 용량 정보" />
+                    </span>}>
+                    {this.renderResourceCapacity(moldCluster, activePodResources.length, allocatablePodCount)}
+                </ResourceSectionCard>
 
+                </div>
+                <div className="netdive-cluster-tab-content" hidden={this.state.activeDetailTab !== 'services'}>
+                    {this.renderServiceBrowser(serviceResource.nodes)}
+                </div>
+                {this.state.logsVisited && <div className="netdive-cluster-tab-content" hidden={this.state.activeDetailTab !== 'logs'}>
+                    <KubernetesResourceLogPanel key={this.props.node.id} node={this.props.node} nodes={this.topologyNodes()}
+                        session={this.props.session} kubernetesClusters={this.props.kubernetesClusters} />
+                </div>}
+
+                <ClusterRiskAnalysisModal
+                    analysis={this.state.riskAnalysis === 'current' ? currentImpactAnalysis : structuralRiskAnalysis}
+                    open={this.state.riskAnalysisModalOpen}
+                    onClose={() => this.setState({ riskAnalysisModalOpen: false })}
+                    confidence={analysisConfidence}
+                    actions={(this.state.riskAnalysis === 'current'
+                        ? currentImpactInfrastructureTargets.length > 0 || affectedWorkloadTargets.length > 0
+                        : structuralEvidenceTargets.length > 0) ? <>
+                        {this.state.riskAnalysis === 'current'
+                            ? <>
+                                {currentImpactInfrastructureTargets.length > 0 && <Button type="link" size="small"
+                                    onClick={() => this.navigateFromRiskAnalysis(() => this.focusInfrastructureEvidence(currentImpactInfrastructureTargets))}>
+                                    인프라 근거 보기 <RightOutlined />
+                                </Button>}
+                                {affectedWorkloadTargets.length > 0 && <Button type="link" size="small"
+                                    onClick={() => this.navigateFromRiskAnalysis(() => this.focusResources(affectedWorkloadTargets))}>
+                                    영향 워크로드 보기 <RightOutlined />
+                                </Button>}
+                            </>
+                            : structuralEvidenceTargets.length > 0 && <Button type="link" size="small"
+                                onClick={() => this.navigateFromRiskAnalysis(() => this.focusInfrastructureEvidence(structuralEvidenceTargets))}>
+                                관련 자원 보기 <RightOutlined />
+                            </Button>}
+                    </> : undefined}>
+                    <section className="netdive-cluster-risk-modal__section" aria-label="항목별 근거">
+                        <Typography.Title level={5} className="netdive-verdict-section-title">항목별 근거</Typography.Title>
+                        {this.state.riskAnalysis === 'current'
+                            ? abnormalItems.length > 0
+                                ? <StatusEvidenceList>{abnormalItems.map(item => <StatusEvidenceRow key={item.key}
+                                    title={item.label} evidence={item.evidence} status={{ label: item.status, tone: item.tone as DetailBadgeTone }}
+                                    value={`${item.value}건`} valueVariant="number"
+                                    onClick={item.onClick ? () => this.navigateFromRiskAnalysis(item.onClick!) : undefined} />)}</StatusEvidenceList>
+                                : <Typography.Paragraph type="secondary">{currentImpact.evaluated
+                                    ? '현재 확인된 주요 이상이 없습니다.'
+                                    : '현재 상태 데이터 미수집 또는 수집 실패 · 평가 불가'}</Typography.Paragraph>
+                            : <>
+                                <Typography.Paragraph type="secondary">호스트·스위치 분산과 이중화 구성을 평가합니다. 점수가 높을수록 장애 시 취약한 구조입니다.</Typography.Paragraph>
+                                <StatusEvidenceList columnHeaders={{ state: '상태', value: '평가' }}>
+                                    {this.renderResilienceRow(
+                                        translate('kubernetesHostDistributionShort'),
+                                        hostAnalysis.tone === 'warning' ? translate('kubernetesResilienceRecommended') : hostAnalysis.label,
+                                        hostAnalysis.tone,
+                                        hostCoverage.complete ? (hostAnalysis.tone === 'warning' ? '낮음' : '양호') : '–',
+                                        !hostPlacementEvaluated
+                                            ? '호스트 배치 미수집 · 평가 불가'
+                                            : !hostCoverage.complete ? hostAnalysis.description
+                                            : hostAnalysis.known.length === 1
+                                                ? '호스트 수 1대 · 단일 호스트 집중'
+                                                : `호스트 수 ${hostAnalysis.known.length}대 · 분산 배치`,
+                                        undefined,
+                                        hostEvidenceTargets.length ? () => this.navigateFromRiskAnalysis(() => this.focusInfrastructureEvidence(hostDistributionEvidenceTargets)) : undefined)}
+                                    {this.renderResilienceRow(
+                                        '네트워크 복원력',
+                                        networkAnalysis.tone === 'warning' ? translate('kubernetesResilienceRecommended') : networkAnalysis.label,
+                                        networkAnalysis.tone,
+                                        networkCoverage.complete ? (networkAnalysis.tone === 'warning' ? '매우 낮음' : '양호') : '–',
+                                        !networkPlacementEvaluated
+                                            ? '네트워크 경로 미수집 · 평가 불가'
+                                            : !networkCoverage.complete ? networkAnalysis.description
+                                            : networkAnalysis.known.length === 1
+                                                ? `단일 경로 비율 ${networkAnalysis.topPercent}% · 연결 스위치 1대`
+                                                : `수집된 연결 기준 최대 집중도 ${networkAnalysis.topPercent}% · 연결 스위치 ${networkAnalysis.known.length}대`,
+                                        undefined,
+                                        networkEvidenceTargets.length ? () => this.navigateFromRiskAnalysis(() => this.focusInfrastructureEvidence(networkResilienceEvidenceTargets)) : undefined)}
+                                    {this.renderResilienceRow(
+                                        translate('kubernetesControlPlaneResilience'),
+                                        !controlPlane.total ? translate('kubernetesResilienceUnavailable') : controlPlane.total === 1 ? translate('kubernetesResilienceRecommended') : translate('kubernetesResilienceGood'),
+                                        !controlPlane.total ? 'default' : controlPlane.total === 1 ? 'warning' : 'success',
+                                        !controlPlane.total ? '–' : controlPlane.total === 1 ? '낮음' : '양호',
+                                        !controlPlane.total ? 'Control Plane 미수집 · 평가 불가' : controlPlane.total === 1 ? 'Control Plane 노드 1대 · 이중화 없음' : `Control Plane 노드 ${controlPlane.total}대 · 다중 구성`,
+                                        undefined,
+                                        controlPlaneTargets.length ? () => this.navigateFromRiskAnalysis(() => this.focusInfrastructureEvidence(controlPlaneTargets)) : undefined)}
+                                    {this.renderResilienceRow(translate('kubernetesExternalPaths'), externalAnalysis.label, externalAnalysis.tone, externalAnalysis.value, externalAnalysis.short, externalAnalysis.description)}
+                                </StatusEvidenceList>
+                            </>}
+                    </section>
+                    <section className="netdive-cluster-risk-modal__section" aria-label="점수 산정 내역">
+                        <Typography.Title level={5} className="netdive-verdict-section-title">점수 산정 내역</Typography.Title>
+                        {this.state.riskAnalysis === 'current'
+                            ? <>
+                                <dl className="netdive-cluster-risk-modal__score-rows">
+                                    {[
+                                        { label: 'NotReady 노드', count: nodeSummary.notReady || 0, points: 30 },
+                                        { label: '현재 문제 파드', count: podSummary.activeProblemNodes.length, points: 10 },
+                                        { label: '가용 Replica 부족 워크로드', count: unavailableWorkloads.length, points: 10 },
+                                        { label: '영향받은 서비스', count: affectedServices, points: 10 }
+                                    ].map(item => <div key={item.label}><dt>{item.label}</dt><dd>{item.points}점 × {currentImpact.evaluated ? `${item.count}개` : '확인 불가'}</dd></div>)}
+                                </dl>
+                                <VerdictCriteriaNote>합계 최대 100점 · {currentImpact.evaluated
+                                    ? (currentImpact.partial ? '부분 수집 · 확인된 영향만 반영' : '현재 상태 기준')
+                                    : '현재 상태 데이터 미수집 또는 수집 실패 · 평가 불가'}</VerdictCriteriaNote>
+                            </>
+                            : <>
+                                {potentialScoreFactors.length > 0
+                                    ? <dl className="netdive-cluster-risk-modal__score-rows">{potentialScoreFactors.map(factor => <div key={factor.label}>
+                                        <dt>{factor.label}</dt><dd>+{factor.score}점</dd>
+                                    </div>)}</dl>
+                                    : <Typography.Paragraph type="secondary">{potentialEvaluated ? '확인된 가산 항목 없음' : '구조 분석 데이터 미수집'}</Typography.Paragraph>}
+                                <VerdictCriteriaNote>합계 최대 100점 · {!potentialComplete ? '부분 수집: 확인된 위험만 반영' : '수집된 구성 기준'}</VerdictCriteriaNote>
+                            </>}
+                    </section>
+                </ClusterRiskAnalysisModal>
                 <HistoryModal
                     open={!!this.state.podStatusModalMode}
                     className={`netdive-k8s-cluster-detail__eviction-modal netdive-list-modal ${this.state.podStatusModalMode === 'recent' ? 'netdive-k8s-cluster-detail__resource-usage-modal' : ''}`}
@@ -2435,18 +2533,8 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                         : <CompactEmptyState description="Pod별 metrics-server 사용량을 확인할 수 없습니다." compact />}
                 </Modal>
 
-                {this.state.activeDetailTab !== 'logs' && !moldCluster && (
+                {this.state.activeDetailTab === 'overview' && !moldCluster && (
                     <Alert type="info" showIcon className="netdive-cluster-ant-alert" title={translate('kubernetesClusterMoldMissing')} />
-                )}
-                {this.state.activeDetailTab !== 'logs' && !this.state.summaryLoading && moldCluster && (this.state.summaryError || !this.state.summary?.resources?.metricsAvailable) && (
-                    <Alert type="info" showIcon className="netdive-cluster-ant-alert"
-                        title={translate('kubernetesSummaryFallback')} description={translate('kubernetesSummaryFallbackDetail')}
-                        styles={{
-                            title: { fontSize: 'var(--netdive-detail-font-body-label)', fontWeight: 400,
-                                lineHeight: 'var(--netdive-detail-line-body-label)', marginBottom: 4 },
-                            description: { fontSize: 'var(--netdive-detail-font-body-label)',
-                                lineHeight: 'var(--netdive-detail-line-body-label)' }
-                        }} />
                 )}
             </div>
             </ConfigProvider>

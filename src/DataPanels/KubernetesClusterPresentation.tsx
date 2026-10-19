@@ -21,7 +21,7 @@ export const ClusterOperationalSection = ({ title, action, children, grid = fals
 </Card>
 
 /** Cluster-only presentation keeps other resource panels' behavior intact. */
-export const ClusterOperationalSummary = (props: DetailOperationalSummaryProps & { verdictDetails?: React.ReactNode }) => {
+export const ClusterOperationalSummary = (props: DetailOperationalSummaryProps & { verdictDetails?: React.ReactNode; section?: 'status' | 'metrics' }) => {
     const [criteriaOpen, setCriteriaOpen] = React.useState(false)
     const criteria = React.isValidElement<{ open?: boolean; onOpenChange?: (open: boolean) => void }>(props.verdictDetails)
         ? React.cloneElement(props.verdictDetails, { open: criteriaOpen, onOpenChange: setCriteriaOpen }) : props.verdictDetails
@@ -29,7 +29,7 @@ export const ClusterOperationalSummary = (props: DetailOperationalSummaryProps &
         <span>{text}</span><DetailInfoTooltip description={tooltip} ariaLabel={`${String(text)} 상세 정보`} />
     </span>
     return <div className="netdive-cluster-ant-summary">
-        <ClusterOperationalSection title={props.summaryTitle} action={criteria} grid className="netdive-cluster-ant-summary-status">
+        {props.section !== 'metrics' && <ClusterOperationalSection title={props.summaryTitle} action={criteria} grid className="netdive-cluster-ant-summary-status">
             {[
                 { label: props.verdictLabel || 'Netdive 판정', value: <Badge status={status(props.verdictTone)} text={props.verdict} />, tooltip: props.verdictTooltip || props.tooltip },
                 { label: props.rawStatusLabel || 'Kubernetes/API 원본 상태', value: props.rawStatus, tooltip: props.rawStatusTooltip },
@@ -39,8 +39,8 @@ export const ClusterOperationalSummary = (props: DetailOperationalSummaryProps &
                     ? <VerdictCriteriaLabel label={item.label} onOpen={() => setCriteriaOpen(true)} /> : label(item.label, item.tooltip)}</Typography.Text>
                 <div className="netdive-cluster-ant-summary-value">{item.value}</div>
             </div>)}
-        </ClusterOperationalSection>
-        <ClusterOperationalSection title={props.metricsTitle} grid>
+        </ClusterOperationalSection>}
+        {props.section !== 'status' && <ClusterOperationalSection title={props.metricsTitle} grid>
             {(props.metrics || []).filter(item => item.visible !== false).map((item, index, items) =>
                 <Card.Grid key={item.key || index} hoverable={false}
                     style={{ width: items.length === 1 ? '100%' : '50%' }} className="netdive-cluster-ant-summary-metric">
@@ -50,7 +50,7 @@ export const ClusterOperationalSummary = (props: DetailOperationalSummaryProps &
                             {item.value}
                         </Button> : item.value} />
                 </Card.Grid>)}
-        </ClusterOperationalSection>
+        </ClusterOperationalSection>}
     </div>
 }
 
@@ -74,6 +74,63 @@ export const ClusterCollapsibleSummary = (props: CollapsibleSummaryRowProps) => 
     activeKey={props.expanded ? ['details'] : []} expandIconPlacement="end"
     onChange={() => props.onToggle()}
     items={[{ key: 'details', label: props.title, extra: props.summary, children: props.children }]} />
+
+/** One card interaction: open the analysis, with navigation kept in its modal. */
+export const ClusterRiskAnalysis = ({ children, onOpen }: { children: React.ReactNode, onOpen: (index: number) => void }) => <div className="netdive-cluster-risk-analysis">
+    {React.Children.toArray(children).filter(React.isValidElement).map((child: React.ReactElement<StatusEvidenceRowProps>, index) => {
+        const row = child.props
+        return <button type="button" key={index} className="netdive-cluster-risk-analysis__item"
+            aria-label={`${String(row.title)} 상세 분석 보기`} aria-haspopup="dialog" onClick={() => onOpen(index)}>
+            <span className="netdive-cluster-risk-analysis__title">
+                <Typography.Text strong>{row.title}</Typography.Text><RightOutlined aria-hidden="true" />
+            </span>
+            <span className="netdive-cluster-risk-analysis__score"><Typography.Text>{row.value}</Typography.Text></span>
+            <span className="netdive-cluster-risk-analysis__status">
+                {row.status && <Tag color={color(row.status.tone || row.tone)}>{row.status.label}</Tag>}
+            </span>
+            <Typography.Text type="secondary">{row.evidence}</Typography.Text>
+        </button>
+    })}
+</div>
+
+/** Reuse the criteria dialog's borderless shell, typography and scrolling. */
+export const ClusterRiskAnalysisModal = ({ analysis, open, onClose, children, actions, confidence }: {
+    analysis: React.ReactElement<StatusEvidenceRowProps>, open: boolean, onClose: () => void,
+    children: React.ReactNode, actions?: React.ReactNode, confidence: React.ReactNode
+}) => {
+    const row = analysis.props
+    return <VerdictCriteriaModal title={`${String(row.title)} 상세 분석`} subtitle="현재 수집 데이터를 기준으로 분석 결과와 상세 근거를 확인합니다."
+        open={open} onClose={onClose} className="netdive-cluster-risk-modal">
+        <section className="netdive-cluster-risk-modal__summary" aria-label="분석 요약">
+            <div className="netdive-cluster-risk-modal__heading">
+                <Typography.Title level={5} className="netdive-verdict-section-title">분석 요약</Typography.Title>
+                <DetailInfoTooltip description={row.tooltip} detail={row.tooltipDetail} rawValue={row.tooltipRawValue}
+                    ariaLabel={`${String(row.title)} 상세 정보`} />
+            </div>
+            <div className="netdive-cluster-risk-modal__result">
+                <Typography.Text strong>{row.value}</Typography.Text>
+                {row.status && <Tag color={color(row.status.tone || row.tone)}>{row.status.label}</Tag>}
+            </div>
+            <Typography.Paragraph type="secondary">{row.evidence}</Typography.Paragraph>
+        </section>
+        {children}
+        {actions && <div className="netdive-cluster-risk-modal__actions">{actions}</div>}
+        {confidence}
+    </VerdictCriteriaModal>
+}
+
+/** Past pod history and recent changes use the same controlled disclosure row. */
+export const ClusterDiagnosticHistoryRow = ({ title, description, count, expanded, onToggle, action, children }: {
+    title: React.ReactNode, description: React.ReactNode, count: number, expanded: boolean,
+    onToggle: () => void, action?: React.ReactNode, children: React.ReactNode
+}) => <ClusterCollapsibleSummary className="netdive-cluster-diagnostic-history-row" expanded={expanded} onToggle={onToggle}
+    title={<span className="netdive-cluster-diagnostic-history-row__label">
+        <Typography.Text strong>{title}</Typography.Text>
+        <Typography.Text type="secondary">{description}</Typography.Text>
+    </span>}
+    summary={<Space size={8} wrap><Typography.Text className="netdive-cluster-diagnostic-history-row__count">{count}건</Typography.Text>{action}</Space>}>
+    {children}
+</ClusterCollapsibleSummary>
 
 export const ClusterVerdictCriteria = ({ verdict, tone, reasons, collected, missing, open: controlledOpen, onOpenChange }: {
     verdict: string; tone: string; reasons: string[]; collected: string[]; missing: string[]
@@ -108,16 +165,17 @@ export const ClusterVerdictCriteria = ({ verdict, tone, reasons, collected, miss
 }
 
 /** Row descriptors keep the existing counts, evaluation and navigation handlers. */
-export const ClusterEvidenceRow = (_props: StatusEvidenceRowProps) => null
+export const ClusterEvidenceRow = (_props: StatusEvidenceRowProps & { evidenceKey?: string }) => null
 
 export const ClusterEvidenceTable = ({ children, columnHeaders }: {
     children: React.ReactNode
     columnHeaders?: { state?: React.ReactNode, value?: React.ReactNode, action?: boolean }
 }) => {
     const rows = React.Children.toArray(children).filter(React.isValidElement)
-        .map((child: React.ReactElement<StatusEvidenceRowProps>, index) => ({ key: index, ...child.props }))
+        .map((child: React.ReactElement<StatusEvidenceRowProps & { evidenceKey?: string }>, index) => ({ key: index, ...child.props }))
     return <div className="netdive-cluster-ant-evidence" role="list">
-        {rows.map(row => <div key={row.key} className="netdive-cluster-ant-evidence-row" role="listitem">
+        {rows.map(row => <div key={row.key} className="netdive-cluster-ant-evidence-row" role="listitem"
+            data-cluster-evidence={row.evidenceKey} tabIndex={row.evidenceKey ? -1 : undefined}>
             <div className="netdive-cluster-ant-evidence-heading">
                 <div className="netdive-cluster-ant-evidence-title"><Typography.Text strong>{row.title}</Typography.Text>
                     <DetailInfoTooltip description={row.tooltip} detail={row.tooltipDetail} rawValue={row.tooltipRawValue} />

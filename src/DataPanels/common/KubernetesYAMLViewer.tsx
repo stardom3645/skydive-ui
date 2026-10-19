@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { Alert, Button, ConfigProvider, Empty, Input, Spin, Tooltip, theme } from 'antd'
-import { CodeOutlined, CopyOutlined, DownOutlined, ExpandOutlined, ReloadOutlined, SearchOutlined, UpOutlined } from '@ant-design/icons'
+import { CodeOutlined, CopyOutlined, DownOutlined, ExpandOutlined, InfoCircleOutlined, LockOutlined, ReloadOutlined, SafetyOutlined, SearchOutlined, UpOutlined } from '@ant-design/icons'
 import { KubernetesResourceYAML, kubernetesYAMLFailure, kubernetesYAMLLoadReducer } from '../../KubernetesResourceYAML'
 import { findLogMatches } from '../../KubernetesLogPresentation'
 import { DetailCopyButton, DetailSectionCard, HistoryModal } from './DetailComponents'
@@ -63,6 +63,7 @@ export default function KubernetesYAMLViewer(props: KubernetesYAMLViewerProps) {
         '--log-radius': `${token.borderRadius}px`, '--log-font': token.fontFamilyCode,
         '--log-highlight': token.colorPrimaryBg, '--log-active': token.colorPrimaryBorder,
         '--log-success-text': token.colorSuccessText, '--log-error-text': token.colorErrorText,
+        '--yaml-scroll-thumb': token.colorFillSecondary, '--yaml-scroll-hover': token.colorFill,
         '--yaml-key': token.colorPrimaryText, '--yaml-string': token.colorSuccessText, '--yaml-number': token.colorWarningText
     } as React.CSSProperties
     const retry = () => setRefresh(value => value + 1)
@@ -79,7 +80,13 @@ export default function KubernetesYAMLViewer(props: KubernetesYAMLViewerProps) {
     else if (failure && !yaml) message = failure
     else if (!yaml) message = <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="표시할 YAML이 없습니다."><Button size="small" onClick={retry}>다시 조회</Button></Empty>
     const workspace = <section className={`netdive-yaml-workspace${expanded ? ' is-expanded' : ''}`} style={variables} aria-label="읽기 전용 YAML 뷰어">
-        <div className="netdive-yaml-hint">Kubernetes API에서 조회한 현재 리소스입니다. 최초 배포한 YAML과 다를 수 있으며, 편집·적용은 지원하지 않습니다.</div>
+        <div className="netdive-yaml-meta">
+            <span><LockOutlined /> 읽기 전용</span>
+            <span><SafetyOutlined /> 민감 정보 보호</span>
+            <Tooltip title="Kubernetes API에서 조회한 현재 리소스이며, 최초 배포한 YAML과 다를 수 있습니다. 민감할 수 있는 값은 [REDACTED]로 숨기고, managedFields 등 일부 관리 필드는 제외합니다. 편집·적용은 지원하지 않습니다." trigger={['hover', 'focus']} zIndex={1600}>
+                <Button type="text" icon={<InfoCircleOutlined />} aria-label="YAML 표시 기준" />
+            </Tooltip>
+        </div>
         <div className="netdive-log-tools netdive-yaml-tools">
             <div className="netdive-log-tools__search">
                 <Input aria-label="YAML 내 검색" placeholder="YAML 내 검색" prefix={<SearchOutlined />} allowClear value={query}
@@ -95,7 +102,6 @@ export default function KubernetesYAMLViewer(props: KubernetesYAMLViewerProps) {
                     : <Button type="text" disabled aria-label="YAML 전체 복사" icon={<CopyOutlined />} />}
             </div>
         </div>
-        {current.result && <p className="netdive-yaml-notice">{current.result.redacted ? '환경변수·주석·실행 명령·인증 정보 등 민감할 수 있는 값은 [REDACTED]로 숨겼습니다. ' : ''}관리용 managedFields는 표시하지 않습니다.</p>}
         {yaml && failure && <div className="netdive-log-console__notice">{failure}</div>}
         {query && !search.total && yaml && <div className="netdive-log-console__search-empty" role="status">검색 결과가 없습니다.</div>}
         {search.total > search.matches.length && <p className="netdive-yaml-notice">처음 5,000건을 강조합니다. 검색어를 좁혀 주세요.</p>}
@@ -103,7 +109,7 @@ export default function KubernetesYAMLViewer(props: KubernetesYAMLViewerProps) {
             : <div ref={setViewport} className="netdive-yaml-viewport" onScroll={saveScroll} tabIndex={0} aria-label="YAML 내용" aria-busy={current.loading}>
                 <KubernetesYAMLText text={yaml} matches={search.matches} active={match} />
             </div>}
-        {current.result && <footer className="netdive-log-console__footer"><span title={props.resourceName}>{props.resourceName}</span>
+        {current.result && <footer className="netdive-log-console__footer netdive-yaml-footer">
             <time dateTime={current.result.fetchedAt}>마지막 조회 {new Date(current.result.fetchedAt).toLocaleTimeString()}</time></footer>}
     </section>
     return <ConfigProvider componentSize="small" theme={{ token: { fontSize: 12, controlHeightSM: 28, borderRadiusSM: token.borderRadius } }}>
@@ -113,7 +119,7 @@ export default function KubernetesYAMLViewer(props: KubernetesYAMLViewerProps) {
                 {expanded ? <p className="netdive-log-panel__placeholder">확장 화면에서 YAML을 확인하고 있습니다.</p> : workspace}
             </DetailSectionCard>
             <HistoryModal open={expanded} onCancel={() => changeExpanded(false)} centered width="88vw" zIndex={1500}
-                title={<div className="netdive-log-modal__header"><span><CodeOutlined /> YAML · 읽기 전용</span>{status}</div>}
+                title={<div className="netdive-log-modal__header"><span><CodeOutlined /> YAML</span>{status}</div>}
                 className="netdive-log-modal netdive-yaml-modal" style={variables} styles={{
                     container: { height: '84vh', maxHeight: '84vh', display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden' },
                     header: { flexShrink: 0, margin: 0, padding: '16px 48px 16px 20px', borderBottom: `1px solid ${token.colorBorderSecondary}` },

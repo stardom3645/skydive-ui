@@ -1,7 +1,7 @@
 .netdive-k8s-confidence {
     display: grid;
     min-height: 54px;
-    grid-template-columns: minmax(0, 1fr) minmax(150px, auto);
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     gap: 12px;
     margin: 0 14px;
@@ -17,7 +17,8 @@
 .netdive-k8s-confidence__result > span { display: inline-flex; align-items: center; gap: 4px; }
 .netdive-k8s-confidence__result .netdive-detail-badge.ant-tag { margin: 0; }
 .netdive-k8s-confidence__result .netdive-detail-badge i { display: inline-block; width: 5px; height: 5px; margin-right: 4px; border-radius: 50%; background: currentColor; vertical-align: 1px; }
-.netdive-k8s-confidence__result small { overflow: hidden; color: #667085; font-size: var(--netdive-detail-font-supporting-text); font-weight: var(--netdive-detail-weight-supporting-text); line-height: var(--netdive-detail-line-supporting-text); text-overflow: ellipsis; white-space: nowrap; }
+.netdive-k8s-confidence__description { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
+.netdive-k8s-confidence__description small { color: var(--ant-color-text-secondary, #667085); font-size: var(--netdive-detail-font-supporting-text, 11px); font-weight: var(--netdive-detail-weight-supporting-text, 400); line-height: var(--netdive-detail-line-supporting-text, 18px); overflow-wrap: anywhere; }
 
 .netdive-k8s-confidence-tooltip { display: flex; max-width: 320px; flex-direction: column; gap: 8px; white-space: normal; }
 .netdive-k8s-confidence-tooltip > strong { font-size: var(--netdive-detail-font-tooltip-body); font-weight: var(--netdive-detail-weight-status-tag); line-height: var(--netdive-detail-line-tooltip-body); }
@@ -30,6 +31,5 @@
 .netdive-k8s-confidence-tooltip--evidence > div + div { padding-top: 5px; border-top: 1px solid rgba(255, 255, 255, .16); }
 
 @media (max-width: 380px) {
-    .netdive-k8s-confidence { grid-template-columns: minmax(0, 1fr) minmax(128px, auto); gap: 8px; }
-    .netdive-k8s-confidence__result small { max-width: 160px; white-space: normal; }
+    .netdive-k8s-confidence { gap: 8px; }
 }

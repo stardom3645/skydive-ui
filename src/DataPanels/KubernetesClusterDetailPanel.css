@@ -278,7 +278,7 @@
     background: transparent;
     cursor: pointer;
 }
-.netdive-k8s-cluster-detail__history-reasons > button:last-child {
+.netdive-k8s-cluster-detail__history-reasons > button:nth-child(even) {
     padding-right: 0;
     padding-left: 12px;
 }
@@ -677,19 +677,6 @@
 .netdive-k8s-cluster-detail__alert-summary.has-alert { color: #b42318; }
 .netdive-k8s-cluster-detail__alert-summary.has-alert .netdive-k8s-cluster-detail__alert-dot { background: #d92d20; }
 
-.netdive-k8s-cluster-detail__risk-actions {
-    display: flex;
-    justify-content: flex-end;
-    margin: -4px 14px 8px;
-}
-.netdive-k8s-cluster-detail__risk-actions .ant-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    height: 24px;
-    padding: 0;
-    font-size: var(--netdive-detail-font-supporting-text);
-}
 
 .netdive-k8s-cluster-detail__resource-usage-modal {
     max-width: calc(100vw - 32px);
@@ -1139,8 +1126,7 @@
 /* Cluster operational details use one readable type scale and two-line rows. */
 .netdive-k8s-cluster-detail { font-family: var(--netdive-font-family); font-size: 13px; }
 .netdive-k8s-cluster-detail .netdive-cluster-ant-operational-section .ant-typography-secondary,
-.netdive-k8s-cluster-detail .netdive-cluster-ant-evidence-description.ant-typography,
-.netdive-k8s-cluster-detail .netdive-cluster-risk-structure .ant-typography-secondary {
+.netdive-k8s-cluster-detail .netdive-cluster-ant-evidence-description.ant-typography {
     font-size: 12px;
     line-height: 18px;
     color: var(--netdive-detail-text-secondary, #667085);
@@ -1166,11 +1152,158 @@
 .netdive-cluster-ant-recent-count > .ant-badge .ant-typography { font-size: 18px; line-height: 26px; }
 .netdive-cluster-ant-recent-count > .ant-typography { font-size: 12px; line-height: 18px; }
 .netdive-k8s-cluster-detail .netdive-k8s-cluster-detail__instability-detail-trigger.ant-btn { width: 100%; margin: 6px 0 0; padding: 0; height: 24px; min-height: 24px; color: var(--ant-color-primary, #1677ff); font-family: var(--netdive-font-family); font-size: 13px; line-height: 20px; }
-.netdive-cluster-risk-structure { margin: 10px 0; }
-.netdive-cluster-risk-structure .ant-collapse-header-text { font-size: 13px; font-weight: 500; }
-.netdive-cluster-risk-structure .ant-collapse-extra .ant-tag { font-size: 12px; line-height: 20px; margin: 0; }
-.netdive-cluster-risk-structure .ant-collapse-body > .ant-typography { font-size: 12px; line-height: 18px; }
-.netdive-cluster-risk-factors { padding-top: 10px; border-top: 1px solid var(--ant-color-border-secondary, #edf0f5); font-size: 12px; line-height: 20px; }
-.netdive-cluster-risk-factors ul { margin: 6px 0; padding-left: 18px; }
 .netdive-k8s-cluster-detail .netdive-k8s-confidence { margin-top: 12px; padding: 10px 0 0; border-top: 1px solid var(--ant-color-border-secondary, #edf0f5); }
 .netdive-cluster-verdict-criteria { font-family: var(--netdive-font-family); }
+/* Cluster inspector navigation. Hidden panes remain mounted to retain their
+ * existing collapse/selection state without changing the summary request. */
+.netdive-k8s-cluster-detail .netdive-cluster-tab-content[hidden] { display: none; }
+.netdive-k8s-cluster-detail .netdive-cluster-tab-content { display: flex; flex-direction: column; gap: var(--netdive-detail-panel-gap, 12px); min-width: 0; }
+.netdive-cluster-overview .netdive-cluster-ant-summary-status,
+.netdive-cluster-diagnostics .netdive-cluster-ant-summary > .ant-card,
+.netdive-cluster-diagnostics .netdive-cluster-ant-operational-followup { border: 0; box-shadow: none; background: transparent; }
+.netdive-cluster-overview .netdive-cluster-ant-summary-status > .ant-card-head,
+.netdive-cluster-diagnostics .netdive-cluster-ant-operational-followup > .ant-card-head { padding-inline: 0; border-bottom: 0; min-height: 30px; }
+.netdive-cluster-diagnostics .netdive-cluster-ant-operational-followup > .ant-card-body { padding: 0 !important; }
+.netdive-cluster-issue-summary { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--ant-color-border-secondary, #edf0f5); }
+.netdive-cluster-issue-summary > .ant-typography { display: block; margin-bottom: 6px; font-size: var(--netdive-detail-font-body-label, 12px); }
+.netdive-cluster-issue-summary .netdive-cluster-issue-summary__item { display: grid; grid-template-columns: minmax(0, 1fr) auto 12px; align-items: center; gap: 10px; min-height: 34px; height: auto; padding: 6px 4px; text-align: left; font-size: var(--netdive-detail-font-body-label, 12px); }
+.netdive-cluster-issue-summary__item > span:first-child { display: flex; align-items: center; gap: 8px; white-space: normal; }
+.netdive-cluster-issue-summary__item > strong { font-variant-numeric: tabular-nums; }
+.netdive-cluster-diagnostics [data-cluster-evidence]:focus { outline: 2px solid var(--ant-color-primary-border, #91caff); outline-offset: 2px; border-radius: var(--ant-border-radius-sm, 4px); }
+.netdive-cluster-resource-source.ant-typography { margin-bottom: 10px; font-size: var(--netdive-detail-font-body-label, 12px); line-height: 1.6; }
+/* Three diagnostic sections share existing cards; their content uses plain
+ * rows and dividers. All density overrides stay inside this tab. */
+.netdive-cluster-diagnostics { container: cluster-diagnostics / inline-size; }
+.netdive-cluster-current-issue { padding: 8px 0; border-bottom: 1px solid var(--ant-color-border-secondary, #edf0f5); }
+.netdive-cluster-current-issue:first-child { padding-top: 0; }
+.netdive-cluster-current-issue:last-child { padding-bottom: 0; border-bottom: 0; }
+.netdive-cluster-current-issue__heading { display: grid; grid-template-columns: minmax(0, 1fr) auto auto 24px; align-items: center; gap: 8px; min-height: 26px; }
+.netdive-cluster-current-issue__heading > .ant-typography { font-size: var(--netdive-detail-font-body-label, 12px); }
+.netdive-cluster-current-issue__heading > .ant-tag { margin: 0; font-size: 11px; line-height: 18px; }
+.netdive-cluster-current-issue__heading > .ant-btn { width: 24px; height: 24px; }
+.netdive-cluster-current-issue__count { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.netdive-cluster-current-issue > .ant-typography { margin: 2px 0 0; font-size: var(--netdive-detail-font-supporting-text, 11px); line-height: 18px; }
+.netdive-cluster-diagnostics .netdive-cluster-ant-summary > .ant-card > .ant-card-body { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.netdive-cluster-diagnostics .netdive-cluster-ant-summary-metric.ant-card-grid { width: 100% !important; float: none; padding: 8px; text-align: center; box-shadow: none; border-right: 1px solid var(--ant-color-border-secondary, #edf0f5); }
+.netdive-cluster-diagnostics .netdive-cluster-ant-summary-metric.ant-card-grid:last-child { border-right: 0; }
+.netdive-cluster-diagnostics .netdive-cluster-ant-summary .ant-statistic { display: flex; flex-direction: column; height: 100%; align-items: center; }
+.netdive-cluster-diagnostics .netdive-cluster-ant-summary .ant-statistic-title { min-height: 18px; margin-bottom: 4px; font-size: 11px; line-height: 18px; }
+.netdive-cluster-diagnostics .netdive-cluster-ant-summary .ant-statistic-content { margin-top: auto; }
+.netdive-cluster-diagnostics .netdive-cluster-ant-summary-metric .ant-statistic-content,
+.netdive-cluster-diagnostics .netdive-cluster-ant-summary-metric .ant-btn-link { font-size: 15px; font-weight: var(--netdive-detail-weight-primary-value, 600); line-height: 22px; }
+.netdive-cluster-diagnostics .netdive-cluster-ant-summary-label { justify-content: center; text-align: center; }
+.netdive-cluster-diagnostics .netdive-cluster-ant-evidence-row { padding: 8px 0; }
+.netdive-cluster-diagnostics .ant-collapse { background: transparent; border: 0; border-radius: 0; }
+.netdive-cluster-diagnostics .ant-collapse > .ant-collapse-item { border-bottom: 1px solid var(--ant-color-border-secondary, #edf0f5); }
+.netdive-cluster-diagnostics .ant-collapse .ant-collapse-header { padding: 8px 0; align-items: center; }
+.netdive-cluster-diagnostics .ant-collapse .ant-collapse-body { padding: 0 0 8px; }
+.netdive-cluster-diagnostics .netdive-k8s-confidence { margin-top: 8px; padding-top: 8px; }
+.netdive-cluster-diagnostic-subheading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; font-size: var(--netdive-detail-font-body-label, 12px); font-weight: 500; }
+.netdive-cluster-history-recent { padding-bottom: 8px; border-bottom: 1px solid var(--ant-color-border-secondary, #edf0f5); }
+.netdive-cluster-history-recent .netdive-k8s-cluster-detail__instability { margin: 0; }
+.netdive-cluster-history-recent .netdive-cluster-ant-recent-count > .ant-badge .ant-typography { font-size: 14px; line-height: 22px; }
+.netdive-cluster-diagnostics .netdive-k8s-cluster-detail__history-section { margin: 0; }
+.netdive-cluster-history-changes .ant-collapse-header-text { font-size: var(--netdive-detail-font-body-label, 12px); font-weight: 500; }
+.netdive-cluster-history-changes .ant-collapse-extra > .ant-typography { font-size: 11px; }
+@container cluster-diagnostics (max-width: 360px) {
+    .netdive-cluster-diagnostics .netdive-cluster-ant-summary > .ant-card > .ant-card-body { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .netdive-cluster-diagnostics .netdive-cluster-ant-summary .ant-statistic-title { min-height: 18px; }
+    .netdive-cluster-diagnostics .netdive-cluster-ant-summary-metric.ant-card-grid:nth-child(even) { border-right: 0; }
+}
+
+/* Availability -> comparable risk scores -> confidence. No nested card borders. */
+.netdive-cluster-diagnostics .netdive-cluster-risk-analysis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+.netdive-cluster-diagnostics .netdive-cluster-risk-analysis__item { width: 100%; border: 0; text-align: left; font: inherit; color: var(--netdive-detail-text); cursor: pointer; display: flex; min-width: 0; flex-direction: column; gap: 6px; padding: 12px; background: var(--ant-color-fill-quaternary, #f7f9fc); border-radius: var(--ant-border-radius, 8px); }
+.netdive-cluster-diagnostics .netdive-cluster-risk-analysis__title { display: flex; min-height: 20px; justify-content: space-between; align-items: center; gap: 4px; overflow-wrap: anywhere; }
+.netdive-cluster-diagnostics .netdive-cluster-risk-analysis__title > .ant-typography { font-size: var(--netdive-detail-font-body-label, 12px); line-height: 20px; }
+.netdive-cluster-diagnostics .netdive-cluster-risk-analysis__score { min-height: 32px; font-variant-numeric: tabular-nums; }
+.netdive-cluster-diagnostics .netdive-cluster-risk-analysis__score > .ant-typography { height: auto; min-height: 32px; padding: 0; font-size: var(--ant-font-size-heading-4, 20px); font-weight: var(--netdive-detail-weight-primary-value, 600); line-height: 32px; }
+.netdive-cluster-diagnostics .netdive-cluster-risk-analysis__status { min-height: 22px; }
+.netdive-cluster-diagnostics .netdive-cluster-risk-analysis__status .ant-tag { max-width: 100%; margin: 0; white-space: normal; overflow-wrap: anywhere; }
+.netdive-cluster-diagnostics .netdive-cluster-risk-analysis__item > .ant-typography { flex: 1; margin: 0; font-size: var(--netdive-detail-font-supporting-text, 11px); line-height: 18px; overflow-wrap: anywhere; }
+/* Entire anomaly summary is the existing list action; zero remains a real value. */
+.netdive-cluster-diagnostics .netdive-cluster-anomaly-summary.ant-btn { display: flex; height: auto; min-height: 64px; justify-content: space-between; gap: 12px; padding: 10px 12px; text-align: left; white-space: normal; border: 0; background: var(--ant-color-primary-bg, #f0f6ff); border-radius: var(--ant-border-radius, 8px); }
+.netdive-cluster-diagnostics .netdive-cluster-anomaly-summary.ant-btn:not(:disabled):hover { background: var(--ant-color-primary-bg-hover, #e6f0ff); }
+.netdive-cluster-diagnostics .netdive-cluster-anomaly-summary.ant-btn:disabled { background: var(--ant-color-fill-quaternary, #f7f9fc); }
+.netdive-cluster-anomaly-summary__content { display: flex; min-width: 0; flex-direction: column; align-items: flex-start; gap: 4px; }
+.netdive-cluster-anomaly-summary__content .ant-badge .ant-typography { font-size: 18px; line-height: 24px; }
+.netdive-cluster-anomaly-summary__content > .ant-typography { font-size: var(--netdive-detail-font-body-label, 12px); line-height: 20px; overflow-wrap: anywhere; }
+.netdive-cluster-anomaly-summary > .anticon { flex-shrink: 0; color: var(--ant-color-primary, #1677ff); font-size: 12px; }
+/* Both history disclosures share the same title / description / count / arrow. */
+.netdive-cluster-diagnostics .netdive-cluster-diagnostic-history-row.ant-collapse { margin-top: 8px; border-radius: var(--ant-border-radius, 8px); }
+.netdive-cluster-diagnostics .netdive-cluster-diagnostic-history-row.ant-collapse > .ant-collapse-item { border-bottom: 0; }
+.netdive-cluster-diagnostics .netdive-cluster-diagnostic-history-row.ant-collapse .ant-collapse-header { gap: 8px; min-height: 60px; padding: 10px 12px; background: var(--ant-color-fill-quaternary, #f7f9fc); border-radius: var(--ant-border-radius, 8px); }
+.netdive-cluster-diagnostics .netdive-cluster-diagnostic-history-row .ant-collapse-header-text { min-width: 0; }
+.netdive-cluster-diagnostic-history-row__label { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.netdive-cluster-diagnostic-history-row__label > .ant-typography:first-child { font-size: var(--netdive-detail-font-body-label, 12px); line-height: 20px; }
+.netdive-cluster-diagnostic-history-row__label > .ant-typography:last-child { font-size: var(--netdive-detail-font-supporting-text, 11px); line-height: 18px; overflow-wrap: anywhere; }
+.netdive-cluster-diagnostic-history-row__count { font-size: var(--netdive-detail-font-body-label, 12px); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.netdive-cluster-diagnostic-history-row .ant-collapse-extra { max-width: 40%; }
+.netdive-cluster-diagnostics .netdive-cluster-diagnostic-history-row .ant-collapse-body { padding: 10px 0 2px; }
+@container cluster-diagnostics (max-width: 360px) {
+    .netdive-cluster-diagnostics .netdive-cluster-risk-analysis { gap: 8px; }
+    .netdive-cluster-diagnostics .netdive-cluster-risk-analysis__item { padding: 10px; }
+    .netdive-cluster-diagnostics .netdive-cluster-risk-analysis__title { min-height: 40px; align-items: flex-start; }
+    .netdive-cluster-diagnostics .netdive-cluster-risk-analysis__score > .ant-typography { font-size: 20px; }
+}
+
+.netdive-cluster-diagnostics .netdive-cluster-risk-analysis__item:hover { background: var(--ant-color-primary-bg, #edf5ff); }
+.netdive-cluster-diagnostics .netdive-cluster-risk-analysis__item:focus-visible { outline: 2px solid var(--ant-color-primary-border, #91caff); outline-offset: 2px; }
+.netdive-cluster-diagnostics .netdive-cluster-risk-analysis__title > .anticon { flex-shrink: 0; color: var(--netdive-detail-text-secondary); font-size: 11px; }
+/* Analysis details use the existing borderless criteria modal, never nested cards. */
+.netdive-cluster-risk-modal .netdive-cluster-risk-modal__heading { display: flex; align-items: center; gap: 5px; margin-bottom: 6px; }
+.netdive-cluster-risk-modal .netdive-cluster-risk-modal__heading > .ant-typography { margin: 0; }
+.netdive-cluster-risk-modal .netdive-cluster-risk-modal__result { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.netdive-cluster-risk-modal .netdive-cluster-risk-modal__result > .ant-typography { font-size: var(--ant-font-size-heading-4, 20px); line-height: 30px; font-variant-numeric: tabular-nums; }
+.netdive-cluster-risk-modal .netdive-cluster-risk-modal__result .ant-tag { margin: 0; border-color: transparent; border-radius: var(--ant-border-radius-sm, 6px); }
+.netdive-cluster-risk-modal .netdive-cluster-risk-modal__summary > .ant-typography { margin: 4px 0 0; color: var(--verdict-muted); font-size: 12px; line-height: 20px; }
+.netdive-cluster-risk-modal .netdive-cluster-risk-modal__section { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--verdict-border); }
+.netdive-cluster-risk-modal .netdive-cluster-risk-modal__section > .ant-typography:not(.netdive-verdict-section-title) { margin: 4px 0; color: var(--verdict-muted); font-size: 12px; line-height: 20px; }
+.netdive-cluster-risk-modal .netdive-cluster-ant-evidence-row { padding: 10px 0; }
+.netdive-cluster-risk-modal .netdive-cluster-ant-evidence-row:last-child { border-bottom: 0; }
+.netdive-cluster-risk-modal .netdive-cluster-ant-evidence-title { min-width: 0; }
+.netdive-cluster-risk-modal .netdive-cluster-ant-evidence-title .ant-typography { overflow-wrap: anywhere; }
+.netdive-cluster-risk-modal .netdive-cluster-risk-modal__score-rows { margin: 0; }
+.netdive-cluster-risk-modal .netdive-cluster-risk-modal__score-rows > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; padding: 8px 0; }
+.netdive-cluster-risk-modal .netdive-cluster-risk-modal__score-rows > div + div { border-top: 1px solid var(--verdict-border); }
+.netdive-cluster-risk-modal .netdive-cluster-risk-modal__score-rows dt { min-width: 0; font-size: 13px; line-height: 22px; overflow-wrap: anywhere; }
+.netdive-cluster-risk-modal .netdive-cluster-risk-modal__score-rows dd { margin: 0; font-size: 13px; font-weight: 500; line-height: 22px; text-align: right; font-variant-numeric: tabular-nums; }
+.netdive-cluster-risk-modal .netdive-verdict-note { margin: 8px 0 0; }
+.netdive-cluster-risk-modal .netdive-cluster-risk-modal__actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 6px 16px; margin-top: 12px; }
+.netdive-cluster-risk-modal .netdive-cluster-risk-modal__actions .ant-btn { height: auto; padding: 0; font-size: 12px; white-space: normal; }
+.netdive-cluster-risk-modal .netdive-k8s-confidence { margin: 16px 0 0; padding: 12px 0 0; border-color: var(--verdict-border); }
+
+/* History may contain any terminal reason, including a single reason group. */
+.netdive-k8s-cluster-detail__history-reasons.is-single { grid-template-columns: minmax(0, 1fr); }
+.netdive-k8s-cluster-detail__history-reasons.is-single::after { display: none; }
+.netdive-k8s-cluster-detail__history-reasons > button > span { overflow-wrap: anywhere; }
+
+/* Current issues: section title -> resource labels/counts -> supporting text.
+ * Navigation glyphs stay small while their 24px click targets remain intact. */
+.netdive-k8s-cluster-detail .netdive-cluster-current-section > .ant-card-head .ant-card-head-title {
+    font-size: var(--netdive-detail-font-section-title, 14px);
+    font-weight: var(--netdive-detail-weight-section-title, 600);
+    line-height: var(--netdive-detail-line-section-title, 20px);
+}
+.netdive-cluster-current-section .netdive-cluster-resource-analysis-action.ant-btn {
+    height: 24px; padding: 0 4px; gap: 6px;
+    color: var(--netdive-detail-text-secondary);
+    font-size: var(--netdive-detail-font-body-label, 12px); font-weight: 400;
+    line-height: var(--netdive-detail-line-body-label, 18px);
+}
+.netdive-k8s-cluster-detail .netdive-cluster-current-section .netdive-cluster-resource-analysis-action .anticon,
+.netdive-cluster-current-section .netdive-cluster-current-issue__heading > .ant-btn .anticon {
+    font-size: var(--netdive-detail-font-supporting-text, 11px);
+}
+.netdive-cluster-current-section .netdive-cluster-current-issue__heading > .ant-typography {
+    font-size: var(--netdive-detail-font-body-label, 12px);
+    line-height: var(--netdive-detail-line-body-label, 18px);
+}
+.netdive-cluster-current-section .netdive-cluster-current-issue__heading > .ant-btn { padding: 0; color: var(--netdive-detail-text-secondary); }
+.netdive-cluster-current-section .netdive-cluster-current-issue > .ant-typography {
+    color: var(--netdive-detail-text-secondary);
+    font-size: var(--netdive-detail-font-supporting-text, 11px);
+    line-height: var(--netdive-detail-line-body-label, 18px);
+}
+.netdive-cluster-current-section .netdive-cluster-resource-analysis-action.ant-btn:not(:disabled):hover,
+.netdive-cluster-current-section .netdive-cluster-current-issue__heading > .ant-btn:not(:disabled):hover { color: var(--netdive-detail-primary); }

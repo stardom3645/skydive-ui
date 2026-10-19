@@ -175,6 +175,7 @@ import LanguageToggle from './LanguageToggle'
 import './App.css'
 import ConfigReducer, { Filter } from './Config'
 import { fetchVmNameMap } from "./api";
+import { authenticatedRequestOptions } from './api/authentication'
 
 import { translate } from "./Config"
 import EventHistory, { ChangeEvent } from './EventHistory'
@@ -973,7 +974,7 @@ class App extends React.Component<Props, State> {
   }
 
   private refreshVmNameMap() {
-    fetchVmNameMap().then((data) => {
+    fetchVmNameMap(authenticatedRequestOptions(this.props.session.token)).then((data) => {
       const prev = this.state.vmNameMap || {}
       const same = JSON.stringify(prev) === JSON.stringify(data)
       if (!same) {
@@ -997,7 +998,7 @@ class App extends React.Component<Props, State> {
       }
     }).catch(() => { /* Older analyzers can still expose the NIC-linked catalog. */ })
     const ts = Date.now()
-    fetch(`/api/vm-network-map?_=${ts}`, { cache: "no-store" }).then((resp) => {
+    fetch(`/api/vm-network-map?_=${ts}`, authenticatedRequestOptions(this.props.session.token, { cache: "no-store" })).then((resp) => {
       if (!resp.ok) {
         throw new Error(`vm-network-map api failed: ${resp.status}`)
       }
@@ -1016,7 +1017,7 @@ class App extends React.Component<Props, State> {
 
   private refreshVmDetailMap() {
     const ts = Date.now()
-    fetch(`/api/vm-detail-map?_=${ts}`, { cache: "no-store" }).then((resp) => {
+    fetch(`/api/vm-detail-map?_=${ts}`, authenticatedRequestOptions(this.props.session.token, { cache: "no-store" })).then((resp) => {
       if (!resp.ok) {
         throw new Error(`vm-detail-map api failed: ${resp.status}`)
       }
@@ -1063,7 +1064,7 @@ class App extends React.Component<Props, State> {
 
   private refreshManagementServers() {
     const ts = Date.now()
-    fetch(`/api/mold/management-servers?_=${ts}`, { cache: "no-store" }).then((resp) => {
+    fetch(`/api/mold/management-servers?_=${ts}`, authenticatedRequestOptions(this.props.session.token, { cache: "no-store" })).then((resp) => {
       if (!resp.ok) {
         throw new Error(`mold management servers api failed: ${resp.status}`)
       }
@@ -1114,7 +1115,7 @@ class App extends React.Component<Props, State> {
       ...options,
       signal: controller.signal
     }
-    return fetch(path, requestOptions).then((resp) => {
+    return fetch(path, authenticatedRequestOptions(this.props.session.token, requestOptions)).then((resp) => {
       if (!resp.ok) {
         throw new Error(`kubernetes api failed: ${resp.status}`)
       }
