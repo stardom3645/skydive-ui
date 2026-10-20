@@ -35,7 +35,7 @@ const attach = (parent: any, child: any) => {
 
 const healthyWorkload = (id: string, type = 'deployment') => resource(id, type, {
     spec: { Replicas: 1 },
-    status: { AvailableReplicas: 1, ReadyReplicas: 1, UpdatedReplicas: 1 }
+    status: { AvailableReplicas: 1, ReadyReplicas: 1, UpdatedReplicas: 1, CurrentReplicas: 1, CurrentRevision: 'v1', UpdateRevision: 'v1' }
 })
 
 const problemWorkload = (id: string, type = 'deployment') => resource(id, type, {
@@ -377,7 +377,7 @@ describe('Kubernetes topology count badge aggregation', () => {
                 ...(type === 'namespace' ? { status: { Phase: 'Active' } } : {}),
                 ...(type === 'deployment' ? {
                     spec: { Replicas: 1 },
-                    status: { AvailableReplicas: 1, ReadyReplicas: 1, UpdatedReplicas: 1 }
+                    status: { AvailableReplicas: 1, ReadyReplicas: 1, UpdatedReplicas: 1, CurrentReplicas: 1, CurrentRevision: 'v1', UpdateRevision: 'v1' }
                 } : {})
             })
             failed.data.State = 'critical'

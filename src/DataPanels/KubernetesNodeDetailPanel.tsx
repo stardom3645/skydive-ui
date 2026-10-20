@@ -1,3 +1,4 @@
+import { KubernetesDetailRefresh } from '../KubernetesDetailRefresh'
 import { DetailSectionIcon } from './common/DetailSectionIcon'
 import * as React from 'react'
 import KubernetesResourceLogPanel from './KubernetesResourceLogPanel'
@@ -221,6 +222,7 @@ const nodeConditionDescription = (condition: any): string => {
 }
 
 class KubernetesNodeDetailPanel extends React.Component<Props, State> {
+    private detailRefresh = new KubernetesDetailRefresh((signal, current) => this.loadDetail(signal, current))
     state: State = {
         loading: false,
         error: false,
@@ -237,8 +239,8 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
 
     private unsubscribeResources?: () => void
 
-    componentDidMount() { this.bindNodeResources(); this.loadDetail() }
-    componentWillUnmount() { this.unsubscribeResources?.() }
+    componentDidMount() { this.bindNodeResources(); this.detailRefresh.start() }
+    componentWillUnmount() { this.detailRefresh.stop(); this.unsubscribeResources?.() }
 
     private bindNodeResources() {
         this.unsubscribeResources?.()
@@ -271,7 +273,7 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
         else if (prevProps.node !== this.props.node) this.syncNodeResources()
         if (prevProps.node.id !== this.props.node.id || this.cluster()?.id !== this.clusterFrom(prevProps)?.id) {
             this.setState({ basicCollapsed: false, basicInfoAdvanced: false, podModalOpen: false, riskModal: '', workloadModalOpen: false, workloadFilter: 'all', conditionsExpanded: false, activeDetailTab: 'overview' })
-            this.loadDetail()
+            this.detailRefresh.refresh(true)
         }
     }
 
@@ -298,21 +300,21 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
         return firstValue(this.props.node.data || {}, ['K8s.Extra.ObjectMeta.UID', 'K8s.UID', 'UID', 'uid']) || this.props.node.id
     }
 
-    private loadDetail() {
+    private async loadDetail(signal: AbortSignal, current: () => boolean) {
         const cluster = this.cluster()
         const uid = this.uid()
         const requestKey = `${cluster?.id || ''}:${uid}`
-        if (!cluster?.id || !uid || this.state.requestKey === requestKey) return
+        if (!cluster?.id || !uid) return
         const endpoint = this.props.session?.endpoint || `${window.location.protocol}//${window.location.host}`
-        this.setState({ detail: this.detailFromTopology(), loading: true, error: false, requestKey })
-        fetch(`${endpoint}/api/mold/kubernetes-clusters/nodes/detail?id=${encodeURIComponent(cluster.id)}&uid=${encodeURIComponent(uid)}`, {
-            cache: 'no-store',
+        this.setState({ detail: this.state.requestKey === requestKey ? this.state.detail : this.detailFromTopology(), loading: this.state.requestKey !== requestKey, error: this.state.requestKey === requestKey && this.state.error, requestKey })
+        return fetch(`${endpoint}/api/mold/kubernetes-clusters/nodes/detail?id=${encodeURIComponent(cluster.id)}&uid=${encodeURIComponent(uid)}`, {
+            cache: 'no-store', signal,
             headers: this.props.session?.token ? { 'X-Auth-Token': this.props.session.token } : undefined
         }).then(response => {
             if (!response.ok) throw new Error(`node detail unavailable: ${response.status}`)
             return response.json()
         }).then(detail => {
-            if (this.state.requestKey === requestKey) {
+            if (current()) {
                 const topologyDetail = this.detailFromTopology()
                 this.setState({
                     detail: {
@@ -330,7 +332,7 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
                 })
             }
         }).catch(() => {
-            if (this.state.requestKey === requestKey) this.setState({ detail: this.detailFromTopology(), loading: false, error: true })
+            if (current()) this.setState({ detail: this.detailFromTopology(), loading: false, error: true })
         })
     }
 

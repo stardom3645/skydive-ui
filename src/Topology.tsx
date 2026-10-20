@@ -1,3 +1,4 @@
+import { isExpiredLLDPLink, nextLLDPExpiryDelay } from './LLDPTopologyValidity'
 import { getMoldNetworkIndex, matchMoldNIC, moldVMNetworkSummary, moldVMNetworkCount, moldVMNetworks, moldVMUUID, MoldVMNetworkMap } from './MoldTopologyNetworks'
 /*
  * Copyright (C) 2019 Sylvain Afchain
@@ -674,6 +675,7 @@ export class Topology extends React.Component<Props, {}> {
     private resourceData?: TopologyResourceData
     private nodeResourceListeners = new Set<() => void>()
     private resourceRefs = new Map<string, TopologyResourceRef>()
+    private lldpExpiryTimer?: number
     private resourceRefreshTimer?: number
     private resourceCardRefreshTimer?: number
     private zoom: zoom
@@ -814,7 +816,7 @@ export class Topology extends React.Component<Props, {}> {
     nodeObjectStatus(node: Node, links?: Link[]) {
         const ref = this.resourceRefs.get(node.id)
         return topologyNodeStatusPresentation(node, {
-            links: links || Array.from(this.links.values()).filter(link => link.source.id === node.id || link.target.id === node.id),
+            links: (links || Array.from(this.links.values()).filter(link => link.source.id === node.id || link.target.id === node.id)).filter(link => !isExpiredLLDPLink(link)),
             resourceData: { detail: this.resourceData?.get(ref?.detail), summary: this.resourceData?.get(ref?.summary),
                 wall: this.resourceData?.get(ref?.wall), host: this.resourceData?.get(ref?.host),
                 inventory: ['host', 'libvirt'].includes(String(node.data?.Type).toLowerCase())
@@ -882,6 +884,7 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     componentWillUnmount() {
+        if (this.lldpExpiryTimer !== undefined) window.clearTimeout(this.lldpExpiryTimer)
         this.nodeResourceListeners.clear()
         if (this.infrastructureResizeTimer !== undefined) window.clearTimeout(this.infrastructureResizeTimer)
         this.resourceData?.dispose()
@@ -2168,6 +2171,7 @@ export class Topology extends React.Component<Props, {}> {
         var tagPresent = new Map<string, boolean>()
 
         this.links.forEach((link: Link) => {
+            if (isExpiredLLDPLink(link)) return
             // A stale collected storage edge cannot override the current API
             // binding, including Released references to deleted/recreated PVCs.
             if (this.nodeTagActive.toLowerCase() === 'kubernetes' && isKubernetesStorageBindingPair(link.source, link.target)
@@ -3549,7 +3553,7 @@ export class Topology extends React.Component<Props, {}> {
         // and Switch even when an intermediate relation is currently hidden;
         // hidden relations are never promoted into visible traffic lines.
         this.links.forEach((link: Link) => {
-            if (!link || link.data?.KubernetesPlacementLink) return
+            if (!link || isExpiredLLDPLink(link) || link.data?.KubernetesPlacementLink) return
             const sourceKubernetesRelationship = String(link.source.data?.Manager || '').toLowerCase() === 'k8s'
                 && this.props.nodeVisible
                 && !this.props.nodeVisible(link.source)
@@ -4351,8 +4355,11 @@ export class Topology extends React.Component<Props, {}> {
             const target = this.nodes.get(targetID)
             if (!target) return
 
-            this.focusInfrastructureNodes([targetID], anchorNodeID, true)
+            // Selection makes an explicitly requested current Pod visible even
+            // if its collected owner chain is incomplete. Reveal afterwards so
+            // bounds and centering are calculated from the actual Pod card.
             this.selectNode(targetID, true)
+            this.focusInfrastructureNodes([targetID], anchorNodeID, true)
             this.centerNode(target)
             return
         }
@@ -4859,6 +4866,7 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     private isLinkVisible(link: Link): boolean {
+        if (isExpiredLLDPLink(link)) return false
         if ((link.data?.KubernetesPodOwnershipGuide || link.data?.KubernetesStorageBindingLink)
             && this.nodeTagActive.toLowerCase() === 'kubernetes') return true
         if (link.state.selected) {
@@ -5636,7 +5644,7 @@ export class Topology extends React.Component<Props, {}> {
 
     private renderNodeContents(node: Selection<SVGGElement, D3Node, any, any>, metricsIndex?: ReturnType<typeof createTopologyResourceMetricsIndex>) {
         const self = this
-        const links = Array.from(this.links.values())
+        const links = Array.from(this.links.values()).filter(link => !isExpiredLLDPLink(link))
         const allNodes = Array.from(this.nodes.values())
         const resourceMetricsIndex = metricsIndex || this.createResourceMetricsIndex(allNodes)
         const attrsByNode = new Map<Node, NodeAttrs>()
@@ -6344,7 +6352,20 @@ export class Topology extends React.Component<Props, {}> {
         })
     }
 
+    private scheduleLLDPExpiry() {
+        if (this.lldpExpiryTimer !== undefined) window.clearTimeout(this.lldpExpiryTimer)
+        this.lldpExpiryTimer = undefined
+        const delay = nextLLDPExpiryDelay(this.links.values())
+        if (delay === undefined) return
+        this.lldpExpiryTimer = window.setTimeout(() => {
+            this.lldpExpiryTimer = undefined
+            this.invalidated = true
+            this.renderTree()
+        }, delay)
+    }
+
     renderTree() {
+        this.scheduleLLDPExpiry()
         this.cardWidthCache = new WeakMap()
         this.cardHeightCache = new WeakMap()
         // Group expansion can replace a proxy group endpoint with an individual

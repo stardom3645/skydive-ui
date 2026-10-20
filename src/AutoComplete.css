@@ -22,8 +22,10 @@
 .netdive-topology-search__footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 28px; padding: 2px 8px 2px 12px; border-top: 1px solid var(--ant-color-border-secondary, #d7e2f0); }
 .netdive-topology-search__keys { color: var(--ant-color-text-secondary, #63748d); font-size: 11px; line-height: 16px; }
 .netdive-topology-search__footer .ant-btn { font-size: 11px; padding: 0 5px; height: 24px; }
-.netdive-topology-search__tag { display: inline-flex; align-items: center; gap: 4px; max-width: 150px; margin-inline-end: 3px; }
+.netdive-topology-search__tag.ant-tag { display: inline-flex; align-items: center; gap: 6px; max-width: 180px; height: 26px; margin: 2px 4px 2px 0; padding: 0 8px; border-radius: 6px; font-size: 13px; line-height: 24px; }
 .netdive-topology-search__tag > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.netdive-topology-search__tag.ant-tag .ant-tag-close-icon { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 16px; height: 16px; margin-inline-start: 0; color: inherit; font-size: 11px; opacity: 0.65; }
+.netdive-topology-search__tag.ant-tag .ant-tag-close-icon:hover { opacity: 1; }
 .netdive-search-name-tooltip { max-width: min(420px, calc(100vw - 24px)); }
 .netdive-search-name-tooltip .ant-tooltip-container { overflow-wrap: anywhere; font-size: 12px; line-height: 18px; }
 .netdive-topology-search__result mark { background: var(--ant-control-item-bg-active, #e6f4ff); color: var(--ant-color-primary, #1677ff); border-radius: 2px; }

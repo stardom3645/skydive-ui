@@ -1,3 +1,4 @@
+import { isExpiredLLDPLink } from './LLDPTopologyValidity'
 import type { Link, Node } from './Topology'
 import { switchDisplayName, switchLLDPData, switchTextValue } from './SwitchNodeUtils'
 
@@ -330,7 +331,7 @@ export const buildInfrastructurePortMappings = (
     }
 
     links.forEach(link => {
-        if (isOwnershipLink(link) || isManualPortMappingTopologyLink(link)) return
+        if (isOwnershipLink(link) || isManualPortMappingTopologyLink(link) || isExpiredLLDPLink(link)) return
 
         switchPorts.forEach(port => {
             const peer = peerFor(link, port.id)

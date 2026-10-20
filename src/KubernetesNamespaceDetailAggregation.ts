@@ -1,3 +1,4 @@
+import { evaluateKubernetesWorkload } from './KubernetesWorkloadStatus'
 import type { Node } from './Topology'
 import { resolveKubernetesPodTopController } from './KubernetesWorkloadOwnership'
 import { podCpuResourceCores, podMemoryResourceBytes } from './DataPanels/common/KubernetesPodUsageMetrics'
@@ -30,29 +31,11 @@ const numberAt = (source: any, paths: string[], fallback = 0): number => {
     const number = Number(value)
     return Number.isFinite(number) ? number : fallback
 }
-const conditions = (node: Node): any[] => values(node.data || {}, ['K8s.Extra.Status.Conditions', 'K8s.Status.Conditions', 'Status.Conditions'])
-const conditionTrue = (node: Node, type: string): boolean => conditions(node).some(condition =>
-    normalized(condition?.Type || condition?.type) === normalized(type)
-    && normalized(condition?.Status ?? condition?.status) === 'true')
-const ownerReferences = (node: Node): any[] => values(node.data || {}, [
-    'K8s.Extra.ObjectMeta.OwnerReferences', 'K8s.Extra.Metadata.OwnerReferences', 'K8s.OwnerReferences', 'OwnerReferences'
-])
-const ownedBy = (node: Node, owner: Node): boolean => ownerReferences(node).some(reference => {
-    const kind = normalized(reference?.Kind || reference?.kind)
-    const uid = String(reference?.UID || reference?.uid || '')
-    const name = String(reference?.Name || reference?.name || '')
-    return kind === resourceType(owner) && ((uid && uid === resourceUID(owner)) || (!uid && name === resourceName(owner)))
-})
 const timestamp = (value: any): number => {
     const source = typeof value === 'object' && value?.Time !== undefined ? value.Time : value
     const parsed = new Date(source || 0).getTime()
     return Number.isNaN(parsed) ? 0 : parsed
 }
-const workloadTime = (node: Node): number => timestamp(firstRaw(node.data || {}, [
-    'K8s.Extra.Status.CompletionTime', 'K8s.Extra.Status.StartTime',
-    'K8s.Extra.ObjectMeta.CreationTimestamp.Time', 'K8s.Extra.ObjectMeta.CreationTimestamp'
-]))
-
 export const kubernetesNamespaceResourceKey = (node: Node): string => [
     resourceCluster(node), resourceNamespace(node), resourceType(node), resourceName(node)
 ].join('\u0000').toLowerCase()
@@ -81,50 +64,12 @@ export const kubernetesNamespaceWorkloadHealth = (nodes: Node[]): KubernetesName
         const rawStatus = firstRaw(data, ['K8s.Extra.Status', 'K8s.Status', 'Status'])
         const status = rawStatus || {}
         const spec = firstRaw(data, ['K8s.Extra.Spec', 'K8s.Spec', 'Spec']) || {}
-        let unavailable = false
-        let evaluated = rawStatus !== undefined || type === 'cronjob'
-        if (!evaluated) return
-        if (type === 'deployment') {
-            const desired = numberAt(spec, ['Replicas', 'replicas'], numberAt(status, ['Replicas', 'replicas']))
-            const available = numberAt(status, ['AvailableReplicas', 'availableReplicas'])
-            const updated = numberAt(status, ['UpdatedReplicas', 'updatedReplicas'])
-            const explicitlyUnavailable = numberAt(status, ['UnavailableReplicas', 'unavailableReplicas'])
-            unavailable = available < desired || updated < desired || explicitlyUnavailable > 0
-        } else if (type === 'statefulset') {
-            const desired = numberAt(spec, ['Replicas', 'replicas'], numberAt(status, ['Replicas', 'replicas']))
-            const ready = numberAt(status, ['ReadyReplicas', 'readyReplicas'])
-            const updated = numberAt(status, ['UpdatedReplicas', 'updatedReplicas'])
-            const currentRevision = String(firstRaw(status, ['CurrentRevision', 'currentRevision']) || '')
-            const updateRevision = String(firstRaw(status, ['UpdateRevision', 'updateRevision']) || '')
-            unavailable = ready < desired || updated < desired || (!!currentRevision && !!updateRevision && currentRevision !== updateRevision)
-        } else if (type === 'daemonset') {
-            const desired = numberAt(status, ['DesiredNumberScheduled', 'desiredNumberScheduled'])
-            const ready = numberAt(status, ['NumberReady', 'numberReady'])
-            const unavailableCount = numberAt(status, ['NumberUnavailable', 'numberUnavailable'])
-            const misscheduled = numberAt(status, ['NumberMisscheduled', 'numberMisscheduled'])
-            unavailable = ready < desired || unavailableCount > 0 || misscheduled > 0
-        } else if (type === 'job') {
-            const complete = conditionTrue(workload, 'Complete') || numberAt(status, ['Succeeded', 'succeeded']) > 0
-            const failed = conditionTrue(workload, 'Failed') || numberAt(status, ['Failed', 'failed']) > 0
-            unavailable = !complete && failed
-        } else if (type === 'cronjob') {
-            const suspended = !!(spec.Suspend ?? spec.suspend)
-            const activeJobs = values(status, ['Active', 'active'])
-            const childJobs = workloads.filter(candidate => resourceType(candidate) === 'job' && ownedBy(candidate, workload))
-                .sort((left, right) => workloadTime(right) - workloadTime(left))
-            const latestJob = childJobs[0]
-            const latestFailed = !!latestJob && (conditionTrue(latestJob, 'Failed') || numberAt(latestJob.data || {}, [
-                'K8s.Extra.Status.Failed', 'K8s.Status.Failed', 'Status.Failed'
-            ]) > 0)
-            const latestSucceeded = !!latestJob && (conditionTrue(latestJob, 'Complete') || numberAt(latestJob.data || {}, [
-                'K8s.Extra.Status.Succeeded', 'K8s.Status.Succeeded', 'Status.Succeeded'
-            ]) > 0)
-            unavailable = !suspended && activeJobs.length === 0 && latestFailed && !latestSucceeded
-        } else {
-            evaluated = false
-        }
-        if (evaluated) evaluatedWorkloads.push(workload)
-        if (unavailable) unavailableWorkloads.push(workload)
+        if (rawStatus === undefined && type !== 'cronjob') return
+        const health = evaluateKubernetesWorkload(type, spec, status, firstRaw(data, ['K8s.Extra.ObjectMeta', 'K8s.Extra.metadata']) || {})
+        if (health.tone !== 'default') evaluatedWorkloads.push(workload)
+        // Suspension is an intentional schedule setting. Child Job failures
+        // belong to the Job and must not count the CronJob as a second outage.
+        if (type !== 'cronjob' && (health.tone === 'danger' || health.tone === 'warning')) unavailableWorkloads.push(workload)
     })
     return { workloads, unavailableWorkloads, evaluatedWorkloads }
 }

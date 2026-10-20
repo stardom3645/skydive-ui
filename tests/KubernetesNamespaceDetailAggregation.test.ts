@@ -67,7 +67,7 @@ describe('Kubernetes namespace detail aggregation', () => {
         ]
         const result = kubernetesNamespaceWorkloadHealth(workloads)
         assert.deepEqual(result.unavailableWorkloads.map(item => item.id).sort(), [
-            'cron-failed', 'cron-failed-job', 'daemon-bad', 'deployment-bad', 'job-failed'
+            'cron-failed-job', 'daemon-bad', 'deployment-bad', 'job-failed'
         ])
     })
 

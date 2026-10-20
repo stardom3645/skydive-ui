@@ -534,3 +534,24 @@ describe('Infrastructure LLDP port mapping', () => {
 		assert.ok(!manager.includes('netdive-manual-port-mapping-trigger__chevron'))
 	})
 })
+
+
+describe('LLDP expiry mapping projection (F05)', () => {
+    it('does not let an expired auto observation suppress an active manual record', () => {
+        const sw = node('switch', { Type: 'switch', Name: 'Switch' })
+        const port = node('port', { Type: 'switchport', Name: 'Ethernet1' }, sw)
+        const host = node('host', { Type: 'host', Name: 'Host' })
+        const nic = node('nic', { Type: 'device', Name: 'eno1', State: 'UP' }, host)
+        const nodes = [sw, port, host, nic]
+        const expired = link('old', port, nic, { RelationType: 'layer2', LLDP: { ExpiresAt: 1 } })
+        const manual: any = { id: 9, enabled: true, switchNodeId: sw.id, switchName: 'Switch', switchPortName: 'Ethernet1', hostNodeId: host.id, hostName: 'Host', hostNicNodeId: nic.id, hostNicName: 'eno1' }
+        const rows = buildInfrastructurePortMappings(sw, nodes, [expired], [manual])
+        assert.strictEqual(rows.length, 1)
+        assert.strictEqual(rows[0].source, 'manual')
+        assert.strictEqual(buildManualPortMappingTopologyLinks([manual], nodes, [expired]).length, 1)
+        assert.strictEqual(nic.data.State, 'UP')
+        expired.data.LLDP.ExpiresAt = Date.now() + 60000
+        assert.strictEqual(buildInfrastructurePortMappings(sw, nodes, [expired], [manual])[0].source, 'automatic')
+        assert.strictEqual(buildManualPortMappingTopologyLinks([manual], nodes, [expired]).length, 0)
+    })
+})

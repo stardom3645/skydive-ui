@@ -2,7 +2,7 @@ import * as React from 'react'
 import { Badge, Button, Card, Collapse, Progress, Space, Statistic, Tag, Typography } from 'antd'
 import { RightOutlined } from '@ant-design/icons'
 import { isKubernetesUnavailableValue } from './common/KubernetesDataPresentation'
-import { VerdictCriteriaAction, VerdictCriteriaLabel, VerdictCriteriaModal, VerdictCriteriaResult, VerdictCriteriaRules, VerdictCriteriaNote } from './common/KubernetesVerdictCriteria'
+import { VerdictCriteriaLabel, VerdictCriteriaModal, VerdictCriteriaResult, VerdictCriteriaRules, VerdictCriteriaNote } from './common/KubernetesVerdictCriteria'
 import {
     CollapsibleSummaryRowProps, DetailMetricRowProps, DetailOperationalSummaryProps,
     StatusEvidenceRowProps, DetailInfoTooltip
@@ -29,7 +29,8 @@ export const ClusterOperationalSummary = (props: DetailOperationalSummaryProps &
         <span>{text}</span><DetailInfoTooltip description={tooltip} ariaLabel={`${String(text)} 상세 정보`} />
     </span>
     return <div className="netdive-cluster-ant-summary">
-        {props.section !== 'metrics' && <ClusterOperationalSection title={props.summaryTitle} action={criteria} grid className="netdive-cluster-ant-summary-status">
+        {props.section !== 'metrics' && <ClusterOperationalSection title={props.summaryTitle} grid className="netdive-cluster-ant-summary-status">
+            {criteria}
             {[
                 { label: props.verdictLabel || 'Netdive 판정', value: <Badge status={status(props.verdictTone)} text={props.verdict} />, tooltip: props.verdictTooltip || props.tooltip },
                 { label: props.rawStatusLabel || 'Kubernetes/API 원본 상태', value: props.rawStatus, tooltip: props.rawStatusTooltip },
@@ -140,7 +141,6 @@ export const ClusterVerdictCriteria = ({ verdict, tone, reasons, collected, miss
     const open = controlledOpen ?? internalOpen
     const setOpen = onOpenChange || setInternalOpen
     return <>
-        <VerdictCriteriaAction onClick={() => setOpen(true)} />
         <VerdictCriteriaModal title="Netdive 클러스터 판정 기준" open={open} onClose={() => setOpen(false)}
             subtitle="클러스터 상태 판정 결과 및 기준 안내"
             className="netdive-cluster-verdict-criteria">

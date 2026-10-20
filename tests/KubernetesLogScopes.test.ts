@@ -53,9 +53,19 @@ describe('Kubernetes logs from resource scopes', () => {
         assert.deepEqual(ids(kubernetesResourceLogPods(cron, nodes)), ['job-pod'])
         for (const type of ['daemonset', 'statefulset']) {
             const owner = node(type, type, ns), child = pod(`${type}-pod`, owner, 'app')
+            child.data.K8s.Extra.ObjectMeta.OwnerReferences = [meta(type === 'daemonset' ? 'DaemonSet' : 'StatefulSet', type)]
             assert.deepEqual(ids(kubernetesResourceLogPods(owner, [...nodes, owner, child])), [child.id])
         }
     })
+    it('ignores stale topology parents and cached controller IDs when owner UIDs disagree', () => {
+        const cluster = node('cluster', 'cluster')
+        const owner = node('new-owner', 'statefulset', cluster, { Name: 'database', K8s: { Namespace: 'ns' } })
+        const child = pod('pod', owner, 'ns')
+        child.data.TopologyWorkloadControllerID = owner.id
+        child.data.K8s.Extra.ObjectMeta.OwnerReferences = [{ Kind: 'StatefulSet', UID: 'deleted-owner', Name: 'database' }]
+        assert.deepEqual(kubernetesResourceLogPods(owner, [owner, child]), [])
+    })
+
     it('requires cluster evidence for detached inventory and prefers cluster IDs over ambiguous names', () => {
         const scope = node('ns', 'namespace', undefined, { Name: 'default', ClusterID: 'a', ClusterName: 'cluster' })
         const a = pod('a-pod', undefined, 'default'), b = pod('b-pod', undefined, 'default'), unknown = pod('unknown', undefined, 'default')

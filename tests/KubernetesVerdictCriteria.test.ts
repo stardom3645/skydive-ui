@@ -85,15 +85,17 @@ describe('Every Netdive verdict exposes its criteria', () => {
         })
         const props = { verdict: '주의', rawStatus: '활성', impact: '확인 필요', verdictDetails: { type: 'cluster-criteria', props: { reasons: ['실제 현재 문제'] } } }
         let view = render(props)
-        const action = () => find(view, 'section')[0].props.action
-        assert.equal(action().props.open, false)
+        const criteria = () => find(view, 'cluster-criteria')[0]
+        assert.equal(find(view, 'section')[0].props.action, undefined)
+        assert.equal(find(view, 'cluster-criteria').length, 1)
+        assert.equal(criteria().props.open, false)
         find(view, 'criteria-label')[0].props.onOpen()
         view = render(props)
-        assert.equal(action().props.open, true)
-        assert.deepEqual(action().props.reasons, ['실제 현재 문제'])
-        action().props.onOpenChange(false)
+        assert.equal(criteria().props.open, true)
+        assert.deepEqual(criteria().props.reasons, ['실제 현재 문제'])
+        criteria().props.onOpenChange(false)
         view = render(props)
-        assert.equal(action().props.open, false)
+        assert.equal(criteria().props.open, false)
     })
 
     it('renders an accessible info action regardless of tooltip data', () => {

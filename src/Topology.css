@@ -1649,6 +1649,15 @@ svg {
     fill: var(--topology-object-surface, #fcfdff); stroke: #91baff; stroke-width: 1.5px;
     filter: drop-shadow(0 2px 8px rgba(22, 119, 255, 0.12));
 }
+/* The content group includes badges above the card. Its native SVG focus
+ * outline crosses traffic labels, so draw keyboard focus on the card itself. */
+.topology-scene .node-object-content:focus {
+    outline: none;
+}
+.topology-scene .node:has(> .node-object-content:focus-visible) > .node-card-bg {
+    stroke: #1677ff;
+    stroke-width: 2px;
+}
 .topology-scene .node.is-related:not(.node-selected) .node-card-bg { stroke: var(--topology-object-group-border, #c9dcf8); }
 .topology-scene .node-group-card:not(.node-selected):not(:hover) .node-card-bg {
     stroke: color-mix(in srgb, var(--topology-object-border, #e7eef8) 80%, var(--topology-object-text, #25334b) 20%);

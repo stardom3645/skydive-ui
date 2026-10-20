@@ -1,3 +1,4 @@
+import { KubernetesDetailRefresh } from '../KubernetesDetailRefresh'
 import { DetailSectionIcon } from './common/DetailSectionIcon'
 import * as React from 'react'
 import InfoIcon from '@material-ui/icons/Info'
@@ -8,7 +9,7 @@ import { session } from '../Store'
 import { Node } from '../Topology'
 import { kubernetesLabelValue, matchesKubernetesSelector } from '../KubernetesSelectors'
 import { resolveKubernetesPodController } from '../KubernetesWorkloadOwnership'
-import { aggregateKubernetesServiceOperationalStatus } from '../KubernetesServiceDetailAggregation'
+import { aggregateKubernetesServiceOperationalStatus, kubernetesEndpointReady, kubernetesLogicalEndpoints } from '../KubernetesServiceDetailAggregation'
 import {
     BasicInfoRows,
     connectedResourcePopoverItems,
@@ -82,14 +83,16 @@ const SERVICE_EVENT_TONES = {
 }
 
 class KubernetesServiceDetailPanel extends React.Component<Props, State> {
+    private detailRefresh = new KubernetesDetailRefresh((signal, current) => this.loadDetail(signal, current))
     state: State = { loading: false, error: false, requestKey: '', basicCollapsed: false, basicInfoAdvanced: false }
 
-    componentDidMount() { this.loadDetail() }
+    componentDidMount() { this.detailRefresh.start() }
+    componentWillUnmount() { this.detailRefresh.stop() }
 
     componentDidUpdate(prevProps: Props) {
         if (prevProps.node.id !== this.props.node.id || this.clusterFrom(prevProps)?.id !== this.cluster()?.id) {
             this.setState({ basicCollapsed: false, basicInfoAdvanced: false })
-            this.loadDetail()
+            this.detailRefresh.refresh(true)
         }
     }
 
@@ -134,7 +137,7 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
         return firstValue(this.props.node.data || {}, ['K8s.Extra.ObjectMeta.UID', 'K8s.UID', 'UID', 'uid']) || this.props.node.id
     }
 
-    private loadDetail() {
+    private async loadDetail(signal: AbortSignal, current: () => boolean) {
         const cluster = this.cluster()
         const uid = this.uid()
         const requestKey = `${cluster?.id || ''}:${uid}`
@@ -143,19 +146,18 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
             this.setState({ detail: fallback, loading: false, error: !!uid, requestKey })
             return
         }
-        if (this.state.requestKey === requestKey) return
         const endpoint = this.props.session?.endpoint || `${window.location.protocol}//${window.location.host}`
-        this.setState({ detail: fallback, loading: true, error: false, requestKey })
-        fetch(`${endpoint}/api/mold/kubernetes-clusters/services/detail?id=${encodeURIComponent(cluster.id)}&uid=${encodeURIComponent(uid)}`, {
-            cache: 'no-store',
+        this.setState({ detail: this.state.requestKey === requestKey ? this.state.detail : fallback, loading: this.state.requestKey !== requestKey, error: this.state.requestKey === requestKey && this.state.error, requestKey })
+        return fetch(`${endpoint}/api/mold/kubernetes-clusters/services/detail?id=${encodeURIComponent(cluster.id)}&uid=${encodeURIComponent(uid)}`, {
+            cache: 'no-store', signal,
             headers: this.props.session?.token ? { 'X-Auth-Token': this.props.session.token } : undefined
         }).then(response => {
             if (!response.ok) throw new Error(`service detail unavailable: ${response.status}`)
             return response.json()
         }).then(detail => {
-            if (this.state.requestKey === requestKey) this.setState({ detail: { ...fallback, ...detail, source: 'KUBERNETES_API' }, loading: false, error: false })
+            if (current()) this.setState({ detail: { ...fallback, ...detail, source: 'KUBERNETES_API' }, loading: false, error: false })
         }).catch(() => {
-            if (this.state.requestKey === requestKey) this.setState({ detail: this.detailFromTopology(), loading: false, error: true })
+            if (current()) this.setState({ detail: this.detailFromTopology(), loading: false, error: true })
         })
     }
 
@@ -267,7 +269,7 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
         const name = reference?.name || reference?.Name
         return this.topologyNodes().find(node => {
             if (!this.sameCluster(node)) return false
-            if (uid && (node.id === uid || firstValue(node.data || {}, ['K8s.Extra.ObjectMeta.UID', 'K8s.UID', 'UID']) === uid)) return true
+            if (uid) return node.id === uid || firstValue(node.data || {}, ['K8s.Extra.ObjectMeta.UID', 'K8s.UID', 'UID']) === uid
             return kind && String(node.data?.Type || '').toLowerCase() === kind && firstValue(node.data || {}, ['Name', 'K8s.Name']) === name
         })
     }
@@ -404,7 +406,7 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
     }
 
     render() {
-        const detail = this.state.detail || {}
+        const detail = { ...(this.state.detail || {}), collectionState: this.state.error ? 'unavailable' : 'collected' }
         const endpointKnown = detail.endpointDataAvailable === true
         const endpoints = Array.isArray(detail.endpoints) ? detail.endpoints : []
         const pods = Array.isArray(detail.selectedPods) ? detail.selectedPods : []
@@ -416,7 +418,7 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
         pods.forEach((pod: any) => {
             if (pod?.name) selectedPodByName.set(String(pod.name), pod)
         })
-        const readyEndpoints = endpointKnown ? endpoints.filter((endpoint: any) => endpoint.ready === true) : []
+        const readyEndpoints = endpointKnown ? kubernetesLogicalEndpoints(endpoints).filter((endpoint: any) => kubernetesEndpointReady(endpoint.ready)) : []
         const readyEndpointNodeNames = readyEndpoints.map((endpoint: any) => {
             if (endpoint.nodeName) return String(endpoint.nodeName)
             const podName = endpoint.podName || endpoint.targetRef?.name || endpoint.targetRef?.Name
@@ -426,9 +428,7 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
             && readyEndpoints.length === Number(readyEndpointCount || 0)
             && readyEndpointNodeNames.every(Boolean)
         const uniqueReadyNodeNames = new Set(readyEndpointNodeNames.filter(Boolean))
-        const availabilityState = !readyEndpointNodesKnown
-            ? undefined
-            : Number(readyEndpointCount) === 1
+        const availabilityState = Number(readyEndpointCount) === 1
                 ? {
                     tone: 'warning',
                     label: translate('kubernetesAvailabilitySingleEndpoint'),
@@ -436,7 +436,7 @@ class KubernetesServiceDetailPanel extends React.Component<Props, State> {
                     title: translate('kubernetesAvailabilitySingleEndpoint'),
                     description: translate('kubernetesAvailabilitySingleEndpointDescription')
                 }
-                : uniqueReadyNodeNames.size === 1
+                : !readyEndpointNodesKnown ? undefined : uniqueReadyNodeNames.size === 1
                     ? {
                         tone: 'warning',
                         label: translate('kubernetesAvailabilityDistributionWarning'),

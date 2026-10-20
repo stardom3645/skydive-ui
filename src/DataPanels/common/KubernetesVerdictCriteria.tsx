@@ -10,10 +10,6 @@ export { kubernetesVerdictRules } from '../../KubernetesVerdictRules'
 const tagColor = (tone?: DetailBadgeTone) => tone === 'danger' ? 'error' : tone === 'warning' ? 'warning'
     : tone === 'success' ? 'success' : undefined
 
-export const VerdictCriteriaAction = ({ onClick }: { onClick: () => void }) =>
-    <Button size="small" icon={<SafetyCertificateOutlined aria-hidden="true" />}
-        className="netdive-verdict-criteria-trigger" onClick={onClick}>판정 기준</Button>
-
 /** One overlay shell for resource and cluster criteria. Only its body scrolls. */
 export const VerdictCriteriaModal = ({ title, subtitle = '상태 판정 결과 및 기준 안내', open, onClose, children, className = '' }: {
     title: React.ReactNode; subtitle?: React.ReactNode; open: boolean; onClose: () => void; children: React.ReactNode; className?: string
@@ -70,7 +66,7 @@ export const VerdictCriteriaLabel = ({ label = 'Netdive 판정', onOpen }: {
     <span>{label}</span><InfoCircleOutlined aria-hidden="true" />
 </Button>
 
-/** Same explicit criteria affordance as cluster details, shared by resource panels. */
+/** Criteria opened by the verdict label, shared by resource panels. */
 export const KubernetesVerdictCriteria = ({ kind, verdict, tone, rawStatus, impact, explanation, open: controlledOpen, onOpenChange }: {
     kind: string; verdict: React.ReactNode; tone?: DetailBadgeTone; rawStatus: React.ReactNode;
     impact: React.ReactNode; explanation?: React.ReactNode
@@ -80,7 +76,6 @@ export const KubernetesVerdictCriteria = ({ kind, verdict, tone, rawStatus, impa
     const open = controlledOpen ?? internalOpen
     const setOpen = onOpenChange || setInternalOpen
     return <>
-        <VerdictCriteriaAction onClick={() => setOpen(true)} />
         <VerdictCriteriaModal title={`Netdive ${kindLabel(kind)} 판정 기준`} open={open} onClose={() => setOpen(false)}
             subtitle={`${kindLabel(kind)} 상태 판정 결과 및 기준 안내`}
             className="netdive-verdict-criteria">

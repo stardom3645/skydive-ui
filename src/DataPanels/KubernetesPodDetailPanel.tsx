@@ -1,3 +1,4 @@
+import { KubernetesDetailRefresh } from '../KubernetesDetailRefresh'
 import { DetailSectionIcon } from './common/DetailSectionIcon'
 import * as React from 'react'
 import InfoIcon from '@material-ui/icons/Info'
@@ -97,14 +98,16 @@ const POD_EVENT_TONES = {
 }
 
 class KubernetesPodDetailPanel extends React.Component<Props, State> {
+    private detailRefresh = new KubernetesDetailRefresh((signal, current) => this.loadDetail(signal, current))
     state: State = { loading: false, error: false, requestKey: '', basicCollapsed: false, basicInfoAdvanced: false, activeDetailTab: 'overview', yamlVisited: false }
 
-    componentDidMount() { this.loadDetail() }
+    componentDidMount() { this.detailRefresh.start() }
+    componentWillUnmount() { this.detailRefresh.stop() }
 
     componentDidUpdate(prevProps: Props) {
         if (prevProps.node.id !== this.props.node.id || this.clusterFrom(prevProps)?.id !== this.cluster()?.id) {
             this.setState({ basicCollapsed: false, basicInfoAdvanced: false, activeDetailTab: 'overview', yamlVisited: false })
-            this.loadDetail()
+            this.detailRefresh.refresh(true)
         }
     }
 
@@ -128,7 +131,7 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
     private cluster() { return this.clusterFrom(this.props) }
     private uid() { return firstValue(this.props.node.data || {}, ['K8s.Extra.ObjectMeta.UID', 'K8s.UID', 'UID', 'uid']) || this.props.node.id }
 
-    private loadDetail() {
+    private async loadDetail(signal: AbortSignal, current: () => boolean) {
         const cluster = this.cluster()
         const uid = this.uid()
         const requestKey = `${cluster?.id || ''}:${uid}`
@@ -137,22 +140,21 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
             this.setState({ detail: fallback, loading: false, error: !!uid, requestKey })
             return
         }
-        if (this.state.requestKey === requestKey) return
         const endpoint = this.props.session?.endpoint || `${window.location.protocol}//${window.location.host}`
-        this.setState({ detail: fallback, loading: true, error: false, requestKey })
-        fetch(`${endpoint}/api/mold/kubernetes-clusters/pods/detail?id=${encodeURIComponent(cluster.id)}&uid=${encodeURIComponent(uid)}`, {
-            cache: 'no-store',
+        this.setState({ detail: this.state.requestKey === requestKey ? this.state.detail : fallback, loading: this.state.requestKey !== requestKey, error: this.state.requestKey === requestKey && this.state.error, requestKey })
+        return fetch(`${endpoint}/api/mold/kubernetes-clusters/pods/detail?id=${encodeURIComponent(cluster.id)}&uid=${encodeURIComponent(uid)}`, {
+            cache: 'no-store', signal,
             headers: this.props.session?.token ? { 'X-Auth-Token': this.props.session.token } : undefined
         }).then(response => {
             if (!response.ok) throw new Error(`pod detail unavailable: ${response.status}`)
             return response.json()
         }).then(detail => {
-            if (this.state.requestKey === requestKey) {
+            if (current()) {
                 registerKubernetesPodCurrentStatusDetail(detail)
                 this.setState({ detail: mergeKubernetesPodDetail(fallback, detail), loading: false, error: false })
             }
         }).catch(() => {
-            if (this.state.requestKey === requestKey) this.setState({ detail: this.detailFromTopology(), loading: false, error: true })
+            if (current()) this.setState({ detail: this.detailFromTopology(), loading: false, error: true })
         })
     }
 
@@ -307,8 +309,8 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
         const name = typeof reference === 'string' ? reference : reference?.name ?? reference?.Name
         const kind = String(reference?.kind ?? reference?.Kind ?? '').toLowerCase()
         return this.topologyNodes().find(node => this.sameCluster(node) && (
-            (!!uid && this.resourceUID(node) === String(uid))
-            || (!!name && (!kind || this.resourceType(node) === kind) && this.resourceName(node) === String(name))
+            uid ? this.resourceUID(node) === String(uid)
+            : !!name && (!kind || this.resourceType(node) === kind) && this.resourceName(node) === String(name)
         ))
     }
 
@@ -400,12 +402,12 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
         const evicted = classification.evicted
         const currentProblem = classification.problemPod || problemContainers.length > 0
         const critical = problemContainers.some(container => /oomkilled|crashloopbackoff|imagepullbackoff|errimagepull/i.test(String(container.waitingReason || container.terminatedReason || '')))
-        const statusTone: DetailBadgeTone = evicted ? 'default' : critical ? 'danger' : currentProblem ? 'warning' : phase ? 'success' : 'default'
-        const statusLabel = evicted ? '종료됨' : critical ? '위험' : currentProblem ? '주의' : phase ? '정상' : '미확인'
+        const statusTone: DetailBadgeTone = this.state.error ? 'default' : evicted ? 'default' : critical ? 'danger' : currentProblem ? 'warning' : phase ? 'success' : 'default'
+        const statusLabel = this.state.error ? '미확인' : evicted ? '종료됨' : critical ? '위험' : currentProblem ? '주의' : phase ? '정상' : '미확인'
         const readyCondition = list(detail.conditions).find(condition => String(condition.type ?? condition.Type).toLowerCase() === 'ready')
         const podReady = readyCondition ? String(readyCondition.status ?? readyCondition.Status).toLowerCase() === 'true' : undefined
         const terminalPod = phase === 'succeeded' || evicted
-        const currentImpact = terminalPod
+        const currentImpact = this.state.error ? '가용성 영향 확인 불가' : terminalPod
             ? '실행 대상 아님'
             : podReady === false || critical ? '가용성 영향 확인 필요' : '확인된 가용성 영향 없음'
         const currentImpactTooltip = terminalPod
@@ -464,7 +466,7 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
                 ]} />
             </DetailSectionCard>
 
-            <DetailSectionCard icon={<DetailSectionIcon role="operational" />} title="Pod 운영 상태">
+            <DetailSectionCard className="netdive-k8s-pod-operational-status" icon={<DetailSectionIcon role="operational" />} title="Pod 운영 상태">
                 <StatusSummaryGrid criteriaKind="pod"
                     verdict={statusLabel}
                     verdictTone={statusTone}

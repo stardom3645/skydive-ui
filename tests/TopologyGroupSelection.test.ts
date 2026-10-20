@@ -1,3 +1,4 @@
+import { isExpiredLLDPLink } from '../src/LLDPTopologyValidity'
 import { strict as assert } from 'assert'
 import * as fs from 'fs'
 import * as path from 'path'
@@ -17,7 +18,7 @@ const methods = topologyClass.members.filter(member => member.name && names.incl
     .map(member => member.getText(ast)).join('\n')
 
 function probe(count = 50, manager = 'libvirt') {
-    const context: any = { isCurrentKubernetesPod, isKubernetesPod, topologyAutoFitMaxScale: 0.8,
+    const context: any = { isExpiredLLDPLink, isCurrentKubernetesPod, isKubernetesPod, topologyAutoFitMaxScale: 0.8,
         LinkTagState: { Hidden: 0, EventBased: 1, Visible: 2 }, WrapperType: { Group: 3 },
         select: () => ({ classed: () => undefined, raise: () => undefined }) }
     vm.createContext(context)
@@ -126,5 +127,17 @@ describe('Group visibility does not select its resources', () => {
         topology.expand(group)
         assert.deepEqual(Array.from(topology.groupVisibleNodeIDs()).sort(), ['vm-0', 'vm-2'])
         assert.ok(children.every(child => !child.state.selected))
+    })
+})
+
+
+describe('Expired LLDP relation visibility (F05)', () => {
+    it('keeps an expired relation hidden even when selected or all links are enabled', () => {
+        const { topology, links, modes } = probe(1)
+        topology.linkTagStates.set('layer2', modes.Visible)
+        links[0].state.selected = true
+        assert.equal(topology.isLinkVisible(links[0]), true)
+        ;(links[0].data as any).LLDP = { ExpiresAt: 1 }
+        assert.equal(topology.isLinkVisible(links[0]), false)
     })
 })

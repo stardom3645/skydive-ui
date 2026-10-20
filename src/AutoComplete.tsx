@@ -85,7 +85,7 @@ export default function Autocomplete({ placeholder, suggestions, onChange, onSel
       }}
       options={matches.slice(0, limit).map(match => ({ value: match.entry.id, label: displayName(match.entry), title: '', match }))}
       tagRender={({ value, label, closable, onClose }) => <Tooltip title={entries.has(value) ? displayName(entries.get(value)!) : label} placement="bottom" getPopupContainer={() => document.body}>
-        <Tag className="netdive-topology-search__tag" closable={closable} onClose={event => {
+        <Tag color="blue" className="netdive-topology-search__tag" closable={closable} onClose={event => {
           removingTag.current = true
           try { onClose?.(event) } finally { removingTag.current = false }
         }}

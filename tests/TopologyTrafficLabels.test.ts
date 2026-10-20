@@ -82,6 +82,19 @@ const groupedLink = (link: any) => ({ ...link, source: { id: 'host-group', data:
     target: { id: 'port-group', data: { Type: 'switch' }, x: 620 } })
 
 describe('Infrastructure traffic labels', () => {
+    it('refreshes the line label when the collector changes from 30-second to 10-second intervals', () => {
+        const original: any = trafficLink(), topology = probe(original)
+        const samples = [
+            { Start: 1000, Last: 31000, RxBytes: 3000000, TxBytes: 750000, total: 1000000 },
+            { Start: 31000, Last: 41000, RxBytes: 2000000, TxBytes: 500000, total: 2000000 },
+            { Start: 41000, Last: 51250, RxBytes: 1025000, TxBytes: 256250, total: 1000000 }
+        ]
+        for (const { total, ...metric } of samples) {
+            original.source.data.LastUpdateMetric = metric
+            assert.equal(topology.renderedLinkAttrs(original).label, `${total} bps`)
+            assert.equal(topologyLinkTraffic(original)!.total, total)
+        }
+    })
     it('prepares hidden VM proxy geometry and measured labels so selection reveals them without another layout', () => {
         const original: any = trafficLink()
         original.target.data = { Type: 'bridge' }

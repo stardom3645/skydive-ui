@@ -5,3 +5,18 @@
     padding-bottom: var(--netdive-detail-panel-bottom-padding);
     color: var(--netdive-detail-text);
 }
+
+.netdive-k8s-pod-operational-status .netdive-operational-summary__label,
+.netdive-k8s-pod-operational-status .netdive-k8s-state-separation > div > span {
+    font-size: var(--netdive-detail-font-body-label);
+    font-weight: 400;
+    line-height: 18px;
+}
+
+.netdive-k8s-pod-operational-status .netdive-operational-summary__state > strong,
+.netdive-k8s-pod-operational-status .netdive-operational-summary__metric > strong,
+.netdive-k8s-pod-operational-status .netdive-k8s-state-separation > div > strong {
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 20px;
+}

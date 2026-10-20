@@ -32,6 +32,7 @@ function probe(initial: any = {}) {
     vm.runInContext(ts.transpile(`${helpers}\nclass Probe { ${methods} }; this.Probe = Probe`,
         { target: ts.ScriptTarget.ES2018, jsx: ts.JsxEmit.React }), context)
     const panel = new context.Probe()
+    panel.detailRefresh = { stop: () => { panel.refreshStopped = true } }
     panel.props = { node: node(), nodeResourceSource: { nodeResourceSnapshot: () => snapshot,
         subscribeNodeResources: (listener: () => void) => { listeners.add(listener); return () => listeners.delete(listener) } } }
     panel.state = { requestKey: 'cluster:node' }
@@ -145,6 +146,7 @@ describe('Kubernetes Node detail shares card measurements', () => {
         publish({ nodeVM, wall: wall(20, 55) })
         assert.equal(rows(panel)[0].rows[0].value, '20%')
         panel.componentWillUnmount()
+        assert.equal(panel.refreshStopped, true)
         assert.equal(listeners.size, 0)
     })
     it('does not leak the previous Node cache or detail response across selection changes', () => {

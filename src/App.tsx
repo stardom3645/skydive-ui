@@ -146,7 +146,7 @@ import {
   isInactiveMoldKubernetesClusterState,
   kubernetesTopologyHasInactiveClusterAncestor
 } from './KubernetesTopologyBadgeAggregation'
-import { isCurrentKubernetesPod } from './KubernetesPodLifecycle'
+import { isCurrentKubernetesPod, isKubernetesPod } from './KubernetesPodLifecycle'
 import AutoCompleteInput from './AutoComplete'
 import {
   AppState,
@@ -2038,11 +2038,14 @@ class App extends React.Component<Props, State> {
     pods.forEach(pod => {
       const workload = resolveKubernetesPodController(pod, nodes)
       pod.data.TopologyWorkloadControllerID = workload?.id || ""
-      // A Kubernetes Node is never a hierarchy parent of a Pod. Managed Pods
-      // follow Namespace -> Workload -> Pod. Ownerless Pods remain attached
-      // only to the internal root for data-panel lookup and are excluded from
-      // the visible Workload-based topology.
-      setParent(pod, workload || this.tc!.root)
+      // Preserve the verified scope even when the intermediate owner (such as
+      // a ReplicaSet) is absent from the collected graph. Explicit navigation
+      // can then expand Cluster -> Namespace -> Pod instead of displaying an
+      // isolated root-level card. Never infer a Workload from a similar name.
+      const namespace = namespaces.find(item => sameCluster(item, pod)
+        && String(item.data?.Name || item.data?.K8s?.Name || "") === namespaceName(pod))
+      const cluster = clusters.find(item => sameCluster(item, pod))
+      setParent(pod, workload || namespace || cluster || this.tc!.root)
     })
 
     const resourceName = (node: Node): string => String(
@@ -2120,7 +2123,10 @@ class App extends React.Component<Props, State> {
     if (type === "cluster" || type === "node" || type === "namespace") return true
     if (KUBERNETES_WORKLOAD_TYPES.has(type)) return true
     if (type === "pod") {
-      return isCurrentKubernetesPod(node) && !!node.data?.TopologyWorkloadControllerID
+      // An explicitly selected current Pod must remain reachable even when
+      // its controller chain has not been collected. Keep its real parent;
+      // selection must not invent a Workload ownership relationship.
+      return isCurrentKubernetesPod(node) && (!!node.data?.TopologyWorkloadControllerID || node.state.selected)
     }
     if (type === "storageclass" || type === "persistentvolumeclaim" || type === "persistentvolume") return true
     // Logical/relationship resources remain addressable by resource explorers
@@ -4885,6 +4891,11 @@ class App extends React.Component<Props, State> {
 
   navigateInfrastructureConnectedResources(nodeIDs: string[], anchorNodeID?: string, individual: boolean = false) {
     if (!this.tc || nodeIDs.length === 0) {
+      return
+    }
+    const target = this.tc.nodes.get(nodeIDs[0])
+    if ((individual || nodeIDs.length === 1) && target && isKubernetesPod(target) && !isCurrentKubernetesPod(target)) {
+      this.openResourceDetailNodeID(target.id)
       return
     }
     this.syncTopologyNodeTagForNodes(nodeIDs)

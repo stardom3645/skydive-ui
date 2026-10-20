@@ -38,7 +38,7 @@ export const kubernetesVerdictRules = (kind: string): Rule[] => {
         { label: '확인 불가', description: 'Endpoint 가용성 등 필요한 데이터가 수집되지 않은 경우입니다. selector 없는 Service는 직접 Endpoint 주소를 기준으로 평가합니다.' }
     ]
     case 'deployment': return [
-        { label: '심각', description: '목표 복제본이 1개 이상인데 Available=0, ProgressDeadlineExceeded, 또는 ReplicaFailure=True인 경우입니다. 다른 진행 상태보다 우선합니다.' },
+        { label: '심각', description: '최신 세대가 관측된 상태에서 목표가 1개 이상인데 Available=0이거나 미완료 롤아웃의 Progressing=False/ProgressDeadlineExceeded 또는 ReplicaFailure=True인 경우입니다. 목표 복제본이 모두 충족되면 과거 실패 사유만으로 위험을 만들지 않습니다.' },
         { label: '업데이트 중', description: '심각 조건이 없고 배포가 일시 중지되었거나, Updated/Available이 목표보다 적지만 Progressing=True이고 Available이 1개 이상인 경우입니다.' },
         { label: '주의', description: '업데이트 진행 중 조건에 해당하지 않으면서 Updated/Available이 목표보다 적거나 Unavailable이 1개 이상인 경우입니다.' },
         { label: '정상', description: '위 조건에 해당하지 않고 목표 복제본이 충족된 경우입니다. 관련 파드 문제 수와 최근 이벤트는 별도 근거로 표시합니다.' },
@@ -46,8 +46,8 @@ export const kubernetesVerdictRules = (kind: string): Rule[] => {
     ]
     case 'statefulset': return [
         { label: '알 수 없음', description: 'Desired·Ready·Current·Updated 또는 CurrentRevision·UpdateRevision 중 판정에 필요한 값이 없는 경우입니다. 현재 워크로드 상태 자체가 미수집이면 확인 불가로 표시합니다.' },
-        { label: '위험', description: '필수 상태가 확인된 상태에서 실패 Condition 또는 관련 PVC Lost가 있거나, 목표가 1개 이상인데 Ready=0인 경우입니다.' },
-        { label: '주의', description: 'Ready가 목표보다 적거나 Unavailable이 1개 이상인 경우입니다. 리비전과 복제본이 모두 정상이어도 관련 PVC가 Pending이면 주의로 표시합니다.' },
+        { label: '위험', description: '필수 상태가 확인된 상태에서 실패 Condition이 있거나, 목표가 1개 이상인데 Ready=0인 경우입니다.' },
+        { label: '주의', description: 'Ready가 목표보다 적거나 Unavailable이 1개 이상인 경우입니다. 관련 PVC 문제는 현재 객체 자체의 상태와 구분하여 표시합니다.' },
         { label: '정상', description: 'CurrentRevision=UpdateRevision, Current=Updated=Ready=Desired이고 Unavailable=0인 경우입니다.' },
         { label: '업데이트 중', description: '가용성 저하 없이 리비전 또는 복제본 동기화가 아직 완료되지 않은 경우입니다.' }
     ]
@@ -57,8 +57,8 @@ export const kubernetesVerdictRules = (kind: string): Rule[] => {
         { label: '확인 불가', description: '배치 상태 수치가 모두 미수집이거나 현재 워크로드 상태를 확인할 수 없는 경우입니다.' }
     ]
     case 'job': return [
-        { label: '심각', description: 'Failed가 1개 이상이고 Active=0인 경우입니다.' },
-        { label: '주의', description: '심각 조건이 없지만 실패 수, 현재 문제 파드 또는 자체 상태 이상이 있는 경우입니다. 자체 상태는 실패 Condition, Completions 대비 Succeeded 부족 등 현재 수집 값으로 평가합니다.' },
+        { label: '심각', description: '완료되지 않은 Job에 Failed=True 또는 FailureTarget=True 조건이 확인된 경우입니다. Failed 누계만으로 최종 실패를 확정하지 않습니다.' },
+        { label: '주의', description: '심각 조건이 없지만 실패 수, 현재 문제 파드 또는 자체 상태 이상이 있는 경우입니다. 실행 중인 Job은 진행 상태로 표시하며, 완료한 Job의 Failed 누계는 과거 실패 이력입니다.' },
         { label: '정상', description: '현재 상태가 확인되고 위의 문제가 없는 경우입니다. 정상 완료와 과거 종료 이력은 구분해 표시합니다.' },
         { label: '확인 불가', description: '현재 Job 상태를 확인할 수 없는 경우입니다.' }
     ]

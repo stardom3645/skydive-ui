@@ -1,3 +1,4 @@
+import { evaluateKubernetesWorkload } from '../KubernetesWorkloadStatus'
 import { DetailSectionIcon } from './common/DetailSectionIcon'
 import * as React from 'react'
 
@@ -17,7 +18,6 @@ import { kubernetesResourceSelfStatus } from '../KubernetesTopologyBadgeAggregat
 import { kubernetesLabelValue, matchesKubernetesSelector } from '../KubernetesSelectors'
 import {
     KubernetesDaemonSetPlacementSnapshot,
-    kubernetesDaemonSetPlacementHasProblem,
     kubernetesDaemonSetPlacementSnapshot
 } from '../KubernetesDaemonSetDetailAggregation'
 import {
@@ -55,7 +55,6 @@ import {
     summarizeKubernetesPods
 } from './common'
 import {
-    evaluateStatefulSetRollout,
     statefulSetRelatedPvcNames,
     statefulSetRelatedServiceNames,
     statefulSetPersistentVolumeClaimNames,
@@ -124,7 +123,6 @@ const WORKLOAD_EVENT_TONES = {
 }
 
 const normalizeList = (value: any): any[] => Array.isArray(value) ? value : []
-const conditionValue = (condition: any, key: string): any => condition?.[key] ?? condition?.[key.charAt(0).toLowerCase() + key.slice(1)]
 const numberValue = (value: any, fallback = 0): number => value === undefined || value === null || Number.isNaN(Number(value)) ? fallback : Number(value)
 const optionalText = (value: any): string => value === undefined || value === null || String(value).trim() === '' ? translate('kubernetesNone') : String(value)
 const intOrStringValue = (value: any): any => value?.StrVal ?? value?.strVal ?? value?.IntVal ?? value?.intVal ?? value
@@ -394,79 +392,6 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
             .concat(normalizeList(podSpec.Containers).map(container => toDetail(container, false)))
     }
 
-    private deploymentHealth(spec: any, status: any): WorkloadHealth {
-        const desired = numberValue(spec.Replicas)
-        const available = numberValue(status.AvailableReplicas)
-        const updated = numberValue(status.UpdatedReplicas)
-        const unavailable = numberValue(status.UnavailableReplicas)
-        const conditions = normalizeList(status.Conditions)
-        const deadlineExceeded = conditions.some(condition => String(conditionValue(condition, 'Reason')).toLowerCase() === 'progressdeadlineexceeded')
-        const replicaFailure = conditions.some(condition => String(conditionValue(condition, 'Type')).toLowerCase() === 'replicafailure' && String(conditionValue(condition, 'Status')).toLowerCase() === 'true')
-        const progressing = conditions.some(condition => String(conditionValue(condition, 'Type')).toLowerCase() === 'progressing' && String(conditionValue(condition, 'Status')).toLowerCase() === 'true')
-        if ((desired > 0 && available === 0) || deadlineExceeded || replicaFailure) {
-            return { tone: 'danger', label: translate('kubernetesHealthCritical'), conclusion: translate('kubernetesWorkloadNoAvailableReplicas'), progress: deadlineExceeded || replicaFailure ? translate('kubernetesRolloutFailed') : translate('kubernetesRolloutDelayed'), progressTone: 'danger' }
-        }
-        if (spec.Paused === true) {
-            return { tone: 'info', label: translate('kubernetesWorkloadUpdating'), conclusion: translate('kubernetesWorkloadRevisionApplying'), progress: translate('kubernetesRolloutPaused'), progressTone: 'info' }
-        }
-        if (updated < desired || available < desired) {
-            const activeRollout = progressing && available > 0
-            return {
-                tone: activeRollout ? 'info' : 'warning',
-                label: activeRollout ? translate('kubernetesWorkloadUpdating') : translate('kubernetesHealthWarning'),
-                conclusion: activeRollout ? translate('kubernetesWorkloadRevisionApplying') : translate('kubernetesWorkloadPartialReplicas'),
-                progress: activeRollout ? translate('kubernetesRolloutInProgress') : translate('kubernetesRolloutDelayed'),
-                progressTone: activeRollout ? 'info' : 'warning'
-            }
-        }
-        if (unavailable > 0) {
-            return { tone: 'warning', label: translate('kubernetesHealthWarning'), conclusion: translate('kubernetesWorkloadPartialReplicas'), progress: translate('kubernetesRolloutDelayed'), progressTone: 'warning' }
-        }
-        return { tone: 'success', label: translate('kubernetesHealthNormal'), conclusion: '목표 복제본 충족', progress: translate('kubernetesRolloutComplete'), progressTone: 'success' }
-    }
-
-    private statefulSetHealth(spec: any, status: any, pvcTargets: Node[]): WorkloadHealth {
-        const failure = normalizeList(status.Conditions).some(condition => {
-            const type = String(conditionValue(condition, 'Type')).toLowerCase()
-            const reason = String(conditionValue(condition, 'Reason')).toLowerCase()
-            return String(conditionValue(condition, 'Status')).toLowerCase() === 'true' && (/fail|error/.test(type) || /fail|error/.test(reason))
-        })
-        const pvcPhases = pvcTargets.map(node => firstValue(node.data || {}, ['K8s.Extra.Status.Phase', 'K8s.Status', 'Status']).toLowerCase())
-        const pvcLost = pvcPhases.some(phase => phase === 'lost')
-        const pvcPending = pvcPhases.some(phase => phase === 'pending')
-        const rollout = evaluateStatefulSetRollout({
-            desired: intOrUndefined(spec.Replicas),
-            ready: intOrUndefined(status.ReadyReplicas),
-            current: intOrUndefined(status.CurrentReplicas),
-            updated: intOrUndefined(status.UpdatedReplicas),
-            unavailable: intOrUndefined(status.UnavailableReplicas),
-            currentRevision: status.CurrentRevision,
-            updateRevision: status.UpdateRevision,
-            failed: failure || pvcLost
-        })
-        if (pvcPending && rollout.tone === 'success') {
-            return { tone: 'warning', label: '주의', conclusion: 'PVC 연결 대기 중', progress: rollout.label, progressTone: 'warning' }
-        }
-        return { tone: rollout.tone, label: rollout.verdict, conclusion: rollout.impact, progress: rollout.label, progressTone: rollout.tone }
-    }
-
-    private daemonSetHealth(placement: KubernetesDaemonSetPlacementSnapshot): WorkloadHealth {
-        if (!placement.collected) {
-            return { tone: 'default', label: translate('kubernetesHealthUnknown'), conclusion: '영향 확인 불가', progress: '상태 확인 불가', progressTone: 'default' }
-        }
-        if (kubernetesDaemonSetPlacementHasProblem(placement)) {
-            const updating = placement.desired !== undefined && placement.updated !== undefined && placement.updated < placement.desired
-            return {
-                tone: 'warning',
-                label: translate('kubernetesHealthWarning'),
-                conclusion: '노드 배치 확인 필요',
-                progress: updating ? translate('kubernetesRolloutInProgress') : '배치 상태 확인 필요',
-                progressTone: 'warning'
-            }
-        }
-        return { tone: 'success', label: translate('kubernetesHealthNormal'), conclusion: '배치 대상 노드 충족', progress: translate('kubernetesRolloutComplete'), progressTone: 'success' }
-    }
-
     private metrics(kind: string, spec: any, status: any, daemonPlacement?: KubernetesDaemonSetPlacementSnapshot): Array<{ label: string, value: any, problem?: boolean }> {
         switch (kind) {
             case 'deployment': return [
@@ -500,7 +425,7 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
             case 'job': return [
                 { label: 'Active', value: intOrUndefined(status.Active) },
                 { label: 'Succeeded', value: intOrUndefined(status.Succeeded) },
-                { label: 'Failed', value: intOrUndefined(status.Failed), problem: Number(status.Failed || 0) > 0 },
+                { label: 'Failed', value: intOrUndefined(status.Failed), problem: evaluateKubernetesWorkload(kind, spec, status).tone === 'danger' },
                 { label: translate('kubernetesParallelism'), value: intOrUndefined(spec.Parallelism) }
             ]
             case 'cronjob': return [
@@ -661,19 +586,15 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
         const daemonPlacement = kubernetesDaemonSetPlacementSnapshot(status)
         const selfStatus = kubernetesResourceSelfStatus(this.props.node, extra)
         const metrics = this.metrics(kind, spec, status, daemonPlacement)
-        const metricProblem = metrics.some(metric => metric.problem)
-        const critical = kind === 'job' && Number(status.Failed || 0) > 0 && Number(status.Active || 0) === 0
-        const warning = metricProblem || problemPods > 0
-        const statusTone = critical ? 'danger' : selfStatus.state === 'problem' || warning ? 'warning' : selfStatus.state === 'healthy' ? 'success' : 'default'
-        const statusLabel = critical ? translate('kubernetesHealthCritical') : selfStatus.state === 'problem' || warning ? translate('kubernetesHealthWarning') : selfStatus.state === 'healthy' ? translate('kubernetesHealthNormal') : translate('kubernetesHealthUnknown')
-        const conclusion = critical ? translate('kubernetesWorkloadFailedConclusion') : warning ? translate('kubernetesWorkloadWarningConclusion') : translate('kubernetesWorkloadNormalConclusion')
-        const health = kind === 'deployment'
-            ? this.deploymentHealth(spec, status)
-            : kind === 'statefulset'
-                ? this.statefulSetHealth(spec, status, pvcTargets)
-                : kind === 'daemonset'
-                    ? this.daemonSetHealth(daemonPlacement)
-                    : undefined
+        const evaluatedHealth = evaluateKubernetesWorkload(kind, spec, status, meta)
+        const health = selfStatus.state === 'unknown'
+            ? { ...evaluatedHealth, tone: 'default' as const, label: translate('kubernetesHealthUnknown'), conclusion: '가용성 영향 확인 불가', progress: '상태 확인 불가', progressTone: 'default' as const }
+            : selfStatus.state === 'problem' && !evaluatedHealth.findings.length
+                ? { ...evaluatedHealth, tone: 'warning' as const, label: '주의', conclusion: selfStatus.findings.join(' · '), progressTone: 'warning' as const }
+                : evaluatedHealth
+        const statusTone = selfStatus.state === 'unknown' ? 'default' : health.tone
+        const statusLabel = selfStatus.state === 'unknown' ? translate('kubernetesHealthUnknown') : health.label
+        const conclusion = health.conclusion
         const workloadName = String(data.Name || this.props.node.id)
         const labels = meta.Labels || meta.labels || data.K8s?.Labels || {}
         const annotations = meta.Annotations || meta.annotations || {}
@@ -799,7 +720,7 @@ class KubernetesWorkloadDetailPanel extends React.Component<Props, State> {
                     metrics={operationalMetrics}
                 />
                 <KubernetesStateSeparation items={[
-                    { key: 'current', label: '현재 문제', value: metricProblem || critical ? (kind === 'daemonset' ? '노드 배치/롤아웃' : '복제본/롤아웃') : problemPods, tone: metricProblem || critical || problemPods > 0 ? 'danger' : 'success', tooltip: kind === 'daemonset' ? '배치 대상·현재 배치·준비·가용·업데이트·미가용·비대상 배치와 현재 파드 상태를 기준으로 판정합니다.' : '목표·준비·가용 복제본과 현재 롤아웃 상태를 우선하여 판정합니다.' },
+                    { key: 'current', label: '현재 문제', value: selfStatus.state === 'problem' ? (kind === 'daemonset' ? '노드 배치/롤아웃' : '복제본/롤아웃') : problemPods, tone: selfStatus.state === 'problem' || problemPods > 0 ? 'danger' : 'success', tooltip: kind === 'daemonset' ? '배치 대상·현재 배치·준비·가용·업데이트·미가용·비대상 배치와 현재 파드 상태를 기준으로 판정합니다.' : '목표·준비·가용 복제본과 현재 롤아웃 상태를 우선하여 판정합니다.' },
                     { key: 'recent', label: '최근 불안정성', value: recentInstabilityKnown ? podSummary.recentEvicted.length + recentWorkloadEventGroups.reduce((count, group) => count + group.count, 0) : '확인 불가', tone: recentInstabilityKnown ? (podSummary.recentEvicted.length + recentWorkloadEventGroups.length > 0 ? 'warning' : 'success') : 'default', tooltip: '최근 1시간의 Eviction과 워크로드 Event입니다.' },
                     { key: 'history', label: '누적 Evicted 파드', value: podSummary.evicted.length, tone: 'history', tooltip: '파드 UID로 중복 제거한 누적 Evicted 파드 수입니다. 현재 장애 판정에는 사용하지 않습니다.' }
                 ]} />

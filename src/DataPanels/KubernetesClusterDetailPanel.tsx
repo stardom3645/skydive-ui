@@ -1,3 +1,5 @@
+import { resolveKubernetesPodController } from '../KubernetesWorkloadOwnership'
+import { KubernetesDetailRefresh } from '../KubernetesDetailRefresh'
 import { DetailSectionIcon } from './common/DetailSectionIcon'
 import * as React from 'react'
 import KubernetesResourceLogPanel from './KubernetesResourceLogPanel'
@@ -299,7 +301,7 @@ const ServiceName = ({ value }: { value: string }) => {
 }
 
 class KubernetesClusterDetailPanel extends React.Component<Props, State> {
-    private summaryRefreshTimer?: number
+    private summaryRefresh = new KubernetesDetailRefresh((signal, current) => this.fetchClusterSummary(signal, current), KUBERNETES_CLUSTER_SUMMARY_REFRESH_MS)
     private panelRoot = React.createRef<HTMLDivElement>()
 
     private openDiagnostic(key: string) {
@@ -333,18 +335,10 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
 
     componentDidMount() {
         delete (this.props.node as any).__netdiveInitialDetailTab
-        this.loadClusterSummary()
-        this.summaryRefreshTimer = window.setInterval(
-            () => this.loadClusterSummary(true, true),
-            KUBERNETES_CLUSTER_SUMMARY_REFRESH_MS
-        )
+        this.summaryRefresh.start()
     }
 
-    componentWillUnmount() {
-        if (this.summaryRefreshTimer !== undefined) {
-            window.clearInterval(this.summaryRefreshTimer)
-        }
-    }
+    componentWillUnmount() { this.summaryRefresh.stop() }
 
     componentDidUpdate(prevProps: Props) {
         if (prevProps.node.id !== this.props.node.id) {
@@ -397,19 +391,21 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
         return Date.now() - this.memoryRequestOverageSince >= KUBERNETES_MEMORY_REQUEST_INSIGHT_MIN_DURATION_MS
     }
 
-    private loadClusterSummary(force = false, background = false) {
+    private loadClusterSummary(force = false, background = false) { this.summaryRefresh.refresh(true) }
+
+    private async fetchClusterSummary(signal: AbortSignal, current: () => boolean) {
         const cluster = this.moldCluster()
-        if (!cluster?.id || this.state.summaryLoading || (!force && this.state.summaryClusterID === cluster.id)) return
+        if (!cluster?.id) return
         const endpoint = this.props.session?.endpoint || `${window.location.protocol}//${window.location.host}`
-        this.setState({ summaryLoading: background ? this.state.summaryLoading : true, summaryError: false, summaryClusterID: cluster.id })
-        fetch(`${endpoint}/api/mold/kubernetes-clusters/summary?id=${encodeURIComponent(cluster.id)}`, {
-            cache: 'no-store',
+        this.setState({ summaryLoading: this.state.summaryClusterID !== cluster.id, summaryError: this.state.summaryClusterID === cluster.id && this.state.summaryError, summaryClusterID: cluster.id })
+        return fetch(`${endpoint}/api/mold/kubernetes-clusters/summary?id=${encodeURIComponent(cluster.id)}`, {
+            cache: 'no-store', signal,
             headers: this.props.session?.token ? { 'X-Auth-Token': this.props.session.token } : undefined
         }).then(response => {
             if (!response.ok) throw new Error(`cluster summary unavailable: ${response.status}`)
             return response.json()
         }).then(summary => {
-            if (this.state.summaryClusterID === cluster.id) {
+            if (current()) {
                 const memoryRequestInsightVisible = this.memoryRequestInsightSustained(summary)
                 this.setState({
                     summary,
@@ -422,7 +418,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                 })
             }
         }).catch(() => {
-            if (this.state.summaryClusterID === cluster.id) {
+            if (current()) {
                 this.setState({ summaryLoading: false, summaryError: true })
             }
         })
@@ -583,20 +579,8 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
     }
 
     private podWorkloadName(node: Node, workloads: Node[]): string {
-        const data = node.data || {}
-        const namespace = firstValue(data, ['K8s.Namespace', 'Namespace', 'K8s.Extra.ObjectMeta.Namespace'])
-        const owners = firstRaw(data, ['K8s.Extra.ObjectMeta.OwnerReferences'])
-        const owner = Array.isArray(owners) ? owners.find(item => item?.Controller) || owners[0] : undefined
-        if (!owner?.Name) return ''
-        const kind = String(owner.Kind || '').toLowerCase()
-        if (kind !== 'replicaset') return String(owner.Name)
-        const deployment = workloads.find(workload => {
-            if (String(workload.data?.Type || '').toLowerCase() !== 'deployment') return false
-            const workloadNamespace = firstValue(workload.data || {}, ['K8s.Namespace', 'Namespace', 'K8s.Extra.ObjectMeta.Namespace'])
-            const workloadName = firstValue(workload.data || {}, ['Name', 'K8s.Name', 'K8s.Extra.ObjectMeta.Name'])
-            return workloadNamespace === namespace && String(owner.Name).indexOf(`${workloadName}-`) === 0
-        })
-        return deployment ? firstValue(deployment.data || {}, ['Name', 'K8s.Name', 'K8s.Extra.ObjectMeta.Name']) : String(owner.Name)
+        const controller = resolveKubernetesPodController(node, this.topologyNodes())
+        return controller ? firstValue(controller.data || {}, ['Name', 'K8s.Name', 'K8s.Extra.ObjectMeta.Name']) : ''
     }
 
     private podPrimaryReason(node: Node): string {
@@ -856,6 +840,17 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
     private openResourceDetail(node: Node) {
         const app = (window as any).App
         if (app && typeof app.openResourceDetailNodeID === 'function') app.openResourceDetailNodeID(node.id)
+    }
+
+    private openPodStatusDetail(node: Node) {
+        this.setState({ podStatusModalMode: '', podStatusModalKey: '' }, () => {
+            const app = (window as any).App
+            if (app && typeof app.navigateInfrastructureConnectedResources === 'function') {
+                app.navigateInfrastructureConnectedResources([node.id], this.props.node.id, true)
+            } else {
+                this.openResourceDetail(node)
+            }
+        })
     }
 
     private openServiceDetail(service: Node) {
@@ -1365,7 +1360,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                 ? { label: '현재 문제', tone: 'warning' }
                 : this.podTerminationRecovery(node, resources, unavailableWorkloads)
             const message = firstValue(data, ['K8s.Extra.Status.Message', 'Message'])
-            return <button type="button" key={node.id} className="netdive-k8s-cluster-detail__eviction-item" onClick={() => this.focusResources([node])}>
+            return <button type="button" key={node.id} className="netdive-k8s-cluster-detail__eviction-item" onClick={() => this.openPodStatusDetail(node)}>
                 <span className="netdive-k8s-cluster-detail__eviction-item-head">
                     <strong title={`${namespace}/${name}`}>{namespace}/{name}</strong>
                     <DetailBadge tone={recovery.tone as DetailBadgeTone}>{recovery.label}</DetailBadge>
@@ -1424,7 +1419,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
             size="small"
             tableLayout="fixed"
             onRow={record => ({
-                onClick: () => this.focusResources([record.node])
+                onClick: () => this.openPodStatusDetail(record.node)
             })}
             columns={[
                 {

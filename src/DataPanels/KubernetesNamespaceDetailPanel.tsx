@@ -1,3 +1,4 @@
+import { KubernetesDetailRefresh } from '../KubernetesDetailRefresh'
 import { DetailSectionIcon } from './common/DetailSectionIcon'
 import * as React from 'react'
 import KubernetesResourceLogPanel from './KubernetesResourceLogPanel'
@@ -135,6 +136,7 @@ const IMPORTANT_EVENT_TONES = Array.from(IMPORTANT_EVENT_REASONS).reduce((tones,
 }, {} as Record<string, 'warning'>)
 
 class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
+    private detailRefresh = new KubernetesDetailRefresh((signal, current) => this.loadDetail(signal, current))
     state: State = {
         loading: false,
         error: false,
@@ -146,12 +148,13 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
         activeDetailTab: 'overview'
     }
 
-    componentDidMount() { this.loadDetail() }
+    componentDidMount() { this.detailRefresh.start() }
+    componentWillUnmount() { this.detailRefresh.stop() }
 
     componentDidUpdate(prevProps: Props) {
         if (prevProps.node.id !== this.props.node.id || this.clusterFrom(prevProps)?.id !== this.cluster()?.id) {
             this.setState({ basicCollapsed: false, basicInfoAdvanced: false, podModal: '', policyModal: '', activeDetailTab: 'overview' })
-            this.loadDetail()
+            this.detailRefresh.refresh(true)
         }
     }
 
@@ -178,7 +181,7 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
         return firstValue(this.props.node.data || {}, ['K8s.Extra.ObjectMeta.UID', 'K8s.UID', 'UID', 'uid']) || this.props.node.id
     }
 
-    private loadDetail() {
+    private async loadDetail(signal: AbortSignal, current: () => boolean) {
         const cluster = this.cluster()
         const uid = this.uid()
         const requestKey = `${cluster?.id || ''}:${uid}`
@@ -187,22 +190,21 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
             this.setState({ detail: fallback, loading: false, error: !!uid, requestKey })
             return
         }
-        if (this.state.requestKey === requestKey) return
         const endpoint = this.props.session?.endpoint || `${window.location.protocol}//${window.location.host}`
-        this.setState({ detail: fallback, loading: true, error: false, requestKey })
-        fetch(`${endpoint}/api/mold/kubernetes-clusters/namespaces/detail?id=${encodeURIComponent(cluster.id)}&uid=${encodeURIComponent(uid)}`, {
-            cache: 'no-store',
+        this.setState({ detail: this.state.requestKey === requestKey ? this.state.detail : fallback, loading: this.state.requestKey !== requestKey, error: this.state.requestKey === requestKey && this.state.error, requestKey })
+        return fetch(`${endpoint}/api/mold/kubernetes-clusters/namespaces/detail?id=${encodeURIComponent(cluster.id)}&uid=${encodeURIComponent(uid)}`, {
+            cache: 'no-store', signal,
             headers: this.props.session?.token ? { 'X-Auth-Token': this.props.session.token } : undefined
         }).then(response => {
             if (!response.ok) throw new Error(`namespace detail unavailable: ${response.status}`)
             return response.json()
         }).then(detail => {
-            if (this.state.requestKey === requestKey) {
+            if (current()) {
                 registerKubernetesPodCurrentStatusSnapshots(detail?.pods)
                 this.setState({ detail: { ...fallback, ...detail }, loading: false, error: false })
             }
         }).catch(() => {
-            if (this.state.requestKey === requestKey) this.setState({ detail: this.detailFromTopology(), loading: false, error: true })
+            if (current()) this.setState({ detail: this.detailFromTopology(), loading: false, error: true })
         })
     }
 

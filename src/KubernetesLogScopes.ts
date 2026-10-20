@@ -66,8 +66,7 @@ export function kubernetesResourceLogPods(scope: Node, nodes: Node[]): Node[] {
         else if (KUBERNETES_CONTROLLER_TYPES.has(scopeKind)) {
             if (scopeNamespace && namespace(pod) !== scopeNamespace) return false
             const owner = resolveKubernetesPodController(pod, ownerInventory), top = resolveKubernetesPodTopController(pod, ownerInventory)
-            match = pod.data?.TopologyWorkloadControllerID === scope.id || owner?.id === scope.id || top?.id === scope.id
-                || parents(pod).slice(1).some(parent => parent.id === scope.id)
+            match = owner?.id === scope.id || top?.id === scope.id
         }
         if (!match || seen.has(uid(pod))) return false
         seen.add(uid(pod)); return true

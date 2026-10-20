@@ -1,3 +1,4 @@
+import { evaluateKubernetesWorkload } from './KubernetesWorkloadStatus'
 import { kubernetesStorageObservation, kubernetesStorageOperationalPresentation } from './KubernetesStorageStatus'
 import type { Node } from './Topology'
 import { getPodClassification, isCurrentKubernetesPod } from './KubernetesPodLifecycle'
@@ -143,51 +144,6 @@ const conditions = (status: any): any[] => {
     return Array.isArray(value) ? value : []
 }
 
-const numberValue = (...values: any[]): number => {
-    const value = values.find(candidate => candidate !== undefined && candidate !== null && candidate !== '')
-    const parsed = Number(value ?? 0)
-    return Number.isFinite(parsed) ? parsed : 0
-}
-
-const workloadProblemFindings = (node: Node, type: string, observation?: any): string[] => {
-    const data = node.data || {}
-    const sources = observation ? [observation, data] : [data]
-    const spec = firstRawFrom(sources, ['spec', 'Spec', 'K8s.Extra.Spec', 'K8s.Spec']) || {}
-    const status = firstRawFrom(sources, ['status', 'Status', 'K8s.Extra.Status', 'K8s.Status']) || {}
-    const desired = type === 'daemonset'
-        ? numberValue(status.DesiredNumberScheduled, status.desiredNumberScheduled)
-        : type === 'job'
-            ? numberValue(spec.Completions, spec.completions, 1)
-            : numberValue(spec.Replicas, spec.replicas, status.DesiredReplicas, status.desiredReplicas)
-    const ready = type === 'deployment'
-        ? numberValue(status.AvailableReplicas, status.availableReplicas, status.ReadyReplicas, status.readyReplicas)
-        : type === 'daemonset'
-            ? numberValue(status.NumberAvailable, status.numberAvailable, status.NumberReady, status.numberReady)
-            : type === 'job'
-                ? numberValue(status.Succeeded, status.succeeded)
-                : numberValue(status.ReadyReplicas, status.readyReplicas, status.AvailableReplicas, status.availableReplicas, status.Active, status.active)
-    const updated = numberValue(status.UpdatedReplicas, status.updatedReplicas, status.UpdatedNumberScheduled, status.updatedNumberScheduled, ready)
-    const unavailable = numberValue(status.UnavailableReplicas, status.unavailableReplicas, status.NumberUnavailable, status.numberUnavailable)
-    const misscheduled = numberValue(status.NumberMisscheduled, status.numberMisscheduled)
-    const failed = numberValue(status.Failed, status.failed)
-    const findings = new Set<string>()
-    conditions(status).forEach(condition => {
-        const state = normalized(condition?.Status ?? condition?.status)
-        const conditionType = normalized(condition?.Type ?? condition?.type)
-        const reason = normalized(condition?.Reason ?? condition?.reason)
-        if (state === 'true' && (/fail|error|deadlineexceeded/.test(conditionType) || /fail|error|deadlineexceeded/.test(reason))) {
-            findings.add('상태 조건 실패')
-        }
-    })
-    if (desired > 0 && ready === 0) findings.add('가용 대상 없음')
-    else if (desired > 0 && ready < desired) findings.add('준비·가용 수 부족')
-    if (desired > 0 && updated < desired) findings.add('업데이트 수 부족')
-    if (unavailable > 0) findings.add('미가용 대상 존재')
-    if (misscheduled > 0) findings.add('비대상 배치 존재')
-    if (failed > 0) findings.add('실패 대상 존재')
-    return Array.from(findings)
-}
-
 const explicitCollectionState = (node: Node, observation?: any): KubernetesResourceCollectionState | undefined => {
     const sources = observation ? [observation, node.data || {}] : [node.data || {}]
     const stale = firstRawFrom(sources, ['stale', 'Stale', 'isStale', 'IsStale'])
@@ -272,8 +228,8 @@ export const kubernetesResourceSelfStatus = (node: Node, observation?: any): Kub
         if (!hasStatusEvidence && !(type === 'cronjob' && hasSpecEvidence)) {
             return { state: 'unknown', collection: explicitCollection || 'unavailable', findings: ['워크로드 상태를 확인할 수 없습니다.'] }
         }
-        const findings = workloadProblemFindings(node, type, observation)
-        return { state: findings.length ? 'problem' : 'healthy', collection: 'collected', findings }
+        const health = evaluateKubernetesWorkload(type, rawSpec || {}, rawStatus || {}, firstRawFrom(sources, ['ObjectMeta', 'metadata', 'K8s.Extra.ObjectMeta', 'K8s.Extra.metadata']) || {})
+        return { state: health.tone === 'default' ? 'unknown' : health.findings.length ? 'problem' : 'healthy', collection: 'collected', findings: health.findings }
     }
     if (type === 'node') {
         const status = firstRawFrom(sources, ['status', 'Status', 'K8s.Extra.Status', 'K8s.Status']) || {}

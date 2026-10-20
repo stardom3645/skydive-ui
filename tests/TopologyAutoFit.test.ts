@@ -1,3 +1,4 @@
+import { nextLLDPExpiryDelay } from '../src/LLDPTopologyValidity'
 import { strict as assert } from 'assert'
 import * as fs from 'fs'
 import * as path from 'path'
@@ -50,7 +51,7 @@ function probe() {
     const identity = { x: 0, y: 0, k: 1,
         translate(x: number, y: number) { return { ...this, x, y } },
         scale(k: number) { return { ...this, k } } }
-    const context: any = { zoomIdentity: identity, hierarchy: () => layout,
+    const context: any = { nextLLDPExpiryDelay, zoomIdentity: identity, hierarchy: () => layout,
         WrapperType: { Hidden: 2, Normal: 1 }, topologyGroupStackOffset: 0,
         topologySiblingCardGap: 44, topologyLevelLabelSafeInset: 130, animDuration: 500, topologyInitialScale: initialScale, topologyAutoFitMinScale: autoFitMinScale, topologyAutoFitMaxScale: autoFitMaxScale,
         document: { querySelector: () => null },
@@ -59,7 +60,7 @@ function probe() {
             requestAnimationFrame: (fn: () => void) => clock.set(fn, 16), cancelAnimationFrame: clock.clear } }
     vm.createContext(context)
     const names = ['cancelScheduledZoomFit', 'fitAfterBranchChange', 'zoomFitAfterRender', 'relayoutInfrastructureVMs', 'onResize',
-        'renderTree', 'currentZoom', 'setZoomLevel', 'moveTo', 'zoomFit', 'renderedNodeBounds', 'applyZoomFit',
+        'renderTree', 'scheduleLLDPExpiry', 'currentZoom', 'setZoomLevel', 'moveTo', 'zoomFit', 'renderedNodeBounds', 'applyZoomFit',
         'toggleGroupListNode', 'setGroupListNodes', 'syncGroupDisplaySize', 'nodeClicked', 'centerNode', 'expand', 'collapse', 'setFullGroupDisplay', 'expandAllNodes', 'collapseAllNodes', 'zoomFitFocusedNodes', 'fitBounds']
     const zoomHandlers = new Map<string, string>()
     const collectZoomHandlers = (node: ts.Node) => {
@@ -76,6 +77,7 @@ function probe() {
     }; this.Probe = Probe`,
         { target: ts.ScriptTarget.ES2018 }), context)
     const graph = new context.Probe()
+    graph.links = new Map()
     let current = identity.scale(initialScale)
     let interrupts = 0
     const svg: any = { attr: () => svg, interrupt: () => { interrupts++; return svg }, transition: () => svg, duration: () => svg,

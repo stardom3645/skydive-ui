@@ -1,6 +1,6 @@
 import type { Node } from './Topology'
 import { isCurrentKubernetesPod } from './KubernetesPodLifecycle'
-import { kubernetesLabelValue, matchesKubernetesSelector } from './KubernetesSelectors'
+import { kubernetesLabelValue } from './KubernetesSelectors'
 
 export const KUBERNETES_CONTROLLER_TYPES = new Set([
     'deployment',
@@ -36,19 +36,26 @@ const resourceUID = (node: Node): string => String(firstRaw(node.data || {}, [
     'K8s.UID',
     'UID'
 ]) || node.id)
-const resourceNamespace = (node: Node): string => String(firstRaw(node.data || {}, [
-    'K8s.Namespace',
-    'Namespace',
-    'K8s.Extra.ObjectMeta.Namespace',
-    'K8s.Extra.Metadata.Namespace',
-    'K8s.Extra.metadata.namespace'
-]) || '')
-const resourceCluster = (node: Node): string => String(firstRaw(node.data || {}, [
-    'ClusterName',
-    'clusterName',
-    'K8s.ClusterName',
-    'Cluster'
-]) || '')
+const lineage = (node: Node): Node[] => {
+    const result: Node[] = [], seen = new Set<Node>()
+    let current: Node | null | undefined = node
+    while (current && !seen.has(current)) { result.push(current); seen.add(current); current = current.parent }
+    return result
+}
+const resourceNamespace = (node: Node): string => {
+    const explicit = firstRaw(node.data || {}, ['K8s.Namespace', 'Namespace', 'K8s.Extra.ObjectMeta.Namespace', 'K8s.Extra.Metadata.Namespace', 'K8s.Extra.metadata.namespace'])
+    if (explicit) return String(explicit)
+    const namespace = lineage(node).find(parent => resourceType(parent) === 'namespace')
+    return namespace ? resourceName(namespace) : ''
+}
+const resourceCluster = (node: Node): string => {
+    for (const current of lineage(node)) {
+        const name = firstRaw(current.data || {}, ['ClusterName', 'clusterName', 'K8s.ClusterName', 'Cluster'])
+        if (name) return String(name)
+        if (resourceType(current) === 'cluster') return resourceName(current)
+    }
+    return ''
+}
 const ownerReferences = (node: Node): any[] => {
     const value = firstRaw(node.data || {}, [
         'K8s.Extra.ObjectMeta.OwnerReferences',
@@ -60,73 +67,50 @@ const ownerReferences = (node: Node): any[] => {
         'OwnerReferences'
     ])
     if (!Array.isArray(value)) return []
-    return value.slice().sort((left, right) => Number(!!right?.Controller) - Number(!!left?.Controller))
+    const controlling = value.filter(owner => (owner?.Controller ?? owner?.controller) === true)
+    return controlling.length ? controlling : value.filter(owner => (owner?.Controller ?? owner?.controller) !== false)
 }
 
 const ownerMatches = (owner: any, expectedKind: string, ownerNode: Node): boolean => {
     const kind = String(owner?.Kind || owner?.kind || '').toLowerCase()
     const uid = String(owner?.UID || owner?.uid || '')
     const name = String(owner?.Name || owner?.name || '')
-    if (kind && kind !== expectedKind.toLowerCase()) return false
-    if (uid && uid === resourceUID(ownerNode)) return true
+    if (kind !== expectedKind.toLowerCase()) return false
+    if (uid) return uid === resourceUID(ownerNode)
     return !!name && name === resourceName(ownerNode)
 }
 
+const clusterID = (node: Node): string => {
+    for (const current of lineage(node)) {
+        const id = firstRaw(current.data || {}, ['ClusterID', 'ClusterId', 'clusterId', 'K8s.ClusterID'])
+        if (id) return String(id)
+    }
+    return ''
+}
 const sameScope = (left: Node, right: Node): boolean => {
-    const leftNamespace = resourceNamespace(left)
-    const rightNamespace = resourceNamespace(right)
-    const leftCluster = resourceCluster(left)
-    const rightCluster = resourceCluster(right)
-    return (!leftNamespace || !rightNamespace || leftNamespace === rightNamespace)
-        && (!leftCluster || !rightCluster || leftCluster === rightCluster)
+    if (resourceNamespace(left) !== resourceNamespace(right)) return false
+    const leftID = clusterID(left), rightID = clusterID(right)
+    if (leftID && rightID) return leftID === rightID
+    const leftName = resourceCluster(left), rightName = resourceCluster(right)
+    if (leftName && rightName && leftName !== rightName) return false
+    const leftAnchor = lineage(left).find(node => resourceType(node) === 'cluster')?.id
+    const rightAnchor = lineage(right).find(node => resourceType(node) === 'cluster')?.id
+    if (leftAnchor && rightAnchor) return leftAnchor === rightAnchor
+    if (leftName && rightName) return leftName === rightName
+    return !leftID && !rightID && !leftName && !rightName && !leftAnchor && !rightAnchor
 }
 
 const findOwnerNode = (owner: any, child: Node, nodes: Node[]): Node | undefined => {
     const ownerUID = String(owner?.UID || owner?.uid || '')
     const ownerName = String(owner?.Name || owner?.name || '')
     const ownerKind = String(owner?.Kind || owner?.kind || '').toLowerCase()
-    return nodes.find(candidate => {
+    if (!ownerKind || (!ownerUID && !ownerName)) return undefined
+    const candidates = nodes.filter(candidate => {
         if (String(candidate.data?.Manager || '').toLowerCase() !== 'k8s' || !sameScope(candidate, child)) return false
-        if (ownerKind && resourceType(candidate) !== ownerKind) return false
-        if (ownerUID && resourceUID(candidate) === ownerUID) return true
-        return !!ownerName && resourceName(candidate) === ownerName
+        if (resourceType(candidate) !== ownerKind) return false
+        return ownerUID ? resourceUID(candidate) === ownerUID : resourceName(candidate) === ownerName
     })
-}
-
-const labels = (node: Node): Record<string, any> => {
-    const value = firstRaw(node.data || {}, [
-        'K8s.Labels',
-        'K8s.Extra.ObjectMeta.Labels',
-        'Labels'
-    ])
-    return value && typeof value === 'object' && !Array.isArray(value) ? value : {}
-}
-
-const controllerSelectorMatches = (controller: Node, pod: Node): boolean => {
-    const selector = firstRaw(controller.data || {}, [
-        'K8s.Extra.Spec.Selector.MatchLabels',
-        'K8s.Spec.Selector.MatchLabels',
-        'Spec.Selector.MatchLabels',
-        'K8s.Extra.Spec.Selector',
-        'K8s.Spec.Selector',
-        'Spec.Selector'
-    ])
-    const podLabels = labels(pod)
-    return matchesKubernetesSelector(selector, podLabels)
-}
-
-const deploymentForMissingReplicaSet = (owner: any, pod: Node, nodes: Node[]): Node | undefined => {
-    const replicaSetName = String(owner?.Name || owner?.name || '')
-    if (!replicaSetName) return undefined
-    // Some collectors retain the Pod -> ReplicaSet OwnerReference but omit the
-    // ReplicaSet object itself. In that case only accept a Deployment when both
-    // the generated ReplicaSet name prefix and the Deployment selector match.
-    return nodes
-        .filter(candidate => resourceType(candidate) === 'deployment'
-            && sameScope(candidate, pod)
-            && replicaSetName.indexOf(`${resourceName(candidate)}-`) === 0
-            && controllerSelectorMatches(candidate, pod))
-        .sort((left, right) => resourceName(right).length - resourceName(left).length)[0]
+    return candidates.length === 1 ? candidates[0] : undefined
 }
 
 /**
@@ -142,11 +126,7 @@ export const resolveKubernetesPodController = (pod: Node, nodes: Node[]): Node |
         const ownerNode = findOwnerNode(owner, pod, nodes)
         if (ownerNode && KUBERNETES_CONTROLLER_TYPES.has(resourceType(ownerNode))) return ownerNode
         if (ownerKind !== 'replicaset') continue
-        if (!ownerNode) {
-            const deployment = deploymentForMissingReplicaSet(owner, pod, nodes)
-            if (deployment) return deployment
-            continue
-        }
+        if (!ownerNode) continue
 
         for (const replicaSetOwner of ownerReferences(ownerNode)) {
             const controller = findOwnerNode(replicaSetOwner, ownerNode, nodes)
@@ -172,10 +152,8 @@ export const resolveKubernetesPodTopController = (pod: Node, nodes: Node[]): Nod
 }
 
 export const kubernetesPodsForController = (controller: Node, nodes: Node[]): Node[] =>
-    nodes.filter(node => resourceType(node) === 'pod' && (
-        String(node.data?.TopologyWorkloadControllerID || '') === controller.id
-        || resolveKubernetesPodController(node, nodes)?.id === controller.id
-    ))
+    nodes.filter(node => resourceType(node) === 'pod'
+        && resolveKubernetesPodController(node, nodes)?.id === controller.id)
 
 export const currentKubernetesPodsForController = (controller: Node, nodes: Node[]): Node[] =>
     kubernetesPodsForController(controller, nodes).filter(isCurrentKubernetesPod)

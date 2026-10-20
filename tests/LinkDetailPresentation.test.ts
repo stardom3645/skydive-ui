@@ -18,6 +18,17 @@ describe('Connection detail data', () => {
         assert.equal(traffic.transmitted, 200000)
         assert.equal(traffic.total, 1000000)
     })
+    it('uses actual elapsed time for 10-second, legacy 30-second and delayed samples', () => {
+        for (const seconds of [30, 10, 10.25]) {
+            const sample = { Start: 1000, Last: 1000 + seconds * 1000,
+                RxBytes: 100000 * seconds, TxBytes: 25000 * seconds }
+            const traffic = topologyLinkTraffic(link(sample))!
+            assert.equal(traffic.seconds, seconds)
+            assert.equal(traffic.received, 800000)
+            assert.equal(traffic.transmitted, 200000)
+            assert.equal(traffic.total, 1000000)
+        }
+    })
     it('keeps measured zero and accepts numeric collector values', () => {
         const traffic = topologyLinkTraffic(link({ Start: '1000', Last: '3000', RxBytes: '0', TxBytes: '500' }))!
         assert.equal(traffic.received, 0)

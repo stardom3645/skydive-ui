@@ -1,3 +1,4 @@
+import { kubernetesEndpointReady } from '../../KubernetesServiceDetailAggregation'
 import * as React from 'react'
 import { Button } from 'antd'
 
@@ -48,8 +49,8 @@ export const KubernetesEndpointList = ({ endpoints, collected, onTargetClick, on
         return <section className="netdive-k8s-endpoint-list__item" key={`${address}:${targetName}:${index}`}>
             <header>
                 <span className="netdive-k8s-endpoint-list__address"><DetailLongValue value={address} maxLines={2} /><DetailCopyButton value={address} tooltip="Endpoint 주소 복사" /></span>
-                <DetailStatusIndicator tone={endpoint.ready === true ? 'success' : endpoint.ready === false ? 'danger' : 'default'}>
-                    {endpoint.ready === true ? 'Ready' : endpoint.ready === false ? 'Not Ready' : '미확인'}
+                <DetailStatusIndicator tone={kubernetesEndpointReady(endpoint.ready) ? 'success' : 'danger'}>
+                    {kubernetesEndpointReady(endpoint.ready) ? 'Ready' : 'Not Ready'}
                 </DetailStatusIndicator>
             </header>
             <DetailKeyValueList density="compact" labelWidth={88} rows={[

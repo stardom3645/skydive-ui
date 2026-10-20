@@ -24,7 +24,7 @@ const k8sNode = (id: string, type: string, name: string, namespace: string, extr
 })
 
 describe('KubernetesWorkloadOwnership', () => {
-    it('resolves a Deployment when the ReplicaSet object is omitted by the collector', () => {
+    it('does not infer a Deployment from a missing ReplicaSet name and matching selector', () => {
         const deployment = k8sNode('deployment-id', 'deployment', 'grafana', 'monitoring', {
             Spec: { Selector: { MatchLabels: { app: 'grafana' } } }
         })
@@ -36,7 +36,7 @@ describe('KubernetesWorkloadOwnership', () => {
             Status: { Phase: 'Running' }
         })
 
-        assert.equal(resolveKubernetesPodController(pod, [deployment, pod])?.id, deployment.id)
+        assert.equal(resolveKubernetesPodController(pod, [deployment, pod]), undefined)
     })
 
     it('does not attach a Pod to a similarly named Deployment when selectors differ', () => {
@@ -137,7 +137,7 @@ describe('KubernetesWorkloadOwnership', () => {
         assert.deepEqual(kubernetesPodsForReplicaSets(kubernetesReplicaSetsForDeployment(deployment, nodes), nodes).map(item => item.id), ['grafana-pod-uid'])
     })
 
-    it('reuses the topology controller relation when the ReplicaSet node is omitted', () => {
+    it('rejects a cached controller assignment when the owner chain cannot be verified', () => {
         const deployment = k8sNode('deployment-uid', 'deployment', 'k8s-prom-grafana', 'monitoring', {
             ObjectMeta: { UID: 'deployment-uid' }
         })
@@ -152,10 +152,57 @@ describe('KubernetesWorkloadOwnership', () => {
         const nodes = [deployment, pod]
         const relations = kubernetesReplicaSetRelationsForDeployment(deployment, nodes)
 
-        assert.deepEqual(kubernetesPodsForController(deployment, nodes).map(item => item.id), ['grafana-pod-uid'])
-        assert.equal(relations.length, 1)
-        assert.equal(relations[0].data.Name, 'k8s-prom-grafana-5dc7944964')
-        assert.equal(relations[0].data.RelationshipReferenceOnly, true)
-        assert.equal(currentKubernetesReplicaSetForDeployment(deployment, nodes)?.data.Name, 'k8s-prom-grafana-5dc7944964')
+        assert.deepEqual(kubernetesPodsForController(deployment, nodes), [])
+        assert.equal(relations.length, 0)
+        assert.equal(currentKubernetesReplicaSetForDeployment(deployment, nodes), undefined)
     })
+    it('never falls back to a same-name replacement after UID mismatch', () => {
+        const replacement = k8sNode('new', 'statefulset', 'database', 'ns', { ObjectMeta: { UID: 'new' } })
+        const pod = k8sNode('pod', 'pod', 'database-0', 'ns', { ObjectMeta: { OwnerReferences: [{ Kind: 'StatefulSet', UID: 'old', Name: 'database' }] } })
+        pod.data.TopologyWorkloadControllerID = replacement.id
+        assert.equal(resolveKubernetesPodController(pod, [replacement, pod]), undefined)
+        assert.deepEqual(kubernetesPodsForController(replacement, [replacement, pod]), [])
+        pod.data.K8s.Extra.ObjectMeta.OwnerReferences[0].UID = 'new'
+        assert.equal(resolveKubernetesPodController(pod, [replacement, pod]), replacement)
+    })
+
+    it('keeps identical names, selectors and UIDs in different cluster/namespace scopes separate', () => {
+        const local = k8sNode('local', 'daemonset', 'agent', 'ns', { ObjectMeta: { UID: 'owner' } })
+        const foreign = k8sNode('foreign', 'daemonset', 'agent', 'ns', { ObjectMeta: { UID: 'owner' } })
+        local.data.ClusterID = 'cluster-id-a'; foreign.data.ClusterID = 'cluster-id-b'
+        const pod = k8sNode('pod', 'pod', 'agent-abc', 'ns', { ObjectMeta: { OwnerReferences: [{ kind: 'DaemonSet', uid: 'owner', name: 'agent', controller: true }] } })
+        pod.data.ClusterID = 'cluster-id-a'
+        assert.equal(resolveKubernetesPodController(pod, [foreign, local, pod]), local)
+        pod.data.K8s.Namespace = 'other'
+        assert.equal(resolveKubernetesPodController(pod, [foreign, local, pod]), undefined)
+    })
+
+    it('uses the controlling owner and rejects explicitly non-controlling references', () => {
+        const wrong = k8sNode('wrong', 'statefulset', 'database', 'ns')
+        const right = k8sNode('right', 'daemonset', 'agent', 'ns')
+        const pod = k8sNode('pod', 'pod', 'pod', 'ns', { ObjectMeta: { OwnerReferences: [
+            { Kind: 'StatefulSet', UID: 'wrong', Name: 'database', Controller: false },
+            { Kind: 'DaemonSet', UID: 'right', Name: 'agent', Controller: true }
+        ] } })
+        assert.equal(resolveKubernetesPodController(pod, [wrong, right, pod]), right)
+        assert.deepEqual(kubernetesPodsForController(wrong, [wrong, right, pod]), [])
+    })
+
+    it('allows unambiguous legacy name-only references but rejects ambiguous owners', () => {
+        const a = k8sNode('a', 'daemonset', 'agent', 'ns')
+        const b = k8sNode('b', 'daemonset', 'agent', 'ns')
+        const pod = k8sNode('pod', 'pod', 'pod', 'ns', { ObjectMeta: { OwnerReferences: [{ Kind: 'DaemonSet', Name: 'agent' }] } })
+        assert.equal(resolveKubernetesPodController(pod, [a, pod]), a)
+        assert.equal(resolveKubernetesPodController(pod, [a, b, pod]), undefined)
+    })
+
+    it('does not confuse a graph cluster anchor with a Mold connection ID', () => {
+        const cluster = k8sNode('graph-cluster-anchor', 'cluster', 'cluster-a', '')
+        const owner = k8sNode('owner', 'daemonset', 'agent', 'ns')
+        const pod = k8sNode('pod', 'pod', 'agent-abc', 'ns', { ObjectMeta: { OwnerReferences: [{ Kind: 'DaemonSet', Name: 'agent', UID: 'owner' }] } })
+        owner.parent = pod.parent = cluster
+        pod.data.ClusterID = 'mold-connection-id'
+        assert.equal(resolveKubernetesPodController(pod, [owner, pod]), owner)
+    })
+
 })

@@ -574,10 +574,10 @@ export const DetailOperationalSummary = ({
     )
     const content = (
         <div className={joinClassNames('netdive-operational-summary', !!(summaryTitle || metricsTitle) && 'has-section-hierarchy', className)}>
-            {criteriaKind && <div className="netdive-operational-summary__criteria"><KubernetesVerdictCriteria
+            {criteriaKind && <KubernetesVerdictCriteria
                 kind={criteriaKind} verdict={verdict} tone={verdictTone} rawStatus={rawStatus} impact={impact}
                 open={criteriaOpen} onOpenChange={setCriteriaOpen}
-                explanation={verdictTooltip || tooltip} /></div>}
+                explanation={verdictTooltip || tooltip} />}
             {summaryTitle && <DetailCardSubsectionHeader title={summaryTitle} first />}
             <div className="netdive-operational-summary__states">
                 <div className="netdive-operational-summary__state netdive-operational-summary__state--verdict">
