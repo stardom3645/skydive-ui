@@ -1,0 +1,39 @@
+.netdive-faq {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+}
+
+.netdive-faq__filters {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+}
+
+.netdive-faq__filters .ant-select {
+    flex: 1;
+    min-width: 200px;
+}
+
+.netdive-faq__filters .ant-typography {
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.netdive-faq .ant-collapse-header-text {
+    overflow-wrap: anywhere;
+    font-weight: 500;
+}
+
+.netdive-faq__answer .ant-typography {
+    font-size: 13px;
+    line-height: 1.65;
+    overflow-wrap: anywhere;
+    margin-bottom: 12px;
+}
+
+.netdive-faq__answer .ant-typography:last-child {
+    margin-bottom: 0;
+}
