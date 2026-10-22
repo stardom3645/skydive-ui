@@ -1,6 +1,7 @@
 import { topologyCardEdge } from './TopologyEdgePresentation'
 import { separateVMInterfaceRoutes, verticalCurve } from './InfrastructureVMInterfaceRouting'
 import { separateInterfaceVLANRoutes } from './InfrastructureVLANRouting'
+import { coordinateBridgeArrivals } from './InfrastructureBridgeConvergenceRouting'
 import { CompactRoute, RoutingCard, RoutingEdge, RoutingRegion, routeCompactEdges,
     compactRouteFromPoints, routeCardHits, sampleCardEdge, segmentHitsCard } from './InfrastructureCompactRouting'
 
@@ -287,5 +288,6 @@ export function routeInfrastructureTraffic(cards: RoutingCard[], edges: RoutingE
     }
     separateVMInterfaceRoutes(cards, edges, routes, preferred, clear)
     separateInterfaceVLANRoutes(cards, edges, routes, preferred, clear)
+    coordinateBridgeArrivals(cards, edges, routes, preferred, clear)
     return routes
 }

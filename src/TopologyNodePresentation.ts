@@ -3,12 +3,13 @@ import type { Node, Link } from './Topology'
 import { kubernetesResourceSelfStatus, kubernetesTopologyDirectChildSummary, kubernetesTopologyCountBadges, kubernetesTopologyBadgeGroupSummary } from './KubernetesTopologyBadgeAggregation'
 import type { TopologyStatusBadgeItem, TopologyStatusBadgeGroupSummary } from './TopologyStatusBadge'
 import { isCurrentKubernetesPod } from './KubernetesPodLifecycle'
+import { kubernetesControllerPodObservation } from './KubernetesWorkloadOwnership'
 import { infrastructureAttentionStatus } from './StatusSummary'
 import { kubernetesStorageCardMetrics } from './KubernetesStorageCardPresentation'
 import { kubernetesMetricsAvailable, kubernetesNodeResourceRowHeight, topologyResourceMetrics, TopologyResourceMetricsIndex } from './TopologyResourceMetrics'
 import type { TopologyResourceSnapshot } from './TopologyResourceData'
 import { topologyInfrastructureData } from './TopologyResourceData'
-import { vmOperatingSystem, VMOperatingSystem } from './VMOperatingSystem'
+import { vmOperatingSystem, vmShowsOperatingSystem, VMOperatingSystem } from './VMOperatingSystem'
 import { topologyLayerKind } from './TopologyLayerIcons'
 import { topologyServiceVMRole, topologyServiceVMInformation, topologySystemVMInformation } from './TopologyServiceVM'
 import type { TopologySystemVMInformation } from './TopologyServiceVM'
@@ -279,6 +280,7 @@ export const topologyNodeStatusPresentation = (node: Node, options: {
     const children = options.children || node.children || []
     const status: TopologyNodePresentation['status'] = { tone: 'unknown', label: '알 수 없음', description: '상태 데이터가 없습니다.' }
     let lldpDiscovered = false
+    let manuallyMapped = false
     if (kubernetes && !options.group) {
         const current = kubernetesResourceSelfStatus(node)
         status.tone = current.collection !== 'collected' ? 'unknown' : current.state === 'problem' ? 'critical'
@@ -297,8 +299,10 @@ export const topologyNodeStatusPresentation = (node: Node, options: {
         const lldpResource = ['switch', 'switchport'].includes(type)
             && (String(data.Probe || '').trim().toLowerCase() === 'lldp'
                 || (type === 'switchport' && read(data, ['LLDP.PortID']) !== undefined))
-        lldpDiscovered = lldpResource && status.tone === 'unknown' && current.status === undefined
+        const identityOnly = status.tone === 'unknown' && current.status === undefined
             && read(data, ['State', 'Status', 'state', 'status', 'OperState', 'OperationalState', 'LinkState', 'Health']) === undefined
+        lldpDiscovered = lldpResource && identityOnly
+        manuallyMapped = type === 'switchport' && data.ManualPortMappingPort === true && identityOnly
         if (type === 'host') {
             const state = read(data, ['State', 'Status', 'AgentStatus'])
             const resourceState = read(data, ['ResourceState', 'AllocationState'])
@@ -308,7 +312,10 @@ export const topologyNodeStatusPresentation = (node: Node, options: {
         }
     }
     status.label = { normal: kubernetes ? '정상' : '이상 없음', warning: '주의', critical: '장애', unknown: '알 수 없음', inactive: '비활성' }[status.tone]
-    if (lldpDiscovered) {
+    if (manuallyMapped) {
+        status.label = '수동'
+        status.description = '운영자가 등록한 수동 포트입니다. 실제 배선은 자동 검증하지 않으며, 연결 상태와 트래픽은 매핑한 호스트 NIC 기준입니다. 스위치 포트의 실제 Up/Down 상태는 직접 수집하지 않습니다.'
+    } else if (lldpDiscovered) {
         status.label = 'LLDP 발견'
         status.description = type === 'switchport'
             ? '연결된 호스트에서 수신한 네트워크 정보를 통해 스위치 포트와 연결 위치를 확인했습니다. LLDP 발견은 포트의 현재 동작 상태(Up/Down)를 의미하지 않습니다.'
@@ -424,7 +431,11 @@ export const topologyNodePresentation = (node: Node, options: {
         const ready = read(data, ['K8s.Extra.Status.ReadyReplicas', 'K8s.Extra.Status.readyReplicas', 'K8s.Extra.Status.NumberReady', 'K8s.Extra.Status.numberReady'])
         const desired = read(data, ['K8s.Extra.Spec.Replicas', 'K8s.Extra.Spec.replicas', 'K8s.Extra.Status.DesiredNumberScheduled', 'K8s.Extra.Status.desiredNumberScheduled'])
         if (desired !== undefined) count('replicas', 'Replica', `${ready === undefined ? '–' : ready}/${desired}`)
-        count('pods', '파드', children.filter(isCurrentKubernetesPod).length)
+        if (type === 'deployment') {
+            const observation = kubernetesControllerPodObservation(node, options.allNodes || children, node.children || [])
+            metrics.push({ key: 'pods', label: '파드', value: observation.complete ? observation.label : '-',
+                description: observation.complete ? undefined : '파드 소유 관계를 확인하지 못해 개수를 표시할 수 없습니다.' })
+        } else count('pods', '파드', children.filter(isCurrentKubernetesPod).length)
     } else if (type === 'service' && !group) {
         count('endpoints', 'Endpoint', read(data, ['EndpointCount', 'K8s.EndpointCount']))
         count('service-type', '유형', read(data, ['K8s.Extra.Spec.Type', 'K8s.Extra.Spec.type']))
@@ -475,6 +486,6 @@ export const topologyNodePresentation = (node: Node, options: {
         linkState: !group ? topologyNetworkLinkState({ ...node, data } as Node) : undefined, linkStates, lldpDiscoveryCount,
         networkSummary: !group && (!kubernetes || type === 'libvirt') ? options.networkSummary : undefined,
         networkCount: !group && type === 'libvirt' ? options.networkCount : undefined,
-        operatingSystem: !kubernetes && !group && type === 'libvirt' ? vmOperatingSystem(data) : undefined,
+        operatingSystem: !kubernetes && !group && type === 'libvirt' && vmShowsOperatingSystem(node.data) ? vmOperatingSystem(data) : undefined,
         metrics: metrics.slice(0, dimensions.size === 'large' ? 7 : type === 'libvirt' ? 5 : 4), children: distribution, badges, badgeSummary }
 }

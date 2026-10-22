@@ -630,7 +630,7 @@ class SelectionPanel extends React.Component<Props, State> {
               : isVMNetworkNode(el)
               ? <VMNetworkDetailPanel node={el as Node} moldInventory={this.props.moldInventory} vmNameMap={this.props.vmNameMap} vmNetworkMap={this.props.vmNetworkMap} vmDetailMap={this.props.vmDetailMap} />
               : el.type === 'node' && String(el.data?.Type || '').toLowerCase() === 'host'
-              ? <HostDetailPanel node={el as Node} nodeAttrs={(node: Node) => this.props.config.nodeAttrs(node)} session={this.props.session} moldInventory={this.props.moldInventory} infrastructureHostSummaries={this.props.infrastructureHostSummaries} kubernetesClusters={this.props.kubernetesClusters} />
+              ? <HostDetailPanel nodeResourceSource={this.props.nodeResourceSource} node={el as Node} nodeAttrs={(node: Node) => this.props.config.nodeAttrs(node)} session={this.props.session} moldInventory={this.props.moldInventory} infrastructureHostSummaries={this.props.infrastructureHostSummaries} kubernetesClusters={this.props.kubernetesClusters} />
               : isKubernetesClusterNode(el)
               ? <KubernetesClusterDetailPanel
                   node={el as Node}
@@ -677,9 +677,9 @@ class SelectionPanel extends React.Component<Props, State> {
               : isKubernetesRelationshipResource(el)
               ? <KubernetesRelationshipResourceDetailPanel node={el as Node} />
               : isSystemVMNode(el)
-              ? <SystemVMDetailPanel node={el as Node} session={this.props.session} moldInventory={this.props.moldInventory} vmNameMap={this.props.vmNameMap} vmNetworkMap={this.props.vmNetworkMap} vmDetailMap={this.props.vmDetailMap} managementServers={this.props.managementServers} />
+              ? <SystemVMDetailPanel nodeResourceSource={this.props.nodeResourceSource} node={el as Node} session={this.props.session} moldInventory={this.props.moldInventory} vmNameMap={this.props.vmNameMap} vmNetworkMap={this.props.vmNetworkMap} vmDetailMap={this.props.vmDetailMap} managementServers={this.props.managementServers} />
               : isVMNode(el)
-              ? <VMDetailPanel node={el as Node} session={this.props.session} moldInventory={this.props.moldInventory} vmNameMap={this.props.vmNameMap} vmNetworkMap={this.props.vmNetworkMap} vmDetailMap={this.props.vmDetailMap} />
+              ? <VMDetailPanel nodeResourceSource={this.props.nodeResourceSource} node={el as Node} session={this.props.session} moldInventory={this.props.moldInventory} vmNameMap={this.props.vmNameMap} vmNetworkMap={this.props.vmNetworkMap} vmDetailMap={this.props.vmDetailMap} />
               : isSwitchNode(el)
               ? <SwitchDetailPanel node={el as Node} nodeAttrs={(node: Node) => this.props.config.nodeAttrs(node)} session={this.props.session} />
               : renderDataPanels(el)

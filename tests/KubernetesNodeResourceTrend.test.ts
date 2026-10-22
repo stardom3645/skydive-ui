@@ -4,6 +4,8 @@ import * as path from 'path'
 import * as ts from 'typescript'
 import * as vm from 'vm'
 import { rootDiskResources } from '../src/DataPanels/common/RootDiskResources'
+import { resourceUsagePercent } from '../src/DataPanels/common/RootDiskResources'
+import { topologyResourceMetrics } from '../src/TopologyResourceMetrics'
 
 // Exercise the shared production chart's filtering, requests and renderer. No
 // backend mocks are installed in the application or its browser session.
@@ -97,5 +99,66 @@ describe('Kubernetes Node reuse of VM resource history', () => {
         params = new URL(requests[1].url).searchParams
         assert.equal(params.get('range'), '6h')
         assert.equal(panel.state.loading, false)
+    })
+})
+
+describe('Infrastructure current usage shares the topology snapshot', () => {
+    it('keeps CPU and memory synchronized through repeated refreshes independently of history range', async () => {
+        for (const type of ['libvirt', 'host']) {
+            let wall = history()
+            const listeners = new Set<() => void>()
+            const node: any = { id: type, data: { Type: type, Name: 'ccvm', CpuNumber: 8, Memory: 16384 }, children: [] }
+            const nodeResourceSource = {
+                nodeResourceSnapshot: () => ({ wall }),
+                subscribeNodeResources: (listener: () => void) => { listeners.add(listener); return () => listeners.delete(listener) }
+            }
+            const { panel, requests } = probe({ node, target: type === 'host' ? 'host' : 'vm', usageTrendOnly: undefined, nodeResourceSource })
+            panel.componentDidMount()
+            await new Promise(resolve => setImmediate(resolve))
+            const originalHistory = panel.state.trend
+            for (const [cpu, memory] of [[2.2, 52], [3.8, 61], [0, 0]]) {
+                wall = history({ series: [series('cpu', cpu), series('memory', memory), series('rootDiskTotal', 1000), series('rootDiskUsed', 100)] })
+                listeners.forEach(listener => listener())
+                assert.equal(panel.state.resourceSnapshot.wall, wall)
+                const current = find(panel.render(), 'root-disk')[0].props.wall
+                const card = topologyResourceMetrics(node, { wall })
+                for (const key of ['cpu', 'memory']) {
+                    assert.equal(resourceUsagePercent(current, key), card.find(metric => metric.key === key)?.percent)
+                }
+                assert.equal(panel.state.trend, originalHistory)
+            }
+            panel.handleRangeChange('6h')
+            await new Promise(resolve => setImmediate(resolve))
+            assert.equal(find(panel.render(), 'root-disk')[0].props.wall, wall)
+            assert.equal(requests.length, 2, 'live snapshot updates must not issue duplicate history requests')
+            panel.componentWillUnmount()
+            assert.equal(listeners.size, 0)
+        }
+    })
+
+    it('rebinds on selection/source changes and never replaces missing live data with an old historical sample', () => {
+        const listeners = new Set<() => void>()
+        let wall: any = history()
+        const source = {
+            nodeResourceSnapshot: (node: any) => ({ wall: node.id === 'node' ? wall : undefined }),
+            subscribeNodeResources: (listener: () => void) => { listeners.add(listener); return () => listeners.delete(listener) }
+        }
+        const { panel } = probe({ usageTrendOnly: undefined, nodeResourceSource: source })
+        panel.bindNodeResources()
+        assert.equal(listeners.size, 1)
+        wall = undefined
+        listeners.forEach(listener => listener())
+        assert.equal(find(panel.render(), 'root-disk')[0].props.wall, undefined)
+        const previous = panel.props
+        panel.props = { ...previous, node: { id: 'next', data: {} } }
+        panel.componentDidUpdate(previous)
+        assert.equal(listeners.size, 1)
+        assert.equal(panel.state.resourceNodeID, 'next')
+        assert.equal(find(panel.render(), 'root-disk')[0].props.wall, undefined)
+        const oldSourceProps = panel.props
+        panel.props = { ...panel.props, nodeResourceSource: undefined }
+        panel.componentDidUpdate(oldSourceProps)
+        assert.equal(listeners.size, 0)
+        assert.equal(find(panel.render(), 'root-disk')[0].props.wall, panel.state.trend)
     })
 })

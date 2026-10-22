@@ -15,18 +15,28 @@ const count = (value: any): number | undefined => {
     return Number.isFinite(number) && number >= 0 ? number : undefined
 }
 
+// InterfaceMetric's Go int64 counters use json:",omitempty". In a valid
+// interval an absent counter is a measured zero; an explicitly malformed
+// value remains unavailable. Do not apply this to an absent metric/interval.
+const intervalCount = (metric: any, key: string): number | undefined =>
+    Object.prototype.hasOwnProperty.call(metric, key) ? count(metric[key]) : 0
+
 /** LastUpdateMetric is an interface interval, not a per-connection flow count.
  * Both the line label and its detail panel use this same measured source. */
 export const topologyLinkTraffic = (link: Link): TopologyLinkTraffic | undefined => {
-    for (const node of [link.source, link.target]) {
+    const endpoints = [link.source, link.target]
+    const nodes = link.data?.ManualPortMapping ? endpoints.filter(node =>
+        (!link.data.ManualPortMappingNICID || node?.id === link.data.ManualPortMappingNICID)
+        && ['device', 'nic', 'interface', 'ethernet'].includes(String(node?.data?.Type || '').toLowerCase())) : endpoints
+    for (const node of nodes) {
         const data = node?.data || {}, type = String(data.Type || '').toLowerCase()
-        if (!['tuntap', 'tun', 'device', 'switchport'].includes(type)
+        if (!['tuntap', 'tun', 'device', 'switchport', 'nic', 'interface', 'ethernet'].includes(type)
             && String(data.Driver || '').toLowerCase() !== 'tun' && String(data.BusInfo || '').toLowerCase() !== 'tap') continue
         const metric = data.LastUpdateMetric || data.Ovs?.LastUpdateMetric
         const start = count(metric?.Start), last = count(metric?.Last)
         if (start === undefined || last === undefined || last <= start) continue
         const seconds = (last - start) / 1000
-        const rx = count(metric.RxBytes), tx = count(metric.TxBytes)
+        const rx = intervalCount(metric, 'RxBytes'), tx = intervalCount(metric, 'TxBytes')
         if (rx === undefined && tx === undefined) continue
         const received = rx === undefined ? undefined : rx * 8 / seconds
         const transmitted = tx === undefined ? undefined : tx * 8 / seconds

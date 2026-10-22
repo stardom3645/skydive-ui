@@ -14,6 +14,8 @@ import { session } from '../Store'
 import { styles } from './VMDetailPanelStyles'
 import HostResourceTrendPanel from './HostResourceTrendPanel'
 import { normalizeTopologyVM } from '../TopologyResourceData'
+import type { TopologyNodeResourceSource } from '../TopologyResourceData'
+import { vmShowsOperatingSystem } from '../VMOperatingSystem'
 import { vmMemoryBytes } from '../TopologyResourceMetrics'
 import {
     connectedResourcePopoverItems,
@@ -30,6 +32,7 @@ import {
 interface Props {
     classes: any
     node: Node
+    nodeResourceSource?: TopologyNodeResourceSource
     session?: session
     moldInventory?: any
     vmNameMap?: Record<string, string>
@@ -535,11 +538,11 @@ class VMDetailPanel extends React.Component<Props> {
         return <span className={`${classes.connectedResourceFaIcon} fa fas fa-fw`}>{glyph}</span>
     }
 
-    private renderRows(rows: KeyValueRow[], emptyText = translate('hostNoData')) {
+    private renderRows(rows: KeyValueRow[], emptyText = translate('hostNoData'), appearance: 'default' | 'basic' = 'default') {
         const visible = rows.filter(row => row.alwaysShow || !isBlank(row.value))
         if (!visible.length) return this.renderEmpty(emptyText)
         return (
-            <DetailKeyValueList className="netdive-vm-detail-descriptions"
+            <DetailKeyValueList appearance={appearance} className="netdive-vm-detail-descriptions"
                 rows={visible.map(row => {
                     const value = stringify(row.value)
                     const displayValue = value || 'N/A'
@@ -665,7 +668,7 @@ class VMDetailPanel extends React.Component<Props> {
             { label: translate('vmPrivateIp'), value: this.privateIp(), copy: true, alwaysShow: !systemVM },
             ...(publicIps.length ? [{ label: translate('vmPublicIp'), value: publicIps.join(', '), copy: true }] : []),
             { label: 'UUID', value: firstValue(data, ['UUID', 'uuid', 'ID', 'Id', 'id', 'ExtID', 'VirtualMachineID', 'virtualMachineId']), copy: true, alwaysShow: !systemVM },
-            { label: 'Guest OS', value: os, alwaysShow: !systemVM },
+            ...(vmShowsOperatingSystem(nodeData) ? [{ label: 'Guest OS', value: os, alwaysShow: !systemVM }] : []),
             { label: translate('vmCpu'), value: cpuCount !== undefined ? `${cpuCount} vCPU` : '', copy: false, alwaysShow: !systemVM },
             { label: translate('vmMemory'), value: this.formatMemory(memory), copy: false, alwaysShow: !systemVM }
         ]
@@ -702,13 +705,13 @@ class VMDetailPanel extends React.Component<Props> {
 
         return (
             <div className={classes.root}>
-                {this.renderSection(<DetailSectionIcon role="basic" />, translate('hostBasicInfo'), this.renderRows(basicRows))}
+                {this.renderSection(<DetailSectionIcon role="basic" />, translate('hostBasicInfo'), this.renderRows(basicRows, undefined, 'basic'))}
                 {managementRows.some(row => !isBlank(row.value)) && this.renderSection(<DetailSectionIcon role="management" />, translate('managementServerInfo'), this.renderRows(managementRows))}
                 {managementResourceRows.some(row => !isBlank(row.value)) && this.renderSection(<DetailSectionIcon role="serverResources" />, translate('managementServerResources'), this.renderRows(managementResourceRows))}
                 {managementJvmRows.some(row => !isBlank(row.value)) && this.renderSection(<DetailSectionIcon role="jvm" />, translate('managementServerJvm'), this.renderRows(managementJvmRows))}
                 {this.renderSection(<DetailSectionIcon role="related" />, translate('hostConnectedResources'), this.renderOverviewGrid(connectedResources))}
                 {this.renderNetworkInformation()}
-                <HostResourceTrendPanel node={node} session={this.props.session} data={data} target="vm"
+                <HostResourceTrendPanel nodeResourceSource={this.props.nodeResourceSource} node={node} session={this.props.session} data={data} target="vm"
                     usageDetails={{
                         cpu: { percent: cpuPercent, capacity: cpuCount !== undefined ? `${cpuCount} vCPU` : undefined },
                         memory: { percent: memoryPercent, capacity: memory ? this.formatMemory(memory) : undefined },

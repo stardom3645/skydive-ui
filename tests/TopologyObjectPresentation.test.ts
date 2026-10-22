@@ -75,6 +75,17 @@ describe('Uniform topology layer card slots', () => {
 describe('Topology object presentation', () => {
     const lldpSwitch = (data: any = {}): any => ({ id: 'switch', children: [], state: {},
         data: { Type: 'switch', Probe: 'lldp', Name: 'S4148F-ON', LLDP: { SysName: 'OS10' }, ...data } })
+    it('labels a manually registered switch port without inferring operational state', () => {
+        const node = lldpSwitch({ Type: 'switchport', Probe: 'manual', LLDP: undefined,
+            ManualPortMapping: true, ManualPortMappingPort: true })
+        assert.equal(present(node).status.label, '수동')
+        assert.equal(present(node).status.tone, 'unknown')
+        assert.equal(present(node).linkState, undefined)
+        assert.ok(present(node).status.description.includes('호스트 NIC 기준'))
+        assert.equal(present(node, { group: true }).status.label, '알 수 없음')
+        node.data.OperState = 'DOWN'
+        assert.notEqual(present(node).status.label, '수동', 'explicit operational state remains authoritative')
+    })
     it('labels LLDP discovery without claiming switch health or current reachability', () => {
         const node = lldpSwitch()
         const status = topologyNodeStatusPresentation(node)

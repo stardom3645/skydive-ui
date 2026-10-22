@@ -51,8 +51,8 @@ describe('Kubernetes node detail aggregation', () => {
         const dashboardPod = pod('dashboard-api-ready', 'Running', { ready: false })
         registerKubernetesPodCurrentStatusSnapshots([{
             uid: 'dashboard-api-ready', phase: 'Running', ready: true, problem: false,
-            observedAt: '2026-08-10T12:00:00Z'
-        }])
+            observedAt: new Date().toISOString()
+        }], { clusterName: 'cluster-a' })
         const dataset = kubernetesNodePodDataset([dashboardPod], 'worker-1', 'cluster-a', Date.parse('2026-08-10T12:00:01Z'))
         assert.equal(dataset.runningPods.length, 1)
         assert.equal(dataset.notReadyPods.length, 0)
@@ -63,9 +63,9 @@ describe('Kubernetes node detail aggregation', () => {
         const metrics = pod('dashboard-metrics-scraper-pod', 'Running', { ready: false })
         const dashboard = pod('kubernetes-dashboard-pod', 'Running', { ready: false })
         registerKubernetesPodCurrentStatusSnapshots([
-            { uid: metrics.id, phase: 'Running', ready: true, problem: false, observedAt: '2026-08-10T12:00:00Z' },
-            { uid: dashboard.id, phase: 'Running', ready: true, problem: false, observedAt: '2026-08-10T12:00:00Z' }
-        ])
+            { uid: metrics.id, phase: 'Running', ready: true, problem: false, observedAt: new Date().toISOString() },
+            { uid: dashboard.id, phase: 'Running', ready: true, problem: false, observedAt: new Date().toISOString() }
+        ], { clusterName: 'cluster-a' })
         const namespaceDataset = kubernetesOperationalPodDataset([metrics, dashboard])
         assert.equal(namespaceDataset.runningPods.length, 2)
         assert.equal(namespaceDataset.notReadyPods.length, 0)

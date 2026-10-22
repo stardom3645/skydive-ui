@@ -9,7 +9,7 @@ import InfoIcon from '@material-ui/icons/Info'
 import { translate } from '../Config'
 import { session } from '../Store'
 import { Node } from '../Topology'
-import { aggregatePods, getPodClassification, registerKubernetesPodCurrentStatusSnapshots } from '../KubernetesPodLifecycle'
+import { aggregatePods, getPodClassification, registerKubernetesPodCurrentStatusSnapshots, invalidateKubernetesPodNamespaceSnapshots } from '../KubernetesPodLifecycle'
 import { kubernetesResourceSelfStatus } from '../KubernetesTopologyBadgeAggregation'
 import { kubernetesOperationalPodDataset, KUBERNETES_NODE_SIGNAL_WINDOW_MS } from '../KubernetesNodeDetailAggregation'
 import {
@@ -200,11 +200,18 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
             return response.json()
         }).then(detail => {
             if (current()) {
-                registerKubernetesPodCurrentStatusSnapshots(detail?.pods)
+                if (signal.aborted || detail?.uid !== String(uid) || detail?.clusterId !== cluster.id) throw new Error('namespace detail identity mismatch')
+                const scope = { clusterName: cluster.name, clusterID: cluster.id }
+                invalidateKubernetesPodNamespaceSnapshots(detail.name, scope, detail.podCollected === false ? [] : (detail.pods || []).map(pod => String(pod.uid)))
+                if (detail.podCollected !== false) registerKubernetesPodCurrentStatusSnapshots(detail?.pods, scope)
                 this.setState({ detail: { ...fallback, ...detail }, loading: false, error: false })
             }
         }).catch(() => {
-            if (current()) this.setState({ detail: this.detailFromTopology(), loading: false, error: true })
+            if (current()) {
+                invalidateKubernetesPodNamespaceSnapshots(this.state.detail?.name || String(this.props.node.data?.Name || ''),
+                    { clusterName: cluster.name, clusterID: cluster.id })
+                this.setState({ detail: this.detailFromTopology(), loading: false, error: true })
+            }
         })
     }
 
@@ -406,18 +413,18 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
         const normalizedPhase = String(detail.phase || '').toLowerCase()
         const selfStatus = kubernetesResourceSelfStatus(this.props.node, {
             ...detail,
-            collectionState: this.state.loading ? 'uncollected' : this.state.error ? 'failed' : 'collected'
+            collectionState: this.state.loading ? 'uncollected' : this.state.error || detail.podCollected === false ? 'failed' : 'collected'
         })
         const terminating = !!detail.terminating || normalizedPhase === 'terminating'
         const hasProblem = terminating || problemCount > 0 || Number(endpointUnavailable || 0) > 0
         const statusKnown = selfStatus.state !== 'unknown'
-        const statusTone = terminating ? 'danger' : selfStatus.state === 'problem' || hasProblem ? 'warning' : statusKnown ? 'success' : 'default'
-        const statusLabel = terminating
+        const statusTone = !statusKnown ? 'default' : terminating ? 'danger' : selfStatus.state === 'problem' || hasProblem ? 'warning' : 'success'
+        const statusLabel = !statusKnown ? translate('kubernetesHealthUnknown') : terminating
             ? translate('kubernetesHealthCritical')
             : selfStatus.state === 'problem' || hasProblem ? translate('kubernetesHealthWarning') : statusKnown ? translate('kubernetesHealthNormal') : translate('kubernetesHealthUnknown')
-        const impactAnalysisKnown = endpointUnavailable !== undefined
+        const impactAnalysisKnown = statusKnown && endpointUnavailable !== undefined
             && workloadHealth.evaluatedWorkloads.length === workloadHealth.workloads.length
-        const conclusion = terminating
+        const conclusion = !statusKnown ? '영향 분석 데이터 없음' : terminating
             ? translate('kubernetesNamespaceTerminatingConclusion')
             : Number(endpointUnavailable || 0) > 0 ? translate('kubernetesNamespaceEndpointImpact').replace('{count}', String(endpointUnavailable))
             : workloadHealth.unavailableWorkloads.length > 0 ? `워크로드 ${workloadHealth.unavailableWorkloads.length}개 미가용`
@@ -562,7 +569,7 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
             />
             {this.state.activeDetailTab === 'overview' ? <React.Fragment>
             <DetailSectionCard icon={<DetailSectionIcon role="basic" />} title={translate('kubernetesNamespaceBasicInfo')} collapsible collapsed={this.state.basicCollapsed} onToggle={() => this.setState({ basicCollapsed: !this.state.basicCollapsed })}>
-                <BasicInfoRows density="compact" rows={basicRows} labelWidth={122} copyTooltip={translate('copy')} />
+                <BasicInfoRows density="compact" rows={basicRows} labelWidth={122} copyTooltip={translate('copy')} appearance="basic" />
             </DetailSectionCard>
             <DetailSectionCard icon={<DetailSectionIcon role="advanced" />} title={translate('kubernetesAdvancedInformation')} collapsible collapsed={!this.state.basicInfoAdvanced} onToggle={() => this.setState({ basicInfoAdvanced: !this.state.basicInfoAdvanced })}>
                 <KubernetesMetadataRows items={[
@@ -582,8 +589,8 @@ class KubernetesNamespaceDetailPanel extends React.Component<Props, State> {
                         {
                             key: 'current-problems',
                             label: '현재 문제',
-                            value: optionalNumber(problemCount),
-                            tone: Number(problemCount || 0) > 0 ? 'danger' : 'default',
+                            value: statusKnown ? optionalNumber(problemCount) : '확인 불가',
+                            tone: statusKnown && Number(problemCount || 0) > 0 ? 'danger' : 'default',
                             tooltip: '현재 비정상 파드와 미가용 워크로드를 자원 UID 기준으로 중복 제거한 대상 수입니다. 정상 완료된 Job과 과거 종료 이력은 제외합니다.',
                             onClick: problemResources.length ? () => this.focusResources(problemResources) : undefined
                         },

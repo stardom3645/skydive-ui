@@ -1,3 +1,4 @@
+import type { TopologyNodeResourceSource } from '../TopologyResourceData'
 import * as React from 'react'
 
 import { Node } from '../Topology'
@@ -6,6 +7,7 @@ import VMDetailPanel from './VMDetailPanel'
 
 interface Props {
     node: Node
+    nodeResourceSource?: TopologyNodeResourceSource
     session?: session
     moldInventory?: any
     vmNameMap?: Record<string, string>

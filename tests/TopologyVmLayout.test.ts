@@ -21,11 +21,13 @@ const ast = ts.createSourceFile('Topology.tsx', file, ts.ScriptTarget.Latest, tr
 const component = ast.statements.find(n => ts.isClassDeclaration(n) && n.name?.text === 'Topology') as ts.ClassDeclaration
 const names = ['compactVmLayerKind', 'compactVmLayerLayout', 'shiftHierarchySubtreeX', 'topologyLayoutCardWidth',
     'topologyLayoutCardHeight', 'topologyCardNetworkSummary', 'compactHostSubtreeLayout', 'isHostSubtreeRoot', 'visibleHostSubtreeNodes',
-    'horizontalNodeBounds', 'separateTopologyBranches', 'topologyLaneItem', 'separateTopologyLanes', 'applyInfrastructureCompactLayout', 'topologyEdgeBounds']
+    'horizontalNodeBounds', 'separateTopologyBranches', 'topologyLaneItem', 'separateTopologyLanes', 'applyInfrastructureCompactLayout', 'topologyEdgeBounds',
+    'infrastructureSceneLayoutKey', 'renderTree', 'relayoutInfrastructureVMs']
 const methods = component.members.filter(n => n.name && names.includes(n.name.getText(ast))).map(n => n.getText(ast)).join('\n')
 const stackOffset = ast.statements.filter(ts.isVariableStatement).find(statement =>
     statement.declarationList.declarations.some(declaration => declaration.name.getText(ast) === 'topologyGroupStackOffset'))!.getText(ast)
 const context: any = { topologyCardDimensions, topologyGroupFullyExpanded, topologyBranchOffsets,
+    hierarchy, topologySiblingCardGap: 36,
     getMoldNetworkIndex, matchMoldNIC, moldVMNetworkSummary,
     infrastructureCompactLayout, infrastructureVMBridgeIDs, infrastructureVirtualNICOwners, infrastructureNICGroupOwner, topologyLevelLabelSafeInset: 130,
     topologyLaneBounds, topologyLaneOffsets, INFRASTRUCTURE_TRAFFIC_LANE_GAP, INFRASTRUCTURE_HOST_CAPTION_GAP, TOPOLOGY_STATUS_BADGE_RADIUS,
@@ -41,6 +43,106 @@ const wrapper = (id: string, weight: number, type = 1, children: any[] = []): an
     id, type, children, size: [type === 2 ? 50 : 604, 440],
     wrapped: { id, getWeight: () => weight, data: { Type: weight === 5020 ? 'host' : weight === 7040 ? 'ovsbridge' : 'libvirt' },
         state: { expanded: true } }
+})
+
+describe('Infrastructure scene stability during live refresh', () => {
+    const setup = () => {
+        const { probe } = scene(0)
+        const template = wrapper('root', 0, 2, [wrapper('host-a', 5020), wrapper('host-b', 5020),
+            wrapper('switch', 5015, 1, [wrapper('port-a', 5018), wrapper('port-b', 5018)])])
+        template.children[2].wrapped.data.Type = 'switch'
+        template.children[2].children.forEach((port: any) => port.wrapped.data.Type = 'switchport')
+        probe.root = template.wrapped
+        const flatten = (node: any): any[] => [node, ...node.children.flatMap(flatten)]
+        probe.nodes = new Map(flatten(template).map((n: any) => [n.id, n.wrapped]))
+        probe.links = new Map()
+        probe.props = { infrastructureVMLayout: 'compact' }
+        let view = { width: 1600, height: 900 }, layouts = 0, paints = 0, portSorts = 0, pans = 0
+        probe.viewSize = () => view
+        probe.visibleLinks = () => []
+        probe.normalizeTree = () => {
+            const clone = (n: any): any => ({ ...n, size: n.size.slice(), children: n.children.map(clone) })
+            return clone(template)
+        }
+        const tree = flextree()
+        probe.tree = (root: any) => { layouts++; tree(root) }
+        probe.deferProblemViewportRender = () => false
+        for (const name of ['scheduleLLDPExpiry', 'pruneGroupState', 'updateLayerCardLayouts', 'layoutKubernetesNamespaces',
+            'renderLevels', 'renderHieraLinks', 'renderGroups', 'renderLinks', 'refreshTopologyNodeFocus',
+            'applyTopologyNodeFocus', 'syncTopologyRelationEmphasis', 'syncResourceData', 'cancelScheduledZoomFit']) probe[name] = () => undefined
+        probe.renderNodes = () => paints++
+        probe.layoutSwitchPortsByConnection = () => portSorts++
+        probe.g = { classed: () => undefined }
+        probe.svg = { interrupt: () => undefined, node: () => ({ __zoom: { x: 20, y: 30, k: 0.36 } }), call: () => pans++ }
+        probe.zoom = { transform: () => undefined }
+        return { probe, template, counts: () => ({ layouts, paints, portSorts, pans }), resize: () => { view = { width: 1100, height: 700 } } }
+    }
+
+    it('keeps every card fixed through metrics, selection, link-label/expiry changes and repeated compact refreshes', () => {
+        const { probe, template, counts, resize } = setup()
+        probe.renderTree()
+        const positions = () => Array.from(probe.d3nodes.values()).map((n: any) => [n.data.id, n.x, n.y])
+        const expected = positions()
+        const host = template.children[0].wrapped
+        host.state.selected = true
+        for (let i = 0; i < 8; i++) {
+            host.data.CPUPercent = i; host.data.MemoryPercent = 20 + i
+            host.state.mouseover = i % 2 === 0
+            probe.links = i % 2 ? new Map() : new Map([['lldp', { id: 'lldp', source: template.children[2].children[0].wrapped,
+                target: host, data: { RelationType: 'layer2', LLDP: { ExpiresAt: Date.now() + 1000 }, RxBytes: i * 1000 } }]])
+            probe.props.vmNetworkMap = { refreshed: [] }
+            probe.relayoutInfrastructureVMs()
+            assert.deepEqual(positions(), expected)
+        }
+        resize()
+        probe.relayoutInfrastructureVMs()
+        assert.deepEqual(positions(), expected, 'a collapsed-host overview has no VM rows to repartition on resize')
+        assert.deepEqual(counts(), { layouts: 1, paints: 10, portSorts: 10, pans: 0 }, 'cards/links still repaint and port mappings still reconcile')
+    })
+
+    it('recalculates for expansion, changed card size and layout mode, and excludes Kubernetes', () => {
+        const { probe, template, counts } = setup()
+        probe.renderTree()
+        template.children[0].wrapped.state.expanded = false
+        probe.renderTree()
+        assert.equal(counts().layouts, 2)
+        template.children[0].children.push(wrapper('bridge', 7040))
+        probe.renderTree()
+        assert.equal(counts().layouts, 3)
+        probe.topologyLayoutCardHeight = () => 600
+        probe.renderTree()
+        assert.equal(counts().layouts, 4)
+        probe.props.infrastructureVMLayout = 'linear'
+        probe.renderTree()
+        assert.equal(counts().layouts, 5)
+        probe.nodeTagActive = 'kubernetes'
+        probe.renderTree(); probe.renderTree()
+        assert.equal(counts().layouts, 7)
+        assert.equal(probe.infrastructureSceneLayout, undefined)
+    })
+
+    it('repartitions visible user VMs for real network membership or viewport changes, but not traffic counters', () => {
+        const { probe, template, counts, resize } = setup()
+        const userVM = wrapper('user-vm', 7080), bridge = wrapper('bridge', 7040)
+        bridge.wrapped.data.Type = 'ovsbridge'
+        template.children[0].children.push(bridge, userVM)
+        probe.nodes.set(userVM.id, userVM.wrapped); probe.nodes.set(bridge.id, bridge.wrapped)
+        probe.renderTree()
+        probe.props.vmNetworkMap = { refreshed: [] }
+        probe.renderTree()
+        assert.equal(counts().layouts, 1)
+        const connection = { id: 'vm-network', source: userVM.wrapped, target: bridge.wrapped,
+            data: { RelationType: 'layer2', RxBytes: 1 } }
+        probe.links.set(connection.id, connection)
+        probe.renderTree()
+        assert.equal(counts().layouts, 2)
+        connection.data.RxBytes = 999999
+        probe.renderTree()
+        assert.equal(counts().layouts, 2)
+        resize()
+        probe.renderTree()
+        assert.equal(counts().layouts, 3)
+    })
 })
 const branch = (id: string, count: number, collapsed = false) => wrapper(id, 5020, 1, [
     wrapper(`${id}-bridge`, 7040, 1, [

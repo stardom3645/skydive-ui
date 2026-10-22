@@ -137,12 +137,71 @@ const normalized = (value: any): string => String(value || '').trim().toLowerCas
 // than topology snapshots. Keeping the latest UID-scoped observation here lets
 // Namespace, Deployment and Pod panels share one current-state decision.
 const currentPodStatusByUID = new Map<string, KubernetesPodCurrentStatusSnapshot>()
-
+export const KUBERNETES_POD_SNAPSHOT_MAX_AGE_MS = 60000
+export interface KubernetesPodObservationScope { clusterName?: string; clusterID?: string }
+const scopeKey = (scope: KubernetesPodObservationScope = {}) => scope.clusterName || scope.clusterID || ''
 const podUID = (node: Node): string => String(firstValue(node.data || {}, [
-    'K8s.Extra.ObjectMeta.UID', 'K8s.UID', 'UID'
+    'K8s.Extra.ObjectMeta.UID', 'K8s.Extra.Metadata.UID', 'K8s.Extra.metadata.uid', 'K8s.UID', 'UID'
 ]) || node.id)
+const observationKey = (uid: string, scope: KubernetesPodObservationScope = {}) => JSON.stringify([scopeKey(scope), uid])
+const nodeObservationScope = (node: Node): KubernetesPodObservationScope => ({
+    clusterName: firstValue(node.data || {}, ['ClusterName', 'K8s.ClusterName']),
+    clusterID: firstValue(node.data || {}, ['ClusterID', 'K8s.ClusterID'])
+})
+const invalidPodObservations = new Map<string, 'stale' | 'unavailable'>()
+const observationListeners = new Set<() => void>()
+let observationTimer: ReturnType<typeof setTimeout> | undefined
+const expirePodObservations = (now = Date.now()) => {
+    let changed = false
+    currentPodStatusByUID.forEach((snapshot, key) => {
+        const at = Date.parse(snapshot.observedAt || '')
+        if (!Number.isFinite(at) || at > now || now - at >= KUBERNETES_POD_SNAPSHOT_MAX_AGE_MS) {
+            currentPodStatusByUID.delete(key); invalidPodObservations.set(key, 'stale'); changed = true
+        }
+    })
+    return changed
+}
+const scheduleObservationExpiry = () => {
+    if (observationTimer !== undefined) clearTimeout(observationTimer)
+    observationTimer = undefined
+    if (!observationListeners.size || !currentPodStatusByUID.size) return
+    let expires = Infinity
+    currentPodStatusByUID.forEach(snapshot => { expires = Math.min(expires, Date.parse(snapshot.observedAt!) + KUBERNETES_POD_SNAPSHOT_MAX_AGE_MS) })
+    observationTimer = setTimeout(() => {
+        observationTimer = undefined
+        if (expirePodObservations()) observationListeners.forEach(listener => listener())
+        scheduleObservationExpiry()
+    }, Math.max(1, expires - Date.now()))
+}
+const notifyPodObservations = () => {
+    observationListeners.forEach(listener => listener())
+    scheduleObservationExpiry()
+}
+export const subscribeKubernetesPodObservations = (listener: () => void): (() => void) => {
+    observationListeners.add(listener); scheduleObservationExpiry()
+    return () => { observationListeners.delete(listener); scheduleObservationExpiry() }
+}
+export const invalidateKubernetesPodCurrentStatusSnapshots = (uids: string[], scope: KubernetesPodObservationScope = {}): void => {
+    uids.filter(Boolean).forEach(uid => {
+        const key = observationKey(String(uid), scope)
+        currentPodStatusByUID.delete(key); invalidPodObservations.set(key, 'unavailable')
+    })
+    if (uids.length) notifyPodObservations()
+}
+export const invalidateKubernetesPodNamespaceSnapshots = (namespace: string, scope: KubernetesPodObservationScope = {}, retainedUIDs: string[] = []): void => {
+    const retained = new Set(retainedUIDs)
+    const removed: string[] = []
+    currentPodStatusByUID.forEach((snapshot, key) => {
+        if (snapshot.namespace === namespace && key === observationKey(snapshot.uid, scope) && !retained.has(snapshot.uid)) removed.push(snapshot.uid)
+    })
+    invalidateKubernetesPodCurrentStatusSnapshots(removed, scope)
+}
+export const clearKubernetesPodObservations = (): void => {
+    currentPodStatusByUID.clear(); invalidPodObservations.clear(); notifyPodObservations()
+}
 
-export const registerKubernetesPodCurrentStatusSnapshots = (snapshots: any[]): void => {
+export const registerKubernetesPodCurrentStatusSnapshots = (snapshots: any[], scope: KubernetesPodObservationScope = {}): void => {
+    let changed = false
     ;(Array.isArray(snapshots) ? snapshots : []).forEach(snapshot => {
         const uid = String(snapshot?.uid ?? snapshot?.UID ?? '').trim()
         if (!uid) return
@@ -160,16 +219,24 @@ export const registerKubernetesPodCurrentStatusSnapshots = (snapshots: any[]): v
             deleting: typeof (snapshot?.deleting ?? snapshot?.Deleting) === 'boolean' ? (snapshot?.deleting ?? snapshot?.Deleting) : undefined,
             observedAt: snapshot?.observedAt ?? snapshot?.ObservedAt
         }
-        const previous = currentPodStatusByUID.get(uid)
+        const candidateTime = candidate.observedAt ? Date.parse(candidate.observedAt) : NaN
+        if (!Number.isFinite(candidateTime) || candidateTime > Date.now()
+            || Date.now() - candidateTime >= KUBERNETES_POD_SNAPSHOT_MAX_AGE_MS) return
+        const key = observationKey(uid, scope)
+        const previous = currentPodStatusByUID.get(key)
         const previousTime = previous?.observedAt ? Date.parse(previous.observedAt) : 0
-        const candidateTime = candidate.observedAt ? Date.parse(candidate.observedAt) : Date.now()
         if (!previous || !Number.isFinite(previousTime) || !Number.isFinite(candidateTime) || candidateTime >= previousTime) {
-            currentPodStatusByUID.set(uid, candidate)
+            const different = !previous || invalidPodObservations.has(key)
+                || JSON.stringify({ ...previous, observedAt: undefined }) !== JSON.stringify({ ...candidate, observedAt: undefined })
+            currentPodStatusByUID.set(key, candidate)
+            invalidPodObservations.delete(key); changed = changed || different
         }
     })
+    if (changed) notifyPodObservations()
+    else scheduleObservationExpiry()
 }
 
-export const registerKubernetesPodCurrentStatusDetail = (detail: any): void => {
+export const registerKubernetesPodCurrentStatusDetail = (detail: any, scope: KubernetesPodObservationScope = {}): void => {
     if (!detail) return
     const conditions = Array.isArray(detail.conditions) ? detail.conditions : []
     const readyCondition = conditions.find((condition: any) => normalized(condition?.type ?? condition?.Type) === 'ready')
@@ -202,12 +269,24 @@ export const registerKubernetesPodCurrentStatusDetail = (detail: any): void => {
             || currentOOMKilled,
         crashLoop,
         currentOOMKilled,
-        observedAt: detail.observedAt || new Date().toISOString()
-    }])
+        observedAt: detail.observedAt || new Date(Date.now()).toISOString()
+    }], scope)
 }
 
-export const kubernetesPodCurrentStatusSnapshot = (node: Node): KubernetesPodCurrentStatusSnapshot | undefined =>
-    currentPodStatusByUID.get(podUID(node))
+export const kubernetesPodCurrentStatusSnapshot = (node: Node, now = Date.now()): KubernetesPodCurrentStatusSnapshot | undefined => {
+    const key = observationKey(podUID(node), nodeObservationScope(node)), snapshot = currentPodStatusByUID.get(key)
+    if (!snapshot) return undefined
+    const observed = snapshot.observedAt ? Date.parse(snapshot.observedAt) : NaN
+    if (!Number.isFinite(observed) || observed > now || now - observed >= KUBERNETES_POD_SNAPSHOT_MAX_AGE_MS) {
+        currentPodStatusByUID.delete(key); invalidPodObservations.set(key, 'stale')
+        return undefined
+    }
+    return snapshot
+}
+export const kubernetesPodObservationCollection = (node: Node): 'stale' | 'unavailable' | undefined => {
+    kubernetesPodCurrentStatusSnapshot(node)
+    return invalidPodObservations.get(observationKey(podUID(node), nodeObservationScope(node)))
+}
 
 const podStatuses = (data: any): any[] => ([] as any[]).concat(
     arrayValue(data, ['K8s.Extra.Status.InitContainerStatuses']),
@@ -280,12 +359,12 @@ export const getPodClassification = (node: Node): KubernetesPodClassification =>
     const data = node.data || {}
     const currentStatus = kubernetesPodCurrentStatusSnapshot(node)
     const phase = normalized(currentStatus?.phase || firstValue(data, ['K8s.Extra.Status.Phase', 'K8s.Phase', 'Phase', 'K8s.Status', 'Status']))
-    const reason = normalized(currentStatus?.reason || firstValue(data, ['K8s.Extra.Status.Reason', 'K8s.Reason', 'Reason']))
+    const reason = normalized(currentStatus ? currentStatus.reason : firstValue(data, ['K8s.Extra.Status.Reason', 'K8s.Reason', 'Reason']))
     const deletionTimestamp = currentStatus?.deleting !== undefined ? currentStatus.deleting : isTerminating(data)
     const terminalReason = reason === 'evicted' || reason === 'completed'
     const activePod = !deletionTimestamp && !terminalReason && (phase === 'pending' || phase === 'running' || phase === 'unknown')
     const statuses = podStatuses(data)
-    const waitingReasons = waitingReasonsOf(data)
+    const waitingReasons = currentStatus ? [] : waitingReasonsOf(data)
     const historicalReasons = terminatedReasonsOf(data)
     const actionableReasons = new Set(KUBERNETES_POD_DOMAIN_RULES.actionableWaitingReasons)
     const problemReasons: string[] = []
@@ -293,7 +372,7 @@ export const getPodClassification = (node: Node): KubernetesPodClassification =>
         if (actionableReasons.has(item)) problemReasons.push(item)
     })
     let currentOOMKilledPod = false
-    statuses.forEach(status => {
+    if (!currentStatus) statuses.forEach(status => {
         const current = normalized(status?.State?.Terminated?.Reason || status?.state?.terminated?.reason)
         const previous = normalized(status?.LastTerminationState?.Terminated?.Reason || status?.lastState?.terminated?.reason)
         if (current === 'oomkilled' || previous === 'oomkilled') {
@@ -301,7 +380,7 @@ export const getPodClassification = (node: Node): KubernetesPodClassification =>
             problemReasons.push('oomkilled')
         }
     })
-    const ready = currentStatus?.ready !== undefined ? currentStatus.ready : kubernetesPodReady(data)
+    const ready = currentStatus ? currentStatus.ready : kubernetesPodReady(data)
     if (ready === false) problemReasons.push('ready=false')
     if (currentStatus?.crashLoop === true) problemReasons.push('crashloopbackoff')
     if (currentStatus?.currentOOMKilled === true) problemReasons.push('oomkilled')

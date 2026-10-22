@@ -10,7 +10,12 @@ import {
     FilterOutlined
 } from '@ant-design/icons'
 import { session } from './Store'
+import { listChangeEvents } from './EventHistoryAPI'
+import type { ChangeEvent, EventPage } from './EventHistoryAPI'
+export { listChangeEvents } from './EventHistoryAPI'
+export type { ChangeEvent, EventFilter, EventPage } from './EventHistoryAPI'
 import { MANUAL_PORT_MAPPINGS_CHANGED_EVENT } from './ManualPortMappingAPI'
+import { MOLD_INTEGRATION_CHANGED_EVENT } from './MoldIntegrationHealth'
 import DetailTable from './DataPanels/common/DetailTable'
 import {
     DetailChangeDiff,
@@ -19,51 +24,20 @@ import {
     DetailResourceIdentity
 } from './DataPanels/common/DetailComponents'
 
-export interface ChangeEvent {
-    id: number
-    resourceType: string
-    resourceId: string
-    resourceName: string
-    eventType: string
-    oldValue: string
-    newValue: string
-    source: string
-    severity?: string
-    metadata: string
-    occurredAt: number
-}
-export interface EventFilter {
-    from?: number; to?: number; resource_type?: string; resource_id?: string
-    event_type?: string; source?: string; search?: string; page?: number; pageSize?: number
-}
-export interface EventPage { events: ChangeEvent[]; total: number; page: number; pageSize: number }
-
-export async function listChangeEvents(userSession: session | undefined, filter: EventFilter, signal?: AbortSignal): Promise<EventPage> {
-    const params = new URLSearchParams()
-    Object.keys(filter).forEach(key => { const value = (filter as any)[key]; if (value !== undefined && value !== '') params.set(key, String(value)) })
-    const endpoint = userSession?.endpoint || `${window.location.protocol}//${window.location.host}`
-    const response = await fetch(`${endpoint}/api/events?${params}`, {
-        credentials: 'same-origin', cache: 'no-store', signal,
-        headers: userSession?.token ? { 'X-Auth-Token': userSession.token } : {}
-    })
-    const body = await response.json().catch(() => ({}))
-    if (!response.ok) throw new Error(body.message || '이벤트를 조회하지 못했습니다.')
-    return body
-}
-
 export const eventResourceLabels: Record<string, string> = {
     host: '호스트', vm: 'VM', nic: '네트워크 장치', bond: '본딩 인터페이스', bridge: '호스트 브릿지',
-    switchport: '스위치 포트', k8s_cluster: 'Kubernetes 클러스터', k8s_node: 'Kubernetes 노드', pod: '파드'
+    switchport: '스위치 포트', k8s_cluster: 'Kubernetes 클러스터', k8s_node: 'Kubernetes 노드', pod: '파드', integration: '외부 연동'
 }
 const eventLabels: Record<string, string> = {
     state_changed: '상태 변경', link_changed: '링크 상태 변경', relation_created: 'LLDP 연결 생성', relation_removed: 'LLDP 연결 소실',
     collection_state_changed: '수집 상태 변경', manual_mapping_created: '수동 매핑 추가',
     manual_mapping_updated: '수동 매핑 수정', manual_mapping_deleted: '수동 매핑 삭제',
-    manual_mapping_superseded: 'LLDP로 수동 매핑 비활성화'
+    manual_mapping_superseded: 'LLDP로 수동 매핑 비활성화', integration_state_changed: '연동 상태 변경'
 }
 const valueLabels: Record<string, string> = {
     HEALTHY: '수집 정상', INACTIVE: '비활성', DISCONNECTED: '수집 연결 끊김', DELAYED: '수집 지연',
-    AUTHENTICATION_FAILED: '인증 실패', PERMISSION_DENIED: '권한 부족', connected: '연결됨', disconnected: '연결 소실'
+    AUTHENTICATION_FAILED: '인증 실패', PERMISSION_DENIED: '권한 부족', UNAVAILABLE: '연결 실패',
+    UNCONFIGURED: '미설정', UNKNOWN: '확인 전', connected: '연결됨', disconnected: '연결 소실'
 }
 
 const eventResourceIcons: Record<string, React.ReactNode> = {
@@ -98,8 +72,9 @@ export function EventChange({ event }: { event: ChangeEvent }) {
     if (event.eventType === 'manual_mapping_superseded') {
         return <Tag color="orange">{lldpSupersedeLabels[event.newValue] || eventLabel}</Tag>
     }
-    const before = valueLabels[event.oldValue] || event.oldValue
-    const after = valueLabels[event.newValue] || event.newValue
+    const label = (value: string) => event.eventType === 'integration_state_changed' && value === 'HEALTHY' ? '연결 정상' : valueLabels[value] || value
+    const before = label(event.oldValue)
+    const after = label(event.newValue)
     const singleLabelEvent = event.eventType.startsWith('manual_mapping_')
         || event.eventType === 'relation_created'
         || event.eventType === 'relation_removed'
@@ -149,8 +124,10 @@ export default function EventHistory({ userSession, resourceId, canNavigate, onN
             }, 150)
         }
         window.addEventListener(MANUAL_PORT_MAPPINGS_CHANGED_EVENT, handleManualMappingsChanged)
+        window.addEventListener(MOLD_INTEGRATION_CHANGED_EVENT, handleManualMappingsChanged)
         return () => {
             window.removeEventListener(MANUAL_PORT_MAPPINGS_CHANGED_EVENT, handleManualMappingsChanged)
+            window.removeEventListener(MOLD_INTEGRATION_CHANGED_EVENT, handleManualMappingsChanged)
             if (refreshTimer) window.clearTimeout(refreshTimer)
         }
     }, [])
@@ -209,7 +186,7 @@ export default function EventHistory({ userSession, resourceId, canNavigate, onN
                     onSearch={value => { setSearch(value.trim()); setPage(1) }} />
                     </div>
                 </div>
-                {error && <Alert type="warning" showIcon message={error} />}
+                {error && <Alert type="warning" showIcon title={error} />}
                 {(resourceType || eventType || search) && <div className="netdive-event-history-context-toolbar">
                     <div className="netdive-event-history-filter-pills" aria-label="적용된 필터">
                         {resourceType && <Tag closable onClose={event => {
@@ -267,7 +244,7 @@ export default function EventHistory({ userSession, resourceId, canNavigate, onN
             </div>
             <div className="netdive-event-history-footer">
                 <Alert type="info" showIcon
-                    message="첫 수집은 기준값으로 처리하며, 이후 확인된 변경만 표시합니다. 기본 보존 기간은 30일입니다." />
+                    title="첫 수집은 기준값으로 처리하며, 이후 확인된 변경만 표시합니다. 기본 보존 기간은 30일입니다." />
             </div>
         </div>
     </>

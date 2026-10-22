@@ -202,6 +202,11 @@
 .topology-object-card.is-kubernetes-object .topology-metric-chip.is-count .topology-metric-chip__line > strong {
     display: block; white-space: nowrap;
 }
+.topology-object-card.is-kubernetes-object .topology-metric-chip.is-descriptive-count { padding-block: 4px; }
+.topology-object-card.is-kubernetes-object .topology-metric-chip.is-descriptive-count .topology-metric-chip__line { flex-direction: column; align-items: flex-start; gap: 0; }
+.topology-object-card.is-kubernetes-object .topology-metric-chip.is-descriptive-count .topology-metric-chip__label { flex: none; font-size: 22px; line-height: 22px; }
+.topology-object-card.is-kubernetes-object .topology-metric-chip.is-descriptive-count .topology-metric-chip__label > .anticon { font-size: 22px; }
+.topology-object-card.is-kubernetes-object .topology-metric-chip.is-descriptive-count .topology-metric-chip__line > strong { font-size: 24px; line-height: 24px; }
 
 /* Fit storage configuration into the existing 128px body, without meters or
  * empty slots when a PVC has no StorageClass. Other card geometry is unchanged. */

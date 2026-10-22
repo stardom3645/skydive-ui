@@ -718,7 +718,7 @@ class KubernetesStorageDetailPanel extends React.Component<Props, State> {
         ])
         return <div className="netdive-k8s-storage-detail">
             <DetailSectionCard icon={<DetailSectionIcon role="basic" />} title={type === 'storageclass' ? '스토리지 클래스 기본 정보' : `${kindLabel} 기본 정보`} collapsible collapsed={this.state.basicCollapsed} onToggle={() => this.setState({ basicCollapsed: !this.state.basicCollapsed })}>
-                <BasicInfoRows density="compact" rows={basicRows} labelWidth={122} copyTooltip={translate('copy')} />
+                <BasicInfoRows density="compact" rows={basicRows} labelWidth={122} copyTooltip={translate('copy')} appearance="basic" />
             </DetailSectionCard>
             <DetailSectionCard icon={<DetailSectionIcon role="advanced" />} title={translate('kubernetesAdvancedInformation')} collapsible collapsed={!this.state.basicInfoAdvanced} onToggle={() => this.setState({ basicInfoAdvanced: !this.state.basicInfoAdvanced })}>
                 <BasicInfoRows density="compact" rows={advancedRows} labelWidth={122} copyTooltip={translate('copy')} />

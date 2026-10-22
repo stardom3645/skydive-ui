@@ -9,6 +9,7 @@ import './HostResourceTrendPanel.css'
 import { translate } from '../Config'
 import { Node } from '../Topology'
 import { topologyVMGuestMACs } from '../TopologyResourceData'
+import type { TopologyNodeResourceSource, TopologyResourceSnapshot } from '../TopologyResourceData'
 import { RootDiskPanel, ResourceUsageDetails } from './common/RootDiskPanel'
 import { rootDiskResources } from './common/RootDiskResources'
 import { session } from '../Store'
@@ -20,6 +21,7 @@ interface Props {
     target?: 'host' | 'vm'
     legacyResourceUsage?: React.ReactNode
     usageDetails?: ResourceUsageDetails
+    nodeResourceSource?: TopologyNodeResourceSource
     // Opt-in for Node details: only show VM-backed measurements whose source
     // agrees with the topology snapshot. Existing host/VM presentation is unchanged.
     usageTrendOnly?: { keys: string[]; source: string }
@@ -31,6 +33,8 @@ interface State {
     trend?: HostTrendResponse
     loadedFor: string
     trendRange: string
+    resourceSnapshot?: TopologyResourceSnapshot
+    resourceNodeID?: string
 }
 
 interface HostTrendResponse {
@@ -109,6 +113,7 @@ const firstAddressValue = (data: any, keys: string[]): string => {
 }
 
 class HostResourceTrendPanel extends React.Component<Props, State> {
+    private unsubscribeResources?: () => void
     state: State = {
         loading: false,
         error: '',
@@ -117,10 +122,26 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
     }
 
     componentDidMount() {
+        this.bindNodeResources()
         this.loadTrend()
     }
 
+    componentWillUnmount() { this.unsubscribeResources?.() }
+
+    private bindNodeResources() {
+        this.unsubscribeResources?.()
+        this.unsubscribeResources = this.props.nodeResourceSource?.subscribeNodeResources(() => this.syncNodeResources())
+        this.syncNodeResources()
+    }
+
+    private syncNodeResources() {
+        const resourceSnapshot = this.props.nodeResourceSource?.nodeResourceSnapshot(this.props.node)
+        if (this.state.resourceNodeID === this.props.node.id && this.state.resourceSnapshot?.wall === resourceSnapshot?.wall) return
+        this.setState({ resourceSnapshot, resourceNodeID: this.props.node.id })
+    }
+
     componentDidUpdate(prevProps: Props) {
+        if (prevProps.node.id !== this.props.node.id || prevProps.nodeResourceSource !== this.props.nodeResourceSource) this.bindNodeResources()
         const prevKey = this.queryKey(prevProps.node, prevProps.data, prevProps.target)
         const nextKey = this.queryKey(this.props.node, this.props.data, this.props.target)
 
@@ -599,6 +620,10 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
     render() {
         const { loading, error, trend } = this.state
         const limited = this.props.usageTrendOnly
+        // Current usage follows the card's live snapshot. The independent,
+        // range-selected response below is historical chart data only.
+        const wall = this.props.nodeResourceSource && !limited
+            ? this.props.nodeResourceSource.nodeResourceSnapshot(this.props.node).wall : trend
         const sameSource = !limited || (!!trend && (trend.rawLabels?.source || 'libvirt') === limited.source
             && trend.host === firstValue(this.props.data, ['Name', 'name']))
         const series = sameSource ? (trend?.series || []).filter(item => !limited || (limited.keys.includes(item.key)
@@ -607,7 +632,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
                 || (Number.isFinite(point.value) && point.value >= 0 && point.value <= 100)))) : []
         const displayItems = this.displayItems(series)
         const hasTrend = displayItems.length > 0
-        const hasRootDisk = !!rootDiskResources(trend)
+        const hasRootDisk = !!rootDiskResources(wall)
         const plain = hasRootDisk || !!limited
         // No empty trend shell in Node details, including while discovering
         // whether this VM has usable history. Range changes retain controls.
@@ -616,7 +641,7 @@ class HostResourceTrendPanel extends React.Component<Props, State> {
 
         return (
             <>
-            {!limited && <RootDiskPanel wall={trend} loading={loading} error={error} vm={this.props.target === 'vm'} usageDetails={this.props.usageDetails} />}
+            {!limited && <RootDiskPanel wall={wall} loading={loading} error={error} vm={this.props.target === 'vm'} usageDetails={this.props.usageDetails} />}
             <ResourceSectionCard icon={<DetailSectionIcon role="recentMetrics" />} title={this.trendTitle()} empty={!hasTrend} action={
                     <div className={classes.headerActions}>
                         <Select

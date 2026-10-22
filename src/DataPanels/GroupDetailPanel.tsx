@@ -1,7 +1,8 @@
+import { OverflowTooltip } from '../OverflowTooltip'
 import { DetailSectionIcon } from './common/DetailSectionIcon'
 import * as React from 'react'
 import { Avatar, Button, Input, List, Switch, Tooltip, Typography } from 'antd'
-import { DownOutlined, MinusOutlined, PlusOutlined, RightOutlined } from '@ant-design/icons'
+import { ForkOutlined, DownOutlined, MinusOutlined, PlusOutlined, RightOutlined } from '@ant-design/icons'
 import { translate } from '../Config'
 import { Node, NodeAttrs, isTopologyDownNode } from '../Topology'
 import {
@@ -231,12 +232,12 @@ class GroupDetailPanel extends React.Component<Props, State> {
                 <Avatar
                     className={`netdive-group-detail-nodeAvatar ${status.className}`}
                     shape="square"
-                    icon={<span className={attrs.iconClass || 'fa'}>{attrs.href ? '' : attrs.icon}</span>} />
+                    icon={attrs.icon === '\uf4d7' ? <ForkOutlined /> : <span className={attrs.iconClass || 'fa'}>{attrs.href ? '' : attrs.icon}</span>} />
                 <span className="netdive-group-detail-main">
                     <span className="netdive-group-detail-nameRow">
-                        <Tooltip title={name}>
+                        <OverflowTooltip title={name}>
                             <Typography.Text className="netdive-group-detail-name" ellipsis={true}>{name}</Typography.Text>
-                        </Tooltip>
+                        </OverflowTooltip>
                         {portMethod && <DetailBadge className="netdive-group-detail-portMethodTag">{portMethod}</DetailBadge>}
                     </span>
                     {(status.visible || ip || (lifecycle && lifecycle.kind !== 'running')) && (
@@ -252,9 +253,9 @@ class GroupDetailPanel extends React.Component<Props, State> {
                     )}
                     {podEntry && lifecycle && (lifecycle.kind === 'problem' || lifecycle.kind === 'terminated') && (
                         <span className="netdive-group-detail-podContext">
-                            <span><small>파드명</small><Tooltip title={podEntry.podName}><b>{podEntry.podName}</b></Tooltip></span>
+                            <span><small>파드명</small><OverflowTooltip title={podEntry.podName}><b>{podEntry.podName}</b></OverflowTooltip></span>
                             <span><small>Namespace</small><Tooltip title={podEntry.namespace}><b>{podEntry.namespace}</b></Tooltip></span>
-                            <span><small>노드</small><Tooltip title={podEntry.nodeName}><b>{podEntry.nodeName}</b></Tooltip></span>
+                            <span><small>노드</small><OverflowTooltip title={podEntry.nodeName}><b>{podEntry.nodeName}</b></OverflowTooltip></span>
                             <span><small>워크로드</small><Tooltip title={podEntry.workload}><b>{podEntry.workload}</b></Tooltip></span>
                             <span><small>Reason</small><Tooltip title={lifecycle.originalReason || lifecycle.label}><b>{lifecycle.originalReason || lifecycle.label}</b></Tooltip></span>
                             <span><small>발생 시각</small><Tooltip title={`시간 기준: ${podEntry.time.source}`}><b>{podEntry.time.text} · {podEntry.time.accuracy}</b></Tooltip></span>

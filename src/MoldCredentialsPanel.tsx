@@ -7,6 +7,7 @@ import {
   DeleteOutlined,
   DownOutlined,
   ExperimentOutlined,
+  ExclamationCircleOutlined,
   ExportOutlined,
   QuestionCircleOutlined,
   SaveOutlined
@@ -24,6 +25,8 @@ import {
 } from './MoldCredentialsAPI'
 
 import './MoldCredentialsPanel.css'
+import { moldIntegrationIssue, moldIntegrationLabel, moldIntegrationDescription } from './MoldIntegrationHealth'
+import type { MoldIntegrationHealth } from './MoldIntegrationHealth'
 
 interface Props {
   userSession?: session
@@ -31,11 +34,12 @@ interface Props {
   onCancel?: () => void
   onSaved?: () => void
   onReset?: () => void
+  health?: MoldIntegrationHealth
 }
 
 type Feedback = { type: 'success' | 'error' | 'info', message: string } | null
 
-const MoldCredentialsPanel = ({ userSession, initialSetup = false, onCancel, onSaved, onReset }: Props) => {
+const MoldCredentialsPanel = ({ userSession, initialSetup = false, onCancel, onSaved, onReset, health }: Props) => {
   const [apiKey, setAPIKey] = React.useState('')
   const [secretKey, setSecretKey] = React.useState('')
   const [apiConfigured, setAPIConfigured] = React.useState(false)
@@ -50,6 +54,7 @@ const MoldCredentialsPanel = ({ userSession, initialSetup = false, onCancel, onS
   const [apiTestPassed, setAPITestPassed] = React.useState(false)
   const [dbTestPassed, setDBTestPassed] = React.useState(false)
   const [dbSettingsOpen, setDBSettingsOpen] = React.useState(false)
+  const [editingAPI, setEditingAPI] = React.useState(false)
 
   React.useEffect(() => {
     let active = true
@@ -75,7 +80,7 @@ const MoldCredentialsPanel = ({ userSession, initialSetup = false, onCancel, onS
     secretKey: secretKey.trim(),
     dbPassword: ''
   })
-  const showAPIInput = initialSetup || (!loadingStatus && !apiConfigured)
+  const showAPIInput = initialSetup || editingAPI || (!loadingStatus && !apiConfigured)
   const canTestAPI = apiKey.trim() !== '' && secretKey.trim() !== '' && busy === null
   const canTestDB = dbPasswordConfigured && busy === null
   const canSave = apiKey.trim() !== '' && secretKey.trim() !== '' &&
@@ -123,6 +128,7 @@ const MoldCredentialsPanel = ({ userSession, initialSetup = false, onCancel, onS
       setDBPasswordConfigured(status.dbPasswordConfigured)
       setAPIKey('')
       setSecretKey('')
+      setEditingAPI(false)
       setAPIFeedback(null)
       setDBFeedback(null)
       setAPITestPassed(false)
@@ -198,6 +204,9 @@ const MoldCredentialsPanel = ({ userSession, initialSetup = false, onCancel, onS
       wrapperCol={initialSetup ? { span: 16 } : undefined}
       className="mold-credentials-form"
       onFinish={save}>
+      {!initialSetup && health && <Alert showIcon
+        type={moldIntegrationIssue(health) ? 'error' : health.state === 'HEALTHY' ? 'success' : 'info'}
+        title={moldIntegrationLabel(health)} description={moldIntegrationDescription(health)} />}
       {(!initialSetup || setupStep === 1) && <section className="mold-credentials-test-section">
         <div className="mold-credentials-test-section-header">
           <div className="mold-credentials-test-section-identity">
@@ -242,6 +251,8 @@ const MoldCredentialsPanel = ({ userSession, initialSetup = false, onCancel, onS
               loading={busy === 'api-test'}>
               {translate('moldAPITest')}
             </Button>}
+          {!initialSetup && !showAPIInput && !loadingStatus && <Button
+            onClick={() => setEditingAPI(true)} disabled={busy !== null}>인증 정보 변경</Button>}
         </div>
         {showAPIInput
           ? <React.Fragment>
@@ -266,16 +277,16 @@ const MoldCredentialsPanel = ({ userSession, initialSetup = false, onCancel, onS
               />
             </Form.Item>
           </React.Fragment>
-          : <div className="mold-credentials-configured-value">
+          : <div className={`mold-credentials-configured-value${moldIntegrationIssue(health) ? ' has-connection-error' : ''}`}>
             {loadingStatus
               ? <React.Fragment><Spin size="small" /><span>{translate('moldChecking')}</span></React.Fragment>
               : <React.Fragment>
-                <CheckCircleFilled className="mold-credentials-configured-icon" />
+                {moldIntegrationIssue(health) ? <ExclamationCircleOutlined /> : <CheckCircleFilled className="mold-credentials-configured-icon" />}
                 <div>
                   <strong>{translate('moldAPIConfiguredTitle')}</strong>
                   <span>{translate('moldConfiguredValueHidden')}</span>
                 </div>
-                <Tag color="success">{translate('moldConfigured')}</Tag>
+                <Tag color={moldIntegrationIssue(health) ? 'default' : 'success'}>{translate('moldConfigured')}</Tag>
               </React.Fragment>}
           </div>}
         {apiFeedback && <Alert showIcon type={apiFeedback.type} message={apiFeedback.message} />}

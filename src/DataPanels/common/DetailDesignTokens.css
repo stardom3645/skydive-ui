@@ -8,6 +8,11 @@
     --netdive-detail-card-padding-x: 16px;
     --netdive-detail-card-body-padding-x: 14px;
     --netdive-detail-row-height: 42px;
+    --netdive-detail-basic-label-width: clamp(104px, 38%, 220px);
+    --netdive-detail-basic-column-gap: 16px;
+    --netdive-detail-basic-row-padding-y: 8px;
+    --netdive-detail-basic-row-height: var(--netdive-detail-row-height);
+    --netdive-detail-basic-row-divider: color-mix(in srgb, var(--netdive-detail-row-divider) 75%, transparent);
     --netdive-detail-evidence-row-padding-y: 10px;
     --netdive-detail-evidence-column-gap: 8px;
     --netdive-detail-evidence-column-gap-compact: 6px;

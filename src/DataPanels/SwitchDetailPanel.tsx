@@ -1,7 +1,7 @@
 import { DetailSectionIcon } from './common/DetailSectionIcon'
 import * as React from 'react'
 import { Button, Tooltip } from 'antd'
-import { ArrowsAltOutlined } from '@ant-design/icons'
+import { ExpandOutlined } from '@ant-design/icons'
 
 import { Link, Node, NodeAttrs } from '../Topology'
 import { session } from '../Store'
@@ -264,7 +264,7 @@ class SwitchDetailPanel extends React.Component<Props> {
         return (
             <div className="netdive-switch-detail">
                 <DetailSection icon={<DetailSectionIcon role="basic" />} title={translate('switchBasicInfo')}>
-                    <DetailKeyValueList rows={this.basicRows()} copyTooltip={translate('copy')} />
+                    <DetailKeyValueList appearance="basic" rows={this.basicRows()} copyTooltip={translate('copy')} />
                 </DetailSection>
                 <DetailSection
                     icon={<DetailSectionIcon role="advanced" />}
@@ -301,7 +301,7 @@ class SwitchDetailPanel extends React.Component<Props> {
                             destroyTooltipOnHide>
                             <Button
                                 className="netdive-port-mapping-expand-trigger"
-                                icon={<ArrowsAltOutlined />}
+                                icon={<ExpandOutlined />}
                                 aria-label={translate('switchPortMappingExpandView')}
                                 disabled={this.portMappings().length === 0}
                                 onClick={() => this.setState({ portMappingExpanded: true })} />

@@ -1,7 +1,8 @@
+import { OverflowTooltip } from '../../OverflowTooltip'
 import { KubernetesVerdictCriteria, VerdictCriteriaLabel } from './KubernetesVerdictCriteria'
 import * as React from 'react'
 import { Badge, Button, Card, Collapse, ConfigProvider, Descriptions, Empty, List, Menu, Modal, Popover, Progress, Space, Statistic, Tabs, Tag, Tooltip, Typography } from 'antd'
-import { CopyOutlined, DownOutlined, InfoCircleOutlined, RightOutlined } from '@ant-design/icons'
+import { CopyOutlined, DownOutlined, ForkOutlined, InfoCircleOutlined, RightOutlined } from '@ant-design/icons'
 import type { Node, NodeAttrs } from '../../Topology'
 
 import {
@@ -122,7 +123,7 @@ export const DetailPanelHeader = ({
             {subtitle && <span className={joinClassNames('netdive-detail-panel-header__subtitle', subtitleClassName)}>{subtitle}</span>}
         </span>
     )
-    return fullTitle ? <Tooltip title={fullTitle} placement="bottom">{content}</Tooltip> : content
+    return fullTitle ? <OverflowTooltip title={fullTitle} placement="bottom" overflowSelector=".netdive-detail-panel-header__title" force={typeof title === 'string' && title !== fullTitle}>{content}</OverflowTooltip> : content
 }
 
 export interface DetailModalResourceCellProps {
@@ -133,13 +134,13 @@ export interface DetailModalResourceCellProps {
 
 export const DetailModalResourceCell = ({ namespace, name, secondary }: DetailModalResourceCellProps) => {
     const fullName = namespace ? `${namespace}/${name}` : name
-    return <Tooltip title={fullName}>
+    return <OverflowTooltip title={fullName} overflowSelector="small, strong">
         <span className="netdive-modal-table__resource-cell">
             {namespace && <small>{textWithPreferredBreaks(namespace)}</small>}
             <strong>{textWithPreferredBreaks(name)}</strong>
             {secondary && <span className="netdive-modal-table__cell-secondary">{secondary}</span>}
         </span>
-    </Tooltip>
+    </OverflowTooltip>
 }
 
 export interface DetailModalTextCellProps {
@@ -148,12 +149,12 @@ export interface DetailModalTextCellProps {
 }
 
 export const DetailModalTextCell = ({ value, secondary }: DetailModalTextCellProps) => (
-    <Tooltip title={value}>
+    <OverflowTooltip title={value} overflowSelector="strong">
         <span className="netdive-modal-table__text-cell">
             <strong>{textWithPreferredBreaks(value || '없음')}</strong>
             {secondary && <span className="netdive-modal-table__cell-secondary">{secondary}</span>}
         </span>
-    </Tooltip>
+    </OverflowTooltip>
 )
 
 export interface DetailSectionProps {
@@ -280,9 +281,9 @@ export const DetailLongValue = ({
     className
 }: DetailLongValueProps) => (
     <span className={joinClassNames('netdive-detail-long-value', className)}>
-        <Tooltip title={value} placement="top" overlayClassName="netdive-detail-tooltip">
+        <OverflowTooltip title={value} placement="top" classNames={{ root: 'netdive-detail-tooltip' }}>
             <span className={joinClassNames('netdive-detail-long-value__text', `lines-${maxLines}`)}>{textWithPreferredBreaks(value)}</span>
-        </Tooltip>
+        </OverflowTooltip>
         {copy && <DetailCopyButton value={value} tooltip={copyTooltip} />}
     </span>
 )
@@ -298,6 +299,7 @@ export interface DetailKeyValueListProps {
     emptyText?: React.ReactNode
     labelWidth?: number | string
     density?: 'default' | 'compact'
+    appearance?: 'default' | 'basic'
     copyTooltip?: React.ReactNode
     onCopy?: (value: string) => void
     className?: string
@@ -308,22 +310,23 @@ export const DetailKeyValueList = ({
     emptyText = '-',
     labelWidth = 116,
     density = 'default',
+    appearance = 'default',
     copyTooltip,
     onCopy,
     className
 }: DetailKeyValueListProps) => {
     if (!rows.length) return <DetailEmpty description={emptyText} compact />
     return <ConfigProvider theme={{ token: { fontSize: 12, fontSizeSM: 11 } }}>
-        <Descriptions size="small" bordered column={1} colon={false}
-            className={joinClassNames('netdive-detail-descriptions', className)}
-            styles={{ label: { width: labelWidth, minWidth: 0, paddingInline: 12 }, content: { minWidth: 0 } }}
+        <Descriptions size="small" bordered={appearance !== 'basic'} column={1} colon={false}
+            className={joinClassNames('netdive-detail-descriptions', appearance === 'basic' && 'netdive-detail-basic-info', className)}
+            styles={{ label: { width: appearance === 'basic' ? 'auto' : labelWidth, minWidth: 0, paddingInline: appearance === 'basic' ? 0 : 12 }, content: { minWidth: 0 } }}
             items={rows.map((row, index) => ({
                 key: row.key !== undefined ? String(row.key) : String(index),
                 label: row.label,
                 children: <div className="netdive-detail-description-value">
-                    {row.textValue ? <Tooltip title={row.textValue} placement="top">
+                    {row.textValue && !(React.isValidElement(row.value) && row.value.type === DetailLongValue) ? <OverflowTooltip title={row.textValue} placement="top">
                         <span className={joinClassNames('netdive-detail-description-text', row.wrap && 'is-wrapping', row.valueMaxLines && `lines-${row.valueMaxLines}`)}>{row.value}</span>
-                    </Tooltip> : <span className="netdive-detail-description-text is-wrapping">{row.value}</span>}
+                    </OverflowTooltip> : <span className="netdive-detail-description-text is-wrapping">{row.value}</span>}
                     <DetailInfoTooltip description={row.tooltip} detail={row.tooltipDetail} rawValue={row.tooltipRawValue}
                         ariaLabel={`${String(row.label)} 상세 정보`} />
                     {row.copyText && <DetailCopyButton value={row.copyText} tooltip={copyTooltip} onCopy={onCopy} />}
@@ -1216,6 +1219,7 @@ export const InfrastructureTopologyIcon = ({
     if (attrs.iconClass === 'network-switch-icon') {
         return <InfrastructureSwitchLayerIcon className={className} />
     }
+    if (attrs.icon === '\uf4d7') return <ForkOutlined className={className} aria-hidden="true" />
     return <span
         className={joinClassNames('netdive-detail-topology-icon', className)}
         aria-hidden="true">{attrs.icon}</span>
@@ -1309,7 +1313,7 @@ const DetailConnectedResourcePopover = ({
         size="small"
         dataSource={sortedItems}
         renderItem={(item, index) => <List.Item key={item.key !== undefined ? item.key : index}>
-            <Tooltip title={item.tooltip || item.name} placement="topLeft" trigger={['hover', 'focus']}
+            <OverflowTooltip title={item.tooltip || item.name} force={!!item.tooltip} placement="topLeft" trigger={['hover', 'focus']}
                 getPopupContainer={detailTooltipPopupContainer} autoAdjustOverflow
                 classNames={{ root: 'netdive-connected-resource-name-tooltip' }}>
             <Button
@@ -1333,7 +1337,7 @@ const DetailConnectedResourcePopover = ({
                 </span>
                 {item.onClick && <RightOutlined className="netdive-connected-resource-popover__row-action" />}
             </Button>
-            </Tooltip>
+            </OverflowTooltip>
         </List.Item>} />
 </div>
 }
@@ -1417,9 +1421,9 @@ export const DetailResourceCard = ({
                     if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onClick?.() }
                 }}>
                 <div className="netdive-ant-resource-content">
-                    <Card.Meta avatar={connectedResourceIcon(icon)} title={<Tooltip title={labelTooltip !== undefined ? labelTooltip : typeof label === 'string' ? label : undefined}>
+                    <Card.Meta avatar={connectedResourceIcon(icon)} title={<OverflowTooltip title={labelTooltip !== undefined ? labelTooltip : typeof label === 'string' ? label : undefined} force={labelTooltip !== undefined && labelTooltip !== label}>
                         <Typography.Text>{renderDetailResourceLabel(label)}</Typography.Text>
-                    </Tooltip>} description={description} />
+                    </OverflowTooltip>} description={description} />
                     <Statistic value={typeof value === 'number' || typeof value === 'string' ? value : ''}
                         formatter={() => value} styles={{ content: { fontSize: 16, fontWeight: 600 } }} />
                     {copyText && <DetailCopyButton value={copyText} tooltip={copyTooltip} />}

@@ -7,7 +7,8 @@ import InfoIcon from '@material-ui/icons/Info'
 import { translate } from '../Config'
 import { session } from '../Store'
 import { Node } from '../Topology'
-import { getPodClassification, registerKubernetesPodCurrentStatusDetail } from '../KubernetesPodLifecycle'
+import { getPodClassification, registerKubernetesPodCurrentStatusDetail, invalidateKubernetesPodCurrentStatusSnapshots } from '../KubernetesPodLifecycle'
+import { kubernetesResourceSelfStatus } from '../KubernetesTopologyBadgeAggregation'
 import { kubernetesLabelValue, matchesKubernetesSelector } from '../KubernetesSelectors'
 import { kubernetesOperationalPodDataset } from '../KubernetesNodeDetailAggregation'
 import { resolveKubernetesPodTopController } from '../KubernetesWorkloadOwnership'
@@ -150,11 +151,15 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
             return response.json()
         }).then(detail => {
             if (current()) {
-                registerKubernetesPodCurrentStatusDetail(detail)
+                if (signal.aborted || detail?.uid !== String(uid) || detail?.clusterId !== cluster.id) throw new Error('pod detail identity mismatch')
+                registerKubernetesPodCurrentStatusDetail(detail, { clusterName: cluster.name, clusterID: cluster.id })
                 this.setState({ detail: mergeKubernetesPodDetail(fallback, detail), loading: false, error: false })
             }
         }).catch(() => {
-            if (current()) this.setState({ detail: this.detailFromTopology(), loading: false, error: true })
+            if (current()) {
+                invalidateKubernetesPodCurrentStatusSnapshots([String(uid)], { clusterName: cluster.name, clusterID: cluster.id })
+                this.setState({ detail: this.detailFromTopology(), loading: false, error: true })
+            }
         })
     }
 
@@ -346,6 +351,7 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
     }
 
     render() {
+        const untrusted = this.state.error || kubernetesResourceSelfStatus(this.props.node).collection !== 'collected'
         const detail = this.state.detail || {}
         const phase = String(detail.phase || '').toLowerCase()
         const phaseLabel = kubernetesPodPhaseLabel(detail.phase)
@@ -402,15 +408,15 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
         const evicted = classification.evicted
         const currentProblem = classification.problemPod || problemContainers.length > 0
         const critical = problemContainers.some(container => /oomkilled|crashloopbackoff|imagepullbackoff|errimagepull/i.test(String(container.waitingReason || container.terminatedReason || '')))
-        const statusTone: DetailBadgeTone = this.state.error ? 'default' : evicted ? 'default' : critical ? 'danger' : currentProblem ? 'warning' : phase ? 'success' : 'default'
-        const statusLabel = this.state.error ? '미확인' : evicted ? '종료됨' : critical ? '위험' : currentProblem ? '주의' : phase ? '정상' : '미확인'
+        const statusTone: DetailBadgeTone = untrusted ? 'default' : evicted ? 'default' : critical ? 'danger' : currentProblem ? 'warning' : phase ? 'success' : 'default'
+        const statusLabel = untrusted ? '미확인' : evicted ? '종료됨' : critical ? '위험' : currentProblem ? '주의' : phase ? '정상' : '미확인'
         const readyCondition = list(detail.conditions).find(condition => String(condition.type ?? condition.Type).toLowerCase() === 'ready')
         const podReady = readyCondition ? String(readyCondition.status ?? readyCondition.Status).toLowerCase() === 'true' : undefined
         const terminalPod = phase === 'succeeded' || evicted
-        const currentImpact = this.state.error ? '가용성 영향 확인 불가' : terminalPod
+        const currentImpact = untrusted ? '가용성 영향 확인 불가' : terminalPod
             ? '실행 대상 아님'
             : podReady === false || critical ? '가용성 영향 확인 필요' : '확인된 가용성 영향 없음'
-        const currentImpactTooltip = terminalPod
+        const currentImpactTooltip = untrusted ? '최근 조회가 만료되었거나 수집 상태를 확인하지 못했습니다. 현재 가용성 영향을 확정하지 않습니다.' : terminalPod
             ? '완료되었거나 종료된 파드이므로 현재 실행 대상의 가용성 영향 판정에서 제외합니다.'
             : podReady === false || critical
                 ? `파드 준비 상태와 현재 컨테이너 이상을 확인해야 합니다. 일반 컨테이너 ${readyContainers}/${applicationContainers.length}개가 준비되었습니다.`
@@ -456,7 +462,7 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
                 session={this.props.session} clusterID={this.cluster()?.id} uid={this.uid()}
                 namespace={detail.namespace} name={detail.name} containers={containers} /> : this.state.activeDetailTab === 'overview' && <React.Fragment>
             <DetailSectionCard icon={<DetailSectionIcon role="basic" />} title="파드 기본 정보" collapsible collapsed={this.state.basicCollapsed} onToggle={() => this.setState({ basicCollapsed: !this.state.basicCollapsed })}>
-                <BasicInfoRows density="compact" rows={basicRows} labelWidth={122} copyTooltip={translate('copy')} />
+                <BasicInfoRows density="compact" rows={basicRows} labelWidth={122} copyTooltip={translate('copy')} appearance="basic" />
             </DetailSectionCard>
             <DetailSectionCard icon={<DetailSectionIcon role="advanced" />} title={translate('kubernetesAdvancedInformation')} collapsible collapsed={!this.state.basicInfoAdvanced} onToggle={() => this.setState({ basicInfoAdvanced: !this.state.basicInfoAdvanced })}>
                 <BasicInfoRows density="compact" rows={advancedRows} labelWidth={122} copyTooltip={translate('copy')} />
@@ -480,7 +486,7 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
                         { key: 'pod-ready', label: '준비 상태', value: terminalPod ? '해당 없음' : podReady === undefined ? '미확인' : podReady ? '준비됨' : '준비되지 않음', tone: !terminalPod && podReady === false ? 'danger' : 'default', tooltip: 'Pod Ready Condition을 사용자용 상태로 해석한 결과입니다.' }
                     ]} />
                 <KubernetesStateSeparation items={[
-                    { key: 'current', label: '현재 문제', value: currentProblem ? `${problemContainers.length || 1}건 확인` : '없음', tone: currentProblem ? (critical ? 'danger' : 'warning') : 'success', tooltip: '현재 phase, Ready 상태, 대기·종료 사유를 기준으로 판단합니다.' },
+                    { key: 'current', label: '현재 문제', value: untrusted ? '확인 불가' : currentProblem ? `${problemContainers.length || 1}건 확인` : '없음', tone: untrusted ? 'default' : currentProblem ? (critical ? 'danger' : 'warning') : 'success', tooltip: '현재 phase, Ready 상태, 대기·종료 사유를 기준으로 판단합니다. 수집 실패·만료 시 현재 문제를 확정하지 않습니다.' },
                     { key: 'recent', label: '최근 불안정성', value: recentRestart ? '최근 재시작 감지' : '없음', tone: recentRestart ? 'warning' : 'success', tooltip: '최근 1시간 내 종료 시각 또는 재시작 시각이 확인된 경우만 운영 경고로 사용합니다.' },
                     { key: 'history', label: '누적 재시작 이력', value: `${Number(detail.restartCount || 0)}회`, tone: 'history', tooltip: 'Pod 생성 이후 컨테이너 restartCount의 누적 합계이며 현재 장애 판정에는 사용하지 않습니다.' }
                 ]} />
@@ -513,7 +519,7 @@ class KubernetesPodDetailPanel extends React.Component<Props, State> {
                 <KubernetesRecentEvents groups={recentEventGroups} lookbackLabel="최근 1시간" onResourceClick={group => this.openResource({ uid: group.resourceUid, name: group.resourceName, kind: group.resourceKind })} />
             </DetailSectionCard>
 
-            {this.state.error && <div className="netdive-detail-notice"><InfoIcon /><span>{translate('kubernetesPodDetailFallback')}</span></div>}
+            {untrusted && <div className="netdive-detail-notice"><InfoIcon /><span>{translate('kubernetesPodDetailFallback')}</span></div>}
             {!this.cluster() && <div className="netdive-detail-notice"><InfoIcon /><span>{translate('kubernetesClusterMoldMissing')}</span></div>}
             </React.Fragment>}
         </div>

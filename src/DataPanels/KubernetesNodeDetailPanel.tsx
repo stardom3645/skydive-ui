@@ -882,7 +882,7 @@ class KubernetesNodeDetailPanel extends React.Component<Props, State> {
             {this.state.activeDetailTab === 'logs' ? <KubernetesResourceLogPanel key={this.props.node.id}
                 node={this.props.node} nodes={this.topologyNodes()} session={this.props.session} kubernetesClusters={this.props.kubernetesClusters} /> : <React.Fragment>
             <DetailSectionCard icon={<DetailSectionIcon role="basic" />} title={translate('kubernetesNodeBasicInfo')} collapsible collapsed={this.state.basicCollapsed} onToggle={() => this.setState({ basicCollapsed: !this.state.basicCollapsed })}>
-                <BasicInfoRows density="compact" rows={overviewRows} labelWidth={122} copyTooltip={translate('copy')} />
+                <BasicInfoRows density="compact" rows={overviewRows} labelWidth={122} copyTooltip={translate('copy')} appearance="basic" />
             </DetailSectionCard>
             <DetailSectionCard icon={<DetailSectionIcon role="advanced" />} title={translate('kubernetesAdvancedInformation')} collapsible collapsed={!this.state.basicInfoAdvanced} onToggle={() => this.setState({ basicInfoAdvanced: !this.state.basicInfoAdvanced })}>
                 <BasicInfoRows density="compact" rows={advancedRows} labelWidth={122} copyTooltip={translate('copy')} />

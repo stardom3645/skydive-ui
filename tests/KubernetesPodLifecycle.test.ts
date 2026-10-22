@@ -67,7 +67,7 @@ describe('KubernetesPodLifecycle domain aggregation', () => {
             phase: 'Running',
             ready: true,
             problem: false,
-            observedAt: '2026-08-10T12:00:00Z'
+            observedAt: new Date().toISOString()
         }])
         const classification = getPodClassification(pod)
         const aggregate = aggregatePods([pod])

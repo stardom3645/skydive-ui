@@ -12,3 +12,7 @@ export function vmOperatingSystem(data: any): VMOperatingSystem {
     if (/\b(mac\s?os|os\s?x|darwin)\b/i.test(name)) return { name, family: 'apple' }
     return { name, family: 'other' }
 }
+
+/** CCVM is a local appliance; its libvirt OS type is not useful guest OS information. */
+export const vmShowsOperatingSystem = (data: any): boolean =>
+    !/^(ccvm)[0-9]*$/i.test(String(data?.Name || data?.name || data?.InstanceName || data?.instanceName || '').trim())

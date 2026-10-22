@@ -76,7 +76,7 @@ const PreviewPanel = () => {
 
                 <div className="visual-regression-content">
                     <DetailSectionCard title={`${resourceLabel} 기본 정보`} icon={<span>ⓘ</span>}>
-                        <BasicInfoRows
+                        <BasicInfoRows appearance="basic"
                             density="compact"
                             labelWidth={resource === 'node' ? 122 : 116}
                             rows={[

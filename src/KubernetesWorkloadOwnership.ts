@@ -158,6 +158,24 @@ export const kubernetesPodsForController = (controller: Node, nodes: Node[]): No
 export const currentKubernetesPodsForController = (controller: Node, nodes: Node[]): Node[] =>
     kubernetesPodsForController(controller, nodes).filter(isCurrentKubernetesPod)
 
+/** A missing intermediate owner is not an empty Pod inventory. This is an
+ * observation of relationship coverage, never a new workload health rule. */
+export const kubernetesControllerPodObservation = (controller: Node, nodes: Node[], hierarchyPods?: Node[]) => {
+    const pods = hierarchyPods === undefined ? currentKubernetesPodsForController(controller, nodes)
+        : hierarchyPods.filter(pod => resourceType(pod) === 'pod' && sameScope(controller, pod) && isCurrentKubernetesPod(pod))
+    const status = firstRaw(controller.data, ['K8s.Extra.Status', 'K8s.Extra.status', 'K8s.Status']) || {}
+    const reportedRaw = status.Replicas ?? status.replicas ?? controller.data?.K8s?.Replicas
+    const reported = reportedRaw === undefined || reportedRaw === null || reportedRaw === '' || !Number.isFinite(Number(reportedRaw))
+        ? undefined : Number(reportedRaw)
+    const missingReplicaSet = resourceType(controller) === 'deployment'
+        && !kubernetesReplicaSetsForDeployment(controller, nodes).length
+    const incomplete = missingReplicaSet || (resourceType(controller) === 'deployment' && reported === undefined)
+        || (reported !== undefined && pods.length < reported)
+    return { pods, matched: pods.length, reported, missingReplicaSet, complete: !incomplete,
+        count: incomplete ? undefined : pods.length,
+        label: incomplete ? '관계 미확인' : String(pods.length) }
+}
+
 /** ReplicaSets directly controlled by a Deployment. Selector coincidence is
  * intentionally insufficient because an old ReplicaSet and an unrelated
  * controller can expose the same Pod labels during a rollout. */

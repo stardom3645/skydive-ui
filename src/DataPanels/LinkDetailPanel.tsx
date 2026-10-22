@@ -37,7 +37,7 @@ const LinkDetailPanel = ({ link, nodeAttrs, nodeDisplayName, onNodeSelect }: Pro
         ...linkDetailMetadataRows(link)]
     return <div className="netdive-link-detail">
         <DetailSection icon={<DetailSectionIcon role="basic" />} title={translate('linkBasicInfo')}>
-            <DetailKeyValueList rows={rows} copyTooltip={translate('copy')} />
+            <DetailKeyValueList appearance="basic" rows={rows} copyTooltip={translate('copy')} />
         </DetailSection>
         <DetailSection icon={<DetailSectionIcon role="related" />} title={translate('linkEndpoints')}>
             <DetailResourceGrid className="netdive-link-detail__endpoints">{[link.source, link.target].map((node, index) =>
@@ -60,10 +60,12 @@ const LinkDetailPanel = ({ link, nodeAttrs, nodeDisplayName, onNodeSelect }: Pro
                 ]} />
                 <DetailKeyValueList density="compact" rows={[
                     { key: 'interface', label: translate('linkMetricSource'), value: name(traffic.node), copyText: name(traffic.node) },
-                    { key: 'interval', label: translate('linkMetricInterval'), value: `${traffic.seconds}s` }
+                    { key: 'interval', label: translate('linkMetricInterval'), value: `${traffic.seconds}s` },
+                    { key: 'sample-end', label: translate('linkMetricSampleEnd'), value: new Date(Number(traffic.metric.Last)).toLocaleString() }
                 ]} />
                 <DetailInfoNote>{translate('linkTrafficNote')}</DetailInfoNote>
             </> : <DetailEmpty compact description={translate('linkNoTraffic')} />}
+            {data.ManualPortMapping && <DetailInfoNote>{translate('linkManualTrafficNote')}</DetailInfoNote>}
         </DetailSection>
         <DetailSection icon={<DetailSectionIcon role="advanced" />} title={translate('detailAdvancedInfo')}
             collapsible collapsed={!advanced} onToggle={() => setAdvanced(!advanced)}>

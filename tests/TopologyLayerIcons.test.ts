@@ -5,6 +5,7 @@ import * as ts from 'typescript'
 import * as vm from 'vm'
 import { topologyLayerGlyph, topologyLayerTitleLines } from '../src/TopologyLayerIcons'
 import { topologyNodePresentation } from '../src/TopologyNodePresentation'
+import { virtualRouterIconHref, virtualRouterIconPath } from '../src/VirtualRouterIcon'
 
 // Run the production attribute and layer-guide methods; synthetic group names
 // deliberately omit the identifying r-/s-/v- prefixes and NIC metadata.
@@ -21,13 +22,25 @@ const constants = config.statements.filter(ts.isVariableStatement)
     .map(statement => statement.getText(config).replace(/^export /, '')).join('\n')
 const levelMethod = topology.statements.filter(ts.isClassDeclaration).find(node => node.name?.text === 'Topology')!
     .members.find(member => member.name?.getText(topology) === 'levelLabelIcon')!
-const context: any = { topologyLayerGlyph, switchDisplayName: (_data: any, name: string) => name }
+const context: any = { topologyLayerGlyph, virtualRouterIconHref, switchDisplayName: (_data: any, name: string) => name }
 vm.createContext(context)
 vm.runInContext(ts.transpile(`${constants}\nclass Probe { ${members}\n${levelMethod.getText(topology)} }; this.probe = new Probe();`,
     { target: ts.ScriptTarget.ES2018 }), context)
 const probe = context.probe
 
 describe('Topology layer and object icons', () => {
+    it('uses the Mold Fork SVG for individual virtual routers and translated router groups', () => {
+        for (const node of [
+            { data: { Type: 'libvirt', Name: 'r-123-VM' } },
+            { data: { Type: 'libvirt', Name: '가상 라우터 그룹', IsTopologyGroup: true }, getWeight: () => 7070 }
+        ]) {
+            const attrs = probe.nodeAttrsInfra(node)
+            assert.equal(attrs.href, virtualRouterIconHref)
+            assert.ok(decodeURIComponent(attrs.href).includes(virtualRouterIconPath))
+            assert.equal(attrs.weight, 7070)
+        }
+        assert.notEqual(probe.nodeAttrsInfra({ data: { Type: 'libvirt', Name: 'ccvm' } }).href, virtualRouterIconHref)
+    })
     it('keeps router, system VM, user VM and bridge groups on their real layer after names are translated', () => {
         for (const [type, name, weight] of [
             ['libvirt', '가상 라우터 그룹', 7070], ['libvirt', '시스템 가상머신 그룹', 7060],

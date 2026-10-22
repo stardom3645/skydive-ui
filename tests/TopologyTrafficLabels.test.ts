@@ -6,6 +6,7 @@ import * as path from 'path'
 import * as ts from 'typescript'
 import * as vm from 'vm'
 import { topologyLinkTraffic } from '../src/TopologyLinkTraffic'
+import { buildManualPortMappingTopologyLinks } from '../src/InfrastructurePortMapping'
 
 // Exercise the production traffic/visibility/position functions without mounting
 // React or contacting the collector. Group proxies deliberately have no metrics.
@@ -13,7 +14,7 @@ const source = (file: string) => ts.createSourceFile(file,
     fs.readFileSync(path.resolve(__dirname, '../src', file), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
 const topologySource = source('Topology.tsx'), configSource = source('Config.ts')
 const topologyClass = topologySource.statements.filter(ts.isClassDeclaration).find(node => node.name?.text === 'Topology')!
-const methods = ['renderedLinkAttrs', 'hasInlineLinkLabel', 'isInfrastructureGroupLink', 'linkDisplayOpacity', 'linkLabelOpacity', 'linkHitPointerEvents', 'infrastructureTrafficLabelSlots', 'selectLink']
+const methods = ['renderedLinkAttrs', 'linkTrafficTooltip', 'hasInlineLinkLabel', 'isInfrastructureGroupLink', 'linkDisplayOpacity', 'linkLabelOpacity', 'linkHitPointerEvents', 'infrastructureTrafficLabelSlots', 'selectLink']
 const members = topologyClass.members.filter(member => member.name && methods.includes(member.name.getText(topologySource)))
     .map(member => member.getText(topologySource)).join('\n')
 const configMethod = configSource.statements.filter(ts.isClassDeclaration)
@@ -31,7 +32,7 @@ const visit = (node: ts.Node) => {
 visit(topologyClass)
 
 function probe(original: any, displayed: any = original) {
-    const context: any = { topologyLinkTraffic, compactTrafficLabel, Tools: { prettyBandwidth: (rate: number) => `${rate} bps` }, nodeWidth: 320, nodeHeight: 440,
+    const context: any = { topologyLinkTraffic, compactTrafficLabel, translate: (key: string) => key, Tools: { prettyBandwidth: (rate: number) => `${rate} bps` }, nodeWidth: 320, nodeHeight: 440,
         WrapperType: { Hidden: 2, Group: 3 }, select: () => ({ classed: () => {} }) }
     vm.createContext(context)
     vm.runInContext(ts.transpile(`
@@ -82,6 +83,63 @@ const groupedLink = (link: any) => ({ ...link, source: { id: 'host-group', data:
     target: { id: 'port-group', data: { Type: 'switch' }, x: 620 } })
 
 describe('Infrastructure traffic labels', () => {
+    it('retains each host\'s three measured labels across host switches and omitted zero TX counters', () => {
+        const hosts = Array.from({ length: 3 }, (_, i) => ({ id: `host-${i}`, data: { Type: 'host' }, state: { selected: false } }))
+        const originals = hosts.reduce<any[]>((all, host, h) => all.concat(Array.from({ length: 3 }, (_, n) => {
+            const link: any = trafficLink()
+            link.id = `${host.id}-link-${n}`
+            link.source.id = `nic-${h}-${n}`; link.source.parent = host
+            link.target.id = `port-${h}-${n}`; link.target.data.Probe = 'lldp'
+            return link
+        })), [])
+        const displayed = originals.map((link, i) => ({ ...link, source: hosts[Math.floor(i / 3)] }))
+        const topology = probe(originals[0], displayed[0])
+        topology.links = new Map(originals.map(link => [link.id, link]))
+        topology.d3nodes = new Map([...hosts, ...originals.map(link => link.target)].map(node => [node.id, { data: { type: 1 } }]))
+        topology.isLinkNodeSelected = (link: any) => link.source.state.selected
+        topology.isLinkVisible = topology.isLinkNodeSelected
+        for (const [frame, selected] of [0, 1, 2, 1, 0, 1].entries()) {
+            hosts.forEach((host, index) => host.state.selected = index === selected)
+            originals.forEach(link => {
+                // Captured collector shape: TxBytes disappears when its delta is zero.
+                link.source.data.LastUpdateMetric = frame % 2
+                    ? { Start: 1000, Last: 11000, RxBytes: 3243 }
+                    : { Start: 1000, Last: 11000, RxBytes: 3243, TxBytes: 248 }
+            })
+            const visible = displayed.filter(link => topology.hasInlineLinkLabel(link) && topology.linkLabelOpacity(link) > 0)
+            assert.deepEqual(visible.map(link => link.source.id), [hosts[selected].id, hosts[selected].id, hosts[selected].id])
+            visible.forEach(link => assert.equal(topology.renderedLinkAttrs(link).label,
+                `${(3243 + (frame % 2 ? 0 : 248)) * 8 / 10} bps`))
+        }
+    })
+
+    it('renders the actual registered manual NIC through group proxies, including zero and missing counters', () => {
+        const sw: any = { id: 'sw', data: { Type: 'switch', Name: 'leaf' } }
+        const host: any = { id: 'host', data: { Type: 'host', Name: 'host' } }
+        const nic: any = { id: 'registered', parent: host, data: { Type: 'device', Name: 'eno1',
+            LastUpdateMetric: { Start: 1000, Last: 11000, RxBytes: 1000, TxBytes: 800 } } }
+        const other: any = { id: 'other-nic', parent: host, data: { Type: 'device', Name: 'eno2',
+            LastUpdateMetric: { Start: 1000, Last: 11000, RxBytes: 99999999, TxBytes: 99999999 } } }
+        const mapping: any = { id: 7, enabled: true, switchNodeId: sw.id, hostNodeId: host.id,
+            hostNicNodeId: nic.id, switchPortName: 'manual-port-1' }
+        const built = buildManualPortMappingTopologyLinks([mapping], [sw, host, nic, other], [])[0]
+        const original: any = { id: built.id, data: built.data, source: { id: built.sourceNodeID,
+            data: { ...built.portData, LastUpdateMetric: other.data.LastUpdateMetric } }, target: nic }
+        const grouped = groupedLink(original), topology = probe(original, grouped)
+        assert.equal(built.targetNodeID, nic.id)
+        assert.equal(topologyLinkTraffic(original)!.node.id, built.targetNodeID)
+        assert.equal(topology.renderedLinkAttrs(grouped).label, '1440 bps')
+        nic.data.LastUpdateMetric.RxBytes = 0
+        nic.data.LastUpdateMetric.TxBytes = 0
+        assert.equal(topology.renderedLinkAttrs(grouped).label, '0 bps')
+        assert.equal(topologyLinkTraffic(original)!.total, 0)
+        delete nic.data.LastUpdateMetric.RxBytes
+        assert.equal(topology.renderedLinkAttrs(grouped).label, '0 bps')
+        assert.equal(topologyLinkTraffic(original)!.total, 0)
+        delete nic.data.LastUpdateMetric
+        assert.equal(topology.renderedLinkAttrs(grouped).label, '')
+        assert.equal(topologyLinkTraffic(original), undefined)
+    })
     it('refreshes the line label when the collector changes from 30-second to 10-second intervals', () => {
         const original: any = trafficLink(), topology = probe(original)
         const samples = [
@@ -292,14 +350,28 @@ describe('Infrastructure traffic labels', () => {
         topology.isActiveContainerMiniLink = () => true
         assert.equal(topology.linkDisplayOpacity(grouped), 1)
     })
-    it('does not promote unmeasured grouped relations or manual mappings into traffic', () => {
+    it('does not promote unmeasured grouped relations into traffic', () => {
         const original = trafficLink(), grouped = groupedLink(original), topology = probe(original, grouped)
         delete (original.source.data as any).LastUpdateMetric
         assert.equal(topology.renderedLinkAttrs(grouped).label, '')
         assert.equal(topology.linkDisplayOpacity(grouped), 0)
+    })
+    it('shows mapped NIC traffic on manual links and grouped proxies without changing manual styling', () => {
         const manual = trafficLink()
-        ;(manual.data as any).ManualPortMapping = true
-        assert.equal(probe(manual).renderedLinkAttrs(manual).label, '')
+        ;(manual.data as any) = { RelationType: 'manual', ManualPortMapping: true }
+        // Production manual links have the synthetic switch port as source.
+        const nic = manual.source
+        ;(manual as any).source = manual.target
+        ;(manual as any).target = nic
+        const grouped = groupedLink(manual), topology = probe(manual, grouped)
+        assert.equal(topology.renderedLinkAttrs(grouped).label, '14400 bps')
+        assert.deepEqual(Array.from(topology.renderedLinkAttrs(grouped).classes), ['manual-port-mapping', 'traffic'])
+        assert.ok(topology.linkTrafficTooltip(grouped).includes('linkManualTrafficNote'))
+        nic.data.LastUpdateMetric.RxBytes = 2000
+        assert.equal(topology.renderedLinkAttrs(grouped).label, '22400 bps')
+        delete (nic.data as any).LastUpdateMetric
+        assert.equal(topology.renderedLinkAttrs(grouped).label, '')
+        assert.deepEqual(Array.from(topology.renderedLinkAttrs(grouped).classes), ['manual-port-mapping'])
     })
     it('retains traffic on ordinary direct links and transient links absent from the graph map', () => {
         const original = trafficLink(), topology = probe(original)

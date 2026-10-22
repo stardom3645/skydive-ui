@@ -77,7 +77,7 @@ describe('Topology performance invariants', () => {
 
     it('coalesces card updates without a layout, region, line or redundant API-plan pass', () => {
         const queued: (() => void)[] = [], renders: any[] = []
-        const graph = probe(['refreshResourceCards'], { window: { setTimeout: (fn: () => void) => { queued.push(fn); return queued.length } } })
+        const graph = probe(['refreshResourceCards', 'deferProblemViewportRender'], { window: { setTimeout: (fn: () => void) => { queued.push(fn); return queued.length } } })
         let plans = 0
         Object.assign(graph, { d3nodes: new Map([['root', {}]]), gNodes: {},
             syncResourceData: () => plans++, renderNodes: (...args: any[]) => renders.push(args),
@@ -94,7 +94,7 @@ describe('Topology performance invariants', () => {
     describe('Kubernetes metric capability relayout', () => {
         it('relayouts once per capability change, while value refreshes keep the fast content-only path', () => {
             const queued: (() => void)[] = []
-            const graph = probe(['refreshResourceCards'], { window: { setTimeout: (fn: () => void) => { queued.push(fn); return queued.length } } })
+            const graph = probe(['refreshResourceCards', 'deferProblemViewportRender'], { window: { setTimeout: (fn: () => void) => { queued.push(fn); return queued.length } } })
             let signature = 'pod:0', layouts = 0, paints = 0
             Object.assign(graph, { nodeTagActive: 'kubernetes', kubernetesMetricLayoutKey: signature,
                 d3nodes: new Map([['root', {}]]), gNodes: {}, createResourceMetricsIndex: () => ({}),

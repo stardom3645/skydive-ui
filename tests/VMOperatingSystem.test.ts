@@ -1,9 +1,20 @@
 import { strict as assert } from 'assert'
-import { vmOperatingSystem } from '../src/VMOperatingSystem'
+import { vmOperatingSystem, vmShowsOperatingSystem } from '../src/VMOperatingSystem'
 import { vmPublicIPAddresses } from '../src/VMPublicIPs'
 import { topologyNodePresentation } from '../src/TopologyNodePresentation'
 
 describe('VM operating system presentation', () => {
+    it('omits CCVM OS presentation without changing collected OS data or other VM icons', () => {
+        for (const Name of ['ccvm', 'CCVM', 'ccvm2']) {
+            const data = { Name, Type: 'libvirt', Manager: 'libvirt', OS: 'Rocky Linux 9' }
+            const original = JSON.stringify(data)
+            const node: any = { id: Name, data, children: [], state: {} }
+            assert.equal(vmShowsOperatingSystem(data), false)
+            assert.equal(topologyNodePresentation(node, { name: Name }).operatingSystem, undefined)
+            assert.equal(JSON.stringify(data), original)
+        }
+        for (const Name of ['scvm', 'i-2-28-VM', 'ccvm-test']) assert.equal(vmShowsOperatingSystem({ Name }), true)
+    })
     it('maps real Windows/Linux/macOS names to bundled icons while keeping the full OS name for the tooltip', () => {
         for (const name of ['Rocky Linux 10', 'Ubuntu 24.04 LTS', 'Debian GNU/Linux 12', 'CentOS 7', 'Red Hat Enterprise Linux', 'AlmaLinux 9']) {
             assert.deepEqual(vmOperatingSystem({ guestOS: name }), { name, family: 'linux' })

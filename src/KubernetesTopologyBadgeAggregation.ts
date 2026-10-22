@@ -1,7 +1,7 @@
 import { evaluateKubernetesWorkload } from './KubernetesWorkloadStatus'
 import { kubernetesStorageObservation, kubernetesStorageOperationalPresentation } from './KubernetesStorageStatus'
 import type { Node } from './Topology'
-import { getPodClassification, isCurrentKubernetesPod } from './KubernetesPodLifecycle'
+import { getPodClassification, isCurrentKubernetesPod, kubernetesPodObservationCollection, kubernetesPodCurrentStatusSnapshot } from './KubernetesPodLifecycle'
 import { isKubernetesTopologyData } from './KubernetesInfrastructureEvidence'
 import type { TopologyStatusBadgeTooltip } from './TopologyStatusBadge'
 
@@ -145,16 +145,15 @@ const conditions = (status: any): any[] => {
 }
 
 const explicitCollectionState = (node: Node, observation?: any): KubernetesResourceCollectionState | undefined => {
-    const sources = observation ? [observation, node.data || {}] : [node.data || {}]
-    const stale = firstRawFrom(sources, ['stale', 'Stale', 'isStale', 'IsStale'])
-    if (stale === true || normalized(stale) === 'true') return 'stale'
-    const marker = normalized(firstRawFrom(sources, [
+    const sources = [observation, node.data, node.data?.K8s].filter(Boolean)
+    if (sources.some(source => normalized(firstRaw(source, ['stale', 'Stale', 'isStale', 'IsStale'])) === 'true')) return 'stale'
+    const markers = sources.map(source => normalized(firstRaw(source, [
         'collectionState', 'CollectionState', 'dataCollectionState', 'DataCollectionState',
         'collectionStatus', 'CollectionStatus'
-    ]))
-    if (/stale|expired/.test(marker)) return 'stale'
-    if (/uncollected|unavailable|failed|failure|error|missing|not.?collected/.test(marker)) return 'unavailable'
-    if (/collected|available|success|fresh/.test(marker)) return 'collected'
+    ])))
+    if (markers.some(marker => /stale|expired/.test(marker))) return 'stale'
+    if (markers.some(marker => /uncollected|unavailable|failed|failure|error|missing|not.?collected/.test(marker))) return 'unavailable'
+    if (markers.some(marker => /collected|available|success|fresh/.test(marker))) return 'collected'
     return undefined
 }
 
@@ -185,7 +184,11 @@ export const kubernetesResourceSelfStatus = (node: Node, observation?: any): Kub
     if (explicitCollection === 'unavailable') {
         return { state: 'unknown', collection: 'unavailable', findings: ['상태 데이터를 수집하지 못했습니다.'] }
     }
-    const explicitSelfStates = [moldClusterState, topologySelfState].filter(Boolean)
+    const podObservation = type === 'pod' ? kubernetesPodObservationCollection(node) : undefined
+    if (podObservation) return { state: 'unknown', collection: podObservation,
+        findings: [podObservation === 'stale' ? 'Pod 최근 조회가 만료되어 현재 상태를 확인할 수 없습니다.' : 'Pod 최근 조회에서 현재 상태를 확인할 수 없습니다.'] }
+    const explicitSelfStates = [moldClusterState,
+        ...(type === 'pod' && kubernetesPodCurrentStatusSnapshot(node) ? [] : [topologySelfState])].filter(Boolean)
     if (!['persistentvolume', 'persistentvolumeclaim'].includes(type) && explicitSelfStates.some(state => /down|error|fail|unhealthy|critical/.test(state))) {
         return { state: 'problem', collection: 'collected', findings: [`${resourceTypeLabel(type)} 자체 상태 이상`] }
     }

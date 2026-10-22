@@ -30,7 +30,7 @@ function Preview() {
         <section data-audit-panel style={{ width, maxWidth: '100%', padding: 12, boxSizing: 'border-box', background: '#fff', display: 'grid', gap: 12 }}>
             {page === 'storage' ? <KubernetesStorageDetailPanel node={node} nodeAttrs={item => ({ name: item.data.Name, icon: '', classes: [] })} /> : <>
                 <DetailSectionCard title="상세 정보 · 긴 항목명과 값" action={<Button size="small">전체 보기</Button>}>
-                    <BasicInfoRows labelWidth={122} rows={[
+                    <BasicInfoRows appearance="basic" labelWidth={122} rows={[
                         { label: '클레임 네임스페이스', value: 'production-monitoring' },
                         { label: '스토리지 클래스', value: 'ceph-rbd' },
                         { label: 'ImagePullSecrets', value: <DetailLongValue value={longName} copy /> },

@@ -349,7 +349,7 @@ class NicDetailPanel extends React.Component<Props, State> {
         return (
             <div className="netdive-nic-detail">
                 <DetailSection icon={<DetailSectionIcon role="basic" />} title={translate('hostBasicInfo')}>
-                    <DetailKeyValueList rows={this.basicRows()} copyTooltip={translate('copy')} />
+                    <DetailKeyValueList appearance="basic" rows={this.basicRows()} copyTooltip={translate('copy')} />
                 </DetailSection>
                 <DetailSection icon={<DetailSectionIcon role="related" />} title={translate('hostConnectedResources')}>
                     {this.renderConnectedResources(peers)}

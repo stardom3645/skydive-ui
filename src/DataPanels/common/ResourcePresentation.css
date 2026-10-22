@@ -11,6 +11,7 @@
 .netdive-resource-usage__disk-header > strong { font-weight: 500; font-variant-numeric: tabular-nums; }
 .netdive-resource-usage .ant-descriptions-item-label { font-size: 11px; color: var(--netdive-detail-muted, #64748b); }
 .netdive-resource-usage .ant-descriptions-item-content { font-variant-numeric: tabular-nums; }
+.netdive-resource-usage__notice { margin-top: 8px; color: var(--netdive-detail-text-secondary); font-size: var(--netdive-detail-font-supporting-text); line-height: var(--netdive-detail-line-supporting-text); }
 .netdive-resource-chart { min-width: 0; }
 .netdive-resource-chart__header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 8px; margin-bottom: 6px; }
 .netdive-resource-chart__header > strong { font-size: 12px; font-weight: 500; }

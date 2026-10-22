@@ -1,3 +1,4 @@
+import { hasClippedText, OverflowTooltip } from './OverflowTooltip'
 import * as React from 'react'
 import { ConfigProvider, Progress, Tag, Tooltip } from 'antd'
 import { ThunderboltOutlined, BlockOutlined, AppstoreOutlined, WindowsOutlined, LinuxOutlined, AppleOutlined, CodeOutlined, QuestionCircleOutlined,
@@ -10,8 +11,8 @@ import './TopologyNodeCard.css'
 
 /** Ant overlays live outside the SVG. Close them when their D3 anchor moves,
  * rather than leaving the previous position visible during pan or collapse. */
-const TopologyCardTooltip = ({ title, block = false, children }: {
-    title: string; block?: boolean; children: React.ReactNode
+const TopologyCardTooltip = ({ title, block = false, overflowOnly = false, children }: {
+    title: string; block?: boolean; overflowOnly?: boolean; children: React.ReactNode
 }) => {
     const anchor = React.useRef<HTMLSpanElement>(null)
     const [open, setOpen] = React.useState(false)
@@ -44,6 +45,7 @@ const TopologyCardTooltip = ({ title, block = false, children }: {
     return <Tooltip title={title} destroyOnHidden open={open} mouseEnterDelay={0.25}
         onOpenChange={visible => {
             if (visible && !anchor.current?.matches(':hover')) return
+            if (visible && overflowOnly && !hasClippedText(anchor.current)) return
             if (visible) window.dispatchEvent(new Event(TOPOLOGY_TOOLTIP_DISMISS_EVENT))
             setOpen(visible)
         }}>
@@ -84,11 +86,12 @@ export const TopologyMetricChip = ({ metric, emptyMeter = true, showSource = tru
     const tone = metric.percent !== undefined && metric.percent >= 90 ? 'critical'
         : metric.percent !== undefined && metric.percent >= 75 ? 'warning' : metric.key === 'cpu' ? 'cpu' : 'memory'
     const count = ['pods', 'children', 'namespaces', 'nodes', 'workloads', 'storage', 'vms', 'endpoints', 'replicas'].includes(metric.key)
-    return <div className={`topology-metric-chip ${count ? 'is-count' : ''} ${resource ? 'is-resource' : ''} ${metric.key === 'root-disk' ? 'is-root-disk' : metric.key === 'vms' ? 'is-vm-count' : ''} is-${tone} ${metric.percent !== undefined ? 'has-meter' : metric.description && metric.value !== '미수집' ? 'is-quantity' : ''}`}
+    const descriptiveCount = count && /[가-힣a-zA-Z]/.test(metric.value)
+    return <div className={`topology-metric-chip ${count ? 'is-count' : ''} ${descriptiveCount ? 'is-descriptive-count' : ''} ${resource ? 'is-resource' : ''} ${metric.key === 'root-disk' ? 'is-root-disk' : metric.key === 'vms' ? 'is-vm-count' : ''} is-${tone} ${metric.percent !== undefined ? 'has-meter' : metric.description && metric.value !== '미수집' ? 'is-quantity' : ''}`}
         title={`${metric.label}: ${metric.value}${showSource && metric.description ? ` · ${metric.description}` : ''}`}>
         <span className="topology-metric-chip__line">
             <span className="topology-metric-chip__label"><Icon aria-hidden="true" /><span>{metric.label}</span></span>
-            {metric.key.startsWith('service-') ? <TopologyCardTooltip title={metric.value} block>
+            {metric.key.startsWith('service-') ? <TopologyCardTooltip title={metric.value} block overflowOnly>
                 <strong className="topology-service-information__value">{metric.value}</strong>
             </TopologyCardTooltip> : <strong>{metric.value}</strong>}
         </span>
@@ -201,19 +204,18 @@ export const TopologyNodeCard = React.memo(({ model, icon, iconClass, href }: {
                     </TopologyCardTooltip>
                 </span> : <TopologyVMIcons model={model} icon={icon} iconClass={iconClass} href={href} />}
                 <div className="topology-object-card__identity">
-                    <TopologyCardTooltip title={model.name} block>
+                    <TopologyCardTooltip title={model.name} block overflowOnly>
                         <strong className="topology-object-card__name">{model.name}</strong>
                     </TopologyCardTooltip>
-                    {(!model.infrastructure || model.group) && <span className="topology-object-card__subtitle" title={model.subtitle}>{model.subtitle}</span>}
+                    {(!model.infrastructure || model.group) && <OverflowTooltip title={model.subtitle}><span className="topology-object-card__subtitle">{model.subtitle}</span></OverflowTooltip>}
                 </div>
                 {(!model.group || model.namespaceSummary || model.status.tone === 'critical' || model.status.tone === 'inactive') && <TopologyObjectStatusBadge status={model.status} />}
                 {model.group && model.fullyExpanded && <span className="topology-object-card__group-state">전체 펼침</span>}
             </div>
             {!model.group && (model.infrastructure ? !!model.networkHeight || !!model.networkSummary?.trim() : model.resourceType === 'libvirt') && <div className="topology-object-card__network"
-                style={model.networkHeight ? { height: model.networkHeight } : undefined}
-                title={model.networkSummary || '연결 네트워크 정보가 없습니다.'}>
+                style={model.networkHeight ? { height: model.networkHeight } : undefined}>
                 <span className="topology-object-card__network-label">네트워크</span>
-                {model.infrastructure ? <TopologyCardTooltip title={model.networkSummary || ''} block>
+                {model.infrastructure ? <TopologyCardTooltip title={model.networkSummary || ''} block overflowOnly={!model.networkCount || model.networkCount <= 1}>
                     <span className="topology-object-card__network-name">{model.networkCount && model.networkCount > 1 ? `${model.networkCount}개` : model.networkSummary || '정보 없음'}</span>
                 </TopologyCardTooltip> : <span className="topology-object-card__network-name">{model.networkCount && model.networkCount > 1 ? `${model.networkCount}개` : model.networkSummary || '정보 없음'}</span>}
             </div>}

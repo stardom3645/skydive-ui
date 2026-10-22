@@ -1,3 +1,6 @@
+import { infrastructurePortLayoutTargets } from './InfrastructurePortMapping'
+import { switchPortConnectionPositions, SwitchPortSlot } from './InfrastructureSwitchPortLayout'
+import { virtualRouterIconPath } from './VirtualRouterIcon'
 import { isExpiredLLDPLink, nextLLDPExpiryDelay } from './LLDPTopologyValidity'
 import { getMoldNetworkIndex, matchMoldNIC, moldVMNetworkSummary, moldVMNetworkCount, moldVMNetworks, moldVMUUID, MoldVMNetworkMap } from './MoldTopologyNetworks'
 /*
@@ -69,6 +72,12 @@ import {
     TopologyRelationPathEdge,
 } from './TopologyConnectionFocus'
 import TopologyContextMenu, { TopologyContextMenuAction } from './TopologyContextMenu'
+import { currentProblems, ProblemStatus, problemStatusLabels } from './CurrentProblems'
+import { problemRelatedResources } from './ProblemAnalysis'
+import { topologyResourceDomain } from './TopologyResourceClassification'
+import { topologyProblemFocusClosure } from './TopologyProblemFocus'
+import TopologyProblemContext from './TopologyProblemContext'
+import { lastCollectionTime } from './StatusSummary'
 const flextree = require('d3-flextree').flextree;
 
 import './Topology.css'
@@ -576,6 +585,7 @@ export interface NodeAttrs {
 }
 
 export interface LinkAttrs {
+    trafficNote?: string
     classes: Array<string>
     directed: boolean
     label: string
@@ -625,13 +635,17 @@ interface Props {
     moldInventory?: any
     vmDetailMap?: Record<string, any>
     infrastructureHostSummaries?: Record<string, any>
+    problemPanelOpen?: boolean
+    onReturnToProblems?: () => void
+    onProblemResourceNavigate?: (node: Node) => void
+    onProblemFocusCleared?: () => void
 }
 
 interface GroupNavigatorFilter {
     search: string
 }
 
-type TopologyFocusMode = 'connections' | 'problems'
+type TopologyFocusMode = 'connections' | 'problems' | 'problem-navigation'
 
 interface TopologyNodeFocus {
     mode: TopologyFocusMode
@@ -644,6 +658,8 @@ interface TopologyNodeFocus {
     relationLinkIDs: Set<string>
     visibleRelationLinkIDs: Set<string>
     hierarchyLinkKeys: Set<string>
+    problemStates?: Map<string, ProblemStatus>
+    problemContext?: { reason: string; typeLabel: string; scope?: string; related: Array<{ id: string; name: string; status: ProblemStatus }> }
 }
 
 /**
@@ -701,6 +717,8 @@ export class Topology extends React.Component<Props, {}> {
     private visibleLinksCache: Array<Link> | undefined
     private infrastructureCompactPlan?: InfrastructureCompactPlan
     private infrastructureTrafficRoutes = new Map<string, CompactRoute>()
+    private relocatedSwitchPorts = new Set<string>()
+    private infrastructureSceneLayout?: { key: string; positions: Map<string, { x: number; y: number }> }
     private infrastructureTrafficRouteKey = ''
     private infrastructureCompactKey = ''
     private infrastructureCompactVMKey = ''
@@ -731,6 +749,9 @@ export class Topology extends React.Component<Props, {}> {
     private kubernetesProblemsExpandedSnapshot: Map<string, boolean> | null
     private kubernetesProblemsGroupSnapshot: Map<string, NodeState> | null
     private topologyNodeFocus: TopologyNodeFocus | null
+    private problemViewportMoving = false
+    private problemViewportRenderPending = false
+    private problemViewportRenderFrame = 0
     private topologySyncInProgress: boolean
 
     root: Node
@@ -863,10 +884,13 @@ export class Topology extends React.Component<Props, {}> {
         this.notifyNodeResources()
     }
 
+    refreshKubernetesObservations() { this.refreshResourceCards() }
+
     private refreshResourceCards() {
         if (this.resourceCardRefreshTimer !== undefined) return
         this.resourceCardRefreshTimer = window.setTimeout(() => {
             this.resourceCardRefreshTimer = undefined
+            if (this.deferProblemViewportRender()) return
             const root = this.d3nodes.get('root')
             if (root && this.gNodes) {
                 const metricsIndex = this.nodeTagActive?.toLowerCase() === 'kubernetes' ? this.createResourceMetricsIndex() : undefined
@@ -884,6 +908,7 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     componentWillUnmount() {
+        if (this.problemViewportRenderFrame) window.cancelAnimationFrame(this.problemViewportRenderFrame)
         if (this.lldpExpiryTimer !== undefined) window.clearTimeout(this.lldpExpiryTimer)
         this.nodeResourceListeners.clear()
         if (this.infrastructureResizeTimer !== undefined) window.clearTimeout(this.infrastructureResizeTimer)
@@ -937,7 +962,7 @@ export class Topology extends React.Component<Props, {}> {
         this.infrastructureLayoutTransition = true
         try { this.renderTree() } finally { this.infrastructureLayoutTransition = false }
         const next = old && this.d3nodes.get(old.id)
-        if (next && old) this.svg.call(this.zoom.transform,
+        if (next && old && (Math.abs(old.x - next.x) > 0.01 || Math.abs(old.y - next.y) > 0.01)) this.svg.call(this.zoom.transform,
             zoomIdentity.translate(transform.x + (old.x - next.x) * transform.k, transform.y + (old.y - next.y) * transform.k).scale(transform.k))
         if (fitPending) this.zoomFitAfterRender(this.zoomFitMinScale, this.zoomFitMaxScale)
     }
@@ -1172,7 +1197,9 @@ export class Topology extends React.Component<Props, {}> {
             .scaleExtent([0.1, 1.5])
             .on("start", () => {
                 if (event.sourceEvent) this.cancelScheduledZoomFit()
+                this.problemViewportMoving = this.topologyNodeFocus?.mode === 'problem-navigation'
             })
+            .on("end", () => this.finishProblemViewportMove())
             .on("zoom", () => {
                 // start also fires for a plain click; only an actual gesture
                 // changing the transform should take over the viewport.
@@ -1294,6 +1321,7 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     private initTree() {
+        this.infrastructureSceneLayout = undefined
         var state = { expanded: true, selected: false, mouseover: false, groupOffset: 0, groupFullSize: false }
 
         this.root = new Node("root", ["root"], { Name: "root", Type: "root" }, state, 0)
@@ -2833,6 +2861,72 @@ export class Topology extends React.Component<Props, {}> {
         }
     }
 
+    private infrastructureSceneLayoutKey(root: any): string {
+        if (this.nodeTagActive.toLowerCase() === 'kubernetes') return ''
+        const descendants = root.descendants() as D3Node[]
+        const visibleVMs = new Set(descendants.filter(node => node.data.type === WrapperType.Normal
+            && node.data.wrapped.getWeight() === 7080
+            && String(node.data.wrapped.data?.Type).toLowerCase() === 'libvirt').map(node => node.data.wrapped.id))
+        const compact = this.props.infrastructureVMLayout === 'compact' && visibleVMs.size > 0
+        const view = compact ? this.viewSize() : undefined
+        // Capture layout inputs before flextree runs. Metrics, selection, link
+        // labels and coordinates from a previous layout are not geometry inputs.
+        const cards = descendants.map(node => [node.data.id, node.parent?.data.id, node.data.type,
+            node.data.wrapped.getWeight(), node.data.size, this.topologyLayoutCardHeight(node),
+            String(node.data.wrapped.data?.Type || ''), String(node.data.wrapped.data?.Manager || ''),
+            !!node.data.wrapped.state.expanded])
+        const bridges = compact ? infrastructureVMBridgeIDs(Array.from(this.nodes.values()).map(node => ({ id: node.id,
+            parentID: node.parent?.id, type: String(node.data?.Type || '').toLowerCase(), manager: String(node.data?.Manager || '').toLowerCase() })),
+            Array.from(this.links.values()).filter(link => ['layer2', 'vlayer2'].includes(link.data?.RelationType) && !link.data?.ManualPortMapping)
+                .map(link => ({ id: link.id, sourceID: link.source.id, targetID: link.target.id }))) : new Map<string, string[]>()
+        return JSON.stringify([this.nodeTagActive, this.props.infrastructureVMLayout,
+            view && [Math.round(view.width / 80), Math.round(view.height / 80)], cards,
+            Array.from(bridges).filter(([id]) => visibleVMs.has(id)).sort(([a], [b]) => a.localeCompare(b))])
+    }
+
+    private layoutSwitchPortsByConnection(root: any) {
+        this.relocatedSwitchPorts.clear()
+        if (this.nodeTagActive.toLowerCase() === 'kubernetes') return
+        const nodes = Array.from(this.nodes.values())
+        const targets = infrastructurePortLayoutTargets(nodes, Array.from(this.links.values()))
+        const descendants = root.descendants() as D3Node[]
+        const visible = descendants.filter(node => node.data.type !== WrapperType.Hidden && node.data.wrapped !== this.root)
+        const positions = new Map(visible.map(node => [node.data.wrapped.id, { x: node.x }]))
+        const slots: SwitchPortSlot[] = []
+        visible.forEach(node => {
+            if (node.data.type !== WrapperType.Normal || node.data.wrapped.getWeight() !== 5018) return
+            const port = node.data.wrapped
+            let owner: Node | null = port.parent
+            const seen = new Set<string>()
+            while (owner && String(owner.data?.Type).toLowerCase() !== 'switch' && !seen.has(owner.id)) {
+                seen.add(owner.id); owner = owner.parent
+            }
+            const switchID = owner?.id || targets.find(target => target.portNodeID === port.id)?.switchNodeID
+            if (!switchID) return
+            slots.push({ id: node.data.id, switchID, name: String(port.data?.Name || port.id),
+                x: node.x, y: node.y, width: this.topologyLayoutCardWidth(node) })
+        })
+        const arranged = switchPortConnectionPositions(slots, targets, positions)
+        const byID = new Map(visible.map(node => [node.data.id, node]))
+        // Reject an entire row if a variable-width card would enter a fixed
+        // summary/other-switch card. Sorting never moves unrelated objects.
+        const rejected = new Set<string>()
+        const rowKey = (slot: SwitchPortSlot) => JSON.stringify([slot.switchID, slot.y])
+        const moving = new Set(slots.map(slot => slot.id))
+        slots.forEach(slot => {
+            const x = arranged.get(slot.id)
+            if (x === undefined) return
+            if (visible.some(other => !moving.has(other.data.id) && Math.abs(other.y - slot.y) < 1
+                && Math.abs(other.x - x) < (this.topologyLayoutCardWidth(other) + slot.width) / 2)) rejected.add(rowKey(slot))
+        })
+        slots.forEach(slot => {
+            const x = arranged.get(slot.id), node = byID.get(slot.id)
+            if (node && x !== undefined && !rejected.has(rowKey(slot)) && Math.abs(node.x - x) > 0.01) {
+                node.x = x; this.relocatedSwitchPorts.add(slot.id)
+            }
+        })
+    }
+
     private nodeByID(id: string): Node | undefined {
         let n = this.nodes.get(id)
         if (!n) {
@@ -2939,7 +3033,7 @@ export class Topology extends React.Component<Props, {}> {
         }
     }
 
-    selectNode(id: string, active: boolean = true, keepExisting: boolean = false) {
+    selectNode(id: string, active: boolean = true, keepExisting: boolean = false, deferRender: boolean = false) {
         let n = this.nodeByID(id)
         if (!n) {
             return
@@ -2958,7 +3052,7 @@ export class Topology extends React.Component<Props, {}> {
             this.pinnedContainerMiniNodeID = id
             // Clicking an already visible child is selection-only. Rebuilding
             // the entire tree here can unnecessarily recalculate node slots.
-            if (shouldRenderExpandedGroup) {
+            if (shouldRenderExpandedGroup && !deferRender) {
                 this.renderTree()
             }
         } else if (active) {
@@ -3638,6 +3732,117 @@ export class Topology extends React.Component<Props, {}> {
         return true
     }
 
+    private problemNavigationContext(node: Node) {
+        const nodes = Array.from(this.nodes.values())
+        const links = Array.from(this.links.values()).filter(link => !isExpiredLLDPLink(link))
+        const entries = currentProblems(nodes, links, candidate => this.displayedNodeName(candidate), topologyNodeStatus)
+        const related = new Map<string, Node>()
+        const add = (candidate?: Node | null) => {
+            if (candidate && candidate.id !== node.id && this.nodes.has(candidate.id) && !candidate.data?.IsTopologyGroup) related.set(candidate.id, candidate)
+        }
+        add(node.parent); (node.children || []).forEach(add)
+        links.forEach(link => { if (link.source.id === node.id) add(link.target); else if (link.target.id === node.id) add(link.source) })
+        const entry = { id: node.id, node, related: Array.from(related.values()), domain: topologyResourceDomain(node), type: String(node.data?.Type || '').toLowerCase() }
+        const relatedResources = problemRelatedResources(entry, nodes).map(item => item.node)
+        const verdict = entries.find(entry => entry.id === node.id)
+        const relatedIDs = new Set(relatedResources.map(node => node.id))
+        return { related: relatedResources, states: new Map(entries.map(entry => [entry.id, entry.status])),
+            summary: { reason: verdict?.reason || '현재 문제 목록에서 제외된 자원입니다. 상태·수집 범위를 확인하세요.',
+                typeLabel: verdict?.typeLabel || String(node.data?.Type || '자원'),
+                // This panel needs the full collected cluster name for its
+                // two-line label/Tooltip, rather than the shortened SVG name.
+                scope: verdict ? [verdict.domain === 'kubernetes'
+                    ? String(node.data?.K8s?.ClusterName || node.data?.ClusterName || verdict.scope) : verdict.scope,
+                    verdict.namespace].filter(Boolean).join(' / ') || verdict.context : undefined,
+                related: entries.filter(entry => relatedIDs.has(entry.id))
+                    .map(entry => ({ id: entry.id, name: entry.name, status: entry.status })) } }
+    }
+
+    private problemNavigationFocus(node: Node, context = this.problemNavigationContext(node)) {
+        const renderedIDs = new Set<string>()
+        this.gNodes.selectAll<SVGGElement, D3Node>('g.node').each(d => { if (d?.data?.id) renderedIDs.add(d.data.id) })
+        const visibleID = (id: string) => renderedIDs.has(id) ? id : this.visibleNodeIDForID(id)
+        const relations: TopologyRelationPathEdge[] = [], hierarchy: TopologyRelationPathEdge[] = []
+        const visibleRelationLinkIDs = new Set<string>()
+        this.gLinks.selectAll<SVGPathElement, Link>('path.link').each(link => {
+            // Keep hidden traffic lines hidden and reject expired LLDP links.
+            if (!link || isExpiredLLDPLink(link) || this.linkDisplayOpacity(link) <= 0) return
+            visibleRelationLinkIDs.add(link.id)
+            const sourceID = visibleID(link.source.id), targetID = visibleID(link.target.id)
+            if (sourceID !== targetID) relations.push({ id: link.id, sourceID, targetID })
+        })
+        this.gHieraLinks.selectAll<SVGPathElement, any>('path.hiera-link').each(link => {
+            const sourceID = link?.source?.data?.id, targetID = link?.target?.data?.id
+            if (sourceID && targetID) hierarchy.push({ id: this.hierarchyLinkKey(sourceID, targetID), sourceID, targetID })
+        })
+        return { ...topologyProblemFocusClosure(visibleID(node.id), context.related.map(node => visibleID(node.id)), renderedIDs, relations, hierarchy),
+            visibleRelationLinkIDs, problemStates: context.states, problemContext: context.summary }
+    }
+
+    /** Called only by the problem screen, after the normal navigation route. */
+    focusProblemResource(nodeID: string): boolean {
+        const node = this.nodes.get(nodeID)
+        if (!node) return false
+        this.clearTopologyNodeFocus(false)
+        const context = this.problemNavigationContext(node)
+        // Select once before revealing: unresolved current Pods become visible
+        // through the same selection contract as connected-resource navigation.
+        // Do not Fit here and then restore the viewport; the caller centers the
+        // final target once, concurrently with the branch transition.
+        this.cancelScheduledZoomFit()
+        this.svg.interrupt()
+        this.problemViewportMoving = false
+        this.problemViewportRenderPending = false
+        if (this.problemViewportRenderFrame) window.cancelAnimationFrame(this.problemViewportRenderFrame)
+        this.problemViewportRenderFrame = 0
+        this.selectNode(nodeID, true, false, true)
+        const targetIDs = [nodeID, ...context.related.map(node => node.id)]
+        this.unpinNodes()
+        if (targetIDs.length > 1) {
+            this.pinnedContainerMiniNodeID = ''
+            this.expandedContainerMiniNodeIDs.clear()
+        }
+        this.revealProblemResourcePaths(targetIDs)
+        this.renderTree()
+        this.cancelScheduledZoomFit()
+        this.clearInfrastructureFocus()
+        if (!this.renderedFocusNode(nodeID)) return false
+        this.topologyNodeFocus = { mode: 'problem-navigation', focusedNodeID: nodeID,
+            focusedNodeName: this.displayedNodeName(node), ...this.problemNavigationFocus(node, context) }
+        this.applyTopologyNodeFocus()
+        this.forceUpdate()
+        return true
+    }
+
+    /** Discover nested synthetic groups without painting intermediate trees.
+     * groupify stores expansion state independently of each temporary wrapper. */
+    private revealProblemResourcePaths(nodeIDs: string[]) {
+        const targets = Array.from(new Set(nodeIDs)).map(id => this.nodes.get(id)).filter((node): node is Node => !!node)
+        targets.forEach(target => {
+            let node: Node | null | undefined = target
+            while (node) { node.state.expanded = true; node = node.parent }
+        })
+        for (let pass = 0; pass < 12; pass++) {
+            this.groups.clear()
+            this.nodeGroup.clear()
+            this.cloneTree(this.root, null)
+            let changed = false
+            targets.forEach(target => {
+                let node: Node | null | undefined = target
+                while (node) {
+                    const group = this.nodeGroup.get(node.id)
+                    if (group && (!group.wrapped.state.expanded || !group.wrapped.state.groupFullSize)) {
+                        group.wrapped.state.expanded = true
+                        group.wrapped.state.groupFullSize = true
+                        changed = true
+                    }
+                    node = node.parent
+                }
+            })
+            if (!changed) break
+        }
+    }
+
     private topologyFocusTargetExists(focusedNodeID: string): boolean {
         return this.nodes.has(focusedNodeID)
             || this.groups.has(focusedNodeID)
@@ -3666,8 +3871,7 @@ export class Topology extends React.Component<Props, {}> {
             // then repopulate nodes and edges. The empty intermediate render
             // must not be mistaken for deletion of the focused resource.
             if (this.topologySyncInProgress) return
-            this.topologyNodeFocus = null
-            this.forceUpdate()
+            this.clearTopologyNodeFocus()
             return
         }
 
@@ -3679,7 +3883,16 @@ export class Topology extends React.Component<Props, {}> {
             return
         }
 
-        if (focus.mode === 'connections') {
+        if (focus.mode === 'problem-navigation') {
+            const node = this.nodes.get(focus.focusedNodeID)
+            if (node) {
+                const next = { ...focus, ...this.problemNavigationFocus(node), focusedNodeName: this.displayedNodeName(node) }
+                this.topologyNodeFocus = next
+                // Graph rendering is imperative; refresh the React summary
+                // only when its content changed, without adding a polling loop.
+                if (focus.focusedNodeName !== next.focusedNodeName || JSON.stringify(focus.problemContext) !== JSON.stringify(next.problemContext)) this.forceUpdate()
+            }
+        } else if (focus.mode === 'connections') {
             const current = this.connectionFocus(rendered, focus.relatedNodeIDs)
             this.topologyNodeFocus = {
                 ...focus,
@@ -3698,11 +3911,13 @@ export class Topology extends React.Component<Props, {}> {
         }
     }
 
-    private clearTopologyNodeFocus() {
+    private clearTopologyNodeFocus(notify = true) {
         const hadFocus = !!this.topologyNodeFocus
+        const hadProblemFocus = this.topologyNodeFocus?.mode === 'problem-navigation'
         this.topologyNodeFocus = null
         this.applyTopologyNodeFocus()
         if (hadFocus) this.forceUpdate()
+        if (hadProblemFocus && notify) this.props.onProblemFocusCleared?.()
     }
 
     private toggleTopologyNodeFocus(
@@ -3755,9 +3970,17 @@ export class Topology extends React.Component<Props, {}> {
             ? storedFocus
             : null
         const focused = (id?: string) => !focus || (!!id && focus.nodeIDs.has(id))
+        const problemNavigation = focus?.mode === 'problem-navigation' ? focus : undefined
+        this.g?.classed('is-problem-navigation', !!problemNavigation)
+        const problemState = (d: D3Node) => problemNavigation && focused(d?.data?.id)
+            ? problemNavigation.problemStates?.get(d?.data?.wrapped?.id) : undefined
         this.gNodes?.selectAll('g.node')
             .classed('topology-focus-dim', (d: D3Node) => !focused(d?.data?.id))
             .classed('topology-focus-hit', (d: D3Node) => !!focus && focused(d?.data?.id))
+            .classed('problem-navigation-anchor', (d: D3Node) => !!problemNavigation && d?.data?.wrapped?.id === problemNavigation.focusedNodeID)
+            .classed('problem-navigation-problem', (d: D3Node) => problemState(d) === 'problem')
+            .classed('problem-navigation-attention', (d: D3Node) => problemState(d) === 'attention')
+            .classed('problem-navigation-unavailable', (d: D3Node) => problemState(d) === 'unavailable')
         this.gHieraLinks?.selectAll('path.hiera-link')
             .classed('topology-focus-dim', (link: any) => {
                 if (!focus) return false
@@ -4233,7 +4456,7 @@ export class Topology extends React.Component<Props, {}> {
             .style("opacity", (d: Link) => hitLinkIDs.has(d.id) ? 1 : 0)
     }
 
-    focusInfrastructureNodes(nodeIDs: string[], anchorNodeID?: string, revealTargets: boolean = false) {
+    focusInfrastructureNodes(nodeIDs: string[], anchorNodeID?: string, revealTargets: boolean = false, fitViewport: boolean = true) {
         this.clearInfrastructureFocus()
         this.unpinNodes()
         const targets = new Set(nodeIDs)
@@ -4329,9 +4552,9 @@ export class Topology extends React.Component<Props, {}> {
         })
 
         const visibleTargets = Array.from(visibleTargetIDs)
-        const bounds = this.infrastructureLayerBounds(visibleTargets) || this.focusBounds(visibleTargets)
-        if (bounds) {
-            this.fitBounds(bounds)
+        if (fitViewport) {
+            const bounds = this.infrastructureLayerBounds(visibleTargets) || this.focusBounds(visibleTargets)
+            if (bounds) this.fitBounds(bounds)
         }
         if (this.pinnedContainerMiniNodeID || this.expandedContainerMiniNodeIDs.size > 0) {
             this.syncContainerMiniCardActiveClass()
@@ -4964,8 +5187,10 @@ export class Topology extends React.Component<Props, {}> {
             .attr('width', 2.5).attr('height', 32).attr('rx', 1.25)
         label.select('text.level-label-title').attr('y', -contentHeight / 2 + layerGuideIconPixels + 8 - metrics.titleY)
         const iconX = topologyLevelLabelSafeInset / 2
-        label.select('text.level-label-icon').attr('x', iconX)
+        label.select('text.level-label-icon').style('opacity', d.weight === 7070 ? 0 : 1).attr('x', iconX)
             .attr('y', iconCenterY - metrics.iconY - metrics.iconHeight / 2)
+        label.select('g.level-label-router-icon')
+            .attr('transform', `translate(${iconX - layerGuideIconPixels / 2},${iconCenterY - layerGuideIconPixels / 2}) scale(${layerGuideIconPixels / 896}) translate(-64,-64)`)
         const switchScale = layerGuideIconPixels / 46
         label.select('g.level-label-switch-icon')
             .attr('transform', `translate(${iconX - 32 * switchScale},${iconCenterY - 32 * switchScale}) scale(${switchScale})`)
@@ -5207,6 +5432,9 @@ export class Topology extends React.Component<Props, {}> {
             .attr("text-anchor", "middle")
             .attr("x", 82)
             .text((d: LevelRect) => self.levelLabelIcon(self.weightTitles.get(d.weight) || 'Level ' + d.weight, d.weight))
+        levelLabelEnter.append('g').attr('class', 'level-label-router-icon')
+            .style('display', (d: LevelRect) => d.weight === 7070 ? null : 'none')
+            .attr('aria-hidden', 'true').append('path').attr('d', virtualRouterIconPath)
         const switchIcon = levelLabelEnter.append("g")
             .attr("class", "level-label-switch-icon")
         switchIcon.append("rect")
@@ -5307,7 +5535,8 @@ export class Topology extends React.Component<Props, {}> {
         // Kubernetes ownership uses the existing solid-link renderer. Do not
         // add a second hierarchy path over a collected workload/Pod link.
         const edges = this.nodeTagActive.toLowerCase() === 'kubernetes' ? [] : root.links()
-        const hieraLinker = (edge: any) => this.infrastructureCompactPlan?.routes.get(`hierarchy:${edge.source.data.id}->${edge.target.data.id}`)?.path || topologyCardEdge(
+        const hieraLinker = (edge: any) => (!this.relocatedSwitchPorts.has(edge.source.data.id) && !this.relocatedSwitchPorts.has(edge.target.data.id)
+            && this.infrastructureCompactPlan?.routes.get(`hierarchy:${edge.source.data.id}->${edge.target.data.id}`)?.path) || topologyCardEdge(
             this.topologyEdgeBounds(edge.source), this.topologyEdgeBounds(edge.target), true)
 
         var hieraLink = this.gHieraLinks.selectAll('path.hiera-link')
@@ -5614,7 +5843,7 @@ export class Topology extends React.Component<Props, {}> {
         let node = this.gNodes.selectAll<SVGGElement, D3Node>('g.node')
             .interrupt().data(root.descendants().filter((d: D3Node) =>
                 d.data.type !== WrapperType.Hidden && d.data.wrapped !== this.root), (d: D3Node) => d.data.id)
-        node.exit().transition().duration(animDuration).style('opacity', 0)
+        node.exit().classed('topology-node-exiting', true).transition().duration(animDuration).style('opacity', 0)
             .on('end.dispose', (_d, index, elements) => this.unmountNodeContent(elements[index])).remove()
         const entered = node.enter().append('g').attr('id', d => 'node-' + d.data.id)
             .attr('class', nodeClass).style('opacity', 0).attr('transform', d => `translate(${d.x},${d.y})`)
@@ -5775,6 +6004,13 @@ export class Topology extends React.Component<Props, {}> {
         return this.props.linkAttrs(this.links.get(link.id) || link)
     }
 
+    private linkTrafficTooltip(link: Link): string {
+        const original = this.links.get(link.id) || link
+        const attrs = this.renderedLinkAttrs(link)
+        return `${original.source.data?.Name || original.source.id} → ${original.target.data?.Name || original.target.id}: ${attrs.label}`
+            + (attrs.trafficNote ? `\n${attrs.trafficNote}` : '')
+    }
+
     private hasInlineLinkLabel(link: Link): boolean {
         if (!this.renderedLinkAttrs(link).label) return false
         if (this.nodeTagActive.toLowerCase() === 'kubernetes') return true
@@ -5810,7 +6046,9 @@ export class Topology extends React.Component<Props, {}> {
         const ids = new Set(cards.map(card => card.id))
         const edges = links.filter(link => ids.has(link.source.id) && ids.has(link.target.id))
             .map(link => ({ id: `relation:${link.id}`, sourceID: link.source.id, targetID: link.target.id }))
-        const preferred = this.infrastructureCompactPlan?.routes || new Map<string, CompactRoute>()
+        const originalPreferred = this.infrastructureCompactPlan?.routes || new Map<string, CompactRoute>()
+        const movedEdges = new Set(edges.filter(edge => this.relocatedSwitchPorts.has(edge.sourceID) || this.relocatedSwitchPorts.has(edge.targetID)).map(edge => edge.id))
+        const preferred = new Map(Array.from(originalPreferred).filter(([id]) => !movedEdges.has(id)))
         const regions = this.infrastructureCompactPlan?.bundles || []
         const key = JSON.stringify([cards, edges, edges.map(edge => preferred.get(edge.id)?.path), regions])
         if (key === this.infrastructureTrafficRouteKey) return
@@ -5826,9 +6064,8 @@ export class Topology extends React.Component<Props, {}> {
             const label = this.renderedLinkAttrs(link).label
             if (!label) return
             const labels = groups.get(route.trafficNodeID) || []
-            const original = this.links.get(link.id) || link
             labels.push({ id: link.id, width: Math.max(76, label.length * 18 + 22),
-                detail: `${original.source.data?.Name || original.source.id} → ${original.target.data?.Name || original.target.id}: ${label}` })
+                detail: this.linkTrafficTooltip(link) })
             groups.set(route.trafficNodeID, labels)
         })
         const slots = new Map<string, { index: number; count: number; width: number; hidden?: boolean; text?: string; detail?: string }>()
@@ -6242,8 +6479,7 @@ export class Topology extends React.Component<Props, {}> {
         linkLabel.select('title').text((d: Link) => {
             const summary = branchLabelSlots.get(d.id)?.detail
             if (summary) return summary
-            const original = this.links.get(d.id) || d
-            return `${original.source.data?.Name || original.source.id} → ${original.target.data?.Name || original.target.id}: ${this.renderedLinkAttrs(d).label}`
+            return this.linkTrafficTooltip(d)
         })
         const labelBounds: Array<{ element: SVGGElement; bb: DOMRect; link: Link }> = []
         linkLabel.each(function (d: Link) {
@@ -6364,7 +6600,27 @@ export class Topology extends React.Component<Props, {}> {
         }, delay)
     }
 
+    private deferProblemViewportRender(): boolean {
+        if (!this.problemViewportMoving) return false
+        this.problemViewportRenderPending = true
+        return true
+    }
+
+    private finishProblemViewportMove() {
+        this.problemViewportMoving = false
+        if (!this.problemViewportRenderPending || this.problemViewportRenderFrame) return
+        this.problemViewportRenderFrame = window.requestAnimationFrame(() => {
+            this.problemViewportRenderFrame = 0
+            if (this.problemViewportMoving) return
+            this.problemViewportRenderPending = false
+            this.renderTree()
+        })
+    }
+
     renderTree() {
+        // Graph data continues to update. Coalesce layout/DOM work while the
+        // problem viewport is moving, then paint its latest state on release.
+        if (this.deferProblemViewportRender()) return
         this.scheduleLLDPExpiry()
         this.cardWidthCache = new WeakMap()
         this.cardHeightCache = new WeakMap()
@@ -6388,12 +6644,20 @@ export class Topology extends React.Component<Props, {}> {
             const backplate = node.data.type === WrapperType.Group && !topologyGroupFullyExpanded(node.data.wrapped) ? topologyGroupStackOffset : 0
             node.data.size[0] = Math.max(node.data.size[0], this.topologyLayoutCardWidth(node) + backplate + topologySiblingCardGap)
         })
-        this.tree(root)
-        this.separateTopologyLanes(root)
-        this.compactVmLayerLayout(root)
-        this.compactHostSubtreeLayout(root)
-        this.layoutKubernetesNamespaces(root)
-        this.separateTopologyBranches(root)
+        const layoutKey = this.infrastructureSceneLayoutKey(root)
+        const retainedLayout = layoutKey && this.infrastructureSceneLayout?.key === layoutKey
+            ? this.infrastructureSceneLayout.positions : undefined
+        if (retainedLayout) {
+            root.each(node => { const point = retainedLayout.get(node.data.id)!
+                node.x = point.x; node.y = point.y })
+        } else {
+            this.tree(root)
+            this.separateTopologyLanes(root)
+            this.compactVmLayerLayout(root)
+            this.compactHostSubtreeLayout(root)
+            this.layoutKubernetesNamespaces(root)
+            this.separateTopologyBranches(root)
+        }
 
         // update d3nodes cache
         this.d3nodes = new Map<string, D3Node>()
@@ -6401,7 +6665,14 @@ export class Topology extends React.Component<Props, {}> {
             this.d3nodes.set(node.data.id, node)
         })
 
-        this.applyInfrastructureCompactLayout(root)
+        if (!retainedLayout) {
+            this.applyInfrastructureCompactLayout(root)
+            // Retain the base positions; connection sorting below may move
+            // switch ports as automatic/manual mappings actually change.
+            this.infrastructureSceneLayout = layoutKey ? { key: layoutKey,
+                positions: new Map((root.descendants() as D3Node[]).map(node => [node.data.id, { x: node.x, y: node.y }])) } : undefined
+        }
+        this.layoutSwitchPortsByConnection(root)
 
         this.g.classed('is-infrastructure-scene', this.nodeTagActive.toLowerCase() !== 'kubernetes')
         this.g.classed('is-kubernetes-scene', this.nodeTagActive.toLowerCase() === 'kubernetes')
@@ -6448,9 +6719,8 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     render() {
-        const connectionFocus = this.topologyNodeFocus?.mode === 'connections'
-            ? this.topologyNodeFocus
-            : null
+        const connectionFocus = this.topologyNodeFocus?.mode === 'connections' ? this.topologyNodeFocus : null
+        const problemFocus = this.topologyNodeFocus?.mode === 'problem-navigation' ? this.topologyNodeFocus : null
         const emptyKubernetesLayer = this.nodeTagActive.toLowerCase() === 'kubernetes'
             && !Array.from(this.nodes.values()).some(node =>
                 node.tags.some(tag => tag.toLowerCase() === 'kubernetes')
@@ -6472,6 +6742,27 @@ export class Topology extends React.Component<Props, {}> {
                         <span>클러스터가 연결되거나 수집되면 이 화면에 자동으로 표시됩니다.</span>
                     </React.Fragment>}
                 </div>}
+                {problemFocus && !this.props.problemPanelOpen && <TopologyProblemContext
+                    name={String(this.nodes.get(problemFocus.focusedNodeID)?.data?.Name || problemFocus.focusedNodeName)}
+                    typeLabel={problemFocus.problemContext?.typeLabel}
+                    scope={problemFocus.problemContext?.scope}
+                    reason={problemFocus.problemContext?.reason}
+                    collectedAt={this.nodes.has(problemFocus.focusedNodeID) ? lastCollectionTime(this.nodes.get(problemFocus.focusedNodeID)!) : '확인 불가'}
+                    related={problemFocus.problemContext?.related || []}
+                    onClear={() => this.clearTopologyNodeFocus()}
+                    onCenter={() => {
+                        const node = this.nodes.get(problemFocus.focusedNodeID)
+                        if (node) this.centerNode(node)
+                    }}
+                    onReturn={() => this.props.onReturnToProblems?.()}
+                    onInspect={() => {
+                        const node = this.nodes.get(problemFocus.focusedNodeID)
+                        if (node) this.props.onProblemResourceNavigate?.(node)
+                    }}
+                    onRelated={id => {
+                        const node = this.nodes.get(id)
+                        if (node) this.props.onProblemResourceNavigate?.(node)
+                    }} />}
                 {connectionFocus && <div
                     className="topology-connection-focus-status"
                     role="status"

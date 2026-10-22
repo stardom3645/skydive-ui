@@ -243,7 +243,7 @@ const KubernetesRelationshipResourceDetailPanel = ({ node }: Props) => {
     return (
         <div className="netdive-k8s-relationship-detail">
             <DetailSectionCard icon={<DetailSectionIcon role="basic" />} title={`${kind} 기본 정보`} collapsible collapsed={basicCollapsed} onToggle={() => setBasicCollapsed(!basicCollapsed)}>
-                <BasicInfoRows density="compact" rows={baseRows} labelWidth={122} copyTooltip="복사" />
+                <BasicInfoRows density="compact" rows={baseRows} labelWidth={122} copyTooltip="복사" appearance="basic" />
             </DetailSectionCard>
             <DetailSectionCard icon={<DetailSectionIcon role="advanced" />} title="고급 정보" collapsible collapsed={!basicInfoAdvanced} onToggle={() => setBasicInfoAdvanced(!basicInfoAdvanced)}>
                 <BasicInfoRows density="compact" rows={advancedRows} labelWidth={122} copyTooltip="복사" />

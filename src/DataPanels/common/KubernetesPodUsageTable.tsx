@@ -1,3 +1,4 @@
+import { OverflowTooltip } from '../../OverflowTooltip'
 import * as React from 'react'
 import { Progress, Table, Tooltip, Typography } from 'antd'
 
@@ -67,14 +68,14 @@ export const KubernetesModalResourceCell = ({
             {preferredBreaks(context)}
         </Typography.Text>}
         <span className="netdive-k8s-pod-usage-table__name-row">
-            <Tooltip title={fullName}>
+            <OverflowTooltip title={fullName}>
                 <button type="button" onClick={event => {
                     event.stopPropagation()
                     if (onClick) onClick()
                 }}>
                     {preferredBreaks(name)}
                 </button>
-            </Tooltip>
+            </OverflowTooltip>
             <DetailCopyButton value={name} tooltip={copyLabel} />
         </span>
     </span>

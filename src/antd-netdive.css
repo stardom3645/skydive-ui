@@ -519,6 +519,8 @@
 .netdive-navigation-item-text { display: flex; flex-direction: column; gap: 4px; }
 .netdive-navigation-item-text > span { font-size: 14px; line-height: 22px; }
 .netdive-navigation-item-text small { color: var(--netdive-menu-muted); font-size: 12px; white-space: normal; }
+.netdive-navigation-problems .ant-dropdown-menu { width: max-content; }
+.netdive-navigation-problems .netdive-navigation-item-text small { white-space: nowrap; }
 .netdive-navigation-preferences .ant-popover-inner {
   width: 320px;
   padding: 16px;
@@ -556,6 +558,7 @@
 .netdive-navigation-icon { display: inline-flex; width: 20px; height: 20px; margin-right: 12px; align-items: center; justify-content: center; }
 .netdive-navigation-icon img { max-width: 20px; max-height: 20px; }
 .netdive-navigation-icon svg { width: 18px; height: 18px; }
+.netdive-navigation-icon > .netdive-navigation-kubernetes-icon { display: inline-flex; font-size: 20px; }
 .netdive-collection-kpi {
   position: relative;
   min-height: 108px !important;
@@ -626,9 +629,9 @@
 .netdive-card-avatar .netdive-resource-icon .anticon,
 .netdive-card-avatar > .anticon { font-size: 23px; }
 .netdive-summary-card .ant-card-meta { display: flex; align-items: center; margin: 0; }
-.netdive-summary-card .ant-card-meta-avatar { padding-inline-end: 16px; }
-.netdive-summary-card .ant-card-meta-title { white-space: normal; line-height: 19px; }
-.netdive-summary-card .ant-statistic { width: 100%; padding-inline-start: 48px; }
+.netdive-summary-card .ant-card-meta-avatar { padding-inline-end: 8px; }
+.netdive-summary-card .ant-card-meta-title { white-space: normal; word-break: keep-all; line-height: 19px; }
+.netdive-summary-card .ant-statistic { width: 100%; padding-inline-start: 40px; }
 .netdive-overview-card-body { display: flex; align-items: flex-start; gap: 12px; min-height: 110px; }
 .netdive-overview-card .ant-card-meta { display: flex; flex: 1; min-width: 0; margin: 0; }
 .netdive-overview-card .ant-card-meta-avatar { padding-inline-end: 16px; }

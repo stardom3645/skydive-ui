@@ -4043,3 +4043,47 @@ button.netdive-detail-metric-row:focus-visible {
 .netdive-vm-detail-descriptions .netdive-detail-description-value { flex: 1 1 0; width: 100%; max-width: 100%; }
 .netdive-vm-detail-descriptions .netdive-detail-description-text { flex: 1 1 0; }
 .netdive-vm-detail-descriptions .netdive-detail-copy { flex: 0 0 auto; }
+
+/* Explicit basic-information appearance. Advanced metadata, operational
+ * sections and unrelated Ant Descriptions/Table retain their existing style. */
+.netdive-detail-descriptions.netdive-detail-basic-info { min-width: 0; width: 100%; }
+.netdive-detail-descriptions.netdive-detail-basic-info .ant-descriptions-view { border: 0; border-radius: 0; background: transparent; }
+.netdive-detail-descriptions.netdive-detail-basic-info .ant-descriptions-view > table { width: 100%; table-layout: fixed; }
+.netdive-detail-descriptions.netdive-detail-basic-info .ant-descriptions-row > .ant-descriptions-item {
+    /* Table-cell height is a minimum: wrapped values can grow naturally. */
+    height: var(--netdive-detail-basic-row-height);
+    padding: var(--netdive-detail-basic-row-padding-y) 0;
+    border: 0;
+    border-bottom: 1px solid var(--netdive-detail-basic-row-divider);
+    background: transparent;
+    vertical-align: middle;
+}
+.netdive-detail-descriptions.netdive-detail-basic-info .ant-descriptions-row:last-child > .ant-descriptions-item { border-bottom: 0; }
+.netdive-detail-descriptions.netdive-detail-basic-info .ant-descriptions-item-container {
+    display: grid;
+    grid-template-columns: var(--netdive-detail-basic-label-width) minmax(0, 1fr);
+    align-items: center;
+    column-gap: var(--netdive-detail-basic-column-gap);
+    min-width: 0;
+}
+.netdive-detail-descriptions.netdive-detail-basic-info .ant-descriptions-item-label,
+.netdive-detail-descriptions.netdive-detail-basic-info .ant-descriptions-item-content {
+    display: block;
+    min-width: 0;
+    margin: 0;
+    background: transparent;
+    font-size: var(--netdive-detail-font-body-label);
+    line-height: var(--netdive-detail-line-body-label);
+    font-weight: 400;
+}
+.netdive-detail-descriptions.netdive-detail-basic-info .ant-descriptions-item-label {
+    color: var(--netdive-detail-text-secondary);
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+}
+.netdive-detail-descriptions.netdive-detail-basic-info .ant-descriptions-item-content { color: var(--netdive-detail-text); font-variant-numeric: tabular-nums; }
+.netdive-detail-basic-info .netdive-detail-description-value { width: 100%; align-items: flex-start; }
+.netdive-detail-basic-info .netdive-detail-description-text { align-self: center; }
+.netdive-detail-basic-info .netdive-detail-copy,
+.netdive-detail-basic-info .netdive-detail-info-tooltip-trigger { flex-shrink: 0; }

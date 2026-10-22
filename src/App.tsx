@@ -27,6 +27,7 @@ import clsx from 'clsx'
 import Websocket from 'react-websocket'
 import { coalesceUpdates, CoalescedUpdate } from './CoalescedUpdates'
 import { resolveKubernetesPodController } from './KubernetesWorkloadOwnership'
+import { subscribeKubernetesPodObservations, clearKubernetesPodObservations } from './KubernetesPodLifecycle'
 import { kubernetesStorageBindings } from './KubernetesStorageBindings'
 import { isKubernetesTopologyData, isTopologyNodeVisibleInLayer } from './KubernetesInfrastructureEvidence'
 import { TopologyPendingEdges } from './TopologyPendingEdges'
@@ -38,6 +39,9 @@ import {
   ManualPortMappingRecord
 } from './InfrastructurePortMapping'
 import { listManualPortMappings, notifyManualPortMappingsChanged } from './ManualPortMappingAPI'
+import NetdiveFAQ from './NetdiveFAQ'
+import TopologyZoomControls from './TopologyZoomControls'
+import ProblemsPanel from './ProblemsPanel'
 
 import { withStyles } from '@material-ui/core/styles'
 import CssBaseline from '@material-ui/core/CssBaseline'
@@ -108,13 +112,16 @@ import {
   DeploymentUnitOutlined,
   FolderOutlined,
   GlobalOutlined as NetworkGlobalOutlined,
-  NodeIndexOutlined,
+  ForkOutlined,
   AppstoreOutlined,
   ApartmentOutlined,
+  CompassOutlined,
   SettingOutlined,
   UpOutlined,
   DownOutlined,
   QuestionCircleOutlined,
+  ReadOutlined,
+  CommentOutlined,
   BulbOutlined,
   CloseOutlined,
   EllipsisOutlined,
@@ -123,7 +130,7 @@ import {
   ClusterOutlined,
   CopyOutlined,
   EyeOutlined,
-  ExclamationCircleFilled,
+  ExclamationCircleOutlined,
   FilterOutlined,
   GlobalOutlined,
   HistoryOutlined,
@@ -181,6 +188,8 @@ import { translate } from "./Config"
 import EventHistory, { ChangeEvent } from './EventHistory'
 import MoldCredentialsPanel from './MoldCredentialsPanel'
 import { getMoldCredentialsStatus } from './MoldCredentialsAPI'
+import { getMoldIntegrationHealth, moldIntegrationIssue, moldIntegrationLabel, moldIntegrationDescription, moldIntegrationNotification, MOLD_INTEGRATION_CHANGED_EVENT } from './MoldIntegrationHealth'
+import type { MoldIntegrationHealth } from './MoldIntegrationHealth'
 import RelatedServicesMenu from './RelatedServicesMenu'
 
 export let currentLanguage: "en" | "ko" = "ko";
@@ -229,6 +238,7 @@ const addFilterValue = createFilterOptions<AddFilterValue>();
 type NetdiveTheme = "light" | "dark"
 type InitialTopologyLayer = "infrastructure" | "kubernetes"
 type HelpSection = "menu" | "toolbar" | "topology"
+type HelpView = 'guide' | 'faq'
 type InfrastructureFocusKey = "networkObjects" | "routers" | "userVMs" | "systemVMs" | "totalNodes"
 type InfrastructureViewMode = "all" | "hosts"
 type RecentNodeLayerTag = "kubernetes" | "infrastructure"
@@ -349,6 +359,7 @@ interface State {
   addFilterValue: AddFilterValue
   isAboutOpen: boolean
   isHelpOpen: boolean
+  helpView: HelpView
   helpActiveSection: HelpSection
   appVersion: string
   timeContext: Date | null
@@ -361,6 +372,9 @@ interface State {
   initialTopologyLayer: InitialTopologyLayer
   isInfrastructurePanelOpen: boolean
   isEventHistoryOpen: boolean
+  isProblemsOpen: boolean
+  problemContextID?: string
+  problemListRevision: number
   infrastructureFocus: InfrastructureFocusKey | ""
   infrastructureViewMode: InfrastructureViewMode
   infrastructureAgentRestartDialogOpen: boolean
@@ -394,9 +408,9 @@ interface State {
   kubernetesResourceExplorerNodeIDs: string[]
   kubernetesResourceExplorerTitle: string
   moldIntegrationConnected: boolean
+  moldIntegrationHealth?: MoldIntegrationHealth
   recentViewedNodes: RecentViewedNodeItem[]
   isRecentViewedNodesCollapsed: boolean
-  topologyZoom: number
   groupVisibleNodeIDs: Set<string>
   kubernetesProblemsOnly: boolean
   topologyDisplayOptions: TopologyDisplayOptions
@@ -588,9 +602,14 @@ class App extends React.Component<Props, State> {
   private manualPortMappings: ManualPortMappingRecord[] = []
   private manualPortMappingRequestID = 0
   private manualPortMappingRefreshID?: number
+  private currentTopologyZoom = topologyInitialScale
+  private topologyZoomControls = React.createRef<TopologyZoomControls>()
+  private problemNavigationTimer?: number
+  private unsubscribePodObservations?: () => void
   private selectionHistoryNavigating = false
   private updatedSelectionIDs = new Set<string>()
   private disposed = false
+  private moldHealthRequest?: AbortController
   private filterRequestID = 0
   private filterRefreshInFlight = false
 
@@ -619,6 +638,7 @@ class App extends React.Component<Props, State> {
       addFilterValue: { label: "", gremlinFilter: "" },
       isAboutOpen: false,
       isHelpOpen: false,
+      helpView: 'guide',
       helpActiveSection: "menu",
       appVersion: "",
       timeContext: null,
@@ -636,6 +656,8 @@ class App extends React.Component<Props, State> {
       initialTopologyLayer: getSavedInitialTopologyLayer(),
       isInfrastructurePanelOpen: false,
       isEventHistoryOpen: false,
+      isProblemsOpen: false,
+      problemListRevision: 0,
       infrastructureFocus: "",
       infrastructureViewMode: "all",
       infrastructureAgentRestartDialogOpen: false,
@@ -671,7 +693,6 @@ class App extends React.Component<Props, State> {
       moldIntegrationConnected: false,
       recentViewedNodes: getSavedRecentViewedNodes(),
       isRecentViewedNodesCollapsed: true,
-      topologyZoom: topologyInitialScale,
       groupVisibleNodeIDs: new Set<string>(),
       kubernetesProblemsOnly: false,
       topologyDisplayOptions: getSavedTopologyDisplayOptions(),
@@ -742,6 +763,11 @@ class App extends React.Component<Props, State> {
   componentDidMount() {
     // make the application available globally
     window.App = this
+    this.unsubscribePodObservations = subscribeKubernetesPodObservations(() => {
+      this.tc?.refreshKubernetesObservations()
+      this.props.selection.forEach(item => this.bumpRevision(item.id))
+      if (this.state.isProblemsOpen || this.state.problemContextID) this.debSetState(this.state)
+    })
     document.addEventListener("mousedown", this.documentMouseDown, true)
 
     if (this.props.configURL) {
@@ -774,7 +800,9 @@ class App extends React.Component<Props, State> {
     this.refreshKubernetesClusters()
     this.refreshManualPortMappingLinks()
     this.checkInitialMoldCredentialsSetup()
+    this.refreshMoldIntegrationHealth()
     this.vmNameMapRefreshID = window.setInterval(() => {
+      this.refreshMoldIntegrationHealth()
       this.refreshVmNameMap()
       this.refreshVmNetworkMap()
       this.refreshVmDetailMap()
@@ -790,13 +818,22 @@ class App extends React.Component<Props, State> {
   }
 
   componentDidUpdate(prevProps: Props) {
+    if (prevProps.session?.endpoint !== this.props.session?.endpoint || prevProps.session?.token !== this.props.session?.token) {
+      this.moldHealthRequest?.abort()
+      this.moldHealthRequest = undefined
+      this.setState({ moldIntegrationHealth: undefined }, () => this.refreshMoldIntegrationHealth())
+    }
+    if (prevProps.session?.endpoint !== this.props.session?.endpoint || prevProps.session?.token !== this.props.session?.token) clearKubernetesPodObservations()
     if (prevProps.selection.length !== this.props.selection.length && this.props.selection.length === 0 && this.state.isSelectionOpen) {
       this.setState({ isSelectionOpen: false })
     }
   }
 
   componentWillUnmount() {
+    this.unsubscribePodObservations?.()
+    if (this.problemNavigationTimer !== undefined) window.clearTimeout(this.problemNavigationTimer)
     this.disposed = true
+    this.moldHealthRequest?.abort()
     this.filterRequestID++
     this.manualPortMappingRequestID++
     this.refreshTopology.cancel()
@@ -930,7 +967,7 @@ class App extends React.Component<Props, State> {
 
   private onDocumentMouseDown(event: MouseEvent) {
     const isLinkTagsExpanded = !this.state.isLinkTagsCollapsed && this.state.linkTagStates.size !== 0
-    if (!this.state.isEventHistoryOpen && !this.state.isInfrastructurePanelOpen && !this.state.isKubernetesManagerOpen && !this.state.isScreenConfigOpen && !this.state.isPreferencesPanelOpen && !this.state.isMoldCredentialsOpen && !this.state.isHelpOpen && !this.state.isAboutOpen && !isLinkTagsExpanded && !this.state.topologyDisplayOptionsOpen) {
+    if (!this.state.isEventHistoryOpen && !this.state.isProblemsOpen && !this.state.isInfrastructurePanelOpen && !this.state.isKubernetesManagerOpen && !this.state.isScreenConfigOpen && !this.state.isPreferencesPanelOpen && !this.state.isMoldCredentialsOpen && !this.state.isHelpOpen && !this.state.isAboutOpen && !isLinkTagsExpanded && !this.state.topologyDisplayOptionsOpen) {
       return
     }
     const target = event.target as Element | null
@@ -955,6 +992,7 @@ class App extends React.Component<Props, State> {
   private closeSidePanels(extraState: { isSelectionOpen?: boolean, isTimetravelOpen?: boolean, isLinkTagsCollapsed?: boolean } = {}) {
     this.setState({
       isEventHistoryOpen: false,
+      isProblemsOpen: false,
       isSelectionOpen: extraState.isSelectionOpen !== undefined ? extraState.isSelectionOpen : this.state.isSelectionOpen,
       isTimetravelOpen: extraState.isTimetravelOpen !== undefined ? extraState.isTimetravelOpen : this.state.isTimetravelOpen,
       isLinkTagsCollapsed: extraState.isLinkTagsCollapsed !== undefined ? extraState.isLinkTagsCollapsed : this.state.isLinkTagsCollapsed,
@@ -2373,7 +2411,7 @@ class App extends React.Component<Props, State> {
       this.reconcileKubernetesWorkloadHierarchy()
       this.tc.renderTree();
       this.pruneRecentViewedNodes()
-      if (this.state.isEventHistoryOpen) this.forceUpdate()
+      if (this.state.isEventHistoryOpen || this.state.isProblemsOpen) this.forceUpdate()
     }
   }
 
@@ -2400,7 +2438,7 @@ class App extends React.Component<Props, State> {
         }
         this.synced = true
         this.refreshManualPortMappingLinks()
-        if (this.state.isEventHistoryOpen) this.forceUpdate()
+        if (this.state.isEventHistoryOpen || this.state.isProblemsOpen) this.forceUpdate()
         break
       case "NodeAdded":
         if (!this.synced) {
@@ -3465,18 +3503,15 @@ class App extends React.Component<Props, State> {
   }
 
   onTopologyZoomChange(zoom: number) {
-    const normalized = Math.max(0.1, Math.min(1.5, zoom || 1))
-    if (Math.abs((this.state.topologyZoom || 1) - normalized) < 0.005) {
-      return
-    }
-    this.setState({ topologyZoom: normalized })
+    this.currentTopologyZoom = Math.max(0.1, Math.min(1.5, zoom || 1))
+    this.topologyZoomControls.current?.setZoom(this.currentTopologyZoom)
   }
 
   zoomTopology(delta: number) {
     if (!this.tc) {
       return
     }
-    const current = this.tc.currentZoom ? this.tc.currentZoom() : this.state.topologyZoom
+    const current = this.tc.currentZoom ? this.tc.currentZoom() : this.currentTopologyZoom
     this.tc.setZoomLevel(current + delta)
   }
 
@@ -3495,47 +3530,9 @@ class App extends React.Component<Props, State> {
   }
 
   renderTopologyZoomControls(classes: any) {
-    const zoom = this.state.topologyZoom || 1
-    const zoomPercent = `${Math.round(zoom * 100)}%`
-    const canZoomOut = zoom > 0.105
-    const canZoomIn = zoom < 1.495
-    return (
-      <div className={classes.toolbarZoomGroup}>
-        <Tooltip title={translate("topologyZoomOut")}>
-          <span>
-            <IconButton
-              color="inherit"
-              disabled={!canZoomOut}
-              onClick={() => this.zoomTopology(-0.1)}
-              className={classes.topologyIconButton}
-            >
-              <span className={classes.topologyZoomButtonText}>-</span>
-            </IconButton>
-          </span>
-        </Tooltip>
-        <Tooltip title={translate("topologyZoomReset")}>
-          <button
-            type="button"
-            className={classes.topologyZoomPercent}
-            onClick={this.resetTopologyZoom.bind(this)}
-          >
-            {zoomPercent}
-          </button>
-        </Tooltip>
-        <Tooltip title={translate("topologyZoomIn")}>
-          <span>
-            <IconButton
-              color="inherit"
-              disabled={!canZoomIn}
-              onClick={() => this.zoomTopology(0.1)}
-              className={classes.topologyIconButton}
-            >
-              <span className={classes.topologyZoomButtonText}>+</span>
-            </IconButton>
-          </span>
-        </Tooltip>
-      </div>
-    )
+    return <TopologyZoomControls ref={this.topologyZoomControls} classes={classes}
+      initialZoom={this.currentTopologyZoom} onZoom={delta => this.zoomTopology(delta)}
+      onReset={() => this.resetTopologyZoom()} />
   }
 
   renderSelectionMenuItem(classes: any) {
@@ -4250,6 +4247,7 @@ class App extends React.Component<Props, State> {
   openAboutDialog() {
     this.setState({
       isEventHistoryOpen: false,
+      isProblemsOpen: false,
       isInfrastructurePanelOpen: false,
       isKubernetesManagerOpen: false,
       isScreenConfigOpen: false,
@@ -4264,16 +4262,18 @@ class App extends React.Component<Props, State> {
     this.setState({ isHelpOpen: false })
   }
 
-  openHelpDialog() {
+  openHelpDialog(helpView: HelpView = 'guide') {
     this.setState({
       isEventHistoryOpen: false,
+      isProblemsOpen: false,
       isInfrastructurePanelOpen: false,
       isKubernetesManagerOpen: false,
       isScreenConfigOpen: false,
       isPreferencesPanelOpen: false,
       isMoldCredentialsOpen: false,
       isAboutOpen: false,
-      isHelpOpen: true
+      isHelpOpen: true,
+      helpView
     })
   }
 
@@ -4377,7 +4377,7 @@ class App extends React.Component<Props, State> {
     collectItems(items)
     return (
       <AntDropdown key={id} placement="bottomLeft" align={{ offset: [68, -64] }} trigger={['click']} open={visible}
-        onOpenChange={onVisibleChange} classNames={{ root: 'netdive-navigation-dropdown' }}
+        onOpenChange={onVisibleChange} classNames={{ root: clsx('netdive-navigation-dropdown', id === 'problems' && 'netdive-navigation-problems') }}
         getPopupContainer={node => node.parentElement || document.body}
         popupRender={() => <AntMenu id={`netdive-navigation-${id}`} selectable={false} aria-label={label}
           onKeyDown={event => { if (event.key === 'Escape') onVisibleChange(false) }}>
@@ -4391,6 +4391,7 @@ class App extends React.Component<Props, State> {
   private openKubernetesManager() {
     this.setState({
       isEventHistoryOpen: false,
+      isProblemsOpen: false,
       isInfrastructurePanelOpen: false,
       isKubernetesManagerOpen: true,
       isScreenConfigOpen: false,
@@ -4449,6 +4450,7 @@ class App extends React.Component<Props, State> {
   private openInfrastructureTopology() {
     this.setState({
       isEventHistoryOpen: false,
+      isProblemsOpen: false,
       isInfrastructurePanelOpen: true,
       isKubernetesManagerOpen: false,
       isScreenConfigOpen: false,
@@ -4933,7 +4935,7 @@ class App extends React.Component<Props, State> {
   private infrastructureIcon(glyph: string, _tone: string, badge?: string) {
     const icons: { [key: string]: React.ReactNode } = {
       '\uf233': <CloudServerOutlined />, '\uf108': <DesktopOutlined />,
-      '\uf085': <SettingOutlined />, '\uf4d7': <NodeIndexOutlined />,
+      '\uf085': <SettingOutlined />, '\uf4d7': <ForkOutlined />,
       '\uf6ff': <ApartmentOutlined />, '\uf0e8': <ApartmentOutlined />,
       '\uf0ac': <NetworkGlobalOutlined />, '\uf542': <ClusterOutlined />,
       '\uf07b': <FolderOutlined />, '\uf5fd': <AppstoreOutlined />,
@@ -4995,7 +4997,7 @@ class App extends React.Component<Props, State> {
     const interactive = !!onClick && !disabled
     return <AntCard
       classNames={{ root: clsx('netdive-summary-card', className), body: 'netdive-summary-card-body' }}
-      styles={{ body: { padding: '18px 20px' } }}
+      styles={{ body: { padding: '18px 16px' } }}
       hoverable={interactive}
       role={onClick ? 'button' : undefined}
       tabIndex={interactive ? 0 : undefined}
@@ -5234,6 +5236,7 @@ class App extends React.Component<Props, State> {
   private openScreenConfigPanel() {
     this.setState({
       isEventHistoryOpen: false,
+      isProblemsOpen: false,
       isInfrastructurePanelOpen: false,
       isKubernetesManagerOpen: false,
       isScreenConfigOpen: true,
@@ -5247,6 +5250,7 @@ class App extends React.Component<Props, State> {
   private openPreferencesPanel() {
     this.setState({
       isEventHistoryOpen: false,
+      isProblemsOpen: false,
       isInfrastructurePanelOpen: false,
       isKubernetesManagerOpen: false,
       isScreenConfigOpen: false,
@@ -5260,6 +5264,29 @@ class App extends React.Component<Props, State> {
   private openMoldCredentialsPanel() {
     this.closeSidePanels()
     this.setState({ isMoldCredentialsOpen: true })
+  }
+
+  private refreshMoldIntegrationHealth = () => {
+    if (this.disposed || this.props.dataURL || this.moldHealthRequest) return
+    const controller = new AbortController()
+    this.moldHealthRequest = controller
+    const timeout = window.setTimeout(() => controller.abort(), 10000)
+    getMoldIntegrationHealth(this.props.session, controller.signal).then(health => {
+      if (!health || this.disposed || controller.signal.aborted) return
+      const notification = moldIntegrationNotification(this.state.moldIntegrationHealth, health)
+      if (this.state.moldIntegrationHealth?.state !== health.state) {
+        window.dispatchEvent(new Event(MOLD_INTEGRATION_CHANGED_EVENT))
+      }
+      this.setState({ moldIntegrationHealth: health })
+      if (notification) this.props.enqueueSnackbar(moldIntegrationLabel(health), {
+        variant: notification, autoHideDuration: 8000, preventDuplicate: true,
+        anchorOrigin: { vertical: 'bottom', horizontal: 'right' }
+      })
+    }).catch(() => { /* Netdive request errors do not prove Mold authentication failure. */ })
+      .finally(() => {
+        window.clearTimeout(timeout)
+        if (this.moldHealthRequest === controller) this.moldHealthRequest = undefined
+      })
   }
 
   private checkInitialMoldCredentialsSetup() {
@@ -5297,6 +5324,8 @@ class App extends React.Component<Props, State> {
     this.refreshVmDetailMap()
     this.refreshMoldInventory()
     this.refreshManagementServers()
+    this.refreshMoldIntegrationHealth()
+    this.refreshKubernetesClusters(true)
   }
 
   private moldCredentialsReset = () => {
@@ -5328,7 +5357,7 @@ class App extends React.Component<Props, State> {
 
   private renderEventHistory(classes: any) {
     if (!this.state.isEventHistoryOpen) return null
-    return <Paper className={clsx(classes.kubernetesManagerPanel, classes.kubernetesManagerPanelCompact, classes.eventHistoryPanel)} data-netdive-side-panel="true">
+    return <Paper className={clsx(classes.kubernetesManagerPanel, classes.kubernetesManagerPanelCompact, classes.operationListPanel, classes.eventHistoryPanel)} data-netdive-side-panel="true">
       <EventHistory userSession={this.props.session}
         renderHeader={refreshAction => this.renderCollectionPanelHeader(classes, '이벤트',
           '자원 상태와 연결 관계에서 발생한 최근 변경을 확인합니다.',
@@ -5338,6 +5367,63 @@ class App extends React.Component<Props, State> {
           const node = this.eventHistoryNode(event)
           if (node) this.setState({ isEventHistoryOpen: false }, () => this.focusRecentViewedNode(this.eventHistoryTarget(node)))
         }} />
+    </Paper>
+  }
+
+  private navigateProblemResource(node: Node) {
+    if (!this.tc?.nodes.has(node.id)) {
+      this.notify('현재 토폴로지에서 해당 자원을 찾을 수 없습니다.', 'info')
+      return
+    }
+    if (this.problemNavigationTimer !== undefined) window.clearTimeout(this.problemNavigationTimer)
+    this.setState({ isProblemsOpen: false, isSelectionOpen: true, problemContextID: node.id }, () => {
+      const type = String(node.data?.Type || '').toLowerCase()
+      const relationshipOnly = isKubernetesTopologyData(node.data, node.tags) && !['cluster', 'node', 'namespace', 'pod',
+        'storageclass', 'persistentvolumeclaim', 'persistentvolume'].includes(type) && !KUBERNETES_WORKLOAD_TYPES.has(type)
+      if (relationshipOnly) {
+        this.focusInfrastructureNodeIDs([node.id], undefined, true)
+      } else {
+        this.syncTopologyNodeTagForNodes([node.id])
+      }
+      this.openSelection()
+      if (!this.tc?.focusProblemResource(node.id)) {
+        this.setState({ problemContextID: undefined })
+        return
+      }
+      if (!relationshipOnly) {
+        // Let the selection/Drawer commit finish, then start one camera move
+        // toward final layout coordinates alongside the branch animation.
+        this.problemNavigationTimer = window.setTimeout(() => {
+          this.problemNavigationTimer = undefined
+          const current = this.tc?.nodes.get(node.id)
+          if (current?.state.selected && this.state.problemContextID === node.id
+            && this.state.isSelectionOpen && !this.state.isProblemsOpen) this.tc?.centerNode(current)
+        }, 0)
+      }
+    })
+  }
+
+  private openProblemsPanel(returnToList = false) {
+    this.closeSidePanels({ isSelectionOpen: false, isTimetravelOpen: false })
+    this.setState(state => ({ isProblemsOpen: true,
+      problemListRevision: state.problemListRevision + (returnToList ? 1 : 0) }))
+  }
+
+  private renderProblemsPanel(classes: any) {
+    if (!this.state.isProblemsOpen && !this.state.problemContextID) return null
+    return <Paper className={clsx(classes.kubernetesManagerPanel, classes.kubernetesManagerPanelCompact, classes.operationListPanel, classes.problemsPanel, 'netdive-problems-workspace')}
+      style={this.state.isProblemsOpen ? undefined : { display: 'none' }} data-netdive-side-panel="true">
+      <ProblemsPanel nodes={Array.from(this.tc?.nodes.values() || [])} links={Array.from(this.tc?.links.values() || [])}
+        suspended={!this.state.isProblemsOpen}
+        listRevision={this.state.problemListRevision}
+        userSession={this.props.session}
+        connected={!!this.connected} synced={!!this.synced} historical={!!this.state.timeContext}
+        name={node => this.nodeDisplayName(node, true)} infrastructureStatus={topologyNodeStatus}
+        onRefresh={() => this.sync()} tableClassName={classes.kubernetesCollectionTable}
+        renderHeader={action => this.renderCollectionPanelHeader(classes, '문제',
+          '인프라스트럭처·Kubernetes 문제의 판정 근거와 연관 자원을 확인합니다.',
+          () => this.setState({ isProblemsOpen: false }), action)}
+        onNavigate={node => this.navigateProblemResource(node)} />
     </Paper>
   }
 
@@ -5491,7 +5577,8 @@ class App extends React.Component<Props, State> {
         translate("moldCredentialsEncryptedDescription"),
         () => this.setState({ isMoldCredentialsOpen: false })
       )}
-      <MoldCredentialsPanel userSession={this.props.session} onReset={this.moldCredentialsReset} />
+      <MoldCredentialsPanel userSession={this.props.session} health={this.state.moldIntegrationHealth}
+        onSaved={this.completeMoldCredentialsWizard} onReset={this.moldCredentialsReset} />
     </Paper>
   }
 
@@ -5520,16 +5607,19 @@ class App extends React.Component<Props, State> {
     }
     const helpSections: Array<HelpSection> = ["menu", "toolbar", "topology"]
     const activeSection = this.state.helpActiveSection
+    const isFAQ = this.state.helpView === 'faq'
+    const title = translate(isFAQ ? 'faqMenu' : 'help')
     return (
       <Paper className={classes.sideSettingsPanel} data-netdive-side-panel="true">
         <div className={classes.sideSettingsHeader}>
           <div>
-            <div className={classes.sideSettingsTitle}>{translate("help")}</div>
-            <div className={classes.sideSettingsDescription}>{translate("helpPanelDescription")}</div>
+            <div className={classes.sideSettingsTitle}>{title}</div>
+            <div className={classes.sideSettingsDescription}>{translate(isFAQ ? 'faqPanelDescription' : 'helpPanelDescription')}</div>
           </div>
-          {this.renderSidePanelClose(translate('help'), () => this.setState({ isHelpOpen: false }))}
+          {this.renderSidePanelClose(title, () => this.setState({ isHelpOpen: false }))}
         </div>
         <div className={classes.sideSettingsList}>
+          {isFAQ ? <NetdiveFAQ language={this.state.language} /> : <React.Fragment>
           <AntSegmented<HelpSection> block aria-label={translate('help')}
             value={activeSection} onChange={section => this.setState({ helpActiveSection: section })}
             options={helpSections.map(section => ({ value: section, label: translate(`helpSection-${section}`) }))} />
@@ -5585,6 +5675,7 @@ class App extends React.Component<Props, State> {
             </div>
             <AntButton size="small" href="https://docs.ablecloud.io/latest/administration/wall/netdive-guide/" target="_blank" rel="noopener noreferrer">ABLESTACK Online Docs</AntButton>
           </div>
+          </React.Fragment>}
         </div>
       </Paper>
     )
@@ -5887,11 +5978,11 @@ class App extends React.Component<Props, State> {
         {this.renderDrawerMenuGroup(
           classes,
           "collection",
-          <ApartmentOutlined />,
+          <CompassOutlined />,
           translate("collectionSection"),
           <React.Fragment>
-            {this.renderDrawerIntegrationItem(classes, <ApartmentOutlined />, translate("infrastructureMenu"), translate("infrastructureMenuSummary"), () => this.openInfrastructureTopology(), this.state.isInfrastructurePanelOpen)}
-            {this.renderDrawerIntegrationItem(classes, this.kubernetesIcon(), translate("kubernetesCollectionMenu"), translate("kubernetesMenuSummary"), () => this.openKubernetesManager(), this.state.isKubernetesManagerOpen)}
+            {this.renderDrawerIntegrationItem(classes, <AccountTreeIcon fontSize="small" />, translate("infrastructureMenu"), translate("infrastructureMenuSummary"), () => this.openInfrastructureTopology(), this.state.isInfrastructurePanelOpen)}
+            {this.renderDrawerIntegrationItem(classes, this.kubernetesIcon('netdive-navigation-kubernetes-icon'), translate("kubernetesCollectionMenu"), translate("kubernetesMenuSummary"), () => this.openKubernetesManager(), this.state.isKubernetesManagerOpen)}
           </React.Fragment>,
           this.state.isInfrastructurePanelOpen || this.state.isKubernetesManagerOpen
         )}
@@ -5912,6 +6003,17 @@ class App extends React.Component<Props, State> {
             this.state.isEventHistoryOpen
           ),
           this.state.isEventHistoryOpen
+        )}
+        {this.renderDrawerMenuGroup(
+          classes,
+          'problems',
+          <ExclamationCircleOutlined />,
+          '문제',
+          this.renderDrawerIntegrationItem(classes, <ExclamationCircleOutlined />, '문제 리스트',
+            '문제 자원 · 확인 필요 · 수집 상태 확인', () => {
+              this.openProblemsPanel()
+            }, this.state.isProblemsOpen),
+          this.state.isProblemsOpen
         )}
         <div className={classes.drawerMenuDivider} role="separator" aria-hidden="true" />
         {this.renderDrawerMenuGroup(
@@ -5966,7 +6068,8 @@ class App extends React.Component<Props, State> {
           <QuestionCircleOutlined />,
           translate("helpSection"),
           <React.Fragment>
-            {this.renderDrawerIntegrationItem(classes, <QuestionCircleOutlined />, "Help", "", this.openHelpDialog.bind(this), this.state.isHelpOpen)}
+            {this.renderDrawerIntegrationItem(classes, <ReadOutlined />, "Help", "", () => this.openHelpDialog(), this.state.isHelpOpen && this.state.helpView === 'guide')}
+            {this.renderDrawerIntegrationItem(classes, <CommentOutlined />, translate('faqMenu'), "", () => this.openHelpDialog('faq'), this.state.isHelpOpen && this.state.helpView === 'faq')}
             {this.renderDrawerIntegrationItem(classes, <InfoCircleOutlined />, "About", "", this.openAboutDialog.bind(this), this.state.isAboutOpen)}
           </React.Fragment>,
           this.state.isHelpOpen || this.state.isAboutOpen
@@ -6064,6 +6167,11 @@ class App extends React.Component<Props, State> {
               </Tooltip>
             </div>
             <div className={classes.grow} />
+            {moldIntegrationIssue(this.state.moldIntegrationHealth) && <AntButton size="small" danger
+              icon={<ExclamationCircleOutlined />} onClick={() => this.openMoldCredentialsPanel()}
+              aria-label={moldIntegrationDescription(this.state.moldIntegrationHealth!)}>
+              {moldIntegrationLabel(this.state.moldIntegrationHealth!)}
+            </AntButton>}
             {this.renderMenuButtons(classes)}
           </Toolbar>
         </AppBar>
@@ -6078,6 +6186,7 @@ class App extends React.Component<Props, State> {
           </div>
         </Drawer>
         {this.renderInfrastructurePanel(classes)}
+        {this.renderProblemsPanel(classes)}
         {this.renderEventHistory(classes)}
         {this.renderKubernetesManagerPanel(classes)}
         {this.renderScreenConfigPanel(classes)}
@@ -6095,6 +6204,10 @@ class App extends React.Component<Props, State> {
               if (node) node.setKubernetesProblemsOnly(this.state.kubernetesProblemsOnly)
             }}
               nodeAttrs={this.nodeAttrs.bind(this)}
+              problemPanelOpen={this.state.isProblemsOpen}
+              onReturnToProblems={() => this.openProblemsPanel(true)}
+              onProblemResourceNavigate={node => this.navigateProblemResource(node)}
+              onProblemFocusCleared={() => this.setState({ problemContextID: undefined })}
               linkAttrs={this.linkAttrs.bind(this)}
               onNodeSelected={this.onNodeSelected.bind(this)}
               sortNodesFnc={this.sortNodesFnc.bind(this)}
@@ -6127,7 +6240,8 @@ class App extends React.Component<Props, State> {
               emptyKubernetesContent={this.renderKubernetesEmptyLayer()}
             />
           </Container>
-          <Container className={classes.rightPanel}>
+          <Container className={classes.rightPanel} data-netdive-object-panel="true"
+            style={this.state.isProblemsOpen ? { display: 'none' } : undefined}>
             <Paper className={clsx(classes.rightPanelPaper, (!this.state.isSelectionOpen && !this.state.isTimetravelOpen) && classes.rightPanelPaperClose)}
               square={true}>
               {!this.state.isTimetravelOpen &&

@@ -10,6 +10,28 @@ const link = (metric?: any, targetMetric?: any): any => ({
 const metric = { Start: 1000, Last: 2000, RxBytes: 100000, TxBytes: 25000 }
 
 describe('Connection detail data', () => {
+    it('uses the registered manual NIC in both directions and ignores switch-port counters', () => {
+        for (const reverse of [false, true]) {
+            const connection = link(metric, { ...metric, RxBytes: 999999999 })
+            connection.data = { ManualPortMapping: true, ManualPortMappingNICID: 'nic-a' }
+            if (reverse) [connection.source, connection.target] = [connection.target, connection.source]
+            assert.equal(topologyLinkTraffic(connection)!.node.id, 'nic-a')
+            assert.equal(topologyLinkTraffic(connection)!.total, 1000000)
+            connection.data.ManualPortMappingNICID = 'missing-nic'
+            assert.equal(topologyLinkTraffic(connection), undefined)
+        }
+    })
+    it('keeps measured manual zero distinct from missing data and never falls back to switch-port traffic', () => {
+        const connection = link({ ...metric, RxBytes: 0, TxBytes: 0 }, metric)
+        connection.data = { ManualPortMapping: true, ManualPortMappingNICID: 'nic-a' }
+        assert.equal(topologyLinkTraffic(connection)!.received, 0)
+        assert.equal(topologyLinkTraffic(connection)!.transmitted, 0)
+        assert.equal(topologyLinkTraffic(connection)!.total, 0)
+        delete connection.source.data.LastUpdateMetric
+        assert.equal(topologyLinkTraffic(connection), undefined)
+        delete connection.data.ManualPortMappingNICID
+        assert.equal(topologyLinkTraffic(connection), undefined, 'legacy manual links also reject switch-port fallback')
+    })
     it('uses the same interface interval for total and received/transmitted rates', () => {
         const connection = link(metric), traffic = topologyLinkTraffic(connection)!
         assert.equal(traffic.node, connection.source)
@@ -35,7 +57,17 @@ describe('Connection detail data', () => {
         assert.equal(traffic.transmitted, 2000)
         assert.equal(traffic.total, 2000)
     })
-    it('does not invent total or zero when one counter is missing or invalid', () => {
+    it('decodes omitted zero counters in a valid collector interval', () => {
+        for (const omitted of [['RxBytes'], ['TxBytes'], ['RxBytes', 'TxBytes']]) {
+            const sample: any = { ...metric }
+            omitted.forEach(key => delete sample[key])
+            const traffic = topologyLinkTraffic(link(sample))!
+            assert.equal(traffic.received, omitted.includes('RxBytes') ? 0 : 800000)
+            assert.equal(traffic.transmitted, omitted.includes('TxBytes') ? 0 : 200000)
+            assert.equal(traffic.total, traffic.received! + traffic.transmitted!)
+        }
+    })
+    it('does not invent total or zero for explicitly invalid counters or an absent interval', () => {
         for (const invalid of [undefined, null, '', false, -1, NaN, Infinity]) {
             const traffic = topologyLinkTraffic(link({ ...metric, RxBytes: invalid }))!
             assert.equal(traffic.received, undefined)

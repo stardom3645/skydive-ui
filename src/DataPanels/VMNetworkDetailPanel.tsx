@@ -251,11 +251,11 @@ class VMNetworkDetailPanel extends React.Component<Props, State> {
         return value
     }
 
-    private renderRows(rows: KeyValueRow[], emptyText = '-', showBlankRows = false) {
+    private renderRows(rows: KeyValueRow[], emptyText = '-', showBlankRows = false, appearance: 'default' | 'basic' = 'default') {
         const visible = showBlankRows ? rows : rows.filter(row => !isBlank(row.value))
         if (!visible.length) return <DetailEmpty description={emptyText} compact />
         return (
-            <DetailKeyValueList rows={visible.map(row => ({
+            <DetailKeyValueList appearance={appearance} rows={visible.map(row => ({
                 key: row.label,
                 label: row.label,
                 value: this.renderValue(row),
@@ -437,7 +437,7 @@ class VMNetworkDetailPanel extends React.Component<Props, State> {
         const hasAdvanced = Object.keys(this.advancedInfo()).length > 0
         return (
             <div className={classes.root}>
-                {this.renderSection('basic', <DetailSectionIcon role="basic" />, '기본 정보', '인터페이스 식별 정보와 장치 속성입니다.', this.renderRows(this.basicRows()))}
+                {this.renderSection('basic', <DetailSectionIcon role="basic" />, '기본 정보', '인터페이스 식별 정보와 장치 속성입니다.', this.renderRows(this.basicRows(), undefined, false, 'basic'))}
                 {hasConnectionInfo && this.renderSection('connection', <DetailSectionIcon role="endpoints" />, '연결 정보', 'Libvirt 메타데이터와 링크 플래그입니다.', this.renderConnectionInfo())}
                 {hasAddresses && this.renderSection('addresses', <DetailSectionIcon role="addresses" />, '주소 정보', 'IPv4 / IPv6 주소를 분리해 표시합니다.', this.renderAddressInfo())}
                 {recentMetricRows.length > 0 && this.renderSection('recent', <DetailSectionIcon role="recentMetrics" />, '최근 수집 지표', '최근 수집된 트래픽 지표입니다.', <DetailKeyValueList rows={recentMetricRows} />)}

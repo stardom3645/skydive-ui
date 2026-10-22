@@ -350,13 +350,15 @@ describe('Infrastructure traffic routing integration', () => {
         const topology = ast.statements.find(n => ts.isClassDeclaration(n) && n.name?.text === 'Topology') as ts.ClassDeclaration
         const method = topology.members.find(n => n.name?.getText(ast) === 'updateInfrastructureTrafficRoutes')!
         let computations = 0
+        let preferredRoutes: Map<string, any>
         const context: any = { WrapperType: { Hidden: 2 }, infrastructureVirtualNICOwners, routeInfrastructureTraffic: (...args: any[]) => {
-            computations++; return (routeInfrastructureTraffic as any)(...args)
+            computations++; preferredRoutes = args[2]; return (routeInfrastructureTraffic as any)(...args)
         } }
         vm.createContext(context)
         vm.runInContext(ts.transpile(`class Probe { ${method.getText(ast)} }; this.Probe = Probe`, { target: ts.ScriptTarget.ES2018 }), context)
         const probe = new context.Probe(), cards = [card('nic', 0, 1000), card('port', 1600, 0), card('host', 800, 500, 580, 440)]
         Object.assign(probe, { nodeTagActive: 'infrastructure', infrastructureTrafficRouteKey: '',
+            relocatedSwitchPorts: new Set(),
             infrastructureTrafficRoutes: new Map(), topologyEdgeBounds: (node: any) => ({ x: node.x, y: node.y, width: node.width, height: node.height }),
             topologyLaneItem: () => ({ above: 0, below: 0 }), isLinkVisible: () => true, linkDisplayOpacity: () => 1,
             nodes: new Map(), d3nodes: new Map(cards.map(c => [c.id, { ...c, data: { id: c.id, type: 1, wrapped: {} } }])) })
@@ -371,9 +373,18 @@ describe('Infrastructure traffic routing integration', () => {
         probe.d3nodes.get('host').x += 100
         probe.updateInfrastructureTrafficRoutes(links)
         assert.equal(computations, 2)
+        const previous = probe.infrastructureTrafficRoutes.get('relation:nic-port')
+        probe.infrastructureCompactPlan = { routes: new Map([['relation:nic-port', previous], ['unrelated', previous]]) }
+        probe.d3nodes.get('port').x += 400
+        probe.relocatedSwitchPorts.add('port')
+        probe.updateInfrastructureTrafficRoutes(links)
+        assert.equal(computations, 3)
+        assert.equal(preferredRoutes!.has('relation:nic-port'), false, 'a relocated port must not reuse its old Compact endpoint')
+        assert.equal(preferredRoutes!.has('unrelated'), true)
+        assert.notEqual(probe.infrastructureTrafficRoutes.get('relation:nic-port').path, previous.path)
         probe.nodeTagActive = 'kubernetes'
         probe.updateInfrastructureTrafficRoutes(links)
-        assert.equal(computations, 2)
+        assert.equal(computations, 3)
         assert.equal(probe.infrastructureTrafficRoutes.size, 0)
     })
 })

@@ -1,3 +1,4 @@
+import type { TopologyNodeResourceSource } from '../TopologyResourceData'
 import { DetailSectionIcon } from './common/DetailSectionIcon'
 /*
 v12 Changes:
@@ -11,7 +12,7 @@ v12 Changes:
 - Preserve v11 typography.
 */
 import * as React from 'react'
-import { ArrowsAltOutlined, InfoCircleOutlined as InfoIcon, ApartmentOutlined as DeviceHubIcon, SafetyOutlined as SecurityIcon, DeploymentUnitOutlined as RouterIcon, ClusterOutlined as AccountTreeIcon, SearchOutlined as SearchIcon, CloseOutlined as CloseIcon, RightOutlined as KeyboardArrowRightIcon, DownOutlined as KeyboardArrowDownIcon, ShareAltOutlined } from '@ant-design/icons'
+import { ExpandOutlined, InfoCircleOutlined as InfoIcon, ApartmentOutlined as DeviceHubIcon, SafetyOutlined as SecurityIcon, DeploymentUnitOutlined as RouterIcon, ClusterOutlined as AccountTreeIcon, SearchOutlined as SearchIcon, CloseOutlined as CloseIcon, RightOutlined as KeyboardArrowRightIcon, DownOutlined as KeyboardArrowDownIcon, ShareAltOutlined } from '@ant-design/icons'
 import { Button, Card, ConfigProvider, Drawer, Input, Progress, Space, Typography, Statistic, Table, Tooltip as AntTooltip } from 'antd'
 
 import { Link, Node, NodeAttrs } from '../Topology'
@@ -45,6 +46,7 @@ import {
 
 interface Props {
     node: Node
+    nodeResourceSource?: TopologyNodeResourceSource
     session?: session
     moldInventory?: any
     infrastructureHostSummaries?: Record<string, any>
@@ -1903,10 +1905,10 @@ class HostDetailPanel extends React.Component<Props, State> {
         )
     }
 
-    private renderRows(rows: KeyValueRow[], emptyText = translate('hostNoData')) {
+    private renderRows(rows: KeyValueRow[], emptyText = translate('hostNoData'), appearance: 'default' | 'basic' = 'default') {
         const visible = rows.filter(row => !isBlank(row.value))
         return (
-            <DetailKeyValueList
+            <DetailKeyValueList appearance={appearance}
                 className="netdive-host-info-descriptions"
                 labelWidth={140}
                 rows={visible.map(row => {
@@ -2204,7 +2206,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                     onChange={activeDetailTab => this.setState({ activeDetailTab: activeDetailTab as State['activeDetailTab'] })}
                 />
                 {this.state.activeDetailTab === 'overview' ? <React.Fragment>
-                {this.renderSection(<DetailSectionIcon role="basic" />, translate('hostBasicInfo'), '', this.renderRows(basicRows))}
+                {this.renderSection(<DetailSectionIcon role="basic" />, translate('hostBasicInfo'), '', this.renderRows(basicRows, undefined, 'basic'))}
                 {hasConnectedMetrics && this.renderSection(<DetailSectionIcon role="related" />, translate('hostConnectedResources'),
                     '',
                     <div className={classes.connectedResourceSectionStack}>
@@ -2224,6 +2226,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                     </div>
                 )}
                 <HostResourceTrendPanel
+                    nodeResourceSource={this.props.nodeResourceSource}
                     node={node}
                     session={this.props.session}
                     data={data}
@@ -2259,7 +2262,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                                 destroyTooltipOnHide>
                                 <Button
                                     className="netdive-port-mapping-expand-trigger"
-                                    icon={<ArrowsAltOutlined />}
+                                    icon={<ExpandOutlined />}
                                     aria-label={translate('switchPortMappingExpandView')}
                                     disabled={switchPortConnections.length === 0}
                                     onClick={() => this.setState({ portMappingExpanded: true })} />

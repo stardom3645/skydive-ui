@@ -24,9 +24,9 @@ interface Props {
 
 const ContextItem = ({ item, onNavigate, className }: { item: NodeContextItem, onNavigate?: (item: NodeContextItem) => void, className: string }) => {
     if (onNavigate && item.node) {
-        return <button type="button" className={className} title={item.label} onClick={() => onNavigate(item)}>{item.label}</button>
+        return <button type="button" className={className} onClick={() => onNavigate(item)}>{item.label}</button>
     }
-    return <span className={className} title={item.label}>{item.label}</span>
+    return <span className={className}>{item.label}</span>
 }
 
 const ContextIcon = ({ icon }: { icon: NodeContextIcon }) => {

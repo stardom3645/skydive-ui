@@ -60,7 +60,7 @@ function probe() {
             requestAnimationFrame: (fn: () => void) => clock.set(fn, 16), cancelAnimationFrame: clock.clear } }
     vm.createContext(context)
     const names = ['cancelScheduledZoomFit', 'fitAfterBranchChange', 'zoomFitAfterRender', 'relayoutInfrastructureVMs', 'onResize',
-        'renderTree', 'scheduleLLDPExpiry', 'currentZoom', 'setZoomLevel', 'moveTo', 'zoomFit', 'renderedNodeBounds', 'applyZoomFit',
+        'renderTree', 'deferProblemViewportRender', 'scheduleLLDPExpiry', 'currentZoom', 'setZoomLevel', 'moveTo', 'zoomFit', 'renderedNodeBounds', 'applyZoomFit',
         'toggleGroupListNode', 'setGroupListNodes', 'syncGroupDisplaySize', 'nodeClicked', 'centerNode', 'expand', 'collapse', 'setFullGroupDisplay', 'expandAllNodes', 'collapseAllNodes', 'zoomFitFocusedNodes', 'fitBounds']
     const zoomHandlers = new Map<string, string>()
     const collectZoomHandlers = (node: ts.Node) => {
@@ -89,10 +89,12 @@ function probe() {
         viewSize: () => ({ width: 1000, height: 600 }), zoomFitPending: false, zoomFitTimeoutID: 0, zoomFitAnimationFrameID: 0 })
     for (const name of ['pruneGroupState', 'updateLayerCardLayouts', 'tree', 'separateTopologyLanes', 'compactVmLayerLayout',
         'compactHostSubtreeLayout', 'separateTopologyBranches', 'applyInfrastructureCompactLayout', 'layoutKubernetesNamespaces',
+        'layoutSwitchPortsByConnection',
         'renderLevels', 'renderHieraLinks', 'renderNodes', 'renderGroups', 'renderLinks',
         'refreshTopologyNodeFocus', 'applyTopologyNodeFocus', 'syncTopologyRelationEmphasis', 'syncResourceData',
         'showAllLevelLabels', 'hideNodeContextMenu', 'updateLevelLabelBackdrop', 'updateTopologyHostCaptions']) graph[name] = () => undefined
     graph.normalizeTree = () => root
+    graph.infrastructureSceneLayoutKey = () => ''
     const applyFit = graph.applyZoomFit.bind(graph)
     graph.applyZoomFit = () => fits.push(clock.now)
     return { graph, clock, fits, transforms, applyFit, context, interrupts: () => interrupts }

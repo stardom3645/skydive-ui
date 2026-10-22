@@ -19,7 +19,7 @@
 .infrastructure-vm-layout.is-embedded .ant-segmented-item-selected, .infrastructure-vm-layout.is-embedded .ant-segmented-thumb { background: var(--netdive-menu-card, #fff); color: var(--netdive-detail-title, #25334b); }
 
 .infrastructure-vm-layout.is-inline { display: inline-flex; min-width: 0; padding: 0; border: 0; background: transparent; flex: 0 0 auto; }
-.infrastructure-vm-layout.is-inline .infrastructure-vm-layout__title { margin: 0; padding: 0; gap: 6px; }
+.infrastructure-vm-layout.is-inline .infrastructure-vm-layout__title { margin: 0; padding: 0; gap: 6px; font-weight: 400; color: inherit; }
 .infrastructure-vm-layout.is-inline .infrastructure-vm-layout__title > span { font-size: 10px; }
 
 .netdive-view-option-tooltip { max-width: min(320px, calc(100vw - 24px)); }

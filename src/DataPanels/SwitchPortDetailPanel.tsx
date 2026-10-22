@@ -260,7 +260,7 @@ class SwitchPortDetailPanel extends React.Component<Props> {
         return (
             <div className="netdive-switch-port-detail">
                 <DetailSection icon={<DetailSectionIcon role="basic" />} title={translate('switchBasicInfo')}>
-                    <DetailKeyValueList rows={this.basicRows(parentSwitch)} copyTooltip={translate('copy')} />
+                    <DetailKeyValueList appearance="basic" rows={this.basicRows(parentSwitch)} copyTooltip={translate('copy')} />
                 </DetailSection>
                 {portRows.length > 0 && <DetailSection icon={<DetailSectionIcon role="ports" />} title={translate('switchPortDetails')}>
                     <DetailKeyValueList rows={portRows} copyTooltip={translate('copy')} />

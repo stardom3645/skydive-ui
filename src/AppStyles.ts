@@ -1413,10 +1413,20 @@ export const styles = (theme: Theme) => createStyles({
   moldCredentialsPanel: {
     width: 'min(680px, calc(100vw - 122px))'
   },
-  eventHistoryPanel: {
-    '& $collectionPanelHeader > $statusSummaryActions': { alignSelf: 'flex-end' },
+  operationListPanel: {
     width: 'min(1040px, calc(100vw - 122px))',
     overflow: 'hidden',
+    '& $collectionPanelHeader > $statusSummaryActions': { alignSelf: 'flex-end' }
+  },
+  problemsPanel: {
+    '&& .ant-table .ant-table-thead > tr > th, && .ant-table .ant-table-tbody > tr > td': {
+      fontSize: 12, lineHeight: '18px', padding: '6px 12px'
+    },
+    '&& .ant-table .ant-table-thead > tr > th': { height: 32, backgroundColor: 'var(--netdive-ops-neutral)' },
+    '&& .ant-table .ant-table-tbody > tr > td': { height: 'var(--netdive-detail-row-height)' },
+    '&& .ant-table .ant-table-tbody > tr:hover > td': { backgroundColor: 'var(--netdive-ops-hover)' }
+  },
+  eventHistoryPanel: {
     '& .netdive-event-history-surface': {
       display: 'flex',
       minHeight: 0,

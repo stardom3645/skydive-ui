@@ -2071,7 +2071,7 @@ class KubernetesClusterDetailPanel extends React.Component<Props, State> {
                     collapsible
                     collapsed={this.state.basicCollapsed}
                     onToggle={() => this.setState({ basicCollapsed: !this.state.basicCollapsed })}>
-                    <BasicInfoRows className="netdive-cluster-ant-descriptions" rows={overviewRows} copyTooltip={translate('copy')} />
+                    <BasicInfoRows className="netdive-cluster-ant-descriptions" rows={overviewRows} copyTooltip={translate('copy')} appearance="basic" />
 
                 </DetailSectionCard>
 

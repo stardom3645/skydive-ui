@@ -138,6 +138,36 @@ const conflictsWithAutomaticRelation = (
 
 export type ManualPortNameConflict = 'automatic' | 'manual' | undefined
 
+export interface ManualPortNameSuggestion {
+    value: string
+    basis: 'manual'
+}
+
+/** Separate display names for manual connections; never infer physical port numbers. */
+export const manualPortNameSuggestions = (switchNodeID: string, nodes: Node[], automatic: InfrastructurePortMapping[],
+    manual: ManualPortMappingRecord[], editingID?: number): ManualPortNameSuggestion[] => {
+    const ports = nodes.filter(node => isSwitchPort(node) && !node.data?.ManualPortMappingPort
+        && isDescendantOf(node, switchNodeID)).map(portName)
+        .concat(automatic.filter(row => row.switchNodeID === switchNodeID).map(row => row.switchPortName))
+    const names = ports.concat(nodes.filter(node => node.data?.ManualPortMappingPort && isDescendantOf(node, switchNodeID)).map(portName))
+        .concat(manual.filter(row => row.enabled && row.id !== editingID && row.switchNodeId === switchNodeID)
+            .map(row => row.switchPortName))
+    const used = new Set(names.map(normalizedPortName))
+    const prefixes = new Map<string, string>()
+    ports.filter(name => !/^manual-/i.test(name)).forEach(name => {
+        const match = name.match(/^(.+?)([1-9]\d*|0)$/)
+        if (match) prefixes.set(match[1].toLowerCase(), match[1])
+    })
+    const prefix = prefixes.size === 1 ? Array.from(prefixes.values())[0] : undefined
+    const result: ManualPortNameSuggestion[] = []
+    for (let n = 1; result.length < 8; n++) {
+        const base = prefix ? `${prefix}${n}` : `port-${n}`
+        const value = `manual-${base}`
+        if (!used.has(normalizedPortName(value)) && (!prefix || !used.has(normalizedPortName(base)))) result.push({ value, basis: 'manual' })
+    }
+    return result
+}
+
 /** Validate a free-form manual port name against the read-only LLDP rows and
  * active manual mappings for the same switch. */
 export const manualPortNameConflict = (
@@ -223,6 +253,38 @@ const interfaceIndex = (node?: Node): string => node
     ? switchTextValue(node.data || {}, ['IfIndex', 'ifIndex', 'Index', 'index'])
     : ''
 
+export interface ManualPortMappingCandidate {
+    node: Node
+    host: Node
+    state: InfrastructurePortConnectionState
+    hostObservedOnSwitch: boolean
+}
+
+/** These are unassigned NIC candidates, not discovered switch-to-NIC links.
+ * A sibling's LLDP observation is only a sorting hint, never port evidence. */
+export const buildManualPortMappingCandidates = (
+    switchNodeID: string, nodes: Node[], automaticMappings: InfrastructurePortMapping[],
+    manualMappings: ManualPortMappingRecord[], editingID?: number
+): ManualPortMappingCandidate[] => {
+    const nodesByID = new Map(nodes.map(node => [node.id, node]))
+    const assigned = new Set(automaticMappings.map(mapping => mapping.hostNicNodeID).filter(Boolean))
+    manualMappings.filter(mapping => mapping.enabled && mapping.id !== editingID).forEach(mapping => {
+        assigned.add(resolveManualMappingEndpoints(mapping, nodes, nodesByID)?.hostNIC.id || mapping.hostNicNodeId)
+    })
+    const observedHosts = new Set(automaticMappings.filter(mapping => mapping.switchNodeID === switchNodeID)
+        .map(mapping => mapping.hostNodeID))
+    const stateRank = { connected: 0, unknown: 1, disconnected: 2 }
+    return nodes.filter(isManualPortMappingNICEligible).filter(node => !assigned.has(node.id))
+        .map(node => ({ node, host: hostAncestor(node) }))
+        .filter((item): item is { node: Node, host: Node } => !!item.host)
+        .map(item => ({ ...item, state: infrastructurePortConnectionState(item.node),
+            hostObservedOnSwitch: observedHosts.has(item.host.id) }))
+        .sort((a, b) => stateRank[a.state] - stateRank[b.state]
+            || Number(b.hostObservedOnSwitch) - Number(a.hostObservedOnSwitch)
+            || hostName(a.host).localeCompare(hostName(b.host), undefined, { numeric: true })
+            || nicName(a.node).localeCompare(nicName(b.node), undefined, { numeric: true }))
+}
+
 const isBond = (node?: Node): boolean => {
     if (!node) return false
     const driver = switchTextValue(node.data || {}, ['Driver', 'driver']).toLowerCase()
@@ -285,6 +347,43 @@ const peerFor = (link: Link, nodeID: string): Node | undefined => {
     if (link.source.id === nodeID) return link.target
     if (link.target.id === nodeID) return link.source
     return undefined
+}
+
+export interface InfrastructurePortLayoutTarget {
+    portNodeID: string
+    switchNodeID: string
+    hostNodeID: string
+    hostName: string
+    hostNicNodeID: string
+    hostNicName: string
+    bondNodeID?: string
+    bondName: string
+}
+
+/** Layout uses only actual visible graph relations. Enabled, nonconflicting
+ * manual mappings have already been materialized as port/NIC links by App.
+ * A down NIC still has a physical connection and must retain its place. */
+export const infrastructurePortLayoutTargets = (nodes: Node[], links: Link[]): InfrastructurePortLayoutTarget[] => {
+    const result = new Map<string, InfrastructurePortLayoutTarget>()
+    const validLinks = links.filter(link => !isExpiredLLDPLink(link))
+    const active = validLinks.filter(link => !isOwnershipLink(link))
+    for (const link of active) {
+        const port = isSwitchPort(link.source) ? link.source : isSwitchPort(link.target) ? link.target : undefined
+        const nic = port === link.source ? link.target : link.source
+        if (!port || !isHostNic(nic)) continue
+        const host = hostAncestor(nic)
+        let switchNode: Node | null | undefined = port.parent
+        while (switchNode && nodeType(switchNode) !== 'switch') switchNode = switchNode.parent
+        if (!switchNode) switchNode = nodes.find(node => node.id === port.data?.SwitchNodeID)
+        if (!switchNode) switchNode = links.map(edge => isOwnershipLink(edge) ? peerFor(edge, port.id) : undefined)
+            .find(node => nodeType(node) === 'switch')
+        if (!host || !switchNode) continue
+        const bond = bondForNic(nic, host, nodes, validLinks)
+        result.set(`${port.id}:${nic.id}`, { portNodeID: port.id, switchNodeID: switchNode.id,
+            hostNodeID: host.id, hostName: hostName(host), hostNicNodeID: nic.id, hostNicName: nicName(nic),
+            bondNodeID: bond?.id, bondName: bond ? nicName(bond) : '' })
+    }
+    return Array.from(result.values())
 }
 
 export const buildInfrastructurePortMappings = (
@@ -353,7 +452,7 @@ export const buildInfrastructurePortMappings = (
 		...automaticMappings,
 		...activeManualMappings
 			.filter(mapping => !conflictsWithAutomaticRelation(mapping, automaticMappings))
-			.map(mapping => manualMappingToInfrastructure(mapping, nodesByID.get(mapping.hostNicNodeId)))
+			.map(mapping => manualMappingToInfrastructure(mapping, nodesByID.get(mapping.hostNicNodeId), switchNode))
 	]
 
 	return mergedMappings.sort((left, right) => {
@@ -387,7 +486,7 @@ export const buildInfrastructureHostPortMappings = (
 		...automaticMappings,
 		...activeManualMappings
 			.filter(mapping => !conflictsWithAutomaticRelation(mapping, allAutomaticMappings))
-			.map(mapping => manualMappingToInfrastructure(mapping, nodesByID.get(mapping.hostNicNodeId)))
+			.map(mapping => manualMappingToInfrastructure(mapping, nodesByID.get(mapping.hostNicNodeId), nodesByID.get(mapping.switchNodeId)))
 	]
         .map(mapping => {
             const nic = mapping.hostNicNodeID ? nodesByID.get(mapping.hostNicNodeID) : undefined
@@ -411,9 +510,12 @@ export const MANUAL_PORT_MAPPING_TOPOLOGY_PORT_PREFIX = 'manual-switch-port-'
 export const manualPortMappingTopologyPortID = (mappingID: number): string =>
 	`${MANUAL_PORT_MAPPING_TOPOLOGY_PORT_PREFIX}${mappingID}`
 
-export const manualMappingToInfrastructure = (mapping: ManualPortMappingRecord, hostNIC?: Node): InfrastructurePortMapping => ({
+export const manualMappingToInfrastructure = (mapping: ManualPortMappingRecord, hostNIC?: Node, switchNode?: Node): InfrastructurePortMapping => ({
 	key: `manual:${mapping.id}`,
-	switchName: mapping.switchName || mapping.switchNodeId,
+	// Use the same current display identity as automatic mappings. The saved
+	// name is a fallback for a switch that is no longer in the collected graph.
+	switchName: switchNode ? switchDisplayName(switchNode.data || {}, mapping.switchName || mapping.switchNodeId)
+		: mapping.switchName || mapping.switchNodeId,
 	switchNodeID: mapping.switchNodeId,
 	switchPortName: mapping.switchPortName || mapping.switchPortNodeId || '',
 	switchPortNodeID: mapping.switchPortNodeId || manualPortMappingTopologyPortID(mapping.id),
@@ -448,6 +550,7 @@ export interface ManualPortMappingTopologyLink {
 		ManualPortMapping: true
 		ManualPortMappingID: number
 		SwitchPortName: string
+		ManualPortMappingNICID: string
 	}
 }
 
@@ -505,7 +608,8 @@ export const buildManualPortMappingTopologyLinks = (
 					RelationType: 'manual',
 					ManualPortMapping: true,
 					ManualPortMappingID: mapping.id,
-					SwitchPortName: switchPortName
+					SwitchPortName: switchPortName,
+					ManualPortMappingNICID: currentMapping.hostNicNodeId
 				}
 			})
 			return result

@@ -4,12 +4,14 @@ import * as path from 'path'
 
 import {
     buildInfrastructureHostPortMappings,
+    buildManualPortMappingCandidates,
     buildManualPortMappingTopologyLinks,
     buildInfrastructurePortMappings,
     infrastructurePortConnectionState,
     isManualPortMappingNICEligible,
     manualMappingToInfrastructure,
-    manualPortNameConflict
+    manualPortNameConflict,
+    manualPortNameSuggestions
 } from '../src/InfrastructurePortMapping'
 import type { Link, Node } from '../src/Topology'
 
@@ -40,6 +42,96 @@ const link = (id: string, source: Node, target: Node, data: any = {}): Link => (
     revision: 0,
     type: 'link'
 }) as Link
+
+describe('Manual mapping candidates', () => {
+    const fixture = () => {
+        const sw = node('switch', { Type: 'switch', Name: 'leaf' })
+        const other = node('other-switch', { Type: 'switch', Name: 'other' })
+        const host = node('host', { Type: 'host', Name: 'compute-2' })
+        const unrelatedHost = node('host-2', { Type: 'host', Name: 'compute-1' })
+        const autoNIC = node('auto', { Type: 'device', Name: 'eno2', State: 'UP' }, host)
+        const freeNIC = node('free', { Type: 'device', Name: 'eno1', State: 'UP' }, host)
+        const otherNIC = node('other', { Type: 'device', Name: 'eno3', State: 'UP' }, host)
+        const unrelatedNIC = node('unrelated', { Type: 'device', Name: 'eno1', State: 'UP' }, unrelatedHost)
+        const down = node('down', { Type: 'device', Name: 'eno4', State: 'DOWN' }, host)
+        const vlan = node('vlan', { Type: 'device', Name: 'eno1.100', State: 'UP' }, host)
+        const port = node('port', { Type: 'switchport', Name: 'Ethernet1' }, sw)
+        const otherPort = node('other-port', { Type: 'switchport', Name: 'Ethernet2' }, other)
+        const nodes = [sw, other, host, unrelatedHost, autoNIC, freeNIC, otherNIC, unrelatedNIC, down, vlan, port, otherPort]
+        const links = [link('auto-link', port, autoNIC, { RelationType: 'layer2' }),
+            link('other-link', otherPort, otherNIC, { RelationType: 'layer2' })]
+        const automatic = buildInfrastructurePortMappings(sw, nodes, links).concat(buildInfrastructurePortMappings(other, nodes, links))
+        const manual: any = { id: 1, enabled: true, switchNodeId: sw.id, switchName: 'leaf',
+            switchPortName: 'Ethernet3', hostNodeId: host.id, hostName: 'compute-2', hostNicNodeId: freeNIC.id, hostNicName: 'eno1' }
+        return { sw, host, freeNIC, unrelatedNIC, nodes, automatic, manual }
+    }
+    it('excludes automatic connections on every switch and logical interfaces, and ranks link-up siblings first', () => {
+        const f = fixture(), rows = buildManualPortMappingCandidates(f.sw.id, f.nodes, f.automatic, [])
+        assert.deepStrictEqual(rows.map(row => row.node.id), ['free', 'unrelated', 'down'])
+        assert.strictEqual(rows[0].hostObservedOnSwitch, true)
+        assert.strictEqual(rows[1].hostObservedOnSwitch, false)
+    })
+    it('excludes active manual assignments, allows disabled records and keeps the edited NIC available', () => {
+        const f = fixture()
+        assert.deepStrictEqual(buildManualPortMappingCandidates(f.sw.id, f.nodes, f.automatic, [f.manual]).map(r => r.node.id), ['unrelated', 'down'])
+        f.manual.enabled = false
+        assert.strictEqual(buildManualPortMappingCandidates(f.sw.id, f.nodes, f.automatic, [f.manual])[0].node.id, 'free')
+        f.manual.enabled = true
+        assert.strictEqual(buildManualPortMappingCandidates(f.sw.id, f.nodes, f.automatic, [f.manual], 1)[0].node.id, 'free')
+    })
+    it('resolves saved host/NIC names after ID changes without confusing identical NIC names across hosts', () => {
+        const f = fixture()
+        f.manual.hostNicNodeId = 'old-nic'
+        f.manual.hostNodeId = 'old-host'
+        f.manual.switchNodeId = 'old-switch'
+        assert.deepStrictEqual(buildManualPortMappingCandidates(f.sw.id, f.nodes, f.automatic, [f.manual]).map(r => r.node.id), ['unrelated', 'down'])
+    })
+    it('adds an expired LLDP NIC back to candidates and removes it when the observation returns', () => {
+        const f = fixture(), port = f.nodes.find(n => n.id === 'port')!
+        const edge = link('lease', port, f.freeNIC, { RelationType: 'layer2', LLDP: { ExpiresAt: 1 } })
+        const observations = () => buildInfrastructurePortMappings(f.sw, f.nodes, [edge])
+        assert.ok(buildManualPortMappingCandidates(f.sw.id, f.nodes, observations(), []).some(r => r.node.id === 'free'))
+        edge.data.LLDP.ExpiresAt = Date.now() + 60000
+        assert.ok(!buildManualPortMappingCandidates(f.sw.id, f.nodes, observations(), []).some(r => r.node.id === 'free'))
+    })
+    it('suggests separate manual names, skipping collected names and active manual names on this switch', () => {
+        const f = fixture()
+        const collected = node('collected-manual-name', { Type: 'switchport', Name: 'MANUAL-PORT-1' }, f.sw)
+        f.nodes.find(n => n.id === 'port')!.data.Name = 'uplink'
+        f.automatic[0].switchPortName = 'uplink'
+        f.manual.switchPortName = ' manual-port-2 '
+        const suggestions = manualPortNameSuggestions(f.sw.id, [...f.nodes, collected], f.automatic, [f.manual])
+        assert.strictEqual(suggestions.length, 8)
+        assert.strictEqual(suggestions[0].value, 'manual-port-3')
+        assert.ok(suggestions.every(row => row.basis === 'manual' && row.value.startsWith('manual-port-')))
+        assert.ok(!suggestions.some(row => row.value.startsWith('Ethernet')))
+    })
+    it('retains the switch naming family with a manual prefix and avoids already used port numbers', () => {
+        const f = fixture()
+        f.nodes.find(n => n.id === 'port')!.data.Name = 'ethernet1/1/1'
+        f.automatic[0].switchPortName = 'ethernet1/1/1'
+        f.manual.switchPortName = 'manual-ethernet1/1/2'
+        const names = manualPortNameSuggestions(f.sw.id, f.nodes, f.automatic, [f.manual]).map(s => s.value)
+        assert.strictEqual(names[0], 'manual-ethernet1/1/3')
+        assert.ok(names.every(name => name.startsWith('manual-ethernet1/1/')))
+        assert.ok(!names.includes('ethernet1/1/3'))
+    })
+    it('does not reuse automatic names even when a device advertises a manual-looking name', () => {
+        const f = fixture()
+        f.automatic[0].switchPortName = 'manual-port-1'
+        assert.strictEqual(manualPortNameSuggestions(f.sw.id, [], f.automatic, [])[0].value, 'manual-port-2')
+        assert.strictEqual(manualPortNameSuggestions('another-switch', [], f.automatic, [f.manual])[0].value, 'manual-port-1')
+    })
+    it('switches from a manual alias to the real LLDP port by NIC identity without deleting the saved record', () => {
+        const f = fixture(), port = f.nodes.find(n => n.id === 'port')!
+        f.manual.switchPortName = 'manual-port-1'
+        assert.strictEqual(buildManualPortMappingTopologyLinks([f.manual], f.nodes, []).length, 1)
+        const edge = link('new-lldp', port, f.freeNIC, { RelationType: 'layer2' })
+        assert.strictEqual(buildManualPortMappingTopologyLinks([f.manual], f.nodes, [edge]).length, 0)
+        assert.strictEqual(f.manual.enabled, true)
+        assert.strictEqual(f.manual.switchPortName, 'manual-port-1')
+    })
+})
 
 describe('Infrastructure LLDP port mapping', () => {
     it('uses the shared Ant table with Mold-style sortable column headers', () => {
@@ -142,6 +234,29 @@ describe('Infrastructure LLDP port mapping', () => {
             source: 'automatic',
             relationLinkID: 'lldp-1'
         })
+    })
+
+    it('uses the current switch display identity for automatic and saved manual rows in both panels', () => {
+        const sw = node('switch-1', { Type: 'switch', Name: 'OS10', LLDP: { SysName: 'OS10',
+            Description: 'Dell SmartFabric OS10 Enterprise. OS Version: 10.5.5.8. System Type: S4148F-ON' } })
+        const port = node('port-1', { Type: 'switchport', Name: 'ethernet1/1/5' }, sw)
+        const host = node('host-1', { Type: 'host', Name: 'compute-1' })
+        const autoNIC = node('nic-auto', { Type: 'device', Name: 'eno2', State: 'UP' }, host)
+        const manualNIC = node('nic-manual', { Type: 'device', Name: 'eno1', State: 'UP' }, host)
+        const saved = { id: 1, switchNodeId: sw.id, switchName: 'OS10', switchPortName: 'manual-ethernet1/1/2',
+            hostNodeId: host.id, hostNicNodeId: manualNIC.id, enabled: true, createdAt: '', updatedAt: '' }
+        const nodes = [sw, port, host, autoNIC, manualNIC]
+        const links = [link('lldp-1', port, autoNIC)]
+        for (const rows of [buildInfrastructurePortMappings(sw, nodes, links, [saved]),
+            buildInfrastructureHostPortMappings(host, nodes, links, [saved])]) {
+            assert.strictEqual(rows.length, 2)
+            assert.deepStrictEqual(rows.map(row => row.source).sort(), ['automatic', 'manual'])
+            assert.ok(rows.every(row => row.switchName === 'S4148F-ON' && row.switchNodeID === sw.id))
+            assert.strictEqual(rows.find(row => row.source === 'manual')!.hostNicNodeID, manualNIC.id)
+        }
+        assert.strictEqual(saved.switchName, 'OS10', 'display normalization must not rewrite stored mappings')
+        assert.strictEqual(manualMappingToInfrastructure(saved, manualNIC).switchName, 'OS10')
+        assert.strictEqual(manualMappingToInfrastructure({ ...saved, switchName: undefined }).switchName, sw.id)
     })
 
     it('uses an LLDP RemotePortID only when an existing switch-to-NIC edge exists', () => {
@@ -351,7 +466,8 @@ describe('Infrastructure LLDP port mapping', () => {
 				RelationType: 'manual',
 				ManualPortMapping: true,
 				ManualPortMappingID: 11,
-				SwitchPortName: 'xg7'
+                SwitchPortName: 'xg7',
+                ManualPortMappingNICID: manualNIC.id
 			}
 		}])
 

@@ -1,3 +1,4 @@
+import { virtualRouterIconHref } from './VirtualRouterIcon'
 import { getMoldNetworkIndex, matchMoldNIC } from './MoldTopologyNetworks'
 /*
  * Copyright (C) 2020 Sylvain Afchain
@@ -236,8 +237,28 @@ export const i18nMap = {
         "manualPortMappingMenuAdd": "Add manual mapping",
         "manualPortMappingMenuList": "Manual mapping list",
         "manualPortMappingTitle": "Manual switch port mapping",
-        "manualPortMappingGuidance": "Only switch ports without an automatic LLDP connection can be mapped manually. Manual mappings do not verify physical cabling; connection status is based on the host NIC.",
-        "manualPortMappingSelectPort": "Enter a switch port name",
+        "manualPortMappingGuidance": "Ports without an automatic connection can be registered manually. Physical cabling is not automatically verified; connection status and traffic are shown based on the host NIC.",
+        "manualPortMappingLimitsTitle": "Manual connections: measurement basis and limits",
+        "manualPortMappingLimitsRelation": "Manual connections record physical cabling confirmed by the operator.",
+        "manualPortMappingLimitsMetrics": "Line traffic is the sum of the selected host NIC’s average receive and transmit rates.",
+        "manualPortMappingLimitsAccuracy": "Actual switch-port Up/Down state, errors and drops are not collected directly.",
+        "manualPortMappingCandidatesTitle": "Unassigned NIC candidates",
+        "manualPortMappingCandidatesHelp": "Select a NIC and check the port display name.",
+        "manualPortMappingPortBasis_manual": "Manual connection display name",
+        "manualPortMappingPortDisplayName": "Manual port display name",
+        "manualPortMappingPortBasis_custom": "Manually entered",
+        "manualPortMappingPortSuggestionHelp": "The name shown in the topology.",
+        "manualPortMappingCandidatesPriorityTitle": "Candidate ranking criteria",
+        "manualPortMappingCandidatesPriority": "NICs with automatic or active manual connections are excluded. Link state is ranked first; within the same state, hosts with another LLDP link to this switch appear first. Host and NIC names break ties. Candidates do not prove physical cabling.",
+        "manualPortMappingCandidatesSearch": "Search host, NIC or MAC",
+        "manualPortMappingCandidatesIncludeInactive": "Include down and unknown-state NICs",
+        "manualPortMappingCandidatesEmpty": "No matching unassigned NICs.",
+        "manualPortMappingCandidateEvidence": "Selection basis",
+        "manualPortMappingCandidateSibling": "Host has another LLDP link to this switch",
+        "manualPortMappingCandidateUnassigned": "No collected or manual connection",
+        "manualPortMappingCandidateSelect": "Select",
+        "manualPortMappingCandidateSelected": "Selected",
+        "manualPortMappingSelectPort": "Enter a display name",
         "manualPortMappingSelectNic": "Select a host and NIC",
         "manualPortMappingAvailableNics": "Unmapped NICs (selectable)",
         "manualPortMappingUnavailableNics": "Already connected (unavailable)",
@@ -1147,6 +1168,7 @@ export const i18nMap = {
         "linkVirtualOwnership": "Virtual ownership",
         "linkSourceType": "Connection source",
         "linkManualMapping": "Manual mapping",
+        "linkManualTrafficNote": "Traffic is measured at the mapped host NIC, not at the switch port. The connection is manually configured.",
         "linkTopologyRelation": "Collected topology relation",
         "linkDirection": "Relation direction",
         "linkDirected": "Directed",
@@ -1162,6 +1184,7 @@ export const i18nMap = {
         "linkTransmitted": "Transmitted",
         "linkMetricSource": "Measured interface",
         "linkMetricInterval": "Measurement interval",
+        "linkMetricSampleEnd": "Sample end time",
         "linkMetricUnavailable": "Not collected",
         "linkNoTraffic": "Traffic metrics have not been collected.",
         "linkTrafficNote": "Receive/transmit values are measured at the interface, not individual flows on this connection.",
@@ -1176,7 +1199,7 @@ export const i18nMap = {
         "kubernetesAllTestsPassed": "All tests passed",
         "kubernetesCheckedCountSuffix": "checked",
         "kubernetesFailedCountSuffix": " items failed",
-        "collectionSection": "Collection",
+        "collectionSection": "Resource Explorer",
         "viewSettingsSection": "View Settings",
         "helpSection": "Help",
         "infrastructureMenu": "Infrastructure",
@@ -1249,6 +1272,8 @@ export const i18nMap = {
         "nodeLabelDisplayMode": "Node Label Display Mode",
         "showGroupNodes": "Show Group Nodes",
         "helpPanelDescription": "Netdive topology screen guide.",
+        "faqMenu": "Frequently asked questions (FAQ)",
+        "faqPanelDescription": "Collection intervals, measurement sources and common questions.",
         "aboutPanelDescription": "Visualizes infrastructure and Kubernetes topology.",
         "version": "Version",
         "productFamily": "Product family",
@@ -1275,7 +1300,7 @@ export const i18nMap = {
         "helpMenuPointKubernetes": "Kubernetes opens cluster collection management, connection tests, and collection policy.",
         "helpMenuPointView": "Kubernetes opens collection management, while Screen Layout and Preferences manage display options.",
         "helpMenuPointPreferences": "Preferences contains language and screen theme settings.",
-        "helpMenuPointHelp": "Help and About open as side panels without leaving the topology screen.",
+        "helpMenuPointHelp": "Help, FAQ and About open as side panels without leaving the topology screen.",
         "helpToolbarTitle": "Top toolbar",
         "helpToolbarDescription": "The top toolbar provides quick actions used while exploring the topology.",
         "helpToolbarPointLogo": "The logo area identifies Netdive and keeps the workspace context visible.",
@@ -1718,8 +1743,28 @@ export const i18nMap = {
         "manualPortMappingMenuAdd": "수동 매핑 추가",
         "manualPortMappingMenuList": "수동 매핑 목록",
         "manualPortMappingTitle": "스위치 포트 수동 매핑",
-        "manualPortMappingGuidance": "LLDP 자동 연결이 없는 포트만 수동 등록할 수 있습니다. 실제 배선은 검증하지 않으며, 연결 상태는 호스트 NIC 기준입니다.",
-        "manualPortMappingSelectPort": "스위치 포트명을 입력하세요",
+        "manualPortMappingGuidance": "자동 연결이 없는 포트를 수동 등록할 수 있습니다. 실제 배선은 자동 검증하지 않으며, 연결 상태와 트래픽은 호스트 NIC 기준으로 표시됩니다.",
+        "manualPortMappingLimitsTitle": "수동 연결 · 트래픽 측정 기준과 한계",
+        "manualPortMappingLimitsRelation": "수동 연결은 운영자가 확인한 실제 배선 정보를 등록하는 기능입니다.",
+        "manualPortMappingLimitsMetrics": "연결선 트래픽은 선택한 호스트 NIC의 평균 수신·송신 전송률을 합산한 값입니다.",
+        "manualPortMappingLimitsAccuracy": "스위치 포트의 실제 Up/Down 상태와 오류·드롭은 직접 수집하지 않습니다.",
+        "manualPortMappingCandidatesTitle": "자동 연결이 없는 NIC 후보",
+        "manualPortMappingCandidatesHelp": "NIC를 선택하고 포트 표시명을 확인하세요.",
+        "manualPortMappingPortBasis_manual": "수동 연결 전용 표시명",
+        "manualPortMappingPortDisplayName": "수동 포트 표시명",
+        "manualPortMappingPortBasis_custom": "직접 입력한 이름",
+        "manualPortMappingPortSuggestionHelp": "토폴로지에 표시할 이름입니다.",
+        "manualPortMappingCandidatesPriorityTitle": "후보 추천 기준",
+        "manualPortMappingCandidatesPriority": "자동 연결 또는 활성 수동 연결에 사용 중인 NIC는 제외합니다. 링크 상태를 우선하고, 같은 상태에서는 이 스위치에 다른 LLDP 연결이 있는 호스트를 먼저 표시합니다. 이후 호스트명과 NIC명 순으로 정렬합니다. 후보는 실제 배선을 확인한 결과가 아닙니다.",
+        "manualPortMappingCandidatesSearch": "호스트 · NIC · MAC 검색",
+        "manualPortMappingCandidatesIncludeInactive": "Down 및 상태 미확인 NIC 포함",
+        "manualPortMappingCandidatesEmpty": "조건에 맞는 미연결 NIC가 없습니다.",
+        "manualPortMappingCandidateEvidence": "후보 근거",
+        "manualPortMappingCandidateSibling": "같은 호스트의 다른 NIC가 이 스위치에 LLDP 연결됨",
+        "manualPortMappingCandidateUnassigned": "자동·수동 연결 정보 없음",
+        "manualPortMappingCandidateSelect": "선택",
+        "manualPortMappingCandidateSelected": "선택됨",
+        "manualPortMappingSelectPort": "표시할 이름을 입력하세요",
         "manualPortMappingSelectNic": "호스트와 NIC를 선택하세요",
         "manualPortMappingAvailableNics": "미매핑 NIC (선택 가능)",
         "manualPortMappingUnavailableNics": "연결됨 (선택 불가)",
@@ -1951,7 +1996,7 @@ export const i18nMap = {
         "connectionDisplayRangeTitle": "표시 범위",
         "connectionDisplayCurrentState": "현재 상태",
         "connectionDisplayKubernetesNotice": "수집되는 자원에 따라 추가 링크 계층이 표시될 수 있습니다.",
-        "recentViewedNodes": "최근 본 노드",
+        "recentViewedNodes": "최근 본 객체",
         "recentViewedNodesEmpty": "클릭한 노드가 여기에 표시됩니다.",
         "recentViewedNodeNotFound": "현재 토폴로지에 존재하지 않는 노드입니다.",
         "expand": "펼치기",
@@ -2629,6 +2674,7 @@ export const i18nMap = {
         "linkVirtualOwnership": "가상 소유 관계",
         "linkSourceType": "연결 출처",
         "linkManualMapping": "수동 매핑",
+        "linkManualTrafficNote": "수동으로 연결한 호스트 NIC의 수신·송신 합산 트래픽입니다. 스위치 포트에서 직접 수집한 값이나 자동으로 확인된 연결 정보는 아닙니다.",
         "linkTopologyRelation": "수집된 토폴로지 관계",
         "linkDirection": "관계 방향",
         "linkDirected": "방향 있음",
@@ -2644,6 +2690,7 @@ export const i18nMap = {
         "linkTransmitted": "송신",
         "linkMetricSource": "수집 인터페이스",
         "linkMetricInterval": "수집 구간",
+        "linkMetricSampleEnd": "측정 종료 시각",
         "linkMetricUnavailable": "미수집",
         "linkNoTraffic": "트래픽 지표가 수집되지 않았습니다.",
         "linkTrafficNote": "수신·송신은 표시된 수집 인터페이스를 기준으로 합니다. 연결선에는 수신과 송신의 합산 트래픽을 표시하며, 개별 연결의 실제 통신량과는 다를 수 있습니다.",
@@ -2658,7 +2705,7 @@ export const i18nMap = {
         "kubernetesAllTestsPassed": "모든 테스트 통과",
         "kubernetesCheckedCountSuffix": "확인 완료",
         "kubernetesFailedCountSuffix": "개 항목 실패",
-        "collectionSection": "수집",
+        "collectionSection": "자원 탐색",
         "viewSettingsSection": "보기 설정",
         "helpSection": "도움말",
         "infrastructureMenu": "인프라스트럭처",
@@ -2731,6 +2778,8 @@ export const i18nMap = {
         "nodeLabelDisplayMode": "노드 라벨 표시 방식",
         "showGroupNodes": "그룹 노드 표시",
         "helpPanelDescription": "Netdive 토폴로지 화면 안내입니다.",
+        "faqMenu": "자주 묻는 질문 FAQ",
+        "faqPanelDescription": "수집 주기와 수치의 의미, 연결·상태 확인 시 참고할 내용을 안내합니다.",
         "aboutPanelDescription": "인프라스트럭처와 Kubernetes 토폴로지를 시각화합니다.",
         "version": "버전",
         "productFamily": "제품군",
@@ -2757,7 +2806,7 @@ export const i18nMap = {
         "helpMenuPointKubernetes": "Kubernetes는 클러스터 수집 관리, 연결 테스트, 수집 정책을 제공합니다.",
         "helpMenuPointView": "Kubernetes는 수집 관리를 열고, 화면 구성과 환경 설정은 표시 옵션을 관리합니다.",
         "helpMenuPointPreferences": "환경 설정에서는 언어와 화면 테마를 관리합니다.",
-        "helpMenuPointHelp": "Help와 About은 토폴로지 화면을 떠나지 않고 사이드 패널로 열립니다.",
+        "helpMenuPointHelp": "Help, FAQ와 About은 토폴로지 화면을 떠나지 않고 사이드 패널로 열립니다.",
         "helpToolbarTitle": "상단 툴바",
         "helpToolbarDescription": "상단 툴바는 토폴로지를 탐색할 때 자주 쓰는 빠른 동작을 제공합니다.",
         "helpToolbarPointLogo": "로고 영역은 Netdive 화면과 현재 작업 컨텍스트를 식별합니다.",
@@ -3865,6 +3914,7 @@ class DefaultConfig {
 
         // Share the same glyph table with the left layer guide.
         attrs.icon = topologyLayerGlyph(attrs.weight) || attrs.icon
+        if (attrs.weight === WEIGHT_VIRT_ROUTERS) attrs.href = virtualRouterIconHref
 
         if (SHOW_DEBUG) {
             attrs.name = attrs.weight.toString() + "|" + attrs.name
@@ -4314,8 +4364,9 @@ class DefaultConfig {
     }
 
     linkAttrs(link: Link): LinkAttrs {
-        const bandwidth = topologyLinkTraffic(link)?.total ?? 0
-        const hasVisibleBandwidth = Number.isFinite(bandwidth) && bandwidth >= 1
+        const bandwidth = topologyLinkTraffic(link)?.total
+        const hasVisibleBandwidth = bandwidth !== undefined && Number.isFinite(bandwidth)
+            && bandwidth >= (link.data.ManualPortMapping ? 0 : 1)
 
         var attrs = {
             classes: [link.data.RelationType],
@@ -4323,6 +4374,7 @@ class DefaultConfig {
             directed: false,
             href: '',
             iconClass: '',
+            trafficNote: link.data.ManualPortMapping ? translate('linkManualTrafficNote') : '',
             label: hasVisibleBandwidth ? Tools.prettyBandwidth(bandwidth) : ""
         }
 
@@ -4339,8 +4391,7 @@ class DefaultConfig {
         }
 
         if (link.data.ManualPortMapping) {
-            attrs.classes = ['manual-port-mapping']
-            attrs.label = ''
+            attrs.classes = hasVisibleBandwidth ? ['manual-port-mapping', 'traffic'] : ['manual-port-mapping']
         }
 
         return attrs
