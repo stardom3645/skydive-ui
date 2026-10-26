@@ -35,34 +35,58 @@ const moldRequestErrorMessage = (status: number, path: string, payloadMessage?: 
 const request = async (
   userSession: session | undefined,
   path: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  timeoutMs = 30000
 ): Promise<MoldCredentialsStatus> => {
-  let response: Response
+  const controller = new AbortController()
+  const cancel = () => controller.abort()
+  const signal = options.signal
+  let timedOut = false
+  if (signal?.aborted) cancel()
+  signal?.addEventListener('abort', cancel, { once: true })
+  const timeout = setTimeout(() => { timedOut = true; controller.abort() }, timeoutMs)
   try {
-    response = await fetch(`${endpoint(userSession)}${path}`, {
-      credentials: 'same-origin',
-      cache: 'no-store',
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(userSession?.token ? { 'X-Auth-Token': userSession.token } : {}),
-        ...(options.headers || {})
-      }
-    })
-  } catch (_) {
-    throw new Error(translate('moldCredentialsNetworkError'))
+    let response: Response
+    let payload: any
+    try {
+      response = await fetch(`${endpoint(userSession).replace(/\/$/, '')}${path}`, {
+        credentials: 'same-origin',
+        cache: 'no-store',
+        ...options,
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(userSession?.token ? { 'X-Auth-Token': userSession.token } : {}),
+          ...(options.headers || {})
+        }
+      })
+      payload = await response.json().catch(error => {
+        if (controller.signal.aborted) throw error
+        return {}
+      })
+    } catch (error) {
+      if (signal?.aborted) throw error
+      throw new Error(translate(timedOut ? 'moldCredentialsTimeout' : 'moldCredentialsNetworkError'))
+    }
+    if (!response.ok) {
+      const error: any = new Error(moldRequestErrorMessage(response.status, path, payload?.message))
+      error.status = response.status
+      throw error
+    }
+    return payload
+  } finally {
+    clearTimeout(timeout)
+    signal?.removeEventListener('abort', cancel)
   }
-  const payload = await response.json().catch(() => ({}))
-  if (!response.ok) {
-    const error: any = new Error(moldRequestErrorMessage(response.status, path, payload?.message))
-    error.status = response.status
-    throw error
-  }
-  return payload
 }
 
-export const getMoldCredentialsStatus = (userSession?: session): Promise<MoldCredentialsStatus> =>
-  request(userSession, '/api/mold/credentials')
+export const getMoldCredentialsStatus = async (userSession?: session, signal?: AbortSignal): Promise<MoldCredentialsStatus> => {
+  const status = await request(userSession, '/api/mold/credentials', { signal }, 10000)
+  if (typeof status?.apiConfigured !== 'boolean' || typeof status?.dbPasswordConfigured !== 'boolean') {
+    throw new Error(translate('moldCredentialsRequestFailed'))
+  }
+  return status
+}
 
 export const testMoldAPIConnection = (
   userSession: session | undefined,

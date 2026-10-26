@@ -599,6 +599,36 @@
   color: var(--netdive-detail-text);
   padding-bottom: var(--netdive-detail-panel-bottom-padding);
 }
+/* HOST-only tab contents: keep shared interface detail styles unchanged. */
+.netdive-host-tabs-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--netdive-detail-panel-gap);
+  min-width: 0;
+}
+.netdive-host-tabs-panel .netdive-host-diagnostic-stat {
+  min-width: 0;
+  padding: 4px 0;
+}
+.netdive-host-tabs-panel .netdive-host-socketSummaryGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.netdive-host-tabs-panel .netdive-host-antTableProgressCell {
+  grid-template-columns: 26px minmax(0, 1fr);
+  gap: 6px;
+}
+.netdive-host-tabs-panel .netdive-host-socketBlock {
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none;
+}
+.netdive-host-tabs-panel .netdive-host-socketBlock .ant-card-head {
+  padding: 0 !important;
+}
+.netdive-host-tabs-panel .netdive-host-antDataTable .ant-table-thead > tr > th {
+  background: var(--netdive-detail-surface-soft, #f8fafc) !important;
+}
 .netdive-host-connectedResourceSectionStack {
   display: flex;
   flex-direction: column;

@@ -1,3 +1,4 @@
+import { OverflowTooltip } from '../OverflowTooltip'
 import type { TopologyNodeResourceSource } from '../TopologyResourceData'
 import { DetailSectionIcon } from './common/DetailSectionIcon'
 /*
@@ -55,7 +56,7 @@ interface Props {
 }
 
 interface State {
-    activeDetailTab: 'overview' | 'network-connections'
+    activeDetailTab: 'overview' | 'resources' | 'switches' | 'diagnostics'
     moldDetail?: any
     moldDetailLoadedFor?: string
     listeningServicesVisibleCount?: number
@@ -1797,21 +1798,21 @@ class HostDetailPanel extends React.Component<Props, State> {
                 title: translate('hostSocketProcessColumn'),
                 dataIndex: 'process',
                 key: 'process',
-                render: (value: string) => <span className={classes.antTablePrimaryText}>{value}</span>
+                render: (value: string) => <OverflowTooltip title={value}><span className={classes.antTablePrimaryText}>{value}</span></OverflowTooltip>
             },
             {
                 title: translate('hostSocketCountColumn'),
                 dataIndex: 'count',
                 key: 'count',
                 align: 'right' as 'right',
-                width: 62,
+                width: 52,
                 render: (value: number) => <span className={classes.antTableStrongNumber}>{value}</span>
             },
             {
                 title: translate('hostSocketRatioColumn'),
                 dataIndex: 'percent',
                 key: 'percent',
-                width: 132,
+                width: 100,
                 render: (value: number) => (
                     <div className={classes.antTableProgressCell}>
                         <span>{Math.round(value)}%</span>
@@ -1830,7 +1831,7 @@ class HostDetailPanel extends React.Component<Props, State> {
                 title: translate('hostSocketServiceColumn'),
                 dataIndex: 'process',
                 key: 'process',
-                render: (value: string) => <span className={classes.antTablePrimaryText}>{value}</span>
+                render: (value: string) => <OverflowTooltip title={value}><span className={classes.antTablePrimaryText}>{value}</span></OverflowTooltip>
             },
             {
                 title: translate('hostSocketPortProtocolColumn'),
@@ -1843,15 +1844,15 @@ class HostDetailPanel extends React.Component<Props, State> {
         return (
             <div className={classes.socketSection}>
                 <div className={classes.socketSummaryGrid}>
-                    <Card className={classes.socketSummaryTile} bordered bodyStyle={{ padding: 0 }}>
+                    <div className="netdive-host-diagnostic-stat">
                         <Statistic className={classes.antStatistic} title={translate('hostListenPorts')} value={socketStats.listen || 0} />
-                    </Card>
-                    <Card className={classes.socketSummaryTile} bordered bodyStyle={{ padding: 0 }}>
+                    </div>
+                    <div className="netdive-host-diagnostic-stat">
                         <Statistic className={classes.antStatistic} title={translate('hostExternalConnections')} value={socketStats.external || 0} />
-                    </Card>
-                    <Card className={classes.socketSummaryTile} bordered bodyStyle={{ padding: 0 }}>
+                    </div>
+                    <div className="netdive-host-diagnostic-stat">
                         <Statistic className={classes.antStatistic} title={translate('hostTopSocketProcesses')} value={processes.length} />
-                    </Card>
+                    </div>
                 </div>
                 <Card
                     className={classes.socketBlock}
@@ -2100,7 +2101,6 @@ class HostDetailPanel extends React.Component<Props, State> {
         const ipList = this.ips()
         const macList = this.macs()
         const representativeIp = ipList[0] || ''
-        const socketStats = this.socketStats()
         const virtualization = firstValue(data, ['VirtualizationSystem', 'Hypervisor', 'HypervisorType'])
         const virtualizationText = virtualization ? virtualization.toUpperCase() : ''
         const zone = firstValue(data, ['Zone', 'ZoneName'])
@@ -2194,83 +2194,97 @@ class HostDetailPanel extends React.Component<Props, State> {
         const hasRecentSignals = eventRows.some(row => !isBlank(row.value))
         const switchPortConnections = this.switchPortConnections()
 
+        const detailTabs = [
+            { key: 'overview', label: translate('hostOverviewTab') },
+            { key: 'resources', label: translate('hostResourcesTab') },
+            { key: 'switches', label: translate('hostNetworkConnectionsTab') },
+            { key: 'diagnostics', label: translate('hostDiagnosticsTab') }
+        ]
+        const activeTab = this.state.activeDetailTab
+
         return (
             <ConfigProvider theme={{ token: { fontSize: 12, fontSizeSM: 11 }, components: { Card: { headerFontSizeSM: 14 }, Table: { cellFontSizeSM: 12 } } }}>
             <div className={classes.root}>
                 <DetailNavigationTabs
-                    activeKey={this.state.activeDetailTab}
-                    tabs={[
-                        { key: 'overview', label: translate('hostOverviewTab') },
-                        { key: 'network-connections', label: translate('hostNetworkConnectionsTab') }
-                    ]}
+                    activeKey={activeTab}
+                    tabs={detailTabs}
                     onChange={activeDetailTab => this.setState({ activeDetailTab: activeDetailTab as State['activeDetailTab'] })}
                 />
-                {this.state.activeDetailTab === 'overview' ? <React.Fragment>
-                {this.renderSection(<DetailSectionIcon role="basic" />, translate('hostBasicInfo'), '', this.renderRows(basicRows, undefined, 'basic'))}
-                {hasConnectedMetrics && this.renderSection(<DetailSectionIcon role="related" />, translate('hostConnectedResources'),
-                    '',
-                    <div className={classes.connectedResourceSectionStack}>
-                        {this.renderConnectedResourceSubsection(
-                            <AccountTreeIcon />,
-                            translate('hostInfrastructureResources'),
-                            connectedResources,
-                            translate('hostNoConnectedResources')
-                        )}
-                        {this.renderConnectedResourceSubsection(
-                            <img src="assets/icons/k8s.png" alt="" />,
-                            translate('kubernetesCollectionMenu'),
-                            kubernetesResources,
-                            translate('kubernetesNodeSelectorEmpty'),
+                <div className="netdive-host-tabs-panel" role="tabpanel" aria-label={detailTabs.find(tab => tab.key === activeTab)?.label}>
+                    <div style={{ display: activeTab === 'overview' ? 'contents' : 'none' }}>
+                        {this.renderSection(<DetailSectionIcon role="basic" />, translate('hostBasicInfo'), '', this.renderRows(basicRows, undefined, 'basic'))}
+                    </div>
+                    <div style={{ display: activeTab === 'switches' ? 'contents' : 'none' }}>
+                        {this.renderSection(<DetailSectionIcon role="portMapping" />, translate('hostSwitchPortConnections'),
+                            translate('hostSwitchPortConnectionsDescription'),
+                            <InfrastructurePortMappingTable
+                                perspective="host"
+                                mappings={switchPortConnections}
+                                expandable
+                                expanded={this.state.portMappingExpanded}
+                                onExpandedChange={portMappingExpanded => this.setState({ portMappingExpanded })}
+                                onNavigate={mapping => this.focusSwitchPortConnection(mapping as InfrastructureHostPortMapping)} />,
+                            'netdive-host-switch-port-mapping-section',
+                            <div className="netdive-port-mapping-header-actions">
+                                <AntTooltip
+                                    title={translate('switchPortMappingExpandView')}
+                                    placement="top"
+                                    overlayClassName="netdive-port-mapping-action-tooltip"
+                                    getPopupContainer={() => document.body}
+                                    autoAdjustOverflow
+                                    destroyTooltipOnHide>
+                                    <Button
+                                        className="netdive-port-mapping-expand-trigger"
+                                        icon={<ExpandOutlined />}
+                                        aria-label={translate('switchPortMappingExpandView')}
+                                        disabled={switchPortConnections.length === 0}
+                                        onClick={() => this.setState({ portMappingExpanded: true })} />
+                                </AntTooltip>
+                            </div>,
                             true
                         )}
+                        {hasNetworkSummary && this.renderSection(<DetailSectionIcon role="network" />, translate('hostNetworkSummary'), '', this.renderMetricGrid(networkMetrics, translate('hostNetworkDetailsMissing')))}
                     </div>
-                )}
-                <HostResourceTrendPanel
-                    nodeResourceSource={this.props.nodeResourceSource}
-                    node={node}
-                    session={this.props.session}
-                    data={data}
-                />
-                {this.renderSection(<DetailSectionIcon role="processes" />, translate('hostSocketsProcesses'), '', this.renderSocketProcessSummary())}
-                {hasNetworkSummary && this.renderSection(<DetailSectionIcon role="network" />, translate('hostNetworkSummary'), '', this.renderMetricGrid(networkMetrics, translate('hostNetworkDetailsMissing')))}
-                {hasRecentSignals && this.renderSection(<DetailSectionIcon role="events" />, translate('hostRecentSignals'), '', this.renderRows(eventRows, translate('hostNoRecentSignals')))}
+                    {/* One stable instance owns history, range and the live usage subscription. */}
+                    <HostResourceTrendPanel
+                        hostView={this.state.activeDetailTab}
+                        nodeResourceSource={this.props.nodeResourceSource}
+                        node={node}
+                        session={this.props.session}
+                        data={data}
+                    />
+                    <div style={{ display: activeTab === 'overview' ? 'contents' : 'none' }}>
+                        {hasConnectedMetrics && this.renderSection(<DetailSectionIcon role="related" />, translate('hostConnectedResources'),
+                            '',
+                            <div className={classes.connectedResourceSectionStack}>
+                                {this.renderConnectedResourceSubsection(
+                                    <AccountTreeIcon />,
+                                    translate('hostInfrastructureResources'),
+                                    connectedResources,
+                                    translate('hostNoConnectedResources')
+                                )}
+                                {this.renderConnectedResourceSubsection(
+                                    <img src="assets/icons/k8s.png" alt="" />,
+                                    translate('kubernetesCollectionMenu'),
+                                    kubernetesResources,
+                                    translate('kubernetesNodeSelectorEmpty'),
+                                    true
+                                )}
+                            </div>
+                        )}
+                    </div>
+                    <div style={{ display: activeTab === 'diagnostics' ? 'contents' : 'none' }}>
+                        {this.renderSection(<DetailSectionIcon role="processes" />, translate('hostSocketsProcesses'), '', this.renderSocketProcessSummary())}
+                        {hasRecentSignals && this.renderSection(<DetailSectionIcon role="events" />, translate('hostRecentSignals'), '', this.renderRows(eventRows, translate('hostNoRecentSignals')))}
 
-                {!hasMoldRows && (
-                    <div className={classes.noticeCard}>
-                        <InfoIcon />
-                        <span>{translate('hostMoldMissing')}</span>
+                        {!hasMoldRows && (
+                            <div className={classes.noticeCard}>
+                                <InfoIcon />
+                                <span>{translate('hostMoldMissing')}</span>
+                            </div>
+                        )}
                     </div>
-                )}
-                </React.Fragment> : <React.Fragment>
-                    {this.renderSection(<DetailSectionIcon role="portMapping" />, translate('hostSwitchPortConnections'),
-                        translate('hostSwitchPortConnectionsDescription'),
-                        <InfrastructurePortMappingTable
-                            perspective="host"
-                            mappings={switchPortConnections}
-                            expandable
-                            expanded={this.state.portMappingExpanded}
-                            onExpandedChange={portMappingExpanded => this.setState({ portMappingExpanded })}
-                            onNavigate={mapping => this.focusSwitchPortConnection(mapping as InfrastructureHostPortMapping)} />,
-                        'netdive-host-switch-port-mapping-section',
-                        <div className="netdive-port-mapping-header-actions">
-                            <AntTooltip
-                                title={translate('switchPortMappingExpandView')}
-                                placement="top"
-                                overlayClassName="netdive-port-mapping-action-tooltip"
-                                getPopupContainer={() => document.body}
-                                autoAdjustOverflow
-                                destroyTooltipOnHide>
-                                <Button
-                                    className="netdive-port-mapping-expand-trigger"
-                                    icon={<ExpandOutlined />}
-                                    aria-label={translate('switchPortMappingExpandView')}
-                                    disabled={switchPortConnections.length === 0}
-                                    onClick={() => this.setState({ portMappingExpanded: true })} />
-                            </AntTooltip>
-                        </div>,
-                        true
-                    )}
-                </React.Fragment>}
+                </div>
                 {this.renderKubernetesNodePicker()}
             </div>
             </ConfigProvider>

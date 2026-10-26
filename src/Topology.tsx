@@ -659,7 +659,8 @@ interface TopologyNodeFocus {
     visibleRelationLinkIDs: Set<string>
     hierarchyLinkKeys: Set<string>
     problemStates?: Map<string, ProblemStatus>
-    problemContext?: { reason: string; typeLabel: string; scope?: string; related: Array<{ id: string; name: string; status: ProblemStatus }> }
+    problemContext?: { reason: string; typeLabel: string; scope?: string; clusterName?: string; namespace?: string; status?: ProblemStatus
+        related: Array<{ id: string; name: string; typeLabel: string; status: ProblemStatus }> }
 }
 
 /**
@@ -3749,13 +3750,17 @@ export class Topology extends React.Component<Props, {}> {
         return { related: relatedResources, states: new Map(entries.map(entry => [entry.id, entry.status])),
             summary: { reason: verdict?.reason || '현재 문제 목록에서 제외된 자원입니다. 상태·수집 범위를 확인하세요.',
                 typeLabel: verdict?.typeLabel || String(node.data?.Type || '자원'),
+                status: verdict?.status,
+                clusterName: verdict?.domain === 'kubernetes'
+                    ? String(node.data?.K8s?.ClusterName || node.data?.ClusterName || verdict.scope) || undefined : undefined,
+                namespace: verdict?.namespace || undefined,
                 // This panel needs the full collected cluster name for its
                 // two-line label/Tooltip, rather than the shortened SVG name.
                 scope: verdict ? [verdict.domain === 'kubernetes'
                     ? String(node.data?.K8s?.ClusterName || node.data?.ClusterName || verdict.scope) : verdict.scope,
                     verdict.namespace].filter(Boolean).join(' / ') || verdict.context : undefined,
                 related: entries.filter(entry => relatedIDs.has(entry.id))
-                    .map(entry => ({ id: entry.id, name: entry.name, status: entry.status })) } }
+                    .map(entry => ({ id: entry.id, name: String(entry.node.data?.Name || entry.name), typeLabel: entry.typeLabel, status: entry.status })) } }
     }
 
     private problemNavigationFocus(node: Node, context = this.problemNavigationContext(node)) {
@@ -6746,6 +6751,9 @@ export class Topology extends React.Component<Props, {}> {
                     name={String(this.nodes.get(problemFocus.focusedNodeID)?.data?.Name || problemFocus.focusedNodeName)}
                     typeLabel={problemFocus.problemContext?.typeLabel}
                     scope={problemFocus.problemContext?.scope}
+                    clusterName={problemFocus.problemContext?.clusterName}
+                    namespace={problemFocus.problemContext?.namespace}
+                    status={problemFocus.problemContext?.status}
                     reason={problemFocus.problemContext?.reason}
                     collectedAt={this.nodes.has(problemFocus.focusedNodeID) ? lastCollectionTime(this.nodes.get(problemFocus.focusedNodeID)!) : '확인 불가'}
                     related={problemFocus.problemContext?.related || []}

@@ -95,6 +95,19 @@ describe('Problem focus lifetime and verdict updates', () => {
         assert.equal(parent.state.expanded, true)
         assert.equal(app.nodes.get('other').state.expanded, undefined)
     })
+    it('passes real type/name and the existing verdict to the panel without changing related identities', () => {
+        const { app, target } = harness()
+        app.nodes.get('peer').data.State = 'failed'
+        app.displayedNodeName = (node: any) => `${node.data.Name} 호스트`
+        const summary = app.problemNavigationContext(target).summary
+        assert.equal(summary.status, 'problem')
+        assert.equal(summary.typeLabel, '호스트')
+        assert.equal(summary.related.length, 1)
+        assert.equal(summary.related[0].id, 'peer')
+        assert.equal(summary.related[0].name, 'peer')
+        assert.equal(summary.related[0].typeLabel, '호스트')
+        assert.equal(summary.related[0].status, 'problem')
+    })
     it('highlights the target and real peer, dims unrelated problems, and removes old red on recovery', () => {
         const { app, classes, target, renders } = harness()
         assert.equal(app.focusProblemResource('target'), true)

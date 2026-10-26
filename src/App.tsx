@@ -186,9 +186,12 @@ import { authenticatedRequestOptions } from './api/authentication'
 
 import { translate } from "./Config"
 import EventHistory, { ChangeEvent } from './EventHistory'
+import NotificationCenter from './NotificationCenter'
+import { notificationText, recordAppNotification } from './NotificationHistory'
+import type { AppNotification, NotificationTone } from './NotificationHistory'
 import MoldCredentialsPanel from './MoldCredentialsPanel'
 import { getMoldCredentialsStatus } from './MoldCredentialsAPI'
-import { getMoldIntegrationHealth, moldIntegrationIssue, moldIntegrationLabel, moldIntegrationDescription, moldIntegrationNotification, MOLD_INTEGRATION_CHANGED_EVENT } from './MoldIntegrationHealth'
+import { getMoldIntegrationHealth, moldIntegrationLabel, moldIntegrationNotification, MOLD_INTEGRATION_CHANGED_EVENT } from './MoldIntegrationHealth'
 import type { MoldIntegrationHealth } from './MoldIntegrationHealth'
 import RelatedServicesMenu from './RelatedServicesMenu'
 
@@ -579,6 +582,7 @@ class App extends React.Component<Props, State> {
   apiConf: Configuration
   wsContext: WSContext
   connected: boolean
+  private connectionInterrupted = false
   debSetState: CoalescedUpdate<[any]>
   debUpdateFilters: CoalescedUpdate<[]>
   config: ConfigReducer
@@ -2509,12 +2513,12 @@ class App extends React.Component<Props, State> {
   }
 
   onWebSocketClose() {
+    if (this.disposed) return
     this.connected = false
-
-    if (this.synced) {
-      this.notify("Disconnected", "error")
-    } else {
-      this.notify("Not connected", "error")
+    if (!this.connectionInterrupted) {
+      this.connectionInterrupted = true
+      this.showAppNotification('error', { title: 'Netdive 서버 연결 끊김',
+        description: '브라우저와 Netdive 서버의 실시간 연결이 끊겼습니다. 자동 재연결을 시도합니다.' }, { connectionState: 'disconnected' })
     }
 
     this.state.appVersion = ""
@@ -2587,13 +2591,18 @@ class App extends React.Component<Props, State> {
   }
 
   onWebSocketOpen() {
+    if (this.disposed) return
     this.connected = true
+    if (this.connectionInterrupted) {
+      this.showAppNotification('success', { title: 'Netdive 서버 연결 복구',
+        description: '브라우저와 Netdive 서버의 실시간 연결이 복구되었습니다.' }, { connectionState: 'connected' })
+    }
+    this.connectionInterrupted = false
 
     if (!this.tc) {
       return
     }
 
-    this.notify("Connected", "info")
     if (!this.applyDefaultFilter()) {
       this.sync()
     }
@@ -2604,15 +2613,16 @@ class App extends React.Component<Props, State> {
     this.getAppVersion()
   }
 
-  notify(msg, variant) {
-    this.props.enqueueSnackbar(msg, {
-      variant: variant,
-      autoHideDuration: 1000,
-      anchorOrigin: {
-        vertical: 'bottom',
-        horizontal: 'right',
-      }
+  private showAppNotification(type: NotificationTone, options: Parameters<typeof antNotification.open>[0],
+    history: Pick<AppNotification, 'moldState' | 'connectionState'> & { occurredAt?: number } = {}) {
+    if (!this.props.dataURL) recordAppNotification(this.props.session, {
+      title: notificationText(options.title || options.message), description: notificationText(options.description), tone: type, ...history
     })
+    antNotification[type]({ placement: 'bottomRight', closable: { 'aria-label': '알림 닫기' }, ...options })
+  }
+
+  notify(msg, variant) {
+    this.showAppNotification(variant, { title: msg, duration: 1 })
   }
 
   onLinkTagStateChange(event) {
@@ -3636,7 +3646,7 @@ class App extends React.Component<Props, State> {
       },
       isCapturePanelOpen: false
     })
-    this.props.enqueueSnackbar("패킷 캡처를 시작했습니다. 오른쪽 상세 패널에서 진행 상태를 확인할 수 있습니다.", { variant: "success" })
+    this.showAppNotification("success", { title: "패킷 캡처를 시작했습니다.", description: "오른쪽 상세 패널에서 진행 상태를 확인할 수 있습니다." })
   }
 
   private updateCaptureSession(node: Node, capture: SimpleCaptureSession) {
@@ -4561,19 +4571,19 @@ class App extends React.Component<Props, State> {
         </div>
       ) : undefined
       if (status?.lastResult === "success") {
-        antNotification.success({
-          message: translate("infrastructureAgentRestartSuccess"),
+        this.showAppNotification('success', {
+          title: translate("infrastructureAgentRestartSuccess"),
           description: `${status.succeeded}/${status.total} ${translate("infrastructureAgentRestartHostsSucceeded")}`
         })
       } else if (status?.lastResult === "partial") {
-        antNotification.warning({
-          message: translate("infrastructureAgentRestartPartial"),
+        this.showAppNotification('warning', {
+          title: translate("infrastructureAgentRestartPartial"),
           description: failureDetails,
           duration: 0
         })
       } else {
-        antNotification.error({
-          message: translate("infrastructureAgentRestartFailed"),
+        this.showAppNotification('error', {
+          title: translate("infrastructureAgentRestartFailed"),
           description: failureDetails,
           duration: 0
         })
@@ -4588,8 +4598,8 @@ class App extends React.Component<Props, State> {
     }).catch((error) => {
       const status = error?.data?.status as InfrastructureAgentRestartStatus | undefined
       const failedTargets = (status?.targets || []).filter((target) => !target.success)
-      antNotification.error({
-        message: translate("infrastructureAgentRestartFailed"),
+      this.showAppNotification('error', {
+        title: translate("infrastructureAgentRestartFailed"),
         description: failedTargets.length > 0
           ? <div>{failedTargets.map((target) => <div key={target.id || target.name}>{target.name}: {target.error}</div>)}</div>
           : (error?.message || translate("infrastructureAgentRestartUnknownFailure")),
@@ -5278,10 +5288,10 @@ class App extends React.Component<Props, State> {
         window.dispatchEvent(new Event(MOLD_INTEGRATION_CHANGED_EVENT))
       }
       this.setState({ moldIntegrationHealth: health })
-      if (notification) this.props.enqueueSnackbar(moldIntegrationLabel(health), {
-        variant: notification, autoHideDuration: 8000, preventDuplicate: true,
-        anchorOrigin: { vertical: 'bottom', horizontal: 'right' }
-      })
+      if (notification) this.showAppNotification(notification, {
+        title: moldIntegrationLabel(health), duration: 8, placement: 'bottomRight', closable: { 'aria-label': '알림 닫기' },
+        key: 'netdive-mold-integration-health'
+      }, { moldState: health.state })
     }).catch(() => { /* Netdive request errors do not prove Mold authentication failure. */ })
       .finally(() => {
         window.clearTimeout(timeout)
@@ -5329,6 +5339,9 @@ class App extends React.Component<Props, State> {
   }
 
   private moldCredentialsReset = () => {
+    this.moldHealthRequest?.abort()
+    this.moldHealthRequest = undefined
+    this.setState({ moldIntegrationHealth: undefined }, () => this.refreshMoldIntegrationHealth())
     try {
       window.sessionStorage.removeItem(MOLD_SETUP_DISMISSED_SESSION_KEY)
     } catch (_) { /* Reset is complete even without browser storage. */ }
@@ -5574,7 +5587,7 @@ class App extends React.Component<Props, State> {
       {this.renderCollectionPanelHeader(
         classes,
         translate("moldCredentialsWizardTitle"),
-        translate("moldCredentialsEncryptedDescription"),
+        translate("moldSettingsDescription"),
         () => this.setState({ isMoldCredentialsOpen: false })
       )}
       <MoldCredentialsPanel userSession={this.props.session} health={this.state.moldIntegrationHealth}
@@ -6167,11 +6180,7 @@ class App extends React.Component<Props, State> {
               </Tooltip>
             </div>
             <div className={classes.grow} />
-            {moldIntegrationIssue(this.state.moldIntegrationHealth) && <AntButton size="small" danger
-              icon={<ExclamationCircleOutlined />} onClick={() => this.openMoldCredentialsPanel()}
-              aria-label={moldIntegrationDescription(this.state.moldIntegrationHealth!)}>
-              {moldIntegrationLabel(this.state.moldIntegrationHealth!)}
-            </AntButton>}
+            {!this.props.dataURL && <NotificationCenter userSession={this.props.session} health={this.state.moldIntegrationHealth} />}
             {this.renderMenuButtons(classes)}
           </Toolbar>
         </AppBar>

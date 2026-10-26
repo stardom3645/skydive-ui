@@ -58,10 +58,12 @@ function pollingProbe(fetchHealth: (...args: any[]) => Promise<MoldIntegrationHe
   const notices: any[] = []
   const context: any = { AbortController, Event, MOLD_INTEGRATION_CHANGED_EVENT: 'netdive-mold-integration-changed',
     window: { setTimeout, clearTimeout, dispatchEvent: () => {} }, getMoldIntegrationHealth: fetchHealth,
-    moldIntegrationNotification, moldIntegrationLabel: (value: MoldIntegrationHealth) => value.state }
+    moldIntegrationNotification, moldIntegrationLabel: (value: MoldIntegrationHealth) => value.state,
+    antNotification: { error: (options: any) => notices.push(options), success: (options: any) => notices.push(options) } }
   vm.createContext(context)
   vm.runInContext(ts.transpile(`class Probe { ${method} }; this.app = new Probe()`, { target: ts.ScriptTarget.ES2018 }), context)
-  Object.assign(context.app, { props: { session: userSession, enqueueSnackbar: (...args: any[]) => notices.push(args) }, state: {},
+  Object.assign(context.app, { props: { session: userSession }, state: {},
+    showAppNotification: (_tone: any, options: any, history: any) => notices.push({ ...options, history }),
     setState(update: any) { Object.assign(this.state, update) } })
   return { app: context.app, notices }
 }
@@ -83,7 +85,11 @@ describe('App Mold integration polling', () => {
     app.refreshMoldIntegrationHealth()
     resolve(health('HEALTHY')); await flush()
     assert.equal(notices.length, 2)
-    assert.equal(notices[1][1].variant, 'success')
+    assert.equal(notices[1].title, 'HEALTHY')
+    assert.equal(notices[1].history.moldState, 'HEALTHY')
+    assert.equal(notices[1].key, notices[0].key, 'a newer connection state replaces an obsolete visible notification')
+    assert.equal(notices[1].duration, 8)
+    assert.equal(notices[1].closable['aria-label'], '알림 닫기', 'retain an accessible Ant Design notification close button')
   })
   it('ignores cancelled, disposed, static-data and unsupported-server results', async () => {
     let resolve!: (health: MoldIntegrationHealth) => void

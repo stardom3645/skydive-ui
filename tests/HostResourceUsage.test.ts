@@ -41,6 +41,7 @@ describe('Host unified resource usage section', () => {
             series('rootDiskUsed', 80 * gib), series('rootDiskAvailable', 20 * gib)] } })
         assert.equal((html.match(/class="ant-card-head-title"/g) || []).length, 1)
         for (const value of ['>0%<', '>28%<', '>80%<', '100GiB', '80GiB', '20GiB']) assert.ok(html.includes(value), value)
+        assert.equal((html.match(/role="progressbar"/g) || []).length, 3, 'CPU, memory and root disk retain their visual usage bars')
         assert.ok(!html.includes('파일시스템 정보가 미수집'))
     })
     it('keeps one resource section for missing, loading and failed data without inventing zero usage', () => {

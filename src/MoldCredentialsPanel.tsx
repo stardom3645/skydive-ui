@@ -1,13 +1,13 @@
 import * as React from 'react'
-import { Alert, Button, Form, Input, Popconfirm, Space, Spin, Tag, Tooltip } from 'antd'
+import { Alert, Button, Collapse, Form, Input, Popconfirm, Space, Spin, Tag, Tooltip } from 'antd'
 import {
   CheckCircleFilled,
   CloudServerOutlined,
   DatabaseOutlined,
   DeleteOutlined,
-  DownOutlined,
   ExperimentOutlined,
   ExclamationCircleOutlined,
+  InfoCircleOutlined,
   ExportOutlined,
   QuestionCircleOutlined,
   SaveOutlined
@@ -42,8 +42,8 @@ type Feedback = { type: 'success' | 'error' | 'info', message: string } | null
 const MoldCredentialsPanel = ({ userSession, initialSetup = false, onCancel, onSaved, onReset, health }: Props) => {
   const [apiKey, setAPIKey] = React.useState('')
   const [secretKey, setSecretKey] = React.useState('')
-  const [apiConfigured, setAPIConfigured] = React.useState(false)
-  const [dbPasswordConfigured, setDBPasswordConfigured] = React.useState(false)
+  const [apiConfigured, setAPIConfigured] = React.useState<boolean | undefined>(undefined)
+  const [dbPasswordConfigured, setDBPasswordConfigured] = React.useState<boolean | undefined>(undefined)
   const [moldUIURL, setMoldUIURL] = React.useState('')
   const [loadingStatus, setLoadingStatus] = React.useState(true)
   const [busy, setBusy] = React.useState<'api-test' | 'db-test' | 'save' | 'reset' | null>(null)
@@ -55,36 +55,46 @@ const MoldCredentialsPanel = ({ userSession, initialSetup = false, onCancel, onS
   const [dbTestPassed, setDBTestPassed] = React.useState(false)
   const [dbSettingsOpen, setDBSettingsOpen] = React.useState(false)
   const [editingAPI, setEditingAPI] = React.useState(false)
+  const statusRequest = React.useRef<AbortController | null>(null)
 
   React.useEffect(() => {
     let active = true
-    getMoldCredentialsStatus(userSession)
+    const controller = new AbortController()
+    statusRequest.current = controller
+    setLoadingStatus(true)
+    getMoldCredentialsStatus(userSession, controller.signal)
       .then(status => {
-        if (active) {
+        if (active && !controller.signal.aborted) {
           setAPIConfigured(status.apiConfigured)
           setDBPasswordConfigured(status.dbPasswordConfigured)
           setMoldUIURL(status.uiURL || '')
         }
       })
       .catch(error => {
-        if (active) setFeedback({ type: 'error', message: error.message })
+        if (active && !controller.signal.aborted) setFeedback({ type: 'error', message: error.message })
       })
       .finally(() => {
-        if (active) setLoadingStatus(false)
+        if (active && !controller.signal.aborted) setLoadingStatus(false)
       })
-    return () => { active = false }
-  }, [userSession])
+    return () => { active = false; controller.abort() }
+  }, [userSession?.endpoint, userSession?.token])
+
+  const stopStatusRequest = () => {
+    statusRequest.current?.abort()
+    setLoadingStatus(false)
+  }
 
   const input = (): MoldCredentialsInput => ({
     apiKey: apiKey.trim(),
     secretKey: secretKey.trim(),
     dbPassword: ''
   })
-  const showAPIInput = initialSetup || editingAPI || (!loadingStatus && !apiConfigured)
+  const showAPIInput = initialSetup || editingAPI || (health?.state !== 'HEALTHY' &&
+    (loadingStatus || !apiConfigured || health?.state === 'AUTHENTICATION_FAILED'))
   const canTestAPI = apiKey.trim() !== '' && secretKey.trim() !== '' && busy === null
   const canTestDB = dbPasswordConfigured && busy === null
   const canSave = apiKey.trim() !== '' && secretKey.trim() !== '' &&
-    dbPasswordConfigured && busy === null &&
+    (!initialSetup || dbPasswordConfigured) && busy === null &&
     (!initialSetup || (apiTestPassed && dbTestPassed))
 
   const testAPI = async () => {
@@ -120,6 +130,7 @@ const MoldCredentialsPanel = ({ userSession, initialSetup = false, onCancel, onS
   }
 
   const save = async () => {
+    stopStatusRequest()
     setBusy('save')
     setFeedback(null)
     try {
@@ -143,6 +154,7 @@ const MoldCredentialsPanel = ({ userSession, initialSetup = false, onCancel, onS
   }
 
   const reset = async () => {
+    stopStatusRequest()
     setBusy('reset')
     setFeedback(null)
     try {
@@ -151,6 +163,7 @@ const MoldCredentialsPanel = ({ userSession, initialSetup = false, onCancel, onS
       setDBPasswordConfigured(status.dbPasswordConfigured)
       setAPIKey('')
       setSecretKey('')
+      setEditingAPI(true)
       setAPIFeedback(null)
       setDBFeedback(null)
       setAPITestPassed(false)
@@ -172,251 +185,176 @@ const MoldCredentialsPanel = ({ userSession, initialSetup = false, onCancel, onS
     return ''
   }
 
-  return <div className={`mold-credentials-settings${initialSetup ? ' mold-credentials-initial-setup' : ''}`}>
-    {initialSetup && <React.Fragment>
-      <div className="mold-credentials-setup-steps" aria-label="Mold 연동 설정 단계">
-        <div className={`mold-credentials-setup-step${setupStepClass(1)}`}>
-          <span className="mold-credentials-setup-step-marker">{setupStep > 1 ? '✓' : '1'}</span>
-          <span>{translate('moldAPI')}</span>
-        </div>
-        <span className={`mold-credentials-setup-step-line${setupStep > 1 ? ' is-complete' : ''}`} />
-        <div className={`mold-credentials-setup-step${setupStepClass(2)}`}>
-          <span className="mold-credentials-setup-step-marker">{setupStep > 2 ? '✓' : '2'}</span>
-          <span>{translate('moldDB')}</span>
-        </div>
-        <span className={`mold-credentials-setup-step-line${setupStep > 2 ? ' is-complete' : ''}`} />
-        <div className={`mold-credentials-setup-step${setupStepClass(3)}`}>
-          <span className="mold-credentials-setup-step-marker">3</span>
-          <span>{translate('moldSaveAndConnect')}</span>
-        </div>
-      </div>
-      <div className="mold-credentials-setup-intro">
-        <div>
-          <strong>{translate(setupStep === 1 ? 'moldAPIConnectTitle' : setupStep === 2 ? 'moldDBConnectTitle' : 'moldReadyTitle')}</strong>
-          <span>{translate(setupStep === 1 ? 'moldAPIConnectDescription' : setupStep === 2 ? 'moldDBConnectDescription' : 'moldReadyDescription')}</span>
-        </div>
-      </div>
-    </React.Fragment>}
+  const accountHelp = moldUIURL && <span className="mold-credentials-account-tools">
+    <a className="mold-credentials-account-link" href={moldUIURL} target="_blank" rel="noopener noreferrer">
+      {translate('moldOpenAccountUser')} <ExportOutlined />
+    </a>
+    <Tooltip placement="bottomLeft" classNames={{ root: 'mold-credentials-account-help-tooltip' }}
+      title={<div className="mold-credentials-account-help">
+        <strong>{translate('moldAPIKeyHelpTitle')}</strong>
+        <ol>{['moldAPIKeyHelpAdminFilter', 'moldAPIKeyHelpSelectAdmin', 'moldAPIKeyHelpOpenTab', 'moldAPIKeyHelpGenerate']
+          .map(key => <li key={key}>{translate(key)}</li>)}</ol>
+      </div>}>
+      <button type="button" className="mold-credentials-account-help-trigger" aria-label={translate('moldAPIKeyHelpTitle')}>
+        <QuestionCircleOutlined />
+      </button>
+    </Tooltip>
+  </span>
 
-    <Form
-      layout={initialSetup ? 'horizontal' : 'vertical'}
-      labelCol={initialSetup ? { span: 7 } : undefined}
-      wrapperCol={initialSetup ? { span: 16 } : undefined}
-      className="mold-credentials-form"
-      onFinish={save}>
-      {!initialSetup && health && <Alert showIcon
-        type={moldIntegrationIssue(health) ? 'error' : health.state === 'HEALTHY' ? 'success' : 'info'}
-        title={moldIntegrationLabel(health)} description={moldIntegrationDescription(health)} />}
-      {(!initialSetup || setupStep === 1) && <section className="mold-credentials-test-section">
-        <div className="mold-credentials-test-section-header">
-          <div className="mold-credentials-test-section-identity">
-            <span className="mold-credentials-test-section-icon"><CloudServerOutlined /></span>
-            <div>
-              <strong>{translate('moldAPI')}</strong>
-              <span>
-                {translate('moldAPIPairDescription')}
-                {moldUIURL && <React.Fragment>{' '}<a
-                  className="mold-credentials-account-link"
-                  href={moldUIURL}
-                  target="_blank"
-                  rel="noopener noreferrer">
-                  {translate('moldOpenAccountUser')} <ExportOutlined />
-                </a>{' '}
-                <Tooltip
-                  placement="bottomLeft"
-                  overlayClassName="mold-credentials-account-help-tooltip"
-                  title={<div className="mold-credentials-account-help">
-                    <strong>{translate('moldAPIKeyHelpTitle')}</strong>
-                    <ol>
-                      <li>{translate('moldAPIKeyHelpAdminFilter')}</li>
-                      <li>{translate('moldAPIKeyHelpSelectAdmin')}</li>
-                      <li>{translate('moldAPIKeyHelpOpenTab')}</li>
-                      <li>{translate('moldAPIKeyHelpGenerate')}</li>
-                    </ol>
-                  </div>}>
-                  <button
-                    type="button"
-                    className="mold-credentials-account-help-trigger"
-                    aria-label={translate('moldAPIKeyHelpTitle')}>
-                    <QuestionCircleOutlined />
-                  </button>
-                </Tooltip></React.Fragment>}
-              </span>
+  const apiFields = <div className="mold-credentials-fields">
+    <Form.Item label={translate('moldAPIKey')} required>
+      <Input.Password aria-label={translate('moldAPIKey')} value={apiKey}
+        onChange={event => { setEditingAPI(true); setAPIKey(event.target.value); setAPIFeedback(null); setAPITestPassed(false) }}
+        placeholder={translate('moldAPIKeyPlaceholder')} autoComplete="off" maxLength={4096} disabled={busy !== null} />
+    </Form.Item>
+    <Form.Item label={translate('moldSecretKey')} required>
+      <Input.Password aria-label={translate('moldSecretKey')} value={secretKey}
+        onChange={event => { setEditingAPI(true); setSecretKey(event.target.value); setAPIFeedback(null); setAPITestPassed(false) }}
+        placeholder={translate('moldSecretKeyPlaceholder')} autoComplete="new-password" maxLength={4096} disabled={busy !== null} />
+    </Form.Item>
+  </div>
+
+  const resetAction = <Popconfirm
+    title={<div className="mold-credentials-reset-confirm">
+      <strong>{translate('moldResetConfirmTitle')}</strong><span>{translate('moldResetConfirmDescription')}</span>
+    </div>}
+    okText={translate('moldReset')} cancelText={translate('moldCancel')} okButtonProps={{ danger: true }} onConfirm={reset}>
+    <Button danger type={initialSetup ? 'default' : 'text'} size="small" icon={<DeleteOutlined />}
+      disabled={busy !== null} loading={busy === 'reset'}>{translate('moldResetConnection')}</Button>
+  </Popconfirm>
+
+  const dbContent = <div className="mold-credentials-db-advanced-body">
+    {dbPasswordConfigured ? <React.Fragment>
+      <p className="mold-settings-description">{translate('moldDBStoredConnectionDescription')}</p>
+      <Button size="small" icon={<ExperimentOutlined />} onClick={testDB} disabled={!canTestDB} loading={busy === 'db-test'}>
+        {translate('moldDBTest')}
+      </Button>
+    </React.Fragment> : <Alert showIcon type="warning"
+      title={translate(dbPasswordConfigured === undefined ? 'moldDBStatusUnavailable' : 'moldDBSystemNotConfigured')} />}
+    {dbFeedback && <Alert showIcon type={dbFeedback.type} title={dbFeedback.message} />}
+  </div>
+
+  if (!initialSetup) {
+    const state = health?.state || 'UNKNOWN'
+    const registration = apiConfigured === true || state === 'HEALTHY'
+      ? 'moldCredentialsRegistered' : apiConfigured === false ? 'moldCredentialsUnregistered' : loadingStatus ? 'moldChecking' : 'moldStatusUnknown'
+    const connectionTag = state === 'HEALTHY' ? 'moldConnected' : state === 'UNCONFIGURED' ? 'moldNotConfigured'
+      : state === 'UNKNOWN' ? 'moldChecking' : 'moldDisconnected'
+    const feedbackLine = (value: Feedback) => value && <div
+      role={value.type === 'error' ? 'alert' : 'status'} className={`mold-settings-feedback is-${value.type}`}>
+      {value.type === 'success' ? <CheckCircleFilled /> : value.type === 'error' ? <ExclamationCircleOutlined /> : <InfoCircleOutlined />}
+      <span>{value.message}</span>
+    </div>
+    return <div className="mold-credentials-settings mold-settings">
+      <Form layout="vertical" className="mold-settings-form" onFinish={save}>
+        <section className="mold-settings-section" aria-labelledby="mold-connection-heading">
+          <div className="mold-settings-section-heading">
+            <h3 id="mold-connection-heading">{translate('moldConnectionStatus')}</h3>
+            <Tag color={state === 'HEALTHY' ? 'success' : moldIntegrationIssue(health) ? 'error' : 'default'}>
+              {translate(connectionTag)}
+            </Tag>
+          </div>
+          <div className={`mold-settings-connection is-${state.toLowerCase()}`} role="status">
+            <span className="mold-settings-connection-icon" aria-hidden="true">
+              {state === 'HEALTHY' ? <CheckCircleFilled /> : moldIntegrationIssue(health) ? <ExclamationCircleOutlined /> : <InfoCircleOutlined />}
+            </span>
+            <div><strong>{state === 'HEALTHY' ? translate('moldAuthenticationSuccess') : health ? moldIntegrationLabel(health) : translate('moldChecking')}</strong>
+              <p className="mold-settings-description">{health ? moldIntegrationDescription(health) : translate('moldConnectionPendingDescription')}</p>
             </div>
           </div>
-          {!initialSetup && showAPIInput && <Button
-              icon={<ExperimentOutlined />}
-              onClick={testAPI}
-              disabled={!canTestAPI}
-              loading={busy === 'api-test'}>
-              {translate('moldAPITest')}
+        </section>
+
+        <section className="mold-settings-section" aria-labelledby="mold-api-credentials-heading">
+          <div className="mold-settings-section-heading">
+            <div className="mold-settings-section-title"><h3 id="mold-api-credentials-heading">{translate('moldAPICredentialsTitle')}</h3>
+              <Tag>{translate(registration)}</Tag>
+            </div>
+            {!showAPIInput && <Button size="small" onClick={() => setEditingAPI(true)} disabled={busy !== null}>
+              {translate('moldCredentialsEdit')}
             </Button>}
-          {!initialSetup && !showAPIInput && !loadingStatus && <Button
-            onClick={() => setEditingAPI(true)} disabled={busy !== null}>인증 정보 변경</Button>}
+          </div>
+          {apiConfigured === false && <p className="mold-settings-empty">{translate('moldCredentialsEmptyDescription')}</p>}
+          <p className="mold-settings-description">{translate('moldCredentialsStorageDescription')}</p>
+          {accountHelp}
+          {showAPIInput && apiFields}
+          {feedbackLine(apiFeedback)}
+          {feedbackLine(feedback)}
+          <div className="mold-settings-actions">
+            {resetAction}
+            {showAPIInput && <Space wrap size={8} className="mold-settings-edit-actions">
+              <Button size="small" icon={<ExperimentOutlined />} onClick={testAPI} disabled={!canTestAPI} loading={busy === 'api-test'}>
+                {translate('moldAPITest')}
+              </Button>
+              <Button size="small" type="primary" htmlType="submit" icon={<SaveOutlined />} disabled={!canSave} loading={busy === 'save'}>
+                {translate('moldSave')}
+              </Button>
+            </Space>}
+          </div>
+        </section>
+
+        <Collapse className="mold-settings-advanced mold-credentials-db-advanced" bordered={false}
+          activeKey={dbSettingsOpen ? ['db'] : []} onChange={keys => setDBSettingsOpen(keys.includes('db'))}
+          expandIconPlacement="end" items={[{ key: 'db',
+            label: <div className="mold-settings-advanced-label"><h3>{translate('moldDBAdvancedTitle')}</h3>
+              <span className="mold-settings-description">{translate('moldDBManagedDescription')}</span></div>,
+            extra: <Tag>{translate(dbPasswordConfigured === undefined ? loadingStatus ? 'moldChecking' : 'moldStatusUnknown'
+              : dbPasswordConfigured ? 'moldConfigured' : 'moldNotConfigured')}</Tag>, children: dbContent }]} />
+      </Form>
+    </div>
+  }
+
+  return <div className="mold-credentials-settings mold-credentials-initial-setup">
+    <div className="mold-credentials-setup-steps" aria-label="Mold 연동 설정 단계">
+      {[1, 2, 3].map(step => <React.Fragment key={step}>
+        {step > 1 && <span className={`mold-credentials-setup-step-line${setupStep >= step ? ' is-complete' : ''}`} />}
+        <div className={`mold-credentials-setup-step${setupStepClass(step)}`}>
+          <span className="mold-credentials-setup-step-marker">{setupStep > step ? '✓' : String(step)}</span>
+          <span>{translate(step === 1 ? 'moldAPI' : step === 2 ? 'moldDB' : 'moldSaveAndConnect')}</span>
         </div>
-        {showAPIInput
-          ? <React.Fragment>
-            <Form.Item label={translate('moldAPIKey')} required>
-              <Input.Password
-                value={apiKey}
-                onChange={event => { setAPIKey(event.target.value); setAPIFeedback(null); setAPITestPassed(false) }}
-                placeholder={translate('moldAPIKeyPlaceholder')}
-                autoComplete="off"
-                maxLength={4096}
-                disabled={busy !== null}
-              />
-            </Form.Item>
-            <Form.Item label={translate('moldSecretKey')} required>
-              <Input.Password
-                value={secretKey}
-                onChange={event => { setSecretKey(event.target.value); setAPIFeedback(null); setAPITestPassed(false) }}
-                placeholder={translate('moldSecretKeyPlaceholder')}
-                autoComplete="new-password"
-                maxLength={4096}
-                disabled={busy !== null}
-              />
-            </Form.Item>
-          </React.Fragment>
-          : <div className={`mold-credentials-configured-value${moldIntegrationIssue(health) ? ' has-connection-error' : ''}`}>
-            {loadingStatus
-              ? <React.Fragment><Spin size="small" /><span>{translate('moldChecking')}</span></React.Fragment>
-              : <React.Fragment>
-                {moldIntegrationIssue(health) ? <ExclamationCircleOutlined /> : <CheckCircleFilled className="mold-credentials-configured-icon" />}
-                <div>
-                  <strong>{translate('moldAPIConfiguredTitle')}</strong>
-                  <span>{translate('moldConfiguredValueHidden')}</span>
-                </div>
-                <Tag color={moldIntegrationIssue(health) ? 'default' : 'success'}>{translate('moldConfigured')}</Tag>
-              </React.Fragment>}
-          </div>}
+      </React.Fragment>)}
+    </div>
+    <div className="mold-credentials-setup-intro"><div>
+      <strong>{translate(setupStep === 1 ? 'moldAPIConnectTitle' : setupStep === 2 ? 'moldDBConnectTitle' : 'moldReadyTitle')}</strong>
+      <span>{translate(setupStep === 1 ? 'moldAPIConnectDescription' : setupStep === 2 ? 'moldDBConnectDescription' : 'moldReadyDescription')}</span>
+    </div></div>
+    <Form layout="horizontal" labelCol={{ span: 7 }} wrapperCol={{ span: 16 }} className="mold-credentials-form" onFinish={save}>
+      {setupStep === 1 && <section className="mold-credentials-test-section">
+        <div className="mold-credentials-test-section-header"><div className="mold-credentials-test-section-identity">
+          <span className="mold-credentials-test-section-icon"><CloudServerOutlined /></span>
+          <div><strong>{translate('moldAPI')}</strong><span>{translate('moldAPIPairDescription')} {accountHelp}</span></div>
+        </div></div>
+        {apiFields}
         {apiFeedback && <Alert showIcon type={apiFeedback.type} message={apiFeedback.message} />}
       </section>}
-
-      {(!initialSetup || setupStep === 2) && (!initialSetup
-        ? <section className="mold-credentials-db-advanced">
-          <button
-            type="button"
-            className="mold-credentials-db-advanced-toggle"
-            aria-expanded={dbSettingsOpen}
-            onClick={() => setDBSettingsOpen(!dbSettingsOpen)}>
-            <span className="mold-credentials-test-section-icon"><DatabaseOutlined /></span>
-            <span className="mold-credentials-db-advanced-copy">
-              <strong>{translate('moldDBAdvancedTitle')}</strong>
-              <span>{translate('moldDBManagedDescription')}</span>
-            </span>
-            {!loadingStatus && <Tag color={dbPasswordConfigured ? 'success' : 'warning'}>
-              {translate(dbPasswordConfigured ? 'moldConfigured' : 'moldNotConfigured')}
-            </Tag>}
-            <DownOutlined className={dbSettingsOpen ? 'is-open' : ''} />
-          </button>
-          {dbSettingsOpen && <div className="mold-credentials-db-advanced-body">
-            {dbPasswordConfigured
-              ? <React.Fragment>
-                <div className="mold-credentials-db-private-note">
-                  <CheckCircleFilled />
-                  <span>{translate('moldDBStoredConnectionDescription')}</span>
-                </div>
-                <Button
-                  icon={<ExperimentOutlined />}
-                  onClick={testDB}
-                  disabled={!canTestDB}
-                  loading={busy === 'db-test'}>
-                  {translate('moldDBTest')}
-                </Button>
-              </React.Fragment>
-              : <Alert showIcon type="warning" message={translate('moldDBSystemNotConfigured')} />}
-            {dbFeedback && <Alert showIcon type={dbFeedback.type} message={dbFeedback.message} />}
-          </div>}
-        </section>
-        : <section className="mold-credentials-test-section">
-        <div className="mold-credentials-test-section-header">
-          <div className="mold-credentials-test-section-identity">
-            <span className="mold-credentials-test-section-icon"><DatabaseOutlined /></span>
-            <div>
-              <strong>{translate('moldDB')}</strong>
-              <span>{translate('moldDBTestDescription')}</span>
-            </div>
-          </div>
-        </div>
+      {setupStep === 2 && <section className="mold-credentials-test-section">
+        <div className="mold-credentials-test-section-header"><div className="mold-credentials-test-section-identity">
+          <span className="mold-credentials-test-section-icon"><DatabaseOutlined /></span>
+          <div><strong>{translate('moldDB')}</strong><span>{translate('moldDBTestDescription')}</span></div>
+        </div></div>
         <div className={`mold-credentials-configured-value${!loadingStatus && !dbPasswordConfigured ? ' is-missing' : ''}`}>
-          {loadingStatus
-            ? <React.Fragment><Spin size="small" /><span>{translate('moldChecking')}</span></React.Fragment>
-            : dbPasswordConfigured
-              ? <React.Fragment>
-                <CheckCircleFilled className="mold-credentials-configured-icon" />
-                <div>
-                  <strong>{translate('moldDBConfiguredTitle')}</strong>
-                  <span>{translate('moldDBStoredConnectionDescription')}</span>
-                </div>
-                <Tag color="success">{translate('moldConfigured')}</Tag>
-              </React.Fragment>
+          {loadingStatus ? <React.Fragment><Spin size="small" /><span>{translate('moldChecking')}</span></React.Fragment>
+            : dbPasswordConfigured ? <React.Fragment><CheckCircleFilled className="mold-credentials-configured-icon" />
+              <div><strong>{translate('moldDBConfiguredTitle')}</strong><span>{translate('moldDBStoredConnectionDescription')}</span></div>
+              <Tag color="success">{translate('moldConfigured')}</Tag></React.Fragment>
               : <Alert showIcon type="warning" message={translate('moldDBSystemNotConfigured')} />}
         </div>
         {dbFeedback && <Alert showIcon type={dbFeedback.type} message={dbFeedback.message} />}
-      </section>)}
-
-      {initialSetup && setupStep === 3 && <section className="mold-credentials-review">
-        <div className="mold-credentials-review-row">
-          <span className="mold-credentials-review-check">✓</span>
-          <div><strong>{translate('moldAPI')}</strong><span>{translate('moldAPIReviewComplete')}</span></div>
-        </div>
-        <div className="mold-credentials-review-row">
-          <span className="mold-credentials-review-check">✓</span>
-          <div><strong>{translate('moldDB')}</strong><span>{translate('moldDBReviewComplete')}</span></div>
-        </div>
       </section>}
-
+      {setupStep === 3 && <section className="mold-credentials-review">
+        {['moldAPIReviewComplete', 'moldDBReviewComplete'].map((key, index) => <div key={key} className="mold-credentials-review-row">
+          <span className="mold-credentials-review-check">✓</span><div><strong>{translate(index === 0 ? 'moldAPI' : 'moldDB')}</strong><span>{translate(key)}</span></div>
+        </div>)}
+      </section>}
       {feedback && <Alert showIcon type={feedback.type} message={feedback.message} />}
-
-      <div className="mold-credentials-actions">
-        <Space>
-          {onCancel && <Button onClick={onCancel} disabled={busy !== null}>{translate('moldConfigureLater')}</Button>}
-          {initialSetup && setupStep > 1 && <Button
-            onClick={() => setSetupStep(setupStep === 3 ? 2 : 1)}
-            disabled={busy !== null}>
-            {translate('moldPrevious')}
-          </Button>}
-        </Space>
-        <Space className="mold-credentials-primary-actions">
-          {initialSetup && setupStep === 1 && <Button
-            type="primary"
-            icon={<ExperimentOutlined />}
-            onClick={testAPI}
-            disabled={!canTestAPI}
-            loading={busy === 'api-test'}>
-            {translate('moldNext')}
-          </Button>}
-          {initialSetup && setupStep === 2 && <Button
-            type="primary"
-            icon={<ExperimentOutlined />}
-            onClick={testDB}
-            disabled={!canTestDB}
-            loading={busy === 'db-test'}>
-            {translate('moldNext')}
-          </Button>}
-          {apiConfigured && <Popconfirm
-            title={<div className="mold-credentials-reset-confirm">
-              <strong>{translate('moldResetConfirmTitle')}</strong>
-              <span>{translate('moldResetConfirmDescription')}</span>
-            </div>}
-            okText={translate('moldReset')}
-            cancelText={translate('moldCancel')}
-            okButtonProps={{ danger: true }}
-            onConfirm={reset}>
-            <Button danger icon={<DeleteOutlined />} disabled={busy !== null} loading={busy === 'reset'}>
-              {translate('moldResetConnection')}
-            </Button>
-          </Popconfirm>}
-          {(initialSetup ? setupStep === 3 : showAPIInput) && <Button
-            type="primary"
-            htmlType="submit"
-            icon={<SaveOutlined />}
-            disabled={!canSave}
-            loading={busy === 'save'}>
-            {translate(initialSetup ? 'moldSaveAndConnect' : 'moldSave')}
-          </Button>}
-        </Space>
-      </div>
+      <div className="mold-credentials-actions"><Space>
+        {onCancel && <Button onClick={onCancel} disabled={busy !== null}>{translate('moldConfigureLater')}</Button>}
+        {setupStep > 1 && <Button onClick={() => setSetupStep(setupStep === 3 ? 2 : 1)} disabled={busy !== null}>{translate('moldPrevious')}</Button>}
+      </Space><Space className="mold-credentials-primary-actions">
+        {apiConfigured && resetAction}
+        {setupStep === 1 && <Button type="primary" icon={<ExperimentOutlined />} onClick={testAPI} disabled={!canTestAPI} loading={busy === 'api-test'}>{translate('moldNext')}</Button>}
+        {setupStep === 2 && <Button type="primary" icon={<ExperimentOutlined />} onClick={testDB} disabled={!canTestDB} loading={busy === 'db-test'}>{translate('moldNext')}</Button>}
+        {setupStep === 3 && <Button type="primary" htmlType="submit" icon={<SaveOutlined />} disabled={!canSave} loading={busy === 'save'}>{translate('moldSaveAndConnect')}</Button>}
+      </Space></div>
     </Form>
   </div>
 }
