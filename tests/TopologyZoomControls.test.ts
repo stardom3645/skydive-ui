@@ -36,6 +36,16 @@ describe('Topology zoom readout isolation', () => {
         app.topologyZoomControls.current = null
         assert.doesNotThrow(() => app.onTopologyZoomChange(.5))
     })
+    it('updates the percent at rounding boundaries even when the raw change is smaller than 0.5%', () => {
+        const control = new controlExports.default({ initialZoom: .344, classes: {}, onZoom: () => undefined, onReset: () => undefined })
+        control.setState = (patch: any) => Object.assign(control.state, patch)
+        const label = () => control.render().props.children[1].props.children.props.children
+        assert.equal(label(), '34%')
+        control.setZoom(.346); assert.equal(label(), '35%')
+        control.setZoom(.344); assert.equal(label(), '34%')
+        control.setZoom(.3349); assert.equal(label(), '33%')
+        control.setZoom(.335); assert.equal(label(), '34%')
+    })
     it('retains the zoom limits, percent readout, disabled buttons and callbacks', () => {
         const deltas: number[] = []; let resets = 0
         const control = new controlExports.default({ initialZoom: .55, classes: {}, onZoom: (delta: number) => deltas.push(delta), onReset: () => resets++ })

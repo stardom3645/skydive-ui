@@ -1533,30 +1533,7 @@ svg {
     text-align: center;
 }
 
-.topology-connection-focus-status__release {
-    display: inline-flex;
-    height: 26px;
-    flex: 0 0 auto;
-    align-items: center;
-    justify-content: center;
-    padding: 0 5px;
-    border: 0;
-    border-radius: 4px;
-    background: transparent;
-    color: #1677ff;
-    font: inherit;
-    font-size: 12px;
-    font-weight: 500;
-    line-height: 26px;
-    cursor: pointer;
-}
 
-.topology-connection-focus-status__release:hover,
-.topology-connection-focus-status__release:focus-visible {
-    background: rgba(22, 119, 255, 0.1);
-    color: #0958d9;
-    outline: none;
-}
 
 .MuiTableCell-root {
     word-break: keep-all;
@@ -1646,7 +1623,7 @@ svg {
     filter: drop-shadow(0 6px 12px var(--topology-card-shadow, rgba(31, 45, 65, 0.10)));
 }
 .topology-scene .node-selected .node-card-bg {
-    fill: var(--topology-object-surface, #fcfdff); stroke: #91baff; stroke-width: 1.5px;
+    fill: var(--topology-object-surface, #fcfdff);
     filter: drop-shadow(0 2px 8px rgba(22, 119, 255, 0.12));
 }
 /* The content group includes badges above the card. Its native SVG focus
@@ -1654,9 +1631,12 @@ svg {
 .topology-scene .node-object-content:focus {
     outline: none;
 }
+.topology-scene .node-selected > .node-card-bg,
 .topology-scene .node:has(> .node-object-content:focus-visible) > .node-card-bg {
-    stroke: #1677ff;
-    stroke-width: 2px;
+    stroke: var(--topology-object-selected-border, #1677ff);
+    stroke-width: 1.5px;
+    /* Keep the selection rim visible in screen pixels at every zoom level. */
+    vector-effect: non-scaling-stroke;
 }
 .topology-scene .node.is-related:not(.node-selected) .node-card-bg { stroke: var(--topology-object-group-border, #c9dcf8); }
 .topology-scene .node-group-card:not(.node-selected):not(:hover) .node-card-bg {
@@ -1800,3 +1780,47 @@ svg {
 
 .level-label .level-label-router-icon { fill: var(--topology-level-label-icon); pointer-events: none; }
 .level-label.level-label-active .level-label-router-icon { fill: var(--topology-level-label-active-text); }
+
+.topology-connection-focus-status .ant-segmented,
+.topology-connection-focus-status .ant-btn { font-size: var(--netdive-detail-font-body-label, 12px); }
+.topology-connection-focus-status .ant-segmented { flex-shrink: 0; }
+.topology-connection-focus-status__count { flex-shrink: 0; color: var(--netdive-detail-muted, #64748b); font-size: var(--netdive-detail-font-supporting-text, 11px); }
+.topology-connection-focus-status { max-width: min(820px, calc(100% - 32px)); border-radius: var(--netdive-ant-radius, 4px); border-color: var(--netdive-ant-border, #d9d9d9); }
+@media (max-width: 900px) { .topology-connection-focus-status { flex-wrap: wrap; justify-content: center; } .topology-connection-focus-status__name { max-width: 140px; } .topology-connection-focus-status__actions { margin-left: 0; } }
+
+/* Dense mode retains measured paths and hit areas, with quiet static context. */
+.topology-scene[data-vm-semantic-mode="dense"] .link,
+.topology-scene[data-vm-semantic-mode="dense"] .link-overlay { animation: none !important; }
+.topology-scene[data-vm-semantic-mode="dense"] .link:not(.is-semantic-selected):not(.topology-focus-hit):not(.infra-focus-hit):not(.mold-network-hit) { stroke-opacity: .18 !important; }
+.topology-scene[data-vm-semantic-mode="dense"] .link.is-semantic-selected { stroke-opacity: 1; stroke-width: 2.4; }
+.topology-scene[data-vm-semantic-mode="dense"] .link-overlay { stroke-dasharray: none; }
+
+.topology-scene[data-vm-semantic-mode="dense"] .link-overlay:not(.is-semantic-selected) { opacity: 0 !important; }
+/* Non-scaling endpoint squares can cover an entire status tile. Keep genuine
+ * direction arrows; the undirected endpoint decoration adds no relationship data. */
+.topology-scene[data-vm-semantic-mode="dense"] .link:not(.directed):not(.directed-inv),
+.topology-scene[data-vm-semantic-mode="dense"] .link-overlay { marker-start: none; marker-end: none; }
+
+/* Dense VM content is a status square, with the existing selection rim. */
+.topology-scene .node-vm-semantic-dense > .node-card-bg { fill: transparent !important; filter: none !important; stroke: transparent; }
+.topology-scene .node-vm-semantic-dense:is(.node-selected, :hover) > .node-card-bg { stroke: var(--topology-object-selected-border, #1677ff); vector-effect: non-scaling-stroke; }
+.topology-scene .node-vm-semantic-dense > .node-badges,
+.topology-scene .node-vm-semantic-dense > .node-capture-status,
+.topology-scene .node-vm-semantic-dense > .node-pinned { display: none; }
+.topology-scene .node-vm-semantic-group > .node-card-bg { filter: none !important; }
+/* Only collected ownership keys marked by the existing relationship traversal
+ * can reveal a structural guide. Dashed guides never carry traffic values. */
+.topology-scene[data-vm-semantic-mode="dense"][data-vm-connection-scope] .hiera-links { display: inline; }
+.topology-scene[data-vm-semantic-mode="dense"] .hiera-links .hiera-link { display: none; }
+.topology-scene[data-vm-semantic-mode="dense"][data-vm-connection-scope] .hiera-links .hiera-link.topology-focus-hit {
+    display: inline; stroke: var(--topology-links); stroke-dasharray: 4 3; stroke-width: 1.5; vector-effect: non-scaling-stroke;
+}
+
+/* Match the native Ant Tag corner on the existing SVG selection rim. */
+.topology-scene .node-vm-semantic-dense > .node-card-bg {
+    rx: calc(var(--ant-border-radius-sm, 4px) * var(--topology-vm-inverse-zoom-scale, 1));
+    ry: calc(var(--ant-border-radius-sm, 4px) * var(--topology-vm-inverse-zoom-scale, 1));
+}
+
+/* Compact identities keep the existing SVG selection and hover outline. */
+.topology-scene .node-infrastructure-semantic > .node-card-bg { filter: none; }

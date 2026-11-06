@@ -98,9 +98,11 @@ export const testMoldAPIConnection = (
 
 export const testMoldDBConnection = (
   userSession: session | undefined,
-  dbPassword: string
+  dbPassword: string,
+  signal?: AbortSignal
 ): Promise<MoldCredentialsStatus> => request(userSession, '/api/mold/credentials/test/db', {
   method: 'POST',
+  signal,
   body: JSON.stringify({ dbPassword })
 })
 

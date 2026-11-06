@@ -191,7 +191,7 @@ function bridgeFanRoutes(cards: RoutingCard[], edges: RoutingEdge[], clear: (edg
 /** Organize dense bridge fan-out; retain clear ordinary curves and VM/NIC paths.
  * Remaining obstructed edges depart and arrive outside both card borders. */
 export function routeInfrastructureTraffic(cards: RoutingCard[], edges: RoutingEdge[],
-    preferred: Map<string, CompactRoute> = new Map(), regions: RoutingRegion[] = []): Map<string, CompactRoute> {
+    preferred: Map<string, CompactRoute> = new Map(), regions: RoutingRegion[] = [], options: { smooth?: boolean } = {}): Map<string, CompactRoute> {
     const byID = new Map(cards.map(card => [card.id, card]))
     const routes = new Map<string, CompactRoute>()
     const clear = (edge: RoutingEdge, route: CompactRoute) => !routeCardHits(edge, route.points, cards)
@@ -208,6 +208,9 @@ export function routeInfrastructureTraffic(cards: RoutingCard[], edges: RoutingE
         const verticalPort = [source, target].some(card => card.type === 'switchport') && Math.abs(source.y - target.y) > 1
         const verticalRelation = !edge.hierarchy && Math.abs(source.y - target.y) > 1
         const fanRoute = routes.get(edge.id)
+        // At tile scale keep the already obstacle-checked corridor. Searching
+        // hundreds of smoother alternatives adds latency without readable detail.
+        if (fanRoute && options.smooth === false) continue
         const baseline = fanRoute || preferred.get(edge.id)
         const compactUnit = preferred.has(edge.id) && (source.vmOwnerID === target.id || target.vmOwnerID === source.id
             || regions.some(region => region.nodeIDs.includes(edge.sourceID) && region.nodeIDs.includes(edge.targetID)))
@@ -232,7 +235,7 @@ export function routeInfrastructureTraffic(cards: RoutingCard[], edges: RoutingE
             if (verticalPort) route.trafficNodeID = source.y > target.y ? source.id : target.id
             routes.set(edge.id, route); continue
         }
-        if (preferCurve) {
+        if (preferCurve && options.smooth !== false) {
             const smooth = smoothVerticalDetour(edge, source, target, cards, regions, clear)
             if (smooth && (!fanRoute || routeLength(smooth) < routeLength(fanRoute))) {
                 smooth.trafficNodeID = baseline?.trafficNodeID || (verticalPort ? (source.y > target.y ? source.id : target.id) : undefined)
@@ -241,7 +244,7 @@ export function routeInfrastructureTraffic(cards: RoutingCard[], edges: RoutingE
         }
         // The bus is a safe fallback only for branches whose direct/local
         // curves are actually obstructed, rather than a rule based on counts.
-        if (fanRoute && baselineClear) { routes.set(edge.id, smoothTrafficCorridor(edge, fanRoute, clear) || fanRoute); continue }
+        if (fanRoute && baselineClear) { routes.set(edge.id, (options.smooth !== false && smoothTrafficCorridor(edge, fanRoute, clear)) || fanRoute); continue }
 
         // A local corridor bounds graph size in large expanded topologies.
         // Validate against every card, adding any obstacles reached by a detour.

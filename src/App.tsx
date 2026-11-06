@@ -936,6 +936,10 @@ class App extends React.Component<Props, State> {
         topology.updateNode(desired.portNodeID, desired.portData)
         changed = true
       }
+      // This parent relation is explicitly declared by the active manual mapping,
+      // not inferred from a visual group or shared host.
+      topology.recordConnectionRelation?.(`manual-port-owner-${desired.id}`, switchNode, portNode,
+        { RelationType: 'ownership', ManualPortMapping: true, ManualPortMappingID: desired.portData.ManualPortMappingID })
       if (portNode.parent?.id !== switchNode.id) {
         topology.setParent(portNode, switchNode)
         changed = true
@@ -984,7 +988,7 @@ class App extends React.Component<Props, State> {
     if (this.state.topologyDisplayOptionsOpen) {
       this.setState({ topologyDisplayOptionsOpen: false })
     }
-    if (target.closest('[data-netdive-side-panel="true"], [data-netdive-link-tags="true"], [data-netdive-recent-nodes="true"], [data-netdive-network-view="true"], .mold-network-view-popover, [class*="kubernetesManagerPanel"], [class*="sideSettingsPanel"], [data-netdive-drawer="true"], .MuiDialog-root, .ant-modal-root, .ant-dropdown, .ant-select-dropdown')) {
+    if (target.closest('[data-netdive-side-panel="true"], [data-netdive-link-tags="true"], [data-netdive-recent-nodes="true"], [data-netdive-network-view="true"], .mold-network-view-popover, .mold-settings-reset-popover, [class*="kubernetesManagerPanel"], [class*="sideSettingsPanel"], [data-netdive-drawer="true"], .MuiDialog-root, .ant-modal-root, .ant-dropdown, .ant-select-dropdown')) {
       return
     }
     if (isLinkTagsExpanded) {
@@ -1932,6 +1936,7 @@ class App extends React.Component<Props, State> {
     }
 
     this.pendingTopologyEdges.remove(edge.ID)
+    this.tc.recordConnectionRelation?.(edge.ID, parent, child, edge.Metadata)
 
     if (parent && child) {
       const parentType = String(parent.data?.Type || "").toLowerCase()
@@ -2207,6 +2212,8 @@ class App extends React.Component<Props, State> {
       return this.addEdge(edge)
     }
 
+    const source = this.tc.nodes.get(edge.Parent), target = this.tc.nodes.get(edge.Child)
+    if (source && target) this.tc.recordConnectionRelation?.(edge.ID, source, target, edge.Metadata)
     this.tc.updateLink(edge.ID, edge.Metadata)
 
     return true
@@ -2217,6 +2224,7 @@ class App extends React.Component<Props, State> {
       return false
     }
 
+    this.tc.forgetConnectionRelation?.(edge.ID)
     this.pendingTopologyEdges.remove(edge.ID)
 
     if (this.config.isHierarchyLink(edge.Metadata)) {

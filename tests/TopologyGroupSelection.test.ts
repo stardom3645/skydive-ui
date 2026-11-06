@@ -40,6 +40,7 @@ function probe(count = 50, manager = 'libvirt') {
         selectedGroupListNodeIDs: new Set(), d3nodes: new Map(),
         linkTagStates: new Map([['layer2', context.LinkTagState.EventBased]]),
         hideNodeContextMenu: () => undefined, hideLinks: () => undefined,
+        retargetConnectionFocus: () => undefined,
         zoomFitAfterRender: () => { autoFits++ }, currentZoom: () => 0.55,
         renderTree: () => { renders++ }, resetCacheAndRenderTree: () => { renders++ },
         normalizeTree: () => undefined,

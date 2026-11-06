@@ -12,7 +12,9 @@ export default class TopologyZoomControls extends React.PureComponent<{
 
     setZoom(zoom: number) {
         const normalized = Math.max(0.1, Math.min(1.5, zoom || 1))
-        if (Math.abs(this.state.zoom - normalized) < 0.005) return
+        if (Math.round(this.state.zoom * 100) === Math.round(normalized * 100)
+            && (this.state.zoom > 0.105) === (normalized > 0.105)
+            && (this.state.zoom < 1.495) === (normalized < 1.495)) return
         this.setState({ zoom: normalized })
     }
 

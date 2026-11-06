@@ -412,3 +412,72 @@
     border: 1px solid color-mix(in srgb, var(--topology-object-border, #e7eef8) 55%, transparent);
     background: var(--topology-object-chip, #f7faff);
 }
+
+/* Semantic variants keep the common identity, metric and status components. */
+.topology-object-card.is-vm-semantic { padding: 12px; gap: 8px; }
+.topology-object-card.is-vm-summary .topology-object-card__name { display: block; font-size: 46px; line-height: 54px; white-space: nowrap; }
+.topology-object-card.is-vm-summary .topology-object-status { font-size: 30px; line-height: 34px; align-self: flex-start; }
+.topology-object-card.is-vm-summary .topology-object-card__metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0; }
+.topology-object-card.is-vm-summary .topology-metric-chip { padding: 8px; }
+.topology-object-card.is-vm-summary .topology-metric-chip__line { display: flex; flex-direction: row; flex-wrap: nowrap; gap: 6px; }
+.topology-object-card.is-vm-summary .topology-metric-chip__label { font-size: 32px; line-height: 42px; }
+.topology-object-card.is-vm-summary .topology-metric-chip__label > .anticon { display: none; }
+.topology-object-card.is-vm-summary .topology-metric-chip strong { font-size: 38px; line-height: 42px; white-space: nowrap; }
+.topology-object-card.is-vm-dense { padding: 0; gap: 0; }
+.topology-object-card.is-vm-dense > .topology-card-tooltip-anchor { width: 100%; height: 100%; }
+.topology-vm-state-tile.ant-tag {
+    display: block; box-sizing: border-box; margin: 0; padding: 0;
+    width: calc(80px * var(--topology-vm-zoom-scale, 1));
+    height: calc(80px * var(--topology-vm-zoom-scale, 1));
+    transform: scale(var(--topology-vm-inverse-zoom-scale, 1)); transform-origin: top left;
+    /* Ant Tag's default all-property transition must not interpolate zoom
+       compensation independently from the SVG card and its link endpoints. */
+    transition-property: color, background-color, border-color;
+}
+/* Keep the existing group summary, sized to accompany the tile matrix. */
+.topology-object-card.is-vm-dense-group { padding: 12px; gap: 8px; }
+.topology-object-card.is-vm-dense-group .topology-object-card__header { height: 56px !important; gap: 8px; }
+.topology-object-card.is-vm-dense-group .topology-object-icon { width: 32px; height: 32px; flex-basis: 32px; font-size: 24px; }
+.topology-object-card.is-vm-dense-group .topology-object-card__name { font-size: 26px; line-height: 30px; max-height: 30px; -webkit-line-clamp: 1; }
+.topology-object-card.is-vm-dense-group .topology-object-card__subtitle { font-size: 20px; line-height: 24px; }
+.topology-object-card.is-vm-dense-group .topology-object-card__group-state { display: none; }
+.topology-object-card.is-vm-dense-group .topology-resource-group-summary { gap: 6px; grid-template-rows: 60px minmax(0, 1fr); }
+.topology-object-card.is-vm-dense-group .topology-resource-group-summary__counts > .topology-card-tooltip-anchor { padding: 4px 8px; gap: 0; }
+.topology-object-card.is-vm-dense-group .topology-resource-group-summary__counts span,
+.topology-object-card.is-vm-dense-group .topology-resource-group-summary__heading > span:first-child { font-size: 18px; line-height: 22px; }
+.topology-object-card.is-vm-dense-group .topology-resource-group-summary__counts strong { font-size: 28px; line-height: 32px; }
+.topology-object-card.is-vm-dense-group .topology-resource-group-summary__distribution { padding: 6px; gap: 4px; }
+.topology-object-card.is-vm-dense-group .topology-group-summary__state-label,
+.topology-object-card.is-vm-dense-group .topology-group-summary__state.is-warning > .topology-group-summary__state-label { font-size: 18px; line-height: 22px; }
+.topology-object-card.is-vm-dense-group .topology-group-summary__state strong { font-size: 28px; line-height: 30px; }
+.topology-object-card.is-vm-dense-group .topology-group-summary__inactive { font-size: 18px; line-height: 22px; }
+
+/* Common Infrastructure group overview: same identity and status summaries,
+   with direct membership instead of nested resource-count cards. */
+.topology-object-card.is-infrastructure-group-summary { padding: 10px; gap: 6px; justify-content: flex-start; }
+.topology-object-card.is-infrastructure-group-summary .topology-object-card__header { height: 40px; min-height: 40px; gap: 10px; align-items: center; }
+.topology-object-card.is-infrastructure-group-summary .topology-object-icon { width: 32px; height: 32px; flex: 0 0 32px; font-size: 26px; }
+.topology-object-card.is-infrastructure-group-summary .topology-object-card__header > .topology-card-tooltip-anchor { flex: 1; min-width: 0; }
+.topology-object-card.is-infrastructure-group-summary .topology-object-card__name { display: block; font-size: 32px; line-height: 40px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.topology-group-direct-count { display: flex; justify-content: space-between; align-items: center; gap: 8px; color: var(--topology-object-muted); font-size: 26px; line-height: 34px; }
+.topology-group-direct-count strong { color: var(--topology-object-text); font-size: 34px; font-variant-numeric: tabular-nums; }
+.topology-object-card.is-infrastructure-group-summary .topology-group-summary { display: block; padding: 0; border: 0; background: transparent; }
+.topology-object-card.is-infrastructure-group-summary .topology-group-summary__total { display: none; }
+.topology-object-card.is-infrastructure-group-summary .topology-group-summary__states { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.topology-object-card.is-infrastructure-group-summary .topology-group-summary__state { display: inline-flex; align-items: center; gap: 5px; font-size: 22px; line-height: 28px; }
+.topology-object-card.is-infrastructure-group-summary .topology-group-summary__state-label,
+.topology-object-card.is-infrastructure-group-summary .topology-group-summary__state.is-warning > .topology-group-summary__state-label { font-size: 22px; line-height: 28px; }
+.topology-object-card.is-infrastructure-group-summary .topology-group-summary__state strong { font-size: 26px; line-height: 28px; }
+.topology-object-card.is-infrastructure-group-summary .topology-link-state-summary,
+.topology-object-card.is-infrastructure-group-summary .topology-lldp-discovery-note { margin: 0; padding: 0; border: 0; font-size: 20px; line-height: 26px; }
+.topology-object-card.is-infrastructure-group-summary .topology-link-state-summary strong { font-size: 22px; }
+
+/* One common identity variant: type-specific metrics remain in detail cards. */
+.topology-object-card.is-infrastructure-identity { padding: 12px; gap: 8px; justify-content: center; }
+.topology-object-card.is-infrastructure-identity .topology-object-card__name { display: block; font-size: 44px; line-height: 52px; max-height: 52px; white-space: nowrap; }
+.topology-object-card.is-infrastructure-identity .topology-object-status.ant-tag { align-self: flex-start; max-width: 100%; box-sizing: border-box; font-size: 30px; line-height: 36px; padding: 0 6px; }
+.topology-object-card.is-infrastructure-identity .topology-object-status__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.topology-object-card__essential { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--topology-object-muted, #63748d); font-size: 28px; line-height: 36px; }
+.topology-object-card.is-infrastructure-dense { padding: 8px 12px; gap: 4px; }
+.topology-object-card.is-infrastructure-dense .topology-object-card__name { font-size: 40px; line-height: 48px; max-height: 48px; }
+.topology-object-card.is-infrastructure-dense .topology-object-status.ant-tag { font-size: 28px; line-height: 32px; }

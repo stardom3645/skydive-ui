@@ -534,3 +534,26 @@
 .netdive-group-detail-displayOptionLabel { padding: 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
 .netdive-group-detail-displayOption .ant-typography { font-size: var(--netdive-detail-font-supporting-text); }
 .netdive-group-detail-displayOption .ant-switch { flex-shrink: 0; }
+
+/* Infrastructure uses the shared Detail/Ant tokens. Selection remains blue;
+   hover and keyboard focus are distinct from the retained row selection. */
+.is-infrastructure-group-detail .netdive-group-detail-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-bottom: 8px; }
+.is-infrastructure-group-detail .netdive-group-detail-toolbar .ant-input-affix-wrapper { flex: 1 1 180px; min-width: 0; height: 30px; border-radius: var(--netdive-detail-card-radius); border-color: var(--netdive-detail-card-border); }
+.is-infrastructure-group-detail .netdive-group-detail-displayOption { flex: 0 1 auto; margin: 0; padding: 2px 0; gap: 8px; }
+.is-infrastructure-group-detail .netdive-group-detail-list .ant-list-items { gap: 0; border-color: var(--netdive-detail-row-divider); }
+.is-infrastructure-group-detail .netdive-group-detail-item.ant-list-item { min-height: 42px; padding: 4px 8px; gap: 8px; border-color: var(--netdive-detail-row-divider); background: var(--netdive-detail-bg, #fff); }
+.is-infrastructure-group-detail .netdive-group-detail-item.ant-list-item:hover { background: var(--netdive-detail-hover); }
+.is-infrastructure-group-detail .netdive-group-detail-item.ant-list-item.is-selected { background: color-mix(in srgb, var(--netdive-detail-selected) 65%, var(--netdive-detail-bg, #fff)); box-shadow: inset 3px 0 0 var(--netdive-detail-primary); }
+.is-infrastructure-group-detail .netdive-group-detail-item.ant-list-item.is-selected:hover { background: var(--netdive-detail-selected); }
+.is-infrastructure-group-detail .netdive-group-detail-item.ant-list-item:focus-visible { outline: 2px solid var(--netdive-detail-primary); outline-offset: -2px; }
+.is-infrastructure-group-detail .netdive-group-detail-main { gap: 0; }
+.is-infrastructure-group-detail .netdive-group-detail-name.ant-typography { font-size: var(--netdive-detail-font-body-label); line-height: var(--netdive-detail-line-body-label); color: var(--netdive-detail-text); }
+.is-infrastructure-group-detail .netdive-group-detail-meta { font-size: var(--netdive-detail-font-supporting-text); line-height: var(--netdive-detail-line-supporting-text); color: var(--netdive-detail-text-secondary); }
+.is-infrastructure-group-detail .netdive-group-detail-ip.ant-typography { max-width: 100%; font-size: var(--netdive-detail-font-supporting-text); line-height: var(--netdive-detail-line-supporting-text); color: var(--netdive-detail-text-secondary); }
+.is-infrastructure-group-detail .netdive-group-detail-nodeAvatar.ant-avatar { width: 20px; height: 20px; color: var(--netdive-detail-text-secondary); }
+.is-infrastructure-group-detail .netdive-group-detail-nodeAvatar .fa { font-size: 16px; transform: none; }
+.is-infrastructure-group-detail .netdive-group-detail-item.is-selected .netdive-group-detail-nodeAvatar.ant-avatar { color: var(--netdive-detail-primary); }
+.is-infrastructure-group-detail .netdive-group-detail-arrow.ant-btn { min-width: 44px; height: 24px; padding: 0 4px; border-radius: var(--netdive-detail-card-radius); color: var(--netdive-detail-text-secondary); font-size: var(--netdive-detail-font-supporting-text); opacity: 1; }
+.is-infrastructure-group-detail .netdive-group-detail-arrow.ant-btn:hover { color: var(--netdive-detail-primary); background: var(--netdive-detail-selected); }
+.is-infrastructure-group-detail .netdive-group-detail-nodeAvatar.is-warning.ant-avatar { color: var(--netdive-detail-warning); }
+.is-infrastructure-group-detail .netdive-group-detail-nodeAvatar.is-bad.ant-avatar { color: var(--netdive-detail-danger); }

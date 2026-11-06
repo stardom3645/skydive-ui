@@ -53,7 +53,7 @@ export const KubernetesMetadataModal = ({
         expandedValue: entry.structured ? entry.copyValue : undefined
     }))
     return <HistoryModal
-        visible={visible}
+        open={visible}
         title={title}
         onCancel={onCancel}
         className="netdive-detail-metadata-modal">

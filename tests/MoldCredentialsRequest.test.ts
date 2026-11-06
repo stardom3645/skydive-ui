@@ -41,6 +41,18 @@ describe('Bounded Mold credential requests', () => {
     const result = assert.rejects(h.getMoldCredentialsStatus(session, controller.signal), error => error === cancellation)
     controller.abort(); await result; assert.equal(h.timers.size, 0)
   })
+  it('cancels the one-shot DB check without changing its endpoint or stored-credential payload', async () => {
+    const controller = new AbortController(), cancelled = new Error('DB check cancelled')
+    const h = fixture(async (url, options) => new Promise((_resolve, reject) => {
+      assert.equal(url, 'http://example.test/api/mold/credentials/test/db')
+      assert.equal(options!.method, 'POST')
+      assert.equal(options!.body, JSON.stringify({ dbPassword: '' }))
+      options!.signal!.addEventListener('abort', () => reject(cancelled))
+    }))
+    const result = assert.rejects(h.testMoldDBConnection(session, '', controller.signal), error => error === cancelled)
+    controller.abort(); await result
+    assert.equal(h.timers.size, 0)
+  })
   it('also bounds a response whose JSON body never finishes', async () => {
     let signal!: AbortSignal
     const h = fixture(async (_url, options) => {

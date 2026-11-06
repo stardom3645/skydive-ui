@@ -42,8 +42,8 @@ import { routeInfrastructureTraffic } from './InfrastructureTrafficRouting'
 import { compactTrafficLabel, nearestCompactEdge, RoutingEdge, CompactRoute } from './InfrastructureCompactRouting'
 import { separateTrafficLabels } from './InfrastructureTrafficLabels'
 import { infrastructureVirtualNICOwners, infrastructureNICGroupOwner } from './InfrastructureVMBundles'
-import { Avatar, Button, Card, Input, List, Tag, Typography } from 'antd'
-import { NodeIndexOutlined } from '@ant-design/icons'
+import { Avatar, Button, Card, Input, List, Segmented, Tag, Tooltip, Typography } from 'antd'
+import { InfoCircleOutlined, NodeIndexOutlined } from '@ant-design/icons'
 import { hierarchy } from 'd3-hierarchy'
 import { Selection, select, selectAll, event, mouse } from 'd3-selection'
 import { line, linkVertical, curveCatmullRom, curveCardinalClosed } from 'd3-shape'
@@ -71,6 +71,7 @@ import {
     TopologyRankedRelationEdge,
     TopologyRelationPathEdge,
 } from './TopologyConnectionFocus'
+import { TopologyRelationGraph, connectionEvidenceLabel, ConnectionScope, RelationEdge } from './TopologyRelationTraversal'
 import TopologyContextMenu, { TopologyContextMenuAction } from './TopologyContextMenu'
 import { currentProblems, ProblemStatus, problemStatusLabels } from './CurrentProblems'
 import { problemRelatedResources } from './ProblemAnalysis'
@@ -654,6 +655,11 @@ interface TopologyNodeFocus {
     focusedNodeID: string
     focusedNodeName: string
     relatedNodeIDs?: string[]
+    connectionScope?: ConnectionScope
+    canonicalNodeIDs?: Set<string>
+    hiddenNodeCount?: number
+    truncated?: boolean
+    unknownRelations?: number
     nodeIDs: Set<string>
     relationLinkIDs: Set<string>
     visibleRelationLinkIDs: Set<string>
@@ -749,6 +755,8 @@ export class Topology extends React.Component<Props, {}> {
     private kubernetesAttentionPathIDs: Set<string>
     private kubernetesProblemsExpandedSnapshot: Map<string, boolean> | null
     private kubernetesProblemsGroupSnapshot: Map<string, NodeState> | null
+    private collectedRelations = new Map<string, RelationEdge>()
+    private relationGraphCache?: TopologyRelationGraph
     private topologyNodeFocus: TopologyNodeFocus | null
     private problemViewportMoving = false
     private problemViewportRenderPending = false
@@ -1322,6 +1330,8 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     private initTree() {
+        this.collectedRelations?.clear()
+        this.relationGraphCache = undefined
         this.infrastructureSceneLayout = undefined
         var state = { expanded: true, selected: false, mouseover: false, groupOffset: 0, groupFullSize: false }
 
@@ -1591,6 +1601,7 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     updateNode(id: string, data: any): Node | null {
+        this.relationGraphCache = undefined
         var node = this.nodes.get(id)
         if (!node) {
             return null
@@ -1632,6 +1643,7 @@ export class Topology extends React.Component<Props, {}> {
             return
         }
 
+        this.collectedRelations?.forEach(edge => { if (edge.source.id === id || edge.target.id === id) this.forgetConnectionRelation(edge.id) })
         if (node.parent) {
             node.parent.children = node.parent.children.filter(c => node && c.id !== node.id)
         }
@@ -1682,6 +1694,7 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     addLink(id: string, node1: Node, node2: Node, tags: Array<string>, data: any) {
+        this.recordConnectionRelation?.(id, node1, node2, data)
         const existing = this.links.get(id)
         if (existing) existing.tags.filter(tag => !tags.includes(tag)).forEach(tag => this.removeLinkTag(tag))
 
@@ -1739,6 +1752,7 @@ export class Topology extends React.Component<Props, {}> {
     }
 
     delLink(id: string) {
+        this.forgetConnectionRelation?.(id)
         var link = this.links.get(id)
         if (link) {
             this.links.delete(id)
@@ -3092,6 +3106,16 @@ export class Topology extends React.Component<Props, {}> {
         this.syncContainerMiniLinkVisibility()
         this.hideLinks()
         this.updateLevelLabelActiveClass()
+        if (active) this.retargetConnectionFocus(id)
+    }
+
+    private retargetConnectionFocus(id: string) {
+        const focus = this.topologyNodeFocus
+        if (focus?.mode !== 'connections' || focus.focusedNodeID === id) return
+        const node = this.nodes.get(id)
+        if (!node || node.data?.IsTopologyGroup) { this.clearTopologyNodeFocus(); return }
+        this.topologyNodeFocus = { ...focus, focusedNodeID: id, focusedNodeName: this.displayedNodeName(node) }
+        this.refreshTopologyNodeFocus(); this.applyTopologyNodeFocus(); this.forceUpdate()
     }
 
     toggleNode(id: string) {
@@ -3612,93 +3636,60 @@ export class Topology extends React.Component<Props, {}> {
         return `${sourceID}->${targetID}`
     }
 
-    private connectionFocus(d: D3Node, relatedNodeIDs: string[] = []): Pick<TopologyNodeFocus, 'nodeIDs' | 'relationLinkIDs' | 'visibleRelationLinkIDs' | 'hierarchyLinkKeys'> {
-        const nodeIDs = new Set<string>([d.data.id])
-        const relationLinkIDs = new Set<string>()
-        const visibleRelationLinkIDs = new Set<string>()
-        const hierarchyLinkKeys = new Set<string>()
+    recordConnectionRelation(id: string, source: Node, target: Node, data: any) {
+        this.collectedRelations.set(id, { id, source, target, data })
+        this.relationGraphCache = undefined
+    }
+
+    forgetConnectionRelation(id: string) {
+        this.collectedRelations.delete(id)
+        this.relationGraphCache = undefined
+    }
+
+    private connectionFocus(d: D3Node, _relatedNodeIDs: string[] = [], scope: ConnectionScope = 'direct', anchorID = d.data.wrapped.id) {
+        if (!this.relationGraphCache) this.relationGraphCache = new TopologyRelationGraph(this.nodes, this.collectedRelations.values())
+        const result = this.relationGraphCache.traverse(anchorID, scope)
+        const nodeIDs = new Set<string>([d.data.id]), relationLinkIDs = new Set<string>(), visibleRelationLinkIDs = new Set<string>(), hierarchyLinkKeys = new Set<string>()
         const renderedNodeIDs = new Set<string>()
-        const renderedNodeLevels = new Map<string, number>()
-        const explicitTargetNodeIDs = new Set<string>()
-        const relationPathEdges = new Array<TopologyRelationPathEdge>()
-        const rankedRelationEdges = new Array<TopologyRankedRelationEdge>()
-        const hierarchyPathPrefix = 'hierarchy:'
-
-        this.gNodes.selectAll<SVGGElement, D3Node>('g.node').each((rendered: D3Node) => {
-            if (!rendered?.data?.id) return
-            renderedNodeIDs.add(rendered.data.id)
-            renderedNodeLevels.set(rendered.data.id, Number.isFinite(rendered.y) ? rendered.y : 0)
+        this.gNodes.selectAll<SVGGElement, D3Node>('g.node').each((rendered: D3Node) => { if (rendered?.data?.id) renderedNodeIDs.add(rendered.data.id) })
+        let hiddenNodeCount = 0
+        result.nodeIDs.forEach(id => {
+            // A collapsed member may use its own group, never an unrelated visible ancestor.
+            const visibleID = this.visibleNodeIDForID(id)
+            if (renderedNodeIDs.has(visibleID)) nodeIDs.add(visibleID)
+            if (!renderedNodeIDs.has(id)) hiddenNodeCount++
         })
-        relatedNodeIDs.forEach(relatedNodeID => {
-            const renderedRelatedID = renderedNodeIDs.has(relatedNodeID)
-                ? relatedNodeID
-                : this.visibleNodeIDForID(relatedNodeID)
-            if (renderedNodeIDs.has(renderedRelatedID)) explicitTargetNodeIDs.add(renderedRelatedID)
-        })
-
-        // Keep the exact set of network traffic lines that was visible before
-        // focus. Only these edges may receive the visual highlight treatment.
+        // Preserve link visibility: discovered relations never manufacture traffic lines.
         this.gLinks.selectAll('path.link').each((link: Link) => {
             if (!link || this.linkDisplayOpacity(link) <= 0) return
             visibleRelationLinkIDs.add(link.id)
+            const sourceID = link.data?.__sourceNodeID || link.source.id, targetID = link.data?.__targetNodeID || link.target.id
+            if (result.linkIDs.has(link.id) || (scope === 'all' && link.data?.KubernetesPodOwnershipGuide
+                && result.nodeIDs.has(sourceID) && result.nodeIDs.has(targetID))) relationLinkIDs.add(link.id)
         })
-
-        // Path discovery and edge rendering deliberately use different sets.
-        // The complete relationship graph is needed to reach Host, SwitchPort
-        // and Switch even when an intermediate relation is currently hidden;
-        // hidden relations are never promoted into visible traffic lines.
-        this.links.forEach((link: Link) => {
-            if (!link || isExpiredLLDPLink(link) || link.data?.KubernetesPlacementLink) return
-            const sourceKubernetesRelationship = String(link.source.data?.Manager || '').toLowerCase() === 'k8s'
-                && this.props.nodeVisible
-                && !this.props.nodeVisible(link.source)
-            const targetKubernetesRelationship = String(link.target.data?.Manager || '').toLowerCase() === 'k8s'
-                && this.props.nodeVisible
-                && !this.props.nodeVisible(link.target)
-            if (sourceKubernetesRelationship || targetKubernetesRelationship) return
-            if (!this.displayBranchVisible(link.source) || !this.displayBranchVisible(link.target)) return
-            const sourceID = this.closestVisibleNodeID(link.source)
-            const targetID = this.closestVisibleNodeID(link.target)
-            if (!renderedNodeIDs.has(sourceID) || !renderedNodeIDs.has(targetID) || sourceID === targetID) return
-            relationPathEdges.push({ id: link.id, sourceID, targetID })
-            const sourceLevel = renderedNodeLevels.get(sourceID) || 0
-            const targetLevel = renderedNodeLevels.get(targetID) || 0
-            rankedRelationEdges.push({ id: link.id, sourceID, targetID, sourceLevel, targetLevel })
+        const ownershipKeys = new Set<string>()
+        result.linkIDs.forEach(id => {
+            const edge = this.collectedRelations.get(id)
+            if (edge && ['ownership', 'vownership'].includes(String(edge.data?.RelationType))) ownershipKeys.add(this.hierarchyLinkKey(edge.source.id, edge.target.id))
         })
-
-        // Resource hierarchy can bridge discovery-only gaps such as
-        // Switch -> SwitchPort. It contributes nodes to the calculated route,
-        // but its dotted lines are not promoted as network traffic edges.
         this.gHieraLinks.selectAll('path.hiera-link').each((link: any) => {
-            const sourceID = link?.source?.data?.id
-            const targetID = link?.target?.data?.id
-            if (!renderedNodeIDs.has(sourceID) || !renderedNodeIDs.has(targetID)) return
-            rankedRelationEdges.push({
-                id: hierarchyPathPrefix + this.hierarchyLinkKey(sourceID, targetID),
-                sourceID,
-                targetID,
-                sourceLevel: renderedNodeLevels.get(sourceID) || 0,
-                targetLevel: renderedNodeLevels.get(targetID) || 0
-            })
+            const sourceID = link?.source?.data?.id, targetID = link?.target?.data?.id
+            // Only highlight an actual collected ownership edge, never a layout-only parent.
+            if (!result.nodeIDs.has(sourceID) || !result.nodeIDs.has(targetID)) return
+            const key = this.hierarchyLinkKey(sourceID, targetID)
+            if (ownershipKeys.has(key)) hierarchyLinkKeys.add(key)
         })
+        return { nodeIDs, relationLinkIDs, visibleRelationLinkIDs, hierarchyLinkKeys, canonicalNodeIDs: result.nodeIDs,
+            hiddenNodeCount, truncated: result.truncated, unknownRelations: result.unknownRelations }
+    }
 
-        // Explicit targets supplied by a navigation entry point are connected
-        // by their shortest real relation paths. Direct neighbors are not
-        // preselected: doing so would turn connection focus into recursive
-        // "highlight every related resource" behavior.
-        const relationPaths = topologyRelationPathClosure(d.data.id, explicitTargetNodeIDs, relationPathEdges)
-        relationPaths.nodeIDs.forEach(nodeID => nodeIDs.add(nodeID))
-        relationPaths.linkIDs.forEach(linkID => {
-            if (visibleRelationLinkIDs.has(linkID)) relationLinkIDs.add(linkID)
-        })
-        const networkRootPaths = topologyNetworkRootPathClosure(d.data.id, rankedRelationEdges)
-        networkRootPaths.nodeIDs.forEach(nodeID => nodeIDs.add(nodeID))
-        networkRootPaths.linkIDs.forEach(linkID => {
-            if (!linkID.startsWith(hierarchyPathPrefix) && visibleRelationLinkIDs.has(linkID)) {
-                relationLinkIDs.add(linkID)
-            }
-        })
-        return { nodeIDs, relationLinkIDs, visibleRelationLinkIDs, hierarchyLinkKeys }
+    private setConnectionScope(scope: ConnectionScope) {
+        const focus = this.topologyNodeFocus
+        if (focus?.mode !== 'connections') return
+        const rendered = this.renderedFocusNode(focus.focusedNodeID)
+        if (!rendered) return
+        this.topologyNodeFocus = { ...focus, connectionScope: scope, ...this.connectionFocus(rendered, [], scope, focus.focusedNodeID) }
+        this.applyTopologyNodeFocus(); this.forceUpdate()
     }
 
     /**
@@ -3725,6 +3716,7 @@ export class Topology extends React.Component<Props, {}> {
             focusedNodeID: nodeID,
             focusedNodeName: this.displayedNodeName(node),
             relatedNodeIDs: Array.from(new Set(relatedNodeIDs)),
+            connectionScope: 'direct',
             ...connectionFocus
         }
         this.applyTopologyNodeFocus()
@@ -3898,11 +3890,9 @@ export class Topology extends React.Component<Props, {}> {
                 if (focus.focusedNodeName !== next.focusedNodeName || JSON.stringify(focus.problemContext) !== JSON.stringify(next.problemContext)) this.forceUpdate()
             }
         } else if (focus.mode === 'connections') {
-            const current = this.connectionFocus(rendered, focus.relatedNodeIDs)
-            this.topologyNodeFocus = {
-                ...focus,
-                ...current
-            }
+            const current = this.connectionFocus(rendered, [], focus.connectionScope || 'direct', focus.focusedNodeID)
+            this.topologyNodeFocus = { ...focus, ...current, focusedNodeName: this.displayedNodeName(this.nodes.get(focus.focusedNodeID) || rendered.data.wrapped) }
+            if (focus.canonicalNodeIDs?.size !== current.canonicalNodeIDs.size || focus.hiddenNodeCount !== current.hiddenNodeCount || focus.truncated !== current.truncated) this.forceUpdate()
         } else if (focus.mode === 'problems') {
             if (this.problemPathResourceIDs(rendered.data.wrapped).size === 0) {
                 this.topologyNodeFocus = null
@@ -3960,13 +3950,11 @@ export class Topology extends React.Component<Props, {}> {
             nodeIDs,
             relationLinkIDs,
             visibleRelationLinkIDs,
-            hierarchyLinkKeys
+            hierarchyLinkKeys,
+            ...(mode === 'connections' ? { connectionScope: 'direct' as ConnectionScope, ...this.connectionFocus(d) } : {})
         }
         this.applyTopologyNodeFocus()
         this.forceUpdate()
-        if (mode === 'connections') {
-            this.zoomFitFocusedNodes(nodeIDs)
-        }
     }
 
     private applyTopologyNodeFocus() {
@@ -4089,12 +4077,12 @@ export class Topology extends React.Component<Props, {}> {
             { key: 'detail', text: '상세 보기', section: 'navigation', callback: () => this.props.onNodeClicked(node) },
             { key: 'center', text: '화면 중앙으로 이동', section: 'navigation', callback: () => this.centerNode(node) }
         ]
-        if (connectionFocus.nodeIDs.size > 1) {
+        if (this.nodes.has(node.id) && !node.data?.IsTopologyGroup) {
             const connectionFocusActive = this.topologyNodeFocus?.mode === 'connections'
                 && this.topologyNodeFocus.focusedNodeID === d.data.id
             items.push({
                 key: 'connections',
-                text: connectionFocusActive ? '연결 관계 강조 해제' : '연결 자원 강조',
+                text: connectionFocusActive ? '연결 관계 강조 해제' : '연결 관계 강조',
                 section: 'navigation',
                 callback: () => this.toggleTopologyNodeFocus(
                     'connections',
@@ -6783,18 +6771,27 @@ export class Topology extends React.Component<Props, {}> {
                     <span className="topology-connection-focus-status__name" title={connectionFocus.focusedNodeName}>
                         {connectionFocus.focusedNodeName}
                     </span>
+                    <Segmented<ConnectionScope> size="small" aria-label="연결 관계 강조 범위"
+                        value={connectionFocus.connectionScope || 'direct'} onChange={scope => this.setConnectionScope(scope)}
+                        options={[{ value: 'direct', label: '직접 연결' }, { value: 'all', label: '전체 연결' }]} />
+                    <span className="topology-connection-focus-status__count">{connectionEvidenceLabel(this.nodes.get(connectionFocus.focusedNodeID), (connectionFocus.canonicalNodeIDs?.size || 1) - 1)}{connectionFocus.truncated ? ' · 일부' : ''}</span>
+                    <Tooltip title={<div>수집된 실제 관계를 강조합니다. 통신 경로나 장애 전파를 뜻하지 않습니다.
+                        <div>{Math.max(0, (connectionFocus.canonicalNodeIDs?.size || 1) - 1)}개 관련 자원 · 화면에 숨겨진 자원 {connectionFocus.hiddenNodeCount || 0}개</div>
+                        {!!connectionFocus.hiddenNodeCount && <div>접힌 그룹 강조는 그 안에 관련 자원이 있음을 뜻하며 그룹 전체가 관련되었다는 의미는 아닙니다.</div>}
+                        {(connectionFocus.canonicalNodeIDs?.size || 1) === 1 && <div>현재 수집 그래프에 관계가 없습니다. 미수집·관계 미확인은 실제 연결 없음과 다릅니다.</div>}
+                        {!!connectionFocus.unknownRelations && <div>미분류 관계는 직접 연결만 포함하고 더 확장하지 않습니다.</div>}
+                        {connectionFocus.truncated && <div>큰 그래프의 안전 한도(500개 자원·10,000회 검사·32단계)에 도달해 일부 범위만 표시합니다.</div>}
+                    </div>}><Button type="text" size="small" icon={<InfoCircleOutlined />} aria-label="연결 관계 강조 안내" /></Tooltip>
                     <span className="topology-connection-focus-status__actions">
                         <span className="topology-connection-focus-status__exit-hint">
                             <kbd className="topology-connection-focus-status__keycap">ESC</kbd>
                         </span>
-                        <button
-                            type="button"
-                            className="topology-connection-focus-status__release"
+                        <Button type="text" size="small" className="topology-connection-focus-status__release"
                             aria-label="연결 관계 강조 해제"
                             title="연결 관계 강조 해제"
                             onClick={() => this.clearTopologyNodeFocus()}>
                             해제
-                        </button>
+                        </Button>
                     </span>
                 </div>}
             </div>

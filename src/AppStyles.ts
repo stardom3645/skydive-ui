@@ -89,6 +89,7 @@ export const styles = (theme: Theme) => createStyles({
     '--topology-card-shadow': 'rgba(31, 45, 65, 0.14)',
     '--topology-object-surface': 'rgba(255, 255, 255, 0.94)',
     '--topology-object-border': '#e4ecf8',
+    '--topology-object-selected-border': '#3b82d0',
     '--topology-object-text': '#25334b',
     '--topology-object-muted': '#63748d',
     '--topology-object-icon-surface': '#eef3fb',
@@ -194,6 +195,7 @@ export const styles = (theme: Theme) => createStyles({
     '--topology-card-shadow': 'rgba(0, 0, 0, 0.28)',
     '--topology-object-surface': '#1c2a40',
     '--topology-object-border': '#34465f',
+    '--topology-object-selected-border': '#79a9e0',
     '--topology-object-text': '#d4deee',
     '--topology-object-muted': '#9eafc8',
     '--topology-object-icon-surface': '#263750',
@@ -1440,9 +1442,10 @@ export const styles = (theme: Theme) => createStyles({
       flex: 1,
       minHeight: 0,
       overflow: 'hidden',
-      gap: 16,
-      padding: 20
+      gap: 12,
+      padding: 16
     },
+    '& .netdive-event-query-toolbar': { paddingBottom: 12 },
     '& .netdive-event-history-filter-surface': {
       padding: '12px 16px',
       border: '1px solid var(--netdive-ant-divider)',
@@ -1520,7 +1523,7 @@ export const styles = (theme: Theme) => createStyles({
       '& .ant-table-container': { overflow: 'visible !important' },
       '& .ant-table-body': { overflow: 'auto !important' },
       '& .ant-table-thead > tr > th': { background: 'var(--netdive-ant-bg)', fontWeight: 500 },
-      '& .ant-table-tbody > tr > td': { padding: '12px 10px', height: 56 },
+      '& .ant-table-tbody > tr.ant-table-row > td': { padding: '6px 8px', height: 52 },
       '& .ant-pagination': { padding: '12px 16px', margin: 0 },
       border: '1px solid var(--netdive-ant-divider)',
       borderRadius: 0,

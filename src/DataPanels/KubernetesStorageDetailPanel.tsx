@@ -721,13 +721,13 @@ class KubernetesStorageDetailPanel extends React.Component<Props, State> {
                 <BasicInfoRows density="compact" rows={basicRows} labelWidth={122} copyTooltip={translate('copy')} appearance="basic" />
             </DetailSectionCard>
             <DetailSectionCard icon={<DetailSectionIcon role="advanced" />} title={translate('kubernetesAdvancedInformation')} collapsible collapsed={!this.state.basicInfoAdvanced} onToggle={() => this.setState({ basicInfoAdvanced: !this.state.basicInfoAdvanced })}>
-                <BasicInfoRows density="compact" rows={advancedRows} labelWidth={122} copyTooltip={translate('copy')} />
-                <KubernetesMetadataRows items={[
+                <BasicInfoRows appearance="basic" density="compact" rows={advancedRows} labelWidth={122} copyTooltip={translate('copy')} />
+                <KubernetesMetadataRows labelWidth="var(--netdive-detail-basic-label-width)" items={[
                     { key: 'labels', label: '라벨', resourceName: name, resourceKind: kindLabel, metadataKind: 'label', data: meta.Labels || meta.labels, modalTitle: `${kindLabel} 라벨`, collected: metadataSource !== undefined },
                     { key: 'annotations', label: '어노테이션', resourceName: name, resourceKind: kindLabel, metadataKind: 'annotation', data: meta.Annotations || meta.annotations, modalTitle: `${kindLabel} 어노테이션`, collected: metadataSource !== undefined }
                 ]} />
                 {type === 'persistentvolume' && pvAffinity.showPolicyDetail && <React.Fragment>
-                    <BasicInfoRows density="compact" labelWidth={122} rows={[{
+                    <BasicInfoRows appearance="basic" density="compact" labelWidth={122} rows={[{
                         label: '노드 배치 조건',
                         value: <KubernetesStructuredDataModalAction
                             resourceKind="PV"
@@ -744,7 +744,7 @@ class KubernetesStorageDetailPanel extends React.Component<Props, State> {
                     }]} />
                 </React.Fragment>}
                 {type === 'storageclass' && (topologyRows.length > 0 || mountOptionRows.length > 0) && <React.Fragment>
-                    <BasicInfoRows density="compact" labelWidth={122} rows={[
+                    <BasicInfoRows appearance="basic" density="compact" labelWidth={122} rows={[
                         ...(topologyRows.length ? [{
                             label: '허용 토폴로지',
                             value: <KubernetesStructuredDataModalAction
@@ -864,7 +864,7 @@ class KubernetesStorageDetailPanel extends React.Component<Props, State> {
                         기본 스토리지 클래스
                     </DetailBadge>
                     : undefined}>
-                <BasicInfoRows density="compact" rows={policyRows} labelWidth={122} copyTooltip={translate('copy')} />
+                <BasicInfoRows appearance="basic" density="compact" rows={policyRows} labelWidth={122} copyTooltip={translate('copy')} />
 
 
             </DetailSectionCard>

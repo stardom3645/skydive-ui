@@ -8,11 +8,13 @@ import { TopologyNodePresentation, TopologyMetric } from './TopologyNodePresenta
 import { TOPOLOGY_TOOLTIP_DISMISS_EVENT, watchTopologyTooltipAnchor } from './TopologyTooltipAnchor'
 import { TopologyStatusBadgeRail, TOPOLOGY_STATUS_BADGE_RADIUS } from './TopologyStatusBadge'
 import './TopologyNodeCard.css'
+import type { InfrastructureVMSemanticMode } from './InfrastructureVMSemanticZoom'
+import { infrastructureObjectSemanticInfo } from './InfrastructureSemanticLayout'
 
 /** Ant overlays live outside the SVG. Close them when their D3 anchor moves,
  * rather than leaving the previous position visible during pan or collapse. */
 const TopologyCardTooltip = ({ title, block = false, overflowOnly = false, children }: {
-    title: string; block?: boolean; overflowOnly?: boolean; children: React.ReactNode
+    title: React.ReactNode; block?: boolean; overflowOnly?: boolean; children: React.ReactNode
 }) => {
     const anchor = React.useRef<HTMLSpanElement>(null)
     const [open, setOpen] = React.useState(false)
@@ -80,7 +82,7 @@ const metricIcons = {
     'service-ip': GlobalOutlined, 'service-host': CloudServerOutlined, 'service-agent': LinkOutlined
 }
 
-export const TopologyMetricChip = ({ metric, emptyMeter = true, showSource = true }: { metric: TopologyMetric; emptyMeter?: boolean; showSource?: boolean }) => {
+export const TopologyMetricChip = ({ metric, emptyMeter = true, showSource = true, summary = false }: { metric: TopologyMetric; emptyMeter?: boolean; showSource?: boolean; summary?: boolean }) => {
     const Icon = metricIcons[metric.key] || ApartmentOutlined
     const resource = ['cpu', 'memory', 'root-disk'].includes(metric.key)
     const tone = metric.percent !== undefined && metric.percent >= 90 ? 'critical'
@@ -90,12 +92,12 @@ export const TopologyMetricChip = ({ metric, emptyMeter = true, showSource = tru
     return <div className={`topology-metric-chip ${count ? 'is-count' : ''} ${descriptiveCount ? 'is-descriptive-count' : ''} ${resource ? 'is-resource' : ''} ${metric.key === 'root-disk' ? 'is-root-disk' : metric.key === 'vms' ? 'is-vm-count' : ''} is-${tone} ${metric.percent !== undefined ? 'has-meter' : metric.description && metric.value !== '미수집' ? 'is-quantity' : ''}`}
         title={`${metric.label}: ${metric.value}${showSource && metric.description ? ` · ${metric.description}` : ''}`}>
         <span className="topology-metric-chip__line">
-            <span className="topology-metric-chip__label"><Icon aria-hidden="true" /><span>{metric.label}</span></span>
+            <span className="topology-metric-chip__label"><Icon aria-hidden="true" /><span>{summary ? metric.key === 'memory' ? 'MEM' : 'CPU' : metric.label}</span></span>
             {metric.key.startsWith('service-') ? <TopologyCardTooltip title={metric.value} block overflowOnly>
                 <strong className="topology-service-information__value">{metric.value}</strong>
             </TopologyCardTooltip> : <strong>{metric.value}</strong>}
         </span>
-        {resource && metric.source !== 'inventory' && (metric.percent !== undefined
+        {!summary && resource && metric.source !== 'inventory' && (metric.percent !== undefined
             ? <Progress percent={metric.percent} showInfo={false} size={['100%', 7]}
                 strokeColor={tone === 'critical' ? '#ff8a80' : tone === 'warning' ? '#ffc36b' : tone === 'cpu' ? '#35c99b' : '#5795ff'} railColor="var(--topology-metric-rail, #e9eff6)" />
             : emptyMeter ? <span className="topology-metric-chip__unavailable" aria-label="실시간 사용률 미수집" /> : null)}
@@ -180,17 +182,90 @@ const TopologySystemVMServiceSummary = ({ information }: {
     </div>
 </div>
 
-/** D3 owns positions and input delegation; this
+/** Use the real Ant Tag variants, with their native border and radius.
+ * The SVG inverse scale keeps those design tokens in screen pixels. */
+const TopologyVMStateTile = ({ model }: { model: TopologyNodePresentation }) => {
+    const tone = model.status.tone
+    const color = tone === 'normal' ? 'success' : tone === 'warning' ? 'warning' : tone === 'critical' ? 'error' : undefined
+    const variant = tone === 'warning' || tone === 'critical' ? 'solid' : tone === 'inactive' ? 'filled' : 'outlined'
+    return <TopologyCardTooltip title={<div>
+        <strong>{model.name}</strong><div>{model.status.label}</div>
+        {model.metrics.filter(metric => ['cpu', 'memory'].includes(metric.key)).map(metric =>
+            <div key={metric.key}>{metric.label}: {metric.value}{metric.sourceLabel ? ` · ${metric.sourceLabel}` : ''}</div>)}
+        <div>{model.status.description}</div>
+    </div>} block>
+        <Tag color={color} variant={variant} className={`topology-vm-state-tile is-${tone}`}
+            aria-label={`${model.name} · ${model.status.label}`} />
+    </TopologyCardTooltip>
+}
+
+/** Semantic variants are retained for explicit previews/future reuse only.
+ * The default Topology never supplies these options and always renders detail.
+ * D3 owns positions and input delegation; this
  * component keeps the same presentation inside one SVG foreignObject. */
-export const TopologyNodeCard = React.memo(({ model, icon, iconClass, href }: {
-    model: TopologyNodePresentation; icon: string; iconClass?: string; href?: string
+export const TopologyNodeCard = React.memo(({ model, icon, iconClass, href, semanticMode = 'detail', semanticGroup = false, semanticObject = false }: {
+    model: TopologyNodePresentation; icon: string; iconClass?: string; href?: string; semanticMode?: InfrastructureVMSemanticMode; semanticGroup?: boolean; semanticObject?: boolean
 }) => {
+    if (semanticGroup && model.group && model.children) return <foreignObject className="topology-object-foreign" x={-model.width / 2} y={-model.height / 2}
+        width={model.width} height={model.height}>
+        <article className="topology-object-card is-group is-infrastructure-group-summary"
+            aria-label={`${model.name} · 직접 하위 ${model.children.total}개`}>
+            <div className="topology-object-card__header">
+                <TopologyTypeIcon icon={icon} iconClass={iconClass} href={href} />
+                <TopologyCardTooltip title={model.name} block overflowOnly>
+                    <strong className="topology-object-card__name">{model.name}</strong>
+                </TopologyCardTooltip>
+            </div>
+            <TopologyCardTooltip title="그룹 바로 아래 계층의 기존 집계입니다. 숨김 필터와 펼침 여부로 집계 기준을 바꾸지 않습니다." block>
+                <div className="topology-group-direct-count"><span>직접 하위</span><strong>{model.children.total}</strong></div>
+            </TopologyCardTooltip>
+            {model.lldpDiscoveryCount !== undefined ? <div className="topology-lldp-discovery-note">
+                <InfoCircleOutlined /><span>LLDP 발견 · 운영 상태 미수집</span>
+            </div> : <>
+                <TopologyGroupHeaderSummary children={model.children} compactLabels normalLabel="이상 없음" />
+                {model.linkStates && <TopologyLinkStateSummary states={model.linkStates} />}
+            </>}
+        </article>
+    </foreignObject>
+    if (semanticObject && semanticMode !== 'detail') {
+        const information = semanticMode === 'summary' ? infrastructureObjectSemanticInfo(model) : undefined
+        return <foreignObject className="topology-object-foreign" x={-model.width / 2} y={-model.height / 2} width={model.width} height={model.height}>
+            <article className={`topology-object-card is-infrastructure-object is-infrastructure-identity is-infrastructure-${semanticMode}`}
+                aria-label={`${model.kind}: ${model.name} · ${model.status.label}`}>
+                <TopologyCardTooltip title={`${model.kind}: ${model.name}`} block overflowOnly>
+                    <strong className="topology-object-card__name">{model.name}</strong>
+                </TopologyCardTooltip>
+                <TopologyObjectStatusBadge status={model.status} />
+                {information && <TopologyCardTooltip title={information.description ? `${information.text} · ${information.description}` : information.text} block>
+                    <span className="topology-object-card__essential">{information.text}</span>
+                </TopologyCardTooltip>}
+            </article>
+        </foreignObject>
+    }
+    if (semanticMode !== 'detail') return <foreignObject className="topology-object-foreign" x={-model.width / 2} y={-model.height / 2}
+        width={model.width} height={model.height}>
+        <ConfigProvider theme={{ token: { fontSize: 14, fontFamily: 'var(--netdive-font-family)' }, components: { Tooltip: { colorBgSpotlight: '#374151' } } }}>
+            <article className={`topology-object-card is-infrastructure-object is-vm-semantic is-vm-${semanticMode}`}
+                aria-label={`${model.kind}: ${model.name} · ${model.status.label}`}>
+                {semanticMode === 'dense' ? <TopologyVMStateTile model={model} /> : <>
+                    <TopologyCardTooltip title={model.name} block overflowOnly>
+                        <strong className="topology-object-card__name">{model.name}</strong>
+                    </TopologyCardTooltip>
+                    <TopologyObjectStatusBadge status={model.status} />
+                    <div className="topology-object-card__metrics">
+                        {model.metrics.filter(metric => ['cpu', 'memory'].includes(metric.key)).map(metric =>
+                            <TopologyMetricChip key={metric.key} metric={metric} showSource={false} emptyMeter={false} summary />)}
+                    </div>
+                </>}
+            </article>
+        </ConfigProvider>
+    </foreignObject>
     const storage = !model.group && !model.infrastructure && ['persistentvolume', 'persistentvolumeclaim'].includes(model.resourceType)
     return <><foreignObject className="topology-object-foreign" x={-model.width / 2} y={-model.height / 2}
     width={model.width} height={model.height}>
     <ConfigProvider theme={{ token: { fontSize: 14, fontFamily: 'var(--netdive-font-family)' },
         components: { Tooltip: { colorBgSpotlight: '#374151' } } }}>
-        <article className={`topology-object-card is-${model.size} ${model.group && !model.namespaceSummary ? `is-resource-group ${model.infrastructure ? 'is-infrastructure-resource-group' : 'is-kubernetes-resource-group'} ${!model.infrastructure && model.height < 360 ? 'is-short-kubernetes-group' : ''} ${model.height < 280 ? 'is-dense-group' : ''} ${model.height >= 460 ? 'is-tall-group' : ''}` : ''} ${!model.group ? `is-object-identity ${model.infrastructure ? 'is-infrastructure-object' : model.resourceType !== 'libvirt' ? 'is-kubernetes-object' : ''}` : ''} ${!model.group && model.resourceType === 'host' ? 'is-host' : ''} ${!model.group && !model.infrastructure && model.resourceType === 'cluster' ? 'is-cluster' : ''} ${!model.group && model.resourceType === 'libvirt' ? 'is-vm' : ''} ${model.group ? `is-group ${model.fullyExpanded ? 'is-group-expanded' : ''}` : model.size === 'large' ? '' : 'is-tile'}`}
+        <article className={`topology-object-card ${semanticGroup ? 'is-vm-dense-group' : ''} is-${model.size} ${model.group && !model.namespaceSummary ? `is-resource-group ${model.infrastructure ? 'is-infrastructure-resource-group' : 'is-kubernetes-resource-group'} ${!model.infrastructure && model.height < 360 ? 'is-short-kubernetes-group' : ''} ${model.height < 280 ? 'is-dense-group' : ''} ${model.height >= 460 ? 'is-tall-group' : ''}` : ''} ${!model.group ? `is-object-identity ${model.infrastructure ? 'is-infrastructure-object' : model.resourceType !== 'libvirt' ? 'is-kubernetes-object' : ''}` : ''} ${!model.group && model.resourceType === 'host' ? 'is-host' : ''} ${!model.group && !model.infrastructure && model.resourceType === 'cluster' ? 'is-cluster' : ''} ${!model.group && model.resourceType === 'libvirt' ? 'is-vm' : ''} ${model.group ? `is-group ${model.fullyExpanded ? 'is-group-expanded' : ''}` : model.size === 'large' ? '' : 'is-tile'}`}
             data-storage-information={storage || undefined}
             data-kubernetes-node={!model.infrastructure && !model.group && model.resourceType === 'node' || undefined}
             data-node-metric-source-hidden={!model.infrastructure && !model.group && model.resourceType === 'node'

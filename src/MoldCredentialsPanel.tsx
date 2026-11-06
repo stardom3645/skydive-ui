@@ -1,16 +1,20 @@
 import * as React from 'react'
-import { Alert, Button, Collapse, Form, Input, Popconfirm, Space, Spin, Tag, Tooltip } from 'antd'
+import { Alert, Button, Dropdown, Form, Input, Modal, Popconfirm, Space, Spin, Tag, Tooltip } from 'antd'
 import {
+  ApiOutlined,
   CheckCircleFilled,
   CloudServerOutlined,
   DatabaseOutlined,
   DeleteOutlined,
+  EllipsisOutlined,
   ExperimentOutlined,
   ExclamationCircleOutlined,
   InfoCircleOutlined,
   ExportOutlined,
   QuestionCircleOutlined,
-  SaveOutlined
+  ReloadOutlined,
+  SaveOutlined,
+  UpOutlined
 } from '@ant-design/icons'
 
 import { translate } from './Config'
@@ -25,7 +29,7 @@ import {
 } from './MoldCredentialsAPI'
 
 import './MoldCredentialsPanel.css'
-import { moldIntegrationIssue, moldIntegrationLabel, moldIntegrationDescription } from './MoldIntegrationHealth'
+import { moldIntegrationDescription } from './MoldIntegrationHealth'
 import type { MoldIntegrationHealth } from './MoldIntegrationHealth'
 
 interface Props {
@@ -55,13 +59,20 @@ const MoldCredentialsPanel = ({ userSession, initialSetup = false, onCancel, onS
   const [dbTestPassed, setDBTestPassed] = React.useState(false)
   const [dbSettingsOpen, setDBSettingsOpen] = React.useState(false)
   const [editingAPI, setEditingAPI] = React.useState(false)
+  const [apiFormCollapsed, setAPIFormCollapsed] = React.useState(false)
+  const [dbChecking, setDBChecking] = React.useState(false)
+  const [apiHelpOpen, setAPIHelpOpen] = React.useState(false)
+  const [resetConfirmOpen, setResetConfirmOpen] = React.useState(false)
   const statusRequest = React.useRef<AbortController | null>(null)
+  const dbRequest = React.useRef<AbortController | null>(null)
 
   React.useEffect(() => {
     let active = true
     const controller = new AbortController()
     statusRequest.current = controller
     setLoadingStatus(true)
+    setDBChecking(false)
+    setBusy(current => current === 'db-test' ? null : current)
     getMoldCredentialsStatus(userSession, controller.signal)
       .then(status => {
         if (active && !controller.signal.aborted) {
@@ -76,8 +87,32 @@ const MoldCredentialsPanel = ({ userSession, initialSetup = false, onCancel, onS
       .finally(() => {
         if (active && !controller.signal.aborted) setLoadingStatus(false)
       })
-    return () => { active = false; controller.abort() }
+    return () => { active = false; controller.abort(); dbRequest.current?.abort() }
   }, [userSession?.endpoint, userSession?.token])
+
+  React.useEffect(() => {
+    if (initialSetup) return
+    if (dbPasswordConfigured !== true) { setDBChecking(false); setDBFeedback(null); return }
+    // One actual connection check when the settings become available. No timer
+    // or background polling; closing the panel/session change cancels the check.
+    const controller = new AbortController()
+    dbRequest.current?.abort()
+    dbRequest.current = controller
+    setDBChecking(true)
+    setDBFeedback(null)
+    testMoldDBConnection(userSession, '', controller.signal)
+      .then(() => {
+        if (!controller.signal.aborted) setDBFeedback({ type: 'success', message: translate('moldDBTestSuccess') })
+      })
+      .catch(error => {
+        if (!controller.signal.aborted) setDBFeedback({ type: 'error', message: error.message })
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setDBChecking(false)
+        if (dbRequest.current === controller) dbRequest.current = null
+      })
+    return () => { controller.abort() }
+  }, [initialSetup, dbPasswordConfigured, userSession?.endpoint, userSession?.token])
 
   const stopStatusRequest = () => {
     statusRequest.current?.abort()
@@ -89,8 +124,8 @@ const MoldCredentialsPanel = ({ userSession, initialSetup = false, onCancel, onS
     secretKey: secretKey.trim(),
     dbPassword: ''
   })
-  const showAPIInput = initialSetup || editingAPI || (health?.state !== 'HEALTHY' &&
-    (loadingStatus || !apiConfigured || health?.state === 'AUTHENTICATION_FAILED'))
+  const showAPIInput = initialSetup || (!apiFormCollapsed && (editingAPI || (health?.state !== 'HEALTHY' &&
+    (loadingStatus || !apiConfigured || health?.state === 'AUTHENTICATION_FAILED'))))
   const canTestAPI = apiKey.trim() !== '' && secretKey.trim() !== '' && busy === null
   const canTestDB = dbPasswordConfigured && busy === null
   const canSave = apiKey.trim() !== '' && secretKey.trim() !== '' &&
@@ -114,18 +149,25 @@ const MoldCredentialsPanel = ({ userSession, initialSetup = false, onCancel, onS
   }
 
   const testDB = async () => {
+    const controller = new AbortController()
+    dbRequest.current?.abort()
+    dbRequest.current = controller
+    setDBChecking(false)
     setBusy('db-test')
     setDBFeedback(null)
     try {
-      await testMoldDBConnection(userSession, '')
+      await testMoldDBConnection(userSession, '', controller.signal)
+      if (controller.signal.aborted) return
       setDBFeedback({ type: 'success', message: translate('moldDBTestSuccess') })
       setDBTestPassed(true)
       if (initialSetup) setSetupStep(3)
     } catch (error) {
+      if (controller.signal.aborted) return
       setDBTestPassed(false)
       setDBFeedback({ type: 'error', message: error.message })
     } finally {
-      setBusy(null)
+      if (!controller.signal.aborted) setBusy(null)
+      if (dbRequest.current === controller) dbRequest.current = null
     }
   }
 
@@ -140,8 +182,9 @@ const MoldCredentialsPanel = ({ userSession, initialSetup = false, onCancel, onS
       setAPIKey('')
       setSecretKey('')
       setEditingAPI(false)
+      setAPIFormCollapsed(true)
       setAPIFeedback(null)
-      setDBFeedback(null)
+      if (initialSetup) setDBFeedback(null)
       setAPITestPassed(false)
       setDBTestPassed(false)
       setFeedback({ type: 'success', message: translate('moldCredentialsSaveSuccess') })
@@ -164,8 +207,9 @@ const MoldCredentialsPanel = ({ userSession, initialSetup = false, onCancel, onS
       setAPIKey('')
       setSecretKey('')
       setEditingAPI(true)
+      setAPIFormCollapsed(false)
       setAPIFeedback(null)
-      setDBFeedback(null)
+      if (initialSetup) setDBFeedback(null)
       setAPITestPassed(false)
       setDBTestPassed(false)
       setSetupStep(1)
@@ -214,52 +258,62 @@ const MoldCredentialsPanel = ({ userSession, initialSetup = false, onCancel, onS
     </Form.Item>
   </div>
 
-  const resetAction = <Popconfirm
-    title={<div className="mold-credentials-reset-confirm">
+  const resetConfirmation = {
+    title: <div className="mold-credentials-reset-confirm">
       <strong>{translate('moldResetConfirmTitle')}</strong><span>{translate('moldResetConfirmDescription')}</span>
-    </div>}
-    okText={translate('moldReset')} cancelText={translate('moldCancel')} okButtonProps={{ danger: true }} onConfirm={reset}>
-    <Button danger type={initialSetup ? 'default' : 'text'} size="small" icon={<DeleteOutlined />}
+    </div>,
+    okText: translate('moldReset'), cancelText: translate('moldCancel'), okButtonProps: { danger: true }, onConfirm: reset
+  }
+  const resetAction = <Popconfirm {...resetConfirmation}>
+    <Button danger size="small" icon={<DeleteOutlined />}
       disabled={busy !== null} loading={busy === 'reset'}>{translate('moldResetConnection')}</Button>
   </Popconfirm>
 
-  const dbContent = <div className="mold-credentials-db-advanced-body">
-    {dbPasswordConfigured ? <React.Fragment>
-      <p className="mold-settings-description">{translate('moldDBStoredConnectionDescription')}</p>
-      <Button size="small" icon={<ExperimentOutlined />} onClick={testDB} disabled={!canTestDB} loading={busy === 'db-test'}>
-        {translate('moldDBTest')}
-      </Button>
-    </React.Fragment> : <Alert showIcon type="warning"
-      title={translate(dbPasswordConfigured === undefined ? 'moldDBStatusUnavailable' : 'moldDBSystemNotConfigured')} />}
-    {dbFeedback && <Alert showIcon type={dbFeedback.type} title={dbFeedback.message} />}
-  </div>
-
   if (!initialSetup) {
+    // Presentation only: stored credentials are not connection evidence. API
+    // health describes saved keys; draft tests must not change that summary.
+    type Status = 'success' | 'failure' | 'unconfigured' | 'checking'
     const state = health?.state || 'UNKNOWN'
-    const registration = apiConfigured === true || state === 'HEALTHY'
-      ? 'moldCredentialsRegistered' : apiConfigured === false ? 'moldCredentialsUnregistered' : loadingStatus ? 'moldChecking' : 'moldStatusUnknown'
-    const connectionTag = state === 'HEALTHY' ? 'moldConnected' : state === 'UNCONFIGURED' ? 'moldNotConfigured'
-      : state === 'UNKNOWN' ? 'moldChecking' : 'moldDisconnected'
+    const savedAPIStatus: Status = apiConfigured === false || state === 'UNCONFIGURED' ? 'unconfigured'
+      : state === 'HEALTHY' ? 'success' : state === 'UNKNOWN' ? 'checking' : 'failure'
+    const hasAPIDraft = showAPIInput && (apiKey.trim() !== '' || secretKey.trim() !== '')
+    const apiStatus: Status = busy === 'api-test' ? 'checking'
+      : hasAPIDraft ? apiFeedback ? apiFeedback.type === 'success' ? 'success' : 'failure' : 'checking' : savedAPIStatus
+    const dbStatus: Status = !loadingStatus && dbPasswordConfigured === false ? 'unconfigured'
+      : busy === 'db-test' || dbChecking || loadingStatus ? 'checking'
+        : dbFeedback ? dbFeedback.type === 'success' ? 'success' : 'failure' : 'checking'
+    const integrationStatus: Status = [savedAPIStatus, dbStatus].includes('failure') ? 'failure'
+      : [savedAPIStatus, dbStatus].includes('unconfigured') ? 'unconfigured'
+        : savedAPIStatus === 'success' && dbStatus === 'success' ? 'success' : 'checking'
+    const statusKey = (status: Status) => ({ success: 'moldSettingsSuccess', failure: 'moldSettingsFailure',
+      unconfigured: 'moldNotConfigured', checking: 'moldChecking' }[status])
+    const statusTag = (status: Status) => <Tag color={status === 'success' ? 'success' : status === 'failure' ? 'error' : 'default'}>
+      {translate(statusKey(status))}
+    </Tag>
     const feedbackLine = (value: Feedback) => value && <div
       role={value.type === 'error' ? 'alert' : 'status'} className={`mold-settings-feedback is-${value.type}`}>
       {value.type === 'success' ? <CheckCircleFilled /> : value.type === 'error' ? <ExclamationCircleOutlined /> : <InfoCircleOutlined />}
       <span>{value.message}</span>
     </div>
+    const summaryKey = { success: 'moldSettingsSummarySuccess', failure: 'moldSettingsSummaryFailure',
+      unconfigured: 'moldSettingsSummaryUnconfigured', checking: 'moldSettingsSummaryChecking' }[integrationStatus]
     return <div className="mold-credentials-settings mold-settings">
       <Form layout="vertical" className="mold-settings-form" onFinish={save}>
         <section className="mold-settings-section" aria-labelledby="mold-connection-heading">
           <div className="mold-settings-section-heading">
             <h3 id="mold-connection-heading">{translate('moldConnectionStatus')}</h3>
-            <Tag color={state === 'HEALTHY' ? 'success' : moldIntegrationIssue(health) ? 'error' : 'default'}>
-              {translate(connectionTag)}
-            </Tag>
+            {statusTag(integrationStatus)}
           </div>
-          <div className={`mold-settings-connection is-${state.toLowerCase()}`} role="status">
+          <div className={`mold-settings-connection is-${integrationStatus}`} role="status">
             <span className="mold-settings-connection-icon" aria-hidden="true">
-              {state === 'HEALTHY' ? <CheckCircleFilled /> : moldIntegrationIssue(health) ? <ExclamationCircleOutlined /> : <InfoCircleOutlined />}
+              {integrationStatus === 'success' ? <CheckCircleFilled /> : integrationStatus === 'failure' ? <ExclamationCircleOutlined /> : <InfoCircleOutlined />}
             </span>
-            <div><strong>{state === 'HEALTHY' ? translate('moldAuthenticationSuccess') : health ? moldIntegrationLabel(health) : translate('moldChecking')}</strong>
-              <p className="mold-settings-description">{health ? moldIntegrationDescription(health) : translate('moldConnectionPendingDescription')}</p>
+            <div><strong>{translate(summaryKey)}</strong>
+              <p className="mold-settings-description mold-settings-connection-summary">
+                <span><ApiOutlined aria-hidden="true" />API: {translate(statusKey(savedAPIStatus))}</span>
+                <span aria-hidden="true">·</span>
+                <span><DatabaseOutlined aria-hidden="true" />DB: {translate(statusKey(dbStatus))}</span>
+              </p>
             </div>
           </div>
         </section>
@@ -267,39 +321,90 @@ const MoldCredentialsPanel = ({ userSession, initialSetup = false, onCancel, onS
         <section className="mold-settings-section" aria-labelledby="mold-api-credentials-heading">
           <div className="mold-settings-section-heading">
             <div className="mold-settings-section-title"><h3 id="mold-api-credentials-heading">{translate('moldAPICredentialsTitle')}</h3>
-              <Tag>{translate(registration)}</Tag>
+              {statusTag(apiStatus)}
             </div>
-            {!showAPIInput && <Button size="small" onClick={() => setEditingAPI(true)} disabled={busy !== null}>
-              {translate('moldCredentialsEdit')}
-            </Button>}
+            <Space size={8}>
+              <Tooltip title={showAPIInput ? translate('moldCollapse') : undefined}>
+              <Button size="small" type={showAPIInput ? 'text' : 'default'} icon={showAPIInput ? <UpOutlined /> : undefined} onClick={() => {
+                setAPIFormCollapsed(showAPIInput)
+                setEditingAPI(!showAPIInput)
+              }} disabled={busy !== null}
+                aria-label={translate(showAPIInput ? 'moldCollapse' : 'moldCredentialsEdit')}
+                aria-expanded={showAPIInput} aria-controls="mold-api-credentials-fields">
+                {showAPIInput ? undefined : translate('moldCredentialsEdit')}
+              </Button>
+              </Tooltip>
+              <Popconfirm {...resetConfirmation} trigger={[]} open={resetConfirmOpen} onOpenChange={setResetConfirmOpen} zIndex={1400}
+                classNames={{ root: 'mold-settings-reset-popover' }}>
+                <Dropdown trigger={['click']} placement="bottomRight" getPopupContainer={() => document.body}
+                  styles={{ root: { zIndex: 1400 } }}
+                  disabled={busy !== null} menu={{ selectable: false, items: [
+                    ...(moldUIURL ? [{ key: 'issue', icon: <ExportOutlined />, label: <a href={moldUIURL} target="_blank" rel="noopener noreferrer">{translate('moldOpenAccountUser')}</a> }] : []),
+                    { key: 'help', icon: <QuestionCircleOutlined />, label: translate('moldAPIKeyHelpTitle') },
+                    { type: 'divider' },
+                    { key: 'reset', danger: true, icon: <DeleteOutlined />, label: translate('moldResetConnection') }
+                  ], onClick: ({ key }) => {
+                    if (key === 'help') setAPIHelpOpen(true)
+                    if (key === 'reset') setResetConfirmOpen(true)
+                  } }}>
+                  <Button size="small" type="text" icon={<EllipsisOutlined />} disabled={busy !== null}
+                    aria-label={translate('moldAPIMoreActions')} />
+                </Dropdown>
+              </Popconfirm>
+            </Space>
           </div>
-          {apiConfigured === false && <p className="mold-settings-empty">{translate('moldCredentialsEmptyDescription')}</p>}
           <p className="mold-settings-description">{translate('moldCredentialsStorageDescription')}</p>
-          {accountHelp}
-          {showAPIInput && apiFields}
+          {apiConfigured === false && <p className="mold-settings-note">{translate('moldCredentialsEmptyDescription')}</p>}
+          {savedAPIStatus === 'checking' && apiConfigured === true && <p className="mold-settings-note">{translate('moldAPIPendingVerification')}</p>}
+          {savedAPIStatus === 'failure' && !hasAPIDraft && health && feedbackLine({ type: 'error', message: moldIntegrationDescription(health) })}
+          {showAPIInput && <div id="mold-api-credentials-fields" className="mold-settings-management-body">{apiFields}</div>}
           {feedbackLine(apiFeedback)}
+          {hasAPIDraft && apiFeedback && <p className="mold-settings-note">{translate('moldAPIDraftVerification')}</p>}
           {feedbackLine(feedback)}
-          <div className="mold-settings-actions">
-            {resetAction}
-            {showAPIInput && <Space wrap size={8} className="mold-settings-edit-actions">
-              <Button size="small" icon={<ExperimentOutlined />} onClick={testAPI} disabled={!canTestAPI} loading={busy === 'api-test'}>
+          {showAPIInput && <div className="mold-settings-actions">
+            <Space wrap size={8} className="mold-settings-edit-actions">
+              <Button size="small" icon={<ApiOutlined />} onClick={testAPI} disabled={!canTestAPI} loading={busy === 'api-test'}>
                 {translate('moldAPITest')}
               </Button>
               <Button size="small" type="primary" htmlType="submit" icon={<SaveOutlined />} disabled={!canSave} loading={busy === 'save'}>
                 {translate('moldSave')}
               </Button>
-            </Space>}
-          </div>
+            </Space>
+          </div>}
         </section>
 
-        <Collapse className="mold-settings-advanced mold-credentials-db-advanced" bordered={false}
-          activeKey={dbSettingsOpen ? ['db'] : []} onChange={keys => setDBSettingsOpen(keys.includes('db'))}
-          expandIconPlacement="end" items={[{ key: 'db',
-            label: <div className="mold-settings-advanced-label"><h3>{translate('moldDBAdvancedTitle')}</h3>
-              <span className="mold-settings-description">{translate('moldDBManagedDescription')}</span></div>,
-            extra: <Tag>{translate(dbPasswordConfigured === undefined ? loadingStatus ? 'moldChecking' : 'moldStatusUnknown'
-              : dbPasswordConfigured ? 'moldConfigured' : 'moldNotConfigured')}</Tag>, children: dbContent }]} />
+        <section className="mold-settings-section" aria-labelledby="mold-db-connection-heading">
+          <div className="mold-settings-section-heading">
+            <div className="mold-settings-section-title"><h3 id="mold-db-connection-heading">{translate('moldDBConnectionTitle')}</h3>
+              {statusTag(dbStatus)}
+            </div>
+            <Space size={8}>
+              <Tooltip title={dbSettingsOpen ? translate('moldCollapse') : undefined}>
+              <Button size="small" type={dbSettingsOpen ? 'text' : 'default'} icon={dbSettingsOpen ? <UpOutlined /> : undefined} onClick={() => setDBSettingsOpen(!dbSettingsOpen)} disabled={busy !== null}
+                aria-label={translate(dbSettingsOpen ? 'moldCollapse' : 'moldDBConnectionEdit')}
+                aria-expanded={dbSettingsOpen} aria-controls="mold-db-connection-details">
+                {dbSettingsOpen ? undefined : translate('moldDBConnectionEdit')}
+              </Button>
+              </Tooltip>
+              <Button size="small" type="text" icon={<ReloadOutlined />} onClick={testDB} disabled={!canTestDB || dbChecking}
+                loading={dbChecking || busy === 'db-test'} aria-label={translate('moldDBRecheck')} />
+            </Space>
+          </div>
+          <p className="mold-settings-description">{translate('moldDBManagedDescription')}</p>
+          {!loadingStatus && dbPasswordConfigured !== true && feedbackLine({ type: 'error',
+            message: translate(dbPasswordConfigured === undefined ? 'moldDBStatusUnavailable' : 'moldDBSystemNotConfigured') })}
+          {dbSettingsOpen && <div id="mold-db-connection-details" className="mold-settings-management-body">
+            <p className="mold-settings-description">{translate('moldDBConnectionManagementDescription')}</p>
+            {dbPasswordConfigured && <p className="mold-settings-note">{translate('moldDBStoredConnectionDescription')}</p>}
+          </div>}
+          {dbFeedback?.type === 'error' && feedbackLine(dbFeedback)}
+        </section>
       </Form>
+      <Modal open={apiHelpOpen} title={translate('moldAPIKeyHelpTitle')} onCancel={() => setAPIHelpOpen(false)}
+        footer={null} className="netdive-list-modal" width={480} zIndex={1400}>
+        <ol className="mold-settings-key-help">{['moldAPIKeyHelpAdminFilter', 'moldAPIKeyHelpSelectAdmin', 'moldAPIKeyHelpOpenTab', 'moldAPIKeyHelpGenerate']
+          .map(key => <li key={key}>{translate(key)}</li>)}</ol>
+      </Modal>
     </div>
   }
 

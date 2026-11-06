@@ -228,6 +228,13 @@ class GroupDetailPanel extends React.Component<Props, State> {
                 key={node.id}
                 className={`netdive-group-detail-item ${visible ? 'is-selected' : ''} ${lifecycle?.kind === 'terminated' ? 'is-history' : ''}`}
                 aria-selected={visible}
+                tabIndex={0}
+                onKeyDown={event => {
+                    if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
+                        event.preventDefault()
+                        this.props.onNodeSelect(node)
+                    }
+                }}
                 onClick={() => this.props.onNodeSelect(node)}>
                 <Avatar
                     className={`netdive-group-detail-nodeAvatar ${status.className}`}
@@ -269,6 +276,7 @@ class GroupDetailPanel extends React.Component<Props, State> {
                 <Tooltip title="상세 보기">
                     <Button
                         type="text"
+                        size="small"
                         className="netdive-group-detail-arrow"
                         aria-label={`${name} 상세 보기`}
                         onClick={(event) => {
@@ -328,7 +336,7 @@ class GroupDetailPanel extends React.Component<Props, State> {
         const showHistory = this.state.historyExpanded || !!this.state.search.trim()
 
         return (
-            <div className="netdive-group-detail">
+            <div className={`netdive-group-detail ${String(this.props.node.data?.Manager || '').toLowerCase() !== 'k8s' ? 'is-infrastructure-group-detail' : ''}`}>
                 <DetailSection
                     className="netdive-group-detail-card"
                     bodyClassName="netdive-group-detail-content"

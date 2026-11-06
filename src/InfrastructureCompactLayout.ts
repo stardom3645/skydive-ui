@@ -1,3 +1,4 @@
+import { VM_DENSE_TILE_SIZE, VM_DENSE_TILE_GAP } from './InfrastructureVMSemanticZoom'
 import { INFRASTRUCTURE_TRAFFIC_LANE_GAP } from './TopologyLaneSpacing'
 import { RoutingCard, RoutingEdge, CompactRoute, RoutePoint, routeCompactEdges,
     routeCardHits, routeCrossings, sampleCardEdge, translateCompactRoute, segmentHitsCard } from './InfrastructureCompactRouting'
@@ -344,4 +345,54 @@ export function infrastructureCompactLayout(nodes: CompactLayoutNode[], edges: R
     result.bundles = infrastructureVMBundles(current, result.vmRows)
     if (result.wrappedVMs) result.reason = 'compact'
     return result
+}
+
+/** Dense semantic zoom packs real VM ownership units, independently of the
+ * optional Compact layout. No connections or measurements are combined. */
+export function infrastructureDenseVMLayout(nodes: CompactLayoutNode[]): Map<string, RoutePoint> {
+    const positions = new Map(nodes.map(node => [node.id, { x: node.x, y: node.y }]))
+    const children = new Map<string, CompactLayoutNode[]>(), hosts = new Map<string, CompactLayoutNode[]>()
+    nodes.forEach(node => {
+        if (node.parentID) children.set(node.parentID, [...children.get(node.parentID) || [], node])
+        if (node.width > 0 && !node.group && node.type === 'libvirt' && node.weight === 7080 && node.manager !== 'k8s') {
+            const key = node.hostID || node.parentID || '__root__'
+            hosts.set(key, [...hosts.get(key) || [], node])
+        }
+    })
+    hosts.forEach((vms, hostID) => {
+        const blocks = vms.map(vm => ({ vm, block: vmBlock(vm, children) }))
+        const columns = Math.min(10, Math.max(1, Math.ceil(Math.sqrt(vms.length * 1.6))))
+        const budget = Math.max(VM_DENSE_TILE_SIZE * columns + VM_DENSE_TILE_GAP * (columns - 1), ...blocks.map(({ block }) => block.bounds.right - block.bounds.left))
+        const rows: typeof blocks[] = [[]]
+        let used = 0
+        blocks.forEach(item => {
+            const width = item.block.bounds.right - item.block.bounds.left
+            if (rows[rows.length - 1].length && used + VM_DENSE_TILE_GAP + width > budget) { rows.push([]); used = 0 }
+            rows[rows.length - 1].push(item); used += (used ? VM_DENSE_TILE_GAP : 0) + width
+        })
+        const center = (Math.min(...vms.map(vm => vm.x - vm.width / 2)) + Math.max(...vms.map(vm => vm.x + vm.width / 2))) / 2
+        let top = Math.min(...vms.map(vm => vm.y - vm.height / 2 - (vm.above || 0)))
+        const firstTop = top
+        rows.forEach(row => {
+            const width = row.reduce((sum, { block }) => sum + block.bounds.right - block.bounds.left, 0) + (row.length - 1) * VM_DENSE_TILE_GAP
+            let left = center - width / 2, bottom = top
+            row.forEach(({ block }) => {
+                const dx = left - block.bounds.left, dy = top - block.bounds.top
+                block.nodes.forEach(node => {
+                    const point = block.points.get(node.id)!
+                    positions.set(node.id, { x: point.x + dx, y: point.y + dy })
+                })
+                left += block.bounds.right - block.bounds.left + VM_DENSE_TILE_GAP
+                bottom = Math.max(bottom, dy + block.bounds.bottom)
+            })
+            top = bottom + VM_DENSE_TILE_GAP
+        })
+        const maxWidth = Math.max(...rows.map(row => row.reduce((sum, { block }) => sum + block.bounds.right - block.bounds.left, 0) + (row.length - 1) * VM_DENSE_TILE_GAP))
+        let summaryRight = center - maxWidth / 2 - VM_DENSE_TILE_GAP
+        nodes.filter(node => node.group && node.type === 'libvirt' && node.weight === 7080 && node.hostID === hostID).forEach(summary => {
+            positions.set(summary.id, { x: summaryRight - summary.width / 2, y: firstTop + summary.height / 2 + (summary.above || 0) })
+            summaryRight -= summary.width + VM_DENSE_TILE_GAP
+        })
+    })
+    return positions
 }

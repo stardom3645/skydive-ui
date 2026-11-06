@@ -6,3 +6,40 @@
 }
 
 .netdive-k8s-storage-detail .netdive-detail-kv__value { overflow-wrap: anywhere; }
+
+/* Storage disclosures share the neutral Card header used in host details.
+ * Keep both existing collapse controls, without a separate inset hover box. */
+.netdive-k8s-storage-detail .netdive-ant-detail-section > .ant-card-head .netdive-ant-detail-section-toggle {
+    min-height: var(--netdive-detail-card-head-height);
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: inherit;
+    box-shadow: none;
+    font: inherit;
+}
+.netdive-k8s-storage-detail .netdive-ant-detail-section > .ant-card-head .netdive-ant-detail-section-toggle.ant-btn:not(:disabled):hover,
+.netdive-k8s-storage-detail .netdive-ant-detail-section > .ant-card-head .netdive-ant-detail-section-toggle.ant-btn:not(:disabled):active {
+    background: transparent;
+    color: inherit;
+}
+
+/* UID/time, metadata actions and conditional storage policy rows use the same
+ * two columns and 42px minimum rhythm as the existing basic-information rows. */
+.netdive-k8s-storage-detail .netdive-detail-metadata-rows { padding: 0; }
+.netdive-k8s-storage-detail .netdive-detail-metadata-row {
+    min-height: var(--netdive-detail-basic-row-height);
+    box-sizing: border-box;
+    gap: var(--netdive-detail-basic-column-gap);
+    padding: var(--netdive-detail-basic-row-padding-y) 0;
+    border-bottom-color: var(--netdive-detail-basic-row-divider);
+}
+.netdive-k8s-storage-detail .netdive-detail-metadata-row strong,
+.netdive-k8s-storage-detail .netdive-detail-metadata-row > span { font-weight: 400; }
+.netdive-k8s-storage-detail .netdive-detail-metadata-row > span { color: var(--netdive-detail-text); }
+.netdive-k8s-storage-detail .netdive-detail-basic-info + .netdive-detail-metadata-rows,
+.netdive-k8s-storage-detail .netdive-detail-metadata-rows + .netdive-detail-basic-info,
+.netdive-k8s-storage-detail .netdive-detail-basic-info + .netdive-detail-basic-info {
+    border-top: 1px solid var(--netdive-detail-basic-row-divider);
+}
